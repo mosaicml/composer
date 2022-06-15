@@ -108,23 +108,23 @@ def select_using_loss(input: torch.Tensor,
         with torch.cuda.amp.autocast(True):
             X_new, y_new = select_using_loss(X_sb, y_sb, lin_model, loss_fun, keep=0.5, scale_factor=1)
     """
-    INTERPOLATE_MODES = {3: "linear", 4: "bilinear", 5: "trilinear"}
+    INTERPOLATE_MODES = {3: 'linear', 4: 'bilinear', 5: 'trilinear'}
 
-    interp_mode = "bilinear"
+    interp_mode = 'bilinear'
     if scale_factor != 1:
         if input.dim() not in INTERPOLATE_MODES:
-            raise ValueError(f"Input must be 3D, 4D, or 5D if scale_factor != 1, got {input.dim()}")
+            raise ValueError(f'Input must be 3D, 4D, or 5D if scale_factor != 1, got {input.dim()}')
         interp_mode = INTERPOLATE_MODES[input.dim()]
 
     if scale_factor > 1:
-        raise ValueError("scale_factor must be <= 1")
+        raise ValueError('scale_factor must be <= 1')
 
     if callable(loss_fun):
         sig = inspect.signature(loss_fun)
-        if not "reduction" in sig.parameters:
-            raise TypeError("Loss function `loss_fun` must take a keyword argument `reduction`.")
+        if not 'reduction' in sig.parameters:
+            raise TypeError('Loss function `loss_fun` must take a keyword argument `reduction`.')
     else:
-        raise TypeError("Loss function must be callable")
+        raise TypeError('Loss function must be callable')
 
     with torch.no_grad():
         N = input.shape[0]
@@ -141,7 +141,7 @@ def select_using_loss(input: torch.Tensor,
 
         # Get per-examples losses
         out = model(X_scaled)
-        losses = loss_fun(out, target, reduction="none")
+        losses = loss_fun(out, target, reduction='none')
 
         # Sort losses
         sorted_idx = torch.argsort(losses)
@@ -245,7 +245,7 @@ class SelectiveBackprop(Algorithm):
             return False
 
         elapsed_duration = state.get_elapsed_duration()
-        assert elapsed_duration is not None, "elapsed duration should be set on Event.AFTER_DATALOADER"
+        assert elapsed_duration is not None, 'elapsed duration should be set on Event.AFTER_DATALOADER'
 
         is_chosen = should_selective_backprop(
             current_duration=float(elapsed_duration),
@@ -260,18 +260,18 @@ class SelectiveBackprop(Algorithm):
         if event == Event.INIT:
             if self._loss_fn is None:
                 if not isinstance(state.model, ComposerModel):
-                    raise RuntimeError("Model must be of type ComposerModel")
+                    raise RuntimeError('Model must be of type ComposerModel')
                 self._loss_fn = state.model.loss
             return
         input, target = state.batch_get_item(key=self.input_key), state.batch_get_item(key=self.target_key)
         assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
-            "Multiple tensors not supported for this method yet."
+            'Multiple tensors not supported for this method yet.'
 
         # Model expected to only take in input, not the full batch
         model = lambda X: state.model((X, None))
 
-        def loss(p, y, reduction="none"):
-            assert self._loss_fn is not None, "loss_fn should be set on Event.INIT"
+        def loss(p, y, reduction='none'):
+            assert self._loss_fn is not None, 'loss_fn should be set on Event.INIT'
             return self._loss_fn(p, (torch.Tensor(), y), reduction=reduction)
 
         with get_precision_context(state.precision):

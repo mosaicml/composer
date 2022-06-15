@@ -1,8 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""The :class:`StreamingDatsetIndex` format that defines shard/sample metadata for :class:`StreamingDataset`.
-"""
+"""The :class:`StreamingDatsetIndex` format that defines shard/sample metadata for :class:`StreamingDataset`."""
 
 import math
 from io import BufferedIOBase, BufferedReader, BufferedWriter, BytesIO
@@ -14,11 +13,11 @@ from numpy.typing import NDArray
 from composer.datasets.streaming.world import World
 
 __all__ = [
-    "get_index_basename",
-    "get_shard_basename",
-    "sample_dict_to_bytes",
-    "bytes_to_sample_dict",
-    "StreamingDatasetIndex",
+    'get_index_basename',
+    'get_shard_basename',
+    'sample_dict_to_bytes',
+    'bytes_to_sample_dict',
+    'StreamingDatasetIndex',
 ]
 
 
@@ -279,7 +278,6 @@ class StreamingDatasetIndex(object):
             min_id (int): The lowest sample ID of this partition.
             max_id (int): The highest sample ID of this partition.
         """
-
         global_device = world.global_device
         global_num_devices = world.global_num_devices
         node_worker = world.node_worker
@@ -306,7 +304,7 @@ class StreamingDatasetIndex(object):
         expected_device_samples = math.ceil(self.total_samples / global_num_devices)
         if device_samples < expected_device_samples:
             if device_samples != expected_device_samples - 1:
-                raise RuntimeError("Found device partition with incorrect # samples")
+                raise RuntimeError('Found device partition with incorrect # samples')
             device_min_id -= 1
             device_samples += 1
 

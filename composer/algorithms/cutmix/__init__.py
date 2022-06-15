@@ -13,4 +13,4 @@ See the :doc:`Method Card </method_cards/cutmix>` for more details.
 from composer.algorithms.cutmix.cutmix import CutMix as CutMix
 from composer.algorithms.cutmix.cutmix import cutmix_batch as cutmix_batch
 
-__all__ = ["CutMix", "cutmix_batch"]
+__all__ = ['CutMix', 'cutmix_batch']

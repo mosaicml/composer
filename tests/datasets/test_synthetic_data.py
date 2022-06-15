@@ -21,7 +21,7 @@ from composer.datasets.synthetic import (SyntheticBatchPairDataset, SyntheticDat
 def test_synthetic_batch_pair_creation(data_type: SyntheticDataType, label_type: SyntheticDataLabelType):
     if data_type == SyntheticDataType.SEPARABLE:
         if label_type != SyntheticDataLabelType.CLASSIFICATION_INT:
-            pytest.skip("Separable data requires classification int labels")
+            pytest.skip('Separable data requires classification int labels')
         num_classes = 2
         label_shape = None
     else:
@@ -29,7 +29,7 @@ def test_synthetic_batch_pair_creation(data_type: SyntheticDataType, label_type:
         label_shape = (1, 10, 12)
 
     if data_type == SyntheticDataType.GAUSSIAN and label_type == SyntheticDataLabelType.CLASSIFICATION_INT:
-        pytest.xfail("classification_int is not currently supported with gaussian data")
+        pytest.xfail('classification_int is not currently supported with gaussian data')
 
     dataset_size = 1000
     data_shape = (3, 32, 32)
@@ -91,7 +91,7 @@ def test_synthetic_classification_param_validation(label_type: SyntheticDataLabe
 def test_synthetic_image_data_creation(data_type: SyntheticDataType, label_type: SyntheticDataLabelType):
     if data_type == SyntheticDataType.SEPARABLE:
         if label_type != SyntheticDataLabelType.CLASSIFICATION_INT:
-            pytest.skip("Seperable data requires classification int labels")
+            pytest.skip('Seperable data requires classification int labels')
         num_classes = 2
         label_shape = None
     else:
@@ -99,7 +99,7 @@ def test_synthetic_image_data_creation(data_type: SyntheticDataType, label_type:
         label_shape = (1, 10, 12)
 
     if data_type == SyntheticDataType.GAUSSIAN and label_type == SyntheticDataLabelType.CLASSIFICATION_INT:
-        pytest.xfail("classification_int is not currently supported with gaussian data")
+        pytest.xfail('classification_int is not currently supported with gaussian data')
 
     dataset_size = 1000
     data_shape = (32, 32)

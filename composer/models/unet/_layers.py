@@ -8,34 +8,34 @@ import torch
 import torch.nn as nn
 
 normalizations = {
-    "instancenorm3d": nn.InstanceNorm3d,
-    "instancenorm2d": nn.InstanceNorm2d,
-    "batchnorm3d": nn.BatchNorm3d,
-    "batchnorm2d": nn.BatchNorm2d,
+    'instancenorm3d': nn.InstanceNorm3d,
+    'instancenorm2d': nn.InstanceNorm2d,
+    'batchnorm3d': nn.BatchNorm3d,
+    'batchnorm2d': nn.BatchNorm2d,
 }
 
 convolutions = {
-    "Conv2d": nn.Conv2d,
-    "Conv3d": nn.Conv3d,
-    "ConvTranspose2d": nn.ConvTranspose2d,
-    "ConvTranspose3d": nn.ConvTranspose3d,
+    'Conv2d': nn.Conv2d,
+    'Conv3d': nn.Conv3d,
+    'ConvTranspose2d': nn.ConvTranspose2d,
+    'ConvTranspose3d': nn.ConvTranspose3d,
 }
 
 
 def get_norm(name, out_channels):
-    if "groupnorm" in name:
+    if 'groupnorm' in name:
         return nn.GroupNorm(32, out_channels, affine=True)
     return normalizations[name](out_channels, affine=True)
 
 
 def get_conv(in_channels, out_channels, kernel_size, stride, dim, bias=False):
-    conv = convolutions[f"Conv{dim}d"]
+    conv = convolutions[f'Conv{dim}d']
     padding = get_padding(kernel_size, stride)
     return conv(in_channels, out_channels, kernel_size, stride, padding, bias=bias)
 
 
 def get_transp_conv(in_channels, out_channels, kernel_size, stride, dim):
-    conv = convolutions[f"ConvTranspose{dim}d"]
+    conv = convolutions[f'ConvTranspose{dim}d']
     padding = get_padding(kernel_size, stride)
     output_padding = get_output_padding(kernel_size, stride, padding)
     return conv(in_channels, out_channels, kernel_size, stride, padding, output_padding, bias=True)
@@ -64,9 +64,9 @@ class ConvLayer(nn.Module):
 
     def __init__(self, in_channels, out_channels, kernel_size, stride, **kwargs):
         super(ConvLayer, self).__init__()
-        self.conv = get_conv(in_channels, out_channels, kernel_size, stride, kwargs["dim"])
-        self.norm = get_norm(kwargs["norm"], out_channels)
-        self.lrelu = nn.LeakyReLU(negative_slope=kwargs["negative_slope"], inplace=True)
+        self.conv = get_conv(in_channels, out_channels, kernel_size, stride, kwargs['dim'])
+        self.norm = get_norm(kwargs['norm'], out_channels)
+        self.lrelu = nn.LeakyReLU(negative_slope=kwargs['negative_slope'], inplace=True)
 
     def forward(self, data):
         out = self.conv(data)
@@ -93,13 +93,13 @@ class ResidBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride, **kwargs):
         super(ResidBlock, self).__init__()
         self.conv1 = ConvLayer(in_channels, out_channels, kernel_size, stride, **kwargs)
-        self.conv2 = get_conv(out_channels, out_channels, kernel_size, 1, kwargs["dim"])
-        self.norm = get_norm(kwargs["norm"], out_channels)
-        self.lrelu = nn.LeakyReLU(negative_slope=kwargs["negative_slope"], inplace=True)
+        self.conv2 = get_conv(out_channels, out_channels, kernel_size, 1, kwargs['dim'])
+        self.norm = get_norm(kwargs['norm'], out_channels)
+        self.lrelu = nn.LeakyReLU(negative_slope=kwargs['negative_slope'], inplace=True)
         self.downsample = None
         if max(stride) > 1 or in_channels != out_channels:  # type: ignore
-            self.downsample = get_conv(in_channels, out_channels, kernel_size, stride, kwargs["dim"])
-            self.norm_res = get_norm(kwargs["norm"], out_channels)
+            self.downsample = get_conv(in_channels, out_channels, kernel_size, stride, kwargs['dim'])
+            self.norm_res = get_norm(kwargs['norm'], out_channels)
 
     def forward(self, input_data):
         residual = input_data
@@ -117,7 +117,7 @@ class UpsampleBlock(nn.Module):
 
     def __init__(self, in_channels, out_channels, kernel_size, stride, **kwargs):
         super(UpsampleBlock, self).__init__()
-        self.transp_conv = get_transp_conv(in_channels, out_channels, stride, stride, kwargs["dim"])
+        self.transp_conv = get_transp_conv(in_channels, out_channels, stride, stride, kwargs['dim'])
         self.conv_block = ConvBlock(2 * out_channels, out_channels, kernel_size, 1, **kwargs)
 
     def forward(self, input_data, skip_data):

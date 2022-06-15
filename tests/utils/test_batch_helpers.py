@@ -29,7 +29,7 @@ for char, num in zip(keys, my_list):
     counter_list.extend(num * [char])
 
 
-@pytest.fixture(scope="module", params=[
+@pytest.fixture(scope='module', params=[
     my_list,
     tuple(my_list),
     deque(my_list),
@@ -38,14 +38,14 @@ def example_sequence(request):
     return request.param
 
 
-@pytest.fixture(scope="module", params=[list, tuple])
+@pytest.fixture(scope='module', params=[list, tuple])
 def example_dequeless_sequence(request):
     my_list = [3, 4, 5, 6, 7, 8, 9, 10]
     return request.param(my_list)
 
 
 # All key value pair data structures that have a __getitem__ function thats takes str.
-@pytest.fixture(scope="module",
+@pytest.fixture(scope='module',
                 params=[
                     dict(zip(keys, my_list)),
                     defaultdict(list, **dict(zip(keys, my_list))),
@@ -57,12 +57,12 @@ def example_map(request):
     return request.param
 
 
-@pytest.fixture(scope="module", params=[MyClass(**dict(zip(keys, my_list))), my_named_tuple(*my_list)])
+@pytest.fixture(scope='module', params=[MyClass(**dict(zip(keys, my_list))), my_named_tuple(*my_list)])
 def example_attr_store(request):
     return request.param
 
 
-@pytest.fixture(scope="module", params=[
+@pytest.fixture(scope='module', params=[
     torch.tensor(my_list),
     np.asarray(my_list),
 ])
@@ -90,14 +90,14 @@ def example_2D_tensor():
     return torch.arange(12).reshape(4, 3)
 
 
-@pytest.fixture(scope="module", params=[np.arange(12).reshape(4, 3), torch.arange(12).reshape(4, 3)])
+@pytest.fixture(scope='module', params=[np.arange(12).reshape(4, 3), torch.arange(12).reshape(4, 3)])
 def example_2D_array_tensor(request):
     return request.param
 
 
 @pytest.fixture
 def example_complicated_object():
-    return [{"a": [1, 2], "b": [2, 4]}, {"c": [3, 6], "d": [5, 7]}]
+    return [{'a': [1, 2], 'b': [2, 4]}, {'c': [3, 6], 'd': [5, 7]}]
 
 
 @pytest.fixture

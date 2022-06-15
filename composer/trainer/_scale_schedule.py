@@ -50,7 +50,7 @@ def scale_pytorch_scheduler(scheduler: PyTorchScheduler, ssr: float):
         ValueError: If ``scheduler`` is not an instance of one of the above types.
     """
     if ssr <= 0:
-        raise ValueError("Scale schedule ratio must be a positive value.")
+        raise ValueError('Scale schedule ratio must be a positive value.')
     if ssr == 1.0:
         # If it's 1.0, then scaling is a no-op
         return

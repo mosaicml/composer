@@ -19,7 +19,7 @@ from composer.loss.utils import check_for_index_targets
 
 log = logging.getLogger(__name__)
 
-__all__ = ["CutMix", "cutmix_batch"]
+__all__ = ['CutMix', 'cutmix_batch']
 
 
 def cutmix_batch(input: Tensor,
@@ -112,7 +112,7 @@ def cutmix_batch(input: Tensor,
             )
     """
     if bbox is not None and length is not None:
-        raise ValueError(f"Cannot provide both length and bbox; got {length} and {bbox}")
+        raise ValueError(f'Cannot provide both length and bbox; got {length} and {bbox}')
 
     # Create shuffled indicies across the batch in preparation for cutting and mixing.
     # Use given indices if there are any.
@@ -248,7 +248,7 @@ class CutMix(Algorithm):
         target = state.batch_get_item(key=self.target_key)
 
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
-            "Multiple tensors for inputs or targets not supported yet."
+            'Multiple tensors for inputs or targets not supported yet.'
         alpha = self.alpha
 
         # these are saved only for testing

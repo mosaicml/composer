@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Log to Weights and Biases (https://wandb.ai/)"""
+"""Log to `Weights and Biases <https://wandb.ai/>`_."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ import atexit
 import os
 import pathlib
 import re
-import shutil
 import sys
 import tempfile
 import warnings
@@ -21,17 +20,17 @@ from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
 
-__all__ = ["WandBLogger"]
+__all__ = ['WandBLogger']
 
 
 class WandBLogger(LoggerDestination):
-    """Log to Weights and Biases (https://wandb.ai/)
+    """Log to `Weights and Biases <https://wandb.ai/>`_.
 
     Args:
         project (str, optional): WandB project name.
         group (str, optional): WandB group name.
         name (str, optional): WandB run name.
-            If not specified, the :attr:`.Logger.run_name` will be used.
+            If not specified, the :attr:`.State.run_name` will be used.
         entity (str, optional): WandB entity name.
         tags (List[str], optional): WandB tags.
         log_artifacts (bool, optional): Whether to log
@@ -61,16 +60,16 @@ class WandBLogger(LoggerDestination):
         try:
             import wandb
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group="wandb",
-                                                conda_package="wandb",
-                                                conda_channel="conda-forge") from e
+            raise MissingConditionalImportError(extra_deps_group='wandb',
+                                                conda_package='wandb',
+                                                conda_channel='conda-forge') from e
 
         del wandb  # unused
         if log_artifacts and rank_zero_only and dist.get_world_size() > 1:
             warnings.warn(
-                ("When logging artifacts, `rank_zero_only` should be set to False. "
-                 "Artifacts from other ranks will not be collected, leading to a loss of information required to "
-                 "restore from checkpoints."))
+                ('When logging artifacts, `rank_zero_only` should be set to False. '
+                 'Artifacts from other ranks will not be collected, leading to a loss of information required to '
+                 'restore from checkpoints.'))
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
         if init_kwargs is None:
@@ -111,30 +110,30 @@ class WandBLogger(LoggerDestination):
         # Storing these fields in the state dict to support run resuming in the future.
         if self._enabled:
             if wandb.run is None:
-                raise ValueError("wandb must be initialized before serialization.")
+                raise ValueError('wandb must be initialized before serialization.')
             return {
-                "name": wandb.run.name,
-                "project": wandb.run.project,
-                "entity": wandb.run.entity,
-                "id": wandb.run.id,
-                "group": wandb.run.group
+                'name': wandb.run.name,
+                'project': wandb.run.project,
+                'entity': wandb.run.entity,
+                'id': wandb.run.id,
+                'group': wandb.run.group
             }
         else:
             return {}
 
     def init(self, state: State, logger: Logger) -> None:
         import wandb
-        del state  # unused
+        del logger  # unused
 
         # Use the logger run name if the name is not set.
-        if "name" not in self._init_kwargs or self._init_kwargs["name"] is None:
-            self._init_kwargs["name"] = logger.run_name
+        if 'name' not in self._init_kwargs or self._init_kwargs['name'] is None:
+            self._init_kwargs['name'] = state.run_name
 
         # Adjust name and group based on `rank_zero_only`.
         if not self._rank_zero_only:
-            name = self._init_kwargs["name"]
-            self._init_kwargs["name"] += f"-rank{dist.get_global_rank()}"
-            self._init_kwargs["group"] = self._init_kwargs["group"] if "group" in self._init_kwargs else name
+            name = self._init_kwargs['name']
+            self._init_kwargs['name'] += f'-rank{dist.get_global_rank()}'
+            self._init_kwargs['group'] = self._init_kwargs['group'] if 'group' in self._init_kwargs else name
         if self._enabled:
             wandb.init(**self._init_kwargs)
             atexit.register(self._set_is_in_atexit)
@@ -148,17 +147,29 @@ class WandBLogger(LoggerDestination):
 
             # Some WandB-specific alias extraction
             timestamp = state.timestamp
-            aliases = ["latest", f"ep{int(timestamp.epoch)}-ba{int(timestamp.batch)}"]
+            aliases = ['latest', f'ep{int(timestamp.epoch)}-ba{int(timestamp.batch)}']
 
             # replace all unsupported characters with periods
             # Only alpha-numeric, periods, hyphens, and underscores are supported by wandb.
             new_artifact_name = re.sub(r'[^a-zA-Z0-9-_\.]', '.', artifact_name)
             if new_artifact_name != artifact_name:
-                warnings.warn(("WandB permits only alpha-numeric, periods, hyphens, and underscores in artifact names. "
+                warnings.warn(('WandB permits only alpha-numeric, periods, hyphens, and underscores in artifact names. '
                                f"The artifact with name '{artifact_name}' will be stored as '{new_artifact_name}'."))
 
-            extension = new_artifact_name.split(".")[-1]
-            artifact = wandb.Artifact(name=new_artifact_name, type=extension)
+            extension = new_artifact_name.split('.')[-1]
+
+            metadata = {f'timestamp/{k}': v for (k, v) in state.timestamp.state_dict().items()}
+            # if evaluating, also log the evaluation timestamp
+            if state.dataloader is not state.train_dataloader:
+                # TODO If not actively training, then it is impossible to tell from the state whether
+                # the trainer is evaluating or predicting. Assuming evaluation in this case.
+                metadata.update({f'eval_timestamp/{k}': v for (k, v) in state.eval_timestamp.state_dict().items()})
+
+            artifact = wandb.Artifact(
+                name=new_artifact_name,
+                type=extension,
+                metadata=metadata,
+            )
             artifact.add_file(os.path.abspath(file_path))
             wandb.log_artifact(artifact, aliases=aliases)
 
@@ -166,25 +177,28 @@ class WandBLogger(LoggerDestination):
         self,
         artifact_name: str,
         destination: str,
-        chunk_size: int = 2**20,
+        overwrite: bool = False,
         progress_bar: bool = True,
     ):
         # Note: Wandb doesn't support progress bars for downloading
-        del chunk_size, progress_bar
+        del progress_bar
         import wandb
 
         artifact = wandb.use_artifact(artifact_name)
         with tempfile.TemporaryDirectory() as tmpdir:
-            artifact_folder = os.path.join(tmpdir, "artifact_folder")
+            artifact_folder = os.path.join(tmpdir, 'artifact_folder')
             artifact.download(root=artifact_folder)
             artifact_names = os.listdir(artifact_folder)
             # We only log one file per artifact
             if len(artifact_names) > 1:
                 raise RuntimeError(
-                    "Found more than one file in artifact. We assume the checkpoint is the only file in the artifact.")
+                    'Found more than one file in artifact. We assume the checkpoint is the only file in the artifact.')
             artifact_name = artifact_names[0]
             artifact_path = os.path.join(artifact_folder, artifact_name)
-            shutil.move(artifact_path, destination)
+            if overwrite:
+                os.replace(artifact_path, destination)
+            else:
+                os.rename(artifact_path, destination)
 
     def post_close(self) -> None:
         import wandb

@@ -19,7 +19,7 @@ from composer.utils.iter_helpers import ensure_tuple
 
 log = logging.getLogger(__name__)
 
-__all__ = ["LayerFreezing", "freeze_layers"]
+__all__ = ['LayerFreezing', 'freeze_layers']
 
 
 def freeze_layers(
@@ -29,7 +29,8 @@ def freeze_layers(
     freeze_start: float = 0.5,
     freeze_level: float = 1.0,
 ) -> Tuple[int, float]:
-    """Progressively freeze the layers of the network in-place during training, starting with the earlier layers.
+    """Progressively freeze the layers of the network in-place
+    during training, starting with the earlier layers.
 
     Example:
          .. testcode::
@@ -46,11 +47,12 @@ def freeze_layers(
 
     Args:
         model (torch.nn.Module): The model being trained.
-        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer]): The optimizers used during training.
-        current_duration (float): The fraction on [0; 1) of the training process complete.
-        freeze_start (float, optional): The fraction of the training process on [0; 1) to run
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer]):
+            The optimizers used during training.
+        current_duration (float): The fraction, in ``[0, 1)`` of the training process complete.
+        freeze_start (float, optional): The fraction of the training process in ``[0, 1)`` to run
             before freezing begins. Default: ``0.5``.
-        freeze_level (float, optional): The maximum fraction of layers on [0; 1) to freeze.
+        freeze_level (float, optional): The maximum fraction of layers on ``[0, 1)`` to freeze.
             Default: ``1.0``.
 
     Return:
@@ -100,7 +102,10 @@ class LayerFreezing(Algorithm):
 
             from composer.algorithms import LayerFreezing
             from composer.trainer import Trainer
-            layer_freezing_algorithm = LayerFreezing(freeze_start=0.0, freeze_level=1.0)
+            layer_freezing_algorithm = LayerFreezing(
+                freeze_start=0.0,
+                freeze_level=1.0
+            )
             trainer = Trainer(
                 model=model,
                 train_dataloader=train_dataloader,
@@ -136,7 +141,7 @@ class LayerFreezing(Algorithm):
         optimizers = state.optimizers
         assert optimizers is not None
         elapsed_duration = state.get_elapsed_duration()
-        assert elapsed_duration is not None, "elapsed duration should be set on Event.EPOCH_END"
+        assert elapsed_duration is not None, 'elapsed duration should be set on Event.EPOCH_END'
         freeze_depth, freeze_percentage = freeze_layers(
             model=state.model,
             optimizers=optimizers,
@@ -150,19 +155,21 @@ class LayerFreezing(Algorithm):
         })
 
     def state_dict(self) -> Dict[str, Any]:
-        warnings.warn(("Checkpoints with layer freezing cannot reliably be used to resume training."
-                       "See: https://github.com/mosaicml/composer/issues/1002"))
+        warnings.warn(('Checkpoints with layer freezing cannot reliably be used to resume training.'
+                       'See: https://github.com/mosaicml/composer/issues/1002'))
         return {}
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
-        warnings.warn(("Checkpoints with layer freezing cannot reliably be used to resume training."
-                       "See: https://github.com/mosaicml/composer/issues/1002"))
+        warnings.warn(('Checkpoints with layer freezing cannot reliably be used to resume training.'
+                       'See: https://github.com/mosaicml/composer/issues/1002'))
 
 
 def _freeze_schedule(current_duration: float, freeze_start: float, freeze_level: float) -> float:
-    """Implements a linear schedule for freezing. The schedule is linear and begins with no freezing and linearly
-    increases the fraction of layers frozen, reaching the fraction specified by 'freeze_level' at the end of training.
-    The start of freezing is given as a fraction of the total training duration, and is set with 'freeze_start'.
+    """Implements a linear schedule for freezing.
+
+    The schedule is linear and begins with no freezing and linearly
+    increases the fraction of layers frozen, reaching the fraction specified by ``freeze_level`` at the end of training.
+    The start of freezing is given as a fraction of the total training duration and is set with ``freeze_start``.
 
     Args:
         current_duration (float): The elapsed training duration.

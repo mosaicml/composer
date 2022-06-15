@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from composer.loggers.logger import Logger
     from composer.profiler import Profiler
 
-__all__ = ["SystemProfiler"]
+__all__ = ['SystemProfiler']
 
 
 class SystemProfiler(Callback):
@@ -58,8 +58,8 @@ class SystemProfiler(Callback):
     def init(self, state: State, logger: Logger):
         del logger  # unused
         if state.profiler is None:
-            raise RuntimeError(("The Composer Profiler was not enabled, which is required to use the "
-                                f"{type(self).__name__}. To enable, set the `prof_schedule` argument of the Trainer."))
+            raise RuntimeError(('The Composer Profiler was not enabled, which is required to use the '
+                                f'{type(self).__name__}. To enable, set the `prof_schedule` argument of the Trainer.'))
 
         # Start the stats thread
         self.finished_event.clear()
@@ -80,37 +80,37 @@ class SystemProfiler(Callback):
         while not self.finished_event.is_set():
             if self.profile_cpu:
                 cpu_percent = psutil.cpu_percent()
-                profiler.marker(name="cpu", categories=["cpu"]).counter({"cpu_percent": cpu_percent})
+                profiler.marker(name='cpu', categories=['cpu']).counter({'cpu_percent': cpu_percent})
 
             if self.profile_memory:
                 cuda_memory_stats = memory_monitor._get_memory_report()
                 for name, val in cuda_memory_stats.items():
-                    profiler.marker(f"memory/cuda/{name}", categories=["memory"]).counter({name: val})
+                    profiler.marker(f'memory/cuda/{name}', categories=['memory']).counter({name: val})
                 swap_memory = psutil.swap_memory()
-                profiler.marker("memory/swap", categories=["memory"]).counter({
-                    "used_gb": swap_memory.used / 2**9,
-                    "free_gb": swap_memory.free / 2**9
+                profiler.marker('memory/swap', categories=['memory']).counter({
+                    'used_gb': swap_memory.used / 2**9,
+                    'free_gb': swap_memory.free / 2**9
                 })
                 virtual_memory = psutil.virtual_memory()
-                profiler.marker("memory/virtual", categories=["memory"]).counter({
-                    "used_gb": virtual_memory.used / 2**9,
-                    "available_gb": virtual_memory.available / 2**9
+                profiler.marker('memory/virtual', categories=['memory']).counter({
+                    'used_gb': virtual_memory.used / 2**9,
+                    'available_gb': virtual_memory.available / 2**9
                 })
 
             if self.profile_disk:
                 disk_io_counters = cast(Dict[str, psutil._common.sdiskio], psutil.disk_io_counters(perdisk=True))
                 for disk_name, disk_stats in disk_io_counters.items():
-                    for field_name in ("read_count", "write_count", "read_bytes", "write_bytes", "read_time",
-                                       "write_time", "busy_time"):
-                        profiler.marker(f"disk/{disk_name}/{field_name}",
-                                        categories=["disk"]).counter({"field_name": getattr(disk_stats, field_name)})
+                    for field_name in ('read_count', 'write_count', 'read_bytes', 'write_bytes', 'read_time',
+                                       'write_time', 'busy_time'):
+                        profiler.marker(f'disk/{disk_name}/{field_name}',
+                                        categories=['disk']).counter({'field_name': getattr(disk_stats, field_name)})
 
             if self.profile_net:
                 net_io_counters = cast(Dict[str, psutil._common.snetio], psutil.net_io_counters(pernic=True))
                 for nic, nic_stats in net_io_counters.items():
-                    profiler.marker(f"network/{nic}/kb_sent",
-                                    categories=["net"]).counter({"kb_sent": nic_stats.bytes_sent / 2**3})
-                    profiler.marker(f"network/{nic}/kb_recv",
-                                    categories=["net"]).counter({"kb_recv": nic_stats.bytes_recv / 2**3})
+                    profiler.marker(f'network/{nic}/kb_sent',
+                                    categories=['net']).counter({'kb_sent': nic_stats.bytes_sent / 2**3})
+                    profiler.marker(f'network/{nic}/kb_recv',
+                                    categories=['net']).counter({'kb_recv': nic_stats.bytes_recv / 2**3})
 
             time.sleep(self.stats_thread_interval_seconds)

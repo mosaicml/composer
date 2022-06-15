@@ -19,9 +19,9 @@ from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
-__all__ = ["CutOut", "cutout_batch"]
+__all__ = ['CutOut', 'cutout_batch']
 
-ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
+ImgT = TypeVar('ImgT', torch.Tensor, PillowImage)
 
 
 def cutout_batch(input: ImgT, num_holes: int = 1, length: float = 0.5, uniform_sampling: bool = False) -> ImgT:
@@ -129,9 +129,9 @@ class CutOut(Algorithm):
         return event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Apply cutout on input images."""
+        """Applies cutout on input images."""
         x = state.batch_get_item(self.input_key)
-        assert isinstance(x, Tensor), "Multiple tensors not supported for Cutout."
+        assert isinstance(x, Tensor), 'Multiple tensors not supported for Cutout.'
 
         new_x = cutout_batch(x, num_holes=self.num_holes, length=self.length, uniform_sampling=self.uniform_sampling)
         state.batch_set_item(self.input_key, new_x)

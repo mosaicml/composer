@@ -1,8 +1,10 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Helpers to get items and set items in a batch."""
+
 from operator import attrgetter, itemgetter
-from typing import Any, Callable, Sequence, Union
+from typing import Any, Callable, Sequence, Union, cast
 
 __all__ = ['batch_get', 'batch_set']
 
@@ -51,8 +53,8 @@ def batch_get(batch: Any, key: Union[str, int, Callable, Any]):
             return itemgetter(*key)(batch)
         except TypeError:
             try:
-                return attrgetter(key)(batch)
-            except:
+                return attrgetter(cast(str, key))(batch)
+            except TypeError:
                 return attrgetter(*key)(batch)
 
 
@@ -140,7 +142,7 @@ def _batch_set(batch: Any, key: Any, value: Any) -> Any:
     # If both (setattr or getattr) and __setitem__ raise exceptions then raise both of them.
     except (AttributeError, TypeError) as e:
         raise RuntimeError(
-            f"Unable to set key {key} to value {value} on batch {batch}. Please specify a custom set_fn, if necessary.")
+            f'Unable to set key {key} to value {value} on batch {batch}. Please specify a custom set_fn, if necessary.')
     else:
         return batch
 
@@ -170,7 +172,7 @@ def _batch_set_multiple(batch: Any, key: Any, value: Any) -> Any:
 
 
 def _batch_set_tuple(batch: Any, key: Union[int, str], value: Any) -> Any:
-    """"Sets key value pairs in tuples and NamedTuples."""
+    """Sets key value pairs in tuples and NamedTuples."""
     if hasattr(batch, '_fields'):  # NamedTuple
         if isinstance(key, str):
             batch = batch._replace(**{key: value})

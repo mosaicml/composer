@@ -83,7 +83,7 @@ The above code, when run, will produce the checkpoints below:
     >>> list(state_dict)
     ['state', 'rng']
     >>> list(state_dict['state'].keys())
-    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timestamp', 'rank_zero_seed', 'current_metrics']
+    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timestamp', 'rank_zero_seed', 'current_metrics', 'run_name']
 
 Resume training
 ---------------
@@ -160,6 +160,8 @@ state from the checkpoint are not compatible with these new objects.
     | rank_zero_seed        | The seed of the rank zero process.                          |
     +-----------------------+-------------------------------------------------------------+
     | current_metrics       | The current metrics.                                        |
+    +-----------------------+-------------------------------------------------------------+
+    | run_name              | The run name for training.                                  |
     +-----------------------+-------------------------------------------------------------+
 
     All other trainer arguments (e.g. ``max_duration`` or ``precision``) will use either the defaults
@@ -298,14 +300,18 @@ Behind the scenes, the :class:`.ObjectStoreLogger` uses :doc:`Apache Libcloud <l
 .. testcode::
 
     from composer.loggers import ObjectStoreLogger
+    from composer.utils import LibcloudObjectStore
 
     object_store_logger = ObjectStoreLogger(
-        provider="s3",  # The Apache Libcloud provider name
-        container="my_bucket",  # The name of the cloud container (i.e. bucket) to use.
-        provider_kwargs={  # The Apache Libcloud provider driver initialization arguments
-            'key': 'provider_key',  # The cloud provider key.
-            'secret': '*******',  # The cloud provider secret.
-            # Any additional arguments required for the cloud provider.
+        object_store_cls=LibcloudObjectStore,
+        object_store_kwargs={
+            "provider": "s3",  # The Apache Libcloud provider name
+            "container": "my_bucket",  # The name of the cloud container (i.e. bucket) to use.
+            "provider_kwargs": {  # The Apache Libcloud provider driver initialization arguments
+                'key': 'provider_key',  # The cloud provider key.
+                'secret': '*******',  # The cloud provider secret.
+                # Any additional arguments required for the cloud provider.
+            },
         },
     )
 
@@ -331,12 +337,15 @@ Once you've configured your object store logger per above, all that's left is to
     from composer.loggers import ObjectStoreLogger
 
     object_store_logger = ObjectStoreLogger(
-        provider="s3",  # The Apache Libcloud provider name
-        container="checkpoint-debugging",  # The name of the cloud container (i.e. bucket) to use.
-        provider_kwargs={  # The Apache Libcloud provider driver initialization arguments
-            'key': 'provider_key',  # The cloud provider key.
-            'secret': '*******',  # The cloud provider secret.
-            # Any additional arguments required for the cloud provider.
+        object_store_cls=LibcloudObjectStore,
+        object_store_kwargs={
+            "provider": "s3",  # The Apache Libcloud provider name
+            "container": "checkpoint-debugging",  # The name of the cloud container (i.e. bucket) to use.
+            "provider_kwargs": {  # The Apache Libcloud provider driver initialization arguments
+                'key': 'provider_key',  # The cloud provider key.
+                'secret': '*******',  # The cloud provider secret.
+                # Any additional arguments required for the cloud provider.
+            },
         },
     )
 
@@ -366,7 +375,7 @@ should be the path to the checkpoint file *within the container/bucket*.
 
 .. testcode::
 
-    from composer.utils.object_store import LibcloudObjectStore
+    from composer.utils import LibcloudObjectStore
     from composer.trainer import Trainer
 
     object_store = LibcloudObjectStore(

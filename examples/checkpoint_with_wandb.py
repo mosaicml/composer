@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Save and Load Checkpoints with `Weights and Biases <https://wandb.ai/>`."""
+
 import shutil
 
 import torch.utils.data
@@ -20,20 +22,20 @@ wandb_logger = WandBLogger(
 )
 
 # Configure the trainer -- here, we train a simple MNIST classifier
-print("Starting the first training run\n")
+print('Starting the first training run\n')
 model = MNIST_Classifier(num_classes=10)
 optimizer = SGD(model.parameters(), lr=0.01)
 train_dataloader = torch.utils.data.DataLoader(
-    dataset=MNIST("~/datasets", train=True, download=True, transform=ToTensor()),
+    dataset=MNIST('~/datasets', train=True, download=True, transform=ToTensor()),
     batch_size=2048,
 )
 eval_dataloader = torch.utils.data.DataLoader(
-    dataset=MNIST("~/datasets", train=True, download=True, transform=ToTensor()),
+    dataset=MNIST('~/datasets', train=True, download=True, transform=ToTensor()),
     batch_size=2048,
 )
 trainer = Trainer(
     model=model,
-    max_duration="1ep",
+    max_duration='1ep',
     optimizers=optimizer,
 
     # Train Data Configuration
@@ -46,9 +48,9 @@ trainer = Trainer(
 
     # Checkpoint Saving Configuration
     loggers=wandb_logger,  # Log checkpoints via the WandB Logger
-    save_folder="/tmp/checkpoints",  # The trainer requires that checkpoints must be saved locally before being upload
-    save_interval="1ep",
-    save_artifact_name="epoch{epoch}.pt",  # Name checkpoints like epoch1.pt, epoch2.pt, etc...
+    save_folder='/tmp/checkpoints',  # The trainer requires that checkpoints must be saved locally before being upload
+    save_interval='1ep',
+    save_artifact_name='epoch{epoch}.pt',  # Name checkpoints like epoch1.pt, epoch2.pt, etc...
     save_num_checkpoints_to_keep=0,  # Do not keep any checkpoints locally after they have been uploaded to W & B
 )
 
@@ -56,16 +58,16 @@ trainer = Trainer(
 trainer.fit()
 
 # Remove the temporary folder to ensure that the checkpoint is downloaded from the cloud
-shutil.rmtree("/tmp/checkpoints", ignore_errors=True)
+shutil.rmtree('/tmp/checkpoints', ignore_errors=True)
 
 # Close the existing trainer to trigger W & B to mark the run as "finished", and be ready for the next training run
 trainer.close()
 
 # Construct a new trainer that loads from the previous checkpoint
-print("\nStarting the second training run\n")
+print('\nStarting the second training run\n')
 trainer = Trainer(
     model=model,
-    max_duration="2ep",  # Train to 2 epochs in total
+    max_duration='2ep',  # Train to 2 epochs in total
     optimizers=optimizer,
 
     # Train Data Configuration
@@ -78,18 +80,18 @@ trainer = Trainer(
 
     # Checkpoint Loading Configuration
     load_object_store=wandb_logger,
-    load_path="epoch1.pt:latest",  # Load the checkpoint -- WandB requires that the load_path include the "latest" tag
+    load_path='epoch1.pt:latest',  # Load the checkpoint -- WandB requires that the load_path include the "latest" tag
 
     #  (Optional) Checkpoint Saving Configuration to continue to save new checkpoints
     loggers=wandb_logger,  # Log checkpoints via the WandB Logger
-    save_folder="/tmp/checkpoints",  # The trainer requires that checkpoints must be saved locally before being upload
-    save_interval="1ep",
-    save_artifact_name="epoch{epoch}.pt",  # Name checkpoints like epoch1.pt, epoch2.pt, etc...
+    save_folder='/tmp/checkpoints',  # The trainer requires that checkpoints must be saved locally before being upload
+    save_interval='1ep',
+    save_artifact_name='epoch{epoch}.pt',  # Name checkpoints like epoch1.pt, epoch2.pt, etc...
     save_num_checkpoints_to_keep=0,  # Do not keep any checkpoints locally after they have been uploaded to W & B
 )
 
 # Verify that we loaded the checkpoint. This should print 1ep, since we already trained for 1 epoch.
-print(f"\nResuming training at epoch {trainer.state.timestamp.epoch}\n")
+print(f'\nResuming training at epoch {trainer.state.timestamp.epoch}\n')
 
 # Train for another epoch!
 trainer.fit()

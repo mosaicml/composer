@@ -11,7 +11,7 @@ from tests.common.datasets import RandomClassificationDataset
 from tests.common.models import SimpleModel
 
 
-@pytest.mark.parametrize("log_layers", [True, False])
+@pytest.mark.parametrize('log_layers', [True, False])
 def test_grad_monitor(log_layers: bool):
     # Construct the callback
     grad_monitor = GradMonitor(log_layer_grad_norms=log_layers)
@@ -23,14 +23,14 @@ def test_grad_monitor(log_layers: bool):
         callbacks=grad_monitor,
         loggers=in_memory_logger,
         train_dataloader=DataLoader(RandomClassificationDataset()),
-        max_duration="1ep",
+        max_duration='1ep',
     )
     trainer.fit()
     num_train_steps = int(trainer.state.timestamp.batch)
 
     # Count the logged steps
-    grad_norm_calls = len(in_memory_logger.data["grad_l2_norm/step"])
-    layer_norm_calls = [len(calls) for (k, calls) in in_memory_logger.data.items() if "layer_grad_l2_norm" in k]
+    grad_norm_calls = len(in_memory_logger.data['grad_l2_norm/step'])
+    layer_norm_calls = [len(calls) for (k, calls) in in_memory_logger.data.items() if 'layer_grad_l2_norm' in k]
 
     # expected to log gradient norm once per step (total batch)
     assert grad_norm_calls == num_train_steps

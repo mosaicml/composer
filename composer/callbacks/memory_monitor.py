@@ -14,7 +14,7 @@ from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
-__all__ = ["MemoryMonitor"]
+__all__ = ['MemoryMonitor']
 
 
 class MemoryMonitor(Callback):
@@ -23,8 +23,7 @@ class MemoryMonitor(Callback):
     This callback calls the torch memory stats API for cuda (see :func:`torch.cuda.memory_stats`) on the
     :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH` and reports different memory statistics.
 
-    Example
-
+    Example:
     .. doctest::
 
         >>> from composer.callbacks import MemoryMonitor
@@ -37,10 +36,6 @@ class MemoryMonitor(Callback):
         ...     max_duration="1ep",
         ...     callbacks=[MemoryMonitor()],
         ... )
-
-    .. testcleanup::
-
-        trainer.engine.close()
 
     The memory statistics are logged by the :class:`~composer.loggers.logger.Logger` to the following keys as
     described below.
@@ -77,13 +72,17 @@ class MemoryMonitor(Callback):
         Memory usage monitoring is only supported for the GPU devices.
     """
 
+    def __init__(self) -> None:
+        # Memory monitor takes no args
+        pass
+
     def fit_start(self, state: State, logger: Logger) -> None:
         # TODO(ravi) move this check would be on Event.INIT after #1084 is merged
         # Not relying on `torch.cuda.is_available()` since the model could be on CPU.
         model_device = next(state.model.parameters()).device
 
         if model_device.type != 'cuda':
-            warnings.warn(f"The memory monitor only works on CUDA devices, but the model is on {model_device.type}.")
+            warnings.warn(f'The memory monitor only works on CUDA devices, but the model is on {model_device.type}.')
 
     def after_train_batch(self, state: State, logger: Logger):
         memory_report = {}
@@ -98,13 +97,13 @@ class MemoryMonitor(Callback):
 
 
 _MEMORY_STATS = {
-    "allocation.all.allocated": "alloc_requests",
-    "allocation.all.freed": "free_requests",
-    "allocated_bytes.all.allocated": "allocated_mem",
-    "active_bytes.all.current": "active_mem",
-    "inactive_split_bytes.all.current": "inactive_mem",
-    "reserved_bytes.all.current": "reserved_mem",
-    "num_alloc_retries": "alloc_retries",
+    'allocation.all.allocated': 'alloc_requests',
+    'allocation.all.freed': 'free_requests',
+    'allocated_bytes.all.allocated': 'allocated_mem',
+    'active_bytes.all.current': 'active_mem',
+    'inactive_split_bytes.all.current': 'inactive_mem',
+    'reserved_bytes.all.current': 'reserved_mem',
+    'num_alloc_retries': 'alloc_retries',
 }
 
 
