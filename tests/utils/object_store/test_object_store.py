@@ -49,6 +49,8 @@ def object_store(request, monkeypatch: pytest.MonkeyPatch,
             # Yield our object store
             yield request.param(**object_store_kwargs[request.param])
     elif request.param is LibcloudObjectStore:
+        pytest.importorskip('libcloud')
+
         remote_dir = tmp_path / 'remote_dir'
         os.makedirs(remote_dir)
         object_store_kwargs[request.param]['provider_kwargs']['key'] = remote_dir

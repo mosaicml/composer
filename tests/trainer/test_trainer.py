@@ -17,6 +17,7 @@ from torchmetrics import Accuracy
 
 from composer import Callback, Evaluator, Trainer
 from composer.algorithms import CutOut, LabelSmoothing
+from composer.algorithms.gradient_clipping.gradient_clipping import GradientClipping
 from composer.callbacks import LRMonitor
 from composer.core.event import Event
 from composer.core.precision import Precision
@@ -381,6 +382,7 @@ class TestTrainerInitOrFit:
 
         assert trainer.state.is_model_deepspeed
 
+        assert trainer.state.deepspeed_enabled
         trainer.fit()
 
     @pytest.mark.parametrize('precision', list(Precision))
@@ -434,36 +436,39 @@ class TestTrainerInitOrFit:
         if not should_error:
             assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
-    @pytest.mark.parametrize('grad_clip_norm', [-1.0, 1.0])
+    @pytest.mark.parametrize('grad_clip_norm,context_manager', [(-1.0, contextlib.nullcontext),
+                                                                (1.0, pytest.deprecated_call)])
     def test_grad_clip_norm(
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
         max_duration: Time[int],
         grad_clip_norm: float,
+        context_manager,
     ):
         # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
         copied_model = copy.deepcopy(model)
-
-        # Train once with the grad_clip_norm param on Trainer.__init__()
-        init_trainer = Trainer(
-            model=model,
-            max_duration=max_duration,
-            train_dataloader=train_dataloader,
-            grad_clip_norm=grad_clip_norm,
-        )
+        with context_manager():
+            # Train once with the grad_clip_norm param on Trainer.__init__()
+            init_trainer = Trainer(
+                model=model,
+                max_duration=max_duration,
+                train_dataloader=train_dataloader,
+                grad_clip_norm=grad_clip_norm,
+            )
         init_trainer.fit()
-
-        # Train again with the grad_clip_norm param specified on Trainer.fit()
-        fit_trainer = Trainer(
-            model=copied_model,
-            max_duration=max_duration,
-            train_dataloader=train_dataloader,
-        )
-        fit_trainer.fit(grad_clip_norm=grad_clip_norm)
+        algorithms = [] if grad_clip_norm <= 0 else [
+            GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm)
+        ]
+        # Train again with the grad_clip_norm specified using an algorithm
+        algo_trainer = Trainer(model=copied_model,
+                               max_duration=max_duration,
+                               train_dataloader=train_dataloader,
+                               algorithms=algorithms)
+        algo_trainer.fit()
 
         # Assert that the states are equivalent
-        assert_state_equivalent(init_trainer.state, fit_trainer.state)
+        assert_state_equivalent(init_trainer.state, algo_trainer.state)
 
     @pytest.mark.timeout(5.0)
     def test_dataloader_active_iterator_error(self, model: ComposerModel):
