@@ -38,7 +38,7 @@ def smooth_labels(logits: torch.Tensor, target: torch.Tensor, smoothing: float =
             Default: ``0.1``.
 
     Returns:
-        torch.Tensor: The smoothed targets
+        torch.Tensor: The smoothed targets.
 
     Example:
         .. testcode::
