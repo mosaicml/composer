@@ -30,7 +30,7 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
 
         gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
         use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights. Default: ``False``.
-        model_config (dict): The settings used to create a Hugging Face GPT2Config. GPT2Config is used to specify the
+        model_config (dict): The settings used to create a Hugging Face BertConfig. BertConfig is used to specify the
             architecture of a Hugging Face model.
             default config:
             {
@@ -89,7 +89,7 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
         LanguageCrossEntropy(ignore_index=-100, vocab_size=model.config.vocab_size),
         MaskedAccuracy(ignore_index=-100)
     ]
-    return HuggingFaceModel(model=model, metrics=metrics)
+    return HuggingFaceModel(model=model, use_logits=True, metrics=metrics)
 
 
 def create_bert_classification(num_labels: Optional[int] = 2,
@@ -104,13 +104,13 @@ def create_bert_classification(num_labels: Optional[int] = 2,
         num_labels (int, optional): The number of classes in the classification task. Default: ``2``.
         gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
         use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights. Default: ``False``.
-        model_config (dict): The settings used to create a Hugging Face GPT2Config. GPT2Config is used to specify the
+        model_config (dict): The settings used to create a Hugging Face BertConfig. BertConfig is used to specify the
             architecture of a Hugging Face model.
             default config:
             {
               "_name_or_path": "bert-base-uncased",
               "architectures": [
-                "BertForMaskedLM"
+                "BertForSequenceClassification
               ],
               "attention_probs_dropout_prob": 0.1,
               "classifier_dropout": null,
@@ -178,4 +178,4 @@ def create_bert_classification(num_labels: Optional[int] = 2,
         BinaryF1Score(),
         MatthewsCorrCoef(num_classes=model.config.num_labels)
     ]
-    return HuggingFaceModel(model=model, metrics=metrics)
+    return HuggingFaceModel(model=model, use_logits=True, metrics=metrics)
