@@ -42,4 +42,7 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 grad_accum: 8
-grad_clip_norm: 1.0
+algorithms:
+  gradient_clipping:
+    clipping_type: "norm"
+    clipping_threshold: 1.0

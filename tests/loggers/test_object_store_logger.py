@@ -112,20 +112,24 @@ def object_store_test_helper(tmp_path: pathlib.Path,
 
 
 def test_object_store_logger(tmp_path: pathlib.Path, dummy_state: State, monkeypatch: pytest.MonkeyPatch):
+    pytest.importorskip('libcloud')
     object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, monkeypatch=monkeypatch, use_procs=False)
 
 
 @pytest.mark.timeout(15)
 def test_object_store_logger_use_procs(tmp_path: pathlib.Path, dummy_state: State, monkeypatch: pytest.MonkeyPatch):
+    pytest.importorskip('libcloud')
     object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, monkeypatch=monkeypatch, use_procs=True)
 
 
 @pytest.mark.timeout(15)
 @pytest.mark.filterwarnings(r'ignore:((.|\n)*)FileExistsError((.|\n)*):pytest.PytestUnhandledThreadExceptionWarning')
 def test_object_store_logger_no_overwrite(tmp_path: pathlib.Path, dummy_state: State, monkeypatch: pytest.MonkeyPatch):
+    pytest.importorskip('libcloud')
     object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, monkeypatch=monkeypatch, overwrite=False)
 
 
 def test_object_store_logger_should_log_artifact_filter(tmp_path: pathlib.Path, dummy_state: State,
                                                         monkeypatch: pytest.MonkeyPatch):
+    pytest.importorskip('libcloud')
     object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, monkeypatch=monkeypatch, should_filter=True)

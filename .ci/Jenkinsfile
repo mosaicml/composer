@@ -13,7 +13,7 @@ baseBranch = 'dev'  // the branch on which merge-commits should be pushed to doc
 pytorchDockerBuildMatrix = null // The pytorch docker build matrix
 didDockerChange = false
 dockerBuildCpuLimit = '4'
-dockerBuildMemLimit = '30Gi'
+dockerBuildMemLimit = '40Gi'
 dockerBuildTimeout = '7200'  // timeout for docker builds, in seconds. Builds from scratch can be slow.
 // must use the kaniko debug image, as Jenkins needs shell access
 // see https://github.com/GoogleContainerTools/kaniko#debug-image
@@ -34,6 +34,7 @@ pytestGpuImageTagsToTest = [
     'mosaicml/pytorch:latest',
     'mosaicml/pytorch_vision:latest',
 ]
+devInstallTestImage = 'mosaicml/pytorch:latest_cpu' // the image to use for the dev test installs
 
 // Lint settings
 lintImage = 'mosaicml/pytorch_vision:latest_cpu'
@@ -194,11 +195,12 @@ void scheduleJob(jobs, String image, buildArgs) {
     String markers = 'not daily and not remote'
     Boolean isLintImage = false
     Boolean isVisionImage = false
+    Boolean isDevTestInstallImage = false
     Boolean isGpu = false
     String tag = ''
     buildArgs.each { key, val ->
         if (key == 'CUDA_VERSION') {
-            if (val != 'cpu') {
+            if (val != '') {
                 isGpu = true
             }
         }
@@ -209,6 +211,7 @@ void scheduleJob(jobs, String image, buildArgs) {
             tag = val[0]
             val.each { tagName ->
                 isLintImage = isLintImage || tagName == lintImage
+                isDevTestInstallImage = isDevTestInstallImage || tagName == devInstallTestImage
             }
         }
     }
@@ -231,10 +234,14 @@ void scheduleJob(jobs, String image, buildArgs) {
     jobs << [
         "Pytest - ${tag}" : { -> runPytest(image, markers, extraDeps, isGpu) }
     ]
+    if (isDevTestInstallImage) {
+        jobs << [
+            'Pytest - extraDeps=dev': { -> runPytest(image, markers, 'dev', isGpu) },
+        ]
+    }
     if (isLintImage) {
         // and run lint and a dev install on this image
         jobs << [
-            'Pytest - extraDeps=dev': { -> runPytest(image, markers, 'dev', isGpu) },
             'Lint': { -> runLint(image) },
         ]
     }
@@ -302,11 +309,11 @@ stage('Prepare') {
         echo "gitBranch: $gitBranch"
         echo "gitCommit: $gitCommit"
 
-        didDockerChange = isPathModified('docker/pytorch/')
+        didDockerChange = isPathModified('docker/')
 
         String dockerfile = 'Dockerfile'
-        String buildContext = './docker/pytorch'
-        String buildMatrix = './docker/pytorch/build_matrix.yaml'
+        String buildContext = './docker'
+        String buildMatrix = './docker/build_matrix.yaml'
         pytorchDockerBuildMatrix = getDockerBuildMatrix(buildMatrix, buildContext, dockerfile)
 
         // Keep track of whether dependencies changed, in which case a conda build should be tested
@@ -350,30 +357,47 @@ stage('Build') {
                         string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: dockerBuildMemLimit),
                         text(name: 'P_COMMAND', value: kanikoCommand),
                         string(name: 'P_TIMEOUT', value: dockerBuildTimeout),
+                        string(name: 'POD_TIMEOUT', value: dockerBuildTimeout),
                         string(name: 'P_CPU_LIMIT', value: dockerBuildCpuLimit),
                         string(name: 'P_MEM_LIMIT', value: dockerBuildMemLimit),
                         booleanParam(name: 'P_MOUNT_KANIKO_CREDENTIALS', value: true),
                     ]
                 )
-                def subJobs = [:]
-                scheduleJob(subJobs, stagingImage, buildArgs)
-                subJobs.failFast = true
-                parallel(subJobs)
+                Boolean isPyTorchImage = false
+
+                buildArgs['TAGS'].each { tag ->
+                    if (tag.startsWith('mosaicml/pytorch')) {
+                        isPyTorchImage = true
+                    }
+                }
+                if (isPyTorchImage) {
+                    // Only run tests on the 'mosaicml/pytorch' or 'mosaicml/pytorch_vision' images,
+                    // not 'mosaicml/composer'
+                    def subJobs = [:]
+                    scheduleJob(subJobs, stagingImage, buildArgs)
+                    subJobs.failFast = true
+                    parallel(subJobs)
+                }
             }]
         }
         else {
             // If not rebuilding the docker image, then run CPU tests acorss all images,
             // and run GPU tests only on the "latest" image
-            Boolean isCpuImage = buildArgs['CUDA_VERSION'] == 'cpu'
+            // Only run tests on the 'mosaicml/pytorch' or 'mosaicml/pytorch_vision' images -- not 'mosaicml/composer'
+            Boolean isCpuImage = buildArgs['CUDA_VERSION'] == ''
             Boolean shouldRunGpuTests = false
+            Boolean isPyTorchImage = false
 
             buildArgs['TAGS'].each { tag ->
                 if (pytestGpuImageTagsToTest.contains(tag)) {
                     shouldRunGpuTests = true
                 }
+                if (tag.startsWith('mosaicml/pytorch')) {
+                    isPyTorchImage = true
+                }
             }
 
-            if (isCpuImage || shouldRunGpuTests) {
+            if ((isCpuImage || shouldRunGpuTests) && isPyTorchImage) {
                 String existingImageTag = buildArgs['TAGS'][0]
                 scheduleJob(jobs, existingImageTag, buildArgs)
             }
@@ -394,6 +418,7 @@ stage('Build') {
                         string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: condaMemLimit),
                         string(name: 'P_DOCKER_IMAGE', value: condaBuildDockerImage),
                         string(name: 'P_TIMEOUT', value: condaTimeout), // Conda builds take longer
+                        string(name: 'POD_TIMEOUT', value: condaTimeout),
                         string(name: 'P_CPU_LIMIT', value: condaCpuLimit),
                         string(name: 'P_MEM_LIMIT', value: condaMemLimit),  // must include the ephemeral storage limit
                         string(name: 'P_COMMAND', value: './.ci/build_conda.sh')

@@ -24,6 +24,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric, MetricCollection
 
+from composer.algorithms import GradientClipping
 from composer.callbacks import CheckpointSaver
 from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp,
                            ensure_data_spec, ensure_evaluator, ensure_time)
@@ -204,15 +205,13 @@ def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrateg
     return ddp_sync_strategy
 
 
-def _get_run_name(run_name: Optional[str]) -> str:
-    generated_run_name = run_name
-    if generated_run_name is None:
-        # prefixing with the time so experiments sorted alphabetically will have the latest experiment last
-        generated_run_name = str(int(time.time())) + '-' + coolname.generate_slug(2)
-        run_name_list = [generated_run_name]
-        # ensure all ranks have the same experiment name
-        dist.broadcast_object_list(run_name_list)
-        generated_run_name = run_name_list[0]
+def _generate_run_name() -> str:
+    # prefixing with the time so experiments sorted alphabetically will have the latest experiment last
+    generated_run_name = str(int(time.time())) + '-' + coolname.generate_slug(2)
+    run_name_list = [generated_run_name]
+    # ensure all ranks have the same experiment name
+    dist.broadcast_object_list(run_name_list)
+    generated_run_name = run_name_list[0]
     return generated_run_name
 
 
@@ -639,7 +638,10 @@ class Trainer:
             Leave unset to let the trainer auto-configure this. See :class:`.DDPSyncStrategy`
             for more details.
         grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to ``-1`` for no gradient
-            clipping. (default: ``-1``)
+            clipping. (default: ``-1``).
+
+            .. deprecated:: 0.8
+               Deprecated. Please use composer.algorithms.GradientClipping.
         profiler (Profiler, optional): The profiler, if profiling should be enabled. (default: ``None``)
 
             .. seealso::
@@ -782,8 +784,38 @@ class Trainer:
         self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
         grad_accum = _get_initial_grad_accum(grad_accum)
 
+        # Grad Clip Norm
+        if grad_clip_norm > 0:
+
+            warnings.warn(
+                DeprecationWarning((f"Using the 'grad_clip_norm' field in Trainer is deprecated. Please use"
+                                    'the GradientClipping Algorithm in composer.algorithms.gradient_clipping.')))
+
+            print_warning = False
+            if algorithms is not None:
+                if isinstance(algorithms, Sequence):
+                    if any([isinstance(algo, GradientClipping) for algo in algorithms]):
+                        print_warning = True
+                elif isinstance(algorithms, GradientClipping):
+                    print_warning = True
+
+                if print_warning:
+                    warnings.warn(
+                        RuntimeWarning(
+                            f'The GradientClipping algorithm is already specified. Ignoring grad_clip_norm={grad_clip_norm}'
+                        ))
+
+            else:
+                if algorithms is not None:
+                    algorithms.append(GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm))
+                else:
+                    algorithms = [GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm)]
+
         # Run Name
-        run_name = _get_run_name(run_name=run_name)
+        if run_name is None:
+            if autoresume:
+                raise ValueError('When autoresume=True, the `run_name` must be specified.')
+            run_name = _generate_run_name()
 
         # Create the State
         self.state = State(rank_zero_seed=rank_zero_seed,
@@ -794,6 +826,8 @@ class Trainer:
                            precision=precision,
                            optimizers=optimizers,
                            run_name=run_name)
+
+        self.state.deepspeed_config = deepspeed_config
 
         # Profiler
         if profiler is not None:
@@ -901,9 +935,6 @@ class Trainer:
                 raise ValueError('Specifying `eval_interval` without an `eval_dataloader` has no effect.')
         self.state.evaluators = evaluators
 
-        # Grad Clip Norm
-        self._grad_clip_norm = grad_clip_norm
-
         # Some algorithms require specific settings
         self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, ensure_tuple(algorithms)))
         self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, ensure_tuple(algorithms)))
@@ -919,17 +950,11 @@ class Trainer:
                     conda_package='deepspeed>=0.5.5',
                     conda_channel=None,
                 ) from e
-            deepspeed_config = _parse_deepspeed_config(
-                deepspeed_config,
-                state=self.state,
-                grad_clip_norm=self._grad_clip_norm,
-            )
+            self.state.deepspeed_config = _parse_deepspeed_config(self.state.deepspeed_config, state=self.state)
             optimizer = ensure_tuple(self.state.optimizers)[0]
-            (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
-                config=deepspeed_config,
-                model=self.state.model,
-                optimizer=optimizer,
-            )
+            (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(config=self.state.deepspeed_config,
+                                                                                   model=self.state.model,
+                                                                                   optimizer=optimizer)
             # Since the DeepSpeed ZeRO optimizer does not inherit torch.optim.Optimizer, the schedulers must be
             # compiled and bound BEFORE DeepSpeed initialization. However, this is OK, as the the DeepSpeed Zero
             # optimizer uses the same underlying parameter groups as the original optimizer. See
@@ -979,8 +1004,7 @@ class Trainer:
                 progress_bar=load_progress_bar,
                 ignore_keys=load_ignore_keys,
             )
-            # Always override run_name so it is consistent with what was used for Event.INIT. In the future, we'll use the loaded name
-            # and not require run_name
+            # Always ignore the run_name in the checkpoint so it is consistent with what was used for Event.INIT.
             self.state.run_name = run_name
             log.info(f'Setting seed to {self.state.seed}')
             reproducibility.seed_all(self.state.seed)
@@ -1112,9 +1136,6 @@ class Trainer:
         # Numerics
         grad_accum: Optional[Union[int, str]] = None,
         precision: Optional[Union[str, Precision]] = None,
-
-        # Grad Clipping
-        grad_clip_norm: Optional[float] = None,
     ):
         """Train the model.
 
@@ -1196,7 +1217,7 @@ class Trainer:
                 If ``True``, the timestamp will be zeroed out, causing :class:`.ComposerScheduler` and
                 :class:`.Algorithm` instances to start from the beginning, as if it is a new training run. The model
                 will be trained for ``duration``, if specified, or for :attr:`.State.max_duration`, which would have
-                been provided when construting the :class:`.Trainer` or by a previous call to :meth:`.fit`.
+                been provided when constructing the :class:`.Trainer` or by a previous call to :meth:`.fit`.
 
                 .. note::
 
@@ -1224,12 +1245,6 @@ class Trainer:
             eval_interval (int | str | Time | (State, Event) -> bool, optional): See :class:`.Trainer`.
             grad_accum (int | str, optional): See :class:`.Trainer`.
             precision (Precision | str, optional): See :class:`.Trainer`.
-            grad_clip_norm (float, optional): See :class:`.Trainer`.
-
-                .. note::
-
-                    If using DeepSpeed, it is not possible to change the ``grad_clip_norm``. Instead, it must
-                    be specified when constructing the Trainer.
         """
         # Train Dataloader
         if train_dataloader is not None:
@@ -1313,12 +1328,6 @@ class Trainer:
         if grad_accum is not None:
             self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
             self.state.grad_accum = _get_initial_grad_accum(grad_accum)
-
-        # Grad Clip Norm
-        if grad_clip_norm is not None:
-            if self.deepspeed_enabled:
-                raise ValueError('Changing the grad_clip_norm when using DeepSpeed is not supported.')
-            self._grad_clip_norm = grad_clip_norm
 
         # Precision
         if precision is not None:
@@ -1723,13 +1732,6 @@ class Trainer:
             if use_grad_scaling:
                 for optimizer in ensure_tuple(self.state.optimizers):
                     self.state.scaler.unscale_(optimizer)
-
-            # clip gradients if the magnitude is too large
-            if not self.deepspeed_enabled and self._grad_clip_norm >= 0:
-                torch.nn.utils.clip_grad_norm_(
-                    parameters=self.state.model.parameters(),
-                    max_norm=self._grad_clip_norm,
-                )
 
             self.engine.run_event(Event.AFTER_TRAIN_BATCH)
 
