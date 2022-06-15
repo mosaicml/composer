@@ -21,7 +21,7 @@ class SFTPObjectStore(ObjectStore):
         port (int, optional): The server port to connect to. Defaults to 22
         username (str, optional): The username to authenticate. Raises an exception if username is not
             passed in and also cannot be read from the host argument.
-        key_file_path (str, optional): The filename of the private key. 
+        key_file_path (str, optional): The filename of the private key.
         cwd (str, optional): The directory to navigate to upon creating the SSH connection. If not present
             it will be created.
     """
@@ -50,7 +50,7 @@ class SFTPObjectStore(ObjectStore):
     def _create_sftp_client(self):
         if self.key_file_path is None:
             #TODO change to read SSH config when key_file_path is None
-            raise Exception("SFTPObjectStore initialized without a keyfile.")
+            raise Exception('SFTPObjectStore initialized without a keyfile.')
         try:
             self.ssh_client.load_system_host_keys(self.key_file_path)
         except IOError:
@@ -61,7 +61,7 @@ class SFTPObjectStore(ObjectStore):
             self.ssh_client.exec_command(f'mkdir -p {self.cwd}')
             self.ssh_client.exec_command(f'cd {self.cwd}')
 
-        self.sftp_client = self.ssh_client.open_sftp()
+        return self.ssh_client.open_sftp()
 
     def close(self):
         self.ssh_client.close()
@@ -70,7 +70,10 @@ class SFTPObjectStore(ObjectStore):
         return f'sftp://{self.host}:{self.port}/{object_name}'
 
     def get_object_size(self, object_name: str) -> int:
-        return self.sftp_client.stat(object_name).st_size
+        st_size = self.sftp_client.stat(object_name).st_size
+        if st_size is None:
+            raise ObjectStoreTransientError
+        return st_size
 
     def upload_object(self,
                       object_name: str,
@@ -79,7 +82,7 @@ class SFTPObjectStore(ObjectStore):
         dirname = os.path.dirname(object_name)
         self.ssh_client.exec_command(f'mkdir -p {dirname}')
         try:
-            self.sftp_client.put(filename, object_name, callback=callback, confirm=True)
+            self.sftp_client.put(str(filename), object_name, callback=callback, confirm=True)
         except IOError:
             raise ObjectStoreTransientError
 

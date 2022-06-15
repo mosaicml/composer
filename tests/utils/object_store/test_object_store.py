@@ -89,7 +89,7 @@ def object_store(request, monkeypatch: pytest.MonkeyPatch,
         object_store_kwargs[request.param]['provider_kwargs']['key'] = remote_dir
         yield request.param(**object_store_kwargs[request.param])
     elif request.param is SFTPObjectStore:
-        yield MockSFTPObjectStore("test_hostname", port=24, username='test_user')
+        yield MockSFTPObjectStore('test_hostname', port=24, username='test_user')
     else:
         raise NotImplementedError('Parameterization not implemented')
 
