@@ -60,15 +60,8 @@ class HuggingFaceModel(ComposerModel):
         return outputs['loss']
 
     def validate(self, batch):
-        labels = batch.pop('labels')
         output = self.forward(batch)
-        output = output['logits']
-
-        # if we are in the single class case, then remove the classes dimension
-        if output.shape[1] == 1:
-            output = output.squeeze(dim=1)
-
-        return output, labels
+        return output, None
 
     def metrics(self, train: bool = False):
         return self.train_metrics if train else self.valid_metrics

@@ -10,8 +10,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from composer.metrics import CrossEntropy
-from composer.metrics.nlp import Perplexity
+from composer.metrics.nlp import HFCrossEntropy, Perplexity
 from composer.models.huggingface import HuggingFaceModel
 from composer.utils.import_helpers import MissingConditionalImportError
 
@@ -99,4 +98,4 @@ def create_gpt2(use_pretrained: Optional[bool] = False,
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()  # type: ignore
 
-    return HuggingFaceModel(model=model, metrics=[CrossEntropy(ignore_index=-1), Perplexity()])
+    return HuggingFaceModel(model=model, metrics=[HFCrossEntropy(), Perplexity()])
