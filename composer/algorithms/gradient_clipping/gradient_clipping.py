@@ -120,7 +120,7 @@ class GradientClipping(Algorithm):
         return event in [Event.INIT, Event.AFTER_TRAIN_BATCH]
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        if event == Event.INIT and state.deepspeed_enabled:
+        if event == Event.INIT and state.deepspeed_config is not None:
             if self.clipping_type == 'norm':
                 if self.clipping_threshold > 0:
                     state.deepspeed_config['gradient_clipping'] = self.clipping_threshold
