@@ -20,14 +20,13 @@ __all__ = ['SAM', 'SAMOptimizer']
 
 
 class SAMOptimizer(torch.optim.Optimizer):
-    """Wraps an optimizer with sharpness-aware minimization 
-    (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_).
+    """Wraps an optimizer with sharpness-aware minimization (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_).
     See :class:`SAM` for details.
 
     Implementation based on https://github.com/davda54/sam
 
     Args:
-        base_optimizer (:class:`torch.optim.Optimizer`) The optimizer to apply SAM to.
+        base_optimizer (torch.optim.Optimizer) The optimizer to apply SAM to.
         rho (float, optional): The SAM neighborhood size. Must be greater than 0. Default: ``0.05``.
         epsilon (float, optional): A small value added to the gradient norm for numerical stability. Default: ``1.0e-12``.
         interval (int, optional): SAM will run once per ``interval`` steps. A value of 1 will

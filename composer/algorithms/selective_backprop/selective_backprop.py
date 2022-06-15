@@ -73,8 +73,8 @@ def select_using_loss(input: torch.Tensor,
     will still be used for the weight gradient computation.
 
     Args:
-        input (:class:`torch.Tensor`): Input tensor to prune.
-        target (:class:`torch.Tensor`): Output tensor to prune.
+        input (torch.Tensor): Input tensor to prune.
+        target (torch.Tensor): Output tensor to prune.
         model (Callable): Model with which to predict outputs.
         loss_fun (Callable): Loss function of the form ``loss(outputs, targets, reduction='none')``.
             The function must take the keyword argument ``reduction='none'``

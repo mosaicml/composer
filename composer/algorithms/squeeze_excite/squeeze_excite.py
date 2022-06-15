@@ -33,7 +33,7 @@ def apply_squeeze_excite(
     like in a convolutional layer.
 
     Args:
-        model (:class:`torch.nn.Module`): The module to apply squeeze excite replacement to.
+        model (torch.nn.Module): The module to apply squeeze excite replacement to.
         latent_channels (float, optional): Dimensionality of the hidden layer within the added
             MLP. If less than 1, interpreted as a fraction of the number of
             output channels in the :class:`~torch.nn.Conv2d` immediately
@@ -41,7 +41,7 @@ def apply_squeeze_excite(
         min_channels (int, optional): An SE block is added after a :class:`~torch.nn.Conv2d`
             module ``conv`` only if one of the layer's input or output channels is greater than
             this threshold. Default: ``128``.
-        optimizers (:class:`torch.optim.Optimizer` | Sequence[:class:`torch.optim.Optimizer`], optional):
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
             Existing optimizer(s) bound to ``model.parameters()``. All optimizers that have already been
             constructed with ``model.parameters()`` must be specified here so that
             they will optimize the correct parameters.
@@ -157,8 +157,8 @@ class SqueezeExcite(Algorithm):
         """Runs on :attr:`~composer.core.event.Event.INIT`
 
         Args:
-            event (:class:`~composer.core.event.Event`): The current event.
-            state (:class:`~composer.core.state.State`): The current state.
+            event (Event): The current event.
+            state (State): The current state.
         Returns:
             bool: True if this algorithm should run no
         """
@@ -168,9 +168,9 @@ class SqueezeExcite(Algorithm):
         """Applies the Squeeze-and-Excitation layer replacement.
 
         Args:
-            event (:class:`~composer.core.event.Event`): The current event.
-            state (:class:`~composer.core.state.State`): The current trainer state.
-            logger (:class:`~composer.loggers.Logger`): The training logger.
+            event (Event): The current event.
+            state (State): The current trainer state.
+            logger (Logger): The training logger.
         """
         state.model = apply_squeeze_excite(state.model,
                                            optimizers=state.optimizers,
