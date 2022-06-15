@@ -48,6 +48,9 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         ffcv_dest (str): <file>.ffcv file that has dataset samples. Default: ``"imagenet_train.ffcv"``.
         ffcv_write_dataset (std): Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist. Default:
         ``False``.
+        datadir (str): The path to the data directory.
+        is_train (bool): Whether to load the training data or validation data. Default:
+            ``True``.
     """
     resize_size: int = hp.optional('resize size. Set to -1 to not resize', default=-1)
     crop_size: int = hp.optional('crop size', default=224)

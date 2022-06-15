@@ -40,6 +40,7 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         final_size (int): the final size of the image and target. Default: ``512``.
         ignore_background (bool): if true, ignore the background class when calculating the training loss.
             Default: ``true``.
+        datadir (str): The path to the data directory.
     """
 
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')
@@ -50,7 +51,6 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     ignore_background: bool = hp.optional('If true, ignore the background class in training loss', default=True)
 
     datadir: Optional[str] = hp.optional('The path to the data directory', default=None)
-    is_train: bool = hp.optional('Whether to load the training data (the default) or validation data.', default=True)
 
     def validate(self):
         if self.datadir is None and not self.use_synthetic:

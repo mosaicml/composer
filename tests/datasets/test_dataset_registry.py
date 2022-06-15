@@ -26,7 +26,7 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
     StreamingCIFAR10Hparams:
         lambda: StreamingCIFAR10Hparams(split='val'),
     ADE20kDatasetHparams:
-        lambda: ADE20kDatasetHparams(is_train=False),
+        lambda: ADE20kDatasetHparams(split='val'),
     StreamingADE20kHparams:
         lambda: StreamingADE20kHparams(split='val'),
     BratsDatasetHparams:

@@ -43,6 +43,9 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         ffcv_dest (str): <file>.ffcv file that has dataset samples. Default: ``"cifar_train.ffcv"``.
         ffcv_write_dataset (std): Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist. Default:
         ``False``.
+        datadir (str): The path to the data directory.
+        is_train (bool): Whether to load the training data or validation data. Default:
+            ``True``.
     """
     download: bool = hp.optional('whether to download the dataset, if needed', default=True)
     use_ffcv: bool = hp.optional('whether to use ffcv for faster dataloading', default=False)

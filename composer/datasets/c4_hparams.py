@@ -49,8 +49,6 @@ class StreamingC4Hparams(DatasetHparams):
     mlm: bool = hp.optional('Whether or not to use masked language modeling.', default=False)
     mlm_probability: float = hp.optional('If `mlm==True`, the probability that tokens are masked.', default=0.15)
 
-    datadir: Optional[str] = hp.optional('The path to the data directory', default=None)
-
     def validate(self):
         if self.split not in ['train', 'val']:
             raise ValueError(f"Unknown split: '{self.split}'")

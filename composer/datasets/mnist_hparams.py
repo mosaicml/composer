@@ -28,6 +28,9 @@ class MNISTDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     Args:
         download (bool, optional): Whether to download the dataset, if needed. Default:
             ``True``.
+        datadir (str): The path to the data directory.
+        is_train (bool): Whether to load the training data or validation data. Default:
+            ``True``.
     """
     download: bool = hp.optional('whether to download the dataset, if needed', default=True)
     is_train: bool = hp.optional('Whether to load the training data (the default) or validation data.', default=True)
