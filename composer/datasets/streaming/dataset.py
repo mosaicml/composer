@@ -4,6 +4,7 @@
 """The :class:`StreamingDataset` class, used for building streaming iterable datasets.
 """
 
+import gzip as gz
 import math
 import os
 from threading import Lock, Thread
@@ -101,7 +102,7 @@ class StreamingDataset(IterableDataset):
         # Only local device 0 on each node downloads the index. All other devices wait.
         index_basename = get_index_basename()
         index_local = self._download_file(index_basename, wait=(dist.get_local_rank() != 0))
-        with open(index_local, 'rb') as fp:
+        with gz.open(index_local, 'rb') as fp:
             self.index = StreamingDatasetIndex.load(fp)
 
         # Fields, protected by the lock, relating to loading shards in the background.
@@ -244,7 +245,7 @@ class StreamingDataset(IterableDataset):
 
         basename = get_shard_basename(shard)
         shard_filename = os.path.join(self.local, basename)
-        with open(shard_filename, 'rb', 0) as fp:
+        with gz.open(shard_filename, 'rb', 0) as fp:
             fp.seek(offset)
             data = fp.read(size)
 

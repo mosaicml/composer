@@ -4,6 +4,7 @@
 """The :class:`StreamingDatsetIndex` format that defines shard/sample metadata for :class:`StreamingDataset`."""
 
 import math
+from gzip import GzipFile
 from io import BufferedIOBase, BufferedReader, BufferedWriter, BytesIO
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -82,7 +83,7 @@ def bytes_to_sample_dict(data: bytes, keys: List[str]) -> Dict[str, bytes]:
     return dict(zip(keys, values))
 
 
-def read_array(fp: BufferedIOBase, count: int, dtype: type) -> np.ndarray:
+def read_array(fp: Union[BufferedIOBase, GzipFile], count: int, dtype: type) -> np.ndarray:
     """Load the count items from the file handle, advancing its position.
 
     Args:
@@ -150,7 +151,7 @@ class StreamingDatasetIndex(object):
         return cls.load(fp)
 
     @classmethod
-    def load(cls, fp: Union[BufferedReader, BytesIO]):
+    def load(cls, fp: Union[BufferedReader, BytesIO, GzipFile]):
         """Load a StreamingDatasetIndex from a file handle.
 
         Args:
@@ -225,7 +226,7 @@ class StreamingDatasetIndex(object):
         field_bytes = b''.join([field.encode('utf-8') for field in self.fields])
         return array_bytes + field_bytes
 
-    def dump(self, fp: BufferedWriter) -> None:
+    def dump(self, fp: Union[BufferedWriter, GzipFile]) -> None:
         """Dump a StreamingDatasetIndex to the file.
 
         Args:

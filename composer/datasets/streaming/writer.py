@@ -4,6 +4,7 @@
 """:class:`StreamingDatasetWriter` is used to convert a list of samples into binary `.mds` files that can be read as a :class:`StreamingDataset`.
 """
 
+import gzip as gz
 import os
 from types import TracebackType
 from typing import Dict, Iterable, List, Optional, Type
@@ -87,7 +88,7 @@ class StreamingDatasetWriter(object):
         shard = len(self.samples_per_shard)
         basename = get_shard_basename(shard)
         filename = os.path.join(self.dirname, basename)
-        with open(filename, 'xb') as out:
+        with gz.open(filename, 'xb') as out:
             for data in self.new_samples:
                 out.write(data)
         self.samples_per_shard.append(len(self.new_samples))
@@ -104,7 +105,7 @@ class StreamingDatasetWriter(object):
         bytes_per_shard = np.array(self.bytes_per_shard, np.int64)
         bytes_per_sample = np.array(self.bytes_per_sample, np.int64)
         index = StreamingDatasetIndex(samples_per_shard, bytes_per_shard, bytes_per_sample, self.fields)
-        with open(filename, 'xb') as out:
+        with gz.open(filename, 'xb') as out:
             index.dump(out)
 
     def write_sample(self, sample: Dict[str, bytes]) -> None:
