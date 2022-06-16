@@ -283,7 +283,7 @@ def factorize_conv2d(X: torch.Tensor,
     the same rank.
 
     Args:
-        X (torch.Tensor): a tensor of shape ``[N, in_channels, H, W]``, for some
+        X (torch.Tensor): A tensor of shape ``[N, in_channels, H, W]``, for some
             ``N``, ``H``, and ``W``.
         Wa (torch.Tensor): The first weight tensor to convolve with ``X``. If
             ``Wb`` is not provided, must be of shape
