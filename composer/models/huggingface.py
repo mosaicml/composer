@@ -24,7 +24,7 @@ class HuggingFaceModel(ComposerModel):
 
     Args:
         model (transformers.PreTrainedModel): A 🤗 Transformers model.
-        model_inputs (set): Expected inputs to the model.
+        tokenizer (transformers.PreTrainedTokenizer): Tokenizer used to prepare the dataset and validate model inputs during training. Default ``None``.
         use_logits (bool, optional): If True, the model's output logits will be used to calculate validation metrics. Else, metrics will be inferred from the HuggingFaceModel directly. Default: ``False``
         metrics (list[Metric], optional): list of torchmetrics to apply to the output of `validate`. Default: ``None``.
     .. warning:: This wrapper is designed to work with 🤗 datasets that define a `labels` column.
@@ -42,16 +42,22 @@ class HuggingFaceModel(ComposerModel):
 
     def __init__(self,
                  model: transformers.PreTrainedModel,
-                 model_inputs: set,
+                 tokenizer: Optional[transformers.PreTrainedTokenizer] = None,
                  use_logits: Optional[bool] = False,
                  metrics: Optional[List[Metric]] = None) -> None:
         super().__init__()
         self.model = model
         self.config = model.config
 
-        # the set of inputs that a model expects
-        # if an algorithm modifies the loss function, it must remove "labels" from this set.
-        self.model_inputs = model_inputs
+        # the set of inputs that a model expects inferred from the model type or
+        # tokenizer if provided
+        if tokenizer is None:
+            if isinstance(self.model.base_model, transformers.GPT2Config):
+                self.model_inputs = {'input_ids', 'attention_mask'}
+            elif isinstance(self.model.base_model, transformers.BertConfig):
+                self.model_inputs = {'input_ids', 'attention_mask', 'token_type_ids'}
+        else:
+            self.model_inputs = set(tokenizer.model_input_names)
 
         self.use_logits = use_logits
 

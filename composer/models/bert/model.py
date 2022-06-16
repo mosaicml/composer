@@ -87,16 +87,11 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()  # type: ignore
 
-    if tokenizer is None:
-        model_inputs = {'input_ids', 'attention_mask', 'token_type_ids'}
-    else:
-        model_inputs = set(tokenizer.model_input_names)
-
     metrics = [
         LanguageCrossEntropy(ignore_index=-100, vocab_size=model.config.vocab_size),
         MaskedAccuracy(ignore_index=-100)
     ]
-    return HuggingFaceModel(model=model, model_inputs=model_inputs, use_logits=True, metrics=metrics)
+    return HuggingFaceModel(model=model, tokenizer=tokenizer, use_logits=True, metrics=metrics)
 
 
 def create_bert_classification(num_labels: Optional[int] = 2,
@@ -180,11 +175,6 @@ def create_bert_classification(num_labels: Optional[int] = 2,
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()  # type: ignore
 
-    if tokenizer is None:
-        model_inputs = {'input_ids', 'attention_mask', 'token_type_ids'}
-    else:
-        model_inputs = set(tokenizer.model_input_names)
-
     metrics = [
         Accuracy(),
         MeanSquaredError(),
@@ -192,4 +182,4 @@ def create_bert_classification(num_labels: Optional[int] = 2,
         BinaryF1Score(),
         MatthewsCorrCoef(num_classes=model.config.num_labels)
     ]
-    return HuggingFaceModel(model=model, model_inputs=model_inputs, use_logits=True, metrics=metrics)
+    return HuggingFaceModel(model=model, tokenizer=tokenizer, use_logits=True, metrics=metrics)

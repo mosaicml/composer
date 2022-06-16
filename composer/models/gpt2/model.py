@@ -97,12 +97,7 @@ def create_gpt2(use_pretrained: Optional[bool] = False,
         config = transformers.AutoConfig.from_pretrained(model_name, **model_config)
         model = transformers.AutoModelForCausalLM.from_config(config)  # type: ignore (thirdparty)
 
-    if tokenizer is None:
-        model_inputs = {'input_ids', 'attention_mask'}
-    else:
-        model_inputs = set(tokenizer.model_input_names)
-
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()  # type: ignore
 
-    return HuggingFaceModel(model=model, model_inputs=model_inputs, metrics=[HFCrossEntropy(), Perplexity()])
+    return HuggingFaceModel(model=model, tokenizer=tokenizer, metrics=[HFCrossEntropy(), Perplexity()])
