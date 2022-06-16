@@ -139,6 +139,7 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
         ...,
         autoresume=True,
         load_path='pretrained_weights/model.pt',
+        load_weights_only=True,
         save_folder='checkpoints',
         run_name='my_cool_run',
         loggers=[
