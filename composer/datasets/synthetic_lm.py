@@ -148,18 +148,29 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
     )
 
     tokenizer.train_from_iterator(flattened_dataset, trainer=tokenizer_trainer)
+
+    # resort the tokenizer vocabulary in order to create determinism in the dataloader
     vocab = tokenizer.get_vocab()
-    
-    import ipdb; ipdb.set_trace()
+    # start by deleting the special tokens from the vocab map
+    for token in tokenizer_trainer.special_tokens:
+        del vocab[token.content]
+    # re-assign token indicies
+    for idx, vocab_item in enumerate(sorted(vocab.keys())):
+        vocab[vocab_item] = idx + len(tokenizer_trainer.special_tokens)
+    # add special tokens back in
+    for idx, token in enumerate(tokenizer_trainer.special_tokens):
+        vocab[token.content] = idx
+
+    tokenizer.model = tokenizer.model.__class__(vocab)
 
     # save the tokenizer config
     with TemporaryDirectory() as tmp_path:
         tmp_tokenizer_dir = str(tmp_path)
-        # tmp_tokenizer_file = join(tmp_tokenizer_dir, 'tokenizer.json')
-        # tokenizer.save(tmp_tokenizer_file)  #type: ignore (thirdparty)
+        tmp_tokenizer_file = join(tmp_tokenizer_dir, 'tokenizer.json')
+        tokenizer.save(tmp_tokenizer_file)  #type: ignore (thirdparty)
 
         # save the vocabulary and potential merges file
-        tokenizer_params.tokenizer_model.save(tmp_tokenizer_dir)  # type: ignore
+        tokenizer.model.save(tmp_tokenizer_dir)  # type: ignore
 
         # the .from_pretrained method doesn't load our padding for some reason, so we save it as a special kwarg
         tmp_tokenizer_config = join(tmp_tokenizer_dir, 'tokenizer_config.json')
