@@ -144,7 +144,7 @@ def _setup_trace(algorithms: Sequence[Algorithm], event: Event) -> Traces:
     The keys are of format ``<algorithm_name>/<event>`` (e.g.,  ``Blurpool/INIT``) and values are an instance of
     :class:`Trace`.
     """
-    return OrderedDict([(f'{algo}/{event}', Trace()) for algo in algorithms])
+    return OrderedDict([(f'{type(algo).__name__}/{event}', Trace()) for algo in algorithms])
 
 
 # Track which callbacks are already open, so it is possible to error and instruct the user to call
