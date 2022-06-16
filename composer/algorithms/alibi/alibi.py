@@ -83,7 +83,7 @@ def apply_alibi(
             necessary for evaluating on sequence lengths longer than the model was
             initialized to accommodate. Takes positional arguments ``module`` and
             ``max_sequence_length``. For example,
-            ``"composer.algorithms.alibi._gpt2_alibi.enlarge_mask"``. Default: ``None``,
+            ``composer.algorithms.alibi._gpt2_alibi.enlarge_mask``. Default: ``None``,
             which means no modification of the model's default attention mask.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
             Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
