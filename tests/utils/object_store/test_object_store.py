@@ -89,7 +89,27 @@ def object_store(request, monkeypatch: pytest.MonkeyPatch,
         object_store_kwargs[request.param]['provider_kwargs']['key'] = remote_dir
         yield request.param(**object_store_kwargs[request.param])
     elif request.param is SFTPObjectStore:
-        yield MockSFTPObjectStore('test_hostname', port=24, username='test_user')
+
+        # function to create mock-ssh-server
+        def _create_sftp_client(self: SFTPObjectStore):
+            server = mockssh.Server(users={})
+            private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+            pem = private_key.private_bytes(encoding=serialization.Encoding.PEM,
+                                            format=serialization.PrivateFormat.TraditionalOpenSSL,
+                                            encryption_algorithm=serialization.NoEncryption())
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmppath = os.path.join(tmpdir, 'test_rsa_key')
+                private_key_file = open(tmppath, 'wb')
+                private_key_file.write(pem)
+                private_key_file.close()
+                server.add_user(uid=self.username, private_key_path=tmppath)
+                server.__enter__()
+                self.ssh_client = server.client(self.username)
+                self.sftp_client = self.ssh_client.open_sftp()
+                return self.sftp_client
+
+        monkeypatch.setattr(target=SFTPObjectStore, name='_create_sftp_client', value=_create_sftp_client)
+        yield request.param(**object_store_kwargs[request.param])
     else:
         raise NotImplementedError('Parameterization not implemented')
 

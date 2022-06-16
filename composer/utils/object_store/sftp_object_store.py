@@ -4,7 +4,9 @@
 """Utility for uploading to and downloading from cloud object stores."""
 import os
 import pathlib
+import urllib.parse
 import uuid
+from cmath import e
 from typing import Callable, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -38,8 +40,18 @@ class SFTPObjectStore(ObjectStore):
         self.key_file_path = key_file_path
         self.cwd = cwd
 
-        if '@' in host:
-            self.username, self.host, *_ = self.host.split('@')
+        if host.startswith('sftp://'):
+            url = urllib.parse.urlparse(host)
+            if url.username:
+                self.username = url.username
+            if url.port:
+                self.port = url.port
+            if url.hostname:
+                self.host = url.hostname
+            if url.path != '/':
+                dirname = os.path.dirname(url.path)
+                if dirname != '/':
+                    self.cwd = dirname
         try:
             from paramiko import SSHClient
         except ImportError as e:
@@ -57,22 +69,25 @@ class SFTPObjectStore(ObjectStore):
             raise Exception('Host keys could not be read from {key_file_path}.')
 
         self.ssh_client.connect(self.host, self.port, self.username)
+        sftp_client = self.ssh_client.open_sftp()
         if self.cwd is not None:
-            self.ssh_client.exec_command(f'mkdir -p {self.cwd}')
-            self.ssh_client.exec_command(f'cd {self.cwd}')
-
-        return self.ssh_client.open_sftp()
+            sftp_client.mkdir(self.cwd)
+            sftp_client.chdir(self.cwd)
+        return sftp_client
 
     def close(self):
         self.ssh_client.close()
 
     def get_uri(self, object_name: str) -> str:
-        return f'sftp://{self.host}:{self.port}/{object_name}'
+        base = f'sftp://{self.host}:{self.port}/'
+        if self.cwd is not None:
+            return os.path.join(base, self.cwd, object_name)
+        return os.path.join(base, object_name)
 
     def get_object_size(self, object_name: str) -> int:
         st_size = self.sftp_client.stat(object_name).st_size
         if st_size is None:
-            raise ObjectStoreTransientError
+            raise RuntimeError
         return st_size
 
     def upload_object(self,
@@ -80,11 +95,11 @@ class SFTPObjectStore(ObjectStore):
                       filename: Union[str, pathlib.Path],
                       callback: Optional[Callable[[int, int], None]] = None) -> None:
         dirname = os.path.dirname(object_name)
-        self.ssh_client.exec_command(f'mkdir -p {dirname}')
+        self.sftp_client.mkdir(dirname)
         try:
             self.sftp_client.put(str(filename), object_name, callback=callback, confirm=True)
-        except IOError:
-            raise ObjectStoreTransientError
+        except e:
+            raise
 
     def download_object(self,
                         object_name: str,
@@ -101,13 +116,13 @@ class SFTPObjectStore(ObjectStore):
 
         try:
             self.sftp_client.get(remotepath=object_name, localpath=tmp_path, callback=callback)
-        except IOError:
+        except:
             # Make a best effort attempt to clean up the temporary file
             try:
                 os.remove(tmp_path)
             except OSError:
                 pass
-            raise ObjectStoreTransientError
+            raise
         else:
             if overwrite:
                 os.replace(tmp_path, filename)
