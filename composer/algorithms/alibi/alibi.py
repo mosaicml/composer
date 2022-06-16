@@ -77,7 +77,7 @@ def apply_alibi(
         alibi_attention (Callable): Path to new self-attention function in which
             ALiBi is implemented. Used to replace
             ``{attention_module}.{attr_to_replace}``. Example:
-            ``"composer.algorithms.alibi._gpt2_alibi._attn"``.
+            ``composer.algorithms.alibi._gpt2_alibi._attn``.
         mask_replacement_function ([Callable[[torch.nn.Module, int], torch.nn.Module]], optional):
             Function to replace model's attention mask. This can be
             necessary for evaluating on sequence lengths longer than the model was
