@@ -101,6 +101,7 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
     """
 
     try:
+        import tokenizers.models as tokenizers_models
         from tokenizers import Tokenizer
         from transformers import PreTrainedTokenizer
     except ImportError as e:

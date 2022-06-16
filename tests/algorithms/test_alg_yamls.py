@@ -111,7 +111,7 @@ def get_model_algs(model_name: str) -> List[str]:
 @pytest.mark.parametrize('model_name', model_names)
 @pytest.mark.timeout(15)
 @pytest.mark.filterwarnings(
-    r'ignore:Metric `SpearmanCorrcoef` will save all targets and predictions in the buffer:UserWarning:torchmetrics')
+    r'ignore:No instances of `torch.nn.LayerNorm` were found, and therefore, there were no modules to replace.')
 def test_load(model_name: str, device: str):
     if 'timm' in model_name:
         pytest.importorskip('timm')
