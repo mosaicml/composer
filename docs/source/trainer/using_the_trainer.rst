@@ -411,7 +411,7 @@ We recommend using ``amp`` on GPUs to accelerate your training.
 
 .. seealso::
 
-    Our :doc:`/notes/numerics.rst` guide.
+    Our :doc:`/notes/numerics` guide.
 
 Checkpointing
 ~~~~~~~~~~~~~
