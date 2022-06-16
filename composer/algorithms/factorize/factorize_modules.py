@@ -46,7 +46,7 @@ def factorizing_could_speedup(module: torch.nn.Module, latent_size: Union[int, f
     and more per-op overhead.
 
     Args:
-        module (torch.nn.Module): a :class:`torch.nn.Conv2d`, :class:`torch.nn.Linear`,
+        module (torch.nn.Module): A :class:`torch.nn.Conv2d`, :class:`torch.nn.Linear`,
             :class:`.FactorizedConv2d`, or :class:`.FactorizedLinear`.
         latent_size (int | float): number of channels (for convolution) or
             features (for linear) in the latent representation. Can be
