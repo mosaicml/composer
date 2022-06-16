@@ -51,7 +51,7 @@ def map_pillow_function(f_pil: Callable[[PillowImage], PillowImage], imgs: _Outp
     """Lifts a function that requires pillow images to also work on tensors.
 
     Args:
-        f_pil (Callable[PIL.Image.Image, PIL.Image.Image]): a callable that takes maps :class:`PIL.Image.Image` objects
+        f_pil ((PIL.Image.Image) -> PIL.Image.Image): A callable that takes maps :class:`PIL.Image.Image` objects.
             to other :class:`PIL.Image.Image` objects.
         imgs (torch.Tensor | PIL.Image.Image): a :class:`PIL.Image.Image` or a :class:`torch.Tensor` in ``HW``,
             ``CHW`` or ``NCHW`` format.
