@@ -144,7 +144,7 @@ def _setup_trace(algorithms: Sequence[Algorithm], event: Event) -> Traces:
     The keys are of format ``<algorithm_name>/<event>`` (e.g.,  ``Blurpool/INIT``) and values are an instance of
     :class:`Trace`.
     """
-    return OrderedDict([(f'{type(algo).__name__}/{event}', Trace()) for algo in algorithms])
+    return OrderedDict([(f'{algo.__class__.__name__}/{event}', Trace()) for algo in algorithms])
 
 
 # Track which callbacks are already open, so it is possible to error and instruct the user to call
@@ -266,7 +266,7 @@ class Engine():
             with ctx:
                 exit_code = algorithm.apply(event, self.state, self.logger)
 
-            trace_key = f'{algorithm}/{event}'
+            trace_key = f'{algorithm.__class__.__name__}/{event}'
             trace[trace_key] = Trace(exit_code=exit_code, order=order, run=True)
 
         if self.logger is not None:
