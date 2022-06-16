@@ -37,7 +37,7 @@ def apply_factorization(model: torch.nn.Module,
     computation, at the cost of expressive power. See :class:`.Factorize` for details.
 
     Args:
-        model (:torch.nn.Module): the model to modify in-place.
+        model (torch.nn.Module): the model to modify in-place.
         factorize_convs (bool, optional): whether to try factorizing :class:`torch.nn.Conv2d` modules.
             Default: ``True``.
         factorize_linears (bool, optional): whether to try factorizing :class:`torch.nn.Linear` modules.
@@ -161,25 +161,9 @@ class Factorize(Algorithm):
         self.latent_features = latent_features
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on :attr:`~composer.core.event.Event.INIT`.
-
-        Args:
-            event (Event): The current event.
-            state (State): The current state.
-
-        Returns:
-            bool: True if this algorithm should run
-        """
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Factorize convolutional and linear layers.
-
-        Args:
-            event (Event): The current event.
-            state (State): The current trainer state.
-            logger (Logger): The training logger.
-        """
         assert state.model is not None, 'Model must be part of state!'
 
         apply_factorization(model=state.model,

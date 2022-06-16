@@ -133,9 +133,7 @@ def factorize_matrix(X: torch.Tensor,
             diminishing returns after a handful of iterations. Default: ``3``.
 
     Returns:
-        solution:
-            a :class:`.LowRankSolution` of rank ``rank`` that approximates
-            the original matrix.
+        LowRankSolution: A solution of rank ``rank`` that approximates the original convolution operation.
     """
     X = X.detach()
     Y = Y.detach()
@@ -310,8 +308,7 @@ def factorize_conv2d(X: torch.Tensor,
             Note that not all combinations of arguments are supported.
 
     Returns:
-        solution:
-            A :class:`.LowRankSolution` of rank ``rank`` that approximates the original convolution operation.
+        LowRankSolution: A solution of rank ``rank`` that approximates the original convolution operation.
 
     Raises:
         RuntimeError:

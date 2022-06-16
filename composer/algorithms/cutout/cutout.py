@@ -125,11 +125,9 @@ class CutOut(Algorithm):
         self.input_key = input_key
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on :attr:`~composer.core.event.Event.AFTER_DATALOADER`."""
         return event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Applies cutout on input images."""
         x = state.batch_get_item(self.input_key)
         assert isinstance(x, Tensor), 'Multiple tensors not supported for Cutout.'
 

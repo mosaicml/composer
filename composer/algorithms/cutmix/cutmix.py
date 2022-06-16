@@ -225,26 +225,9 @@ class CutMix(Algorithm):
         self.input_key, self.target_key = input_key, target_key
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on :class:`~composer.core.event.Event.INIT`
-        and :class:`~composer.core.event.Event.AFTER_DATALOADER`.
-
-        Args:
-            event (Event): The current event.
-            state (State): The current state.
-        Returns:
-            bool: True if this algorithm should run now.
-        """
         return event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Applies CutMix augmentation on State input.
-
-        Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Logger): the training logger
-        """
-
         input = state.batch_get_item(key=self.input_key)
         target = state.batch_get_item(key=self.target_key)
 

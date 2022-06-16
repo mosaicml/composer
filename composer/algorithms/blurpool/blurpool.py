@@ -27,8 +27,7 @@ def apply_blurpool(model: torch.nn.Module,
                    blur_first: bool = True,
                    min_channels: int = 16,
                    optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> torch.nn.Module:
-    """Add anti-aliasing filters to the strided :class:`torch.nn.Conv2d` and/or
-    :class:`torch.nn.MaxPool2d` modules within `model`.
+    """Add anti-aliasing filters to strided :class:`torch.nn.Conv2d` and/or :class:`torch.nn.MaxPool2d` modules.
 
     These filters increase invariance to small spatial shifts in the input
     (`Zhang 2019 <http://proceedings.mlr.press/v97/zhang19a.html>`_).
@@ -83,11 +82,10 @@ def apply_blurpool(model: torch.nn.Module,
 
 
 class BlurPool(Algorithm):
-    """`BlurPool <http://proceedings.mlr.press/v97/zhang19a.html>`_ adds anti-aliasing
-    filters to convolutional layers to increase accuracy and invariance to small shifts
-    in the input.
+    """`BlurPool <http://proceedings.mlr.press/v97/zhang19a.html>`_ adds anti-aliasing filters to convolutional layers.
 
-    Runs on :attr:`~composer.core.event.Event.INIT`.
+    This algorithm increases accuracy and invariance to small shifts in the input. It runs on
+    :attr:`~composer.core.event.Event.INIT`.
 
     Args:
         replace_convs (bool): replace strided :class:`torch.nn.Conv2d` modules with
@@ -120,24 +118,9 @@ class BlurPool(Algorithm):
                 'Both replace_maxpool and replace_convs are set to False. BlurPool will not be modifying the model.')
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on :attr:`~composer.core.event.Event.INIT`.
-
-        Args:
-            event (Event): The current event.
-            state (State): The current state.
-        Returns:
-            bool: True if this algorithm should run now.
-        """
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Adds anti-aliasing filters to the maxpools and/or convolutions.
-
-        Args:
-            event (Event): The current event.
-            state (State): The current trainer state.
-            logger (Logger): The training logger.
-        """
         assert state.model is not None
 
         apply_blurpool(state.model,

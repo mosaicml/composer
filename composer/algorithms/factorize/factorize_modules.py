@@ -56,8 +56,7 @@ def factorizing_could_speedup(module: torch.nn.Module, latent_size: Union[int, f
             ``min(in_channels, out_channels)`` for a convolution.
 
     Returns:
-        could_speedup:
-            A ``bool`` indicating whether the provided amount of factorization
+        bool: A ``bool`` indicating whether the provided amount of factorization
             could accelerate the provided module. If ``module`` is not one of
             the allowed types, always returns ``False``, since there is no
             supported way to factorize that module.
@@ -466,7 +465,7 @@ class FactorizedLinear(_FactorizedModule):
             out_features (int): size of each output sample.
 
         Returns:
-            latent_features: the largest allowable number of latent features.
+            int: the largest allowable number of latent features.
         """
         return _max_rank_with_possible_speedup(in_features, out_features)
 

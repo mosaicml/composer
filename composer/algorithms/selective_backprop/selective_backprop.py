@@ -168,10 +168,10 @@ def select_using_loss(input: torch.Tensor,
 class SelectiveBackprop(Algorithm):
     """Selectively backpropagate gradients from a subset of each batch.
 
-     Based on (`Jiang et al, 2019`_), Selective Backprop (SB) prunes minibatches
-     according to the difficulty of the individual training examples, and only
-     computes weight gradients over the pruned subset, reducing iteration time, and
-     speeding up training.
+    Based on (`Jiang et al, 2019`_), Selective Backprop (SB) prunes minibatches
+    according to the difficulty of the individual training examples, and only
+    computes weight gradients over the pruned subset, reducing iteration time, and
+    speeding up training.
 
     The fraction of the minibatch that is kept for gradient computation is
     specified by the argument ``0 <= keep <= 1``.
@@ -187,7 +187,7 @@ class SelectiveBackprop(Algorithm):
 
     .. _Jiang et al, 2019: https://arxiv.org/abs/1910.00762
 
-     Args:
+    Args:
         start (float, optional): SB interval start as fraction of training duration.
             Default: ``0.5``.
         end (float, optional): SB interval end as fraction of training duration.

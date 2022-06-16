@@ -153,24 +153,9 @@ class SqueezeExcite(Algorithm):
         self.min_channels = min_channels
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on :attr:`~composer.core.event.Event.INIT`
-
-        Args:
-            event (Event): The current event.
-            state (State): The current state.
-        Returns:
-            bool: True if this algorithm should run.
-        """
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Applies the Squeeze-and-Excitation layer replacement.
-
-        Args:
-            event (Event): The current event.
-            state (State): The current trainer state.
-            logger (Logger): The training logger.
-        """
         state.model = apply_squeeze_excite(state.model,
                                            optimizers=state.optimizers,
                                            latent_channels=self.latent_channels,
