@@ -11,6 +11,7 @@ from torchmetrics import Metric
 from torchmetrics.collections import MetricCollection
 
 from composer.models.base import ComposerModel
+from composer.utils.import_helpers import MissingConditionalImportError
 
 if TYPE_CHECKING:
     import transformers
@@ -45,6 +46,11 @@ class HuggingFaceModel(ComposerModel):
                  tokenizer: Optional[transformers.PreTrainedTokenizer] = None,
                  use_logits: Optional[bool] = False,
                  metrics: Optional[List[Metric]] = None) -> None:
+        try:
+            import transformers
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+
         super().__init__()
         self.model = model
         self.config = model.config
@@ -52,9 +58,9 @@ class HuggingFaceModel(ComposerModel):
         # the set of inputs that a model expects inferred from the model type or
         # tokenizer if provided
         if tokenizer is None:
-            if isinstance(self.model.base_model, transformers.GPT2Config):
+            if isinstance(self.model.base_model, transformers.GPT2Model):
                 self.model_inputs = {'input_ids', 'attention_mask'}
-            elif isinstance(self.model.base_model, transformers.BertConfig):
+            elif isinstance(self.model.base_model, transformers.BertModel):
                 self.model_inputs = {'input_ids', 'attention_mask', 'token_type_ids'}
         else:
             self.model_inputs = set(tokenizer.model_input_names)
