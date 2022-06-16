@@ -110,7 +110,7 @@ Example: Fine-tuning
 
 To run fine-tuning on a spot instance, ``load_path`` would be set to the original weights and an object store logger would be added.
 
-.. testsetup::
+.. testsetup:: fine_tune
 
     from composer.loggers import ObjectStoreLogger
     from composer.utils.object_store import S3ObjectStore
@@ -122,7 +122,7 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
         },
     )
 
-.. testcode::
+.. testcode:: fine_tune
 
     trainer = Trainer(
         ...,
