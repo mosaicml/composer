@@ -112,7 +112,7 @@ def factorize_matrix(X: torch.Tensor,
     progressively decreasing the rank of the matrix.
 
     Args:
-        X (torch.Tensor): input used to evaluate the quality of the approximation.
+        X (torch.Tensor): Input used to evaluate the quality of the approximation.
             Shape is ``[N, D]``, where ``N`` is often the number of input samples and
             ``D`` is the dimensionality of each sample.
         Y (torch.Tensor): Output of applying the original matrix to ``X``.
