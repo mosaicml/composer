@@ -14,6 +14,7 @@ import pytest
 from torch.utils.data import Dataset
 
 import composer
+import composer.algorithms
 from composer import Algorithm
 from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
                                  Factorize, GhostBatchNorm, GradientClipping, LabelSmoothing, LayerFreezing, MixUp,
