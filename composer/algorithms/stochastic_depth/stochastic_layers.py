@@ -1,8 +1,12 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Stochastic layers for ResNet."""
+
 import torch
 from torchvision.models.resnet import Bottleneck
+
+__all__ = ['StochasticBottleneck']
 
 
 def _sample_bernoulli(probability: torch.Tensor,
@@ -14,7 +18,9 @@ def _sample_bernoulli(probability: torch.Tensor,
                       use_same_gpu_seed: bool = False):
     """Gets a sample from a Bernoulli distribution.
 
-    Provides functionality to have different seeds across GPUs and to have the same set of seeds across GPUs.
+    Provides functionality to have different seeds
+    across GPUs and to have the same set of seeds
+    across GPUs.
     """
 
     if use_same_gpu_seed:
@@ -37,24 +43,27 @@ def _sample_bernoulli(probability: torch.Tensor,
 
 
 class StochasticBottleneck(Bottleneck):
-    """Stochastic ResNet Bottleneck block. This block has a probability of skipping 
-    the transformation section of the layer and scales the transformation section.
+    """Stochastic ResNet Bottleneck block.
 
-    output by ``(1 - drop probability)`` during inference.
+    This block has a probability of
+    skipping the transformation section of the layer and scales the
+    transformation section output by ``(1 - drop probability)`` during inference.
 
     Args:
-         drop_rate: Probability of dropping the block. Must be between 0.0 and 1.0.
-         module_id: The placement of the block within a network e.g. 0
-             for the first layer in the network.
-         module_count: The total number of blocks of this type in the network
-         use_same_gpu_seed: Set to ``True`` to have the same layers dropped
+        drop_rate (float): Probability of dropping the block. Must be between
+            0.0 and 1.0.
+        module_id (int): The placement of the block within a network e.g. 0
+            for the first layer in the network.
+        module_count (int): The total number of blocks of this type in the network.
+        use_same_gpu_seed (bool): Set to ``True`` to have the same layers dropped
              across GPUs when using multi-GPU training. Set to ``False`` to
              have each GPU drop a different set of layers. Only used
              with ``"block"`` stochastic method.
-         use_same_depth_across_gpus: Set to ``True`` to have the same number
-             of blocks dropped across GPUs. Should be set to ``True`` when
-             ``drop_distribution`` is ``"uniform"`` and set to ``False``
-             for ``"linear"``.
+        use_same_depth_across_gpus (bool): Set to ``True`` to have the same number
+            of blocks dropped across GPUs. Should be set to ``True`` when
+            ``drop_distribution`` is ``"uniform"`` and set to ``False``
+            for ``"linear"``.
+        rand_generator (torch.Generator): random number generator.
     """
 
     def __init__(self, drop_rate: float, module_id: int, module_count: int, use_same_gpu_seed: bool,

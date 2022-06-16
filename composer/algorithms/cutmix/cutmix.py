@@ -19,7 +19,7 @@ from composer.loss.utils import check_for_index_targets
 
 log = logging.getLogger(__name__)
 
-__all__ = ["CutMix", "cutmix_batch"]
+__all__ = ['CutMix', 'cutmix_batch']
 
 
 def cutmix_batch(input: Tensor,
@@ -112,7 +112,7 @@ def cutmix_batch(input: Tensor,
             )
     """
     if bbox is not None and length is not None:
-        raise ValueError(f"Cannot provide both length and bbox; got {length} and {bbox}")
+        raise ValueError(f'Cannot provide both length and bbox; got {length} and {bbox}')
 
     # Create shuffled indicies across the batch in preparation for cutting and mixing.
     # Use given indices if there are any.
@@ -164,7 +164,7 @@ def cutmix_batch(input: Tensor,
 
 
 class CutMix(Algorithm):
-    """`CutMix <https://arxiv.org/abs/1905.04899>`_ trains the network on non-overlapping combinations 
+    """`CutMix <https://arxiv.org/abs/1905.04899>`_ trains the network on non-overlapping combinations
     of pairs of examples and interpolated targets rather than individual examples and targets.
 
     This is done by taking a non-overlapping combination of a given batch X with a
@@ -184,12 +184,14 @@ class CutMix(Algorithm):
             box such that each pixel has an equal probability of being mixed.
             If ``False``, defaults to the sampling used in the original
             paper implementation. Default: ``False``.
-        input_key (str, int, or Callable): A key that indexes to the input 
+        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
             from the batch. Can also be a pair of get and set functions, where the getter
-            is assumed to be first in the pair.
-        target_key (str, int, or Callable): A key that indexes to the target 
+            is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
+            is the input. Default: ``0``.
+        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target
             from the batch. Can also be a pair of get and set functions, where the getter
-            is assumed to be first in the pair.
+            is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
+            is the target. Default: ``1``.
 
     Example:
         .. testcode::
@@ -206,12 +208,14 @@ class CutMix(Algorithm):
             )
     """
 
-    def __init__(self,
-                 num_classes: int,
-                 alpha: float = 1.,
-                 uniform_sampling: bool = False,
-                 input_key: Union[str, int, Callable, Any] = 0,
-                 target_key: Union[str, int, Callable, Any] = 1):
+    def __init__(
+        self,
+        num_classes: int,
+        alpha: float = 1.,
+        uniform_sampling: bool = False,
+        input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
+        target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
+    ):
         self.num_classes = num_classes
         self.alpha = alpha
         self._uniform_sampling = uniform_sampling
@@ -245,7 +249,7 @@ class CutMix(Algorithm):
         target = state.batch_get_item(key=self.target_key)
 
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
-            "Multiple tensors for inputs or targets not supported yet."
+            'Multiple tensors for inputs or targets not supported yet.'
         alpha = self.alpha
 
         # these are saved only for testing

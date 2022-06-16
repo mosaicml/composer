@@ -16,9 +16,9 @@ from torchvision.datasets import VisionDataset
 from composer.core.types import Batch
 
 __all__ = [
-    "add_vision_dataset_transform",
-    "NormalizationFn",
-    "pil_image_collate",
+    'add_vision_dataset_transform',
+    'NormalizationFn',
+    'pil_image_collate',
 ]
 
 log = logging.getLogger(__name__)
@@ -106,9 +106,9 @@ def pil_image_collate(
 
         nump_array = np.rollaxis(nump_array, 2).copy()
         if nump_array.shape[0] != 3:
-            assert nump_array.shape[0] == 1, "unexpected shape"
+            assert nump_array.shape[0] == 1, 'unexpected shape'
             nump_array = np.resize(nump_array, (3, h, w))
-        assert image_tensor.shape[1:] == nump_array.shape, "shape mismatch"
+        assert image_tensor.shape[1:] == nump_array.shape, 'shape mismatch'
 
         image_tensor[i] += torch.from_numpy(nump_array)
         target_tensor[i] += torch.from_numpy(np.array(targets[i], dtype=np.int64))
@@ -126,8 +126,8 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
         is_tensor_transform (bool): Whether ``transform`` acts on data of the type
             :class:`~torch.Tensor`. default: ``False``.
 
-            * If ``True``, and :class:`~torchvision.transforms.ToTensor` is present in
-              ``dataset``'s transforms, ``transform`` will be inserted after the
+            * If ``True``, and :class:`~torchvision.transforms.ToTensor` is present in the transforms of the
+              ``dataset``, then ``transform`` will be inserted after the
               :class:`~torchvision.transforms.ToTensor` transform.
             * If ``False`` and :class:`~torchvision.transforms.ToTensor` is present, the ``transform`` will be
               inserted before :class:`~torchvision.transforms.ToTensor`.

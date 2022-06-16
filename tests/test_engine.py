@@ -151,7 +151,6 @@ class IsClosedCallback(Callback):
         self.is_closed = False
 
     def close(self, state: State, logger: Logger) -> None:
-        assert not self.is_closed
         self.is_closed = True
 
 
@@ -165,7 +164,7 @@ def test_engine_closes_on_del(dummy_state: State, dummy_logger: Logger):
     # Assert that there is just 2 -- once above, and once as the arg temp reference
     assert sys.getrefcount(engine) == 2
 
-    # Implicitely close the engine
+    # Implicitly close the engine
     del engine
 
     # Assert it is closed
@@ -219,7 +218,7 @@ def test_engine_errors_if_previous_trainer_was_not_closed(dummy_state: State, du
     # Create a new trainer with the same callback. Should raise an exception
     # because trainer.close() was not called before
     with pytest.raises(RuntimeError,
-                       match=r"Cannot create a new trainer with an open callback or logger from a previous trainer"):
+                       match=r'Cannot create a new trainer with an open callback or logger from a previous trainer'):
         DummyTrainer(dummy_state, dummy_logger)
 
 
@@ -241,7 +240,7 @@ def check_output(proc: subprocess.CompletedProcess):
 
 
 @pytest.mark.timeout(30)
-@pytest.mark.parametrize("exception", [True, False])
+@pytest.mark.parametrize('exception', [True, False])
 def test_engine_closes_on_atexit(exception: bool):
     # Running this test via a subprocess, as atexit() must trigger
 
@@ -264,12 +263,12 @@ def test_engine_closes_on_atexit(exception: bool):
     """)
     if exception:
         # Should raise an exception, since no dataloader was provided
-        code += "trainer.fit()"
+        code += 'trainer.fit()'
 
-    git_root_dir = os.path.join(os.path.dirname(composer.__file__), "..")
-    proc = subprocess.run(["python", "-c", code], cwd=git_root_dir, text=True, capture_output=True)
+    git_root_dir = os.path.join(os.path.dirname(composer.__file__), '..')
+    proc = subprocess.run(['python', '-c', code], cwd=git_root_dir, text=True, capture_output=True)
     if exception:
         # manually validate that there was no a conditional import exception
-        assert "ImportError: sys.meta_path is None, Python is likely shutting down" not in proc.stderr
+        assert 'ImportError: sys.meta_path is None, Python is likely shutting down' not in proc.stderr
     else:
         check_output(proc)

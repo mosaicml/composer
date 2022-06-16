@@ -24,14 +24,14 @@ def _default_2d_filter():
 def _padding_for_filt_2d_same(filt: torch.Tensor):
     _, _, h, w = filt.shape
     if h % 2 == 0:
-        raise IndexError(f"Filter must have odd height; got {h}")
+        raise IndexError(f'Filter must have odd height; got {h}')
     if w % 2 == 0:
-        raise IndexError(f"Filter must have odd width; got {w}")
+        raise IndexError(f'Filter must have odd width; got {w}')
     return int(torch.div(h, 2)), int(torch.div(w, 2))
 
 
 def blur_2d(input: torch.Tensor, stride: _size_2_t = 1, filter: Optional[torch.Tensor] = None) -> torch.Tensor:
-    """Apply a spatial low-pass filter.
+    """Applies a spatial low-pass filter.
 
     Args:
         input (torch.Tensor): a 4d tensor of shape NCHW
@@ -197,7 +197,7 @@ class BlurMaxPool2d(nn.Module):
 
 
 class BlurConv2d(nn.Module):
-    """This module is a drop-in replacement for PyTorch's :class:`torch.nn.Conv2d`, 
+    """This module is a drop-in replacement for PyTorch's :class:`torch.nn.Conv2d`,
     but with an anti-aliasing filter applied.
 
     The one new parameter is ``blur_first``. When set to ``True``, the

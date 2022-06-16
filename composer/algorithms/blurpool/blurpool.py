@@ -83,7 +83,7 @@ def apply_blurpool(model: torch.nn.Module,
 
 
 class BlurPool(Algorithm):
-    """`BlurPool <http://proceedings.mlr.press/v97/zhang19a.html>`_ adds anti-aliasing 
+    """`BlurPool <http://proceedings.mlr.press/v97/zhang19a.html>`_ adds anti-aliasing
     filters to convolutional layers to increase accuracy and invariance to small shifts
     in the input.
 
@@ -173,8 +173,8 @@ def _log_surgery_result(model: torch.nn.Module):
     num_blurconv_layers = module_surgery.count_module_instances(model, BlurConv2d)
     if num_blurconv_layers == 0 and num_blurpool_layers == 0:
         warnings.warn(
-            NoEffectWarning("Applying BlurPool did not change any layers. "
-                            "No strided Conv2d or Pool2d layers were found."))
+            NoEffectWarning('Applying BlurPool did not change any layers. '
+                            'No strided Conv2d or Pool2d layers were found.'))
     log.info(f'Applied BlurPool to model {model.__class__.__name__}. '
              f'Model now has {num_blurpool_layers} BlurMaxPool2d '
              f'and {num_blurconv_layers} BlurConv2D layers.')

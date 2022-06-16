@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 import numpy as np
 import pytest
 import torch
@@ -44,7 +47,7 @@ def generate_tensors():
 
 
 @pytest.mark.filterwarnings(
-    r"ignore:Negative label indices are being ignored in conversion to one-hot labels:UserWarning")
+    r'ignore:Negative label indices are being ignored in conversion to one-hot labels:UserWarning')
 @pytest.mark.parametrize('tensors', generate_tensors())
 def test_ensure_targets_one_hot(tensors):
     input, targets_idx, targets_one_hot = tensors
@@ -63,7 +66,7 @@ class TestSoftCrossEntropy:
     @pytest.mark.parametrize('reduction', ['mean', 'sum'])
     @pytest.mark.parametrize('use_weights', [xfail(True), False])
     # TODO(Cory): Remove this filterwarning
-    @pytest.mark.filterwarnings(r"ignore:Some targets have less than 1 total probability:UserWarning")
+    @pytest.mark.filterwarnings(r'ignore:Some targets have less than 1 total probability:UserWarning')
     def test_soft_cross_entropy(self, tensors, use_weights, reduction):
         input, target_indices, target_onehot = tensors
         if use_weights:

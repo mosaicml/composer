@@ -6,7 +6,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from composer.algorithms import CutMix, CutMixHparams
+from composer.algorithms import CutMix
 from composer.algorithms.cutmix.cutmix import _rand_bbox, cutmix_batch
 from composer.core import Event
 from composer.models import ComposerClassifier
@@ -120,9 +120,3 @@ def test_cutmix_nclasses(minimal_state, empty_logger):
 
     algorithm.apply(Event.INIT, state, empty_logger)
     algorithm.apply(Event.AFTER_DATALOADER, state, empty_logger)
-
-
-def test_cutmix_hparams():
-    hparams = CutMixHparams(alpha=1.0, num_classes=10)
-    algorithm = hparams.initialize_object()
-    assert isinstance(algorithm, CutMix)

@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from tokenizers import decoders, normalizers, pre_tokenizers
     from transformers import PreTrainedTokenizer
 
-__all__ = ["SyntheticTokenizerParams", "generate_synthetic_tokenizer", "synthetic_hf_dataset_builder"]
+__all__ = ['SyntheticTokenizerParams', 'generate_synthetic_tokenizer', 'synthetic_hf_dataset_builder']
 
 
 class SyntheticTokenizerParams(NamedTuple):
@@ -42,12 +42,12 @@ def _generate_bert_tokenizer_params(dataset) -> SyntheticTokenizerParams:
         from tokenizers import decoders, normalizers, pre_tokenizers
         from transformers import BertTokenizer
     except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
-    unk_token = "[UNK]"
-    pad_token = "[PAD]"
+    unk_token = '[UNK]'
+    pad_token = '[PAD]'
 
-    initial_alphabet = "".join([i for i in dataset])
+    initial_alphabet = ''.join([i for i in dataset])
     initial_alphabet = list(set(initial_alphabet))
 
     return SyntheticTokenizerParams(
@@ -56,7 +56,7 @@ def _generate_bert_tokenizer_params(dataset) -> SyntheticTokenizerParams:
         pre_tokenizer=pre_tokenizers.BertPreTokenizer(),
         decoder=decoders.WordPiece(),
         initial_alphabet=initial_alphabet,
-        special_tokens=[pad_token, unk_token, "[SEP]", "[CLS]", "[MASK]"],
+        special_tokens=[pad_token, unk_token, '[SEP]', '[CLS]', '[MASK]'],
         pad_token=pad_token,
         trainer_cls=tokenizers_trainer.WordPieceTrainer,
         tokenizer_cls=BertTokenizer,
@@ -70,10 +70,10 @@ def _generate_gpt2_tokenizer_params() -> SyntheticTokenizerParams:
         from tokenizers import decoders, normalizers, pre_tokenizers
         from transformers import GPT2Tokenizer
     except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
     unk_token = None
-    pad_token = "<pad>"
+    pad_token = '<pad>'
 
     return SyntheticTokenizerParams(
         tokenizer_model=tokenizers_models.BPE(unk_token=unk_token),
@@ -81,7 +81,7 @@ def _generate_gpt2_tokenizer_params() -> SyntheticTokenizerParams:
         pre_tokenizer=pre_tokenizers.ByteLevel(),
         decoder=decoders.ByteLevel(),
         initial_alphabet=pre_tokenizers.ByteLevel.alphabet(),
-        special_tokens=[pad_token, "<endoftext>"],
+        special_tokens=[pad_token, '<endoftext>'],
         pad_token=pad_token,
         trainer_cls=tokenizers_trainer.BpeTrainer,
         tokenizer_cls=GPT2Tokenizer,
@@ -104,7 +104,7 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
         from tokenizers import Tokenizer
         from transformers import PreTrainedTokenizer
     except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
     # generate a synthetic dataset with reasonable defaults is none is provided
     if dataset is None:
@@ -123,15 +123,15 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
         for item in sublist:
             flattened_dataset.append(item)
 
-    if "bert" in tokenizer_family:
+    if 'bert' in tokenizer_family:
         tokenizer_params = _generate_bert_tokenizer_params(flattened_dataset)
-    elif "gpt2" in tokenizer_family:
+    elif 'gpt2' in tokenizer_family:
         tokenizer_params = _generate_gpt2_tokenizer_params()
     else:
-        raise ValueError(f"Synthetic tokenizers for tokenizer family {tokenizer_family} are currently unsupported.")
+        raise ValueError(f'Synthetic tokenizers for tokenizer family {tokenizer_family} are currently unsupported.')
 
     tokenizer = Tokenizer(tokenizer_params.tokenizer_model)
-    tokenizer.enable_padding(direction="right",
+    tokenizer.enable_padding(direction='right',
                              pad_id=0,
                              pad_type_id=0,
                              pad_token=tokenizer_params.pad_token,
@@ -151,20 +151,20 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
     # save the tokenizer config
     with TemporaryDirectory() as tmp_path:
         tmp_tokenizer_dir = str(tmp_path)
-        tmp_tokenizer_file = join(tmp_tokenizer_dir, "tokenizer.json")
+        tmp_tokenizer_file = join(tmp_tokenizer_dir, 'tokenizer.json')
         tokenizer.save(tmp_tokenizer_file)  #type: ignore (thirdparty)
 
         # save the vocabulary and potential merges file
         tokenizer_params.tokenizer_model.save(tmp_tokenizer_dir)  # type: ignore
 
         # the .from_pretrained method doesn't load our padding for some reason, so we save it as a special kwarg
-        tmp_tokenizer_config = join(tmp_tokenizer_dir, "tokenizer_config.json")
-        with open(tmp_tokenizer_config, "w") as f:
-            json.dump({"pad_token": tokenizer_params.pad_token}, f)
+        tmp_tokenizer_config = join(tmp_tokenizer_dir, 'tokenizer_config.json')
+        with open(tmp_tokenizer_config, 'w') as f:
+            json.dump({'pad_token': tokenizer_params.pad_token}, f)
 
         # instantiate the new tokenizer
         if not issubclass(tokenizer_params.tokenizer_cls, PreTrainedTokenizer):
-            raise ValueError(f"{tokenizer_params.tokenizer_cls} should sub-class transformers.PreTrainedTokenizer.")
+            raise ValueError(f'{tokenizer_params.tokenizer_cls} should sub-class transformers.PreTrainedTokenizer.')
         tokenizer = tokenizer_params.tokenizer_cls.from_pretrained(tmp_tokenizer_dir)
 
     return tokenizer
@@ -185,10 +185,10 @@ def synthetic_hf_dataset_builder(num_samples: int, chars_per_sample: int, column
     try:
         import datasets
     except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
     if column_names is None or len(column_names) == 0:
-        raise ValueError("There must be at least one column name provided for the final dataset.")
+        raise ValueError('There must be at least one column name provided for the final dataset.')
 
     data = {}
     for column_name in column_names:
@@ -201,17 +201,17 @@ def synthetic_hf_dataset_builder(num_samples: int, chars_per_sample: int, column
 
 def _generate_synthetic_text_sample(chars_per_sample, min_word_length=3, max_word_length=10):
     character_set = {
-        "letters": {
-            "weight": 10,
-            "choices": string.ascii_letters
+        'letters': {
+            'weight': 10,
+            'choices': string.ascii_letters
         },
-        "digits": {
-            "weight": 5,
-            "choices": string.digits
+        'digits': {
+            'weight': 5,
+            'choices': string.digits
         },
-        "punctuation": {
-            "weight": 1,
-            "choices": string.punctuation
+        'punctuation': {
+            'weight': 1,
+            'choices': string.punctuation
         }
     }
     valid_chars = ''.join([(i['choices'] * i['weight']) for i in character_set.values()])

@@ -180,7 +180,7 @@ class Factorize(Algorithm):
             state (State): The current trainer state.
             logger (Logger): The training logger.
         """
-        assert state.model is not None, "Model must be part of state!"
+        assert state.model is not None, 'Model must be part of state!'
 
         apply_factorization(model=state.model,
                             factorize_convs=self.factorize_convs,

@@ -52,6 +52,10 @@ class ChannelsLast(Algorithm):
             )
     """
 
+    def __init__(self):
+        # ChannelsLast takes no arguments
+        pass
+
     def match(self, event: Event, state: State) -> bool:
         del state  # unused
         return event == Event.INIT

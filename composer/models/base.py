@@ -15,7 +15,7 @@ from torchmetrics import Metric, MetricCollection
 from composer.core.types import Batch
 from composer.loggers import Logger
 
-__all__ = ["ComposerModel"]
+__all__ = ['ComposerModel']
 
 
 class ComposerModel(torch.nn.Module, abc.ABC):
@@ -68,7 +68,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         result = cls.__new__(cls)
         memo[id(self)] = result
         for k, v in self.__dict__.items():
-            if k == "logger":
+            if k == 'logger':
                 copied_v = v
             else:
                 copied_v = copy.deepcopy(v, memo)

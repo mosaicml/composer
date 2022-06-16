@@ -12,12 +12,12 @@ from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel
 
 
-@pytest.mark.skipif('composer-python' not in os.environ["PATH"] or 'Linux' not in platform.system(),
-                    reason="Pillow-simd test only checks if using the composer docker")
+@pytest.mark.skipif('composer-python' not in os.environ['PATH'] or 'Linux' not in platform.system(),
+                    reason='Pillow-simd test only checks if using the composer docker')
 class TestDocker:
 
     def test_pillow_simd(self):
-        assert "post" in PIL.__version__, "pillow-simd is not installed"
+        assert 'post' in PIL.__version__, 'pillow-simd is not installed'
 
     @pytest.mark.gpu
     def test_apex(self):
@@ -30,7 +30,7 @@ class TestDocker:
             model=model,
             train_dataloader=DataLoader(RandomClassificationDataset()),
             optimizers=opt,
-            max_duration="2ba",
+            max_duration='2ba',
         )
 
         trainer.fit()

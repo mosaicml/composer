@@ -16,7 +16,7 @@ from composer.metrics import CrossEntropy, MIoU
 from composer.models.base import ComposerModel
 from composer.models.initializers import Initializer
 
-__all__ = ["deeplabv3_builder", "ComposerDeepLabV3"]
+__all__ = ['deeplabv3_builder', 'ComposerDeepLabV3']
 
 
 class SimpleSegmentationModel(torch.nn.Module):
@@ -32,7 +32,7 @@ class SimpleSegmentationModel(torch.nn.Module):
         logits = self.classifier(tuple(features.values()))
         logits = F.interpolate(logits,
                                size=input_shape,
-                               mode="bilinear",
+                               mode='bilinear',
                                align_corners=False,
                                recompute_scale_factor=False)
         return logits
@@ -72,7 +72,7 @@ def deeplabv3_builder(num_classes: int,
 
     # check that the specified architecture is in the resnet module
     if not hasattr(resnet, backbone_arch):
-        raise ValueError(f"backbone_arch must be part of the torchvision resnet module, got value: {backbone_arch}")
+        raise ValueError(f'backbone_arch must be part of the torchvision resnet module, got value: {backbone_arch}')
 
     # change the model weight url if specified
     if backbone_url:
@@ -94,7 +94,7 @@ def deeplabv3_builder(num_classes: int,
              {torch_version} refer to your CUDA and PyTorch versions, respectively. To install mmsegmentation, please
              run pip install mmsegmentation==0.22.0 on command-line.""")) from e
     norm_type = 'SyncBN' if sync_bn else 'BN'
-    norm_cfg = dict(type=norm_type, requires_grad=True)
+    norm_cfg = {'type': norm_type, 'requires_grad': True}
     if use_plus:
         # mmseg config:
         # https://github.com/open-mmlab/mmsegmentation/blob/master/configs/_base_/models/deeplabv3plus_r50-d8.py
@@ -205,7 +205,7 @@ class ComposerDeepLabV3(ComposerModel):
         return MetricCollection(metric_list)
 
     def validate(self, batch: Any):
-        assert self.training is False, "For validation, model must be in eval mode"
+        assert self.training is False, 'For validation, model must be in eval mode'
         target = batch[1]
         logits = self.forward(batch)
         return logits, target

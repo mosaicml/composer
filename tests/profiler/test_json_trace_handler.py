@@ -18,15 +18,15 @@ from tests.common import RandomClassificationDataset, SimpleModel
 # This test shouldn't run with the Torch profiler enabled, not providing a model or data can cause a seg fault
 @pytest.mark.timeout(30)
 @pytest.mark.filterwarnings(
-    r"ignore:The profiler is enabled\. Using the profiler adds additional overhead when training\.:UserWarning")
+    r'ignore:The profiler is enabled\. Using the profiler adds additional overhead when training\.:UserWarning')
 def test_json_trace_profiler_handler(tmp_path: pathlib.Path):
     # Construct the trainer
     profiler = Profiler(
         schedule=cyclic_schedule(wait=0, warmup=0, active=1000, repeat=0),
-        trace_handlers=JSONTraceHandler(
+        trace_handlers=[JSONTraceHandler(
             folder=str(tmp_path),
             merged_trace_filename='trace.json',
-        ),
+        )],
         sys_prof_cpu=False,
         sys_prof_net=False,
         sys_prof_disk=False,
@@ -39,7 +39,7 @@ def test_json_trace_profiler_handler(tmp_path: pathlib.Path):
     trainer = Trainer(
         model=SimpleModel(),
         train_dataloader=DataLoader(RandomClassificationDataset()),
-        max_duration="2ep",
+        max_duration='2ep',
         profiler=profiler,
     )
 
@@ -48,14 +48,14 @@ def test_json_trace_profiler_handler(tmp_path: pathlib.Path):
 
     # Validate that the trace file contains expected events
     profiler_file = os.path.join(tmp_path, 'trace.json')
-    with open(profiler_file, "r") as f:
+    with open(profiler_file, 'r') as f:
         trace_json = json.load(f)
         has_epoch_start_event = False
         has_epoch_end_event = False
         for event in trace_json:
-            if event["name"] == "event/epoch" and event["ph"] == "B":
+            if event['name'] == 'event/epoch' and event['ph'] == 'B':
                 has_epoch_start_event = True
-            if event["name"] == "event/epoch" and event["ph"] == "E":
+            if event['name'] == 'event/epoch' and event['ph'] == 'E':
                 has_epoch_end_event = True
         assert has_epoch_start_event
         assert has_epoch_end_event

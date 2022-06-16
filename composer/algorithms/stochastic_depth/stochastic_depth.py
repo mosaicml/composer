@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Modules and layers for applying the Stochastic Depth algorithm."""
+
 from __future__ import annotations
 
 import functools
@@ -20,7 +22,7 @@ from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
 
-_VALID_LAYER_DISTRIBUTIONS = ("uniform", "linear")
+_VALID_LAYER_DISTRIBUTIONS = ('uniform', 'linear')
 
 _STOCHASTIC_LAYER_MAPPING = {
     'block': {
@@ -30,6 +32,8 @@ _STOCHASTIC_LAYER_MAPPING = {
         'ResNetBottleneck': (Bottleneck, SampleStochasticBottleneck)
     }
 }
+
+__all__ = ['apply_stochastic_depth', 'StochasticDepth']
 
 
 def apply_stochastic_depth(model: torch.nn.Module,
@@ -50,27 +54,30 @@ def apply_stochastic_depth(model: torch.nn.Module,
 
     .. note::
 
-        Stochastic Depth only works on instances of `torchvision.models.resnet.ResNet` for now.
+        Stochastic Depth only works on instances of :class:`torchvision.models.resnet.ResNet`
+        for now.
 
     Args:
-        model (torch.nn.Module): model containing modules to be replaced with stochastic versions
+        model (torch.nn.Module): model containing modules to be replaced with
+            stochastic versions.
         target_layer_name (str): Block to replace with a stochastic block
             equivalent. The name must be registered in ``STOCHASTIC_LAYER_MAPPING``
             dictionary with the target layer class and the stochastic layer class.
             Currently, only :class:`torchvision.models.resnet.Bottleneck` is supported.
-        stochastic_method (str, optional): The version of stochastic depth to use. ``"block"``
-            randomly drops blocks during training. ``"sample"`` randomly drops
-            samples within a block during training. Default: ``"block"``.
-        drop_rate (float, optional): The base probability of dropping a layer or sample. Must be
-            between 0.0 and 1.0. Default: `0.2``.
+        stochastic_method (str, optional): The version of stochastic depth to use.
+            ``"block"`` randomly drops blocks during training. ``"sample"`` randomly
+            drops samples within a block during training. Default: ``"block"``.
+        drop_rate (float, optional): The base probability of dropping a layer or sample.
+            Must be between 0.0 and 1.0. Default: `0.2``.
         drop_distribution (str, optional): How ``drop_rate`` is distributed across
             layers. Value must be one of ``"uniform"`` or ``"linear"``.
             ``"uniform"`` assigns the same ``drop_rate`` across all layers.
-            ``"linear"`` linearly increases the drop rate across layer depth
-            starting with 0 drop rate and ending with ``drop_rate``. Default: ``"linear"``.
-        use_same_gpu_seed (bool, optional): Set to ``True`` to have the same layers dropped
-            across GPUs when using multi-GPU training. Set to ``False`` to
-            have each GPU drop a different set of layers. Only used
+            ``"linear"`` linearly increases the drop rate across layer depth,
+            starting with 0 drop rate and ending with ``drop_rate``.
+            Default: ``"linear"``.
+        use_same_gpu_seed (bool, optional): Set to ``True`` to have the
+            same layers dropped across GPUs when using multi-GPU training.
+            Set to ``False`` to have each GPU drop a different set of layers. Only used
             with ``"block"`` stochastic method. Default: ``True``.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
             Existing optimizers bound to ``model.parameters()``.
@@ -113,8 +120,8 @@ def apply_stochastic_depth(model: torch.nn.Module,
     elif stochastic_method == 'sample':
         stochastic_from_target_layer = functools.partial(stochastic_layer.from_target_layer, **shared_kwargs)
     else:
-        raise ValueError(f"stochastic_method {stochastic_method} is not supported."
-                         f" Must be one of {list(_STOCHASTIC_LAYER_MAPPING.keys())}")
+        raise ValueError(f'stochastic_method {stochastic_method} is not supported.'
+                         f' Must be one of {list(_STOCHASTIC_LAYER_MAPPING.keys())}')
     transforms[target_layer] = stochastic_from_target_layer
     module_surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
     return model
@@ -142,19 +149,20 @@ class StochasticDepth(Algorithm):
             equivalent. The name must be registered in ``STOCHASTIC_LAYER_MAPPING``
             dictionary with the target layer class and the stochastic layer class.
             Currently, only :class:`torchvision.models.resnet.Bottleneck` is supported.
-        stochastic_method (str, optional): The version of stochastic depth to use. ``"block"``
-            randomly drops blocks during training. ``"sample"`` randomly drops
+        stochastic_method (str, optional): The version of stochastic depth to use.
+            ``"block"`` randomly drops blocks during training. ``"sample"`` randomly drops
             samples within a block during training. Default: ``"block"``.
-        drop_rate (float, optional): The base probability of dropping a layer or sample. Must be
-            between 0.0 and 1.0. Default: ``0.2``.
+        drop_rate (float, optional): The base probability of dropping a layer or sample.
+            Must be between 0.0 and 1.0. Default: ``0.2``.
         drop_distribution (str, optional): How ``drop_rate`` is distributed across
             layers. Value must be one of ``"uniform"`` or ``"linear"``.
             ``"uniform"`` assigns the same ``drop_rate`` across all layers.
-            ``"linear"`` linearly increases the drop rate across layer depth
+            ``"linear"`` linearly increases the drop rate across layer depth,
             starting with 0 drop rate and ending with ``drop_rate``. Default: ``"linear"``.
-        drop_warmup (str | Time | float, optional): A :class:`Time` object, time-string, or float
-            on [0.0; 1.0] representing the fraction of the training duration to linearly
-            increase the drop probability to `linear_drop_rate`. Default: ``0.0``.
+        drop_warmup (str | Time | float, optional): A :class:`Time` object,
+            time-string, or float on ``[0.0, 1.0]`` representing the fraction of the
+            training duration to linearly increase the drop probability to
+            `linear_drop_rate`. Default: ``0.0``.
         use_same_gpu_seed (bool, optional): Set to ``True`` to have the same layers dropped
             across GPUs when using multi-GPU training. Set to ``False`` to
             have each GPU drop a different set of layers. Only used
@@ -172,7 +180,7 @@ class StochasticDepth(Algorithm):
         if drop_rate == 0.0:
             log.warning('Stochastic Depth will have no effect when drop_rate set to 0')
 
-        if stochastic_method == "sample" and not use_same_gpu_seed:
+        if stochastic_method == 'sample' and not use_same_gpu_seed:
             log.warning('use_same_gpu_seed=false has no effect when using the "sample" method')
 
         self.target_layer_name = target_layer_name
@@ -193,31 +201,12 @@ class StochasticDepth(Algorithm):
 
     @property
     def find_unused_parameters(self) -> bool:
-        """DDP parameter to notify that parameters may not have gradients if it is dropped during the forward pass."""
-
-        return (self.stochastic_method == "block")
+        return self.stochastic_method == 'block'
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on :attr:`~composer.core.event.Event.INIT`, as well as
-    :attr:`~composer.core.event.Event.BATCH_START` if ``drop_warmup > 0``.
-
-        Args:
-            event (Event): The current event.
-            state (State): The current state.
-        Returns:
-            bool: True if this algorithm should run now.
-        """
-
         return (event == Event.INIT) or (event == Event.BATCH_START and self.drop_warmup > 0.0)
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Applies StochasticDepth modification to the state's model.
-
-        Args:
-            event (Event): The current event.
-            state (State): The current trainer state.
-            logger (Logger): The training logger.
-        """
         assert state.model is not None
         target_layer, stochastic_layer = _STOCHASTIC_LAYER_MAPPING[self.stochastic_method][self.target_layer_name]
 
@@ -237,7 +226,7 @@ class StochasticDepth(Algorithm):
 
         elif event == Event.BATCH_START:
             elapsed_duration = state.get_elapsed_duration()
-            assert elapsed_duration is not None, "elapsed duration is set on BATCH_START"
+            assert elapsed_duration is not None, 'elapsed duration is set on BATCH_START'
             if elapsed_duration < self.drop_warmup:
                 current_drop_rate = float(elapsed_duration / self.drop_warmup) * self.drop_rate
                 _update_drop_rate(state.model, stochastic_layer, current_drop_rate, self.drop_distribution)
@@ -250,25 +239,25 @@ def _validate_stochastic_hparams(target_layer_name: str,
                                  stochastic_method: str,
                                  drop_rate: float,
                                  drop_distribution: str,
-                                 drop_warmup: str = "0dur"):
+                                 drop_warmup: str = '0dur'):
     """Helper function to validate the Stochastic Depth hyperparameter values."""
 
     if stochastic_method and (stochastic_method not in _STOCHASTIC_LAYER_MAPPING):
-        raise ValueError(f"stochastic_method {stochastic_method} is not supported."
-                         f" Must be one of {list(_STOCHASTIC_LAYER_MAPPING.keys())}")
+        raise ValueError(f'stochastic_method {stochastic_method} is not supported.'
+                         f' Must be one of {list(_STOCHASTIC_LAYER_MAPPING.keys())}')
 
     if target_layer_name and (target_layer_name not in _STOCHASTIC_LAYER_MAPPING[stochastic_method]):
-        raise ValueError(f"target_layer_name {target_layer_name} is not supported with {stochastic_method}."
-                         f" Must be one of {list(_STOCHASTIC_LAYER_MAPPING[stochastic_method].keys())}")
+        raise ValueError(f'target_layer_name {target_layer_name} is not supported with {stochastic_method}.'
+                         f' Must be one of {list(_STOCHASTIC_LAYER_MAPPING[stochastic_method].keys())}')
 
     if drop_rate and (drop_rate < 0 or drop_rate > 1):
-        raise ValueError(f"drop_rate must be between 0 and 1: {drop_rate}")
+        raise ValueError(f'drop_rate must be between 0 and 1: {drop_rate}')
 
     if drop_distribution and (drop_distribution not in _VALID_LAYER_DISTRIBUTIONS):
         raise ValueError(f"drop_distribution '{drop_distribution}' is"
-                         f" not supported. Must be one of {list(_VALID_LAYER_DISTRIBUTIONS)}")
+                         f' not supported. Must be one of {list(_VALID_LAYER_DISTRIBUTIONS)}')
 
-    if stochastic_method == "sample" and Time.from_timestring(drop_warmup).value != 0:
+    if stochastic_method == 'sample' and Time.from_timestring(drop_warmup).value != 0:
         raise ValueError(f"drop_warmup can not be used with 'sample' stochastic_method")
 
 
@@ -287,6 +276,6 @@ def _update_drop_rate(module: torch.nn.Module, stochastic_block: Type[torch.nn.M
                     current_drop_rate = ((child.module_id + 1) / child.module_count) * drop_rate  # type: ignore
                 else:
                     raise ValueError(f"drop_distribution '{drop_distribution}' is"
-                                     f" not supported. Must be one of {list(_VALID_LAYER_DISTRIBUTIONS)}")
+                                     f' not supported. Must be one of {list(_VALID_LAYER_DISTRIBUTIONS)}')
                 child.drop_rate = torch.tensor(current_drop_rate)
             _update_drop_rate(child, stochastic_block, drop_rate, drop_distribution)
