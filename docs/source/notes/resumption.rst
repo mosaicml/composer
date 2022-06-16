@@ -1,7 +1,7 @@
 |:play_or_pause_button:| Auto Resumption
 ========================================
 
-Resuming from checkpoints is commonly used to recover from hardware failures (e.g. spot instances in the cloud being terminiated), loss spikes for large language models, or other unforseen errors. Our trainer supports resuming from checkpoints with the ``load_path`` argument (see :doc:`/trainer/checkpointing` for more details):
+Resuming from checkpoints is commonly used to recover from hardware failures (e.g. spot instances in the cloud being terminated), loss spikes for large language models, or other unforseen errors. Our trainer supports resuming from checkpoints with the ``load_path`` argument (see :doc:`/trainer/checkpointing` for more details):
 
 .. testsetup::
 
@@ -121,6 +121,17 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
             "bucket": "checkpoint-debugging_2",
         },
     )
+
+    # Train to generate and save the "pretrained_weights/model.pt",
+    # so we can load and resume from it
+    trainer = Trainer(
+        ...,
+        save_filename='pretrained_weights/model.pt',
+        save_folder='.',
+        run_name='my_cool_run',
+    )
+
+    trainer.fit()
 
 .. testcode:: fine_tune
 
