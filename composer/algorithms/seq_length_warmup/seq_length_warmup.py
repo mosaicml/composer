@@ -25,7 +25,7 @@ def set_batch_sequence_length(batch: Dict[str, torch.Tensor], curr_seq_len: int,
     """Set the sequence length of a batch.
 
     Changes the sequence length of all tensors in the provided dictionary
-    to ``curr_seq_len``, by either truncating the tensors (``truncate=True``)
+    to ``curr_seq_len`` by either truncating the tensors (``truncate=True``)
     or reshaping the tensors to create new examples from the extra tokens
     (``truncate=False``).
 
@@ -37,7 +37,7 @@ def set_batch_sequence_length(batch: Dict[str, torch.Tensor], curr_seq_len: int,
     .. note::
 
         Variable input lengths can create CUDA OOM errors. To avoid this,
-        we follow `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
+        we follow the `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
         and pre-allocate the memory with a blank forward and backward pass.
 
     Args:
@@ -102,18 +102,18 @@ class SeqLengthWarmup(Algorithm):
     create new examples from the extra tokens (``truncate=False``).
 
     This algorithm runs on :attr:`~composer.core.event.Event.AFTER_DATALOADER` to modify
-    the sequence length of a batch of data, after the model and data have been moved to
+    the sequence length of a batch of data after the model and data have been moved to
     accelerators.
 
     .. note::
 
         ``step_size`` should be a `multiple of eight <https://developer.nvidia.com/blog/optimizing-gpu-performance-tensor-cores/>`_ for
-        optimal throughput on NVIDIA GPUs
+        optimal throughput on NVIDIA GPUs.
 
     .. note::
 
         Variable input lengths can create CUDA OOM errors. To avoid this,
-        we follow `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
+        we follow the `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
         and pre-allocate the memory with a blank forward and backward pass.
 
     See the :doc:`Method Card </method_cards/seq_length_warmup>` for more details.
