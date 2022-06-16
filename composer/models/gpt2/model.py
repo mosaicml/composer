@@ -19,6 +19,7 @@ __all__ = ["create_gpt2"]
 
 def create_gpt2(use_pretrained: Optional[bool] = False,
                 model_config: Optional[dict] = None,
+                tokenizer: Optional[transformers.GPT2Tokenizer] = None,
                 gradient_checkpointing: Optional[bool] = False):
     """Implements :class:`~composer.models.huggingface.HuggingFaceModel` to wrap `Hugging Face GPT-2
     transformers <https://huggingface.co/docs/transformers/master/en/model_doc/gpt2#overview>`_. Logs training and
@@ -70,7 +71,8 @@ def create_gpt2(use_pretrained: Optional[bool] = False,
               "use_cache": true,
               "vocab_size": 50257
             }
-
+            tokenizer (transformers.GPT2Tokenizer, optional): Tokenizer used to preprocess the dataset
+                and validate the models inputs.
     To create a GPT-2 model for language modeling pretraining:
 
     .. testcode::
@@ -95,7 +97,12 @@ def create_gpt2(use_pretrained: Optional[bool] = False,
         config = transformers.AutoConfig.from_pretrained(model_name, **model_config)
         model = transformers.AutoModelForCausalLM.from_config(config)  # type: ignore (thirdparty)
 
+    if tokenizer is None:
+        model_inputs = {'input_ids', 'attention_mask'}
+    else:
+        model_inputs = set(tokenizer.model_input_names)
+
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()  # type: ignore
 
-    return HuggingFaceModel(model=model, metrics=[HFCrossEntropy(), Perplexity()])
+    return HuggingFaceModel(model=model, model_inputs=model_inputs, metrics=[HFCrossEntropy(), Perplexity()])

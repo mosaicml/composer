@@ -21,6 +21,7 @@ __all__ = ["create_bert_mlm", "create_bert_classification"]
 
 def create_bert_mlm(use_pretrained: Optional[bool] = False,
                     model_config: Optional[dict] = None,
+                    tokenizer: Optional[transformers.BertTokenizer] = None,
                     gradient_checkpointing: Optional[bool] = False):
     """BERT model based on |:hugging_face:| Transformers.
 
@@ -58,7 +59,8 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
               "use_cache": true,
               "vocab_size": 30522
             }
-
+            tokenizer (transformers.BertTokenizer, optional): Tokenizer used to preprocess the dataset
+                and validate the models inputs.
     To create a BERT model for Masked Language Model pretraining:
 
     .. testcode::
@@ -85,16 +87,22 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()  # type: ignore
 
+    if tokenizer is None:
+        model_inputs = {'input_ids', 'attention_mask', 'token_type_ids'}
+    else:
+        model_inputs = set(tokenizer.model_input_names)
+
     metrics = [
         LanguageCrossEntropy(ignore_index=-100, vocab_size=model.config.vocab_size),
         MaskedAccuracy(ignore_index=-100)
     ]
-    return HuggingFaceModel(model=model, use_logits=True, metrics=metrics)
+    return HuggingFaceModel(model=model, model_inputs=model_inputs, use_logits=True, metrics=metrics)
 
 
 def create_bert_classification(num_labels: Optional[int] = 2,
                                use_pretrained: Optional[bool] = False,
                                model_config: Optional[dict] = None,
+                               tokenizer: Optional[transformers.BertTokenizer] = None,
                                gradient_checkpointing: Optional[bool] = False):
     """BERT classification model based on |:hugging_face:| Transformers.
 
@@ -142,7 +150,8 @@ def create_bert_classification(num_labels: Optional[int] = 2,
               "use_cache": true,
               "vocab_size": 30522
             }
-
+            tokenizer (transformers.BertTokenizer, optional): Tokenizer used to preprocess the dataset
+                and validate the models inputs.
     To create a BERT model for classification:
 
     .. testcode::
@@ -171,6 +180,11 @@ def create_bert_classification(num_labels: Optional[int] = 2,
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()  # type: ignore
 
+    if tokenizer is None:
+        model_inputs = {'input_ids', 'attention_mask', 'token_type_ids'}
+    else:
+        model_inputs = set(tokenizer.model_input_names)
+
     metrics = [
         Accuracy(),
         MeanSquaredError(),
@@ -178,4 +192,4 @@ def create_bert_classification(num_labels: Optional[int] = 2,
         BinaryF1Score(),
         MatthewsCorrCoef(num_classes=model.config.num_labels)
     ]
-    return HuggingFaceModel(model=model, use_logits=True, metrics=metrics)
+    return HuggingFaceModel(model=model, model_inputs=model_inputs, use_logits=True, metrics=metrics)

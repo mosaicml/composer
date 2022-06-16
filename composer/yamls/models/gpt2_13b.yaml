@@ -21,6 +21,7 @@ val_dataset:
 model:
   gpt2:
     use_pretrained: false
+    tokenizer_name: gpt2
     model_config:
       activation_function: gelu_new
       architectures:

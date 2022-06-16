@@ -24,6 +24,7 @@ class HuggingFaceModel(ComposerModel):
 
     Args:
         model (transformers.PreTrainedModel): A 🤗 Transformers model.
+        model_inputs (set): Expected inputs to the model.
         use_logits (bool, optional): If True, the model's output logits will be used to calculate validation metrics. Else, metrics will be inferred from the HuggingFaceModel directly. Default: ``False``
         metrics (list[Metric], optional): list of torchmetrics to apply to the output of `validate`. Default: ``None``.
     .. warning:: This wrapper is designed to work with 🤗 datasets that define a `labels` column.
@@ -41,16 +42,21 @@ class HuggingFaceModel(ComposerModel):
 
     def __init__(self,
                  model: transformers.PreTrainedModel,
+                 model_inputs: set,
                  use_logits: Optional[bool] = False,
                  metrics: Optional[List[Metric]] = None) -> None:
         super().__init__()
         self.model = model
         self.config = model.config
 
-        self.train_metrics = None
-        self.valid_metrics = None
+        # the set of inputs that a model expects
+        # if an algorithm modifies the loss function, it must remove "labels" from this set.
+        self.model_inputs = model_inputs
 
         self.use_logits = use_logits
+
+        self.train_metrics = None
+        self.valid_metrics = None
 
         if metrics:
             metric_collection = MetricCollection(metrics)
@@ -58,6 +64,10 @@ class HuggingFaceModel(ComposerModel):
             self.valid_metrics = metric_collection.clone(prefix='val_')
 
     def forward(self, batch):
+        for key in self.model_inputs:
+            if key not in batch.keys():
+                raise ValueError(f'Batch missing key: {key}')
+
         output = self.model(**batch)  # type: ignore (thirdparty)
         return output
 
