@@ -62,7 +62,7 @@ Composer features:
   <!-- link to the light mode image even on dark mode, so it will be readable in a new tab -->
   <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_BEGIN -->
   <a href="https://storage.googleapis.com/docs.mosaicml.com/images/overview-dark.svg#gh-dark-mode-only" class="only-dark">
-    <img src="https://storage.googleapis.com/docs.mosaicml.com/images//overview-dark.svg" width="85%"/>
+    <img src="https://storage.googleapis.com/docs.mosaicml.com/images/overview-dark.svg" width="85%"/>
   </a>
   <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_END -->
 </p>
