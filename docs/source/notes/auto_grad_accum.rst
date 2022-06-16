@@ -15,9 +15,15 @@ are then accumulated prior to a weight update. In our trainer, this behavior can
 
 The setting ``grad_accum=2`` means that the batch is split into two smaller microbatches, effectively halving the total peak memory usage of the model (for more details, see :doc:. This technique is common in training language models whose memory footprint can exceed GPU memory, or in high resolution computer vision models.
 
+Tedious to Tune
+---------------
+
 While a useful technique, it's tedious to constantly try different gradient accumulation steps to get your model to fit, and more so to adjust whenever you change the batch size, move to a different GPU such as in a colab notebook, or change how many GPUs to train across. Too high of a gradient accumulation, and each microbatch size is too small for efficient GPU computing. Too low, and your model may throw a CUDA Out of Memory (OOM) error. Finding that magical combination of gradient accumulation, batch size, number of devices, etc. in these settings can be frustrating.
 
 Even more concerningly, some of our speed-up methods increase the memory consumption throughout training, risking frustrating OOMs deep into training.
+
+Automatic gradient accumulation
+-------------------------------
 
 To solve these challenges, Composer now supports automatic gradient accumulation, which can be set with:
 
@@ -33,7 +39,11 @@ To solve these challenges, Composer now supports automatic gradient accumulation
 
 With this setting, we will now catch most CUDA OOM exceptions during training, double the gradient accumulation, and attempt to retrain the batch that had failed. The trainer will start with ``grad_accum=1``, and double the setting until the memory can fit. If it reaches ``grad_accum=batch_size``, meaning that each microbatch only has 1 example, then the trainer will error out.
 
-By setting this single parameter, most OOM errors are a thing of the past, and you can now change batch sizes, different GPUs, and scale to larger (or smaller) distributed training setups, without needing to worry about fitting the batch sizes into memory! Moreover, automatic gradient accumulation also maximizes efficiency by finding the largest microbatch size that can fit into your GPU memory.
+By setting this single parameter, most OOM errors are a thing of the past, and you can now change batch sizes, different GPUs, and scale to larger (or smaller) distributed training setups, without needing to worry about fitting the batch sizes into memory!
+
+.. note::
+
+    Automatic gradient accumulation also maximizes efficiency by finding the largest microbatch size that can fit into your GPU memory.
 
 This functionality takes advantage of a unique design within our Trainer -- we ask the dataloader to return the complete batch size (also called the optimization batch size), and we handle slicing that batch into microbatches and feeding it to the model. Since we control the slicing, we can dynamically change the microbatch sizes during training.
 
