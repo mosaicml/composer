@@ -6,8 +6,9 @@ import os
 import pathlib
 import urllib.parse
 import uuid
-from cmath import e
 from typing import Callable, Optional, Union
+
+from paramiko import SSHException
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
@@ -60,10 +61,8 @@ class SFTPObjectStore(ObjectStore):
         self.sftp_client = self._create_sftp_client()
 
     def _create_sftp_client(self):
-        if self.key_file_path is None:
-            #TODO change to read SSH config when key_file_path is None
-            raise Exception('SFTPObjectStore initialized without a keyfile.')
         try:
+            # Reads known host keys if self.key_file_path is NOne
             self.ssh_client.load_system_host_keys(self.key_file_path)
         except IOError:
             raise Exception('Host keys could not be read from {key_file_path}.')
@@ -98,7 +97,9 @@ class SFTPObjectStore(ObjectStore):
         self.sftp_client.mkdir(dirname)
         try:
             self.sftp_client.put(str(filename), object_name, callback=callback, confirm=True)
-        except e:
+        except SSHException:
+            raise ObjectStoreTransientError
+        except:
             raise
 
     def download_object(self,
@@ -116,13 +117,16 @@ class SFTPObjectStore(ObjectStore):
 
         try:
             self.sftp_client.get(remotepath=object_name, localpath=tmp_path, callback=callback)
-        except:
+        except Exception as e:
             # Make a best effort attempt to clean up the temporary file
             try:
                 os.remove(tmp_path)
             except OSError:
                 pass
-            raise
+            if isinstance(e, SSHException):
+                raise ObjectStoreTransientError
+            else:
+                raise
         else:
             if overwrite:
                 os.replace(tmp_path, filename)
