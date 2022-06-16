@@ -108,6 +108,8 @@ filterwarnings = [
     'ignore:Failed to load image Python extension:UserWarning',
     # Ignore a deprecation warning in the conda build
     'ignore:distutils Version classes are deprecated:DeprecationWarning',
+    # Ignore a UserWarning from TorchMetrics about potentially large memory usage when batch sizes are extremely large
+    'ignore:Metric `SpearmanCorrcoef` will save all targets and predictions in the buffer:UserWarning:torchmetrics',
 ]
 timeout_func_only = true  # exclude fixtures from the timeout
 
