@@ -28,7 +28,7 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
 
     Args:
         model (torch.nn.Module): The model to modify in-place.
-        ghost_batch_size (int, optional): size of sub-batches to normalize over. Default: ``32``.
+        ghost_batch_size (int, optional): Size of sub-batches to normalize over. Default: ``32``.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
             Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
             constructed with ``model.parameters()`` must be specified here so that
