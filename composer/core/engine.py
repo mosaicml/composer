@@ -128,11 +128,15 @@ class Trace():
     """Record of an algorithm's execution.
 
     Attributes:
+        name (str): The name of the algorithm.
+        event (Event): The current event.
         exit_code (int | None): Optional return value from an algorithm. Default: None.
         order (int | None): Order in which the algorithm was executed
                              in the list of algorithms. None means algorithm was not run.
         run (bool): Whether the algorithm was run. Default: False
     """
+    name: str = ''
+    event: Optional[Event] = None
     exit_code: Optional[int] = None
     order: Optional[int] = None
     run: bool = False
@@ -144,7 +148,7 @@ def _setup_trace(algorithms: Sequence[Algorithm], event: Event) -> Traces:
     The keys are of format ``<algorithm_name>/<event>`` (e.g.,  ``Blurpool/INIT``) and values are an instance of
     :class:`Trace`.
     """
-    return OrderedDict([(f'{algo}/{event}', Trace()) for algo in algorithms])
+    return OrderedDict([(f'{algo}/{event}', Trace(name=algo.__class__.__name__)) for algo in algorithms])
 
 
 # Track which callbacks are already open, so it is possible to error and instruct the user to call
@@ -267,7 +271,11 @@ class Engine():
                 exit_code = algorithm.apply(event, self.state, self.logger)
 
             trace_key = f'{algorithm}/{event}'
-            trace[trace_key] = Trace(exit_code=exit_code, order=order, run=True)
+            trace[trace_key] = Trace(name=algorithm.__class__.__name__,
+                                     event=event,
+                                     exit_code=exit_code,
+                                     order=order,
+                                     run=True)
 
         if self.logger is not None:
             if event in (Event.INIT, Event.FIT_START):
@@ -279,7 +287,8 @@ class Engine():
                 # batch-frequency vs epoch-frequency evaluators
                 log_level = LogLevel.BATCH
             if len(trace) > 0:
-                self.logger.data(log_level=log_level, data={key: 1 if tr.run else 0 for key, tr in trace.items()})
+                self.logger.data(log_level=log_level,
+                                 data={f'{tr.name}/{tr.event}': 1 if tr.run else 0 for _, tr in trace.items()})
 
         return trace
 
