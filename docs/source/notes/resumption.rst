@@ -88,7 +88,6 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
         object_store_kwargs={
             "bucket": "checkpoint-debugging",
             },
-        },
     )
 
     trainer = Trainer(
@@ -119,8 +118,7 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
     object_store_logger = ObjectStoreLogger(
         object_store_cls=S3ObjectStore,
         object_store_kwargs={
-            "bucket": "checkpoint-debugging",
-            },
+            "bucket": "checkpoint-debugging_2",
         },
     )
 
