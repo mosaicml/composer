@@ -63,9 +63,9 @@ if sys.path[0] != _repo_root:
 from tests.common import SimpleModel
 
 # Change the cwd to be the tempfile, so we don't pollute the documentation source folder
-tmpdir = tempfile.TemporaryDirectory()
+tmpdir = tempfile.mkdtemp()
 cwd = os.path.abspath('.')
-os.chdir(tmpdir.name)
+os.chdir(tmpdir)
 
 num_channels = 3
 num_classes = 10
