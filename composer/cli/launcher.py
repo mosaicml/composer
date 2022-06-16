@@ -413,10 +413,14 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
                         pass
     for global_rank, process in processes.items():
         process.poll()
-        if process.returncode is not None and process.returncode > 0:
+        if process.returncode is not None and process.returncode != 0:
+            if -process.returncode in (signal.SIGKILL, signal.SIGTERM):
+                # Negative return codes indicate the process was killed via a signal
+                # If the launcher script killed the training process (which would happen via SIGKILL or SIGTERM),
+                # then do not print the stack trace.
+                continue
             # only print the processes that have actually crashed,
-            # not the ones that were killed, which would result in
-            # a negative exit code
+            # not the ones that were killed
             _print_process_exit_status(global_rank, process)
 
 

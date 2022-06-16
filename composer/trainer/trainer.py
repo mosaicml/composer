@@ -740,6 +740,8 @@ class Trainer:
         # Profiling
         profiler: Optional[Profiler] = None,
     ):
+        algorithms = list(ensure_tuple(algorithms))
+
         # Determine whether DeepSpeed is enabled
         deepspeed_enabled = deepspeed_config is not None
 
@@ -791,25 +793,13 @@ class Trainer:
                 DeprecationWarning((f"Using the 'grad_clip_norm' field in Trainer is deprecated. Please use"
                                     'the GradientClipping Algorithm in composer.algorithms.gradient_clipping.')))
 
-            print_warning = False
-            if algorithms is not None:
-                if isinstance(algorithms, Sequence):
-                    if any([isinstance(algo, GradientClipping) for algo in algorithms]):
-                        print_warning = True
-                elif isinstance(algorithms, GradientClipping):
-                    print_warning = True
-
-                if print_warning:
-                    warnings.warn(
-                        RuntimeWarning(
-                            f'The GradientClipping algorithm is already specified. Ignoring grad_clip_norm={grad_clip_norm}'
-                        ))
-
+            if any(isinstance(alg, GradientClipping) for alg in algorithms):
+                warnings.warn(
+                    UserWarning(
+                        f'The GradientClipping algorithm is already specified. Ignoring grad_clip_norm={grad_clip_norm}'
+                    ))
             else:
-                if algorithms is not None:
-                    algorithms.append(GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm))
-                else:
-                    algorithms = [GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm)]
+                algorithms.append(GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm))
 
         # Run Name
         if run_name is None:
@@ -825,9 +815,8 @@ class Trainer:
                            grad_accum=grad_accum,
                            precision=precision,
                            optimizers=optimizers,
-                           run_name=run_name)
-
-        self.state.deepspeed_config = deepspeed_config
+                           run_name=run_name,
+                           deepspeed_config=deepspeed_config)
 
         # Profiler
         if profiler is not None:
@@ -941,7 +930,7 @@ class Trainer:
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
 
         # Configure Deepspeed
-        if deepspeed_config is not None:
+        if self.state.deepspeed_config is not None:
             try:
                 import deepspeed
             except ImportError as e:

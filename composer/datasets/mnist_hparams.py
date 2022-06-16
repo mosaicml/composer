@@ -8,6 +8,7 @@ See the `wikipedia entry <https://en.wikipedia.org/wiki/MNIST_database>`_ for mo
 """
 
 from dataclasses import dataclass
+from typing import Optional
 
 import yahp as hp
 from torchvision import datasets, transforms
@@ -27,8 +28,13 @@ class MNISTDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     Args:
         download (bool, optional): Whether to download the dataset, if needed. Default:
             ``True``.
+        datadir (str): The path to the data directory.
+        is_train (bool): Whether to load the training data or validation data. Default:
+            ``True``.
     """
     download: bool = hp.optional('whether to download the dataset, if needed', default=True)
+    is_train: bool = hp.optional('Whether to load the training data (the default) or validation data.', default=True)
+    datadir: Optional[str] = hp.optional('The path to the data directory', default=None)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
         if self.use_synthetic:
