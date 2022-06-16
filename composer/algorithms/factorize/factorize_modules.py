@@ -382,7 +382,7 @@ class FactorizedLinear(_FactorizedModule):
     See :func:`.factorize_matrix` for more details.
 
     Args:
-        in_features (int): size of each input sample
+        in_features (int): Size of each input sample
         out_features (int): size of each output sample
         bias (bool, optional): If set to False, the layer will not learn an additive bias.
             Default: ``True``.
