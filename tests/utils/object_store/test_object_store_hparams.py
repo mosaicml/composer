@@ -10,7 +10,7 @@ from composer.utils.object_store.object_store_hparams import (LibcloudObjectStor
                                                               SFTPObjectStoreHparams, object_store_registry)
 from tests.common.hparams import assert_in_registry, construct_from_yaml
 from tests.utils.object_store.object_store_settings import object_store_hparams, object_store_kwargs
-from tests.utils.object_store.test_object_store import MockSFTPObjectStore
+from tests.utils.object_store.test_object_store import _create_sftp_client
 
 
 @pytest.mark.parametrize('constructor', object_store_hparams)
@@ -26,9 +26,7 @@ def test_object_store_hparams_is_constructable(
     if constructor is LibcloudObjectStoreHparams:
         monkeypatch.setenv('OBJECT_STORE_KEY', '.')
     if constructor is SFTPObjectStoreHparams:
-        monkeypatch.setattr(target=SFTPObjectStore,
-                            name='_create_sftp_client',
-                            value=MockSFTPObjectStore._create_sftp_client)
+        monkeypatch.setattr(target=SFTPObjectStore, name='_create_sftp_client', value=_create_sftp_client)
     instance = construct_from_yaml(constructor, yaml_dict=yaml_dict)
     object_store = instance.initialize_object()
     assert isinstance(object_store, ObjectStore)
