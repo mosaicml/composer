@@ -30,12 +30,12 @@ def assert_is_fln_instance(model: BERTModel):
             module_class, LayerNorm), 'A torch.nn.LayerNorm should not be found in the model after surgery is applied.'
 
     assert any(isinstance(module_class, APEXFusedLayerNorm) for module_class in model.modules()
-              ), "apex.normalization.fused_layer_norm is not found in the post-surgery model."
+              ), 'apex.normalization.fused_layer_norm is not found in the post-surgery model.'
 
 
 @device('gpu')
 def test_fused_layernorm_functional(synthetic_bert_state: Tuple, device: str):
-    state, model, _ = synthetic_bert_state
+    state, _, _ = synthetic_bert_state
     apply_fused_layernorm(state.model, state.optimizers)
     assert_is_fln_instance(state.model)
 

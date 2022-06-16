@@ -51,7 +51,7 @@ def apply_fused_layernorm(model: torch.nn.Module, optimizers: Union[torch.optim.
     # prepare the replacement policy and perform replacement
     policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {torch.nn.LayerNorm: from_LayerNorm}
     replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
-    if replaced_instances == 0:
+    if len(replaced_instances) == 0:
         warnings.warn(
             NoEffectWarning(
                 'No instances of `torch.nn.LayerNorm` were found, and therefore, there were no modules to replace.'))
@@ -77,7 +77,7 @@ class FusedLayerNorm(Algorithm):
 
            FusedLayerNorm.apply = no_op
 
-           model, train_dataloader, optimizer = make_synthetic_bert_state()
+           model, train_dataloader, optimizer = _make_synthetic_bert_state()
 
         .. testcode::
 

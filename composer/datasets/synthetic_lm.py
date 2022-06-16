@@ -149,19 +149,21 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
 
     tokenizer.train_from_iterator(flattened_dataset, trainer=tokenizer_trainer)
 
-    # resort the tokenizer vocabulary in order to create determinism in the dataloader
-    vocab = tokenizer.get_vocab()
-    # start by deleting the special tokens from the vocab map
-    for token in tokenizer_trainer.special_tokens:
-        del vocab[token.content]
-    # re-assign token indicies
-    for idx, vocab_item in enumerate(sorted(vocab.keys())):
-        vocab[vocab_item] = idx + len(tokenizer_trainer.special_tokens)
-    # add special tokens back in
-    for idx, token in enumerate(tokenizer_trainer.special_tokens):
-        vocab[token.content] = idx
+    # re-sort the tokenizer vocabulary in order to create determinism in the dataloader
+    # TODO: handle the GPT case in the future
+    if isinstance(tokenizer.model, tokenizers_models.WordPiece):
+        vocab = tokenizer.get_vocab()
+        # start by deleting the special tokens from the vocab map
+        for token in tokenizer_trainer.special_tokens:
+            del vocab[token.content]
+        # re-assign token indicies
+        for idx, vocab_item in enumerate(sorted(vocab.keys())):
+            vocab[vocab_item] = idx + len(tokenizer_trainer.special_tokens)
+        # add special tokens back in
+        for idx, token in enumerate(tokenizer_trainer.special_tokens):
+            vocab[token.content] = idx
 
-    tokenizer.model = tokenizer.model.__class__(vocab)
+        tokenizer.model = tokenizer.model.__class__(vocab)  # type: ignore
 
     # save the tokenizer config
     with TemporaryDirectory() as tmp_path:
