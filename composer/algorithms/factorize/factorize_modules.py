@@ -139,7 +139,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
 
         Args:
             input (torch.Tensor): Tensor that can be passed to the model's `forward()` method.
-            rank (int): dimensionality of the latent representation; this is the
+            rank (int): Dimensionality of the latent representation; this is the
                 size of the vector space when factorizing linear modules and
                 the number of channels for convolutional modules.
 
