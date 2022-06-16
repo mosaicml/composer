@@ -57,7 +57,7 @@ reportUnusedCoroutine = "error"
 # Pytest
 [tool.pytest.ini_options]
 # By default, do not run gpu, vision, notebook, or daily tests
-addopts = "--strict-markers -m 'not gpu and not vision and not daily and not remote'"
+addopts = "--codeblocks --strict-markers -m 'not gpu and not vision and not daily and not remote'"
 
 # by default, tests should be fast.
 # for slower tests, use @pytest.mark.timeout with a higher timeout (specified in seconds)
@@ -79,7 +79,14 @@ markers = [
 ]
 filterwarnings = [
     "error",  # Mark all warnings as errors
-    "default::DeprecationWarning",  # But treat all deprecation warnings as warnings
+
+    # Treat the warnings that python usually would ignore as warnings, not errors.
+    "default::DeprecationWarning",
+    'default::PendingDeprecationWarning',
+    'default::ImportWarning',
+    'ignore::ResourceWarning',  # Ignore these -- they are from errors like CPU OOMs
+
+    # Ignore the following warnings
     'ignore:Deterministic mode is activated:UserWarning',  # All tests run with deterministic mode
     'ignore:SubsetNumBatchesWarning',  # SubsetNumBatches is used extensively in testing
     # allow training metrics
