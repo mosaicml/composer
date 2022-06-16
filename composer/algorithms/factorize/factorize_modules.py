@@ -465,7 +465,7 @@ class FactorizedLinear(_FactorizedModule):
             out_features (int): size of each output sample.
 
         Returns:
-            int: the largest allowable number of latent features.
+            int: The largest allowable number of latent features.
         """
         return _max_rank_with_possible_speedup(in_features, out_features)
 
