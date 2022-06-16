@@ -14,6 +14,7 @@ from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
 from composer.algorithms.ema import EMA
 from composer.algorithms.factorize import Factorize
+from composer.algorithms.fused_layernorm import FusedLayerNorm
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm
 from composer.algorithms.gradient_clipping import GradientClipping
 from composer.algorithms.label_smoothing import LabelSmoothing
@@ -38,6 +39,7 @@ algorithm_registry: Dict[str, Union[Type[Algorithm], Type[hp.Hparams]]] = {
     'cutout': CutOut,
     'ema': EMA,
     'factorize': Factorize,
+    'fused_layernorm': FusedLayerNorm,
     'ghost_batchnorm': GhostBatchNorm,
     'label_smoothing': LabelSmoothing,
     'layer_freezing': LayerFreezing,
