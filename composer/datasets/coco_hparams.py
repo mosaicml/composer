@@ -20,7 +20,7 @@ __all__ = ['COCODatasetHparams', 'StreamingCOCOHparams']
 @dataclass
 class COCODatasetHparams(DatasetHparams):
     """Defines an instance of the COCO Dataset.
-    
+
     Args:
         datadir (str): The path to the data directory.
         is_train (bool): Whether to load the training data or validation data. Default:
