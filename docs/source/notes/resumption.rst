@@ -1,7 +1,7 @@
 |:play_or_pause_button:| Auto Resumption
 ========================================
 
-Resuming from checkpoints is commonly used to recover from hardware failures (e.g. spot instances in the cloud being terminiated), loss spikes for large language models, or other unforseen errors. Our trainer supports resuming from checkpoints with the ``load_path`` argument (see :doc:`/trainer/checkpointing` for more details).
+Resuming from checkpoints is commonly used to recover from hardware failures (e.g. spot instances in the cloud being terminiated), loss spikes for large language models, or other unforseen errors. Our trainer supports resuming from checkpoints with the ``load_path`` argument (see :doc:`/trainer/checkpointing` for more details):
 
 .. testsetup::
 
@@ -31,7 +31,17 @@ Resuming from checkpoints is commonly used to recover from hardware failures (e.
 
 .. testcode::
 
-    x = 2
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration="90ep",
+        save_overwrite=True,
+        load_path="./path/to/checkpoints/ep25.pt",
+    )
+    trainer.fit()
+
+The above code will load the checkpoint from epoch 25 and continue training
+for another 65 epochs (to reach 90 epochs total).
 
 However, recovering from a failure here would still require manual intervention to relaunch a new job with the ``load_path`` pointing to the correct checkpoint.
 
@@ -48,7 +58,7 @@ Instead, our trainer supports the ``autoresume=True`` feature. With autoresume, 
 
 With autoresume, users can re-submit the _same_ code to the training run, and the trainer will handle finding and resuming from the latest checkpoints. This works well with systems like Kubernetes that automatically resubmit the same job when there is a node failure (due to spot instances as well). For ``autoresume=True`` to work, we require that both a ``save_folder`` and a ``run_name`` be provided. These are used to search for existing checkpoints.
 
-For an example code, see ``examples/checkpoint_autoresume.py``.
+For an example code, see `examples/checkpoint_autoresume.py <https://github.com/mosaicml/composer/blob/dev/examples/checkpoint_autoresume.py>`_.
 
 Implementation
 --------------
@@ -59,6 +69,8 @@ During training, the trainer always symlinks the latest checkpoint to a format (
 2. If no local checkpoints are found, then each logger is checked for files of the format ``"{run_name}/checkpoints/latest-rank{rank}"``. This is often used for resuming from an object store such as S3.
 3. Finally, ``load_path`` is used to load a checkpoint. This can be used for example, a fine-tuning run on a spot instance, where ``load_path`` would be set to the original weights.
 
+Below, are some examples that demonstrate the object store logger (#2 above) and using the ``load_path`` for fine-tuning purposes (#3 above).
+
 Example: Object Store
 ---------------------
 
@@ -68,15 +80,13 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
 .. testcode::
 
     from composer.loggers import ObjectStoreLogger
+    from composer.utils.object_store import S3ObjectStore
 
+    # this assumes credentials are already configured via boto3
     object_store_logger = ObjectStoreLogger(
-        object_store_cls=LibcloudObjectStore,
+        object_store_cls=S3ObjectStore,
         object_store_kwargs={
-            "provider": "s3",
-            "container": "checkpoint-debugging",  # bucket name
-            "provider_kwargs": {
-                'key': 'provider_key',  # The cloud provider key.
-                'secret': '*******',  # The cloud provider secret.
+            "bucket": "checkpoint-debugging",
             },
         },
     )
@@ -104,15 +114,12 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
 .. testsetup::
 
     from composer.loggers import ObjectStoreLogger
+    from composer.utils.object_store import S3ObjectStore
 
     object_store_logger = ObjectStoreLogger(
-        object_store_cls=LibcloudObjectStore,
+        object_store_cls=S3ObjectStore,
         object_store_kwargs={
-            "provider": "s3",
-            "container": "checkpoint-debugging",  # bucket name
-            "provider_kwargs": {
-                'key': 'provider_key',  # The cloud provider key.
-                'secret': '*******',  # The cloud provider secret.
+            "bucket": "checkpoint-debugging",
             },
         },
     )
@@ -123,7 +130,7 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
         ...,
         autoresume=True,
         load_path='pretrained_weights/model.pt',
-        save_path='checkpoints',
+        save_folder='checkpoints',
         run_name='my_cool_run',
         loggers=[
             object_store_logger
@@ -132,3 +139,7 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
 
 
 In the original run, ``load_path`` would be used to get the starting checkpoint. For any future restarts, such as due to the spot instance being terminated, the loggers would be queried for the latest checkpoint the object store logger would be downloaded and used to resume training, and the ``load_path`` would be ignored.
+
+.. note::
+
+    The pretrained weights can also be loaded from object store with the trainer's ``load_object_store`` argument. In that way, our trainer is fully independent of any local storage!

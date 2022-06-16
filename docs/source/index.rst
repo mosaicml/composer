@@ -49,7 +49,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
 .. toctree::
    :hidden:
    :maxdepth: 1
-   :caption: Notebooks
+   :caption: Tutorials
 
 
    examples/getting_started.ipynb
@@ -92,8 +92,8 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    :maxdepth: 1
    :caption: Notes
 
-   trainer/distributed_training.rst
-   trainer/numerics.md
+   notes/distributed_training.rst
+   notes/numerics.md
    notes/auto_grad_accum.rst
    notes/resumption.rst
 
