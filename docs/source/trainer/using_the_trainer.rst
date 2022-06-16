@@ -315,7 +315,7 @@ data parallel across 8 GPUs the dataloader should set ``batch_size=256``.
 
 .. seealso::
 
-    Our :doc:`distributed_training` guide and
+    Our :doc:`/notes/distributed_training` guide and
     the :mod:`composer.utils.dist` module.
 
 
@@ -408,6 +408,10 @@ We recommend using ``amp`` on GPUs to accelerate your training.
         device='gpu',
         precision='amp'
     )
+
+.. seealso::
+
+    Our :doc:`/notes/numerics` guide.
 
 Checkpointing
 ~~~~~~~~~~~~~

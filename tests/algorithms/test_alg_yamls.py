@@ -14,7 +14,7 @@ from composer.algorithms.algorithm_hparams_registry import algorithm_registry
 from composer.core.precision import Precision
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.trainer_hparams import TrainerHparams
-from tests.common import configure_dataset_hparams_for_synthetic, configure_model_hparams_for_synthetic
+from tests.common import configure_dataset_hparams_for_synthetic, configure_model_hparams_for_synthetic, device
 
 modeldir_path = os.path.join(os.path.dirname(composer.__file__), 'yamls', 'models')
 model_names = glob.glob(os.path.join(modeldir_path, '*.yaml'))
@@ -34,11 +34,17 @@ def load(algorithm_cls: Union[Type[Algorithm], Type[hp.Hparams]], alg_params: Op
     return alg
 
 
-def load_multiple(cls, *algorithms: str) -> List[Algorithm]:
+def load_multiple(cls, *algorithms: str, device: str) -> List[Algorithm]:
     algs = []
     for alg in algorithms:
         alg_parts = alg.split('/')
         alg_name = alg_parts[0]
+
+        # skip over algorithms that require GPU if a GPU is not available
+        if device != 'gpu':
+            if alg_name == 'fused_layernorm':
+                continue
+
         if len(alg_parts) > 1:
             alg_params = '/'.join(alg_parts[1:])
         else:
@@ -47,6 +53,7 @@ def load_multiple(cls, *algorithms: str) -> List[Algorithm]:
             alg = algorithm_registry[alg_name]
         except KeyError as e:
             raise ValueError(f'Algorithm {e.args[0]} not found') from e
+
         algs.append(load(alg, alg_params))
     return algs
 
@@ -100,11 +107,12 @@ def get_model_algs(model_name: str) -> List[str]:
     return algs
 
 
+@device('cpu', 'gpu')
 @pytest.mark.parametrize('model_name', model_names)
 @pytest.mark.timeout(15)
 @pytest.mark.filterwarnings(
-    r'ignore:Metric `SpearmanCorrcoef` will save all targets and predictions in the buffer:UserWarning:torchmetrics')
-def test_load(model_name: str):
+    r'ignore:No instances of `torch.nn.LayerNorm` were found, and therefore, there were no modules to replace.')
+def test_load(model_name: str, device: str):
     if 'timm' in model_name:
         pytest.importorskip('timm')
     if 'vit' in model_name:
@@ -117,7 +125,7 @@ def test_load(model_name: str):
 
     trainer_hparams = TrainerHparams.load(model_name)
     trainer_hparams.precision = Precision.FP32
-    trainer_hparams.algorithms = load_multiple(*get_model_algs(model_name))
+    trainer_hparams.algorithms = load_multiple(*get_model_algs(model_name), device=device)
 
     assert trainer_hparams.train_dataset is not None
     configure_dataset_hparams_for_synthetic(trainer_hparams.train_dataset, model_hparams=trainer_hparams.model)
