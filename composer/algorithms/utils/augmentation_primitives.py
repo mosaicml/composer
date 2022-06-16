@@ -14,8 +14,8 @@ Attributes:
     AugmentationFn ((PIL.Image.Image, float) -> PIL.Image.Image):
         The type annotation for describing an augmentation function.
 
-        Each augmentation takes a :class:`~PIL.Image.Image` and an intensity level in
-        the range ``[0; 10]`` and returns an augmented image.
+        Each augmentation takes a :class:`PIL.Image.Image` and an intensity level in the range ``[0, 10]``,
+        and returns an augmented image.
 
     augmentation_sets (Dict[str, List[AugmentationFn]]): The collection of all augmentations.
         This dictionary has the following entries:

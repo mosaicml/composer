@@ -142,8 +142,7 @@ class StochasticDepth(Algorithm):
 
     .. note::
 
-        Stochastic Depth only works on instances of :class:`torchvision.models.resnet.ResNet`
-        for now.
+        Stochastic Depth only works on instances of :class:`torchvision.models.resnet.ResNet` for now.
 
     Args:
         target_layer_name (str): Block to replace with a stochastic block

@@ -103,9 +103,8 @@ class MixUp(Algorithm):
             approaches 0 from above, the combination approaches only using
             one element of the pair. Default: ``0.2``.
         interpolate_loss (bool, optional): Interpolates the loss rather than the labels.
-            A useful trick when using a cross entropy loss.
-            Will produce incorrect behavior if the loss is not a linear
-            function of the targets. Default: ``False``
+            A useful trick when using a cross entropy loss. Will produce incorrect behavior
+            if the loss is not a linear function of the targets. Default: ``False``
         input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
