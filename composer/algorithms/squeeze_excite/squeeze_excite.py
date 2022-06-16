@@ -23,7 +23,7 @@ def apply_squeeze_excite(
     optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
 ):
     """Adds Squeeze-and-Excitation blocks (`Hu et al, 2019 <https://arxiv.org/abs/1709.01507>`_) after
-    :class:`~torch.nn.Conv2d` layers.
+    :class:`torch.nn.Conv2d` layers.
 
     A Squeeze-and-Excitation block applies global average pooling to the input,
     feeds the resulting vector to a single-hidden-layer fully-connected
@@ -36,9 +36,9 @@ def apply_squeeze_excite(
         model (torch.nn.Module): The module to apply squeeze excite replacement to.
         latent_channels (float, optional): Dimensionality of the hidden layer within the added
             MLP. If less than 1, interpreted as a fraction of the number of
-            output channels in the :class:`~torch.nn.Conv2d` immediately
+            output channels in the :class:`torch.nn.Conv2d` immediately
             preceding each Squeeze-and-Excitation block. Default: ``64``.
-        min_channels (int, optional): An SE block is added after a :class:`~torch.nn.Conv2d`
+        min_channels (int, optional): An SE block is added after a :class:`torch.nn.Conv2d`
             module ``conv`` only if one of the layer's input or output channels is greater than
             this threshold. Default: ``128``.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
@@ -109,7 +109,7 @@ class SqueezeExcite2d(torch.nn.Module):
 
 
 class SqueezeExciteConv2d(torch.nn.Module):
-    """Helper class used to add a :class:`SqueezeExcite2d` module after a :class:`~torch.nn.Conv2d`."""
+    """Helper class used to add a :class:`.SqueezeExcite2d` module after a :class:`torch.nn.Conv2d`."""
 
     def __init__(self, *args, latent_channels: float = 0.125, conv: Optional[torch.nn.Conv2d] = None, **kwargs):
         super().__init__()
@@ -126,18 +126,17 @@ class SqueezeExciteConv2d(torch.nn.Module):
 
 class SqueezeExcite(Algorithm):
     """Adds Squeeze-and-Excitation blocks (`Hu et al, 2019 <https://arxiv.org/abs/1709.01507>`_) after the
-    :class:`~torch.nn.Conv2d` modules in a neural network.
+    :class:`torch.nn.Conv2d` modules in a neural network.
 
     Runs on :attr:`~composer.core.event.Event.INIT`. See :class:`SqueezeExcite2d` for more information.
 
     Args:
         latent_channels (float, optional): Dimensionality of the hidden layer within the added
             MLP. If less than 1, interpreted as a fraction of the number of
-            output channels in the :class:`~torch.nn.Conv2d` immediately
+            output channels in the :class:`torch.nn.Conv2d` immediately
             preceding each Squeeze-and-Excitation block. Default: ``64``.
-        min_channels (int, optional): An SE block is added after a
-            :class:`~torch.nn.Conv2d` module ``conv`` only if
-            ``min(conv.in_channels, conv.out_channels) >= min_channels``.
+        min_channels (int, optional): An SE block is added after a :class:`torch.nn.Conv2d`
+            module ``conv`` only if ``min(conv.in_channels, conv.out_channels) >= min_channels``.
             For models that reduce spatial size and increase channel count
             deeper in the network, this parameter can be used to only
             add SE blocks deeper in the network. This may be desirable
@@ -154,24 +153,9 @@ class SqueezeExcite(Algorithm):
         self.min_channels = min_channels
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on :attr:`~composer.core.event.Event.INIT`
-
-        Args:
-            event (Event): The current event.
-            state (State): The current state.
-        Returns:
-            bool: True if this algorithm should run no
-        """
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Applies the Squeeze-and-Excitation layer replacement.
-
-        Args:
-            event (Event): The current event.
-            state (State): The current trainer state.
-            logger (Logger): The training logger.
-        """
         state.model = apply_squeeze_excite(state.model,
                                            optimizers=state.optimizers,
                                            latent_channels=self.latent_channels,

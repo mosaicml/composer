@@ -47,9 +47,7 @@ class StochasticBottleneck(Bottleneck):
 
     This block has a probability of
     skipping the transformation section of the layer and scales the
-    transformation section.
-
-    output by ``(1 - drop probability)`` during inference.
+    transformation section output by ``(1 - drop probability)`` during inference.
 
     Args:
         drop_rate (float): Probability of dropping the block. Must be between

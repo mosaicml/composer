@@ -148,7 +148,7 @@ class ProgressiveResizing(Algorithm):
     Args:
         mode (str, optional): Type of scaling to perform. Value must be one of ``'crop'`` or ``'resize'``.
             ``'crop'`` performs a random crop, whereas ``'resize'`` performs a bilinear
-            interpolation. Default: ``"resize"``.
+            interpolation. Default: ``'resize'``.
         initial_scale (float, optional): Initial scale factor used to shrink the inputs. Must be a
             value in between 0 and 1. Default: ``0.5``.
         finetune_fraction (float, optional): Fraction of training to reserve for finetuning on the

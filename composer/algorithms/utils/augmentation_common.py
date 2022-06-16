@@ -27,7 +27,7 @@ def image_as_type(image: _InputImgT, typ: Type[_OutputImgT]) -> _OutputImgT:
             copied image. Must be :class:`PIL.Image.Image` or :class:`torch.Tensor`.
 
     Returns:
-        A copy of ``image`` with type ``typ``
+        A copy of ``image`` with type ``typ``.
 
     Raises:
         TypeError: if ``typ`` is not one of :class:`torch.Tensor` or
@@ -51,9 +51,9 @@ def map_pillow_function(f_pil: Callable[[PillowImage], PillowImage], imgs: _Outp
     """Lifts a function that requires pillow images to also work on tensors.
 
     Args:
-        f_pil: a callable that takes maps :class:`PIL.Image.Image` objects
+        f_pil ((PIL.Image.Image) -> PIL.Image.Image): A callable that takes maps :class:`PIL.Image.Image` objects.
             to other :class:`PIL.Image.Image` objects.
-        imgs: a :class:`PIL.Image.Image` or a :class:`torch.Tensor` in ``HW``,
+        imgs (torch.Tensor | PIL.Image.Image): a :class:`PIL.Image.Image` or a :class:`torch.Tensor` in ``HW``,
             ``CHW`` or ``NCHW`` format.
 
     Returns:
