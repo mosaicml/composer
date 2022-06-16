@@ -461,7 +461,7 @@ class FactorizedLinear(_FactorizedModule):
         """Returns the largest latent feature count that reduces the number of multiply-adds.
 
         Args:
-            in_features (int): size of each input sample.
+            in_features (int): Size of each input sample.
             out_features (int): Size of each output sample.
 
         Returns:
