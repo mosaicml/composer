@@ -203,7 +203,7 @@ class EMA(Algorithm):
             model (torch.nn.Module): the model to convert into the ema model.
 
         Returns:
-            model (torch.nn.Module): the input model with parameters and buffers replaced
+            torch.nn.Module: The input model with parameters and buffers replaced
                 with the averaged parameters and buffers.
         """
         if self.ema_model is None:
