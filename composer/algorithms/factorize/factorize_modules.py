@@ -462,7 +462,7 @@ class FactorizedLinear(_FactorizedModule):
 
         Args:
             in_features (int): size of each input sample.
-            out_features (int): size of each output sample.
+            out_features (int): Size of each output sample.
 
         Returns:
             int: The largest allowable number of latent features.
