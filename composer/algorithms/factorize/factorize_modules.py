@@ -386,7 +386,7 @@ class FactorizedLinear(_FactorizedModule):
         out_features (int): size of each output sample
         bias (bool, optional): If set to False, the layer will not learn an additive bias.
             Default: ``True``.
-        latent_features (int | float, optional): size of the latent space.
+        latent_features (int | float, optional): Size of the latent space.
             Can be specified as either an integer > 1 or as a float within
             ``[0, 0.5)``. In the latter case, the value is interpreted as a fraction
             of ``min(in_features, out_features)``, and is converted to the
