@@ -269,7 +269,7 @@ class Engine():
                 exit_code = algorithm.apply(event, self.state, self.logger)
 
             trace_key = f'{algorithm}/{event}'
-            trace[trace_key] = Trace(exit_code=exit_code, order=order, run=True)
+            trace[trace_key] = Trace(name=algorithm.__class__.__name__, exit_code=exit_code, order=order, run=True)
 
         if self.logger is not None:
             if event in (Event.INIT, Event.FIT_START):
