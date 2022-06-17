@@ -30,7 +30,7 @@ The EarlyStopper callback takes several parameters.
         callbacks=[early_stopper]
     )
 
-In the above example, the ``'train'`` label means the callback is tracking the ``Accuracy`` metric for the train_dataloader (unless we changed the default label in the ``Trainer`` using the ``train_dataloader_label`` parameter).
+In the above example, the ``'train'`` label means the callback is tracking the ``Accuracy`` metric for the train_dataloader (unless we changed the default label in the Trainer using the ``train_dataloader_label`` parameter).
 
 We also set ``patience='50ba'`` and ``min_delta=0.01`` which means that every 50 batches, if the Accuracy does not exceed the best recorded Accuracy by ``0.01``, training is stopped.
 
@@ -68,7 +68,7 @@ Briefly, each Evaluator has a ``label`` field that gets used for logging, a ``me
 
 Here is an example of how to use the EarlyStopper with an Evaluator:
 
-.. code:: python
+.. testcode::
 
     from composer import Trainer, Evaluator
     from torchmetrics.classification.accuracy import Accuracy
@@ -79,8 +79,10 @@ Here is an example of how to use the EarlyStopper with an Evaluator:
     early_stopper = EarlyStopper(monitor='Accuracy', dataloader_label='eval_dataset1', patience=1)
 
     trainer = Trainer(
-        ...
+        train_dataloader=train_dataloader,
         eval_dataloader=eval_evaluator,
+        optimizers=optimizer,
+        max_duration="1ep",
     )
 
 When using the EarlyStopper or ThresholdStopper callbacks with :class:`.Evaluator` objects, make sure that the ``dataloader_label`` and ``label`` field in the right :class:`.Evaluator` match.
