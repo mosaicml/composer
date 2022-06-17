@@ -229,15 +229,17 @@ class SFTPObjectStoreHparams(ObjectStoreHparams):
         host (str): See :class:`.SFTPObjectStore`.
         port (int, optional): See :class:`.SFTPObjectStore`.
         username (str, optional): See :class:`.SFTPObjectStore`.
-        key_file_path (str, optional): See :class:`.SFTPObjectStore`.
+        known_hosts_filename (str, optional): See :class:`.SFTPObjectStore`.
         cwd (str, optional): See :class:`.SFTPObjectStore`.
+        connect_kwargs (Dict[str, Any], optional): See :class:`.SFTPObjectStore`.
     """
 
     host: str = hp.auto(SFTPObjectStore, 'host')
     port: int = hp.auto(SFTPObjectStore, 'port')
     username: str = hp.auto(SFTPObjectStore, 'username')
-    key_file_path: str = hp.auto(SFTPObjectStore, 'key_file_path')
+    known_hosts_filename: str = hp.auto(SFTPObjectStore, 'known_hosts_filename')
     cwd: Optional[str] = hp.auto(SFTPObjectStore, 'cwd')
+    connect_kwargs: Optional[Dict[str, Any]] = hp.auto(SFTPObjectStore, 'connect_kwargs')
 
     def get_object_store_cls(self) -> Type[ObjectStore]:
         return SFTPObjectStore

@@ -2,20 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import contextlib
-import os
+import copy
 import pathlib
-import tempfile
-from typing import Generator, Optional
+from typing import Type
 
-import mockssh
-import moto
 import pytest
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
 
 from composer.utils.object_store import LibcloudObjectStore, ObjectStore, S3ObjectStore, SFTPObjectStore
 from composer.utils.object_store.sftp_object_store import SFTPObjectStore
-from tests.utils.object_store.object_store_settings import object_store_kwargs
+from tests.utils.object_store.object_store_settings import get_object_store_ctx, object_store_kwargs, object_stores
 
 
 class MockCallback:
@@ -35,62 +30,21 @@ class MockCallback:
         assert self.total_num_bytes == self.transferred_bytes
 
 
-# function to create mock-ssh-server
-def _create_sftp_client(self: SFTPObjectStore):
-    server = mockssh.Server(users={})
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    pem = private_key.private_bytes(encoding=serialization.Encoding.PEM,
-                                    format=serialization.PrivateFormat.TraditionalOpenSSL,
-                                    encryption_algorithm=serialization.NoEncryption())
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmppath = os.path.join(tmpdir, 'test_rsa_key')
-        private_key_file = open(tmppath, 'wb')
-        private_key_file.write(pem)
-        private_key_file.close()
-        server.add_user(uid=self.username, private_key_path=tmppath)
-        server.__enter__()
-        self.ssh_client = server.client(self.username)
-        self.sftp_client = self.ssh_client.open_sftp()
-        return self.sftp_client
-
-
-@pytest.fixture
-def object_store(request, monkeypatch: pytest.MonkeyPatch,
-                 tmp_path: pathlib.Path) -> Generator[ObjectStore, None, None]:
-    if request.param is S3ObjectStore:
-        pytest.importorskip('boto3')
-        import boto3
-        monkeypatch.setenv('AWS_ACCESS_KEY_ID', 'testing')
-        monkeypatch.setenv('AWS_SECRET_ACCESS_KEY', 'testing')
-        monkeypatch.setenv('AWS_SECURITY_TOKEN', 'testing')
-        monkeypatch.setenv('AWS_SESSION_TOKEN', 'testing')
-        monkeypatch.setenv('AWS_DEFAULT_REGION', 'us-east-1')
-        with moto.mock_s3():
-            # create the dummy bucket
-            s3 = boto3.client('s3')
-            s3.create_bucket(Bucket=object_store_kwargs[S3ObjectStore]['bucket'])
-
-            # Yield our object store
-            yield request.param(**object_store_kwargs[request.param])
-    elif request.param is LibcloudObjectStore:
-        pytest.importorskip('libcloud')
-
-        remote_dir = tmp_path / 'remote_dir'
-        os.makedirs(remote_dir)
-        object_store_kwargs[request.param]['provider_kwargs']['key'] = remote_dir
-        yield request.param(**object_store_kwargs[request.param])
-    elif request.param is SFTPObjectStore:
-        monkeypatch.setattr(target=SFTPObjectStore, name='_create_sftp_client', value=_create_sftp_client)
-        yield request.param(**object_store_kwargs[request.param])
-    else:
-        raise NotImplementedError('Parameterization not implemented')
-
-
-@pytest.mark.parametrize('object_store', [S3ObjectStore, LibcloudObjectStore, SFTPObjectStore], indirect=True)
+@pytest.mark.parametrize('object_store_cls', object_stores)
 class TestObjectStore:
 
     @pytest.fixture
-    def dummy_obj(self, object_store: ObjectStore, tmp_path: pathlib.Path):
+    def object_store(self, object_store_cls: Type[ObjectStore], monkeypatch: pytest.MonkeyPatch,
+                     tmp_path: pathlib.Path):
+        with get_object_store_ctx(object_store_cls, monkeypatch, tmp_path):
+            copied_config = copy.deepcopy(object_store_kwargs[object_store_cls])
+            # type error: Type[ObjectStore] is not callable
+            object_store = object_store_cls(**copied_config)  # type: ignore
+            with object_store:
+                yield object_store
+
+    @pytest.fixture
+    def dummy_obj(self, tmp_path: pathlib.Path):
         tmpfile_path = tmp_path / 'file_to_upload'
         with open(tmpfile_path, 'w+') as f:
             f.write('dummy content')
@@ -109,7 +63,7 @@ class TestObjectStore:
         elif isinstance(object_store, LibcloudObjectStore):
             assert uri == 'local://./tmpfile_object_name'
         elif isinstance(object_store, SFTPObjectStore):
-            assert uri == 'sftp://test_hostname:24/tmpfile_object_name'
+            assert uri == 'sftp://test_user@localhost:23/tmpfile_object_name'
         else:
             raise NotImplementedError(f'Object store {type(object_store)} not implemented.')
 

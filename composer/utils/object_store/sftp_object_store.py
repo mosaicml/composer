@@ -6,101 +6,160 @@ import os
 import pathlib
 import urllib.parse
 import uuid
-from typing import Callable, Optional, Union
-
-from paramiko import SSHException
+from typing import Any, Callable, Dict, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
 
 __all__ = ['SFTPObjectStore']
 
+try:
+    from paramiko import SSHClient
+    _PARAMIKO_AVAILABLE = True
+except ImportError:
+    _PARAMIKO_AVAILABLE = False
+
+
+def _set_kwarg(value: Any, kwargs: Dict[str, Any], arg_name: str, kwarg_name: str):
+    if kwarg_name in kwargs:
+        raise ValueError(f'The `{arg_name}` should be not be specified directly if also included via `connect_kwargs`')
+    kwargs[kwarg_name] = value
+
+
+def _ensure_transient_errors_are_wrapped(e: Exception):
+    from paramiko import SSHException
+    if isinstance(e, SSHException):
+        if 'Server connection dropped:' in str(e):
+            raise ObjectStoreTransientError from e
+    raise e
+
 
 class SFTPObjectStore(ObjectStore):
     """Utility for uploading to and downloading to a server via SFTP.
 
     Args:
-        host (str): The server to connect to. Also accepts a string in the form 'username@host'
-        port (int, optional): The server port to connect to. Defaults to 22
-        username (str, optional): The username to authenticate. Raises an exception if username is not
-            passed in and also cannot be read from the host argument.
-        key_file_path (str, optional): The filename of the private key.
+        host (str): The server to connect to.
+
+            Also accepts a URI string in the form ``'sftp://username@host:port/./relative/path'``.
+            For an absolute path, use a double `//` -- e.g. ``'sftp://username@host:port//absolute/path'``.
+
+        port (int, optional): The server port to connect to.
+        username (str, optional): The username (if not specified in the SSH config) needed to authenticate.
+            Defaults to None.
+        password (str, optional): The password (if required) needed to authenticate. Defaults to None.
+        known_hosts_filename (pathlib.Path | str, optional): The filename of the private key.
         cwd (str, optional): The directory to navigate to upon creating the SSH connection. If not present
             it will be created.
+        connect_kwargs (Dict[str, Any], optional): Any additional kwargs to pass through to :meth:`.SSHClient.connect`.
     """
 
-    def __init__(self,
-                 host: str,
-                 port: int = 22,
-                 username: Optional[str] = None,
-                 key_file_path: Optional[str] = None,
-                 cwd: Optional[str] = None):
-        self.host = host
-        self.port = port
-        self.username = username
-        self.key_file_path = key_file_path
-        self.cwd = cwd
+    def __init__(
+        self,
+        host: str,
+        port: Optional[int] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        known_hosts_filename: Optional[Union[pathlib.Path, str]] = None,
+        cwd: Optional[str] = None,
+        connect_kwargs: Optional[Dict[str, Any]] = None,
+    ):
+        if not _PARAMIKO_AVAILABLE:
+            raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='paramiko')
+        if host is not None:
+            url = urllib.parse.urlsplit(host)
+            if url.scheme != '':
+                if url.scheme.lower() != 'sftp':
+                    raise ValueError('If specifying a URI, only the sftp scheme is supported.')
+                if not url.hostname:
+                    raise ValueError('If specifying a URI, the URI must include the hostname.')
+                host = url.hostname
+                if url.username:
+                    if username is not None:
+                        raise ValueError(
+                            'If specifying the username in the `host`, then the `username` argument must be blank.')
+                    username = url.username
+                if url.password:
+                    if password is not None:
+                        raise ValueError(
+                            'If specifying the password in the `host`, then the `password` argument must be blank.')
+                    password = url.password
+                if url.port:
+                    if port is not None:
+                        raise ValueError(
+                            'If specifying the port in the `host`, then the `port` argument must be blank.')
+                    port = url.port
+                if url.path:
+                    # strip the first left slash. Two slashes for absolute; 1 for relative
+                    assert url.path.startswith('/'), 'The path should always start with a `/`'
+                    cwd = url.path[1:]
+                if url.query or url.fragment:
+                    raise ValueError('Query and fragment parameters are not supported as part of a URI.')
+        if connect_kwargs is None:
+            connect_kwargs = {}
+        if host:
+            _set_kwarg(host, connect_kwargs, arg_name='host', kwarg_name='hostname')
+        if port:
+            _set_kwarg(port, connect_kwargs, arg_name='port', kwarg_name='port')
+        if username:
+            _set_kwarg(username, connect_kwargs, arg_name='username', kwarg_name='username')
+        if password:
+            _set_kwarg(password, connect_kwargs, arg_name='password', kwarg_name='password')
 
-        if host.startswith('sftp://'):
-            url = urllib.parse.urlparse(host)
-            if url.username:
-                self.username = url.username
-            if url.port:
-                self.port = url.port
-            if url.hostname:
-                self.host = url.hostname
-            if url.path != '/':
-                dirname = os.path.dirname(url.path)
-                if dirname != '/':
-                    self.cwd = dirname
-        try:
-            from paramiko import SSHClient
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='paramiko') from e
+        if cwd is not None:
+            if not cwd.endswith('/'):
+                cwd += '/'
+
+        netloc = ''
+        if username:
+            netloc += f'{username}@'
+        if host:
+            netloc += host
+        if port:
+            netloc += f':{port}'
+
+        self._base_uri = urllib.parse.urlunsplit((
+            'sftp',  # scheme
+            netloc,  # netloc
+            '/' + (cwd or ''),  # path
+            None,  # query
+            None,  # fragment
+        ))
         self.ssh_client = SSHClient()
-        self.sftp_client = self._create_sftp_client()
-
-    def _create_sftp_client(self):
-        try:
-            # Reads known host keys if self.key_file_path is NOne
-            self.ssh_client.load_system_host_keys(self.key_file_path)
-        except IOError:
-            raise Exception('Host keys could not be read from {key_file_path}.')
-
-        self.ssh_client.connect(self.host, self.port, self.username)
-        sftp_client = self.ssh_client.open_sftp()
-        if self.cwd is not None:
-            sftp_client.mkdir(self.cwd)
-            sftp_client.chdir(self.cwd)
-        return sftp_client
+        # Reads known host keys if self.key_file_path is NOne
+        if known_hosts_filename is not None:
+            known_hosts_filename = str(known_hosts_filename)
+        self.ssh_client.load_system_host_keys(known_hosts_filename)
+        self.ssh_client.connect(**connect_kwargs)
+        self.sftp_client = self.ssh_client.open_sftp()
+        if cwd is not None:
+            self.ssh_client.exec_command(f'mkdir -p {cwd}')
+            self.sftp_client.chdir(cwd)
 
     def close(self):
+        self.sftp_client.close()
         self.ssh_client.close()
 
     def get_uri(self, object_name: str) -> str:
-        base = f'sftp://{self.host}:{self.port}/'
-        if self.cwd is not None:
-            return os.path.join(base, self.cwd, object_name)
-        return os.path.join(base, object_name)
+        return self._base_uri + object_name
 
     def get_object_size(self, object_name: str) -> int:
         st_size = self.sftp_client.stat(object_name).st_size
         if st_size is None:
-            raise RuntimeError
+            raise RuntimeError('Cannot determine object size: stat(object_name).st_size is None')
         return st_size
 
-    def upload_object(self,
-                      object_name: str,
-                      filename: Union[str, pathlib.Path],
-                      callback: Optional[Callable[[int, int], None]] = None) -> None:
+    def upload_object(
+        self,
+        object_name: str,
+        filename: Union[str, pathlib.Path],
+        callback: Optional[Callable[[int, int], None]] = None,
+    ) -> None:
         dirname = os.path.dirname(object_name)
-        self.sftp_client.mkdir(dirname)
+        self.ssh_client.exec_command(f'mkdir -p {dirname}')
         try:
             self.sftp_client.put(str(filename), object_name, callback=callback, confirm=True)
-        except SSHException:
-            raise ObjectStoreTransientError
-        except:
-            raise
+        except Exception as e:
+            _ensure_transient_errors_are_wrapped(e)
 
     def download_object(self,
                         object_name: str,
@@ -123,10 +182,7 @@ class SFTPObjectStore(ObjectStore):
                 os.remove(tmp_path)
             except OSError:
                 pass
-            if isinstance(e, SSHException):
-                raise ObjectStoreTransientError
-            else:
-                raise
+            _ensure_transient_errors_are_wrapped(e)
         else:
             if overwrite:
                 os.replace(tmp_path, filename)
