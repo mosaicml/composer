@@ -375,7 +375,10 @@ stage('Build') {
                     // not 'mosaicml/composer'
                     def subJobs = [:]
                     scheduleJob(subJobs, stagingImage, buildArgs)
-                    subJobs.failFast = true
+                    if (env.CHANGE_ID) {
+                        // Fail fast only on PR builds
+                        subJobs.failFast = true
+                    }
                     parallel(subJobs)
                 }
             }]
@@ -427,7 +430,10 @@ stage('Build') {
             }
         ]
     }
-    jobs.failFast = true
+    if (env.CHANGE_ID) {
+        // Fail fast only on PR builds
+        jobs.failFast = true
+    }
     try {
         parallel(jobs)
     }

@@ -153,7 +153,7 @@ def _main():
 
     composer_entries = []
 
-    composer_versions = ['', '==0.7.1']  # Only build images for the latest composer version
+    composer_versions = ['', '==0.8.0']  # Only build images for the latest composer version
     composer_python_versions = ['3.9']  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):

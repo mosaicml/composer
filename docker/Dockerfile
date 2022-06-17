@@ -62,7 +62,7 @@ ARG COMPOSER_BASE=vision_stage
 ARG COMPOSER_EXTRA_DEPS=all
 
 # For a specific Composer version, set to a pip version string -- e.g.
-# ARG COMPOSER_VERSION='==0.7.0'
+# ARG COMPOSER_VERSION='==0.8.0'
 # For the latest Composer version, leave blank
 ARG COMPOSER_VERSION=
 
