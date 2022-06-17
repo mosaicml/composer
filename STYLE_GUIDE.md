@@ -398,7 +398,7 @@ The following guidelines apply to documentation.
 
 ### 6.1.3 Building and Viewing Docs Locally
 
-Assuming you already have a development install of Composer (see these [instructions]()), here’s how to build and previous the docs locally.
+Assuming you already have a development install of Composer (see these [instructions](CONTRIBUTING.md#prerequisites)), here’s how to build and previous the docs locally.
 
 **️️ ⚠ Warning:** Jenkins treats all sphinx warnings as errors, so they must be addressed before a PR can be merged. Building docs locally can help debug any warnings showing up on Jenkins!
 
@@ -470,7 +470,7 @@ All doctests load the `docs/source/doctest_fixtures.py` file *before* tests run.
 
 ### 6.2.2 Running Doctests Locally
 
-Assuming you already have a development install of Composer (see these [instructions]()), here’s how to run the doctests.
+Assuming you already have a development install of Composer (see these [instructions](CONTRIBUTING.md#prerequisites)), here’s how to run the doctests.
 
 <!--pytest-codeblocks:skip-->
 ```bash
