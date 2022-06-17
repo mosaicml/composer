@@ -16,7 +16,6 @@ from composer.core.time import TimeUnit
 from composer.core.types import Batch
 from composer.loggers import Logger
 from composer.models import ComposerTransformer
-from composer.trainer.trainer import _is_cuda_oom
 from composer.utils import dist, ensure_tuple
 
 __all__ = ['SeqLengthWarmup', 'set_batch_sequence_length']
@@ -278,7 +277,7 @@ class SeqLengthWarmup(Algorithm):
 
                 # This error/state.grad_accum handling mimics the logic in trainer._train_batch().
                 except RuntimeError as e:
-                    if _is_cuda_oom(e):
+                    if 'CUDA out of memory' in str(e):
                         should_handle_cuda_oom = 1
                     elif 'Timed out' in str(e):
                         # Catch timeout errors and only reraise if we did not encounter OOM on other ranks. Error
