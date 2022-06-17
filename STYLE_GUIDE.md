@@ -431,7 +431,7 @@ Most docstrings should also include a `.. doctest` or `.. testcode` example to c
 
 See the [Sphinx Doctest Extension](https://www.sphinx-doc.org/en/master/usage/extensions/doctest.html) for all of the available directives. Do not use `.. code-block::` for Python examples, as they are untested.
 
-Any test fixtures for doctests should go in [docs/source/doctest_fixtures.py](docs/source//doctest_fixtures.py) or in a `.. testsetup::` block.
+Any test fixtures for doctests should go in [docs/source/doctest_fixtures.py](docs/source/doctest_fixtures.py) or in a `.. testsetup::` block.
 
 For example:
 ```python
