@@ -39,7 +39,7 @@ The EarlyStopper callback takes several parameters.
 Threshold Stopping
 ------------------
 
-The ThresholdStopper callback, also monitors a specific metric, but halts training when that metric reaches a certain threshold. 
+The ThresholdStopper callback, also monitors a specific metric, but halts training when that metric reaches a certain threshold.
 
 The ThresholdStopper takes the following parameters.
 
