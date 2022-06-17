@@ -135,7 +135,7 @@ class SFTPObjectStore(ObjectStore):
         self.ssh_client.load_system_host_keys(known_hosts_filename)
         self.ssh_client.connect(**connect_kwargs)
         self.sftp_client = self.ssh_client.open_sftp()
-        if cwd is not None:
+        if cwd:
             self.ssh_client.exec_command(f'mkdir -p {cwd}')
             self.sftp_client.chdir(cwd)
 
@@ -159,7 +159,8 @@ class SFTPObjectStore(ObjectStore):
         callback: Optional[Callable[[int, int], None]] = None,
     ) -> None:
         dirname = os.path.dirname(object_name)
-        self.ssh_client.exec_command(f'mkdir -p {dirname}')
+        if dirname:
+            self.ssh_client.exec_command(f'mkdir -p {dirname}')
         try:
             self.sftp_client.put(str(filename), object_name, callback=callback, confirm=True)
         except Exception as e:
@@ -171,7 +172,8 @@ class SFTPObjectStore(ObjectStore):
                         overwrite: bool = False,
                         callback: Optional[Callable[[int, int], None]] = None) -> None:
         dirname = os.path.dirname(filename)
-        os.makedirs(dirname, exist_ok=True)
+        if dirname:
+            os.makedirs(dirname, exist_ok=True)
 
         if os.path.exists(filename) and not overwrite:
             raise FileExistsError(f'The file at {filename} already exists')
