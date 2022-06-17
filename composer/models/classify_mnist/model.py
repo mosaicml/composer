@@ -12,7 +12,7 @@ from torch.nn import functional as F
 from composer.models.initializers import Initializer
 from composer.models.tasks import ComposerClassifier
 
-__all__ = ["Model", "MNIST_Classifier"]
+__all__ = ['Model', 'MNIST_Classifier']
 
 
 class Model(nn.Module):

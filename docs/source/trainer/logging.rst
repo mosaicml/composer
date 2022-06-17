@@ -76,8 +76,14 @@ Each of its methods has access to the :class:`.Logger`.
 
     class EpochMonitor(Callback):
 
-        def epoch_end(state: State, logger: Logger):
-            logger.data_epoch({"Epoch": state.epoch})
+        def epoch_end(self, state: State, logger: Logger):
+            logger.data_epoch({"Epoch": int(state.timestamp.epoch)})
+
+.. testcleanup::
+
+    # Actually run the callback to ensure it works
+    epoch_monitor = EpochMonitor()
+    epoch_monitor.run_event(Event.EPOCH_END, state, logger)
 
 Similarly, :class:`.Algorithm` classes are also provided the :class:`.Logger`
 to log any desired information.
@@ -128,6 +134,9 @@ into a dictionary:
 
     # Construct a trainer using this logger
     trainer = Trainer(..., loggers=[DictionaryLogger()])
+
+    # Train!
+    trainer.fit()
 
 In addition, :class:`.LoggerDestination` can also implement the typical event-based
 hooks of typical callbacks if needed. See :doc:`Callbacks<callbacks>` for

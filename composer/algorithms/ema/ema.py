@@ -17,12 +17,12 @@ from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
-__all__ = ["EMA", "compute_ema"]
+__all__ = ['EMA', 'compute_ema']
 
 
 def compute_ema(model: T_Model, ema_model: T_Model, smoothing: float = 0.99):
-    r"""Updates the weights of ``ema_model`` to be closer to the weights of ``model`` according to an exponential
-    weighted average. Weights are updated according to
+    r"""Updates the weights of ``ema_model`` to be closer to the weights of ``model``
+    according to an exponential weighted average. Weights are updated according to
 
     .. math::
         W_{ema_model}^{(t+1)} = smoothing\times W_{ema_model}^{(t)}+(1-smoothing)\times W_{model}^{(t)}
@@ -34,7 +34,7 @@ def compute_ema(model: T_Model, ema_model: T_Model, smoothing: float = 0.99):
     .. math::
         t_{1/2} = -\frac{\log(2)}{\log(smoothing)}
 
-    Therefore to set smoothing to obtain a target half life, set smoothing according to
+    Therefore, to set smoothing to obtain a target half life, set smoothing according to
 
     .. math::
         smoothing = \exp\left[-\frac{\log(2)}{t_{1/2}}\right]
@@ -120,15 +120,15 @@ class EMA(Algorithm):
         self.training_model = None
 
         self.serialized_attributes = [
-            "ema_model",
-            "training_model",
+            'ema_model',
+            'training_model',
         ]
 
         # Check timestrings are parsable and convert into time object
         try:
             self.half_life = Time.from_timestring(half_life)
         except ValueError as error:
-            raise ValueError(f"Invalid time string for parameter half_life") from error
+            raise ValueError(f'Invalid time string for parameter half_life') from error
 
         # Create the update interval if none is specified
         if self.update_interval is None:
@@ -137,18 +137,18 @@ class EMA(Algorithm):
             try:
                 self.update_interval = Time.from_timestring(update_interval)
             except ValueError as error:
-                raise ValueError(f"Invalid time string for parameter update_interval") from error
+                raise ValueError(f'Invalid time string for parameter update_interval') from error
         else:
-            raise ValueError(f"update_interval must be None or a time string.")
+            raise ValueError(f'update_interval must be None or a time string.')
 
         # Verify that the units of half_life and update_interval are compatible
         if self.half_life.unit != self.update_interval.unit:
-            raise ValueError(f"Units of half_life and update_interval must match.")
+            raise ValueError(f'Units of half_life and update_interval must match.')
 
         # Verify that the time strings have supported units.
         if self.half_life.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
-            raise ValueError(f"Invalid time unit for parameter half_life: "
-                             f"{self.update_interval.unit}")
+            raise ValueError(f'Invalid time unit for parameter half_life: '
+                             f'{self.update_interval.unit}')
 
         # Calculate the appropriate weighting for the moving average
         self.smoothing = 2**(-(self.update_interval.value / self.half_life.value))
@@ -203,11 +203,11 @@ class EMA(Algorithm):
             model (torch.nn.Module): the model to convert into the ema model.
 
         Returns:
-            model (torch.nn.Module): the input model with parameters and buffers replaced with the averaged parameters
-                and buffers.
+            torch.nn.Module: The input model with parameters and buffers replaced
+                with the averaged parameters and buffers.
         """
         if self.ema_model is None:
-            raise AttributeError("ema model has not been initialized yet")
+            raise AttributeError('ema model has not been initialized yet')
 
         _copy_model(self.ema_model, model)
         return model
@@ -217,8 +217,8 @@ class EMA(Algorithm):
         for attribute_name in self.serialized_attributes:
             shadow_model = getattr(self, attribute_name)
             state_dict[attribute_name] = {}
-            state_dict[attribute_name]["parameters"] = shadow_model.parameters()
-            state_dict[attribute_name]["buffers"] = shadow_model.buffers()
+            state_dict[attribute_name]['parameters'] = shadow_model.parameters()
+            state_dict[attribute_name]['buffers'] = shadow_model.buffers()
         return state_dict
 
     def load_shadow_model(self, name, parameters: List, buffers: List):
@@ -229,7 +229,7 @@ class EMA(Algorithm):
 
     def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
         for attribute_name, serialized_value in state.items():
-            self.load_shadow_model(attribute_name, serialized_value["parameters"], serialized_value["buffers"])
+            self.load_shadow_model(attribute_name, serialized_value['parameters'], serialized_value['buffers'])
 
 
 class ShadowModel:
@@ -258,7 +258,7 @@ T_Model = Union[torch.nn.Module, ShadowModel]
 
 
 def _copy_model(source_model: T_Model, destination_model: T_Model):
-    """Copies parameters and buffers from ``source_model`` to ``destination_model``"""
+    """Copies parameters and buffers from ``source_model`` to ``destination_model``."""
     with torch.no_grad():
         source_params = itertools.chain(source_model.parameters(), source_model.buffers())
         destination_params = itertools.chain(destination_model.parameters(), destination_model.buffers())
@@ -268,7 +268,7 @@ def _copy_model(source_model: T_Model, destination_model: T_Model):
 
 
 def _move_shadow_model_to_device(shadow_model: ShadowModel, destination_model: torch.nn.Module):
-    """Ensures the tensors of a shadow model are on the same device as a destination model"""
+    """Ensures the tensors of a shadow model are on the same device as a destination model."""
     with torch.no_grad():
         destination_params = destination_model.parameters()
         shadow_params = shadow_model.parameters()

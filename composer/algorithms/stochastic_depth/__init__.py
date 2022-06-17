@@ -3,7 +3,7 @@
 
 """Implements stochastic depth (`Huang et al, 2016 <https://arxiv.org/abs/1603.09382>`_) for ResNet blocks.
 
-See :class:`~composer.algorithms.StochasticDepth`, the sample-wise stochastic depth :doc:`method card
+See :class:`.StochasticDepth`, the sample-wise stochastic depth :doc:`method card
 </method_cards/stochastic_depth_samplewise>`, or the block-wise stochastic depth :doc:`method card
 </method_cards/stochastic_depth>` for details.
 """
@@ -14,4 +14,4 @@ from composer.algorithms.stochastic_depth.stochastic_depth import StochasticDept
 from composer.algorithms.stochastic_depth.stochastic_depth import apply_stochastic_depth as apply_stochastic_depth
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck as StochasticBottleneck
 
-__all__ = ["StochasticDepth", "apply_stochastic_depth", "StochasticBottleneck", "SampleStochasticBottleneck"]
+__all__ = ['StochasticDepth', 'apply_stochastic_depth', 'StochasticBottleneck', 'SampleStochasticBottleneck']

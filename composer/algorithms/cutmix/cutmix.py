@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Tuple
+from typing import Any, Callable, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -19,7 +19,7 @@ from composer.loss.utils import check_for_index_targets
 
 log = logging.getLogger(__name__)
 
-__all__ = ["CutMix", "cutmix_batch"]
+__all__ = ['CutMix', 'cutmix_batch']
 
 
 def cutmix_batch(input: Tensor,
@@ -57,8 +57,8 @@ def cutmix_batch(input: Tensor,
         or ``alpha``.
 
     Args:
-        input (:class:`torch.Tensor`): input tensor of shape ``(N, C, H, W)``
-        target (:class:`torch.Tensor`): target tensor of either shape ``N`` or
+        input (torch.Tensor): input tensor of shape ``(N, C, H, W)``.
+        target (torch.Tensor): target tensor of either shape ``N`` or
             ``(N, num_classes)``. In the former case, elements of ``target``
             must be integer class ids in the range ``0..num_classes``. In the
             latter case, rows of ``target`` may be arbitrary vectors of targets,
@@ -112,7 +112,7 @@ def cutmix_batch(input: Tensor,
             )
     """
     if bbox is not None and length is not None:
-        raise ValueError(f"Cannot provide both length and bbox; got {length} and {bbox}")
+        raise ValueError(f'Cannot provide both length and bbox; got {length} and {bbox}')
 
     # Create shuffled indicies across the batch in preparation for cutting and mixing.
     # Use given indices if there are any.
@@ -164,8 +164,8 @@ def cutmix_batch(input: Tensor,
 
 
 class CutMix(Algorithm):
-    """`CutMix <https://arxiv.org/abs/1905.04899>`_ trains the network on non-overlapping combinations of pairs of
-    examples and interpolated targets rather than individual examples and targets.
+    """`CutMix <https://arxiv.org/abs/1905.04899>`_ trains the network on non-overlapping combinations
+    of pairs of examples and interpolated targets rather than individual examples and targets.
 
     This is done by taking a non-overlapping combination of a given batch X with a
     randomly permuted copy of X. The area is drawn from a ``Beta(alpha, alpha)``
@@ -184,6 +184,14 @@ class CutMix(Algorithm):
             box such that each pixel has an equal probability of being mixed.
             If ``False``, defaults to the sampling used in the original
             paper implementation. Default: ``False``.
+        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
+            from the batch. Can also be a pair of get and set functions, where the getter
+            is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
+            is the input. Default: ``0``.
+        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target
+            from the batch. Can also be a pair of get and set functions, where the getter
+            is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
+            is the target. Default: ``1``.
 
     Example:
         .. testcode::
@@ -200,37 +208,31 @@ class CutMix(Algorithm):
             )
     """
 
-    def __init__(self, num_classes: int, alpha: float = 1., uniform_sampling: bool = False):
+    def __init__(
+        self,
+        num_classes: int,
+        alpha: float = 1.,
+        uniform_sampling: bool = False,
+        input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
+        target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
+    ):
         self.num_classes = num_classes
         self.alpha = alpha
         self._uniform_sampling = uniform_sampling
         self._indices = torch.Tensor()
         self._cutmix_lambda = 0.0
         self._bbox: Tuple[int, int, int, int] = (0, 0, 0, 0)
+        self.input_key, self.target_key = input_key, target_key
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT and Event.AFTER_DATALOADER.
-
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-        Returns:
-            bool: True if this algorithm should run now.
-        """
         return event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Applies CutMix augmentation on State input.
+        input = state.batch_get_item(key=self.input_key)
+        target = state.batch_get_item(key=self.target_key)
 
-        Args:
-            event (:class:`Event`): the current event
-            state (:class:`State`): the current trainer state
-            logger (:class:`Logger`): the training logger
-        """
-
-        input, target = state.batch
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
-            "Multiple tensors for inputs or targets not supported yet."
+            'Multiple tensors for inputs or targets not supported yet.'
         alpha = self.alpha
 
         # these are saved only for testing
@@ -248,15 +250,16 @@ class CutMix(Algorithm):
             indices=self._indices,
         )
 
-        state.batch = (new_input, new_target)
+        state.batch_set_item(key=self.input_key, value=new_input)
+        state.batch_set_item(key=self.target_key, value=new_target)
 
 
 def _gen_indices(x: Tensor) -> Tensor:
     """Generates indices of a random permutation of elements of a batch.
 
     Args:
-        x (:class:`torch.Tensor): input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
-            are feature dimensions.
+        x (torch.Tensor): input tensor of shape ``(B, d1, d2, ..., dn)``,
+            B is batch size, d1-dn are feature dimensions.
 
     Returns:
         indices: A random permutation of the batch indices.
@@ -265,13 +268,13 @@ def _gen_indices(x: Tensor) -> Tensor:
 
 
 def _gen_cutmix_coef(alpha: float) -> float:
-    """Generates lambda from ``Beta(alpha, alpha)``
+    """Generates lambda from ``Beta(alpha, alpha)``.
 
     Args:
-        alpha (float): Parameter for the ``Beta(alpha, alpha)`` distribution
+        alpha (float): Parameter for the ``Beta(alpha, alpha)`` distribution.
 
     Returns:
-        cutmix_lambda: Lambda parameter for performing cutmix.
+        cutmix_lambda: Lambda parameter for performing CutMix.
     """
     # First check if alpha is positive.
     assert alpha >= 0
@@ -291,7 +294,7 @@ def _rand_bbox(W: int,
                cx: Optional[int] = None,
                cy: Optional[int] = None,
                uniform_sampling: bool = False) -> Tuple[int, int, int, int]:
-    """Randomly samples a bounding box with area determined by cutmix_lambda.
+    """Randomly samples a bounding box with area determined by ``cutmix_lambda``.
 
     Adapted from original implementation https://github.com/clovaai/CutMix-PyTorch
 
@@ -341,7 +344,7 @@ def _adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
 
     Args:
         cutmix_lambda (float): Lambda param from cutmix, used to set the area of the box.
-        x (:class:`torch.Tensor`): input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
+        x (torch.Tensor): input tensor of shape ``(B, d1, d2, ..., dn)``, B is batch size, d1-dn
             are feature dimensions.
         bbox (tuple): (x1, y1, x2, y2) coordinates of the boundind box, obeying x2 > x1, y2 > y1.
 

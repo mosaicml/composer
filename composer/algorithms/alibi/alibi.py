@@ -21,7 +21,7 @@ from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
 
-__all__ = ["Alibi", "apply_alibi"]
+__all__ = ['Alibi', 'apply_alibi']
 
 
 def apply_alibi(
@@ -36,10 +36,9 @@ def apply_alibi(
     optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
 ) -> None:
     """Removes position embeddings and replaces the attention function and attention mask
-    as per :class:`~composer.algorithms.alibi.alibi.Alibi`. Note that the
-    majority of the training speed-up from using ALiBi comes from being able to train on
-    shorter sequence lengths; this function does not scale the training sequence length as
-    :class:`~composer.algorithms.alibi.alibi.Alibi` does, so little speedup will be
+    as per :class:`.Alibi`. Note that the majority of the training speed-up from using ALiBi
+    comes from being able to train on shorter sequence lengths; this function does not scale
+    the training sequence length as :class:`.Alibi` does, so little speedup will be
     observed from using it alone. See the :doc:`Method Card </method_cards/alibi>` for
     more details. This function should be called after the model is instantiated and
     before training begins.
@@ -68,13 +67,13 @@ def apply_alibi(
     Args:
         model (torch.nn.Module): Model to transform.
         heads_per_layer (int): Number of attention heads per layer.
-        max_sequence_length (int): See :class:`~composer.algorithms.alibi.alibi.Alibi`.
-        position_embedding_attribute (str): See :class:`~composer.algorithms.alibi.alibi.Alibi`.
+        max_sequence_length (int): See :class:`.Alibi`.
+        position_embedding_attribute (str): See :class:`.Alibi`.
         attention_module (torch.nn.Module): Module/class that will have its
             self-attention function replaced. For example, in
             HuggingFace's GPT, the self-attention module is
-            :class:`transformers.models.gpt2.modeling_gpt2.GPT2Attention`.
-        attr_to_replace (str): See :class:`~composer.algorithms.alibi.alibi.Alibi`.
+            ``transformers.models.gpt2.modeling_gpt2.GPT2Attention``.
+        attr_to_replace (str): See :class:`.Alibi`.
         alibi_attention (Callable): Path to new self-attention function in which
             ALiBi is implemented. Used to replace
             ``{attention_module}.{attr_to_replace}``. Example:
@@ -106,7 +105,7 @@ def apply_alibi(
     )
     if optimizers and old_embed is not None and new_embed is not None:
         module_surgery.update_params_in_optimizer([old_embed], [new_embed], optimizers=optimizers)
-    log.info(f" Position embedding expanded to sequence length {max_sequence_length}, zeroed, and frozen")
+    log.info(f' Position embedding expanded to sequence length {max_sequence_length}, zeroed, and frozen')
 
     def convert_attention(module: torch.nn.Module, module_index: Optional[int] = None):
         del module_index  # unused
@@ -121,7 +120,7 @@ def apply_alibi(
                                                            policies={attention_module: convert_attention})
 
     count = len(replaced_pairs)
-    log.info(f" {count} instances of ALiBi added")
+    log.info(f' {count} instances of ALiBi added')
 
 
 class Alibi(Algorithm):
@@ -228,9 +227,9 @@ class Alibi(Algorithm):
                 try:
                     self.heads_per_layer = state.model.config.n_head  # type: ignore
                 except AttributeError:
-                    log.exception("alibi.heads_per_layer not provided, and unable to "
-                                  "determine number of heads from model.config.n_head."
-                                  " Please provide alibi. heads_per_layer.")
+                    log.exception('alibi.heads_per_layer not provided, and unable to '
+                                  'determine number of heads from model.config.n_head.'
+                                  ' Please provide alibi. heads_per_layer.')
 
             apply_alibi(
                 state.model,
@@ -251,7 +250,7 @@ class Alibi(Algorithm):
         elif event == Event.AFTER_DATALOADER:
             # Change sequence length by reshaping data
             if not self.train_sequence_length_scaling == 1 and \
-            hasattr(state, "batch") and isinstance(state.batch, dict):
+            hasattr(state, 'batch') and isinstance(state.batch, dict):
                 sequence_scaling = self.train_sequence_length_scaling
                 for k, v in state.batch.items():
                     batch_len, sequence_len = v.shape[0], v.shape[1]
@@ -265,7 +264,7 @@ def _zero_and_freeze_expand_position_embeddings(
 ) -> Union[Tuple[torch.nn.Parameter, torch.nn.Parameter], Tuple[None, None]]:
     try:
         pos_embedding_module = attrgetter(attribute)(model)
-        old_weight = getattr(pos_embedding_module, "weight")
+        old_weight = getattr(pos_embedding_module, 'weight')
         if not isinstance(old_weight, torch.nn.Parameter):
             raise TypeError(
                 f"Model {model._get_name()}, position embedding {attribute}, 'weight' attribute must of type torch.nn.Module"
@@ -276,18 +275,18 @@ def _zero_and_freeze_expand_position_embeddings(
                         layout=old_weight.layout,
                         device=old_weight.device))
         new_weight.requires_grad = False
-        setattr(pos_embedding_module, "weight", new_weight)
+        setattr(pos_embedding_module, 'weight', new_weight)
 
         return old_weight, new_weight
     except AttributeError:
-        log.error(f"Unable to zero and freeze position embeddings. Model "
-                  f"{model} may lack attribute {attribute}, or position "
+        log.error(f'Unable to zero and freeze position embeddings. Model '
+                  f'{model} may lack attribute {attribute}, or position '
                   f"embeddings may lack attribute 'weight'.")
     return None, None
 
 
 def _register_alibi(module: torch.nn.Module, n_heads: int, max_token_length: int):
-    # Modified from https://github.com/ofirpress/attention_with_linear_biases/blob/master/fairseq/models/transformer.py#L742
+    # Modified from https://github.com/ofirpress/attention_with_linear_biases/blob/5b327adc6d131e28b40ba58906b30bb469483519/fairseq/models/transformer.py#L742
     slopes = torch.Tensor(_get_alibi_head_slopes(n_heads))
     # In the next line, the part after the * is what constructs the diagonal matrix
     # (right matrix in Figure 3 in the paper).
@@ -298,7 +297,7 @@ def _register_alibi(module: torch.nn.Module, n_heads: int, max_token_length: int
     alibi = slopes.unsqueeze(1).unsqueeze(1) * \
         torch.arange(max_token_length). \
         unsqueeze(0).unsqueeze(0).expand(n_heads, -1, -1)
-    module.register_buffer("alibi", alibi)
+    module.register_buffer('alibi', alibi)
     return module
 
 
@@ -328,15 +327,15 @@ def _lazy_import(name: Optional[str]) -> Any[Callable, ModuleType, None]:
     try:
         mod = importlib.import_module(components[0])
     except (ValueError, ModuleNotFoundError):
-        log.exception(f"Module {components[0]} not found when attempting "
-                      f"to import {name}. Please confirm the name and "
+        log.exception(f'Module {components[0]} not found when attempting '
+                      f'to import {name}. Please confirm the name and '
                       f"module path you're attempting to import.")
         raise
     try:
         mod = attrgetter('.'.join(components[1:]))(mod)
     except (ValueError, AttributeError):
-        log.exception(f"Unable to import {name}. "
-                      f"Please confirm the name and module "
+        log.exception(f'Unable to import {name}. '
+                      f'Please confirm the name and module '
                       f" path you're attempting to import.")
         raise
     return mod

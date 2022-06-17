@@ -65,7 +65,7 @@ trainer.fit()
 
 ### Implementation Details
 
-CutOut randomly selects `num_holes` square regions (which are possibly overlapping) with side length `length` and uses them to generate a binary mask for the image where the points within any hole are set to 0 and the remaining points are set to 1. 
+CutOut randomly selects `num_holes` square regions (which are possibly overlapping) with side length `length` and uses them to generate a binary mask for the image where the points within any hole are set to 0 and the remaining points are set to 1.
 This mask is then multiplied element-wise with the image in order to set the pixel value of any pixel value within a hole to 0.
 
 CutOut is implemented following the [original paper](https://arxiv.org/abs/1708.04552). However, our implementation currently differs in that CutOut operates on a batch of data and runs on device to avoid potential CPU bottlenecks.

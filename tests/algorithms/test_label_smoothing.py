@@ -1,13 +1,11 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from unittest.mock import Mock
-
 import pytest
 import torch
 import torch.nn.functional as F
 
-from composer.algorithms import LabelSmoothingHparams, label_smoothing
+from composer.algorithms import LabelSmoothing, label_smoothing
 from composer.core import Event
 
 
@@ -78,7 +76,7 @@ class TestLabelSmoothing:
 
         target = target_indices if target_type == 'indices' else target_onehot
 
-        algorithm = LabelSmoothingHparams(smoothing=smoothing).initialize_object()
+        algorithm = LabelSmoothing(smoothing=smoothing)
         state = minimal_state
         state.batch = (torch.Tensor(), target)
         state.outputs = outputs
@@ -95,9 +93,3 @@ class TestLabelSmoothing:
 
         _, labels = state.batch
         torch.testing.assert_allclose(labels, target)
-
-
-def test_label_smoothing_match():
-    algorithm = LabelSmoothingHparams(smoothing=0.1).initialize_object()
-    assert algorithm.match(Event.BEFORE_LOSS, Mock())
-    assert algorithm.match(Event.AFTER_LOSS, Mock())

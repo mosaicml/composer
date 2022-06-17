@@ -38,20 +38,38 @@ If you have any questions, please feel free to reach out to us on `Twitter`_, `E
 
 Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, and issues.
 
-
 .. toctree::
    :hidden:
    :maxdepth: 1
    :caption: Getting Started
 
    getting_started/installation.rst
-   getting_started/notebooks.rst
+   getting_started/quick_start.rst
    getting_started/welcome_tour.rst
 
 .. toctree::
    :hidden:
    :maxdepth: 1
-   :caption: Adding Speedup Methods
+   :caption: Tutorials
+
+
+   examples/getting_started.ipynb
+   examples/functional_api.ipynb
+   examples/medical_image_segmentation.ipynb
+   examples/custom_speedup_methods.ipynb
+   examples/nlp_models.ipynb
+   examples/ffcv_dataloaders.ipynb
+   examples/huggingface_models.ipynb
+   examples/migrate_from_ptl.ipynb
+   examples/early_stopping.ipynb
+   examples/streaming_dataloader_facesynthetics.ipynb
+   examples/auto_grad_accum.ipynb
+   examples/checkpoint_autoresume.ipynb
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Speedup Methods
 
    trainer/algorithms.rst
    functional_api.rst
@@ -71,10 +89,17 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    trainer/checkpointing.rst
    trainer/logging.rst
    trainer/callbacks.rst
-   trainer/distributed_training.rst
-   trainer/numerics.md
    trainer/performance.rst
 
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Notes
+
+   notes/distributed_training.rst
+   notes/numerics.md
+   notes/auto_grad_accum.rst
+   notes/resumption.rst
 
 .. toctree::
    :hidden:
@@ -82,7 +107,6 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    :caption: Methods Library
 
    method_cards/methods_overview.rst
-   method_cards/agc.md
    method_cards/alibi.md
    method_cards/augmix.md
    method_cards/blurpool.md
@@ -92,7 +116,9 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/cutout.md
    method_cards/ema.md
    method_cards/factorize.md
+   method_cards/fused_layernorm.md
    method_cards/ghost_batchnorm.md
+   method_cards/gradient_clipping.md
    method_cards/label_smoothing.md
    method_cards/layer_freezing.md
    method_cards/mixup.md
