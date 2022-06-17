@@ -96,6 +96,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    :caption: Notes
 
    notes/distributed_training.rst
+   notes/early_stopping.rst
    notes/numerics.md
    notes/auto_grad_accum.rst
    notes/resumption.rst
