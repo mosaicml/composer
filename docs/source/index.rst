@@ -63,13 +63,13 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    examples/migrate_from_ptl.ipynb
    examples/early_stopping.ipynb
    examples/streaming_dataloader_facesynthetics.ipynb
+   examples/auto_grad_accum.ipynb
    examples/checkpoint_autoresume.ipynb
-
 
 .. toctree::
    :hidden:
    :maxdepth: 1
-   :caption: Adding Speedup Methods
+   :caption: Speedup Methods
 
    trainer/algorithms.rst
    functional_api.rst
