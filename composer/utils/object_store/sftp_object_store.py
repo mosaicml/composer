@@ -56,7 +56,7 @@ class SFTPObjectStore(ObjectStore):
     def __init__(
         self,
         host: str,
-        port: Optional[int] = None,
+        port: int = 22,
         username: Optional[str] = None,
         password: Optional[str] = None,
         known_hosts_filename: Optional[Union[pathlib.Path, str]] = None,
@@ -84,7 +84,7 @@ class SFTPObjectStore(ObjectStore):
                             'If specifying the password in the `host`, then the `password` argument must be blank.')
                     password = url.password
                 if url.port:
-                    if port is not None:
+                    if port != 22:
                         raise ValueError(
                             'If specifying the port in the `host`, then the `port` argument must be blank.')
                     port = url.port

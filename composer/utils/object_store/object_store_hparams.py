@@ -236,8 +236,8 @@ class SFTPObjectStoreHparams(ObjectStoreHparams):
 
     host: str = hp.auto(SFTPObjectStore, 'host')
     port: int = hp.auto(SFTPObjectStore, 'port')
-    username: str = hp.auto(SFTPObjectStore, 'username')
-    known_hosts_filename: str = hp.auto(SFTPObjectStore, 'known_hosts_filename')
+    username: Optional[str] = hp.auto(SFTPObjectStore, 'username')
+    known_hosts_filename: Optional[str] = hp.auto(SFTPObjectStore, 'known_hosts_filename')
     cwd: Optional[str] = hp.auto(SFTPObjectStore, 'cwd')
     connect_kwargs: Optional[Dict[str, Any]] = hp.auto(SFTPObjectStore, 'connect_kwargs')
 
