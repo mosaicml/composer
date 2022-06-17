@@ -1672,7 +1672,6 @@ class Trainer:
                 else:
                     original_grad_accum = self.state.grad_accum
                     self.state.grad_accum = min(2 * self.state.grad_accum, device_batch_size)
-                    self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
                     log.debug(('CUDA out of memory detected. Gradient Accumulation '
                                f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
                                'and the batch will be retrained.'))
@@ -1681,7 +1680,8 @@ class Trainer:
                 # back only to this newly raised error.
                 raise caught_timeout_error
             else:
-                # Otherwise, return calculated loss
+                # Otherwise, log grad_accum and return calculated loss
+                self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
                 return total_loss
 
     def _train_microbatches(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
