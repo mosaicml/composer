@@ -47,7 +47,11 @@ class SFTPObjectStore(ObjectStore):
         username (str, optional): The username (if not specified in the SSH config) needed to authenticate.
             Defaults to None.
         password (str, optional): The password (if required) needed to authenticate. Defaults to None.
-        known_hosts_filename (pathlib.Path | str, optional): The filename of the private key.
+        key_filename (pathlib.Path | str, optional): The filepath to the a private key (if required) needed to
+            authenticate. Defaults to None. Any keys specified here will be tried *in addition* to any keys
+            specified in ``~/.ssh/`` or via a SSH agent.
+        known_hosts_filename (pathlib.Path | str, optional): The filename of the known hosts file. If not specified,
+            the default SSH known hosts will be used.
         cwd (str, optional): The directory to navigate to upon creating the SSH connection. If not present
             it will be created.
         connect_kwargs (Dict[str, Any], optional): Any additional kwargs to pass through to :meth:`.SSHClient.connect`.
@@ -60,6 +64,7 @@ class SFTPObjectStore(ObjectStore):
         username: Optional[str] = None,
         password: Optional[str] = None,
         known_hosts_filename: Optional[Union[pathlib.Path, str]] = None,
+        key_filename: Optional[Union[pathlib.Path, str]] = None,
         cwd: Optional[str] = None,
         connect_kwargs: Optional[Dict[str, Any]] = None,
     ):
@@ -102,6 +107,8 @@ class SFTPObjectStore(ObjectStore):
             _set_kwarg(username, connect_kwargs, arg_name='username', kwarg_name='username')
         if password:
             _set_kwarg(password, connect_kwargs, arg_name='password', kwarg_name='password')
+        if key_filename:
+            _set_kwarg(key_filename, connect_kwargs, arg_name='key_filename', kwarg_name='key_filename')
 
         if cwd is not None:
             if not cwd.endswith('/'):
