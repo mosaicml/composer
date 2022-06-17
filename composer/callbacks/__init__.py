@@ -1,10 +1,10 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Callbacks that run at each training loop :class:`~composer.core.event.Event`.
+"""Callbacks that run at each training loop :class:`.Event`.
 
-Each callback inherits from the :class:`~composer.core.callback.Callback` base class. See detailed description and
-examples for writing your own callbacks at the :class:`~composer.core.callback.Callback` base class.
+Each callback inherits from the :class:`.Callback` base class. See detailed description and
+examples for writing your own callbacks at the :class:`.Callback` base class.
 """
 from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.callbacks.early_stopper import EarlyStopper

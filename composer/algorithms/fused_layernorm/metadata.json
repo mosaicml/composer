@@ -1,0 +1,15 @@
+{
+    "fused_layernorm": {
+        "name": "Fused LayerNorm",
+        "class_name": "FusedLayerNorm",
+        "functional": "apply_fused_layernorm",
+        "tldr": "Uses channels last memory format (NHWC)",
+        "attribution": "NVIDIA",
+        "link": "https://nvidia.github.io/apex/layernorm.html",
+        "domains": [
+            "nlp"
+        ],
+        "summary": "Fuses LayerNorm kernels together to save on launch overhead time, leading to increased GPU utilization.",
+        "use": "LayerNorm normalization operations."
+    }
+}

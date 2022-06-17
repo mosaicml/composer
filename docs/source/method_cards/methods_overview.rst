@@ -84,6 +84,16 @@
 
    :badge:`CV,badge-primary` :badge:`NLP,badge-success`
    ++++++++++++++
+   Uses Fused LayerNorm kernels for increased GPU utilization.
+
+   ---
+   .. link-button:: fused_layernorm.html
+      :text: Fused LayerNorm
+      :classes: card-title
+
+   :badge:`CV,badge-primary` :badge:`NLP,badge-success`
+   ++++++++++++++
+
    Factorize GEMMs into smaller GEMMs
 
    ---
