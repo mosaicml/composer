@@ -1673,8 +1673,8 @@ class Trainer:
                     original_grad_accum = self.state.grad_accum
                     self.state.grad_accum = min(2 * self.state.grad_accum, device_batch_size)
                     log.info(('CUDA out of memory detected. Gradient Accumulation '
-                               f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
-                               'and the batch will be retrained.'))
+                              f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
+                              'and the batch will be retrained.'))
             elif caught_timeout_error:
                 # If not CUDA out of memory, raise exception to user. Note that this truncates the call stack
                 # back only to this newly raised error.
