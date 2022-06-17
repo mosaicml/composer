@@ -63,7 +63,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    examples/migrate_from_ptl.ipynb
    examples/early_stopping.ipynb
    examples/streaming_dataloader_facesynthetics.ipynb
-
+   examples/auto_grad_accum.ipynb
 
 .. toctree::
    :hidden:
