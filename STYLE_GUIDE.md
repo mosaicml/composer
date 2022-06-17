@@ -400,11 +400,7 @@ The following guidelines apply to documentation.
 
 Assuming you already have a development install of Composer (see these [instructions]()), here’s how to build and previous the docs locally.
 
-{% warning %}
-
 **️️ ⚠ Warning:** Jenkins treats all sphinx warnings as errors, so they must be addressed before a PR can be merged. Building docs locally can help debug any warnings showing up on Jenkins!
-
-{% endwarning %}
 
 In one terminal, run:
 
