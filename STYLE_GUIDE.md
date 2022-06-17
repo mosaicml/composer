@@ -325,7 +325,7 @@ All public APIs require documentation.
 
 ### 6.1.1 What to include in Docstrings?
 
-Docstrings, at a minimum, should include a summary of what the function or class does, along with the arguments it takes. See [below](https://github.com/mosaicml/composer/blob/dev/STYLE_GUIDE.md#7-documentation) for how to format docstrings. The [Google Style Guide](https://google.github.io/styleguide/pyguide.html) also includes some guidelines on how to write docstrings.
+Docstrings, at a minimum, should include a summary of what the function or class does, along with the arguments it takes. See [below](#6.1.2-Formatting-Docstrings) for how to format docstrings. The [Google Style Guide](https://google.github.io/styleguide/pyguide.html) also includes some guidelines on how to write docstrings.
 
 ### 6.1.2 Formatting Docstrings
 
