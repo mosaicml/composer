@@ -5,7 +5,11 @@
 Transformers <https://huggingface.co/transformers/>`_."""
 
 from composer.models.bert.bert_hparams import BERTForClassificationHparams as BERTForClassificationHparams
+from composer.models.bert.bert_hparams import BertForPretrainingHparams as BertForPretrainingHparams
 from composer.models.bert.bert_hparams import BERTHparams as BERTHparams
-from composer.models.bert.model import BERTModel as BERTModel
+from composer.models.bert.model import BertForClassification, BertForPretraining, BERTModel
 
-__all__ = ['BERTModel', 'BERTHparams', 'BERTForClassificationHparams']
+__all__ = [
+    'BERTModel', 'BERTHparams', 'BERTForClassificationHparams', 'BertForClassification', 'BertForPretraining',
+    'BertForPretrainingHparams'
+]

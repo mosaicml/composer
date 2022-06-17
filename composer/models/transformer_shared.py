@@ -90,15 +90,23 @@ class ComposerTransformer(ComposerModel):
 
         Returns:
             output: A dictionary of model outputs as a ``Mapping``. It will include the loss if `labels` is passed as an input.
+        # here we need to look for the labels and if the labels are not there, compute the loss by hand
         """
+        labels = None
         if not isinstance(batch, dict):
             raise ValueError(f'Model expects batch to be a dict, got {type(batch)}')
+
+        if 'labels' not in self.model_inputs and 'labels' in batch:
+            labels = batch.pop('labels')
 
         for key in self.model_inputs:
             if key not in batch.keys():
                 raise ValueError(f'Batch missing key: {key}')
 
         output = self.module(**batch)  # type: ignore (thirdparty)
+
+        if 'labels' not in self.model_inputs and 'labels' in batch:
+            batch['labels'] = labels
         return output
 
     def validate(self, batch: Batch) -> Tuple[Mapping, None]:
