@@ -11,7 +11,7 @@ import logging
 import os
 import textwrap
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 import torch
 import yahp as hp
@@ -43,6 +43,9 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         ffcv_dest (str): <file>.ffcv file that has dataset samples. Default: ``"cifar_train.ffcv"``.
         ffcv_write_dataset (std): Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist. Default:
         ``False``.
+        datadir (str): The path to the data directory.
+        is_train (bool): Whether to load the training data or validation data. Default:
+            ``True``.
     """
     download: bool = hp.optional('whether to download the dataset, if needed', default=True)
     use_ffcv: bool = hp.optional('whether to use ffcv for faster dataloading', default=False)
@@ -52,6 +55,9 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     ffcv_dest: str = hp.optional('<file>.ffcv file that has dataset samples', default='cifar_train.ffcv')
     ffcv_write_dataset: bool = hp.optional("Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist",
                                            default=False)
+
+    is_train: bool = hp.optional('Whether to load the training data (the default) or validation data.', default=True)
+    datadir: Optional[str] = hp.optional('The path to the data directory', default=None)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
 

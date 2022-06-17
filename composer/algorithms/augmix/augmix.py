@@ -102,7 +102,7 @@ def augmix_image(img: ImgT,
 
 
 class AugmentAndMixTransform(torch.nn.Module):
-    """Wrapper module for :func:`~composer.algorithms.augmix.augmix.augmix_image` that can
+    """Wrapper module for :func:`.augmix_image` that can
     be passed to :class:`torchvision.transforms.Compose`. See
     :class:`.AugMix` and the :doc:`Method Card
     </method_cards/augmix>` for details.
@@ -205,7 +205,7 @@ class AugMix(Algorithm):
         severity (int, optional): Severity of augmentations; ranges from 0
             (no augmentation) to 10 (most severe). Default: ``3``.
         depth (int, optional): Number of augmentations per sequence. -1 enables stochastic
-            depth sampled uniformly from [1, 3]. Default: ``-1``.
+            depth sampled uniformly from ``[1, 3]``. Default: ``-1``.
         width (int, optional): Number of augmentation sequences. Default: ``3``.
         alpha (float, optional): Pseudocount for Beta and Dirichlet distributions. Must be
             > 0.  Higher values yield mixing coefficients closer to uniform weighting. As
@@ -229,8 +229,8 @@ class AugMix(Algorithm):
                 :math:`intensity \times 0.18 + .1`, which ranges from 0.28 (intensity = 1)
                 to 1.9 (intensity 10). These augmentations have different effects
                 depending on whether they are < 0 or > 0 (or < 1 or > 1).
-                "all" uses implementations of "color", "contrast",
-                "sharpness", and "brightness" that account for diverging effects around 0
+                ``"all"`` uses implementations of ``"color"``, ``"contrast"``,
+                ``"sharpness"``, and ``"brightness"`` that account for diverging effects around 0
                 (or 1).
 
             Default: ``"all"``.
