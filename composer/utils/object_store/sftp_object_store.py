@@ -65,35 +65,33 @@ class SFTPObjectStore(ObjectStore):
     ):
         if not _PARAMIKO_AVAILABLE:
             raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='paramiko')
-        if host is not None:
-            url = urllib.parse.urlsplit(host)
-            if url.scheme != '':
-                if url.scheme.lower() != 'sftp':
-                    raise ValueError('If specifying a URI, only the sftp scheme is supported.')
-                if not url.hostname:
-                    raise ValueError('If specifying a URI, the URI must include the hostname.')
-                host = url.hostname
-                if url.username:
-                    if username is not None:
-                        raise ValueError(
-                            'If specifying the username in the `host`, then the `username` argument must be blank.')
-                    username = url.username
-                if url.password:
-                    if password is not None:
-                        raise ValueError(
-                            'If specifying the password in the `host`, then the `password` argument must be blank.')
-                    password = url.password
-                if url.port:
-                    if port != 22:
-                        raise ValueError(
-                            'If specifying the port in the `host`, then the `port` argument must be blank.')
-                    port = url.port
-                if url.path:
-                    # strip the first left slash. Two slashes for absolute; 1 for relative
-                    assert url.path.startswith('/'), 'The path should always start with a `/`'
-                    cwd = url.path[1:]
-                if url.query or url.fragment:
-                    raise ValueError('Query and fragment parameters are not supported as part of a URI.')
+        url = urllib.parse.urlsplit(host)
+        if url.scheme != '':
+            if url.scheme.lower() != 'sftp':
+                raise ValueError('If specifying a URI, only the sftp scheme is supported.')
+            if not url.hostname:
+                raise ValueError('If specifying a URI, the URI must include the hostname.')
+            host = url.hostname
+            if url.username:
+                if username is not None:
+                    raise ValueError(
+                        'If specifying the username in the `host`, then the `username` argument must be blank.')
+                username = url.username
+            if url.password:
+                if password is not None:
+                    raise ValueError(
+                        'If specifying the password in the `host`, then the `password` argument must be blank.')
+                password = url.password
+            if url.port:
+                if port != 22:
+                    raise ValueError('If specifying the port in the `host`, then the `port` argument must be blank.')
+                port = url.port
+            if url.path:
+                # strip the first left slash. Two slashes for absolute; 1 for relative
+                assert url.path.startswith('/'), 'The path should always start with a `/`'
+                cwd = url.path[1:]
+            if url.query or url.fragment:
+                raise ValueError('Query and fragment parameters are not supported as part of a URI.')
         if connect_kwargs is None:
             connect_kwargs = {}
         if host:
@@ -125,7 +123,6 @@ class SFTPObjectStore(ObjectStore):
             None,  # fragment
         ))
         self.ssh_client = SSHClient()
-        # Reads known host keys if self.key_file_path is NOne
         if known_hosts_filename is not None:
             known_hosts_filename = str(known_hosts_filename)
         self.ssh_client.load_system_host_keys(known_hosts_filename)
