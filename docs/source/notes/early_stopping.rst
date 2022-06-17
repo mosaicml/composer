@@ -72,7 +72,7 @@ Here is an example of how to use the EarlyStopper with an Evaluator:
 
     from composer import Trainer, Evaluator
     from torchmetrics.classification.accuracy import Accuracy
-    from from composer.callbacks.early_stopper import EarlyStopper
+    from composer.callbacks.early_stopper import EarlyStopper
 
     eval_evaluator = Evaluator(label="eval_dataset1", dataloader=eval_dataloader, metrics=Accuracy())
 
