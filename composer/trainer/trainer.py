@@ -1645,7 +1645,7 @@ class Trainer:
                         else:
                             optimizer.step()
             except RuntimeError as e:
-                if _is_cuda_oom(e):
+                if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd. "
                                'grad_accum will be increased prior to reattempting training on the current batch.'))
                     should_handle_cuda_oom = 1
