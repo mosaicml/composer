@@ -26,6 +26,9 @@ The EarlyStopper callback takes several parameters.
     early_stopper = EarlyStopper(monitor='Accuracy', dataloader_label='train', patience='50ba', comp=torch.greater, min_delta=0.01)
 
     trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
         optimizers=optimizer,
         callbacks=[early_stopper],
         max_duration="1ep",
@@ -54,7 +57,9 @@ The ThresholdStopper takes the following parameters:
     threshold_stopper = ThresholdStopper(monitor="Accuracy", "eval", threshold=0.3)
 
     trainer = Trainer(
+        model=model,
         train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
         optimizers=optimizer,
         callbacks=[threshold_stopper],
         max_duration="1ep",
@@ -82,6 +87,7 @@ Here is an example of how to use the EarlyStopper with an Evaluator:
     early_stopper = EarlyStopper(monitor='Accuracy', dataloader_label='eval_dataset1', patience=1)
 
     trainer = Trainer(
+        model=model,
         train_dataloader=train_dataloader,
         eval_dataloader=eval_evaluator,
         optimizers=optimizer,
