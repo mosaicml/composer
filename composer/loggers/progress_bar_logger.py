@@ -179,7 +179,7 @@ class ProgressBarLogger(LoggerDestination):
             self.log_to_console(log_str)
 
     def log_to_console(self, log_str: str):
-        """ Logs to the console, avoiding interleaving with a progress bar"""
+        """Logs to the console, avoiding interleaving with a progress bar."""
         if self.current_pbar:
             # use tqdm.write to avoid interleaving
             self.current_pbar.pbar.write(log_str)
