@@ -17,7 +17,7 @@ The EarlyStopper callback takes several parameters.
 * ``min_delta``: If non-zero, the change in the tracked metric over the ``patience`` window must be at least this large.
 * ``comp``: A comparison operator can be provided to measure the change in the monitored metric. The comparison operator will be called like ``comp(current_value, previous_best)``. Defaults to :func:`torch.less` if loss, error, or perplexity are substrings of the monitored metric, otherwise defaults to :func:`torch.greater`.
 
-.. code:: python
+.. testcode::
 
     import torch
     from composer import Trainer
@@ -26,8 +26,9 @@ The EarlyStopper callback takes several parameters.
     early_stopper = EarlyStopper(monitor='Accuracy', dataloader_label='train', patience='50ba', comp=torch.greater, min_delta=0.01)
 
     trainer = Trainer(
-        ...,
-        callbacks=[early_stopper]
+        optimizers=optimizer,
+        callbacks=[early_stopper],
+        max_duration="1ep",
     )
 
 In the above example, the ``'train'`` label means the callback is tracking the ``Accuracy`` metric for the train_dataloader (unless we changed the default label in the Trainer using the ``train_dataloader_label`` parameter).
@@ -45,7 +46,7 @@ The ThresholdStopper takes the following parameters:
 * ``threshold``: The float threshold that dictates when the halt training.
 * ``stop_on_batch``: If True, training will halt in the middle of a batch if the training metrics satisfy the threshold.
 
-.. code:: python
+.. testcode::
 
     from composer import Trainer
     from from composer.callbacks.threshold_stopper import ThresholdStopper
@@ -53,8 +54,10 @@ The ThresholdStopper takes the following parameters:
     threshold_stopper = ThresholdStopper(monitor="Accuracy", "eval", threshold=0.3)
 
     trainer = Trainer(
-        ...,
-        callbacks=[threshold_stopper]
+        train_dataloader=train_dataloader,
+        optimizers=optimizer,
+        callbacks=[threshold_stopper],
+        max_duration="1ep",
     )
 
 Evaluators and Multiple Metrics
@@ -82,6 +85,7 @@ Here is an example of how to use the EarlyStopper with an Evaluator:
         train_dataloader=train_dataloader,
         eval_dataloader=eval_evaluator,
         optimizers=optimizer,
+        callbacks=[early_stopper],
         max_duration="1ep",
     )
 
