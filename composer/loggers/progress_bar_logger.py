@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import sys
-from dataclasses import asdict, dataclass
 from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, TextIO, Union
 
@@ -34,44 +33,51 @@ def rank_zero_only(fn: Callable) -> Callable:
     return wrapped_fn
 
 
-@dataclass
-class _ProgressBarState:
-    total: Optional[int]
-    description: str
-    position: int
-    keys_to_log: List[str]
-    n: int
-    epoch_metrics: Dict[str, Any]
-
-
 class _ProgressBar:
 
-    def __init__(self, file: TextIO, state: _ProgressBarState) -> None:
-        self.state = state
+    def __init__(
+        self,
+        total: Optional[int],
+        position: int,
+        bar_format: str,
+        file: TextIO,
+        metrics: Dict[str, Any],
+        keys_to_log: List[str],
+    ) -> None:
+        self.keys_to_log = keys_to_log
+        self.metrics = metrics
+        self.position = position
         self.pbar = tqdm.auto.tqdm(
-            total=state.total,
-            position=state.position,
-            # Putting state.description in bar_format to avoid floating colons.
-            bar_format=f'{state.description} {{l_bar}}{{bar:25}}{{r_bar}}{{bar:-1b}}',
+            total=total,
+            position=position,
+            bar_format=bar_format,  # f'{description} {{l_bar}}{{bar:25}}{{r_bar}}{{bar:-1b}}',
             file=file,
             dynamic_ncols=True,
+            postfix=metrics,
         )
-        self.pbar.set_postfix(state.epoch_metrics)
 
     def log_data(self, data: Dict[str, Any]):
-        formatted_data = {k: format_log_data_value(v) for (k, v) in data.items() if k in self.state.keys_to_log}
-        self.state.epoch_metrics.update(formatted_data)
-        self.pbar.set_postfix(self.state.epoch_metrics)
+        formatted_data = {k: format_log_data_value(v) for (k, v) in data.items() if k in self.keys_to_log}
+        self.metrics.update(formatted_data)
+        self.pbar.set_postfix(self.metrics)
 
-    def update(self):
-        self.pbar.update()
-        self.state.n = self.pbar.n
+    def update(self, n=1):
+        self.pbar.update(n=n)
 
     def close(self):
         self.pbar.close()
 
     def state_dict(self) -> Dict[str, Any]:
-        return asdict(self.state)
+        pbar_state = self.pbar.format_dict()
+
+        return {
+            'total': pbar_state['total'],
+            'position': self.position,
+            'bar_format': pbar_state['bar_format'],
+            'metrics': self.metrics,
+            'keys_to_log': self.keys_to_log,
+            'n': pbar_state['n'],
+        }
 
 
 class ProgressBarLogger(LoggerDestination):
@@ -199,14 +205,11 @@ class ProgressBarLogger(LoggerDestination):
         position = 0 if self.is_train else 1
         self.current_pbar = _ProgressBar(
             file=self.stream,
-            state=_ProgressBarState(
-                total=int(state.dataloader_len),
-                position=position,
-                n=0,
-                keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[self.is_train],
-                description=desc,
-                epoch_metrics={},
-            ),
+            total=int(state.dataloader_len),
+            position=position,
+            keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[self.is_train],
+            bar_format=f'{desc} {{l_bar}}{{bar:25}}{{r_bar}}{{bar:-1b}}',
+            metrics={},
         )
 
     def epoch_start(self, state: State, logger: Logger) -> None:
@@ -223,6 +226,7 @@ class ProgressBarLogger(LoggerDestination):
             self.current_pbar.update()
 
     def batch_end(self, state: State, logger: Logger) -> None:
+        self.is_train = True
         self._update()
 
     def eval_after_forward(self, state: State, logger: Logger) -> None:
@@ -249,8 +253,12 @@ class ProgressBarLogger(LoggerDestination):
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
         if state['train_pbar']:
-            self.train_pbar = _ProgressBar(file=self.stream, state=_ProgressBarState(**state['train_pbar']))
+            n = state['train_pbar'].pop('n')
+            self.train_pbar = _ProgressBar(file=self.stream, **state['train_pbar'])
+            self.train_pbar.update(n=n)
         if state['eval_pbar']:
-            self.eval_pbar = _ProgressBar(file=self.stream, state=_ProgressBarState(**state['eval_pbar']))
+            n = state['train_pbar'].pop('n')
+            self.eval_pbar = _ProgressBar(file=self.stream, **state['eval_pbar'])
+            self.eval_pbar.update(n=n)
 
         self.is_train = state['is_train']
