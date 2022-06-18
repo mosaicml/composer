@@ -21,7 +21,7 @@ The EarlyStopper callback takes several parameters.
 
     import torch
     from composer import Trainer
-    from from composer.callbacks.early_stopper import EarlyStopper
+    from composer.callbacks.early_stopper import EarlyStopper
 
     early_stopper = EarlyStopper(monitor='Accuracy', dataloader_label='train', patience='50ba', comp=torch.greater, min_delta=0.01)
 
@@ -52,7 +52,7 @@ The ThresholdStopper takes the following parameters:
 .. testcode::
 
     from composer import Trainer
-    from from composer.callbacks.threshold_stopper import ThresholdStopper
+    from composer.callbacks.threshold_stopper import ThresholdStopper
 
     threshold_stopper = ThresholdStopper(monitor="Accuracy", "eval", threshold=0.3)
 
