@@ -8,14 +8,14 @@ import pytest
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
 
 
-def generate_parameter_configs(keys, num_replicas=1):
+def generate_parameter_configs(keys, num_replicas=1, model_family=('bert', 'gpt2')):
     """Generates parameter configurations for the fixtures.
 
     We cannot directly do this with `pytest.mark.parameterize(...)` since it doesn't pass combinations of arguments to
     fixtures.
     """
     config_options = {
-        'tokenizer_family': ['bert', 'gpt2'],
+        'tokenizer_family': model_family,
         'chars_per_sample': [128],
         'column_names': [['sentence'], ['sentence1', 'sentence2']],
         'num_samples': [50]

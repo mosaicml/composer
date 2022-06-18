@@ -740,6 +740,8 @@ class Trainer:
         # Profiling
         profiler: Optional[Profiler] = None,
     ):
+        algorithms = list(ensure_tuple(algorithms))
+
         # Determine whether DeepSpeed is enabled
         deepspeed_enabled = deepspeed_config is not None
 
@@ -791,25 +793,13 @@ class Trainer:
                 DeprecationWarning((f"Using the 'grad_clip_norm' field in Trainer is deprecated. Please use"
                                     'the GradientClipping Algorithm in composer.algorithms.gradient_clipping.')))
 
-            print_warning = False
-            if algorithms is not None:
-                if isinstance(algorithms, Sequence):
-                    if any([isinstance(algo, GradientClipping) for algo in algorithms]):
-                        print_warning = True
-                elif isinstance(algorithms, GradientClipping):
-                    print_warning = True
-
-                if print_warning:
-                    warnings.warn(
-                        RuntimeWarning(
-                            f'The GradientClipping algorithm is already specified. Ignoring grad_clip_norm={grad_clip_norm}'
-                        ))
-
+            if any(isinstance(alg, GradientClipping) for alg in algorithms):
+                warnings.warn(
+                    UserWarning(
+                        f'The GradientClipping algorithm is already specified. Ignoring grad_clip_norm={grad_clip_norm}'
+                    ))
             else:
-                if algorithms is not None:
-                    algorithms.append(GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm))
-                else:
-                    algorithms = [GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm)]
+                algorithms.append(GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm))
 
         # Run Name
         if run_name is None:
@@ -825,9 +815,8 @@ class Trainer:
                            grad_accum=grad_accum,
                            precision=precision,
                            optimizers=optimizers,
-                           run_name=run_name)
-
-        self.state.deepspeed_config = deepspeed_config
+                           run_name=run_name,
+                           deepspeed_config=deepspeed_config)
 
         # Profiler
         if profiler is not None:
@@ -941,7 +930,7 @@ class Trainer:
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
 
         # Configure Deepspeed
-        if deepspeed_config is not None:
+        if self.state.deepspeed_config is not None:
             try:
                 import deepspeed
             except ImportError as e:
@@ -1656,9 +1645,8 @@ class Trainer:
                         else:
                             optimizer.step()
             except RuntimeError as e:
-                if _is_cuda_oom(e):
-                    log.debug((f"Rank {dist.get_global_rank()} OOM'd. "
-                               'grad_accum will be increased prior to reattempting training on the current batch.'))
+                if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
+                    log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     should_handle_cuda_oom = 1
                 elif 'Timed out' in str(e):
                     # Catch timeout errors and only reraise if we did not encounter OOM on other ranks. Error
@@ -1682,14 +1670,18 @@ class Trainer:
                         ('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
                          'The GPU does not have enough memory to process even 1 sample.'))
                 else:
+                    original_grad_accum = self.state.grad_accum
                     self.state.grad_accum = min(2 * self.state.grad_accum, device_batch_size)
-                    self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
+                    log.info(('CUDA out of memory detected. Gradient Accumulation '
+                              f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
+                              'and the batch will be retrained.'))
             elif caught_timeout_error:
                 # If not CUDA out of memory, raise exception to user. Note that this truncates the call stack
                 # back only to this newly raised error.
                 raise caught_timeout_error
             else:
-                # Otherwise, return calculated loss
+                # Otherwise, log grad_accum and return calculated loss
+                self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
                 return total_loss
 
     def _train_microbatches(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
