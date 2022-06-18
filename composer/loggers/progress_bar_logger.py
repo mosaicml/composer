@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import asdict, dataclass
+from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, TextIO, Union
 
 import tqdm.auto
@@ -21,8 +22,20 @@ __all__ = ['ProgressBarLogger']
 _IS_TRAIN_TO_KEYS_TO_LOG = {True: ['loss/train'], False: ['metrics/eval/Accuracy']}
 
 
+def rank_zero_only(fn: Callable) -> Callable:
+
+    @wraps(fn)
+    def wrapped_fn(*args: Any, **kwargs: Any) -> Optional[Any]:
+        if dist.get_local_rank() != 0:
+            return
+
+        return fn(*args, **kwargs)
+
+    return wrapped_fn
+
+
 @dataclass
-class _ProgressBarLoggerInstanceState:
+class _ProgressBarState:
     total: Optional[int]
     description: str
     position: int
@@ -31,9 +44,9 @@ class _ProgressBarLoggerInstanceState:
     epoch_metrics: Dict[str, Any]
 
 
-class _ProgressBarLoggerInstance:
+class _ProgressBar:
 
-    def __init__(self, file: TextIO, state: _ProgressBarLoggerInstanceState) -> None:
+    def __init__(self, file: TextIO, state: _ProgressBarState) -> None:
         self.state = state
         self.pbar = tqdm.auto.tqdm(
             total=state.total,
@@ -106,12 +119,17 @@ class ProgressBarLogger(LoggerDestination):
         stream: Union[str, TextIO] = sys.stderr,
     ) -> None:
         self.show_pbar = progress_bar
-        log_to_console = not progress_bar if log_to_console is None else log_to_console
-        if not log_to_console:
-            console_log_level = lambda state, ll: False
-        self.pbars: Dict[bool, _ProgressBarLoggerInstance] = {}
+        self.train_pbar: Optional[_ProgressBar] = None
+        self.eval_pbar: Optional[_ProgressBar] = None
         self.is_train: Optional[bool] = None
 
+        if log_to_console is None:
+            log_to_console = not progress_bar
+
+        if not log_to_console:
+            console_log_level = lambda state, ll: False
+
+        # create should_log callable based on console_log_level
         if isinstance(console_log_level, str):
             console_log_level = LogLevel(console_log_level)
         if isinstance(console_log_level, LogLevel):
@@ -123,37 +141,55 @@ class ProgressBarLogger(LoggerDestination):
             self.should_log = should_log
         else:
             self.should_log = console_log_level
+
+        # set the stream
         if isinstance(stream, str):
-            if stream.lower() == 'stdout':
-                stream = sys.stdout
-            elif stream.lower() == 'stderr':
-                stream = sys.stderr
-            else:
-                raise ValueError(
-                    f"Invalid stream option: Should be 'stdout', 'stderr', or a TextIO-like object; got {stream}")
+            stream = {
+                'stdout': sys.stdout,
+                'stderr': sys.stderr,
+            }[stream.lower()]
         self.stream = stream
 
+    @property
+    def current_pbar(self) -> Optional[_ProgressBar]:
+        if self.is_train is None:
+            return None
+        return self.train_pbar if self.is_train else self.eval_pbar
+
+    @current_pbar.setter
+    def current_pbar(self, pbar: Optional[_ProgressBar]):
+        if self.is_train is None:
+            raise AssertionError('Cannot set pbar if self.is_train is not set.')
+
+        if self.is_train:
+            self.train_pbar = pbar
+        else:
+            self.eval_pbar = pbar
+
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]) -> None:
-        if dist.get_local_rank() == 0 and self.is_train in self.pbars:
+        # log to progress bar
+        if dist.get_local_rank() == 0 and self.current_pbar:
             # Logging outside an epoch
-            assert self.is_train is not None
-            self.pbars[self.is_train].log_data(data)
+            self.current_pbar.log_data(data)
 
-        if not self.should_log(state, log_level):
-            return
-        data_str = format_log_data_value(data)
-        log_str = f'[{log_level.name}][batch={int(state.timestamp.batch)}]: {data_str}'
+        # log to console
+        if self.should_log(state, log_level):
+            data_str = format_log_data_value(data)
+            log_str = f'[{log_level.name}][batch={int(state.timestamp.batch)}]: {data_str}'
+            self.log_to_console(log_str)
 
-        if self.is_train in self.pbars:
-            # use tqdm.write to avoid interleaving with a progress bar
-            assert self.is_train is not None
-            self.pbars[self.is_train].pbar.write(log_str)
+    def log_to_console(self, log_str: str):
+        """ Logs to the console, avoiding interleaving with a progress bar"""
+        if self.current_pbar:
+            # use tqdm.write to avoid interleaving
+            self.current_pbar.pbar.write(log_str)
         else:
             # write directly to self.stream; no active progress bar
             print(log_str, file=self.stream, flush=True)
 
+    @rank_zero_only
     def _start(self, state: State):
-        if dist.get_local_rank() != 0 or not self.show_pbar:
+        if not self.show_pbar:
             return
         assert self.is_train is not None, 'self.is_train should be set by the callback'
         assert state.dataloader_len is not None, 'dataloader_len should be set when using tqdm'
@@ -161,9 +197,9 @@ class ProgressBarLogger(LoggerDestination):
         split = 'train' if self.is_train else 'val'
         desc = f'Epoch {int(state.timestamp.epoch):5d} {split:5s}'
         position = 0 if self.is_train else 1
-        self.pbars[self.is_train] = _ProgressBarLoggerInstance(
+        self.current_pbar = _ProgressBar(
             file=self.stream,
-            state=_ProgressBarLoggerInstanceState(
+            state=_ProgressBarState(
                 total=int(state.dataloader_len),
                 position=position,
                 n=0,
@@ -174,71 +210,47 @@ class ProgressBarLogger(LoggerDestination):
         )
 
     def epoch_start(self, state: State, logger: Logger) -> None:
-        del logger  # unused
-        if dist.get_local_rank() != 0:
-            return
         self.is_train = True
         self._start(state)
 
     def eval_start(self, state: State, logger: Logger) -> None:
-        del logger  # unused
-        if dist.get_local_rank() != 0:
-            return
         self.is_train = False
         self._start(state)
 
+    @rank_zero_only
     def _update(self):
-        if dist.get_local_rank() != 0:
-            return
-        if self.is_train in self.pbars:
-            assert self.is_train is not None
-            self.pbars[self.is_train].update()
+        if self.current_pbar:
+            self.current_pbar.update()
 
     def batch_end(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
-        if dist.get_local_rank() != 0:
-            return
         self._update()
 
     def eval_after_forward(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
-        if dist.get_local_rank() != 0:
-            return
         self._update()
 
+    @rank_zero_only
     def _end(self):
-        if dist.get_local_rank() != 0:
-            return
-        if self.is_train in self.pbars:
-            assert self.is_train is not None
-            self.pbars[self.is_train].close()
-            del self.pbars[self.is_train]
+        if self.current_pbar:
+            self.current_pbar.close()
             self.is_train = None
 
     def epoch_end(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
-        if dist.get_local_rank() != 0:
-            return
         self._end()
 
     def eval_end(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
-        if dist.get_local_rank() != 0:
-            return
         self._end()
 
     def state_dict(self) -> Dict[str, Any]:
         return {
-            'pbars': {k: v.state_dict() for (k, v) in self.pbars.items()},
+            'train_pbar': self.train_pbar.state_dict() if self.train_pbar else None,
+            'eval_pbar': self.eval_pbar.state_dict() if self.eval_pbar else None,
             'is_train': self.is_train,
         }
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
-        self.pbars = {}
-        for is_train, pbar_state in state['pbars'].items():
-            self.pbars[is_train] = _ProgressBarLoggerInstance(
-                file=self.stream,
-                state=_ProgressBarLoggerInstanceState(**pbar_state),
-            )
+        if state['train_pbar']:
+            self.train_pbar = _ProgressBar(file=self.stream, state=_ProgressBarState(**state['train_pbar']))
+        if state['eval_pbar']:
+            self.eval_pbar = _ProgressBar(file=self.stream, state=_ProgressBarState(**state['eval_pbar']))
 
         self.is_train = state['is_train']
