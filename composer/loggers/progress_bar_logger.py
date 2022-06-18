@@ -124,6 +124,7 @@ class ProgressBarLogger(LoggerDestination):
         console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         stream: Union[str, TextIO] = sys.stderr,
     ) -> None:
+
         self.show_pbar = progress_bar
         self.train_pbar: Optional[_ProgressBar] = None
         self.eval_pbar: Optional[_ProgressBar] = None
@@ -133,20 +134,17 @@ class ProgressBarLogger(LoggerDestination):
             log_to_console = not progress_bar
 
         if not log_to_console:
-            console_log_level = lambda state, ll: False
-
-        # create should_log callable based on console_log_level
-        if isinstance(console_log_level, str):
-            console_log_level = LogLevel(console_log_level)
-        if isinstance(console_log_level, LogLevel):
-
-            def should_log(state: State, log_level: LogLevel, console_log_level: LogLevel = console_log_level):
-                del state  # unused
-                return log_level <= console_log_level
-
-            self.should_log = should_log
+            # never log to console
+            self.should_log = lambda state, ll: False
         else:
-            self.should_log = console_log_level
+            # set should_log to a Callable[[State, LogLevel], bool]
+            if isinstance(console_log_level, str):
+                console_log_level = LogLevel(console_log_level)
+
+            if isinstance(console_log_level, LogLevel):
+                self.should_log = lambda state, ll: ll <= console_log_level
+            else:
+                self.should_log = console_log_level
 
         # set the stream
         if isinstance(stream, str):
