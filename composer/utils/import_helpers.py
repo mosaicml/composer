@@ -9,8 +9,16 @@ from typing import Any, Optional
 __all__ = ['check_if_transformers_installed', 'MissingConditionalImportError', 'import_object']
 
 
-def check_if_transformers_installed(is_transformers_installed):
-    """ TODO (Moin): docstring! """
+def check_if_transformers_installed(is_transformers_installed: bool):
+    """Check if Transformers utilities have been installed, and if not, raises the appropriate exception.
+
+    Args:
+        is_transformers_installed (bool): Whether `transformers` is installed (determined by the caller).
+            The import should be attempted by the caller in order to avoid unused import errors.
+
+    Raises:
+        MissingConditionalImportError: An error if `transformers` has not been installed.
+    """
     if not is_transformers_installed:
         raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers')
 

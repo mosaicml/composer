@@ -4,14 +4,12 @@
 from typing import Tuple
 
 import pytest
-from torch.nn import LayerNorm
 
 from composer.algorithms.gated_linear_units import GatedLinearUnits, apply_gated_linear_units
 from composer.algorithms.gated_linear_units.gated_linear_unit_layers import BERTGatedOutput
 from composer.core.event import Event
 from composer.loggers import Logger
 from composer.models import BERTModel
-from tests.common import device
 from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker
 
 

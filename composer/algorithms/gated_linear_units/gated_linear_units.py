@@ -71,10 +71,10 @@ def apply_gated_linear_units(model: torch.nn.Module,
                 else:
                     if not isinstance(act_fn, type(module.intermediate_act_fn)):
                         raise ValueError(
-                            "The model has non-uniform activation functions, which is currently unsupported.")
+                            'The model has non-uniform activation functions, which is currently unsupported.')
     if act_fn is None:
         raise ValueError(
-            "Could not find an existing activation function to use, and no custom activation function was provided.")
+            'Could not find an existing activation function to use, and no custom activation function was provided.')
 
     # prepare the replacement policy and perform replacement
     policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
