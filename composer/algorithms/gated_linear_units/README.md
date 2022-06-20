@@ -1,4 +1,4 @@
-# 🍰 Fused LayerNorm
+# 🍰 Gated Linear Units
 
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
@@ -7,6 +7,7 @@
 
 Fused LayerNorm replaces implementations of `torch.nn.LayerNorm` with a `apex.normalization.fused_layer_norm`. The fused kernel provides increased GPU utilization.
 
+# TODO (Moin): think of a good graphic for gated linear units
 | ![FusedLayerNorm](https://miro.medium.com/max/1200/0*ugfR_r4J9PK8tXNb)|
 |:--|
 |*A visualization of the impact of Fused LayerNorm.*|
@@ -21,7 +22,7 @@ Fused LayerNorm replaces implementations of `torch.nn.LayerNorm` with a `apex.no
 import composer.functional as cf
 
 def training_loop(model, train_loader):
-    cf.apply_fused_layernorm(model)
+    cf.apply_gated_linear_units(model)
 
     opt = torch.optim.Adam(model.parameters())
     loss_fn = F.cross_entropy
@@ -41,12 +42,12 @@ def training_loop(model, train_loader):
 <!--pytest-codeblocks:skip-->
 ```python
 from composer.trainer import Trainer
-from composer.algorithms import FusedLayerNorm
+from composer.algorithms import GatedLinearUnits
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   max_duration='1ep',
-                  algorithms=[FusedLayerNorm()])
+                  algorithms=[GatedLinearUnits()])
 
 trainer.fit()
 ```
