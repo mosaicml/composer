@@ -54,7 +54,7 @@ The ThresholdStopper takes the following parameters:
     from composer import Trainer
     from composer.callbacks.threshold_stopper import ThresholdStopper
 
-    threshold_stopper = ThresholdStopper(monitor="Accuracy", "eval", threshold=0.3)
+    threshold_stopper = ThresholdStopper(monitor="Accuracy", dataloader_label="eval", threshold=0.3)
 
     trainer = Trainer(
         model=model,
