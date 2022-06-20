@@ -214,6 +214,9 @@ def get_algs_with_marks():
             # see: https://github.com/mosaicml/composer/issues/362
             pytest.importorskip('torch', minversion='1.10', reason='Pytorch 1.10 required.')
 
+        if alg_cls in (Alibi, GatedLinearUnits, SeqLengthWarmup):
+            pytest.importorskip('transformers')
+
         if alg_cls == SWA:
             # TODO(matthew): Fix
             marks.append(
