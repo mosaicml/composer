@@ -1,5 +1,5 @@
 {
-    "fused_layernorm": {
+    "gated_linear_units": {
         "name": "Gated Linear Units",
         "class_name": "GatedLinearUnits",
         "functional": "apply_gated_linear_units",
