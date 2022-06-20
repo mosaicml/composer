@@ -77,6 +77,7 @@ def get_model_algs(model_name: str) -> List[str]:
         algs.remove('alibi')
         algs.remove('seq_length_warmup')
         algs.remove('swa')
+        algs.remove('gated_linear_units')
     if 'alibi' in algs:
         pytest.importorskip('transformers')
         pytest.importorskip('datasets')
@@ -100,10 +101,13 @@ def get_model_algs(model_name: str) -> List[str]:
         algs.remove('augmix')
         algs.remove('sam')
         algs.remove('selective_backprop')
+
     if model_name in ('unet'):
         algs.remove('stochastic_depth')
         algs.remove('mixup')
         algs.remove('cutmix')
+    elif 'gpt2' in model_name:
+        algs.remove('gated_linear_units')
     return algs
 
 

@@ -21,6 +21,7 @@ from composer.algorithms.gated_linear_units.gated_linear_unit_layers import BERT
 from composer.algorithms.warnings import NoEffectWarning
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
+from composer.models import BERTModel
 from composer.utils import check_if_transformers_installed, module_surgery
 
 log = logging.getLogger(__name__)
@@ -28,9 +29,10 @@ log = logging.getLogger(__name__)
 
 def from_BertOutput(layer: torch.nn.Module,
                     module_index: int,
-                    act_fn: Optional[Callable] = None,
+                    act_fn: Callable,
                     wi_0_bias: bool = False,
                     wi_1_bias: bool = False) -> BERTGatedOutput:
+    """Defines a replacement policy from a `transformers.models.bert.modeling_bert.BertOutput` to a `composer.algorithms.gated_linear_units.gated_linear_unit_layers.BERTGatedOutput`"""
     assert isinstance(
         layer, BertOutput
     ), 'The replacement policy will look for all instances of transformers.models.bert.modeling_bert.BertOutput'
@@ -44,6 +46,7 @@ def from_BertOutput(layer: torch.nn.Module,
 
 
 def from_BertIntermediate(layer: torch.nn.Module, module_index: int) -> DummyBERTIntermediateOutput:
+    """Defines a replacement policy from a `transformers.models.bert.modeling_bert.BertIntermediate` to a `composer.algorithms.gated_linear_units.gated_linear_unit_layers.DummyBERTIntermediateOutput`"""
     assert isinstance(
         layer, BertIntermediate
     ), 'The replacement policy will look for all instances of transformers.models.bert.modeling_bert.BertIntermediate'
@@ -55,12 +58,29 @@ def apply_gated_linear_units(model: torch.nn.Module,
                              act_fn: Optional[Callable] = None,
                              wi_0_bias: bool = False,
                              wi_1_bias: bool = False) -> None:
-    """Replaces all instances of `torch.nn.LayerNorm` with a `apex.normalization.fused_layer_norm.FusedLayerNorm
-    <https://nvidia.github.io/apex/layernorm.html>`_.
+    """
+    Replaces the Linear layers in the feed-forward network with `Gated Linear Units <https://nvidia.github.io/apex/layernorm.html>`_.
 
-    By fusing multiple kernel launches into one, this usually improves GPU utilization.
+    Args:
+        model (:class:`torch.nn.Module`): the model to modify in-place
+        optimizers (:class:`torch.optim.Optimizer` | Sequence[:class:`torch.optim.Optimizer`], optional):
+            Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
+            constructed with ``model.parameters()`` must be specified here so that
+            they will optimize the correct parameters.
+
+            If the optimizer(s) are constructed *after* calling this function,
+            then it is safe to omit this parameter. These optimizers will see the correct
+            model parameters.
+        act_fn (Callable, optional): Optionally, the activation function to use. If ``None``, the algorithm will
+            use the existing activation function in the model.
+        wi_0_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
+        wi_1_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
     """
     check_if_transformers_installed(TRANSFORMERS_INSTALLED)
+
+    # ensure that the model is an instance of a BERTModel, since our replacement policy is only defined for BERTs
+    if not isinstance(model, BERTModel):
+        raise ValueError('Gated Linear Units only has a surgery policy defined for instances of BERTModel.')
 
     # get the activation functions used
     if act_fn is None:
@@ -90,12 +110,16 @@ def apply_gated_linear_units(model: torch.nn.Module,
 
 
 class GatedLinearUnits(Algorithm):
-    """Replaces all instances of `torch.nn.LayerNorm` with a `apex.normalization.fused_layer_norm.FusedLayerNorm
-    <https://nvidia.github.io/apex/layernorm.html>`_.
+    """Replaces all instances of Linear layers in the feed-forward subnetwork with a `Gated Linear Unit <https://arxiv.org/abs/2002.05202>`_.
+    THe Gated Linear Units provide a more expressive form for the same number of parameters, and a slight degredation to throughput.
 
-    By fusing multiple kernel launches into one, this usually improves GPU utilization.
+    Runs on :attr:`~composer.core.event.Event.INIT`, so it can swap the Linear layers in the FFN for GLUs before the model is DDP wrapped.
 
-    Runs on ``Event.INIT``, so it can replace all instances of `torch.nn.LayerNorm` before the model is DDP wrapped. Has no hyperparameters.
+    Args:
+        act_fn (Callable, optional): Optionally, the activation function to use. If ``None``, the algorithm will
+            use the existing activation function in the model.
+        wi_0_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
+        wi_1_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
 
     Example:
         .. testsetup::
