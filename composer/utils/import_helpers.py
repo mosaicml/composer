@@ -6,7 +6,13 @@
 import importlib
 from typing import Any, Optional
 
-__all__ = ['import_object', 'MissingConditionalImportError']
+__all__ = ['check_if_transformers_installed', 'MissingConditionalImportError', 'import_object']
+
+
+def check_if_transformers_installed(is_transformers_installed):
+    """ TODO (Moin): docstring! """
+    if not is_transformers_installed:
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers')
 
 
 class MissingConditionalImportError(ImportError):

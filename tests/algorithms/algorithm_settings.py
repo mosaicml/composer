@@ -17,9 +17,9 @@ import composer
 import composer.algorithms
 from composer import Algorithm
 from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
-                                 Factorize, FusedLayerNorm, GhostBatchNorm, GradientClipping, LabelSmoothing,
-                                 LayerFreezing, MixUp, NoOpModel, ProgressiveResizing, RandAugment, SelectiveBackprop,
-                                 SeqLengthWarmup, SqueezeExcite, StochasticDepth)
+                                 Factorize, FusedLayerNorm, GatedLinearUnits, GhostBatchNorm, GradientClipping,
+                                 LabelSmoothing, LayerFreezing, MixUp, NoOpModel, ProgressiveResizing, RandAugment,
+                                 SelectiveBackprop, SeqLengthWarmup, SqueezeExcite, StochasticDepth)
 from composer.models import ComposerResNet
 from composer.models.base import ComposerModel
 from tests import common
@@ -100,6 +100,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     },
     Factorize: simple_resnet_settings,
     FusedLayerNorm: simple_bert_settings,
+    GatedLinearUnits: simple_bert_settings,
     GhostBatchNorm: {
         'model': (ComposerResNet, {
             'model_name': 'resnet18',
