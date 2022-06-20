@@ -4,7 +4,7 @@
 """Helpers to get items and set items in a batch."""
 
 from operator import attrgetter, itemgetter
-from typing import Any, Callable, Sequence, Union
+from typing import Any, Callable, Sequence, Union, cast
 
 __all__ = ['batch_get', 'batch_set']
 
@@ -53,8 +53,8 @@ def batch_get(batch: Any, key: Union[str, int, Callable, Any]):
             return itemgetter(*key)(batch)
         except TypeError:
             try:
-                return attrgetter(key)(batch)
-            except:
+                return attrgetter(cast(str, key))(batch)
+            except TypeError:
                 return attrgetter(*key)(batch)
 
 

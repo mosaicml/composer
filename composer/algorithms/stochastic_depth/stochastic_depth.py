@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Modules and layers for applying the Stochastic Depth algorithm."""
+
 from __future__ import annotations
 
 import functools
@@ -24,6 +26,8 @@ _VALID_STOCHASTIC_METHODS = ('block', 'sample')
 
 _STOCHASTIC_LAYER_MAPPING = {'ResNetBottleneck': (Bottleneck, make_resnet_bottleneck_stochastic)}
 
+__all__ = ['apply_stochastic_depth', 'StochasticDepth']
+
 
 def apply_stochastic_depth(model: torch.nn.Module,
                            target_layer_name: str,
@@ -41,24 +45,27 @@ def apply_stochastic_depth(model: torch.nn.Module,
 
     .. note::
 
-        Stochastic Depth only works on instances of `torchvision.models.resnet.ResNet` for now.
+        Stochastic Depth only works on instances of :class:`torchvision.models.resnet.ResNet`
+        for now.
 
     Args:
-        model (torch.nn.Module): model containing modules to be replaced with stochastic versions
+        model (torch.nn.Module): model containing modules to be replaced with
+            stochastic versions.
         target_layer_name (str): Block to replace with a stochastic block
             equivalent. The name must be registered in ``STOCHASTIC_LAYER_MAPPING``
             dictionary with the target layer class and the stochastic layer class.
             Currently, only :class:`torchvision.models.resnet.Bottleneck` is supported.
-        stochastic_method (str, optional): The version of stochastic depth to use. ``'block'``
-            randomly drops blocks during training. ``'sample'`` randomly drops
-            samples within a block during training. Default: ``'block'``.
-        drop_rate (float, optional): The base probability of dropping a layer or sample. Must be
-            between 0.0 and 1.0. Default: `0.2``.
+        stochastic_method (str, optional): The version of stochastic depth to use.
+            ``"block"`` randomly drops blocks during training. ``"sample"`` randomly
+            drops samples within a block during training. Default: ``"block"``.
+        drop_rate (float, optional): The base probability of dropping a layer or sample.
+            Must be between 0.0 and 1.0. Default: `0.2``.
         drop_distribution (str, optional): How ``drop_rate`` is distributed across
-            layers. Value must be one of ``'uniform'`` or ``'linear'``.
-            ``'uniform'`` assigns the same ``drop_rate`` across all layers.
-            ``'linear'`` linearly increases the drop rate across layer depth
-            starting with 0 drop rate and ending with ``drop_rate``. Default: ``'linear'``.
+            layers. Value must be one of ``"uniform"`` or ``"linear"``.
+            ``"uniform"`` assigns the same ``drop_rate`` across all layers.
+            ``"linear"`` linearly increases the drop rate across layer depth,
+            starting with 0 drop rate and ending with ``drop_rate``.
+            Default: ``"linear"``.
 
     Returns:
         The modified model
@@ -69,7 +76,10 @@ def apply_stochastic_depth(model: torch.nn.Module,
             import composer.functional as cf
             from torchvision import models
             model = models.resnet50()
-            cf.apply_stochastic_depth(model, target_layer_name='ResNetBottleneck')
+            cf.apply_stochastic_depth(
+                model,
+                target_layer_name='ResNetBottleneck'
+            )
     """
     _validate_stochastic_hparams(target_layer_name=target_layer_name,
                                  stochastic_method=stochastic_method,
@@ -103,26 +113,27 @@ class StochasticDepth(Algorithm):
 
     .. note::
 
-        Stochastic Depth only works on instances of `torchvision.models.resnet.ResNet` for now.
+        Stochastic Depth only works on instances of :class:`torchvision.models.resnet.ResNet` for now.
 
     Args:
         target_layer_name (str): Block to replace with a stochastic block
             equivalent. The name must be registered in ``STOCHASTIC_LAYER_MAPPING``
             dictionary with the target layer class and the stochastic layer class.
             Currently, only :class:`torchvision.models.resnet.Bottleneck` is supported.
-        stochastic_method (str, optional): The version of stochastic depth to use. ``'block'``
-            randomly drops blocks during training. ``'sample'`` randomly drops
-            samples within a block during training. Default: ``'block'``.
-        drop_rate (float, optional): The base probability of dropping a layer or sample. Must be
-            between 0.0 and 1.0. Default: ``0.2``.
+        stochastic_method (str, optional): The version of stochastic depth to use.
+            ``"block"`` randomly drops blocks during training. ``"sample"`` randomly drops
+            samples within a block during training. Default: ``"block"``.
+        drop_rate (float, optional): The base probability of dropping a layer or sample.
+            Must be between 0.0 and 1.0. Default: ``0.2``.
         drop_distribution (str, optional): How ``drop_rate`` is distributed across
-            layers. Value must be one of ``'uniform'`` or ``'linear'``.
-            ``'uniform'`` assigns the same ``drop_rate`` across all layers.
-            ``'linear'`` linearly increases the drop rate across layer depth
-            starting with 0 drop rate and ending with ``drop_rate``. Default: ``'linear'``.
-        drop_warmup (str | Time | float, optional): A :class:`Time` object, time-string, or float
-            on [0.0; 1.0] representing the fraction of the training duration to linearly
-            increase the drop probability to `linear_drop_rate`. Default: ``0.0``.
+            layers. Value must be one of ``"uniform"`` or ``"linear"``.
+            ``"uniform"`` assigns the same ``drop_rate`` across all layers.
+            ``"linear"`` linearly increases the drop rate across layer depth,
+            starting with 0 drop rate and ending with ``drop_rate``. Default: ``"linear"``.
+        drop_warmup (str | Time | float, optional): A :class:`Time` object,
+            time-string, or float on ``[0.0, 1.0]`` representing the fraction of the
+            training duration to linearly increase the drop probability to
+            `linear_drop_rate`. Default: ``0.0``.
     """
 
     def __init__(self,
@@ -153,30 +164,12 @@ class StochasticDepth(Algorithm):
 
     @property
     def find_unused_parameters(self) -> bool:
-        """DDP parameter to notify that parameters may not have gradients if it is dropped during the forward pass."""
-        return (self.stochastic_method == 'block')
+        return self.stochastic_method == 'block'
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on :attr:`~composer.core.event.Event.INIT`, as well as
-    :attr:`~composer.core.event.Event.BATCH_START` if ``drop_warmup > 0``.
-
-        Args:
-            event (Event): The current event.
-            state (State): The current state.
-        Returns:
-            bool: True if this algorithm should run now.
-        """
-
         return (event == Event.INIT) or (event == Event.BATCH_START and self.drop_warmup > 0.0)
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Applies StochasticDepth modification to the state's model.
-
-        Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Logger): the training logger
-        """
         assert state.model is not None
         target_block, _ = _STOCHASTIC_LAYER_MAPPING[self.target_layer_name]
 
