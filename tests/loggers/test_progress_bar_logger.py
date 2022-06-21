@@ -82,7 +82,7 @@ def test_progress_bar_logger(max_duration: Time[int], monkeypatch: MonkeyPatch, 
             assert mt.update.call_count == max_duration.value
     elif max_duration.unit == TimeUnit.SAMPLE:
         for mt in mock_tqdms_train:
-            assert mt.update.call_count == max_duration.value // batch_size
+            assert mt.update.call_count == max_duration.value // batch_size / world_size
 
     # test eval pbar
     for mt in mock_tqdms_eval:
