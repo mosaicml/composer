@@ -217,14 +217,13 @@ class ProgressBarLogger(LoggerDestination):
         position = 0 if is_train else 1
         split = 'train' if is_train else 'val'
 
-        assert state.max_duration is not None, 'max_duration should be set'
         assert self.is_train is not None
         if epoch_style:
             assert state.dataloader_len is not None, 'dataloader_len should be set'
             total = int(state.dataloader_len)
 
             # handle when # batches is less than an epoch
-            if state.max_duration.unit == TimeUnit.BATCH:
+            if state.max_duration is not None and state.max_duration.unit == TimeUnit.BATCH:
                 total = min(total, state.max_duration.value)
 
             unit = TimeUnit.BATCH
@@ -234,9 +233,12 @@ class ProgressBarLogger(LoggerDestination):
                 n = max(0, n - 1)
             desc = f'Epoch {n:5d} {split:5s}'
         else:
+            assert state.max_duration is not None, 'max_duration should be set'
+
             total = state.max_duration.value
             unit = state.max_duration.unit
             desc = f'{unit.name.capitalize():<11} {split:5s}'
+
         return _ProgressBar(
             file=self.stream,
             total=total,
