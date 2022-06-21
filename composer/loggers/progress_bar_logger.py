@@ -63,14 +63,14 @@ class _ProgressBar:
         else:
             n = int(timestamp.get(self.unit))
 
-        self.pbar.n = n
-        self.pbar.refresh()
+        n = n - self.pbar.n
+        self.pbar.update(int(n))
 
     def close(self):
         self.pbar.close()
 
     def state_dict(self) -> Dict[str, Any]:
-        pbar_state = self.pbar.format_dict()
+        pbar_state = self.pbar.format_dict
 
         return {
             'total': pbar_state['total'],
