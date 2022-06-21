@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 # ignore third-party missing imports due to the mlperf logger not pip-installable
 # pyright: reportMissingImports=none
 
@@ -21,7 +24,7 @@ def rank_zero() -> bool:
 
 @pytest.fixture(autouse=True)
 def importor_skip_mlperf_logging():
-    pytest.importorskip("mlperf_logging")
+    pytest.importorskip('mlperf_logging')
 
 
 class MockMLLogger:
@@ -38,9 +41,9 @@ class MockMLLogger:
 class TestMLPerfCallbackEvents:
 
     @pytest.fixture
-    def mlperf_callback(self, monkeypatch, tmpdir) -> MLPerfCallback:
+    def mlperf_callback(self, monkeypatch, tmp_path) -> MLPerfCallback:
         """Returns a callback with the MockMLLogger patched."""
-        callback = MLPerfCallback(tmpdir, 0)
+        callback = MLPerfCallback(tmp_path, 0)
         monkeypatch.setattr(callback, 'mllogger', MockMLLogger())
         return callback
 
@@ -90,7 +93,7 @@ class TestWithMLPerfChecker:
     """Ensures that the logs created by the MLPerfCallback pass the official package checker."""
 
     @pytest.mark.timeout(15)
-    def test_mlperf_callback_passes(self, tmpdir, monkeypatch, world_size, device):
+    def test_mlperf_callback_passes(self, tmp_path, monkeypatch, world_size, device):
 
         def mock_accuracy(self, state: State):
             if state.timestamp.epoch >= 2:
@@ -100,22 +103,22 @@ class TestWithMLPerfChecker:
 
         monkeypatch.setattr(MLPerfCallback, '_get_accuracy', mock_accuracy)
 
-        self.generate_submission(tmpdir, device)
+        self.generate_submission(tmp_path, device)
 
         if rank_zero():
-            self.run_mlperf_checker(tmpdir, monkeypatch)
+            self.run_mlperf_checker(tmp_path, monkeypatch)
 
     @pytest.mark.timeout(15)
-    def test_mlperf_callback_fails(self, tmpdir, monkeypatch, world_size, device):
+    def test_mlperf_callback_fails(self, tmp_path, monkeypatch, world_size, device):
 
         def mock_accuracy(self, state: State):
             return 0.01
 
         monkeypatch.setattr(MLPerfCallback, '_get_accuracy', mock_accuracy)
 
-        self.generate_submission(tmpdir, device)
+        self.generate_submission(tmp_path, device)
         with pytest.raises(ValueError, match='MLPerf checker failed'):
-            self.run_mlperf_checker(tmpdir, monkeypatch)
+            self.run_mlperf_checker(tmp_path, monkeypatch)
 
     def generate_submission(self, directory, device):
         """Generates submission files by training the benchark n=5 times."""
@@ -139,7 +142,7 @@ class TestWithMLPerfChecker:
                     dataset=RandomClassificationDataset(),
                     shuffle=False,
                 ),
-                max_duration="3ep",
+                max_duration='3ep',
                 deterministic_mode=True,
                 progress_bar=False,
                 log_to_console=False,
@@ -159,17 +162,17 @@ class TestWithMLPerfChecker:
             print(msg.format(*args))
             raise ValueError('MLPerf checker failed, see logs.')
 
-        monkeypatch.setattr(logging, "error", fail_on_error)
+        monkeypatch.setattr(logging, 'error', fail_on_error)
 
         from mlperf_logging.package_checker.package_checker import check_training_package
 
         check_training_package(
             folder=directory,
-            usage="training",
-            ruleset="1.1.0",
+            usage='training',
+            ruleset='1.1.0',
             werror=True,
             quiet=False,
             rcp_bypass=False,
             rcp_bert_train_samples=False,
-            log_output="package_checker.log",
+            log_output='package_checker.log',
         )

@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 from typing import Any, Dict
 
 from composer.core import State
@@ -16,7 +19,7 @@ def assert_state_equivalent(state1: State, state2: State):
     assert state1.is_model_deepspeed == state2.is_model_deepspeed
 
     # Using a loose tolerance for GPU states as GPU determinism does not work properly
-    is_gpu = next(state1.model.parameters()).device.type == "cuda"
+    is_gpu = next(state1.model.parameters()).device.type == 'cuda'
     atol = 0.1 if is_gpu else 0.0
     rtol = 0.1 if is_gpu else 0.0
 
@@ -26,6 +29,10 @@ def assert_state_equivalent(state1: State, state2: State):
     # Remove any wall clock timestamp fields
     _del_wct_timestamp_fields(state_dict_1['timestamp'])
     _del_wct_timestamp_fields(state_dict_2['timestamp'])
+
+    # Remove run_name since we use timestamp as part of name
+    del state_dict_1['run_name']
+    del state_dict_2['run_name']
 
     # Compare the state dicts
     deep_compare(state_dict_1, state_dict_2, atol=atol, rtol=rtol)

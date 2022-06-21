@@ -79,4 +79,3 @@ train_batch_size: 512
 .. autoclass:: composer.models.gpt2.GPT2Model
     :noindex:
 ```
-

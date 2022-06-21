@@ -93,7 +93,7 @@ class GhostBatchNorm(Algorithm):
 
     def apply(self, event: Event, state: State, logger: Optional[Logger] = None) -> None:
         """Applies GhostBatchNorm by wrapping existing BatchNorm modules."""
-        assert state.model is not None, "Model must be in state"
+        assert state.model is not None, 'Model must be in state'
 
         apply_ghost_batchnorm(model=state.model, optimizers=state.optimizers, ghost_batch_size=self.ghost_batch_size)
         self._log_results(event, state, logger)
@@ -124,8 +124,8 @@ def _corresponding_ghost_batchnorm_type(batchnorm: torch.nn.Module):
         return GhostBatchNorm2d
     if isinstance(batchnorm, torch.nn.BatchNorm3d):
         return GhostBatchNorm3d
-    raise ValueError(f"Input was of type {type(batchnorm)}, not one of "
-                     "torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d")
+    raise ValueError(f'Input was of type {type(batchnorm)}, not one of '
+                     'torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d')
 
 
 class _GhostBatchNorm(torch.nn.Module):
@@ -160,7 +160,7 @@ class _GhostBatchNorm(torch.nn.Module):
         batch_size = input.shape[0]
 
         if batch_size < self.ghost_batch_size:
-            raise ValueError(f"Worker batch size {batch_size} < ghost_batch_size {self.ghost_batch_size}")
+            raise ValueError(f'Worker batch size {batch_size} < ghost_batch_size {self.ghost_batch_size}')
 
         nchunks: int = int(math.ceil(batch_size / self.ghost_batch_size))
         has_momentum = self.batchnorm.momentum is not None
@@ -181,8 +181,8 @@ class _GhostBatchNorm(torch.nn.Module):
         return torch.cat(normalized_chunks, dim=0)
 
     @staticmethod
-    def from_batchnorm(module: torch.nn.Module, ghost_batch_size: int) -> "_GhostBatchNorm":
-        assert isinstance(module, _TORCH_BATCHNORM_BASE_CLASS), "Module is not a BatchNorm subclass!"
+    def from_batchnorm(module: torch.nn.Module, ghost_batch_size: int) -> '_GhostBatchNorm':
+        assert isinstance(module, _TORCH_BATCHNORM_BASE_CLASS), 'Module is not a BatchNorm subclass!'
         bn_type = _corresponding_ghost_batchnorm_type(module)
         return bn_type(ghost_batch_size=ghost_batch_size, base_batchnorm=module)
 

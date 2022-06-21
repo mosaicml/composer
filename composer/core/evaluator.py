@@ -15,7 +15,7 @@ from composer.core.event import Event
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
 
-__all__ = ["Evaluator", "evaluate_periodically", "ensure_evaluator"]
+__all__ = ['Evaluator', 'evaluate_periodically', 'ensure_evaluator']
 
 
 def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end: bool = True):
@@ -35,7 +35,7 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
         eval_interval = Time.from_timestring(eval_interval)
 
     if eval_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH):
-        raise ValueError("The `eval_interval` must have units of EPOCH or BATCH, or be a function.")
+        raise ValueError('The `eval_interval` must have units of EPOCH or BATCH, or be a function.')
 
     last_batch_seen = -1
 
@@ -80,11 +80,6 @@ class Evaluator:
        ...     max_duration="1ep",
        ... )
 
-    .. testcleanup::
-
-        trainer.engine.close()
-
-
     Args:
         label (str): Name of the Evaluator
         dataloader (DataSpec | Iterable | Dict[str, Any]): Iterable that yields batches, a :class:`.DataSpec` for evaluation,
@@ -115,8 +110,6 @@ class Evaluator:
             evenly divide the training duration.
     """
 
-    _eval_interval: Optional[Callable[[State, Event], bool]]
-
     def __init__(
         self,
         *,
@@ -137,6 +130,7 @@ class Evaluator:
             self.metrics = metrics
 
         self.subset_num_batches = subset_num_batches
+        self._eval_interval = None
         self.eval_interval = eval_interval
 
     @property
@@ -169,7 +163,7 @@ def ensure_evaluator(evaluator: Union[Evaluator, DataSpec, Iterable, Dict[str, A
         return evaluator
     else:
         return Evaluator(
-            label="eval",
+            label='eval',
             dataloader=evaluator,
             metrics=default_metrics,
         )

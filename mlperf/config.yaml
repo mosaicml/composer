@@ -13,11 +13,11 @@ algorithms:
   - channels_last: {}
   - label_smoothing:
       smoothing: 0.08
-  - progressive_resizing:
-      size_increment: 4
-      delay_fraction: 0.4
-  - ema:
-      update_interval: 20ba
+  #- progressive_resizing:
+  #    size_increment: 4
+  #    delay_fraction: 0.4
+  #- ema:
+  #    update_interval: 20ba
 callbacks:
   speed_monitor:
 train_dataset:
@@ -28,7 +28,7 @@ train_dataset:
     is_train: true
     shuffle: true
     drop_last: true
-    use_ffcv: false
+    use_ffcv: true
 val_dataset:
   imagenet:
     datadir: /tmp/ILSVRC/Data/CLS-LOC/
@@ -37,8 +37,8 @@ val_dataset:
     is_train: false
     shuffle: false
     drop_last: false
-    use_ffcv: false 
-optimizer:
+    use_ffcv: true 
+optimizers:
   decoupled_sgdw:
     lr: 2.048
     momentum: 0.875

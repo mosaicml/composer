@@ -78,13 +78,13 @@ To determine the per-example loss and which examples to skip, an additional, ini
 The loss values from this pass are then used to weight the examples, and the network is trained on a sample of examples selected based on those weights.
 
 > 🚧 Requires an Additional Forward Pass on Each Step
-> 
+>
 > Selective backprop must perform two forward passes on each training step. The first forward pass computes the loss for each example. The main training step then occurs, with a forward and backward pass for any examples selected after the first forward pass.
 > This additional forward pass can slow down training depending on the number of examples that are dropped.
 > The forward pass accounts for approximately one third of the cost of each training step, so at least a third of the examples must hypothetically be dropped for selective backprop to improve throughput.
 
 > ✅ The Cost of the Additional Forward Pass Can Be Mitigated
-> 
+>
 > For some data types, including images, it is possible to mitigate the cost of this additional forward pass.
 > The first forward pass does not need to be as precise as the second forward pass, since it is only selecting how to weight the examples, not how to update the network.
 > As such, this first forward pass can be approximate.
