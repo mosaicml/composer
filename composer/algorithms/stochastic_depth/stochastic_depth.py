@@ -205,7 +205,8 @@ def _validate_stochastic_hparams(target_layer_name: str,
                                  drop_rate: float,
                                  drop_distribution: str,
                                  drop_warmup: str = '0dur'):
-    """Helper function to validate the Stochastic Depth hyperparameter values."""
+    """Helper function to validate the Stochastic Depth hyperparameter values.
+    """
 
     if stochastic_method and (stochastic_method not in _VALID_STOCHASTIC_METHODS):
         raise ValueError(f'stochastic_method {stochastic_method} is not supported.'
@@ -232,7 +233,8 @@ def _update_drop_rate(module: torch.nn.Module,
                       drop_distribution: str,
                       module_count: int,
                       module_id: int = 0):
-    """Recursively updates a module's drop_rate attributes with a new value."""
+    """Recursively updates a module's drop_rate attributes with a new value.
+    """
 
     for child in module.children():
         if isinstance(child, target_block) and hasattr(child, 'drop_rate'):

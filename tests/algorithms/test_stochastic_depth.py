@@ -11,7 +11,7 @@ from torchvision.models.resnet import Bottleneck
 
 from composer.algorithms import StochasticDepth
 from composer.algorithms.stochastic_depth.stochastic_depth import _STOCHASTIC_LAYER_MAPPING, apply_stochastic_depth
-from composer.algorithms.stochastic_depth.stochastic_layers import sample_stochastic_bottleneck_forward, block_stochastic_bottleneck_forward
+from composer.algorithms.stochastic_depth.stochastic_layers import make_resnet_bottleneck_stochastic
 from composer.core import Event, State
 from composer.core.time import TimeUnit
 from composer.models import ComposerResNet
@@ -86,27 +86,39 @@ class TestStochasticBottleneckForward:
     def test_block_stochastic_bottleneck_drop(self, drop_rate: float):
         X = torch.randn(4, 4, 16, 16)
         bottleneck_block = Bottleneck(inplanes=4, planes=1)
-        drop_rate = torch.tensor(drop_rate)
-        forward = block_stochastic_bottleneck_forward(module=bottleneck_block, drop_rate=drop_rate)
-        stochastic_X = forward(X)
+        stochastic_block = make_resnet_bottleneck_stochastic(module=bottleneck_block,
+                                                             module_index=0,
+                                                             module_count=1,
+                                                             drop_rate=drop_rate,
+                                                             drop_distribution='linear',
+                                                             stochastic_method='block')
+        stochastic_X = stochastic_block(X)
         assert stochastic_X is X
 
     @pytest.mark.parametrize('drop_rate', [0.0])
     def test_block_stochastic_bottleneck_keep(self, drop_rate: float):
         X = torch.randn(4, 4, 16, 16)
-        drop_rate = torch.tensor(drop_rate)
         bottleneck_block = Bottleneck(inplanes=4, planes=1)
-        forward = block_stochastic_bottleneck_forward(module=bottleneck_block, drop_rate=drop_rate)
-        stochastic_X = forward(X)
+        stochastic_block = make_resnet_bottleneck_stochastic(module=bottleneck_block,
+                                                             module_index=0,
+                                                             module_count=1,
+                                                             drop_rate=drop_rate,
+                                                             drop_distribution='linear',
+                                                             stochastic_method='block')
+        stochastic_X = stochastic_block(X)
         assert stochastic_X is not X
 
     @pytest.mark.parametrize('drop_rate', [1.0])
     def test_sample_stochastic_bottleneck_drop_all(self, drop_rate: float):
         X = F.relu(torch.randn(4, 4, 16, 16))  # inputs and outputs will match if the input has been ReLUed
         bottleneck_block = Bottleneck(inplanes=4, planes=1)
-        drop_rate = torch.tensor(drop_rate)
-        forward = sample_stochastic_bottleneck_forward(module=bottleneck_block, drop_rate=drop_rate)
-        stochastic_X = forward(X)
+        stochastic_block = make_resnet_bottleneck_stochastic(module=bottleneck_block,
+                                                             module_index=0,
+                                                             module_count=1,
+                                                             drop_rate=drop_rate,
+                                                             drop_distribution='linear',
+                                                             stochastic_method='sample')
+        stochastic_X = stochastic_block(X)
         assert torch.all(X == stochastic_X)
 
 
