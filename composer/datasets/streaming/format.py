@@ -35,6 +35,8 @@ def get_compression_scheme_id(compression_scheme: Union[str, None]) -> np.int8:
         return np.int8(0)
     elif compression_scheme == 'gz':
         return np.int8(1)
+    else:
+        raise NotImplementedError
 
 
 def get_compression_scheme(compression_scheme_id: np.int8) -> Union[str, None]:
@@ -49,6 +51,8 @@ def get_compression_scheme(compression_scheme_id: np.int8) -> Union[str, None]:
         return None
     elif compression_scheme_id == np.int8(1):
         return 'gz'
+    else:
+        raise NotImplementedError
 
 
 def strip_compression_suffix(local_path: str) -> str:

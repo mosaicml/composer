@@ -8,6 +8,7 @@ import gzip
 import os
 import shutil
 import time
+from typing import Union
 from urllib.parse import urlparse
 
 from composer.datasets.streaming.format import strip_compression_suffix
@@ -90,6 +91,7 @@ def download_from_local(remote: str, local: str) -> None:
 
 
 def dispatch_decompress(local, local_decompressed, compression_scheme):
+    """ Decompresses file, if necessary, otherwise does nothing. """
     tempfile = local_decompressed + '.tmp'
     if compression_scheme is not None:
         if compression_scheme == 'gz':
@@ -102,7 +104,7 @@ def dispatch_decompress(local, local_decompressed, compression_scheme):
         os.remove(local)
 
 
-def dispatch_download(remote, local, timeout: float, compression_scheme: str = None):
+def dispatch_download(remote, local, timeout: float, compression_scheme: Union[str, None] = None):
     """Use the correct download handler to download the file
     Args:
         remote (str): Remote path (local filesystem).
@@ -131,7 +133,7 @@ def download_or_wait(remote: str,
                      wait: bool = False,
                      max_retries: int = 2,
                      timeout: float = 60,
-                     compression_scheme: str = None) -> None:
+                     compression_scheme: Union[str, None] = None) -> None:
     """Downloads a file from remote to local, or waits for it to be downloaded. Does not do any thread safety checks, so we assume the calling function is using ``wait`` correctly.
     Args:
         remote (str): Remote path (S3 or local filesystem).

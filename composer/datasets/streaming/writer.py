@@ -91,6 +91,8 @@ class StreamingDatasetWriter(object):
         # compression scheme for shards
         if compression is not None:
             self.compression_scheme, self.compression_level = compression
+        else:
+            self.compression_scheme = None
 
     def _flush_shard(self) -> None:
         """Flush cached samples to a new dataset shard."""
