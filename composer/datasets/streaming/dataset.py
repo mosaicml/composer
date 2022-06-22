@@ -111,13 +111,12 @@ class StreamingDataset(IterableDataset):
         self._downloaded_ids = []
         self._is_downloaded = False
 
-    def _download_file(self, basename: str, wait=False, compression_scheme: Optional[str] = None) -> str:
+    def _download_file(self, basename: str, wait=False) -> str:
         """Safely download a file from remote to local cache.
 
         Args:
             basename (str): Basename of file to download.
             wait (bool): Whether to wait for another worker to download the file.
-            compression_scheme (Optional[str]): Compression algorithm (or none) to use to extract the file.
 
         Returns:
             str: Local cache filename.
