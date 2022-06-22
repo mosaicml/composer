@@ -8,7 +8,7 @@ import math
 import os
 from threading import Lock, Thread
 from time import sleep
-from typing import Any, Callable, Dict, Iterator, Optional, Union
+from typing import Any, Callable, Dict, Iterator, Optional
 
 import numpy as np
 from torch.utils.data import IterableDataset
@@ -111,25 +111,20 @@ class StreamingDataset(IterableDataset):
         self._downloaded_ids = []
         self._is_downloaded = False
 
-    def _download_file(self, basename: str, wait=False, compression_scheme: Union[str, None] = None) -> str:
+    def _download_file(self, basename: str, wait=False, compression_scheme: Optional[str] = None) -> str:
         """Safely download a file from remote to local cache.
 
         Args:
             basename (str): Basename of file to download.
             wait (bool): Whether to wait for another worker to download the file.
-            compression_scheme (Union[str, None]): Compression algorithm (or none) to use to extract the file.
+            compression_scheme (Optional[str]): Compression algorithm (or none) to use to extract the file.
 
         Returns:
             str: Local cache filename.
         """
         remote = os.path.join(self.remote, basename)
         local = os.path.join(self.local, basename)
-        download_or_wait(remote=remote,
-                         local=local,
-                         wait=wait,
-                         max_retries=self.max_retries,
-                         timeout=self.timeout,
-                         compression_scheme=compression_scheme)
+        download_or_wait(remote=remote, local=local, wait=wait, max_retries=self.max_retries, timeout=self.timeout)
         return local
 
     def _insert_shard_samples(self, shard: int, part_min_id: int, part_max_id: int) -> None:
@@ -201,9 +196,7 @@ class StreamingDataset(IterableDataset):
             # Otherwise, wait until shard gets downloaded by another worker on this node
             # This produces deterministic sample order.
             basename = get_shard_basename(shard, compression_scheme=compression_scheme)
-            self._download_file(basename,
-                                wait=(shard not in part_shards_to_download),
-                                compression_scheme=compression_scheme)
+            self._download_file(basename, wait=(shard not in part_shards_to_download))
             self._insert_shard_samples(shard, part_min_id, part_max_id)
 
         with self._lock:

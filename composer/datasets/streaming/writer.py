@@ -7,7 +7,7 @@
 import gzip as gz
 import os
 from types import TracebackType
-from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
+from typing import Dict, Iterable, List, Optional, Type
 
 import numpy as np
 from tqdm import tqdm
@@ -61,14 +61,14 @@ class StreamingDatasetWriter(object):
         dirname (str): Directory to write shards to.
         fields: (List[str]): The fields to save for each sample.
         shard_size_limit (int): Maximum shard size in bytes. Default: `1 << 24`.
-        compression (Union[Tuple[str, int], None]): Compression algorithm and compression level. Currently supported: ('gz', 1-9) or None.
+        compression (Optional[str]): Compression algorithm and optional compression level. Currently supported: 'gz', 'gz:[1-9]' or None.
     """
 
     def __init__(self,
                  dirname: str,
                  fields: List[str],
                  shard_size_limit: int = 1 << 24,
-                 compression: Union[Tuple[str, int], None] = ('gz', 6)) -> None:
+                 compression: Optional[str] = 'gz') -> None:
         if len(fields) != len(set(fields)):
             raise ValueError(f'fields={fields} must be unique.')
         if shard_size_limit <= 0:
@@ -90,7 +90,11 @@ class StreamingDatasetWriter(object):
 
         # compression scheme for shards
         if compression is not None:
-            self.compression_scheme, self.compression_level = compression
+            compression_args = compression.split(':')
+            self.compression_scheme = compression_args[0]
+            if self.compression_scheme == 'gz':
+                self.gz_compression_level = int(compression_args[1]) if len(compression_args) > 1 else 6
+
         else:
             self.compression_scheme = None
 
@@ -101,7 +105,7 @@ class StreamingDatasetWriter(object):
         filename = os.path.join(self.dirname, basename)
 
         if self.compression_scheme == 'gz':
-            with gz.open(filename, 'xb', compresslevel=self.compression_level) as out:
+            with gz.open(filename, 'xb', compresslevel=self.gz_compression_level) as out:
                 for data in self.new_samples:
                     out.write(data)
         else:

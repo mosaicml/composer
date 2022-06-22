@@ -6,7 +6,7 @@ import os
 import pathlib
 import shutil
 import time
-from typing import Any, Callable, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pytest
@@ -35,7 +35,7 @@ def get_fake_samples_decoders(num_samples: int) -> Tuple[List[Dict[str, bytes]],
 
 
 def write_synthetic_streaming_dataset(dirname: str, samples: List[Dict[str, bytes]], shard_size_limit: int,
-                                      compression: Union[Tuple[str, int], None]) -> None:
+                                      compression: Optional[str]) -> None:
     first_sample_fields = list(samples[0].keys())
     with StreamingDatasetWriter(dirname=dirname,
                                 fields=first_sample_fields,
@@ -47,9 +47,9 @@ def write_synthetic_streaming_dataset(dirname: str, samples: List[Dict[str, byte
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize('num_samples', [100, 10000])
 @pytest.mark.parametrize('shard_size_limit', [1 << 8, 1 << 16, 1 << 24])
-@pytest.mark.parametrize('compression', [None, ('gz', 6)])
+@pytest.mark.parametrize('compression', [None, 'gz:5', 'gz'])
 def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limit: int,
-                compression: Union[Tuple[str, int], None]) -> None:
+                compression: Optional[str]) -> None:
     dirname, _ = remote_local
     samples, _ = get_fake_samples_decoders(num_samples)
 
@@ -74,9 +74,9 @@ def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limi
 @pytest.mark.parametrize('batch_size', [None, 1, 2])
 @pytest.mark.parametrize('share_remote_local', [False, True])
 @pytest.mark.parametrize('shuffle', [False, True])
-@pytest.mark.parametrize('compression', [None, ('gz', 6)])
+@pytest.mark.parametrize('compression', [None, 'gz:5', 'gz'])
 def test_reader(remote_local: Tuple[str, str], batch_size: int, share_remote_local: bool, shuffle: bool,
-                compression: Union[Tuple[str, int], None]) -> None:
+                compression: Optional[str]) -> None:
     num_samples = 117
     shard_size_limit = 1 << 8
     samples, decoders = get_fake_samples_decoders(num_samples)
@@ -119,10 +119,10 @@ def test_reader(remote_local: Tuple[str, str], batch_size: int, share_remote_loc
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize('created_ago', [0.5, 3])
 @pytest.mark.parametrize('timeout', [1])
-@pytest.mark.parametrize('compression', [None, ('gz', 6)])
+@pytest.mark.parametrize('compression', [None, 'gz:5', 'gz'])
 def test_reader_after_crash(remote_local: Tuple[str, str], created_ago: float, timeout: float,
-                            compression: Union[Tuple[str, int], None]) -> None:
-    compression_ext = f'.{compression[0]}' if compression is not None else ''
+                            compression: Optional[str]) -> None:
+    compression_ext = f'.{compression.split(":")[0]}' if compression is not None else ''
     num_samples = 117
     shard_size_limit = 1 << 8
     samples, decoders = get_fake_samples_decoders(num_samples)
@@ -132,7 +132,7 @@ def test_reader_after_crash(remote_local: Tuple[str, str], created_ago: float, t
                                       shard_size_limit=shard_size_limit,
                                       compression=compression)
 
-    shutil.copy(os.path.join(remote, 'index.mds.gz'), os.path.join(local, 'index.mds.gz.tmp'))
+    shutil.copy(os.path.join(remote, 'index.mds'), os.path.join(local, 'index.mds.tmp'))
     shutil.copy(os.path.join(remote, f'000003.mds{compression_ext}'),
                 os.path.join(local, f'000003.mds.tmp{compression_ext}'))
     time.sleep(created_ago)
@@ -151,9 +151,8 @@ def test_reader_after_crash(remote_local: Tuple[str, str], created_ago: float, t
         pytest.param(False, marks=pytest.mark.xfail(reason='__getitem__ currently expects shards to exist')),
     ],
 )
-@pytest.mark.parametrize('compression', [None, ('gz', 6)])
-def test_reader_getitem(remote_local: Tuple[str, str], share_remote_local: bool, compression: Union[Tuple[str, int],
-                                                                                                    None]) -> None:
+@pytest.mark.parametrize('compression', [None, 'gz:5', 'gz'])
+def test_reader_getitem(remote_local: Tuple[str, str], share_remote_local: bool, compression: Optional[str]) -> None:
     num_samples = 117
     shard_size_limit = 1 << 8
     samples, decoders = get_fake_samples_decoders(num_samples)
@@ -187,9 +186,9 @@ def test_reader_getitem(remote_local: Tuple[str, str], share_remote_local: bool,
         )),
 ])
 @pytest.mark.parametrize('shuffle', [False, True])
-@pytest.mark.parametrize('compression', [None, ('gz', 6)])
+@pytest.mark.parametrize('compression', [None, 'gz:5', 'gz'])
 def test_dataloader_single_device(remote_local: Tuple[str, str], batch_size: int, drop_last: bool, num_workers: int,
-                                  persistent_workers: bool, shuffle: bool, compression: Union[Tuple[str, int], None]):
+                                  persistent_workers: bool, shuffle: bool, compression: Optional[str]):
     num_samples = 31
     shard_size_limit = 1 << 6
     samples, decoders = get_fake_samples_decoders(num_samples)
@@ -263,10 +262,9 @@ def test_dataloader_single_device(remote_local: Tuple[str, str], batch_size: int
 @pytest.mark.parametrize('num_samples', [30, 31])
 @pytest.mark.parametrize('num_workers', [1, 3])
 @pytest.mark.parametrize('shuffle', [False, True])
-@pytest.mark.parametrize('compression', [None, ('gz', 6)])
+@pytest.mark.parametrize('compression', [None, 'gz:5', 'gz'])
 def test_dataloader_multi_device(remote_local: Tuple[str, str], batch_size: int, drop_last: bool, multinode: bool,
-                                 num_samples: int, num_workers: int, shuffle: bool, compression: Union[Tuple[str, int],
-                                                                                                       None]):
+                                 num_samples: int, num_workers: int, shuffle: bool, compression: Optional[str]):
 
     if multinode:
         # Force different nodes

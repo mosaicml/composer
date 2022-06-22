@@ -23,13 +23,13 @@ __all__ = [
 ]
 
 
-def get_compression_scheme_id(compression_scheme: Union[str, None]) -> np.int8:
+def get_compression_scheme_id(compression_scheme: Optional[str]) -> np.int8:
     """Gets the compression scheme ID (used for serializing shard format to index file)
 
     Returns:
         np.int8: compression scheme ID
     Args:
-        compression_scheme (Union[str, None]): the compression scheme
+        compression_scheme (Optional[str]): the compression scheme
     """
     if compression_scheme == None:
         return np.int8(0)
@@ -39,11 +39,11 @@ def get_compression_scheme_id(compression_scheme: Union[str, None]) -> np.int8:
         raise NotImplementedError
 
 
-def get_compression_scheme(compression_scheme_id: np.int8) -> Union[str, None]:
+def get_compression_scheme(compression_scheme_id: np.int8) -> Optional[str]:
     """Gets the compression scheme from the ID (used for deserializing shard format from index file)
 
     Returns:
-        (Union[str, None]): the compression scheme
+        (Optional[str]): the compression scheme
     Args:
         compression_scheme_id (np.int8): compression scheme ID
     """
@@ -55,10 +55,20 @@ def get_compression_scheme(compression_scheme_id: np.int8) -> Union[str, None]:
         raise NotImplementedError
 
 
-def strip_compression_suffix(local_path: str) -> str:
-    """Strips the compression suffix from a path"""
-    decompressed_path, _ = splitext(local_path)
-    return decompressed_path
+def split_compression_suffix(local_path: str) -> Tuple[str, Optional[str]]:
+    """Splits the compression suffix from a path
+
+    Args:
+        local_path (str): path to a (potentially) compressed file
+
+    Returns:
+        Tuple[str, str]: tuple containing decompressed filename and compression suffix, if one exists
+    """
+    decompressed_path, ext = splitext(local_path)
+    if ext == '.mds':
+        return local_path, None
+
+    return decompressed_path, ext[1:]
 
 
 def get_index_basename() -> str:
@@ -67,10 +77,10 @@ def get_index_basename() -> str:
     Returns:
         str: Basename of file.
     """
-    return 'index.mds.gz'
+    return 'index.mds'
 
 
-def get_shard_basename(shard: int, compression_scheme: Union[str, None] = None) -> str:
+def get_shard_basename(shard: int, compression_scheme: Optional[str] = None) -> str:
     """Get the basename for a streaming dataset shard.
 
     Args:
@@ -78,7 +88,7 @@ def get_shard_basename(shard: int, compression_scheme: Union[str, None] = None) 
 
     Returns:
         str: Basename of file.
-        compression_scheme (Union[str, None]): the compression scheme
+        compression_scheme (Optional[str]): the compression scheme
     """
     compression_scheme = '.' + compression_scheme if compression_scheme is not None else ''
     return f'{shard:06}.mds{compression_scheme}'
