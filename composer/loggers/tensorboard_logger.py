@@ -16,16 +16,23 @@ __all__ = ['TensorboardLogger']
 
 
 class TensorboardLogger(LoggerDestination):
+    """Log to `Tensorboard <https://www.tensorflow.org/tensorboard/>`_.
 
-    def __init__(self, log_dir: str = None, run_name: Optional[str] = None, rank_zero_only: bool = True):
+    Args:
+        log_dir (str, optional): The path to the directory to put these logs in. If it is
+            None the logs will be placed in `./runs/{month}{day}{HH-MM-SS}_{device_name}.local
+        rank_zero_only (bool, optional): Whether to log only on the rank-zero process.
+    """
 
-        self.run_name = run_name if run_name is not None else ''
+    def __init__(self, log_dir: Optional[str] = None, rank_zero_only: bool = True):
+
         self.log_dir = log_dir
-        self.writer = SummaryWriter(log_dir=self.log_dir, filename_suffix=self.run_name)
+        self.writer = SummaryWriter(log_dir=self.log_dir)
         self.rank_zero_only = rank_zero_only
-        self.run_name = run_name
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
+        del log_level
+
         if (not self.rank_zero_only) or dist.get_global_rank() == 0:
             for tag, data_point in data.items():
                 if isinstance(data_point, str):
