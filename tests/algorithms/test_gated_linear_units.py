@@ -4,6 +4,8 @@
 from typing import Tuple
 
 import pytest
+import torch
+from torch.nn.functional import gelu, relu
 
 from composer.algorithms.gated_linear_units import GatedLinearUnits, apply_gated_linear_units
 from composer.algorithms.gated_linear_units.gated_linear_unit_layers import BERTGatedFFOutput
@@ -11,6 +13,41 @@ from composer.core.event import Event
 from composer.loggers import Logger
 from composer.models import BERTModel
 from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker
+
+
+def _layernorm(input_tensor, layernorm_eps):
+    mean = torch.mean(input_tensor, dim=-1, keepdim=True)
+    var = torch.square(input_tensor - mean).mean(dim=-1, keepdim=True)
+    return (input_tensor - mean) / torch.sqrt(var + layernorm_eps)
+
+
+@pytest.mark.parametrize('batch_size', [1])
+@pytest.mark.parametrize('seq_length', [128, 512])
+@pytest.mark.parametrize('d_embed', [768])
+@pytest.mark.parametrize('d_ff', [3072])
+@pytest.mark.parametrize('dropout_rate', [0.0])
+@pytest.mark.parametrize('act_fn', [relu, gelu])
+@pytest.mark.parametrize('layernorm_eps', [1e-6])
+def test_glu_outputs(batch_size, seq_length, d_embed, d_ff, dropout_rate, act_fn, layernorm_eps):
+    gated_ff = BERTGatedFFOutput(d_embed=d_embed,
+                                 d_ff=d_ff,
+                                 dropout_rate=dropout_rate,
+                                 act_fn=act_fn,
+                                 layernorm_eps=layernorm_eps,
+                                 gated_layer_bias=False,
+                                 non_gated_layer_bias=False)
+    hidden_states = torch.rand(batch_size, seq_length, d_embed)
+    residual_connection = torch.zeros_like(hidden_states)
+    model_output = gated_ff(hidden_states, residual_connection)
+
+    # get rid of the batch dimension when computing the result by hand
+    hidden_states = hidden_states[1:]
+    manual_output = torch.matmul(hidden_states, gated_ff.gated_layer.weight.transpose(0, 1))
+    manual_output = act_fn(manual_output)
+    manual_output = manual_output * torch.matmul(hidden_states, gated_ff.non_gated_layer.weight.transpose(0, 1))
+    manual_output = torch.matmul(manual_output, gated_ff.wo.weight.transpose(0, 1)) + gated_ff.wo.bias
+    manual_output = _layernorm(manual_output + residual_connection, layernorm_eps)
+    assert torch.allclose(manual_output, model_output)
 
 
 @pytest.fixture()

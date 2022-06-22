@@ -6,10 +6,10 @@
 import importlib
 from typing import Any, Optional
 
-__all__ = ['check_if_transformers_installed', 'MissingConditionalImportError', 'import_object']
+__all__ = ['raise_if_missing_transformers', 'MissingConditionalImportError', 'import_object']
 
 
-def check_if_transformers_installed(is_transformers_installed: bool):
+def raise_if_missing_transformers(is_transformers_installed: bool):
     """Check if Transformers utilities have been installed, and if not, raises the appropriate exception.
 
     Args:

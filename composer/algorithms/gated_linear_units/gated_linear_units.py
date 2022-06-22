@@ -23,7 +23,7 @@ from composer.algorithms.warnings import NoEffectWarning
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
 from composer.models import BERTModel
-from composer.utils import check_if_transformers_installed, module_surgery
+from composer.utils import module_surgery, raise_if_missing_transformers
 
 log = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ def apply_gated_linear_units(model: torch.nn.Module,
         gated_layer_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
         non_gated_layer_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
     """
-    check_if_transformers_installed(TRANSFORMERS_INSTALLED)
+    raise_if_missing_transformers(TRANSFORMERS_INSTALLED)
 
     # ensure that the model is an instance of a BERTModel, since our replacement policy is only defined for BERTs
     if not isinstance(model, BERTModel):
@@ -147,7 +147,7 @@ class GatedLinearUnits(Algorithm):
                  act_fn: Optional[Callable] = None,
                  gated_layer_bias: bool = False,
                  non_gated_layer_bias: bool = False):
-        check_if_transformers_installed(TRANSFORMERS_INSTALLED)
+        raise_if_missing_transformers(TRANSFORMERS_INSTALLED)
         self.act_fn = act_fn
         self.gated_layer_bias = gated_layer_bias
         self.non_gated_layer_bias = non_gated_layer_bias
