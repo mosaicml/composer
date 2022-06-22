@@ -29,7 +29,7 @@ We chose to implement BERT-Base as it is small enough to rapidly test methods us
 
 | Model Family Member | Parameters | Training Hours on 8xA100s | Training Tokens | Crossentropy Loss | Masked Accuracy |
 |---------------------|------------|---------------------------|-----------------|--------------------------|-----------------|
-| BERT-Base           | 110M       | 10h 38m                   | 32.8B           | 1.59                     | 0.67            |
+| BERT-Base           | 110M       | 10h 38m                   | 35.2B           | 1.59                     | 0.67            |
 
 ## Implementation Details
 
