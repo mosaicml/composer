@@ -7,30 +7,29 @@ from __future__ import annotations
 
 import logging
 import warnings
-from functools import partial
 from typing import Callable, Dict, Optional, Sequence, Type, Union
 
 import torch
 
 try:
     from transformers.models.bert.modeling_bert import BertIntermediate, BertOutput
-    TRANSFORMERS_INSTALLED = True
+    IS_TRANSFORMERS_INSTALLED = True
 except ImportError as e:
-    TRANSFORMERS_INSTALLED = False
+    IS_TRANSFORMERS_INSTALLED = False
 
-from composer.algorithms.gated_linear_units.gated_linear_unit_layers import BERTGatedFFOutput, IdentityLayer
+from composer.algorithms.gated_linear_units.gated_linear_unit_layers import BERTGatedFFOutput
 from composer.algorithms.warnings import NoEffectWarning
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
 from composer.models import BERTModel
-from composer.utils import module_surgery, raise_if_missing_transformers
+from composer.utils import MissingConditionalImportError, module_surgery
 
 log = logging.getLogger(__name__)
 
 
 def from_BertOutput(layer: torch.nn.Module,
                     module_index: int,
-                    act_fn: Callable,
+                    act_fn: Callable[[torch.Tensor], torch.Tensor],
                     gated_layer_bias: bool = False,
                     non_gated_layer_bias: bool = False) -> BERTGatedFFOutput:
     """Defines a replacement policy from a :class:`transformers.models.bert.modeling_bert.BertOutput` to a :class:`composer.algorithms.gated_linear_units.gated_linear_unit_layers.BERTGatedFFOutput`"""
@@ -46,21 +45,24 @@ def from_BertOutput(layer: torch.nn.Module,
                              non_gated_layer_bias=non_gated_layer_bias)
 
 
-def from_BertIntermediate(layer: torch.nn.Module, module_index: int) -> IdentityLayer:
-    """Defines a replacement policy from a :class:`transformers.models.bert.modeling_bert.BertIntermediate` to a :class:`composer.algorithms.gated_linear_units.gated_linear_unit_layers.IdentityLayer`"""
-    return IdentityLayer()
+def from_BertIntermediate(layer: torch.nn.Module, module_index: int) -> torch.nn.Identity:
+    """
+    Defines a replacement policy from a :class:`transformers.models.bert.modeling_bert.BertIntermediate` to a :class:`torch.nn.Identity`
+    The identity effectively acts as no-op.
+    """
+    return torch.nn.Identity()
 
 
 def apply_gated_linear_units(model: torch.nn.Module,
                              optimizers: Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]],
-                             act_fn: Optional[Callable] = None,
+                             act_fn: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
                              gated_layer_bias: bool = False,
                              non_gated_layer_bias: bool = False) -> None:
     """
     Replaces the Linear layers in the feed-forward network with `Gated Linear Units <https://arxiv.org/abs/2002.05202>`_.
 
     Args:
-        model (`torch.nn.Module`): the model to modify in-place
+        model (`torch.nn.Module`): The model to modify in-place.
         optimizers (`torch.optim.Optimizer` | Sequence[`torch.optim.Optimizer`], optional):
             Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
             constructed with ``model.parameters()`` must be specified here so that
@@ -69,16 +71,17 @@ def apply_gated_linear_units(model: torch.nn.Module,
             If the optimizer(s) are constructed after calling this function,
             then it is safe to omit this parameter. These optimizers will see the correct
             model parameters.
-        act_fn (Callable, optional): Optionally, the activation function to use. If ``None``, the algorithm will
+        act_fn (Callable[torch.Tensor, torch.Tensor], optional): Optionally, the activation function to use. If ``None``, the algorithm will
             use the existing activation function in the model.
         gated_layer_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
         non_gated_layer_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
     """
-    raise_if_missing_transformers(TRANSFORMERS_INSTALLED)
+    if not IS_TRANSFORMERS_INSTALLED:
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers')
 
     # ensure that the model is an instance of a BERTModel, since our replacement policy is only defined for BERTs
     if not isinstance(model, BERTModel):
-        raise ValueError('Gated Linear Units only has a surgery policy defined for instances of BERTModel.')
+        raise TypeError('Gated Linear Units only has a surgery policy defined for instances of BERTModel.')
 
     if act_fn is None:
         # get the activation functions used
@@ -94,15 +97,18 @@ def apply_gated_linear_units(model: torch.nn.Module,
         raise ValueError(
             'Could not find an existing activation function to use, and no custom activation function was provided.')
 
+    # now that we know the act fn, bind a few parameters of the replacement function
+    def from_bound_BertOutput(layer: torch.nn.Module, module_index: int) -> BERTGatedFFOutput:
+        return from_BertOutput(layer=layer,
+                               module_index=module_index,
+                               act_fn=act_fn,
+                               gated_layer_bias=gated_layer_bias,
+                               non_gated_layer_bias=non_gated_layer_bias)
+
     # prepare the replacement policy and perform replacement
     policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
-        BertIntermediate:
-            from_BertIntermediate,
-        BertOutput:
-            partial(from_BertOutput,
-                    act_fn=act_fn,
-                    gated_layer_bias=gated_layer_bias,
-                    non_gated_layer_bias=non_gated_layer_bias),
+        BertIntermediate: from_BertIntermediate,
+        BertOutput: from_bound_BertOutput
     }
     replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
     if len(replaced_instances) == 0:
@@ -119,7 +125,7 @@ class GatedLinearUnits(Algorithm):
     Runs on :attr:`~composer.core.event.Event.INIT`, so it can swap the Linear layers in the FFN for GLUs before the model is DDP wrapped.
 
     Args:
-        act_fn (Callable, optional): Optionally, the activation function to use. If ``None``, the algorithm will
+        act_fn (Callable[[torch.Tensor], torch.Tensor], optional): Optionally, the activation function to use. If ``None``, the algorithm will
             use the existing activation function in the model.
         gated_layer_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
         non_gated_layer_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
@@ -144,10 +150,11 @@ class GatedLinearUnits(Algorithm):
     """
 
     def __init__(self,
-                 act_fn: Optional[Callable] = None,
+                 act_fn: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
                  gated_layer_bias: bool = False,
                  non_gated_layer_bias: bool = False):
-        raise_if_missing_transformers(TRANSFORMERS_INSTALLED)
+        if not IS_TRANSFORMERS_INSTALLED:
+            raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers')
         self.act_fn = act_fn
         self.gated_layer_bias = gated_layer_bias
         self.non_gated_layer_bias = non_gated_layer_bias

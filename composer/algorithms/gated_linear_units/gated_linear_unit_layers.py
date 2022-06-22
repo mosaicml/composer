@@ -6,18 +6,6 @@ from typing import Callable
 import torch
 
 
-class IdentityLayer(torch.nn.Module):
-    """
-    Defines a no-op module.
-    """
-
-    def forward(self, hidden_states):
-        """
-        A no-op forward that just returns the input.
-        """
-        return hidden_states
-
-
 class BERTGatedFFOutput(torch.nn.Module):
     """
     Defines a single feed-forward block that uses `Gated Linear Units <https://arxiv.org/abs/2002.05202>`_.
@@ -26,7 +14,7 @@ class BERTGatedFFOutput(torch.nn.Module):
         d_embed (int): The input dimension for the feed-forward network.
         d_ff (int): The hidden dimension for the feed-forward network.
         dropout_rate (float): The dropout rate to use between the two projection matricies in the feed-forward block.
-        act_fn (Callable): The activation function to use in the feed-forward network.
+        act_fn (Callable[torch.Tensor, torch.Tensor]): The activation function to use in the feed-forward network.
         layernorm_eps (float): The epsilon term to use in the LayerNorm operator. Useful for when the variance is small.
         gated_layer_bias (bool): Whether to use a bias term in the gated projection matrix.
         non_gated_layer_bias (bool): Whether to use a bias term in teh non-gated projection matrix.
@@ -36,7 +24,7 @@ class BERTGatedFFOutput(torch.nn.Module):
                  d_embed: int,
                  d_ff: int,
                  dropout_rate: float,
-                 act_fn: Callable,
+                 act_fn: Callable[[torch.Tensor], torch.Tensor],
                  layernorm_eps: float,
                  gated_layer_bias: bool = False,
                  non_gated_layer_bias: bool = False):
@@ -48,7 +36,7 @@ class BERTGatedFFOutput(torch.nn.Module):
         self.act = act_fn
         self.layernorm = torch.nn.LayerNorm(d_embed, eps=layernorm_eps)
 
-    def forward(self, hidden_states, residual_connection):
+    def forward(self, hidden_states: torch.Tensor, residual_connection: torch.Tensor):
         """
         Args:
             hidden_states (torch.Tensor): The hidden states from the attention matrix.

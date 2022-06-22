@@ -6,21 +6,7 @@
 import importlib
 from typing import Any, Optional
 
-__all__ = ['raise_if_missing_transformers', 'MissingConditionalImportError', 'import_object']
-
-
-def raise_if_missing_transformers(is_transformers_installed: bool):
-    """Check if Transformers utilities have been installed, and if not, raises the appropriate exception.
-
-    Args:
-        is_transformers_installed (bool): Whether `transformers` is installed (determined by the caller).
-            The import should be attempted by the caller in order to avoid unused import errors.
-
-    Raises:
-        MissingConditionalImportError: An error if `transformers` has not been installed.
-    """
-    if not is_transformers_installed:
-        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers')
+__all__ = ['MissingConditionalImportError', 'import_object']
 
 
 class MissingConditionalImportError(ImportError):
