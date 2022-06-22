@@ -107,7 +107,7 @@ class StreamingDatasetWriter(object):
         open_f = lambda n: open(n, 'xb')
 
         if self.compression_scheme == 'gz':
-            open_f = lambda n: gz.open(n, 'xb', compresslevel = self.gz_compression_level)
+            open_f = lambda n: gz.open(n, 'xb', compresslevel=self.gz_compression_level)
 
         with open_f(filename) as out:
             for data in self.new_samples:
