@@ -66,7 +66,7 @@ def apply_gated_linear_units(model: torch.nn.Module,
             constructed with ``model.parameters()`` must be specified here so that
             they will optimize the correct parameters.
 
-            If the optimizer(s) are constructed *after* calling this function,
+            If the optimizer(s) are constructed after calling this function,
             then it is safe to omit this parameter. These optimizers will see the correct
             model parameters.
         act_fn (Callable, optional): Optionally, the activation function to use. If ``None``, the algorithm will
@@ -114,7 +114,7 @@ def apply_gated_linear_units(model: torch.nn.Module,
 
 class GatedLinearUnits(Algorithm):
     """Replaces all instances of Linear layers in the feed-forward subnetwork with a `Gated Linear Unit <https://arxiv.org/abs/2002.05202>`_.
-    THe Gated Linear Units provide a more expressive form for the same number of parameters, and a slight degredation to throughput.
+    The Gated Linear Units provide a more expressive form for the same number of parameters, and a slight degredation to throughput.
 
     Runs on :attr:`~composer.core.event.Event.INIT`, so it can swap the Linear layers in the FFN for GLUs before the model is DDP wrapped.
 
