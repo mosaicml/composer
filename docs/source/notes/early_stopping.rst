@@ -76,7 +76,7 @@ When there are multiple datasets and metrics to use for validation and evaluatio
 
 Each Evaluator object is marked with a ``label`` field for logging, and a ``metrics`` field that accepts a single metric, list of metrics. These can be provided to the callbacks above to indiciate which metric to monitor.
 
-In the example below, the callback will monitor the `Accuracy` metric in the dataloader marked `eval_dataset1`.`
+In the example below, the callback will monitor the `Accuracy` metric only for the dataloader marked `eval_dataset1`.
 
 .. testcode::
 
@@ -84,9 +84,15 @@ In the example below, the callback will monitor the `Accuracy` metric in the dat
     from torchmetrics.classification.accuracy import Accuracy
     from composer.callbacks.early_stopper import EarlyStopper
 
-    eval_evaluator = Evaluator(
-        label="eval_dataset1",
+    evaluator1 = Evaluator(
+        label='eval_dataset1',
         dataloader=eval_dataloader,
+        metrics=Accuracy()
+    )
+
+    evaluator2 = Evaluator(
+        label='eval_dataset2',
+        dataloader=eval_dataloader2,
         metrics=Accuracy()
     )
 
@@ -99,10 +105,10 @@ In the example below, the callback will monitor the `Accuracy` metric in the dat
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
-        eval_dataloader=eval_evaluator,
+        eval_dataloader=[evaluator1, evaluator2],
         optimizers=optimizer,
         callbacks=[early_stopper],
-        max_duration="1ep",
+        max_duration='1ep',
     )
 
 .. note::

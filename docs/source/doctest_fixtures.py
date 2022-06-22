@@ -115,6 +115,7 @@ eval_dataloader = torch.utils.data.DataLoader(
     pin_memory=False,
     drop_last=False,
 )
+eval_dataloader2 = eval_dataloader
 
 state = State(
     rank_zero_seed=0,
