@@ -53,7 +53,7 @@ class MNISTDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
             transform = transforms.Compose([transforms.ToTensor()])
 
-            def _get_dataset(download):
+            def _get_dataset(download: bool):
                 return datasets.MNIST(
                     self.datadir,
                     train=self.is_train,
@@ -65,7 +65,6 @@ class MNISTDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 if dist.get_local_rank() == 0:
                     _get_dataset(download=True)
                 dist.barrier()
-
             dataset = _get_dataset(download=False)
 
         sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
