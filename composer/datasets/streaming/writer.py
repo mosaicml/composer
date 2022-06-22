@@ -104,14 +104,14 @@ class StreamingDatasetWriter(object):
         basename = get_shard_basename(shard, compression_scheme=self.compression_scheme)
         filename = os.path.join(self.dirname, basename)
 
+        open_f = lambda n: open(n, 'xb')
+
         if self.compression_scheme == 'gz':
-            with gz.open(filename, 'xb', compresslevel=self.gz_compression_level) as out:
-                for data in self.new_samples:
-                    out.write(data)
-        else:
-            with open(filename, 'xb') as out:
-                for data in self.new_samples:
-                    out.write(data)
+            open_f = lambda n: gz.open(n, 'xb', compresslevel = self.gz_compression_level)
+
+        with open_f(filename) as out:
+            for data in self.new_samples:
+                out.write(data)
 
         self.samples_per_shard.append(len(self.new_samples))
         self.bytes_per_shard.append(self.new_shard_size)
