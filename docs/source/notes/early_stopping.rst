@@ -1,7 +1,7 @@
 |:octagonal_sign:| Early Stopping
 =================================
 
-Early stopping and threshold stopping halt training based on set criteria. In Composer, they are callbacks can be passed to the Trainer.
+Early stopping and threshold stopping halt training based on set criteria. In Composer, this functionality is implemented as callbacks which can be configured and passed to the Trainer.
 
 
 Early Stopping
@@ -34,7 +34,7 @@ The :class:`.EarlyStopper` callback stops training if a provided metric does not
 
 In the above example, the ``'train'`` label means the callback is tracking the ``Accuracy`` metric for the train_dataloader. The default for the evaluation dataloader is ``eval``.
 
-We also set ``patience='50ba'`` and ``min_delta=0.01`` which means that every 50 batches, if the Accuracy does not exceed the best recorded Accuracy by ``0.01``, training is stopped. The `comp` argument indiciates that 'better' here means higher accuracy.
+We also set ``patience='50ba'`` and ``min_delta=0.01`` which means that every 50 batches, if the Accuracy does not exceed the best recorded Accuracy by ``0.01``, training is stopped. The ``comp`` argument indicates that 'better' here means higher accuracy. Note that the ``patience`` parameter can take both a time string (see :doc:`Time</trainer/time>`) or an integer which specifies a number of epochs.
 
 For a full list of arguments, see the documentation for :class:`.EarlyStopper.`
 
@@ -78,15 +78,25 @@ Each Evaluator object is marked with a ``label`` field for logging, and a ``metr
 
 In the example below, the callback will monitor the `Accuracy` metric in the dataloader marked `eval_dataset1`.`
 
+.. testsetup::
+
+    eval_dataloader2 = eval_dataloader
+
 .. testcode::
 
     from composer import Trainer, Evaluator
     from torchmetrics.classification.accuracy import Accuracy
     from composer.callbacks.early_stopper import EarlyStopper
 
-    eval_evaluator = Evaluator(
-        label="eval_dataset1",
+    evaluator1 = Evaluator(
+        label='eval_dataset1',
         dataloader=eval_dataloader,
+        metrics=Accuracy()
+    )
+
+    evaluator2 = Evaluator(
+        label='eval_dataset2',
+        dataloader=eval_dataloader2,
         metrics=Accuracy()
     )
 
@@ -106,4 +116,5 @@ In the example below, the callback will monitor the `Accuracy` metric in the dat
     )
 
 .. note::
+
     When using these callbacks with :class:`.Evaluator` objects, make sure that the ``dataloader_label`` and ``label`` field match the desired :class:`.Evaluator`.
