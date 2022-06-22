@@ -34,7 +34,7 @@ log = logging.getLogger(__name__)
 __all__ = [
     'ComposerScheduler', 'compile_composer_scheduler', 'StepScheduler', 'MultiStepScheduler', 'ConstantScheduler',
     'LinearScheduler', 'ExponentialScheduler', 'CosineAnnealingScheduler', 'CosineAnnealingWarmRestartsScheduler',
-    'PolynomialScheduler', 'MultiStepWithWarmupScheduler', 'LinearWithWarmupScheduler',
+    'PolynomialScheduler', 'MultiStepWithWarmupScheduler', 'ConstantWithWarmupScheduler', 'LinearWithWarmupScheduler',
     'CosineAnnealingWithWarmupScheduler', 'PolynomialWithWarmupScheduler'
 ]
 
@@ -566,6 +566,56 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
             return self.warmup_scheduler(state)
 
         return self.step_scheduler(state, ssr)
+
+
+class ConstantWithWarmupScheduler(ComposerScheduler):
+    r"""Maintains a fixed learning rate.
+
+    This scheduler is based on  :class:`~torch.optim.lr_scheduler.ConstantLR` from PyTorch.
+
+    The default settings for this scheduler simply maintain a learning rate factor of 1 for the entire training
+    duration. However, both the factor and the duration of this scheduler can be configured.
+
+    Specifically, the learning rate multiplier :math:`\alpha` can be expressed as:
+
+    .. math::
+        \alpha(t) = \begin{cases} \alpha, & \text{if } t < t_{max} \\ 1.0 & \text{otherwise} \end{cases}
+
+    Where :math:`\alpha` represents the learning rate multiplier to maintain while this scheduler is active, and
+    :math:`t_{max}` represents the duration of this scheduler.
+
+    Args:
+        alpha (float): Learning rate multiplier to maintain while this scheduler is active. Default = ``1.0``.
+        t_max (str | Time): Duration of this scheduler. Default = ``"1dur"``.
+    """
+
+    def __init__(self, 
+                 t_warmup: Union[str, Time],
+                 alpha: float = 1.0, 
+                 t_max: Union[str, Time] = '1dur') -> None:
+        self.t_warmup = t_warmup
+        self.alpha = alpha
+        self.t_max = t_max
+        self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=t_warmup)
+
+    def __call__(self, state: State, ssr: float = 1.0) -> float:
+        t_warmup = _convert_time(self.t_warmup, state)
+        if t_warmup.value == 0:
+            warnings.warn(
+                textwrap.dedent("""\
+                The warmup duration is 0. If you specified warmup as a fraction of total
+                training duration, take note that the warmup duration is calculated in the
+                same unit as the trainer's max_duration parameter."""))
+
+        if state.timestamp < t_warmup:
+            return self.warmup_scheduler(state)
+
+        t_max = _convert_time(self.t_max, state, ssr=ssr)
+
+        if state.timestamp < t_max:
+            return self.alpha
+
+        return 1.0
 
 
 class LinearWithWarmupScheduler(ComposerScheduler):
