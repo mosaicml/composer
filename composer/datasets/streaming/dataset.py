@@ -4,12 +4,11 @@
 """The :class:`StreamingDataset` class, used for building streaming iterable datasets.
 """
 
-import gzip
 import math
 import os
 from threading import Lock, Thread
 from time import sleep
-from typing import Any, Callable, Dict, Iterator, Optional
+from typing import Any, Callable, Dict, Iterator, Optional, Union
 
 import numpy as np
 from torch.utils.data import IterableDataset
@@ -102,7 +101,7 @@ class StreamingDataset(IterableDataset):
         # Only local device 0 on each node downloads the index. All other devices wait.
         index_basename = get_index_basename()
         index_local = self._download_file(index_basename, wait=(dist.get_local_rank() != 0))
-        with gzip.open(index_local, 'rb') as fp:
+        with open(index_local, 'rb') as fp:
             self.index = StreamingDatasetIndex.load(fp)
 
         # Fields, protected by the lock, relating to loading shards in the background.
@@ -112,12 +111,13 @@ class StreamingDataset(IterableDataset):
         self._downloaded_ids = []
         self._is_downloaded = False
 
-    def _download_file(self, basename: str, wait=False, compression_scheme: str = None) -> str:
+    def _download_file(self, basename: str, wait=False, compression_scheme: Union[str, None] = None) -> str:
         """Safely download a file from remote to local cache.
 
         Args:
             basename (str): Basename of file to download.
             wait (bool): Whether to wait for another worker to download the file.
+            compression_scheme (Union[str, None]): Compression algorithm (or none) to use to extract the file.
 
         Returns:
             str: Local cache filename.

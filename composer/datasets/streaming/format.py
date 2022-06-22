@@ -24,6 +24,13 @@ __all__ = [
 
 
 def get_compression_scheme_id(compression_scheme: Union[str, None]) -> np.int8:
+    """Gets the compression scheme ID (used for serializing shard format to index file)
+
+    Returns:
+        np.int8: compression scheme ID
+    Args:
+        compression_scheme (Union[str, None]): the compression scheme
+    """
     if compression_scheme == None:
         return np.int8(0)
     elif compression_scheme == 'gz':
@@ -31,6 +38,13 @@ def get_compression_scheme_id(compression_scheme: Union[str, None]) -> np.int8:
 
 
 def get_compression_scheme(compression_scheme_id: np.int8) -> Union[str, None]:
+    """Gets the compression scheme from the ID (used for deserializing shard format from index file)
+
+    Returns:
+        (Union[str, None]): the compression scheme
+    Args:
+        compression_scheme_id (np.int8): compression scheme ID
+    """
     if compression_scheme_id == np.int8(0):
         return None
     elif compression_scheme_id == np.int8(1):
@@ -38,6 +52,7 @@ def get_compression_scheme(compression_scheme_id: np.int8) -> Union[str, None]:
 
 
 def strip_compression_suffix(local_path: str) -> str:
+    """Strips the compression suffix from a path"""
     decompressed_path, _ = splitext(local_path)
     return decompressed_path
 
@@ -59,6 +74,7 @@ def get_shard_basename(shard: int, compression_scheme: Union[str, None] = None) 
 
     Returns:
         str: Basename of file.
+        compression_scheme (Union[str, None]): the compression scheme
     """
     compression_scheme = '.' + compression_scheme if compression_scheme is not None else ''
     return f'{shard:06}.mds{compression_scheme}'
@@ -136,6 +152,7 @@ class StreamingDatasetIndex(object):
         bytes_per_shard (NDArray[np.int64]): Size in bytes of each shard.
         bytes_per_sample (NDArray[np.int64]): Size in bytes of each sample across all shards.
         fields (List[str]): The names of the samples' fields in order.
+        compression_scheme_id (np.int8): the internal compression scheme ID (see `get_compression_scheme_id`)
     """
 
     def __init__(self, samples_per_shard: NDArray[np.int64], bytes_per_shard: NDArray[np.int64],

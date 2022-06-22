@@ -97,7 +97,7 @@ def dispatch_decompress(local, local_decompressed, compression_scheme):
                 with open(tempfile, 'xb') as dest_file:
                     shutil.copyfileobj(gzipfile, dest_file)
         else:
-            raise NotImplemented
+            raise NotImplementedError
         os.rename(tempfile, local_decompressed)
         os.remove(local)
 

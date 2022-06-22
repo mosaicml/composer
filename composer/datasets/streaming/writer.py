@@ -7,7 +7,7 @@
 import gzip as gz
 import os
 from types import TracebackType
-from typing import Dict, Iterable, List, Optional, Type
+from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 
 import numpy as np
 from tqdm import tqdm
@@ -61,13 +61,14 @@ class StreamingDatasetWriter(object):
         dirname (str): Directory to write shards to.
         fields: (List[str]): The fields to save for each sample.
         shard_size_limit (int): Maximum shard size in bytes. Default: `1 << 24`.
+        compression (Union[Tuple[str, int], None]): Compression algorithm and compression level. Currently supported: ('gz', 1-9) or None.
     """
 
     def __init__(self,
                  dirname: str,
                  fields: List[str],
                  shard_size_limit: int = 1 << 24,
-                 compression_scheme: str = 'gz') -> None:
+                 compression: Union[Tuple[str, int], None] = ('gz', 6)) -> None:
         if len(fields) != len(set(fields)):
             raise ValueError(f'fields={fields} must be unique.')
         if shard_size_limit <= 0:
@@ -88,7 +89,8 @@ class StreamingDatasetWriter(object):
         self.new_shard_size = 0
 
         # compression scheme for shards
-        self.compression_scheme = compression_scheme
+        if compression is not None:
+            self.compression_scheme, self.compression_level = compression
 
     def _flush_shard(self) -> None:
         """Flush cached samples to a new dataset shard."""
@@ -96,14 +98,15 @@ class StreamingDatasetWriter(object):
         basename = get_shard_basename(shard, compression_scheme=self.compression_scheme)
         filename = os.path.join(self.dirname, basename)
 
-        open_f = open
-
         if self.compression_scheme == 'gz':
-            open_f = gz.open
+            with gz.open(filename, 'xb', compresslevel=self.compression_level) as out:
+                for data in self.new_samples:
+                    out.write(data)
+        else:
+            with open(filename, 'xb') as out:
+                for data in self.new_samples:
+                    out.write(data)
 
-        with open_f(filename, 'xb') as out:
-            for data in self.new_samples:
-                out.write(data)
         self.samples_per_shard.append(len(self.new_samples))
         self.bytes_per_shard.append(self.new_shard_size)
         self.new_samples = []
@@ -120,7 +123,7 @@ class StreamingDatasetWriter(object):
         compression_scheme_id = get_compression_scheme_id(self.compression_scheme)
         index = StreamingDatasetIndex(samples_per_shard, bytes_per_shard, bytes_per_sample, self.fields,
                                       compression_scheme_id)
-        with gz.open(filename, 'xb') as out:
+        with open(filename, 'xb') as out:
             index.dump(out)
 
     def write_sample(self, sample: Dict[str, bytes]) -> None:
