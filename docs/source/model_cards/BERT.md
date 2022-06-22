@@ -27,7 +27,7 @@ BERT consists of a multi-layer bidirectional Transformer encoder parameterised b
 
 We chose to implement BERT-Base as it is small enough to rapidly test methods using a single GPU node.
 
-| Model Family Member | Parameters | Training Hours on 8xA100s | Training Tokens | Crossentropy Loss | Masked Accuracy |
+| Model Family Member | Parameters | Training Hours on 8xA100s | Training Tokens | Cross Entropy Loss | Masked Accuracy |
 |---------------------|------------|---------------------------|-----------------|--------------------------|-----------------|
 | BERT-Base           | 110M       | 10h 38m                   | 35.2B           | 1.59                     | 0.67            |
 
