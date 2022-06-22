@@ -37,5 +37,5 @@ Our codebase builds off of the Hugging Face *[Transformers](https://huggingface.
 
 Our recipe training is based off *[How to Train BERT with an Academic Budget](https://arxiv.org/pdf/2104.07705.pdf)* by Peter Izsak, Moshe Berchansky, and Omer Levy. Specifically, we skip the Next Sentence Prediction loss and maintain a sequence length of 128.
 
-We pre-train with the C4 dataset (Colossal Clean Crawled Corpus) from *[Exploring the Limits of Transfer Learning with a Unified
+After reproducing the original work, we decided to pre-train with the C4 dataset (Colossal Clean Crawled Corpus) from *[Exploring the Limits of Transfer Learning with a Unified
 Text-to-Text Transformer](https://arxiv.org/pdf/1910.10683v3.pdf)* by Colin Raffel, Noam Shazeer, Adam Roberts, Katherine Lee, Sharan Narang, Michael Matena, Yanqi Zhou, Wei Li, and Peter J. Liu. As it has been shown to yield better results on downstream tasks.
