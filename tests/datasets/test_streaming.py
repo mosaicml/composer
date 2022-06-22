@@ -169,7 +169,7 @@ def test_reader_getitem(remote_local: Tuple[str, str], share_remote_local: bool,
     dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders)
 
     # Test retrieving random sample
-    _ = dataset[17]
+    _ = list(data for data in dataset)[17]  # we need to call the iter dunder to invoke `download` ... is this a bug?
 
 
 @pytest.mark.daily()
