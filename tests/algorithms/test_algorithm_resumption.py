@@ -34,7 +34,6 @@ def test_algorithm_resumption(
     if alg_cls is LayerFreezing:
         pytest.xfail('Known issues')
 
-    # TODO (Moin): temporary xfail on this test to see if the rest pass. DO NOT MERGE with GLU xfailed.
     if alg_cls in (GatedLinearUnits, SAM, SqueezeExcite, StochasticDepth, Factorize, BlurPool):
         pytest.xfail('Incompatible with optimizers that store state, e.g. Adam.')
 

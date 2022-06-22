@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import warnings
+from functools import partial
 from typing import Callable, Dict, Optional, Sequence, Type, Union
 
 import torch
@@ -17,7 +18,7 @@ try:
 except ImportError as e:
     TRANSFORMERS_INSTALLED = False
 
-from composer.algorithms.gated_linear_units.gated_linear_unit_layers import BERTGatedOutput, DummyBERTIntermediateOutput
+from composer.algorithms.gated_linear_units.gated_linear_unit_layers import BERTGatedFFOutput, IdentityLayer
 from composer.algorithms.warnings import NoEffectWarning
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
@@ -30,36 +31,33 @@ log = logging.getLogger(__name__)
 def from_BertOutput(layer: torch.nn.Module,
                     module_index: int,
                     act_fn: Callable,
-                    wi_0_bias: bool = False,
-                    wi_1_bias: bool = False) -> BERTGatedOutput:
-    """Defines a replacement policy from a `transformers.models.bert.modeling_bert.BertOutput` to a `composer.algorithms.gated_linear_units.gated_linear_unit_layers.BERTGatedOutput`"""
+                    gated_layer_bias: bool = False,
+                    non_gated_layer_bias: bool = False) -> BERTGatedFFOutput:
+    """Defines a replacement policy from a `transformers.models.bert.modeling_bert.BertOutput` to a `composer.algorithms.gated_linear_units.gated_linear_unit_layers.BERTGatedFFOutput`"""
     assert isinstance(
         layer, BertOutput
-    ), 'The replacement policy will look for all instances of transformers.models.bert.modeling_bert.BertOutput'
-    return BERTGatedOutput(d_embed=layer.dense.out_features,
-                           d_ff=layer.dense.in_features,
-                           dropout_rate=layer.dropout.p,
-                           act_fn=act_fn,
-                           layernorm_eps=layer.LayerNorm.eps,
-                           wi_0_bias=wi_0_bias,
-                           wi_1_bias=wi_1_bias)
+    ), 'The replacement policy requires an instance of transformers.models.bert.modeling_bert.BertOutput for the necessary fields to be defined.'
+    return BERTGatedFFOutput(d_embed=layer.dense.out_features,
+                             d_ff=layer.dense.in_features,
+                             dropout_rate=layer.dropout.p,
+                             act_fn=act_fn,
+                             layernorm_eps=layer.LayerNorm.eps,
+                             gated_layer_bias=gated_layer_bias,
+                             non_gated_layer_bias=non_gated_layer_bias)
 
 
-def from_BertIntermediate(layer: torch.nn.Module, module_index: int) -> DummyBERTIntermediateOutput:
-    """Defines a replacement policy from a `transformers.models.bert.modeling_bert.BertIntermediate` to a `composer.algorithms.gated_linear_units.gated_linear_unit_layers.DummyBERTIntermediateOutput`"""
-    assert isinstance(
-        layer, BertIntermediate
-    ), 'The replacement policy will look for all instances of transformers.models.bert.modeling_bert.BertIntermediate'
-    return DummyBERTIntermediateOutput()
+def from_BertIntermediate(layer: torch.nn.Module, module_index: int) -> IdentityLayer:
+    """Defines a replacement policy from a `transformers.models.bert.modeling_bert.BertIntermediate` to a `composer.algorithms.gated_linear_units.gated_linear_unit_layers.IdentityLayer`"""
+    return IdentityLayer()
 
 
 def apply_gated_linear_units(model: torch.nn.Module,
                              optimizers: Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]],
                              act_fn: Optional[Callable] = None,
-                             wi_0_bias: bool = False,
-                             wi_1_bias: bool = False) -> None:
+                             gated_layer_bias: bool = False,
+                             non_gated_layer_bias: bool = False) -> None:
     """
-    Replaces the Linear layers in the feed-forward network with `Gated Linear Units <https://nvidia.github.io/apex/layernorm.html>`_.
+    Replaces the Linear layers in the feed-forward network with `Gated Linear Units <https://arxiv.org/abs/2002.05202>`_.
 
     Args:
         model (:class:`torch.nn.Module`): the model to modify in-place
@@ -73,8 +71,8 @@ def apply_gated_linear_units(model: torch.nn.Module,
             model parameters.
         act_fn (Callable, optional): Optionally, the activation function to use. If ``None``, the algorithm will
             use the existing activation function in the model.
-        wi_0_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
-        wi_1_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
+        gated_layer_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
+        non_gated_layer_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
     """
     check_if_transformers_installed(TRANSFORMERS_INSTALLED)
 
@@ -82,24 +80,29 @@ def apply_gated_linear_units(model: torch.nn.Module,
     if not isinstance(model, BERTModel):
         raise ValueError('Gated Linear Units only has a surgery policy defined for instances of BERTModel.')
 
-    # get the activation functions used
     if act_fn is None:
-        for module in model.modules():
-            if isinstance(module, BertIntermediate):
-                if act_fn is None:
-                    act_fn = module.intermediate_act_fn
-                else:
-                    if not isinstance(act_fn, type(module.intermediate_act_fn)):
-                        raise ValueError(
-                            'The model has non-uniform activation functions, which is currently unsupported.')
+        # get the activation functions used
+        act_fns = {module.intermediate_act_fn for module in model.modules() if isinstance(module, BertIntermediate)}
+
+        if len(act_fns) != 1:
+            raise ValueError('The model has non-uniform activation functions, which is currently unsupported.')
+
+        # since our set is of length-1, let's extract the only activation function remaining.
+        (act_fn,) = act_fns
+
     if act_fn is None:
         raise ValueError(
             'Could not find an existing activation function to use, and no custom activation function was provided.')
 
     # prepare the replacement policy and perform replacement
     policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
-        BertIntermediate: from_BertIntermediate,
-        BertOutput: lambda layer, module_idx: from_BertOutput(layer, module_idx, act_fn, wi_0_bias, wi_1_bias),
+        BertIntermediate:
+            from_BertIntermediate,
+        BertOutput:
+            partial(from_BertOutput,
+                    act_fn=act_fn,
+                    gated_layer_bias=gated_layer_bias,
+                    non_gated_layer_bias=non_gated_layer_bias),
     }
     replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
     if len(replaced_instances) == 0:
@@ -118,8 +121,8 @@ class GatedLinearUnits(Algorithm):
     Args:
         act_fn (Callable, optional): Optionally, the activation function to use. If ``None``, the algorithm will
             use the existing activation function in the model.
-        wi_0_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
-        wi_1_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
+        gated_layer_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
+        non_gated_layer_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
 
     Example:
         .. testsetup::
@@ -140,11 +143,14 @@ class GatedLinearUnits(Algorithm):
            )
     """
 
-    def __init__(self, act_fn: Optional[Callable] = None, wi_0_bias: bool = False, wi_1_bias: bool = False):
+    def __init__(self,
+                 act_fn: Optional[Callable] = None,
+                 gated_layer_bias: bool = False,
+                 non_gated_layer_bias: bool = False):
         check_if_transformers_installed(TRANSFORMERS_INSTALLED)
         self.act_fn = act_fn
-        self.wi_0_bias = wi_0_bias
-        self.wi_1_bias = wi_1_bias
+        self.gated_layer_bias = gated_layer_bias
+        self.non_gated_layer_bias = non_gated_layer_bias
 
     def match(self, event: Event, state: State) -> bool:
         del state  # unused
@@ -155,5 +161,5 @@ class GatedLinearUnits(Algorithm):
         apply_gated_linear_units(model=state.model,
                                  optimizers=state.optimizers,
                                  act_fn=self.act_fn,
-                                 wi_0_bias=self.wi_0_bias,
-                                 wi_1_bias=self.wi_1_bias)
+                                 gated_layer_bias=self.gated_layer_bias,
+                                 non_gated_layer_bias=self.non_gated_layer_bias)

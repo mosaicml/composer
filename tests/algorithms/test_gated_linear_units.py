@@ -6,7 +6,7 @@ from typing import Tuple
 import pytest
 
 from composer.algorithms.gated_linear_units import GatedLinearUnits, apply_gated_linear_units
-from composer.algorithms.gated_linear_units.gated_linear_unit_layers import BERTGatedOutput
+from composer.algorithms.gated_linear_units.gated_linear_unit_layers import BERTGatedFFOutput
 from composer.core.event import Event
 from composer.loggers import Logger
 from composer.models import BERTModel
@@ -23,15 +23,15 @@ def assert_is_glu_instance(model: BERTModel):
     pytest.importorskip('transformers')
     from transformers.models.bert.modeling_bert import BertOutput
 
-    # ensure that within the entire model, no BertOutput exists, and at least one BERTGatedOutput does.
+    # ensure that within the entire model, no BertOutput exists, and at least one BERTGatedFFOutput does.
     for module_class in model.modules():
         assert not isinstance(
             module_class, BertOutput
         ), 'A transformers.models.bert.modeling_bert.BertOutput should not be found in the model after surgery is applied.'
 
     assert any(
-        isinstance(module_class, BERTGatedOutput) for module_class in model.modules()
-    ), 'composer.algorithms.gated_linear_units.gated_linear_unit_layers.BERTGatedOutput is not found in the post-surgery model.'
+        isinstance(module_class, BERTGatedFFOutput) for module_class in model.modules()
+    ), 'composer.algorithms.gated_linear_units.gated_linear_unit_layers.BERTGatedFFOutput is not found in the post-surgery model.'
 
 
 def test_gated_linear_units_functional(synthetic_bert_state: Tuple):

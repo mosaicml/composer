@@ -1,2 +1,2 @@
-wi_0_bias: False
-wi_1_bias: False
+gated_layer_bias: False
+nongated_layer_bias: False
