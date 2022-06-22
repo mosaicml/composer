@@ -33,7 +33,7 @@ def from_BertOutput(layer: torch.nn.Module,
                     act_fn: Callable,
                     gated_layer_bias: bool = False,
                     non_gated_layer_bias: bool = False) -> BERTGatedFFOutput:
-    """Defines a replacement policy from a `transformers.models.bert.modeling_bert.BertOutput` to a `composer.algorithms.gated_linear_units.gated_linear_unit_layers.BERTGatedFFOutput`"""
+    """Defines a replacement policy from a :class:`transformers.models.bert.modeling_bert.BertOutput` to a :class:`composer.algorithms.gated_linear_units.gated_linear_unit_layers.BERTGatedFFOutput`"""
     assert isinstance(
         layer, BertOutput
     ), 'The replacement policy requires an instance of transformers.models.bert.modeling_bert.BertOutput for the necessary fields to be defined.'
@@ -47,7 +47,7 @@ def from_BertOutput(layer: torch.nn.Module,
 
 
 def from_BertIntermediate(layer: torch.nn.Module, module_index: int) -> IdentityLayer:
-    """Defines a replacement policy from a `transformers.models.bert.modeling_bert.BertIntermediate` to a `composer.algorithms.gated_linear_units.gated_linear_unit_layers.IdentityLayer`"""
+    """Defines a replacement policy from a :class:`transformers.models.bert.modeling_bert.BertIntermediate` to a :class:`composer.algorithms.gated_linear_units.gated_linear_unit_layers.IdentityLayer`"""
     return IdentityLayer()
 
 
@@ -60,8 +60,8 @@ def apply_gated_linear_units(model: torch.nn.Module,
     Replaces the Linear layers in the feed-forward network with `Gated Linear Units <https://arxiv.org/abs/2002.05202>`_.
 
     Args:
-        model (:class:`torch.nn.Module`): the model to modify in-place
-        optimizers (:class:`torch.optim.Optimizer` | Sequence[:class:`torch.optim.Optimizer`], optional):
+        model (`torch.nn.Module`): the model to modify in-place
+        optimizers (`torch.optim.Optimizer` | Sequence[`torch.optim.Optimizer`], optional):
             Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
             constructed with ``model.parameters()`` must be specified here so that
             they will optimize the correct parameters.
