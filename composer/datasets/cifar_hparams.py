@@ -93,7 +93,7 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                     ds = CIFAR10(
                         self.datadir,
                         train=self.is_train,
-                        download=(self.download and dist.get_local_rank() == 0),
+                        download=self.download,
                     )
 
                     write_ffcv_dataset(dataset=ds, write_path=dataset_filepath)
