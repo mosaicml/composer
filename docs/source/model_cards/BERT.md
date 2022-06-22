@@ -1,4 +1,4 @@
-# 📚 BERT
+# ![bert](https://storage.googleapis.com/docs.mosaicml.com/images/models/bert.gif) BERT
 
 Category of Task: ``NLP``
 
