@@ -569,7 +569,7 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
 
 
 class ConstantWithWarmupScheduler(ComposerScheduler):
-    r"""Maintains a fixed learning rate.
+    r"""Maintains a fixed learning rate, with an initial warmup.
 
     This scheduler is based on  :class:`~torch.optim.lr_scheduler.ConstantLR` from PyTorch.
 
@@ -596,7 +596,7 @@ class ConstantWithWarmupScheduler(ComposerScheduler):
         self.t_warmup = t_warmup
         self.alpha = alpha
         self.t_max = t_max
-        self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=t_warmup)
+        self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=alpha, t_max=t_warmup)
 
     def __call__(self, state: State, ssr: float = 1.0) -> float:
         t_warmup = _convert_time(self.t_warmup, state)
