@@ -585,6 +585,7 @@ class ConstantWithWarmupScheduler(ComposerScheduler):
     :math:`t_{max}` represents the duration of this scheduler.
 
     Args:
+        t_warmup (str | Time): Warmup time.
         alpha (float): Learning rate multiplier to maintain while this scheduler is active. Default = ``1.0``.
         t_max (str | Time): Duration of this scheduler. Default = ``"1dur"``.
     """
