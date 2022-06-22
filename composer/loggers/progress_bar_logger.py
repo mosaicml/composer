@@ -162,15 +162,14 @@ class ProgressBarLogger(LoggerDestination):
         self.stream = stream
 
     @property
-    def current_pbar(self) -> Optional[_ProgressBar]:
+    def _current_pbar(self) -> Optional[_ProgressBar]:
         if self.is_train is None:
             return None
         return self.train_pbar if self.is_train else self.eval_pbar
 
-    @current_pbar.setter
-    def current_pbar(self, pbar: Optional[_ProgressBar]):
-        if self.is_train is None:
-            raise AssertionError('Cannot set pbar if self.is_train is not set.')
+    @_current_pbar.setter
+    def _current_pbar(self, pbar: Optional[_ProgressBar]):
+        assert self.is_train is not None, 'Cannot set pbar if self.is_train is not set.'
 
         if self.is_train:
             self.train_pbar = pbar
@@ -183,9 +182,9 @@ class ProgressBarLogger(LoggerDestination):
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]) -> None:
         # log to progress bar
-        if self.current_pbar:
+        if self._current_pbar:
             # Logging outside an epoch
-            self.current_pbar.log_data(data)
+            self._current_pbar.log_data(data)
 
         # log to console
         if self.should_log(state, log_level):
@@ -195,9 +194,9 @@ class ProgressBarLogger(LoggerDestination):
 
     def log_to_console(self, log_str: str):
         """Logs to the console, avoiding interleaving with a progress bar."""
-        if self.current_pbar:
+        if self._current_pbar:
             # use tqdm.write to avoid interleaving
-            self.current_pbar.pbar.write(log_str)
+            self._current_pbar.pbar.write(log_str)
         else:
             # write directly to self.stream; no active progress bar
             print(log_str, file=self.stream, flush=True)
@@ -219,11 +218,11 @@ class ProgressBarLogger(LoggerDestination):
 
         assert self.is_train is not None
         if epoch_style:
-            assert state.dataloader_len is not None, 'dataloader_len should be set'
-            total = int(state.dataloader_len)
+            total = int(state.dataloader_len) if state.dataloader_len is not None else None
 
             # handle when # batches is less than an epoch
-            if state.max_duration is not None and state.max_duration.unit == TimeUnit.BATCH:
+            if total is not None and state.max_duration is not None \
+                and state.max_duration.unit == TimeUnit.BATCH:
                 total = min(total, state.max_duration.value)
 
             unit = TimeUnit.BATCH
@@ -251,9 +250,9 @@ class ProgressBarLogger(LoggerDestination):
         )
 
     def _close(self):
-        if self.current_pbar:
-            self.current_pbar.close()
-            self.current_pbar = None
+        if self._current_pbar:
+            self._current_pbar.close()
+            self._current_pbar = None
             self.is_train = None
 
     def epoch_start(self, state: State, logger: Logger) -> None:
