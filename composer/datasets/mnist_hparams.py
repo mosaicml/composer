@@ -55,7 +55,7 @@ class MNISTDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             dataset = datasets.MNIST(
                 self.datadir,
                 train=self.is_train,
-                download=self.download,
+                download=(self.download and dist.get_local_rank() == 0),
                 transform=transform,
             )
         sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
