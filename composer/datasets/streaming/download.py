@@ -100,15 +100,14 @@ def dispatch_download(remote, local, timeout: float):
     def dispatch_decompress(local, local_decompressed, compression_scheme):
         """ Decompresses file, if necessary, otherwise does nothing. """
         tempfile = local_decompressed + '.tmp'
-        if compression_scheme is not None:
-            if compression_scheme == 'gz':
-                with gzip.open(local, 'rb') as gzipfile:
-                    with open(tempfile, 'xb') as dest_file:
-                        shutil.copyfileobj(gzipfile, dest_file)
-            else:
-                raise NotImplementedError
-            os.rename(tempfile, local_decompressed)
-            os.remove(local)
+        if compression_scheme == 'gz':
+            with gzip.open(local, 'rb') as gzipfile:
+                with open(tempfile, 'xb') as dest_file:
+                    shutil.copyfileobj(gzipfile, dest_file)
+        else:
+            raise NotImplementedError
+        os.rename(tempfile, local_decompressed)
+        os.remove(local)
 
     local_decompressed, compression_scheme = split_compression_suffix(local)
     if os.path.exists(local_decompressed):
