@@ -1,5 +1,6 @@
 from composer.trainer import TrainerHparams
 
+
 def main() -> None:
     # Create a TrainerHparams object from the input file
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
@@ -12,6 +13,5 @@ def main() -> None:
     trainer.fit()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
-
