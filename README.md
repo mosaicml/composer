@@ -56,13 +56,13 @@ Composer features:
 ## Benefits
 
 <p align="center">
-  <a href="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_light.svg#gh-light-mode-only" class="only-light">
-    <img src="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_light.svg" width="85%"/>
+  <a href="https://storage.googleapis.com/docs.mosaicml.com/images/composer_graph_light_06212022.svg?ref=Fiey0Xei#gh-light-mode-only" class="only-light">
+    <img src="https://storage.googleapis.com/docs.mosaicml.com/images/composer_graph_light_06212022.svg?ref=Fiey0Xei" width="75%"/>
   </a>
   <!-- link to the light mode image even on dark mode, so it will be readable in a new tab -->
   <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_BEGIN -->
-  <a href="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_light.svg#gh-dark-mode-only" class="only-dark">
-    <img src="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_dark.svg" width="85%"/>
+  <a href="https://storage.googleapis.com/docs.mosaicml.com/images/composer_graph_dark_06212022.svg?ref=Fiey0Xei#gh-dark-mode-only" class="only-dark">
+    <img src="https://storage.googleapis.com/docs.mosaicml.com/images/composer_graph_dark_06212022.svg?ref=Fiey0Xei" width="75%"/>
   </a>
   <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_END -->
 </p>
