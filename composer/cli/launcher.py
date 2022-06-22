@@ -36,7 +36,7 @@ def _get_parser():
 
     required_args = parser.add_argument_group('required arguments')
 
-    required_args.add_argument(
+    parser.add_argument(
         '-n',
         '--nproc',
         type=int,
