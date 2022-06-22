@@ -51,8 +51,8 @@ class BERTGatedFFOutput(torch.nn.Module):
     def forward(self, hidden_states, residual_connection):
         """
         Args:
-            hidden_states (:class:`torch.Tensor`): The hidden states from the attention matrix.
-            residual_connection (:class:`torch.Tensor`): The residual connection to add before the LayerNorm operator.
+            hidden_states (torch.Tensor): The hidden states from the attention matrix.
+            residual_connection (torch.Tensor): The residual connection to add before the LayerNorm operator.
         """
         # compute the activation
         hidden_states = self.act(self.gated_layer(hidden_states)) * self.non_gated_layer(hidden_states)
