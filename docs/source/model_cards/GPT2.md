@@ -1,4 +1,4 @@
-# 📚******** GPT-2
+# 📚 GPT-2
 
 Category of Task: ``NLP``
 
