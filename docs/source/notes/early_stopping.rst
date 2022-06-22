@@ -109,7 +109,7 @@ In the example below, the callback will monitor the `Accuracy` metric in the dat
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
-        eval_dataloader=eval_evaluator,
+        eval_dataloader=[evaluator1, evaluator2],
         optimizers=optimizer,
         callbacks=[early_stopper],
         max_duration="1ep",
