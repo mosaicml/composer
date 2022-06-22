@@ -20,6 +20,7 @@ from argparse import ArgumentParser
 from typing import Any, Dict, List
 
 import psutil
+import torch
 
 import composer
 
@@ -35,11 +36,13 @@ def _get_parser():
 
     required_args = parser.add_argument_group('required arguments')
 
-    required_args.add_argument('-n',
-                               '--nproc',
-                               type=int,
-                               help=('The number of processes to launch on this node. Overrides env var '
-                                     'LOCAL_WORLD_SIZE.'))
+    required_args.add_argument(
+        '-n',
+        '--nproc',
+        type=int,
+        help=('The number of processes to launch on this node. Overrides env var `LOCAL_WORLD_SIZE` if specified; '
+              'otherwise, defaults to `max(1, torch.cuda.device_count())`.'),
+    )
 
     parser.add_argument(
         '--stdout',
@@ -64,10 +67,20 @@ def _get_parser():
               'FileLogger within Composer. This logger captures and saves the STDERR of each process.'),
     )
     parser.add_argument('-v', '--verbose', action='store_true', help='If set, print verbose messages')
-    parser.add_argument('-m',
-                        '--module_mode',
-                        action='store_true',
-                        help='If set, run the training script as a module instead of as a script.')
+    parser.add_argument(
+        '-m',
+        '--module_mode',
+        action='store_true',
+        help=('If set, run the training script as a module instead of as a script. '
+              'Cannot be used in conjunction with `command_mode`'),
+    )
+    parser.add_argument(
+        '-c',
+        '--command_mode',
+        action='store_true',
+        help=('If set, run the training script as a command (i.e. without `python`). '
+              'Cannot be used in conjunction with `module_mode`.'),
+    )
 
     multinode_args = parser.add_argument_group(
         'multi-node arguments',
@@ -134,8 +147,11 @@ def _parse_args():
     args = parser.parse_args()
 
     # Default values to env vars if they are not provided
-    if args.nproc is None and 'LOCAL_WORLD_SIZE' in os.environ:
-        args.nproc = int(os.environ['LOCAL_WORLD_SIZE'])
+    if args.nproc is None:
+        if 'LOCAL_WORLD_SIZE' in os.environ:
+            args.nproc = int(os.environ['LOCAL_WORLD_SIZE'])
+        else:
+            args.nproc = max(1, torch.cuda.device_count())
 
     if args.world_size is None and 'WORLD_SIZE' in os.environ:
         args.world_size = int(os.environ['WORLD_SIZE'])
@@ -242,6 +258,7 @@ def _launch_processes(
     master_addr: str,
     master_port: int,
     module_mode: bool,
+    command_mode: bool,
     training_script: str,
     stdout_file_format: str,
     stderr_file_format: str,
@@ -253,7 +270,11 @@ def _launch_processes(
 
     for local_rank in range(nproc):
         global_rank = base_rank + local_rank
-        cmd = [sys.executable, '-u']
+        if command_mode and module_mode:
+            raise ValueError('Either `command_mode` or `module_mode` should be set, but not both.')
+        cmd = []
+        if not command_mode:
+            cmd.append(sys.executable)
         if module_mode:
             cmd.append('-m')
 
@@ -268,6 +289,7 @@ def _launch_processes(
                 NODE_RANK=str(node_rank),
                 MASTER_ADDR=master_addr,
                 MASTER_PORT=str(master_port),
+                PYTHONUNBUFFERED='1',
         ):
 
             # Populate the distributed variables in all launcher args
@@ -460,6 +482,7 @@ def main():
                           master_addr=args.master_addr,
                           master_port=args.master_port,
                           module_mode=args.module_mode,
+                          command_mode=args.command_mode,
                           stdout_file_format=args.stdout,
                           stderr_file_format=args.stderr,
                           training_script=args.training_script,
