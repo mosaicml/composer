@@ -24,15 +24,12 @@ __all__ = ['SeqLengthWarmup', 'set_batch_sequence_length']
 def set_batch_sequence_length(
     batch: Dict[str, torch.Tensor],
     curr_seq_len: int,
-    truncate: bool = True,
     preserve_eos: bool = False,
 ) -> Batch:
     """Set the sequence length of a batch.
 
     Changes the sequence length of all tensors in the provided dictionary
-    to ``curr_seq_len`` by either truncating the tensors (``truncate=True``)
-    or reshaping the tensors to create new examples from the extra tokens
-    (``truncate=False``).
+    to ``curr_seq_len`` by truncating the sequence tensors.
 
     .. note::
 
@@ -48,11 +45,9 @@ def set_batch_sequence_length(
     Args:
         batch (Dict[str, Tensor]): The input batch to the model, must be a dictionary.
         curr_seq_length (int): The desired sequence length to apply.
-        truncate (bool, optional): Truncate sequences early, or reshape tensors to create
-            new examples out of the extra tokens. Default: ``True``.
         preserve_eos (bool, optional): Preserve the end-of-sequence of the batch when
             truncating. Useful when input formats include a unique end-of-sequence token.
-            Ignored if ``truncate`` is ``False``. Default = ``False``.
+            Default = ``False``.
 
     Returns:
         Dict[str, Tensor]: a Mapping of input tensors to the model,
@@ -72,48 +67,31 @@ def set_batch_sequence_length(
     """
 
     assert isinstance(batch, Mapping)
+    assert 'attention_mask' in batch
 
-    if truncate:
-        assert 'attention_mask' in batch
-        if curr_seq_len >= batch['attention_mask'].shape[1]:
-            return batch
+    if curr_seq_len >= batch['attention_mask'].shape[1]:
+        return batch
 
-        # Truncate, but preserve end-of-sequence tokens
-        if preserve_eos:
-            r_idx = torch.arange(batch['attention_mask'].shape[0])
-            # eos_idx should point to the final token index for each batch sample
-            eos_idx = batch['attention_mask'].sum(1).long() - 1
-            # eos_idx_truncated is the same thing, after truncation is applied
-            eos_idx_truncated = eos_idx.clamp(max=curr_seq_len - 1)
+    # Truncate, but preserve end-of-sequence tokens
+    if preserve_eos:
+        r_idx = torch.arange(batch['attention_mask'].shape[0])
+        # eos_idx should point to the final token index for each batch sample
+        eos_idx = batch['attention_mask'].sum(1).long() - 1
+        # eos_idx_truncated is the same thing, after truncation is applied
+        eos_idx_truncated = eos_idx.clamp(max=curr_seq_len - 1)
 
-            for k in batch.keys():
-                if len(batch[k].shape) < 2:
-                    continue
-                eos_value = batch[k][r_idx, eos_idx]
-                batch[k] = batch[k][:, :curr_seq_len].contiguous()
-                batch[k][r_idx, eos_idx_truncated] = eos_value
-
-        else:
-            for k in batch.keys():
-                if len(batch[k].shape) < 2:
-                    continue
-                batch[k] = batch[k][:, :curr_seq_len].contiguous()
-    else:
-        assert 'input_ids' in batch
-        # ensure new tensor shape is divisible by curr_seq_len
-        input_ids = batch['input_ids'].view(-1)
-        tensor_len = (input_ids.shape[0] // curr_seq_len) * curr_seq_len
-
-        input_ids = input_ids[:tensor_len]
-        input_ids = input_ids.view(-1, curr_seq_len)
-        batch['input_ids'] = input_ids
-
-        for k, v in batch.items():
-            if k == 'input_ids':
+        for k in batch.keys():
+            if len(batch[k].shape) < 2:
                 continue
-            v = v.view(-1)
-            v = v[:tensor_len]
-            batch[k] = v.view(-1, curr_seq_len)
+            eos_value = batch[k][r_idx, eos_idx]
+            batch[k] = batch[k][:, :curr_seq_len].contiguous()
+            batch[k][r_idx, eos_idx_truncated] = eos_value
+
+    else:
+        for k in batch.keys():
+            if len(batch[k].shape) < 2:
+                continue
+            batch[k] = batch[k][:, :curr_seq_len].contiguous()
 
     return batch
 
@@ -128,9 +106,6 @@ class SeqLengthWarmup(Algorithm):
 
     The sequence length is then kept at ``max_seq_length``
     for the rest of training.
-
-    Tensors are either truncated (``truncate=True``) or reshaped to
-    create new examples from the extra tokens (``truncate=False``).
 
     This algorithm runs on :attr:`~composer.core.event.Event.AFTER_DATALOADER` to modify
     the sequence length of a batch of data after the model and data have been moved to
@@ -159,8 +134,7 @@ class SeqLengthWarmup(Algorithm):
         seq_length_warmup = SeqLengthWarmup(duration=0.5,
                                             min_seq_length=8,
                                             max_seq_length=1024,
-                                            ste_size=8,
-                                            truncate=False,
+                                            step_size=8,
                                             preserve_eos=False)
 
         trainer = Trainer(model=model,
@@ -176,11 +150,9 @@ class SeqLengthWarmup(Algorithm):
         max_seq_length (int, optional): Maximum sequence length to stop the warmup.
             Default = ``1024``.
         step_size (int, optional): Step size of sequence length. Default = ``8``.
-        truncate (bool, optional): Truncate tensors or reshape extra tokens to new
-            examples. Default = ``True``.
         preserve_eos (bool, optional): Preserve the end-of-sequence of the batch when
             truncating. Useful when input formats include a unique end-of-sequence token.
-            Ignored if ``truncate`` is ``False``. Default = ``False``.
+            Default = ``False``.
     """
 
     def __init__(
@@ -189,14 +161,12 @@ class SeqLengthWarmup(Algorithm):
         min_seq_length: int = 8,
         max_seq_length: int = 1024,
         step_size: int = 8,
-        truncate: bool = True,
         preserve_eos: bool = False,
     ):
         self.duration = duration
         self.min_seq_length = min_seq_length
         self.max_seq_length = max_seq_length
         self.step_size = step_size
-        self.truncate = truncate
         self.preserve_eos = preserve_eos
 
         if self.duration < 0 or self.duration > 1:
@@ -335,7 +305,14 @@ class SeqLengthWarmup(Algorithm):
         num_update_steps = (self.max_seq_length - self.min_seq_length) // self.step_size
         update_every_n_steps = num_warmup_steps // num_update_steps
 
-        curr_seq_len = self.step_size * (int(state.timestamp.batch) // update_every_n_steps)
+        print('num optimization steps', num_optimization_steps)
+        print('num_warmup_steps', num_warmup_steps)
+        print('num_update_steps', num_update_steps)
+        print('update_every_n_steps', update_every_n_steps)
+        print('timestamp.batch', int(state.timestamp.batch))
+
+        curr_seq_len = self.step_size * (int(state.timestamp.batch) // update_every_n_steps) + self.min_seq_length
+        print('curr_seq_len', curr_seq_len)
         curr_seq_len = max(curr_seq_len, self.min_seq_length)
         curr_seq_len = min(curr_seq_len, self.max_seq_length)
 
@@ -343,7 +320,7 @@ class SeqLengthWarmup(Algorithm):
             print(f'At batch {int(state.timestamp.batch)}, current sequence length = {curr_seq_len}.')
         self._last_seq_len = int(curr_seq_len)
 
-        state.batch = set_batch_sequence_length(state.batch, curr_seq_len, self.truncate, self.preserve_eos)
+        state.batch = set_batch_sequence_length(state.batch, curr_seq_len, self.preserve_eos)
 
         batch_size = state.batch['input_ids'].shape[0]
         logger.data_batch({
