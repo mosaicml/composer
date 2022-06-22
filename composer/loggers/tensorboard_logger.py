@@ -22,12 +22,11 @@ class TensorboardLogger(LoggerDestination):
         self.run_name = run_name if run_name is not None else ''
         self.log_dir = log_dir
         self.writer = SummaryWriter(log_dir=self.log_dir, filename_suffix=self.run_name)
-        self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
+        self.rank_zero_only = rank_zero_only
         self.run_name = run_name
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
-
-        if self._enabled:
+        if (not self.rank_zero_only) or dist.get_global_rank() == 0:
             for tag, data_point in data.items():
                 if isinstance(data_point, str):
                     self.writer.add_text(tag, data_point)
