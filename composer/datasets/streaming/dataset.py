@@ -4,7 +4,7 @@
 """The :class:`StreamingDataset` class, used for building streaming iterable datasets.
 """
 
-import gzip as gz
+import gzip
 import math
 import os
 from threading import Lock, Thread
@@ -15,8 +15,8 @@ import numpy as np
 from torch.utils.data import IterableDataset
 
 from composer.datasets.streaming.download import download_or_wait
-from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict, get_index_basename,
-                                                get_shard_basename)
+from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict, get_compression_scheme,
+                                                get_index_basename, get_shard_basename)
 from composer.datasets.streaming.world import get_world
 from composer.utils import dist
 
@@ -102,7 +102,7 @@ class StreamingDataset(IterableDataset):
         # Only local device 0 on each node downloads the index. All other devices wait.
         index_basename = get_index_basename()
         index_local = self._download_file(index_basename, wait=(dist.get_local_rank() != 0))
-        with gz.open(index_local, 'rb') as fp:
+        with gzip.open(index_local, 'rb') as fp:
             self.index = StreamingDatasetIndex.load(fp)
 
         # Fields, protected by the lock, relating to loading shards in the background.
@@ -112,7 +112,7 @@ class StreamingDataset(IterableDataset):
         self._downloaded_ids = []
         self._is_downloaded = False
 
-    def _download_file(self, basename: str, wait=False) -> str:
+    def _download_file(self, basename: str, wait=False, compression_scheme: str = None) -> str:
         """Safely download a file from remote to local cache.
 
         Args:
@@ -124,7 +124,12 @@ class StreamingDataset(IterableDataset):
         """
         remote = os.path.join(self.remote, basename)
         local = os.path.join(self.local, basename)
-        download_or_wait(remote=remote, local=local, wait=wait, max_retries=self.max_retries, timeout=self.timeout)
+        download_or_wait(remote=remote,
+                         local=local,
+                         wait=wait,
+                         max_retries=self.max_retries,
+                         timeout=self.timeout,
+                         compression_scheme=compression_scheme)
         return local
 
     def _insert_shard_samples(self, shard: int, part_min_id: int, part_max_id: int) -> None:
@@ -189,12 +194,16 @@ class StreamingDataset(IterableDataset):
             part_shards = np.array(part_shards)
             np.random.shuffle(part_shards[1:])
 
+        compression_scheme = get_compression_scheme(self.index.compression_scheme_id)
+
         for shard in part_shards:
             # If this worker is in charge of downloading the shard, download it.
             # Otherwise, wait until shard gets downloaded by another worker on this node
             # This produces deterministic sample order.
-            basename = get_shard_basename(shard)
-            self._download_file(basename, wait=(shard not in part_shards_to_download))
+            basename = get_shard_basename(shard, compression_scheme=compression_scheme)
+            self._download_file(basename,
+                                wait=(shard not in part_shards_to_download),
+                                compression_scheme=compression_scheme)
             self._insert_shard_samples(shard, part_min_id, part_max_id)
 
         with self._lock:
@@ -245,7 +254,7 @@ class StreamingDataset(IterableDataset):
 
         basename = get_shard_basename(shard)
         shard_filename = os.path.join(self.local, basename)
-        with gz.open(shard_filename, 'rb', 0) as fp:
+        with open(shard_filename, 'rb', 0) as fp:
             fp.seek(offset)
             data = fp.read(size)
 

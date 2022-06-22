@@ -4,11 +4,13 @@
 """Download handling for :class:`StreamingDataset`.
 """
 
+import gzip
 import os
 import shutil
 import time
 from urllib.parse import urlparse
 
+from composer.datasets.streaming.format import strip_compression_suffix
 from composer.utils import MissingConditionalImportError
 
 __all__ = ['download_or_wait']
@@ -87,14 +89,28 @@ def download_from_local(remote: str, local: str) -> None:
     os.rename(local_tmp, local)
 
 
-def dispatch_download(remote, local, timeout: float):
+def dispatch_decompress(local, local_decompressed, compression_scheme):
+    tempfile = local_decompressed + '.tmp'
+    if compression_scheme is not None:
+        if compression_scheme == 'gz':
+            with gzip.open(local, 'rb') as gzipfile:
+                with open(tempfile, 'xb') as dest_file:
+                    shutil.copyfileobj(gzipfile, dest_file)
+        else:
+            raise NotImplemented
+        os.rename(tempfile, local_decompressed)
+        os.remove(local)
+
+
+def dispatch_download(remote, local, timeout: float, compression_scheme: str = None):
     """Use the correct download handler to download the file
     Args:
         remote (str): Remote path (local filesystem).
         local (str): Local path (local filesystem).
         timeout (float): How long to wait for file to download before raising an exception.
     """
-    if os.path.exists(local):
+    local_decompressed = strip_compression_suffix(local)
+    if os.path.exists(local_decompressed):
         return
 
     local_dir = os.path.dirname(local)
@@ -107,8 +123,15 @@ def dispatch_download(remote, local, timeout: float):
     else:
         download_from_local(remote, local)
 
+    dispatch_decompress(local, local_decompressed, compression_scheme)
 
-def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: int = 2, timeout: float = 60) -> None:
+
+def download_or_wait(remote: str,
+                     local: str,
+                     wait: bool = False,
+                     max_retries: int = 2,
+                     timeout: float = 60,
+                     compression_scheme: str = None) -> None:
     """Downloads a file from remote to local, or waits for it to be downloaded. Does not do any thread safety checks, so we assume the calling function is using ``wait`` correctly.
     Args:
         remote (str): Remote path (S3 or local filesystem).
@@ -128,7 +151,7 @@ def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: i
                         raise TimeoutError(f'Waited longer than {timeout}s for other worker to download {local}.')
                     time.sleep(0.25)
             else:
-                dispatch_download(remote, local, timeout=timeout)
+                dispatch_download(remote, local, timeout=timeout, compression_scheme=compression_scheme)
             break
         except Exception as e:  # Retry for all causes of failure.
             error_msgs.append(e)

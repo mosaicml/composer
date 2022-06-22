@@ -6,6 +6,7 @@
 import math
 from gzip import GzipFile
 from io import BufferedIOBase, BufferedReader, BufferedWriter, BytesIO
+from os.path import splitext
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -22,16 +23,35 @@ __all__ = [
 ]
 
 
+def get_compression_scheme_id(compression_scheme: Union[str, None]) -> np.int8:
+    if compression_scheme == None:
+        return np.int8(0)
+    elif compression_scheme == 'gz':
+        return np.int8(1)
+
+
+def get_compression_scheme(compression_scheme_id: np.int8) -> Union[str, None]:
+    if compression_scheme_id == np.int8(0):
+        return None
+    elif compression_scheme_id == np.int8(1):
+        return 'gz'
+
+
+def strip_compression_suffix(local_path: str) -> str:
+    decompressed_path, _ = splitext(local_path)
+    return decompressed_path
+
+
 def get_index_basename() -> str:
     """Get the basename for a streaming dataset index.
 
     Returns:
         str: Basename of file.
     """
-    return 'index.mds'
+    return 'index.mds.gz'
 
 
-def get_shard_basename(shard: int) -> str:
+def get_shard_basename(shard: int, compression_scheme: Union[str, None] = None) -> str:
     """Get the basename for a streaming dataset shard.
 
     Args:
@@ -40,7 +60,8 @@ def get_shard_basename(shard: int) -> str:
     Returns:
         str: Basename of file.
     """
-    return f'{shard:06}.mds'
+    compression_scheme = '.' + compression_scheme if compression_scheme is not None else ''
+    return f'{shard:06}.mds{compression_scheme}'
 
 
 def sample_dict_to_bytes(obj: Dict[str, bytes], keys: List[str]) -> bytes:
@@ -118,7 +139,7 @@ class StreamingDatasetIndex(object):
     """
 
     def __init__(self, samples_per_shard: NDArray[np.int64], bytes_per_shard: NDArray[np.int64],
-                 bytes_per_sample: NDArray[np.int64], fields: List[str]) -> None:
+                 bytes_per_sample: NDArray[np.int64], fields: List[str], compression_scheme_id: np.int8) -> None:
         self.samples_per_shard = samples_per_shard
         self.bytes_per_shard = bytes_per_shard
         self.bytes_per_sample = bytes_per_sample
@@ -136,6 +157,9 @@ class StreamingDatasetIndex(object):
 
         # Sample -> shard, byte offset within shard.
         self.sample_shards, self.sample_shard_offsets = self._locate_samples()
+
+        # Compression scheme
+        self.compression_scheme_id = compression_scheme_id
 
     @classmethod
     def loads(cls, data: bytes):
@@ -184,8 +208,9 @@ class StreamingDatasetIndex(object):
         bytes_per_sample = bytes_per_sample.astype(np.int64)
         num_fields, = read_array(fp, 1, np.int32)
         bytes_per_field = read_array(fp, num_fields, np.int32)
+        compression_scheme_id, = read_array(fp, 1, np.int8)
         fields = [fp.read(size).decode('utf-8') for size in bytes_per_field]
-        return cls(samples_per_shard, bytes_per_shard, bytes_per_sample, fields)
+        return cls(samples_per_shard, bytes_per_shard, bytes_per_sample, fields, compression_scheme_id)
 
     def dumps(self) -> bytes:
         """Dump a StreamingDatasetIndex to raw bytes.
@@ -221,7 +246,7 @@ class StreamingDatasetIndex(object):
         num_fields = np.int32(len(self.fields))
         bytes_per_field = np.array([len(field.encode('utf-8')) for field in self.fields], np.int32)
         arrays = (header, totals, self.samples_per_shard, self.bytes_per_shard, bps_format, bps, num_fields,
-                  bytes_per_field)
+                  bytes_per_field, self.compression_scheme_id)
         array_bytes = b''.join([arr.tobytes() for arr in arrays])
         field_bytes = b''.join([field.encode('utf-8') for field in self.fields])
         return array_bytes + field_bytes
