@@ -1,14 +1,14 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-Script to generate graphs for repo README.md.
+"""Script to generate graphs for repo README.md.
 
 After generating images, upload to public hosting and update the README URLs.
 """
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import numpy as np
 
 models = [{
     'name': 'GPT-2 125M',
@@ -24,10 +24,14 @@ models = [{
     'performance': 36
 }]
 
-import numpy as np
-
 
 def generate_graph(filename, light_mode=True):
+    """Generate Graphs.
+
+    Args:
+        filename (_type_): Name of output image SVG file
+        light_mode (bool, optional): Render in light mode. Defaults to True.
+    """
     font_color = 'black' if light_mode else 'white'
     mpl.rcParams['text.color'] = font_color
     mpl.rcParams['axes.labelcolor'] = font_color
