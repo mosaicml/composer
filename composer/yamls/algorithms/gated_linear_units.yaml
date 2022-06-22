@@ -1,2 +1,2 @@
 gated_layer_bias: False
-nongated_layer_bias: False
+non_gated_layer_bias: False
