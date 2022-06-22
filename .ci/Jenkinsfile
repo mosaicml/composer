@@ -350,7 +350,7 @@ stage('Build') {
             // If this is a composer image and it is the versioned tag (i.e. not the latest tag),
             // Then set the install command to the git commit string, and build and push it to
             // the mosaicml/composer_staging repo
-            String stagingTagName = "mosaicml/composer_staging:${gitCommit[0..7]}"
+            String stagingTagName = "mosaicml/composer_staging:${gitCommit[0..6]}"
             if (!buildArgs['CUDA_VERSION']) {
                 stagingTagName += '_cpu'
             }
