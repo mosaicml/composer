@@ -87,12 +87,16 @@ def set_batch_sequence_length(
             eos_idx_truncated = eos_idx.clamp(max=curr_seq_len - 1)
 
             for k in batch.keys():
+                if len(batch[k].shape) < 2:
+                    continue
                 eos_value = batch[k][r_idx, eos_idx]
                 batch[k] = batch[k][:, :curr_seq_len].contiguous()
                 batch[k][r_idx, eos_idx_truncated] = eos_value
 
         else:
             for k in batch.keys():
+                if len(batch[k].shape) < 2:
+                    continue
                 batch[k] = batch[k][:, :curr_seq_len].contiguous()
     else:
         assert 'input_ids' in batch
@@ -254,7 +258,7 @@ class SeqLengthWarmup(Algorithm):
 
             grad_accum_successful = False
             while not grad_accum_successful:
-                print(f"Trying pre-activation for SLW with grad_accum={state.grad_accum} ... ")
+                print(f'Trying pre-activation for SLW with grad_accum={state.grad_accum} ... ')
                 per_gpu_batch = ceil(per_gpu_macrobatch / state.grad_accum)
                 model_inputs = {k: v[:per_gpu_batch] for k, v in batch_clone.items()}
 
