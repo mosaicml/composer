@@ -19,6 +19,7 @@ from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.wandb_logger import WandBLogger
+from composer.loggers.tensorboard_logger import TensorboardLogger
 
 # All needs to be defined properly for sphinx autosummary
 __all__ = [
@@ -30,4 +31,5 @@ __all__ = [
     'ProgressBarLogger',
     'WandBLogger',
     'ObjectStoreLogger',
+    'TensorboardLogger'
 ]
