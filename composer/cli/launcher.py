@@ -151,7 +151,16 @@ def _parse_args():
         if 'LOCAL_WORLD_SIZE' in os.environ:
             args.nproc = int(os.environ['LOCAL_WORLD_SIZE'])
         else:
-            args.nproc = max(1, torch.cuda.device_count())
+            args.nproc = torch.cuda.device_count()
+
+        if args.nproc == 0:
+            # This could happen if doing cpu-only training,
+            # which could cause torch.cuda.device_count() to return 0,
+            # and LOCAL_WORLD_SIZE (as set by MCLI) to be zero
+            args.nproc = 1
+
+    if args.nproc < 1:
+        raise ValueError('The nproc must be 1 or greater')
 
     if args.world_size is None and 'WORLD_SIZE' in os.environ:
         args.world_size = int(os.environ['WORLD_SIZE'])
@@ -173,6 +182,9 @@ def _parse_args():
 
     if args.world_size < args.nproc:
         raise ValueError(f'world_size({args.world_size}) cannot be less than nproc({args.nproc})')
+
+    if args.world_size < 1:
+        raise ValueError('The world_size must be 1 or greater')
 
     is_multinode = args.world_size > args.nproc
 
