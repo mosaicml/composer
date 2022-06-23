@@ -7,11 +7,11 @@ from typing import Dict, Type, Union
 
 import yahp as hp
 
-from composer.optim.scheduler import (ComposerScheduler, ConstantScheduler, ConstantWithWarmupScheduler, CosineAnnealingScheduler,
-                                      CosineAnnealingWarmRestartsScheduler, CosineAnnealingWithWarmupScheduler,
-                                      ExponentialScheduler, LinearScheduler, LinearWithWarmupScheduler,
-                                      MultiStepScheduler, MultiStepWithWarmupScheduler, PolynomialScheduler,
-                                      PolynomialWithWarmupScheduler, StepScheduler)
+from composer.optim.scheduler import (ComposerScheduler, ConstantScheduler, ConstantWithWarmupScheduler,
+                                      CosineAnnealingScheduler, CosineAnnealingWarmRestartsScheduler,
+                                      CosineAnnealingWithWarmupScheduler, ExponentialScheduler, LinearScheduler,
+                                      LinearWithWarmupScheduler, MultiStepScheduler, MultiStepWithWarmupScheduler,
+                                      PolynomialScheduler, PolynomialWithWarmupScheduler, StepScheduler)
 
 __all__ = ['scheduler_registry']
 
