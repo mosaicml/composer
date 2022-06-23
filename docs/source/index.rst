@@ -118,6 +118,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/ema.md
    method_cards/factorize.md
    method_cards/fused_layernorm.md
+   method_cards/gated_linear_units.md
    method_cards/ghost_batchnorm.md
    method_cards/gradient_clipping.md
    method_cards/label_smoothing.md
