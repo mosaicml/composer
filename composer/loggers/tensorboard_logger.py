@@ -8,9 +8,10 @@ from typing import Any, Dict, Optional
 from torch.utils.tensorboard import SummaryWriter
 
 from composer.core.state import State
-from composer.loggers.logger import LogLevel
+from composer.loggers.logger import LogLevel, Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
+from pathlib import Path
 
 __all__ = ['TensorboardLogger']
 
@@ -21,13 +22,39 @@ class TensorboardLogger(LoggerDestination):
     Args:
         log_dir (str, optional): The path to the directory to put these logs in. If it is
             None the logs will be placed in `./runs/{month}{day}{HH-MM-SS}_{device_name}.local
+        artifact_name (str, optional): Format string for the logfile's artifact name.
+
+            The logfile will be periodically logged (according to the ``flush_interval``) as a file artifact.
+            The artifact name will be determined by this format string.
+
+            .. seealso:: :meth:`~composer.loggers.logger.Logger.log_file_artifact` for file artifact logging.
+
+            The same format variables for ``filename`` are available. Setting this parameter to ``None``
+            (the default) will use the same format string as ``filename``. It is sometimes helpful to deviate
+            from this default. For example, when ``filename`` contains an absolute path, it is recommended to
+            set this parameter explicitely, so the absolute path does not appear in any artifact stores.
+
+            Leading slashes (``'/'``) will be stripped.
+
+            Default: ``None`` (which uses the same format string as ``filename``)
+        flush_interval (int, optional): How frequently to flush the log to the file,
+            relative to the ``log_level``. For example, if the ``log_level`` is
+            :attr:`~.LogLevel.EPOCH`, then the logfile will be flushed every n epochs.  If
+            the ``log_level`` is :attr:`~.LogLevel.BATCH`, then the logfile will be
+            flushed every n batches. Default: ``100``.
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process.
     """
 
-    def __init__(self, log_dir: Optional[str] = None, rank_zero_only: bool = True):
+    def __init__(self,
+                 log_dir: Optional[str] = None, 
+                 artifact_name: Optional[str] = None,
+                 flush_interval: int = 100,
+                 rank_zero_only: bool = True):
 
+        self.artifact_name = artifact_name
+        self.flush_interval = flush_interval
         self.log_dir = log_dir
-        self.writer = SummaryWriter(log_dir=self.log_dir)
+        self.writer: SummaryWriter
         self.rank_zero_only = rank_zero_only
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
@@ -38,3 +65,7 @@ class TensorboardLogger(LoggerDestination):
                 if isinstance(data_point, str):
                     return
                 self.writer.add_scalar(tag, data_point, global_step=int(state.timestamp.batch))
+    
+    def init(self, state: State, logger: Logger) -> None:
+        self.log_dir = str(Path.home() / 'tensorboard_logs' / f'{state.run_name}')
+        self.writer = SummaryWriter(log_dir=self.log_dir)
