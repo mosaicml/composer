@@ -110,9 +110,11 @@ class SFTPObjectStore(ObjectStore):
         if key_filename:
             _set_kwarg(key_filename, connect_kwargs, arg_name='key_filename', kwarg_name='key_filename')
 
-        if cwd is not None:
-            if not cwd.endswith('/'):
-                cwd += '/'
+        if cwd is None:
+            cwd = '.'
+        if not cwd.endswith('/'):
+            cwd += '/'
+        self.cwd = cwd
 
         netloc = ''
         if username:
@@ -135,9 +137,6 @@ class SFTPObjectStore(ObjectStore):
         self.ssh_client.load_system_host_keys(known_hosts_filename)
         self.ssh_client.connect(**connect_kwargs)
         self.sftp_client = self.ssh_client.open_sftp()
-        if cwd:
-            self.ssh_client.exec_command(f'mkdir -p {cwd}')
-            self.sftp_client.chdir(cwd)
 
     def close(self):
         self.sftp_client.close()
@@ -147,6 +146,7 @@ class SFTPObjectStore(ObjectStore):
         return self._base_uri + object_name
 
     def get_object_size(self, object_name: str) -> int:
+        object_name = os.path.join(self.cwd, object_name)
         st_size = self.sftp_client.stat(object_name).st_size
         if st_size is None:
             raise RuntimeError('Cannot determine object size: stat(object_name).st_size is None')
@@ -158,6 +158,7 @@ class SFTPObjectStore(ObjectStore):
         filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
     ) -> None:
+        object_name = os.path.join(self.cwd, object_name)
         dirname = os.path.dirname(object_name)
         if dirname:
             self.ssh_client.exec_command(f'mkdir -p {dirname}')
@@ -166,11 +167,14 @@ class SFTPObjectStore(ObjectStore):
         except Exception as e:
             _ensure_transient_errors_are_wrapped(e)
 
-    def download_object(self,
-                        object_name: str,
-                        filename: Union[str, pathlib.Path],
-                        overwrite: bool = False,
-                        callback: Optional[Callable[[int, int], None]] = None) -> None:
+    def download_object(
+        self,
+        object_name: str,
+        filename: Union[str, pathlib.Path],
+        overwrite: bool = False,
+        callback: Optional[Callable[[int, int], None]] = None,
+    ) -> None:
+        object_name = os.path.join(self.cwd, object_name)
         dirname = os.path.dirname(filename)
         if dirname:
             os.makedirs(dirname, exist_ok=True)
