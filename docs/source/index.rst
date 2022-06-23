@@ -97,6 +97,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    :caption: Notes
 
    notes/distributed_training.rst
+   notes/early_stopping.rst
    notes/numerics.md
    notes/auto_grad_accum.rst
    notes/resumption.rst
@@ -138,6 +139,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    :maxdepth: 1
    :caption: Model Library
 
+   model_cards/BERT.md
    model_cards/cifar_resnet.md
    model_cards/deeplabv3.md
    model_cards/efficientnet.md
