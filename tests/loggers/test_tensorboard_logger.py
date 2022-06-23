@@ -1,10 +1,12 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+from unittest.mock import Mock
+
 import pytest
+
 from composer.loggers import TensorboardLogger
 from composer.trainer import Trainer
-from unittest.mock import Mock
 from tests.fixtures import dummy_fixtures
 
 # To satisfy pyright.
@@ -37,7 +39,3 @@ def test_tensorboard_logger_trainer(monkeypatch: pytest.MonkeyPatch, composer_tr
     trainer = trainer_hparams.initialize_object()
     trainer.fit()
     mock_log_data.assert_called()
-
-
-
-

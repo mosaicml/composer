@@ -3,15 +3,15 @@
 
 """Log to `Tensorboard <https://www.tensorflow.org/tensorboard/get_started#:~:text=TensorBoard%20is%20a%20tool%20for,dimensional%20space%2C%20and%20much%20more./>`_."""
 
+from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from torch.utils.tensorboard import SummaryWriter
 
 from composer.core.state import State
-from composer.loggers.logger import LogLevel, Logger
+from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
-from pathlib import Path
 
 __all__ = ['TensorboardLogger']
 
@@ -49,7 +49,7 @@ class TensorboardLogger(LoggerDestination):
     """
 
     def __init__(self,
-                 log_dir: Optional[str] = None, 
+                 log_dir: Optional[str] = None,
                  artifact_name: Optional[str] = None,
                  flush_interval: int = 100,
                  rank_zero_only: bool = True,
@@ -71,7 +71,7 @@ class TensorboardLogger(LoggerDestination):
                 if isinstance(data_point, str):
                     return
                 self.writer.add_scalar(tag, data_point, global_step=int(state.timestamp.batch))
-    
+
     def init(self, state: State, logger: Logger) -> None:
         self.log_dir = str(Path.home() / 'tensorboard_logs' / f'{state.run_name}')
         if self.artifact_name is None:
@@ -97,8 +97,7 @@ class TensorboardLogger(LoggerDestination):
 
     def _flush(self, logger: Logger):
         self.writer.flush()
-        logger.file_artifact(LogLevel.FIT, 
+        logger.file_artifact(LogLevel.FIT,
                              self.artifact_name,
                              file_path=self.writer.file_writer.event_writer._file_name,
                              overwrite=True)
-
