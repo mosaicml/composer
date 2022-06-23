@@ -46,7 +46,7 @@ class SpeedMonitor(Callback):
     | Key                   | Logged data                                                 |
     +=======================+=============================================================+
     |                       | Rolling average (over ``window_size`` most recent           |
-    | ``samples_per_sec``   | batches) of the number of samples processed per second      |
+    | ``throughput/samples_per_sec``   | batches) of the number of samples processed per second      |
     |                       |                                                             |
     +-----------------------+-------------------------------------------------------------+
     |                       | Number of samples processed per second (averaged over       |
@@ -128,7 +128,7 @@ class SpeedMonitor(Callback):
         # Log the throughput
         if len(self.batch_num_samples_buffer) == self.window_size:
             throughput = sum(self.batch_num_samples_buffer) / sum(self.batch_wct_buffer)
-            logger.data_batch({'samples_per_sec': throughput})
+            logger.data_batch({'throughput/samples_per_sec': throughput})
 
         # Log the time
         # `state.timestamp` excludes any time spent in evaluation
