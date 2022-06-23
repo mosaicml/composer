@@ -48,6 +48,7 @@ from composer.algorithms.cutout import CutOut
 from composer.algorithms.ema import EMA
 from composer.algorithms.factorize import Factorize
 from composer.algorithms.fused_layernorm import FusedLayerNorm
+from composer.algorithms.gated_linear_units import GatedLinearUnits
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm
 from composer.algorithms.gradient_clipping import GradientClipping
 from composer.algorithms.label_smoothing import LabelSmoothing
@@ -76,6 +77,7 @@ __all__ = [
     'EMA',
     'Factorize',
     'FusedLayerNorm',
+    'GatedLinearUnits',
     'GhostBatchNorm',
     'GradientClipping',
     'LabelSmoothing',
