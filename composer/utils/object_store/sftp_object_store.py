@@ -79,7 +79,7 @@ class SFTPObjectStore(ObjectStore):
         known_hosts_filename: Optional[Union[pathlib.Path, str]] = None,
         key_filename: Optional[Union[pathlib.Path, str]] = None,
         missing_host_key_policy: Union[str, paramiko.client.MissingHostKeyPolicy] = 'RejectPolicy',
-        cwd: Optional[str] = None,
+        cwd: str = '',
         connect_kwargs: Optional[Dict[str, Any]] = None,
     ):
         if not _PARAMIKO_AVAILABLE:
@@ -124,9 +124,7 @@ class SFTPObjectStore(ObjectStore):
         if key_filename:
             _set_kwarg(key_filename, connect_kwargs, arg_name='key_filename', kwarg_name='key_filename')
 
-        if cwd is None:
-            cwd = '.'
-        if not cwd.endswith('/'):
+        if cwd and not cwd.endswith('/'):
             cwd += '/'
         self.cwd = cwd
 
@@ -141,7 +139,7 @@ class SFTPObjectStore(ObjectStore):
         self._base_uri = urllib.parse.urlunsplit((
             'sftp',  # scheme
             netloc,  # netloc
-            '/' + (cwd or ''),  # path
+            '/' + cwd,  # path
             None,  # query
             None,  # fragment
         ))

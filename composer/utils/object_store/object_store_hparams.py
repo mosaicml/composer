@@ -241,7 +241,7 @@ class SFTPObjectStoreHparams(ObjectStoreHparams):
     known_hosts_filename: Optional[str] = hp.auto(SFTPObjectStore, 'known_hosts_filename')
     key_filename: Optional[str] = hp.auto(SFTPObjectStore, 'key_filename')
     missing_host_key_policy: str = hp.auto(SFTPObjectStore, 'missing_host_key_policy')
-    cwd: Optional[str] = hp.auto(SFTPObjectStore, 'cwd')
+    cwd: str = hp.auto(SFTPObjectStore, 'cwd')
     connect_kwargs: Optional[Dict[str, Any]] = hp.auto(SFTPObjectStore, 'connect_kwargs')
 
     def get_object_store_cls(self) -> Type[ObjectStore]:
