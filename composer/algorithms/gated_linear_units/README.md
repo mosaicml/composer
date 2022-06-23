@@ -4,8 +4,7 @@
 
  `Natural Language Processing`
 
-Gated Linear Units  
-Fused LayerNorm replaces implementations of `torch.nn.LayerNorm` with a `apex.normalization.fused_layer_norm`. The fused kernel provides increased GPU utilization.
+Gated Linear Units replaces the projection matricies in the feed-forward block with [Gated Linear Units](https://arxiv.org/abs/2002.05202).
 
 | ![GatedLinearUnits](https://storage.cloud.google.com/docs.mosaicml.com/images/methods/gated_linear_units.png)|
 |:--|
