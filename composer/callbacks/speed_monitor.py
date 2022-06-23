@@ -49,9 +49,6 @@ class SpeedMonitor(Callback):
     | ``throughput/samples_per_sec``   | batches) of the number of samples processed per second      |
     |                                  |                                                             |
     +----------------------------------+-------------------------------------------------------------+
-    |                                  | Number of samples processed per second (averaged over       |
-    | ``samples/epoch``                | an entire epoch)                                            |
-    +----------------------------------+-------------------------------------------------------------+
     | ``wall_clock/train``             | Total elapsed training time                                 |
     +----------------------------------+-------------------------------------------------------------+
     | ``wall_clock/val``               | Total elapsed validation time                               |
@@ -141,12 +138,3 @@ class SpeedMonitor(Callback):
     def eval_end(self, state: State, logger: Logger):
         del logger  # unused
         self.total_eval_wct += state.eval_timestamp.total_wct.total_seconds()
-
-    def epoch_end(self, state: State, logger: Logger):
-        # `state.timestamp` excludes any time spent in evaluation
-        epoch_time_in_train = state.timestamp.total_wct.total_seconds() - self.epoch_start_wct
-        train_examples_per_epoch = int(state.timestamp.sample) - self.epoch_start_num_samples
-
-        logger.data_epoch({
-            'samples/epoch': train_examples_per_epoch / epoch_time_in_train,
-        })
