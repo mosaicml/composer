@@ -6,26 +6,11 @@ from unittest.mock import Mock
 import pytest
 
 from composer.loggers import TensorboardLogger
-from composer.trainer import Trainer
 from tests.fixtures import dummy_fixtures
 
 # To satisfy pyright.
 dummy_state = dummy_fixtures.dummy_state
 composer_trainer_hparams = dummy_fixtures.composer_trainer_hparams
-
-
-def test_tensorboard_logger_log_data(monkeypatch: pytest.MonkeyPatch, dummy_state):
-    tbl = TensorboardLogger()
-    mock_writer = Mock()
-    add_scalar_fn = Mock()
-    test_data = {'test': 3}
-    state = dummy_state
-    state.timestamp = Mock()
-    state.timestamp.batch = 7
-    mock_writer.add_scalar = add_scalar_fn
-    monkeypatch.setattr(tbl, 'writer', mock_writer)
-    tbl.log_data(state, log_level=Mock(), data=test_data)
-    add_scalar_fn.assert_called_once_with('test', 3, global_step=7)
 
 
 def test_tensorboard_logger_trainer(monkeypatch: pytest.MonkeyPatch, composer_trainer_hparams):
