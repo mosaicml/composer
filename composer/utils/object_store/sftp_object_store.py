@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Utility for uploading to and downloading from cloud object stores."""
+
+from __future__ import annotations
+
 import os
 import pathlib
 import urllib.parse
@@ -14,6 +17,7 @@ from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTra
 __all__ = ['SFTPObjectStore']
 
 try:
+    import paramiko.client
     from paramiko import SSHClient
     _PARAMIKO_AVAILABLE = True
 except ImportError:
@@ -52,6 +56,15 @@ class SFTPObjectStore(ObjectStore):
             specified in ``~/.ssh/`` or via a SSH agent.
         known_hosts_filename (pathlib.Path | str, optional): The filename of the known hosts file. If not specified,
             the default SSH known hosts will be used.
+        missing_host_key_policy (str | paramiko.client.MissingHostKeyPolicy): The class name or instance of
+            :class:`paramiko.client.MissingHostKeyPolicy` to use for a missing host key. Defaults to ``'RejectPolicy'``.
+
+            Built-in options:
+            *   ``'RejectPolicy'`` (the default), which will reject any host key authorized in the ``known_hosts_filename``.
+            *   ``'AutoAddPolicy'``, which will add any unknown host key.
+            *   ``'WarningPolicy'``, which will warn on an unknown host key.
+
+            For custom logic, subclass :class:`paramiko.client.MissingHostKeyPolicy`, and provide an instance of this class.
         cwd (str, optional): The directory to navigate to upon creating the SSH connection. If not present
             it will be created.
         connect_kwargs (Dict[str, Any], optional): Any additional kwargs to pass through to :meth:`.SSHClient.connect`.
@@ -65,6 +78,7 @@ class SFTPObjectStore(ObjectStore):
         password: Optional[str] = None,
         known_hosts_filename: Optional[Union[pathlib.Path, str]] = None,
         key_filename: Optional[Union[pathlib.Path, str]] = None,
+        missing_host_key_policy: Union[str, paramiko.client.MissingHostKeyPolicy] = 'RejectPolicy',
         cwd: Optional[str] = None,
         connect_kwargs: Optional[Dict[str, Any]] = None,
     ):
@@ -134,6 +148,14 @@ class SFTPObjectStore(ObjectStore):
         self.ssh_client = SSHClient()
         if known_hosts_filename is not None:
             known_hosts_filename = str(known_hosts_filename)
+        if isinstance(missing_host_key_policy, str):
+            try:
+                missing_host_key_policy = getattr(paramiko.client, missing_host_key_policy)
+                assert isinstance(missing_host_key_policy, paramiko.client.MissingHostKeyPolicy)
+            except AttributeError:
+                raise ValueError(
+                    "Invalid `missing_host_key_policy`. Must be 'AutoAddPolicy', 'RejectPolicy', or 'WarningPolicy'.")
+        self.ssh_client.set_missing_host_key_policy(missing_host_key_policy)
         self.ssh_client.load_system_host_keys(known_hosts_filename)
         self.ssh_client.connect(**connect_kwargs)
         self.sftp_client = self.ssh_client.open_sftp()
