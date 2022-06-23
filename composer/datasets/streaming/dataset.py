@@ -27,14 +27,14 @@ class StreamingDataset(IterableDataset):
 
     :class:`StreamingDataset` reads samples from binary `.mds` files that were written out by :class:`StreamingDatasetWriter`.
 
-    It currently supports downloading data from etiher S3 paths or local filepaths.
+    It currently supports downloading data from either remote paths (S3, SFTP) or local filepaths.
 
     It supports multi-gpu + multi-node training, and has smart local cacheing to minimize network bandwidth.
 
     It also provides best-effort shuffling to preserve randomness when ``shuffle=True``.
 
     Args:
-        remote (str): Download shards from this remote S3 path or directory.
+        remote (str): Download shards from this remote path or directory.
         local (str): Download shards to this local directory for for caching.
         shuffle (bool): Whether to shuffle the samples.  Note that if `shuffle=False`, the sample order is deterministic but dependent on the DataLoader's `num_workers`.
         decoders (Dict[str, Callable[bytes, Any]]]): For each sample field you wish to read, you must provide a decoder to convert the raw bytes to an object.
