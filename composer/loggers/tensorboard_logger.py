@@ -32,7 +32,7 @@ class TensorboardLogger(LoggerDestination):
             The same format variables for ``filename`` are available. Setting this parameter to ``None``
             (the default) will use the same format string as ``filename``. It is sometimes helpful to deviate
             from this default. For example, when ``filename`` contains an absolute path, it is recommended to
-            set this parameter explicitely, so the absolute path does not appear in any artifact stores.
+            set this parameter explicitly, so the absolute path does not appear in any artifact stores.
 
             Leading slashes (``'/'``) will be stripped.
 
