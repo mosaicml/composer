@@ -69,7 +69,7 @@ class TensorboardLogger(LoggerDestination):
         if (not self.rank_zero_only) or dist.get_global_rank() == 0:
             for tag, data_point in data.items():
                 if isinstance(data_point, str):
-                    return
+                    continue
                 self.writer.add_scalar(tag, data_point, global_step=int(state.timestamp.batch))
 
     def init(self, state: State, logger: Logger) -> None:
