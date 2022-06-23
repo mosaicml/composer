@@ -7,6 +7,7 @@ pCloud = 'colo-research-01' // name of the jenkins cloud to use
 gitUrl = null
 gitBranch = null
 gitCommit = null
+gitCommitHash = null
 baseBranch = 'dev'  // the branch on which merge-commits should be pushed to dockerhub
 
 // Docker build settings
@@ -299,6 +300,7 @@ stage('Prepare') {
         gitUrl = loadedSCM.GIT_URL
         gitBranch = loadedSCM.GIT_BRANCH
         gitCommit = loadedSCM.GIT_COMMIT
+        gitCommitHash = loadedSCM.GIT_COMMIT
 
         if (env.CHANGE_ID) {
             // Use the origin/pr/PR_NUMBER/merge to support commits in external repos
@@ -350,11 +352,11 @@ stage('Build') {
             // If this is a composer image and it is the versioned tag (i.e. not the latest tag),
             // Then set the install command to the git commit string, and build and push it to
             // the mosaicml/composer_staging repo
-            String stagingTagName = "mosaicml/composer_staging:${env.GIT_COMMIT[0..6]}"
+            String stagingTagName = "mosaicml/composer_staging:${gitCommitHash[0..6]}"
             if (!buildArgs['CUDA_VERSION']) {
                 stagingTagName += '_cpu'
             }
-            buildArgs['COMPOSER_INSTALL_COMMAND'] = "mosaicml[all] @ git+https://github.com/mosaicml/composer.git@${env.GIT_COMMIT}"
+            buildArgs['COMPOSER_INSTALL_COMMAND'] = "mosaicml[all] @ git+https://github.com/mosaicml/composer.git@${gitCommitHash}"
             kanikoCommand = "$kanikoCommand --destination $stagingTagName"
         }
 
