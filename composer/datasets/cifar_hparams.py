@@ -162,19 +162,13 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                     transforms.Normalize(cifar10_mean, cifar10_std),
                 ])
 
-            def _get_dataset(download: bool):
-                return CIFAR10(
+            with dist.wait_for_rank_zero():
+                dataset = CIFAR10(
                     self.datadir,
                     train=self.is_train,
-                    download=download,
+                    download=dist.get_local_rank() == 0 and self.download,
                     transform=transformation,
                 )
-
-            if self.download:
-                if dist.get_local_rank() == 0:
-                    _get_dataset(download=True)
-                dist.barrier()
-            dataset = _get_dataset(download=False)
 
         sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
