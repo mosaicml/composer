@@ -1,23 +1,23 @@
 # 🍰 Gated Linear Units
 
-
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
  `Natural Language Processing`
 
+Gated Linear Units  
 Fused LayerNorm replaces implementations of `torch.nn.LayerNorm` with a `apex.normalization.fused_layer_norm`. The fused kernel provides increased GPU utilization.
 
-# TODO (Moin): think of a good graphic for gated linear units
-| ![FusedLayerNorm](https://miro.medium.com/max/1200/0*ugfR_r4J9PK8tXNb)|
+| ![GatedLinearUnits](https://storage.cloud.google.com/docs.mosaicml.com/images/methods/gated_linear_units.png)|
 |:--|
-|*A visualization of the impact of Fused LayerNorm.*|
+|*A comparison between the projection matricies in a standard feed-forward network, and a Gated Linear Unit. Following (Shazeer, 2020), we omit the use of bias terms.*|
 
 ## How to Use
 
 ### Functional Interface
 
 ```python
-# Apply surgery on the model to swap-in the Fused LayerNorm using the Composer functional API
+# Apply surgery on the model to swap the feed-forward block
+# for a gated feed-forward block using the Composer Functional API
 
 import composer.functional as cf
 
@@ -54,17 +54,22 @@ trainer.fit()
 
 ### Implementation Details
 
-Fused LayerNorm is implemented by performing model surgery, which looks for instances of `torch.nn.LayerNorm` and replaces them with a `apex.normalization.fused_layer_norm`. This should be applicable to any model that utilizes a `torch.nn.LayerNorm`.
+Gated Linear Units provide a more expressive form for a feed-forward block by performing a "gating" operation on the input matrix. The careful reader will recognize that we introduce a new weight matrix, $W_3$. In order to iso-parameter experiments, we scale $D_{ff}$ by $\frac{2}{3}$. 
+This algorithm significant improves convergence, but with a slight degredation to throughput. We recommend training with `bias = False`, even if biases are enabled in the rest of your model. This substantially improved throughput and convergence. 
 
 ## Suggested Hyperparameters
 
-Fused LayerNorm does not have any hyperparameters. It utilizes the existing `normalized_shape` and `d_eps` from the original model.
+While hyperparameters can vary significantly per use case, we recommend training with  
+```
+act_fn = {ReLU, GeLU}, 
+gated_layer_bias = False,
+non_gated_layer_bias = False
+```
+We observed that, on average, GeLU activation functions marginally performed better than ReLU activation functions, and observed a significant improvement from using GeLU and ReLU over Swish and a Squared ReLU. We observed a significant benefit from setting `bias = False` for both weight matricies $W_1$ and $W_3$. 
 
 ## Technical Details
 
-APEX's FusedLayerNorm achieves a substantial speedup over PyTorch by doing a few things:
-1. Instead of a naive implementation, which requires two passes over the input in order to estimate variances, it uses [Welford's Online Algorithm](https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm) to estimate the variances in a single step, creating a substantive wall-clock speedup.
-2. Instead of requiring multiple CUDA kernel launches, it computes everything in a single kernel launch, therefore improving GPU utilization.
+While there are many hypotheses for the performace of Gated Linear Units, the community lacks a through investigation of these. The algorithm has been shown to perform well empirically, and there remains an open curiosity as to why step-wise convergence is significantly better without bias terms than with bias terms. Furthermore, in order to maximize throughput, the user should make sure that the scaled down feature dimension when using GLUs is still a multiple of eight. 
 
 ## Attribution
 
