@@ -1,0 +1,15 @@
+{
+    "gated_linear_units": {
+        "name": "Gated Linear Units",
+        "class_name": "GatedLinearUnits",
+        "functional": "apply_gated_linear_units",
+        "tldr": "Swaps the building block from a Linear layer to a Gated Linear layer.",
+        "attribution": "(Shazeer, 2020)",
+        "link": "https://arxiv.org/abs/2002.05202",
+        "domains": [
+            "nlp"
+        ],
+        "summary": "Gated Linear Units improve convergence by swapping a Linear layer with a more expressive form.",
+        "use": "Transformers"
+    }
+}
