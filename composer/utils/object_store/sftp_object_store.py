@@ -150,7 +150,7 @@ class SFTPObjectStore(ObjectStore):
             known_hosts_filename = str(known_hosts_filename)
         if isinstance(missing_host_key_policy, str):
             try:
-                missing_host_key_policy = getattr(paramiko.client, missing_host_key_policy)
+                missing_host_key_policy = getattr(paramiko.client, missing_host_key_policy)()
                 assert isinstance(missing_host_key_policy, paramiko.client.MissingHostKeyPolicy)
             except AttributeError:
                 raise ValueError(
