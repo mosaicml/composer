@@ -23,38 +23,6 @@ __all__ = [
 ]
 
 
-def get_compression_scheme_id(compression_scheme: Optional[str]) -> np.int8:
-    """Gets the compression scheme ID (used for serializing shard format to index file)
-
-    Returns:
-        np.int8: compression scheme ID
-    Args:
-        compression_scheme (Optional[str]): the compression scheme
-    """
-    if compression_scheme == None:
-        return np.int8(0)
-    elif compression_scheme == 'gz':
-        return np.int8(1)
-    else:
-        raise NotImplementedError
-
-
-def get_compression_scheme(compression_scheme_id: np.int8) -> Optional[str]:
-    """Gets the compression scheme from the ID (used for deserializing shard format from index file)
-
-    Returns:
-        (Optional[str]): the compression scheme
-    Args:
-        compression_scheme_id (np.int8): compression scheme ID
-    """
-    if compression_scheme_id == np.int8(0):
-        return None
-    elif compression_scheme_id == np.int8(1):
-        return 'gz'
-    else:
-        raise NotImplementedError
-
-
 def split_compression_suffix(local_path: str) -> Tuple[str, Optional[str]]:
     """Splits the compression suffix from a path
 
@@ -65,19 +33,32 @@ def split_compression_suffix(local_path: str) -> Tuple[str, Optional[str]]:
         Tuple[str, str]: tuple containing decompressed filename and compression suffix, if one exists
     """
     decompressed_path, ext = splitext(local_path)
-    if ext == '.mds':
+    if ext == '.mds' or ext == '.txt':
         return local_path, None
 
     return decompressed_path, ext[1:]
 
 
-def get_index_basename() -> str:
+def get_compression_scheme_basename() -> str:
     """Get the basename for a streaming dataset index.
 
     Returns:
         str: Basename of file.
     """
-    return 'index.mds'
+    return 'compression.txt'
+
+
+def get_index_basename(compression_scheme: Optional[str] = None) -> str:
+    """Get the basename for a streaming dataset index.
+
+    Args:
+        compression_scheme (Optional[str]): compression extension of index file
+
+    Returns:
+        str: Basename of file.
+    """
+    compression_scheme = '.' + compression_scheme if compression_scheme is not None else ''
+    return f'index.mds{compression_scheme}'
 
 
 def get_shard_basename(shard: int, compression_scheme: Optional[str] = None) -> str:
@@ -85,6 +66,7 @@ def get_shard_basename(shard: int, compression_scheme: Optional[str] = None) -> 
 
     Args:
         shard (int): Shard index.
+        compression_scheme (Optional[str]): compression extension of shard file
 
     Returns:
         str: Basename of file.
@@ -166,11 +148,10 @@ class StreamingDatasetIndex(object):
         bytes_per_shard (NDArray[np.int64]): Size in bytes of each shard.
         bytes_per_sample (NDArray[np.int64]): Size in bytes of each sample across all shards.
         fields (List[str]): The names of the samples' fields in order.
-        compression_scheme_id (np.int8): the internal compression scheme ID (see `get_compression_scheme_id`)
     """
 
     def __init__(self, samples_per_shard: NDArray[np.int64], bytes_per_shard: NDArray[np.int64],
-                 bytes_per_sample: NDArray[np.int64], fields: List[str], compression_scheme_id: np.int8) -> None:
+                 bytes_per_sample: NDArray[np.int64], fields: List[str]) -> None:
         self.samples_per_shard = samples_per_shard
         self.bytes_per_shard = bytes_per_shard
         self.bytes_per_sample = bytes_per_sample
@@ -188,9 +169,6 @@ class StreamingDatasetIndex(object):
 
         # Sample -> shard, byte offset within shard.
         self.sample_shards, self.sample_shard_offsets = self._locate_samples()
-
-        # Compression scheme
-        self.compression_scheme_id = compression_scheme_id
 
     @classmethod
     def loads(cls, data: bytes):
@@ -239,9 +217,8 @@ class StreamingDatasetIndex(object):
         bytes_per_sample = bytes_per_sample.astype(np.int64)
         num_fields, = read_array(fp, 1, np.int32)
         bytes_per_field = read_array(fp, num_fields, np.int32)
-        compression_scheme_id, = read_array(fp, 1, np.int8)
         fields = [fp.read(size).decode('utf-8') for size in bytes_per_field]
-        return cls(samples_per_shard, bytes_per_shard, bytes_per_sample, fields, compression_scheme_id)
+        return cls(samples_per_shard, bytes_per_shard, bytes_per_sample, fields)
 
     def dumps(self) -> bytes:
         """Dump a StreamingDatasetIndex to raw bytes.
@@ -277,7 +254,7 @@ class StreamingDatasetIndex(object):
         num_fields = np.int32(len(self.fields))
         bytes_per_field = np.array([len(field.encode('utf-8')) for field in self.fields], np.int32)
         arrays = (header, totals, self.samples_per_shard, self.bytes_per_shard, bps_format, bps, num_fields,
-                  bytes_per_field, self.compression_scheme_id)
+                  bytes_per_field)
         array_bytes = b''.join([arr.tobytes() for arr in arrays])
         field_bytes = b''.join([field.encode('utf-8') for field in self.fields])
         return array_bytes + field_bytes

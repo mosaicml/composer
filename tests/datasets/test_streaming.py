@@ -59,7 +59,7 @@ def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limi
 
     expected_samples_per_shard = shard_size_limit // first_sample_bytes
     expected_num_shards = math.ceil(num_samples / expected_samples_per_shard)
-    expected_num_files = expected_num_shards + 1  # the index file
+    expected_num_files = expected_num_shards + 1 + 1  # the index file and compression metadata file
 
     write_synthetic_streaming_dataset(dirname=dirname,
                                       samples=samples,
@@ -132,7 +132,8 @@ def test_reader_after_crash(remote_local: Tuple[str, str], created_ago: float, t
                                       shard_size_limit=shard_size_limit,
                                       compression=compression)
 
-    shutil.copy(os.path.join(remote, 'index.mds'), os.path.join(local, 'index.mds.tmp'))
+    shutil.copy(os.path.join(remote, f'index.mds{compression_ext}'),
+                os.path.join(local, f'index.mds.tmp{compression_ext}'))
     shutil.copy(os.path.join(remote, f'000003.mds{compression_ext}'),
                 os.path.join(local, f'000003.mds.tmp{compression_ext}'))
     time.sleep(created_ago)

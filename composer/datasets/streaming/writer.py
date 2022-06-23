@@ -12,8 +12,8 @@ from typing import Dict, Iterable, List, Optional, Type
 import numpy as np
 from tqdm import tqdm
 
-from composer.datasets.streaming.format import (StreamingDatasetIndex, get_compression_scheme_id, get_index_basename,
-                                                get_shard_basename, sample_dict_to_bytes)
+from composer.datasets.streaming.format import (StreamingDatasetIndex, get_compression_scheme_basename,
+                                                get_index_basename, get_shard_basename, sample_dict_to_bytes)
 
 __all__ = ['StreamingDatasetWriter']
 
@@ -89,14 +89,28 @@ class StreamingDatasetWriter(object):
         self.new_shard_size = 0
 
         # compression scheme for shards
+        self.compression_scheme = None
+        self.open_f = lambda n: open(n, 'xb')
+        self._set_compression_settings(compression)
+
+    def _set_compression_settings(self, compression: Optional[str]):
+        """Sets compression settings for the given compression algorithm
+
+        Args:
+            compression (str): Compression algorithm and optional compression level. Currently supported: 'gz', 'gz:[1-9]' or None.
+        """
+        gz_compression_level = 6
         if compression is not None:
             compression_args = compression.split(':')
             self.compression_scheme = compression_args[0]
-            if self.compression_scheme == 'gz':
-                self.gz_compression_level = int(compression_args[1]) if len(compression_args) > 1 else 6
+            if self.compression_scheme == 'gz' and len(compression_args) > 1:
+                gz_compression_level = int(compression_args[1])
 
         else:
             self.compression_scheme = None
+
+        if self.compression_scheme == 'gz':
+            self.open_f = lambda n: gz.open(n, 'xb', compresslevel=gz_compression_level)
 
     def _flush_shard(self) -> None:
         """Flush cached samples to a new dataset shard."""
@@ -104,12 +118,7 @@ class StreamingDatasetWriter(object):
         basename = get_shard_basename(shard, compression_scheme=self.compression_scheme)
         filename = os.path.join(self.dirname, basename)
 
-        open_f = lambda n: open(n, 'xb')
-
-        if self.compression_scheme == 'gz':
-            open_f = lambda n: gz.open(n, 'xb', compresslevel=self.gz_compression_level)
-
-        with open_f(filename) as out:
+        with self.open_f(filename) as out:
             for data in self.new_samples:
                 out.write(data)
 
@@ -118,18 +127,24 @@ class StreamingDatasetWriter(object):
         self.new_samples = []
         self.new_shard_size = 0
 
+    def _write_compression_scheme(self) -> None:
+        """Save dataset compression metadata"""
+        if self.new_samples:
+            raise RuntimeError('Attempted to write compression metadata file while samples are still being processed.')
+        filename = os.path.join(self.dirname, get_compression_scheme_basename())
+        with open(filename, 'x') as out:
+            out.write(self.compression_scheme if self.compression_scheme is not None else '')
+
     def _write_index(self) -> None:
         """Save dataset index file."""
         if self.new_samples:
             raise RuntimeError('Attempted to write index file while samples are still being processed.')
-        filename = os.path.join(self.dirname, get_index_basename())
+        filename = os.path.join(self.dirname, get_index_basename(self.compression_scheme))
         samples_per_shard = np.array(self.samples_per_shard, np.int64)
         bytes_per_shard = np.array(self.bytes_per_shard, np.int64)
         bytes_per_sample = np.array(self.bytes_per_sample, np.int64)
-        compression_scheme_id = get_compression_scheme_id(self.compression_scheme)
-        index = StreamingDatasetIndex(samples_per_shard, bytes_per_shard, bytes_per_sample, self.fields,
-                                      compression_scheme_id)
-        with open(filename, 'xb') as out:
+        index = StreamingDatasetIndex(samples_per_shard, bytes_per_shard, bytes_per_sample, self.fields)
+        with self.open_f(filename) as out:
             index.dump(out)
 
     def write_sample(self, sample: Dict[str, bytes]) -> None:
@@ -165,6 +180,7 @@ class StreamingDatasetWriter(object):
         """Complete writing the dataset by flushing last samples to a last shard, then write an index file."""
         if self.new_samples:
             self._flush_shard()
+        self._write_compression_scheme()
         self._write_index()
 
     def __enter__(self):
