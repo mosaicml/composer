@@ -42,22 +42,22 @@ class SpeedMonitor(Callback):
     The training throughput is logged by the :class:`~composer.loggers.logger.Logger` to the following keys as
     described below.
 
-    +-----------------------+-------------------------------------------------------------+
-    | Key                   | Logged data                                                 |
-    +=======================+=============================================================+
-    |                       | Rolling average (over ``window_size`` most recent           |
-    | ``samples/step``      | batches) of the number of samples processed per second      |
-    |                       |                                                             |
-    +-----------------------+-------------------------------------------------------------+
-    |                       | Number of samples processed per second (averaged over       |
-    | ``samples/epoch``     | an entire epoch)                                            |
-    +-----------------------+-------------------------------------------------------------+
-    | ``wall_clock/train``  | Total elapsed training time                                 |
-    +-----------------------+-------------------------------------------------------------+
-    | ``wall_clock/val``    | Total elapsed validation time                               |
-    +-----------------------+-------------------------------------------------------------+
-    | ``wall_clock/total``  | Total elapsed time (wall_clock/train + wall_clock/val)      |
-    +-----------------------+-------------------------------------------------------------+
+    +----------------------------------+-------------------------------------------------------------+
+    | Key                              | Logged data                                                 |
+    +==================================+=============================================================+
+    |                                  | Rolling average (over ``window_size`` most recent           |
+    | ``throughput/samples_per_sec``   | batches) of the number of samples processed per second      |
+    |                                  |                                                             |
+    +----------------------------------+-------------------------------------------------------------+
+    |                                  | Number of samples processed per second (averaged over       |
+    | ``samples/epoch``                | an entire epoch)                                            |
+    +----------------------------------+-------------------------------------------------------------+
+    | ``wall_clock/train``             | Total elapsed training time                                 |
+    +----------------------------------+-------------------------------------------------------------+
+    | ``wall_clock/val``               | Total elapsed validation time                               |
+    +----------------------------------+-------------------------------------------------------------+
+    | ``wall_clock/total``             | Total elapsed time (wall_clock/train + wall_clock/val)      |
+    +----------------------------------+-------------------------------------------------------------+
 
     Args:
         window_size (int, optional): Number of batches to use for a rolling average of throughput.
@@ -128,7 +128,7 @@ class SpeedMonitor(Callback):
         # Log the throughput
         if len(self.batch_num_samples_buffer) == self.window_size:
             throughput = sum(self.batch_num_samples_buffer) / sum(self.batch_wct_buffer)
-            logger.data_batch({'samples/step': throughput})
+            logger.data_batch({'throughput/samples_per_sec': throughput})
 
         # Log the time
         # `state.timestamp` excludes any time spent in evaluation
