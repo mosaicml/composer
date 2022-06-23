@@ -3,7 +3,7 @@
 
 """Log to `Tensorboard <https://www.tensorflow.org/tensorboard/get_started#:~:text=TensorBoard%20is%20a%20tool%20for,dimensional%20space%2C%20and%20much%20more./>`_."""
 
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -43,19 +43,25 @@ class TensorboardLogger(LoggerDestination):
             the ``log_level`` is :attr:`~.LogLevel.BATCH`, then the logfile will be
             flushed every n batches. Default: ``100``.
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process.
+        log_level (LogLevel, optional):
+            :class:`~.logger.LogLevel` (i.e. unit of resolution) at
+            which to record. Default: :attr:`~.LogLevel.EPOCH`.
     """
 
     def __init__(self,
                  log_dir: Optional[str] = None, 
                  artifact_name: Optional[str] = None,
                  flush_interval: int = 100,
-                 rank_zero_only: bool = True):
+                 rank_zero_only: bool = True,
+                 log_level: LogLevel = LogLevel.BATCH):
 
         self.artifact_name = artifact_name
         self.flush_interval = flush_interval
         self.log_dir = log_dir
         self.writer: SummaryWriter
+        self.should_eval: Callable
         self.rank_zero_only = rank_zero_only
+        self.log_level = log_level
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         del log_level
@@ -68,4 +74,31 @@ class TensorboardLogger(LoggerDestination):
     
     def init(self, state: State, logger: Logger) -> None:
         self.log_dir = str(Path.home() / 'tensorboard_logs' / f'{state.run_name}')
+        if self.artifact_name is None:
+            self.artifact_name = self.log_dir
         self.writer = SummaryWriter(log_dir=self.log_dir)
+        #self.should_eval = evaluate_periodically(state.evaluators[0].eval_interval)
+
+    def batch_end(self, state: State, logger: Logger) -> None:
+        if self.log_level == LogLevel.BATCH and int(state.timestamp.batch) % self.flush_interval == 0:
+            self._flush(logger)
+
+    def epoch_end(self, state: State, logger: Logger) -> None:
+        self._flush(logger)
+
+    def eval_start(self, state: State, logger: Logger) -> None:
+        # Flush any log calls that occurred during INIT when using the trainer in eval-only mode
+        self._flush(logger)
+
+    def fit_end(self, state: State, logger: Logger) -> None:
+        # Flush the file on fit_end, in case if was not flushed on epoch_end and the trainer is re-used
+        # (which would defer when `self.close()` would be invoked)
+        self._flush(logger)
+
+    def _flush(self, logger: Logger):
+        self.writer.flush()
+        logger.file_artifact(LogLevel.FIT, 
+                             self.artifact_name,
+                             file_path=self.writer.file_writer.event_writer._file_name,
+                             overwrite=True)
+
