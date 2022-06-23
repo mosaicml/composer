@@ -209,8 +209,11 @@ setup(name=package_name,
       ],
       install_requires=install_requires,
       entry_points={
-          'console_scripts':
-              ['composer = composer.cli.launcher:main', 'composer_collect_env = composer.utils.collect_env:main'],
+          'console_scripts': [
+              'composer = composer.cli.launcher:main',
+              'composer_collect_env = composer.utils.collect_env:main',
+              'composer_train = composer.trainer.trainer_hparams:train_via_hparams',
+          ],
       },
       extras_require=extra_deps,
       dependency_links=['https://developer.download.nvidia.com/compute/redist'],
