@@ -20,8 +20,8 @@ class TensorboardLogger(LoggerDestination):
     """Log to `Tensorboard <https://www.tensorflow.org/tensorboard/>`_.
 
     Args:
-        log_dir (str, optional): The path to the directory to put these logs in. If it is
-            None the logs will be placed in `./runs/{month}{day}{HH-MM-SS}_{device_name}.local
+        log_dir (str, optional): The directory to store the logs. If
+            ``None``, the logs will be placed in ``./runs/{month}{day}{HH-MM-SS}_{device_name}.local``.
         artifact_name (str, optional): Format string for the logfile's artifact name.
 
             The logfile will be periodically logged (according to the ``flush_interval``) as a file artifact.
