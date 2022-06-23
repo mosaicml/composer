@@ -120,7 +120,7 @@ class BERTModel(ComposerTransformer):
 
 class BertForClassification(BERTModel):
     """BERT model based on |:hugging_face:| Transformers for Classification.
-    Masked Language Models and sequence classification are fall within this category.
+    Sequence classification falls within this category.
 
     For more information, see `Transformers <https://huggingface.co/transformers/>`_.
 
@@ -163,7 +163,7 @@ class BertForClassification(BERTModel):
 
 class BertForPretraining(BERTModel):
     """BERT model based on |:hugging_face:| Transformers For Masked Language Model Pretraining.
-    Masked Language Models and sequence classification are fall within this category.
+    Masked Language Models fall within this category.
 
     For more information, see `Transformers <https://huggingface.co/transformers/>`_.
 
@@ -200,7 +200,7 @@ class BertForPretraining(BERTModel):
 
 
 class BertForRegression(BERTModel):
-    """BERT model based on |:hugging_face:| Transformers for Classification.
+    """BERT model based on |:hugging_face:| Transformers for Regression.
     Masked Language Models and sequence classification are fall within this category.
 
     For more information, see `Transformers <https://huggingface.co/transformers/>`_.
@@ -225,17 +225,13 @@ class BertForRegression(BERTModel):
             tokenizer=tokenizer)
 
     def loss_fn(self, *args, **kwargs) -> Callable:
-        loss_fct = torch.nn.functional.CrossEntropyLoss(*args, **kwargs)
-        if hasattr(self.config, 'problem_type'):
-            if self.config.problem_type == 'multi_label_classification':
-                raise NotImplementedError('Calculating loss directly not supported yet.'
-                                         )  #torch.nn.functional.BCEWithLogitsLoss(*args, **kwargs)
+        loss_fct = torch.nn.functional.MSELoss(*args, **kwargs)
         return loss_fct
 
     def loss(self, outputs: Mapping[str, torch.Tensor], batch: Batch, *args,
              **kwargs) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
         if outputs.get('loss', None) is None:
             loss_fn = self.loss_fn(*args, **kwargs)
-            loss_val: torch.Tensor = loss_fn(outputs['logits'], batch['labels'])
+            loss_val: torch.Tensor = loss_fn(outputs['logits'].squeeze(), batch['labels'].squeeze())
             outputs['loss'] = loss_val  #type:ignore this output is a HF output object
         return outputs['loss']
