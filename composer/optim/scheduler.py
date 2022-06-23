@@ -597,26 +597,10 @@ class ConstantWithWarmupScheduler(ComposerScheduler):
         self.t_warmup = t_warmup
         self.alpha = alpha
         self.t_max = t_max
-        self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=alpha, t_max=t_warmup)
+        self.scheduler = LinearWithWarmupScheduler(t_warmup=t_warmup, alpha_i=alpha, alpha_f=alpha, t_max=t_max)
 
     def __call__(self, state: State, ssr: float = 1.0) -> float:
-        t_warmup = _convert_time(self.t_warmup, state)
-        if t_warmup.value == 0:
-            warnings.warn(
-                textwrap.dedent("""\
-                The warmup duration is 0. If you specified warmup as a fraction of total
-                training duration, take note that the warmup duration is calculated in the
-                same unit as the trainer's max_duration parameter."""))
-
-        if state.timestamp < t_warmup:
-            return self.warmup_scheduler(state)
-
-        t_max = _convert_time(self.t_max, state, ssr=ssr)
-
-        if state.timestamp < t_max:
-            return self.alpha
-
-        return 1.0
+        return self.scheduler(state, ssr)
 
 
 class LinearWithWarmupScheduler(ComposerScheduler):
