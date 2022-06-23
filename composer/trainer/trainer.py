@@ -53,6 +53,8 @@ __all__ = ['Trainer']
 # syntax to shorten the Scheduler type annoations
 Scheduler = Union[ComposerScheduler, PyTorchScheduler]
 
+_COMPOSER_RUN_NAME_ENV_KEY = 'COMPOSER_RUN_NAME'
+
 
 def _raise_missing_argument_exception(arg_name: str):
     raise ValueError((f'{arg_name} is a required argument and must be specified when constructing the '
@@ -802,10 +804,18 @@ class Trainer:
                 algorithms.append(GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm))
 
         # Run Name
+        env_run_name = os.environ.get(_COMPOSER_RUN_NAME_ENV_KEY)
         if run_name is None:
             if autoresume:
                 raise ValueError('When autoresume=True, the `run_name` must be specified.')
-            run_name = _generate_run_name()
+            # Use the run name in the environment variable if it exists otherwise generate a random name
+            if env_run_name:
+                run_name = env_run_name
+            else:
+                run_name = _generate_run_name()
+        elif env_run_name:
+            log.info(f'Found run name environment variable {env_run_name} but `run_name={run_name}`'
+                     f'was passed into the Trainer. Using run name {run_name}.')
 
         # Create the State
         self.state = State(rank_zero_seed=rank_zero_seed,
