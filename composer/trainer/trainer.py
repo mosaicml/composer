@@ -612,7 +612,7 @@ class Trainer:
             .. note:: This is implemented by taking the batch yielded by the ``train_dataloader`` and splitting
                 it into ``grad_accum`` sections. Each section is of size ``train_dataloader // grad_accum``.
                 If the batch size of the dataloader is not divisible by ``grad_accum``,
-                then the last section will be of size ``batch_size % grad_accum``.
+                then the last section will be of size ``batch_size mod grad_accum``.
         seed (int, optional): The seed used in randomization. If ``None``, then a random seed
             will be created. (default: ``None``)
 
@@ -1645,9 +1645,8 @@ class Trainer:
                         else:
                             optimizer.step()
             except RuntimeError as e:
-                if _is_cuda_oom(e):
-                    log.debug((f"Rank {dist.get_global_rank()} OOM'd. "
-                               'grad_accum will be increased prior to reattempting training on the current batch.'))
+                if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
+                    log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     should_handle_cuda_oom = 1
                 elif 'Timed out' in str(e):
                     # Catch timeout errors and only reraise if we did not encounter OOM on other ranks. Error
@@ -1671,14 +1670,18 @@ class Trainer:
                         ('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
                          'The GPU does not have enough memory to process even 1 sample.'))
                 else:
+                    original_grad_accum = self.state.grad_accum
                     self.state.grad_accum = min(2 * self.state.grad_accum, device_batch_size)
-                    self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
+                    log.info(('CUDA out of memory detected. Gradient Accumulation '
+                              f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
+                              'and the batch will be retrained.'))
             elif caught_timeout_error:
                 # If not CUDA out of memory, raise exception to user. Note that this truncates the call stack
                 # back only to this newly raised error.
                 raise caught_timeout_error
             else:
-                # Otherwise, return calculated loss
+                # Otherwise, log grad_accum and return calculated loss
+                self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
                 return total_loss
 
     def _train_microbatches(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
