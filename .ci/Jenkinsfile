@@ -348,8 +348,15 @@ stage('Build') {
             kanikoCommand = "$kanikoCommand $destinations"
         }
 
-        if (isComposerImage && buildArgs['COMPOSER_INSTALL_COMMAND'].contains('==')) {
-            // If this is a composer image and it is the versioned tag (i.e. not the latest tag),
+        if (isComposerImage) {
+            if (!buildArgs['COMPOSER_INSTALL_COMMAND'].contains('==')) {
+                // If this is a composer image and it is the latest tag, skip it -- we'll build the versioned tag instead
+                return
+            }
+            if (!isMergeCommit) {
+                // Skip composer images except on merge commits -- it's slow!
+                return
+            }
             // Then set the install command to the git commit string, and build and push it to
             // the mosaicml/composer_staging repo
             String stagingTagName = "mosaicml/composer_staging:${gitCommitHash[0..6]}"
@@ -360,7 +367,7 @@ stage('Build') {
             kanikoCommand = "$kanikoCommand --destination $stagingTagName"
         }
 
-        if (isComposerImage || didDockerChange) {
+        if (didDockerChange || isComposerImage) {
             jobs << [ "$buildArgs": { ->
                 trackBuild(
                     job: jenkinsShellJobName,
@@ -389,7 +396,7 @@ stage('Build') {
             }]
         }
         else {
-            // If not rebuilding the docker image, then run CPU tests acorss all images,
+            // If not rebuilding the docker image, and it's not a composer image, then run CPU tests acorss all images,
             // and run GPU tests only on the "latest" image
             // Only run tests on the 'mosaicml/pytorch' or 'mosaicml/pytorch_vision' images -- not 'mosaicml/composer'
             Boolean isCpuImage = buildArgs['CUDA_VERSION'] == ''
