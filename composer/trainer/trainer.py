@@ -402,8 +402,10 @@ class Trainer:
         loggers (LoggerDestination | Sequence[LoggerDestination], optional): The destinations to log training information to.
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
-        run_name (str, optional): A name for this training run. If not specified, the timestamp will be combined with a
-            :doc:`coolname <coolname:index>`, e.g. ``1654298855-electric-zebra``.
+        run_name (str, optional): A name for this training run. If not specified, then the value of the environment
+            variable `COMPOSER_RUN_NAME` will be used. If the environment variable is also not specified, then
+            the timestamp will be combined with a :doc:`coolname <coolname:index>`, e.g. ``1654298855-electric-zebra``
+            will be used as the run name.
         progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
         log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
 
