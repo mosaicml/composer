@@ -1,17 +1,17 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import List, Optional, Sequence
+from typing import List, Optional, Type
 from unittest.mock import Mock
 
 import pytest
 import torch
 import torch.nn.functional as F
+from torchvision.models.resnet import Bottleneck
 
 from composer.algorithms import StochasticDepth
-from composer.algorithms.stochastic_depth.sample_stochastic_layers import SampleStochasticBottleneck
 from composer.algorithms.stochastic_depth.stochastic_depth import _STOCHASTIC_LAYER_MAPPING, apply_stochastic_depth
-from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck, _sample_bernoulli
+from composer.algorithms.stochastic_depth.stochastic_layers import make_resnet_bottleneck_stochastic
 from composer.core import Event, State
 from composer.core.time import TimeUnit
 from composer.models import ComposerResNet
@@ -35,147 +35,91 @@ def stochastic_method():
     return 'block'
 
 
+def count_sd_forward(module: torch.nn.Module, target_block: Type[torch.nn.Module], count: int = 0):
+    if (len(list(module.children()))) == 0 and len(list(module.parameters())) > 0:
+        return count
+    else:
+        for child in module.children():
+            if isinstance(child, target_block) and hasattr(child, 'drop_rate'):
+                count += 1
+            count = count_sd_forward(child, target_block, count)
+    return count
+
+
 @pytest.mark.parametrize('stochastic_method', ['block', 'sample'])
 @pytest.mark.parametrize('target_layer_name', ['ResNetBottleneck'])
-def test_se_algorithm(state: State, stochastic_method: str, target_layer_name: str):
-    target_layer, stochastic_layer = _STOCHASTIC_LAYER_MAPPING[stochastic_method][target_layer_name]
+def test_sd_algorithm(state: State, stochastic_method: str, target_layer_name: str):
+    target_layer, _ = _STOCHASTIC_LAYER_MAPPING[target_layer_name]
     target_block_count = module_surgery.count_module_instances(state.model, target_layer)
 
     sd = StochasticDepth(stochastic_method=stochastic_method,
                          target_layer_name=target_layer_name,
                          drop_rate=0.5,
                          drop_distribution='linear',
-                         drop_warmup=0.0,
-                         use_same_gpu_seed=False)
+                         drop_warmup=0.0)
     sd.apply(Event.INIT, state, logger=Mock())
-    stochastic_block_count = module_surgery.count_module_instances(state.model, stochastic_layer)
+    stochastic_forward_count = count_sd_forward(state.model, target_layer)
 
-    assert target_block_count == stochastic_block_count
+    assert target_block_count == stochastic_forward_count
 
 
 @pytest.mark.parametrize('stochastic_method', ['block', 'sample'])
 @pytest.mark.parametrize('target_layer_name', ['ResNetBottleneck'])
-def test_se_functional(state: State, stochastic_method: str, target_layer_name: str):
-    target_layer, stochastic_layer = _STOCHASTIC_LAYER_MAPPING[stochastic_method][target_layer_name]
+def test_sd_functional(state: State, stochastic_method: str, target_layer_name: str):
+    target_layer, _ = _STOCHASTIC_LAYER_MAPPING[target_layer_name]
     target_block_count = module_surgery.count_module_instances(state.model, target_layer)
 
     apply_stochastic_depth(model=state.model,
                            stochastic_method=stochastic_method,
                            target_layer_name=target_layer_name,
                            drop_rate=0.5,
-                           drop_distribution='linear',
-                           use_same_gpu_seed=False)
+                           drop_distribution='linear')
 
-    stochastic_block_count = module_surgery.count_module_instances(state.model, stochastic_layer)
+    stochastic_forward_count = count_sd_forward(state.model, target_layer)
 
-    assert target_block_count == stochastic_block_count
-
-
-class TestSampleBernoulli:
-
-    @pytest.fixture
-    def device_ids(self):
-        return torch.arange(8)
-
-    @pytest.fixture
-    def module_ids(self):
-        return torch.arange(16)
-
-    @pytest.fixture
-    def probability(self):
-        return 0.5
-
-    @pytest.fixture
-    def test_sample_bernoulli_use_same_gpu_seed(self, probability: float, device_ids: torch.Tensor,
-                                                module_ids: torch.Tensor):
-        mask_matrix = torch.zeros(len(device_ids), len(module_ids))
-        for device_id in device_ids:
-            torch.manual_seed(0)  # Simulates each device having the same random_seed as is the case with DDP
-            for module_id in module_ids:
-                generator = torch.Generator().manual_seed(144385)
-                mask_matrix[device_id, module_id] = _sample_bernoulli(probability=torch.tensor(probability),
-                                                                      device_id=int(device_id.item()),
-                                                                      module_id=int(module_id.item()),
-                                                                      num_modules=len(module_ids),
-                                                                      generator=generator,
-                                                                      use_same_gpu_seed=True,
-                                                                      use_same_depth_across_gpus=True)
-
-        assert torch.unique(mask_matrix, dim=0).size(0) == 1
-
-    def test_sample_bernoulli_devices_not_same_gpu(self, probability: float, device_ids: Sequence[torch.Tensor],
-                                                   module_ids: Sequence[torch.Tensor]):
-        mask_matrix = torch.zeros(len(device_ids), len(module_ids))
-        for device_id in device_ids:
-            torch.manual_seed(0)  # Simulates each device having the same random_seed as is the case with DDP
-            for module_id in module_ids:
-                generator = torch.Generator().manual_seed(144385)
-                mask_matrix[device_id, module_id] = _sample_bernoulli(probability=torch.tensor(probability),
-                                                                      device_id=int(device_id.item()),
-                                                                      module_id=int(module_id.item()),
-                                                                      num_modules=len(module_ids),
-                                                                      generator=generator,
-                                                                      use_same_gpu_seed=False,
-                                                                      use_same_depth_across_gpus=False)
-        # Check for unique drop masks across devices
-        assert (torch.unique(mask_matrix, dim=0).size(0) != 1)
-
-    def test_sample_bernoulli_layers_not_same_gpu(self, probability: float, device_ids: torch.Tensor,
-                                                  module_ids: torch.Tensor):
-        mask_matrix = torch.zeros(len(device_ids), len(module_ids))
-        for device_id in device_ids:
-            torch.manual_seed(0)  # Simulates each device having the same random_seed as is the case with DDP
-            for module_id in module_ids:
-                generator = torch.Generator().manual_seed(144385)
-                mask_matrix[device_id, module_id] = _sample_bernoulli(probability=torch.tensor(probability),
-                                                                      device_id=int(device_id.item()),
-                                                                      module_id=int(module_id.item()),
-                                                                      num_modules=len(module_ids),
-                                                                      generator=generator,
-                                                                      use_same_gpu_seed=False,
-                                                                      use_same_depth_across_gpus=False)
-        # Check for unique drop masks across layers
-        assert (torch.unique(mask_matrix, dim=1).size(1) != 1)
+    assert target_block_count == stochastic_forward_count
 
 
-class TestStochasticBottleneckLayer:
+class TestStochasticBottleneckForward:
 
     @pytest.mark.parametrize('drop_rate', [1.0])
-    def test_stochastic_bottleneck_drop(self, drop_rate: float):
+    def test_block_stochastic_bottleneck_drop(self, drop_rate: float):
         X = torch.randn(4, 4, 16, 16)
-        generator = torch.Generator().manual_seed(144385)
-        stochastic_layer = StochasticBottleneck(drop_rate=drop_rate,
-                                                module_id=2,
-                                                module_count=10,
-                                                use_same_depth_across_gpus=False,
-                                                use_same_gpu_seed=False,
-                                                rand_generator=generator,
-                                                inplanes=4,
-                                                planes=1)
-        new_X = stochastic_layer(X)
-        assert new_X is X
+        bottleneck_block = Bottleneck(inplanes=4, planes=1)
+        stochastic_block = make_resnet_bottleneck_stochastic(module=bottleneck_block,
+                                                             module_index=0,
+                                                             module_count=1,
+                                                             drop_rate=drop_rate,
+                                                             drop_distribution='linear',
+                                                             stochastic_method='block')
+        stochastic_X = stochastic_block(X)
+        assert stochastic_X is X
 
     @pytest.mark.parametrize('drop_rate', [0.0])
-    def test_stochastic_bottleneck_keep(self, drop_rate: float):
+    def test_block_stochastic_bottleneck_keep(self, drop_rate: float):
         X = torch.randn(4, 4, 16, 16)
-        generator = torch.Generator().manual_seed(144385)
-        stochastic_layer = StochasticBottleneck(drop_rate=drop_rate,
-                                                module_id=2,
-                                                module_count=10,
-                                                use_same_depth_across_gpus=False,
-                                                use_same_gpu_seed=False,
-                                                rand_generator=generator,
-                                                inplanes=4,
-                                                planes=1)
-        new_X = stochastic_layer(X)
-        assert new_X is not X
+        bottleneck_block = Bottleneck(inplanes=4, planes=1)
+        stochastic_block = make_resnet_bottleneck_stochastic(module=bottleneck_block,
+                                                             module_index=0,
+                                                             module_count=1,
+                                                             drop_rate=drop_rate,
+                                                             drop_distribution='linear',
+                                                             stochastic_method='block')
+        stochastic_X = stochastic_block(X)
+        assert stochastic_X is not X
 
     @pytest.mark.parametrize('drop_rate', [1.0])
     def test_sample_stochastic_bottleneck_drop_all(self, drop_rate: float):
-        x = F.relu(torch.randn(4, 4, 16, 16))  # inputs and outputs will match if the input has been ReLUed
-        sample_stochastic_block = SampleStochasticBottleneck(drop_rate=drop_rate, inplanes=4, planes=1)
-        x_dropped = sample_stochastic_block(x)
-        assert torch.all(x == x_dropped)
+        X = F.relu(torch.randn(4, 4, 16, 16))  # inputs and outputs will match if the input has been ReLUed
+        bottleneck_block = Bottleneck(inplanes=4, planes=1)
+        stochastic_block = make_resnet_bottleneck_stochastic(module=bottleneck_block,
+                                                             module_index=0,
+                                                             module_count=1,
+                                                             drop_rate=drop_rate,
+                                                             drop_distribution='linear',
+                                                             stochastic_method='sample')
+        stochastic_X = stochastic_block(X)
+        assert torch.all(X == stochastic_X)
 
 
 class TestStochasticDepthDropRate:
@@ -188,7 +132,6 @@ class TestStochasticDepthDropRate:
         drop_rate: float,
         drop_distribution: str,
         drop_warmup: str,
-        use_same_gpu_seed: bool,
     ):
         return StochasticDepth(
             target_layer_name,
@@ -196,7 +139,6 @@ class TestStochasticDepthDropRate:
             drop_rate,
             drop_distribution,
             drop_warmup,
-            use_same_gpu_seed,
         )
 
     def get_drop_rate_list(self, module: torch.nn.Module, drop_rates: Optional[List] = None):
@@ -213,7 +155,6 @@ class TestStochasticDepthDropRate:
     @pytest.mark.parametrize('step', [50, 100, 1000])
     @pytest.mark.parametrize('drop_rate', [0.0, 0.5, 1.0])
     @pytest.mark.parametrize('drop_distribution', ['uniform', 'linear'])
-    @pytest.mark.parametrize('use_same_gpu_seed', [True])
     @pytest.mark.parametrize('drop_warmup', ['0.1dur'])
     @pytest.mark.timeout(5)
     def test_drop_rate_warmup(self, algorithm: StochasticDepth, step: int, state: State):
