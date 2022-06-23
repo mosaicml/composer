@@ -1,162 +1,103 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Stochastic layers for ResNet."""
+"""Stochastic forward functions for ResNet Bottleneck modules."""
 
 import torch
 from torchvision.models.resnet import Bottleneck
 
-__all__ = ['StochasticBottleneck']
 
-
-def _sample_bernoulli(probability: torch.Tensor,
-                      device_id: int,
-                      module_id: int,
-                      num_modules: int,
-                      generator: torch.Generator,
-                      use_same_depth_across_gpus: bool,
-                      use_same_gpu_seed: bool = False):
-    """Gets a sample from a Bernoulli distribution.
-
-    Provides functionality to have different seeds
-    across GPUs and to have the same set of seeds
-    across GPUs.
+def block_stochastic_forward(self, x):
+    """ResNet Bottleneck forward function where the layers are randomly
+        skipped with probability ``drop_rate`` during training.
     """
 
-    if use_same_gpu_seed:
-        sample = torch.bernoulli(probability)
-        return sample
+    identity = x
 
-    # Get a separate generator for each GPU
-    rand_int = torch.randint(low=2**17, high=2**27, size=(1,), dtype=torch.long, generator=generator)
-    gpu_seed = (rand_int * (device_id + 1))
+    sample = (not self.training) or bool(torch.bernoulli(1 - self.drop_rate))
 
-    if use_same_depth_across_gpus:
-        gpu_generator = torch.Generator().manual_seed(gpu_seed.item())  #type: ignore
-        layer_seed = (torch.randperm(num_modules, generator=gpu_generator)[module_id] + 1) * rand_int
+    if sample:
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out = self.relu(out)
+
+        out = self.conv3(out)
+        out = self.bn3(out)
+
+        if not self.training:
+            out = out * (1 - self.drop_rate)
+
+        if self.downsample is not None:
+            identity = self.downsample(x)
+
+        out += identity
+        out = self.relu(out)
     else:
-        layer_seed = (module_id + 1) * gpu_seed
-    layer_generator = torch.Generator().manual_seed(layer_seed.item())  # type: ignore
+        if self.downsample is not None:
+            out = self.relu(self.downsample(identity))
+        else:
+            out = identity
+    return out
 
-    sample = torch.bernoulli(probability, generator=layer_generator)
-    return sample
 
+def _sample_drop(x: torch.Tensor, sample_drop_rate: float, is_training: bool):
+    """Randomly drops samples from the input batch according to the `sample_drop_rate`.
 
-class StochasticBottleneck(Bottleneck):
-    """Stochastic ResNet Bottleneck block.
-
-    This block has a probability of
-    skipping the transformation section of the layer and scales the
-    transformation section output by ``(1 - drop probability)`` during inference.
-
-    Args:
-        drop_rate (float): Probability of dropping the block. Must be between
-            0.0 and 1.0.
-        module_id (int): The placement of the block within a network e.g. 0
-            for the first layer in the network.
-        module_count (int): The total number of blocks of this type in the network.
-        use_same_gpu_seed (bool): Set to ``True`` to have the same layers dropped
-             across GPUs when using multi-GPU training. Set to ``False`` to
-             have each GPU drop a different set of layers. Only used
-             with ``"block"`` stochastic method.
-        use_same_depth_across_gpus (bool): Set to ``True`` to have the same number
-            of blocks dropped across GPUs. Should be set to ``True`` when
-            ``drop_distribution`` is ``"uniform"`` and set to ``False``
-            for ``"linear"``.
-        rand_generator (torch.Generator): random number generator.
+    This is implemented by setting the samples to be dropped to zeros.
     """
 
-    def __init__(self, drop_rate: float, module_id: int, module_count: int, use_same_gpu_seed: bool,
-                 use_same_depth_across_gpus: bool, rand_generator: torch.Generator, **kwargs):
-        super(StochasticBottleneck, self).__init__(**kwargs)
-        self.drop_rate = torch.tensor(drop_rate)
-        self.module_id = module_id
-        self.module_count = module_count
-        self.use_same_gpu_seed = use_same_gpu_seed
-        self.use_same_depth_across_gpus = use_same_depth_across_gpus
-        self.rand_generator = rand_generator
+    keep_probability = (1 - sample_drop_rate)
+    if not is_training:
+        return x * keep_probability
+    rand_dim = [x.shape[0]] + [1] * len(x.shape[1:])
+    sample_mask = keep_probability + torch.rand(rand_dim, dtype=x.dtype, device=x.device)
+    sample_mask.floor_()  # binarize
+    x *= sample_mask
+    return x
 
-    @torch.jit.unused
-    def _get_sample(self, device: int) -> torch.Tensor:
-        return _sample_bernoulli(probability=(1 - self.drop_rate),
-                                 device_id=device,
-                                 module_id=self.module_id,
-                                 num_modules=self.module_count,
-                                 generator=self.rand_generator,
-                                 use_same_gpu_seed=self.use_same_gpu_seed,
-                                 use_same_depth_across_gpus=self.use_same_depth_across_gpus)
 
-    """ Special consideration to serialize the layer's rng state.
+def sample_stochastic_forward(self, x):
+    """ResNet Bottleneck forward function where samples are randomly
+        dropped with probability ``drop_rate`` during training.
     """
 
-    def _save_to_state_dict(self, destination, prefix, keep_vars):
-        super()._save_to_state_dict(destination, prefix, keep_vars)
-        destination[prefix + 'rng_state'] = self.rand_generator.get_state()
+    identity = x
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
-                              error_msgs):
-        self.rand_generator.set_state(state_dict[prefix + 'rng_state'])
-        return super()._load_from_state_dict(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
-                                             error_msgs)
+    out = self.conv1(x)
+    out = self.bn1(out)
+    out = self.relu(out)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        identity = x
+    out = self.conv2(out)
+    out = self.bn2(out)
+    out = self.relu(out)
 
-        if self.training:
-            sample = bool(self._get_sample(identity.get_device()))
-        else:
-            sample = True
+    out = self.conv3(out)
+    out = self.bn3(out)
 
-        if sample:
-            out = self.conv1(x)
-            out = self.bn1(out)
-            out = self.relu(out)
+    if self.downsample is not None:
+        identity = self.downsample(x)
 
-            out = self.conv2(out)
-            out = self.bn2(out)
-            out = self.relu(out)
+    if self.drop_rate:
+        out = _sample_drop(out, self.drop_rate, self.training)
+    out += identity
 
-            out = self.conv3(out)
-            out = self.bn3(out)
+    return self.relu(out)
 
-            if not self.training:
-                out = out * (1 - self.drop_rate)
 
-            if self.downsample is not None:
-                identity = self.downsample(x)
+def make_resnet_bottleneck_stochastic(module: Bottleneck, module_index: int, module_count: int, drop_rate: float,
+                                      drop_distribution: str, stochastic_method: str):
+    """Model surgery policy that dictates how to convert a ResNet Bottleneck layer into a stochastic version.
+    """
 
-            out += identity
-            out = self.relu(out)
-        else:
-            if self.downsample is not None:
-                out = self.relu(self.downsample(x))
-            else:
-                out = identity
-        return out
+    if drop_distribution == 'linear':
+        drop_rate = ((module_index + 1) / module_count) * drop_rate
+    module.drop_rate = torch.tensor(drop_rate)
 
-    @staticmethod
-    def from_target_layer(module: Bottleneck,
-                          module_index: int,
-                          module_count: int,
-                          drop_rate: float,
-                          drop_distribution: str,
-                          rand_generator: torch.Generator,
-                          use_same_gpu_seed: bool = False):
-        """Helper function to convert a ResNet bottleneck block into a stochastic block."""
-        if drop_distribution == 'linear':
-            drop_rate = ((module_index + 1) / module_count) * drop_rate
-        use_same_depth_across_gpus = (drop_distribution == 'uniform')
-        rand_generator = torch.Generator().manual_seed(
-            rand_generator.initial_seed())  # copy the generator for each layer
-        return StochasticBottleneck(drop_rate=drop_rate,
-                                    module_id=module_index,
-                                    module_count=module_count,
-                                    use_same_depth_across_gpus=use_same_depth_across_gpus,
-                                    use_same_gpu_seed=use_same_gpu_seed,
-                                    rand_generator=rand_generator,
-                                    inplanes=module.conv1.in_channels,
-                                    planes=module.conv3.out_channels // module.expansion,
-                                    stride=module.stride,
-                                    downsample=module.downsample,
-                                    groups=module.conv2.groups,
-                                    dilation=module.conv2.dilation)
+    stochastic_func = block_stochastic_forward if stochastic_method == 'block' else sample_stochastic_forward
+    module.forward = stochastic_func.__get__(module)  # Bind new forward function to ResNet Bottleneck Module
+
+    return module

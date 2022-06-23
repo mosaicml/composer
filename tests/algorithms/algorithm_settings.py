@@ -137,7 +137,6 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
             'drop_rate': 0.2,
             'drop_distribution': 'linear',
             'drop_warmup': '0.0dur',
-            'use_same_gpu_seed': False,
         }
     },
     SWA: {
