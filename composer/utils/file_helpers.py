@@ -374,8 +374,6 @@ def get_file(
             progress_bar=progress_bar,
         )
     except FileNotFoundError as e:
-        if path.endswith('.symlink'):
-            raise e
         new_path = path + '.symlink'
         try:
             # Follow the symlink
@@ -468,7 +466,10 @@ def _get_callback(description: str):
         nonlocal pbar
         if num_bytes == 0 or pbar is None:
             pbar = tqdm.tqdm(desc=description, total=total_size, unit='iB', unit_scale=True)
-        pbar.update(num_bytes)
+        n = num_bytes - pbar.n
+        pbar.update(n)
+        if num_bytes == total_size:
+            pbar.close()
 
     return callback
 
