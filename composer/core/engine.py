@@ -73,6 +73,7 @@ from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.state import State
+from composer.core.time import Timestamp
 from composer.loggers import Logger, LogLevel
 from composer.profiler import ProfilerAction
 
@@ -121,6 +122,10 @@ def _set_atexit_ran():
 # Since atexit calls hooks in LIFO order, this hook will always be invoked after all atexit-triggered
 # _close() calls are invoked
 atexit.register(_set_atexit_ran)
+
+
+def _debug_log(timestamp: Timestamp, msg: str):
+    log.debug(f'[{timestamp}] - {msg}')
 
 
 @dataclass
@@ -210,6 +215,8 @@ class Engine():
         duration_marker = None
         event = Event(event)
 
+        _debug_log(self.state.timestamp, f'{event} start')
+
         if self._is_closed:
             raise RuntimeError(('The engine was already closed and therefore cannot be used again. '
                                 'To fix, please create a new Engine (or Trainer)'))
@@ -245,6 +252,8 @@ class Engine():
 
         if event.is_before_event and duration_marker is not None:
             duration_marker.start()
+
+        _debug_log(self.state.timestamp, f'{event} end')
 
         return traces
 
