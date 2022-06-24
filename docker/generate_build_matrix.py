@@ -84,6 +84,9 @@ def _get_composer_tags(composer_version: str, use_cuda: bool):
     if not composer_version:
         composer_version = 'latest'
     composer_version = composer_version.lstrip('=')
+    if composer_version == 'GIT_COMMIT':
+        # Jenkins will set the tag
+        return []
     tag = f'mosaicml/composer:{composer_version}'
     if not use_cuda:
         tag += '_cpu'
@@ -153,7 +156,8 @@ def _main():
 
     composer_entries = []
 
-    composer_versions = ['', '==0.8.0']  # Only build images for the latest composer version
+    # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
+    composer_versions = ['', '==0.8.0', 'GIT_COMMIT']  # Only build images for the latest composer version
     composer_python_versions = ['3.9']  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):
@@ -208,6 +212,10 @@ def _main():
     headers = ['Composer Version', 'CUDA Support', 'Docker Tag']
     table = []
     for entry in composer_entries:
+
+        if len(entry['TAGS']) == 0:
+            continue
+
         table.append([
             entry['TAGS'][0].split(':')[1].replace('_cpu', ''),  # Composer version, or 'latest'
             'No' if entry['BASE_IMAGE'].startswith('ubuntu:') else 'Yes',  # Whether there is Cuda support
