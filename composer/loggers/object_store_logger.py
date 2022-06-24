@@ -395,17 +395,17 @@ class ObjectStoreLogger(LoggerDestination):
         self._tempdir = None
         self._finished = None
         self._workers.clear()
-        assert len(self._logged_objects) == 0, 'should be drained by self._enqueue_uploads'
+        self._enqueued_objects.clear()
+        self._logged_objects.clear()
         assert self._file_upload_queue.empty()
+
+        # Empty the completed queue
         while True:
-            # Empty the completed queue
             try:
-                object_name = self._completed_queue.get_nowait()
+                self._completed_queue.get_nowait()
             except queue.Empty:
                 break
-            self._enqueued_objects.remove(object_name)
             self._completed_queue.task_done()
-        assert len(self._enqueued_objects) == 0, 'all objects should be uploaded'
 
         self._enqueue_thread = None
 
