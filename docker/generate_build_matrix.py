@@ -169,7 +169,7 @@ def _main():
             'PYTORCH_VERSION': pytorch_version,
             'TARGET': 'composer_stage',
             'TORCHVISION_VERSION': _get_torchvision_version(pytorch_version),
-            'COMPOSER_VERSION': composer_version,
+            'COMPOSER_INSTALL_COMMAND': f'mosaicml[all]{composer_version}',
             'TAGS': _get_composer_tags(
                 composer_version=composer_version,
                 use_cuda=use_cuda,
@@ -209,7 +209,7 @@ def _main():
     table = []
     for entry in composer_entries:
         table.append([
-            entry['COMPOSER_VERSION'].lstrip('=') or 'latest',  # Pytorch version
+            entry['TAGS'][0].split(':')[1].replace('_cpu', ''),  # Composer version, or 'latest'
             'No' if entry['BASE_IMAGE'].startswith('ubuntu:') else 'Yes',  # Whether there is Cuda support
             ', '.join(reversed(list(f'`{x}`' for x in entry['TAGS']))),  # Docker tags
         ])
