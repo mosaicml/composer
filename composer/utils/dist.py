@@ -431,17 +431,17 @@ def wait_for_rank_zero():
     the dataset, and hold all non-rank zeros until the
     download is complete.
 
-    ..code-block: python
+    .. code-block: python
 
         with wait_for_rank_zero() as download:
             dataset = CIFAR10(
-                download=download
+                ...,
+                download=download,
             )
 
     This prevents race conditions where mutltiple
     ranks attempting to download the dataset to the
     same location.
-
     """
     if not is_initialized():
         return
