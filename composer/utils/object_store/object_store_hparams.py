@@ -240,6 +240,10 @@ class SFTPObjectStoreHparams(ObjectStoreHparams):
     username: Optional[str] = hp.auto(SFTPObjectStore, 'username')
     known_hosts_filename: Optional[str] = hp.auto(SFTPObjectStore, 'known_hosts_filename')
     key_filename: Optional[str] = hp.auto(SFTPObjectStore, 'key_filename')
+    key_filename_environ: str = hp.optional(
+        ('The name of an environment variable containing '
+         'the path to a SSH keyfile. Note that `key_filename` takes precedence over this variable.'),
+        default='COMPOSER_SFTP_KEY_FILE')
     missing_host_key_policy: str = hp.auto(SFTPObjectStore, 'missing_host_key_policy')
     cwd: str = hp.auto(SFTPObjectStore, 'cwd')
     connect_kwargs: Optional[Dict[str, Any]] = hp.auto(SFTPObjectStore, 'connect_kwargs')
@@ -248,7 +252,11 @@ class SFTPObjectStoreHparams(ObjectStoreHparams):
         return SFTPObjectStore
 
     def get_kwargs(self) -> Dict[str, Any]:
-        return dataclasses.asdict(self)
+        kwargs = dataclasses.asdict(self)
+        del kwargs['key_filename_environ']
+        if self.key_filename_environ in os.environ and self.key_filename is None:
+            kwargs['key_filename'] = os.environ[self.key_filename_environ]
+        return kwargs
 
 
 object_store_registry: Dict[str, Type[ObjectStoreHparams]] = {
