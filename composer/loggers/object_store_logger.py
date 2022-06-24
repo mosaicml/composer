@@ -293,14 +293,18 @@ class ObjectStoreLogger(LoggerDestination):
         del state, logger  # unused
         self._check_workers()
 
+    @property
+    def _all_workers_alive(self):
+        """Whether all workers are alive."""
+        return all(worker.is_alive() for worker in self._workers)
+
     def _check_workers(self):
         # Periodically check to see if any of the upload workers crashed
         # They would crash if:
         #   a) A file could not be uploaded, and the retry counter failed, or
         #   b) allow_overwrite=False, but the file already exists,
-        for worker in self._workers:
-            if not worker.is_alive():
-                raise RuntimeError('Upload worker crashed. Please check the logs.')
+        if not self._all_workers_alive:
+            raise RuntimeError('Upload worker crashed. Please check the logs.')
 
     def log_file_artifact(
         self,
@@ -354,9 +358,16 @@ class ObjectStoreLogger(LoggerDestination):
                     del self._logged_objects[object_name]
 
                 #
-                if self._finished.is_set() and len(self._logged_objects) == 0:
-                    # If finished (i.e. no more objects to be added to self._logged_objects) and all logged objects are enqueued
-                    break
+                if self._finished.is_set():
+                    if self._all_workers_alive:
+                        if len(self._logged_objects) == 0:
+                            # If finished (i.e. no more objects to be added to self._logged_objects) and all logged objects are
+                            # enqueued, then break
+                            break
+                    else:
+                        # If any worker died, then it's impossible to recover since the file was already popped off of the queue,
+                        # so break.Some files may not be uploaded.
+                        break
 
             # Yield the lock, so it can be acquired by `self.log_file_artifact`
             time.sleep(0.2)
