@@ -321,7 +321,7 @@ stage('Build') {
         String label = buildArgs['TAGS'][0]
 
         if (!shouldPushToDestinations) {
-            buildArgs['TAGS'][:] = []
+            buildArgs['TAGS'] = []
         }
 
         if (isComposerImage) {
