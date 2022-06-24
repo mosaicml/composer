@@ -47,10 +47,15 @@ By setting this single parameter, most OOM errors are a thing of the past, and y
 
 This functionality takes advantage of a unique design within our Trainer -- we ask the dataloader to return the complete batch size (also called the optimization batch size), and we handle slicing that batch into microbatches and feeding it to the model. Since we control the slicing, we can dynamically change the microbatch sizes during training.
 
-.. note::
+.. admonition:: caution
 
     This is an experimental feature, so please try it out and let us know what works, and what breaks!
 
+For some examples of this in action, see our `blog_post <https://www.mosaicml.com/blog/farewell-oom>`_.
+
+.. admonition:: attention
+
+    If your model has `BatchNorm` layers, use with caution. Small microbatch sizes when the number of accumulation steps is high mean fewer samples used to compute these statistics. Empirically for small microbatch sizes convergence could be adversely affected (e.g. `Wu et al, 2018 <https://openaccess.thecvf.com/content_ECCV_2018/papers/Yuxin_Wu_Group_Normalization_ECCV_2018_paper.pdf>_`). Using `SyncBatchNorm` or substituting your batch normalization with other techniques could alleviate these issues.
 
 Caveats
 -------
