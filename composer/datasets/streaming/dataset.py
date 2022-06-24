@@ -34,7 +34,7 @@ class StreamingDataset(IterableDataset):
     It also provides best-effort shuffling to preserve randomness when ``shuffle=True``.
 
     Args:
-        remote (str): Download shards from this remote S3 path or directory.
+        remote (Optional[str]): Download shards from this remote S3 path or directory.
         local (str): Download shards to this local directory for for caching.
         shuffle (bool): Whether to shuffle the samples.  Note that if `shuffle=False`, the sample order is deterministic but dependent on the DataLoader's `num_workers`.
         decoders (Dict[str, Callable[bytes, Any]]]): For each sample field you wish to read, you must provide a decoder to convert the raw bytes to an object.
@@ -80,7 +80,7 @@ class StreamingDataset(IterableDataset):
     """
 
     def __init__(self,
-                 remote: str,
+                 remote: Optional[str],
                  local: str,
                  shuffle: bool,
                  decoders: Dict[str, Callable[[bytes], Any]],
@@ -121,7 +121,10 @@ class StreamingDataset(IterableDataset):
         Returns:
             str: Local cache filename.
         """
-        remote = os.path.join(self.remote, basename)
+        if self.remote is None:
+            remote = self.remote
+        else:
+            remote = os.path.join(self.remote, basename)
         local = os.path.join(self.local, basename)
         download_or_wait(remote=remote, local=local, wait=wait, max_retries=self.max_retries, timeout=self.timeout)
         return local
