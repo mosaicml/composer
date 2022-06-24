@@ -212,7 +212,6 @@ setup(name=package_name,
           'console_scripts': [
               'composer = composer.cli.launcher:main',
               'composer_collect_env = composer.utils.collect_env:main',
-              'composer_train = composer.trainer.trainer_hparams:train_via_hparams',
           ],
       },
       extras_require=extra_deps,
