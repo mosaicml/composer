@@ -156,7 +156,7 @@ def _main():
 
     composer_entries = []
 
-    # The `GIT_COMMIT` is a placeholder and will be substituted with the actual git commit
+    # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
     composer_versions = ['', '==0.7.1', 'GIT_COMMIT']  # Only build images for the latest composer version
     composer_python_versions = ['3.9']  # just build composer against the latest
 
