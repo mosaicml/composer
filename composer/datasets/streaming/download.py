@@ -7,7 +7,7 @@
 import os
 import shutil
 import time
-from urllib.parse import urlparse
+import urllib.parse
 
 from composer.utils import MissingConditionalImportError
 
@@ -27,7 +27,7 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='boto3') from e
 
-    obj = urlparse(remote)
+    obj = urllib.parse.urlparse(remote)
     if obj.scheme != 's3':
         raise ValueError(f"Expected obj.scheme to be 's3', got {obj.scheme} for remote={remote}")
 
@@ -37,26 +37,37 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
 
 
 def download_from_sftp(remote: str, local: str) -> None:
-    """Download a file from remote to local.
+    """Download a file from remote SFTP server to local filepath.
+    Authentication must be provided via username/password in the `remote` URI,
+    or a valid SSH config, or a default key discoverable in ``~/.ssh/``.
     Args:
         remote (str): Remote path (SFTP).
         local (str): Local path (local filesystem).
     """
     try:
-        from paramiko import AutoAddPolicy, RSAKey, SSHClient
+        from paramiko import AutoAddPolicy, SSHClient
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='paramiko') from e
 
-    obj = urlparse(remote)
-    if obj.scheme != 'sftp':
-        raise ValueError(f"Expected obj.scheme to be 'sftp', got {obj.scheme} for remote={remote}")
-    remote_host = obj.netloc
-    remote_path = obj.path
+    # Parse URL
+    url = urllib.parse.urlsplit(remote)
+    if url.scheme.lower() != 'sftp':
+        raise ValueError('If specifying a URI, only the sftp scheme is supported.')
+    if not url.hostname:
+        raise ValueError('If specifying a URI, the URI must include the hostname.')
+    if url.query or url.fragment:
+        raise ValueError('Query and fragment parameters are not supported as part of a URI.')
+    hostname = url.hostname
+    port = url.port
+    username = url.username
+    password = url.password
+    remote_path = url.path
 
-    # Read auth details from env var
-    private_key_path = os.environ['COMPOSER_SFTP_KEY_FILE']
-    pkey = RSAKey.from_private_key_file(private_key_path)
-    username = os.environ['COMPOSER_SFTP_USERNAME']
+    # Get SSH key file if specified
+    key_filename = os.environ.get('COMPOSER_SFTP_KEY_FILE', None)
+
+    # Default port
+    port = port if port else 22
 
     # Local tmp
     local_tmp = local + '.tmp'
@@ -66,7 +77,11 @@ def download_from_sftp(remote: str, local: str) -> None:
     with SSHClient() as ssh_client:
         # Connect SSH Client
         ssh_client.set_missing_host_key_policy(AutoAddPolicy)
-        ssh_client.connect(hostname=remote_host, port=22, username=username, pkey=pkey)
+        ssh_client.connect(hostname=hostname,
+                           port=port,
+                           username=username,
+                           password=password,
+                           key_filename=key_filename)
 
         # SFTP Client
         sftp_client = ssh_client.open_sftp()
@@ -111,7 +126,7 @@ def dispatch_download(remote, local, timeout: float):
 def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: int = 2, timeout: float = 60) -> None:
     """Downloads a file from remote to local, or waits for it to be downloaded. Does not do any thread safety checks, so we assume the calling function is using ``wait`` correctly.
     Args:
-        remote (str): Remote path (S3 or local filesystem).
+        remote (str): Remote path (S3 or SFTP or local filesystem).
         local (str): Local path (local filesystem).
         wait (bool, default False): If ``true``, then do not actively download the file, but instead wait (up to ``timeout`` seconds) for the file to arrive.
         max_retries (int, default 2): Number of download re-attempts before giving up.
