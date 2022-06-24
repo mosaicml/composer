@@ -44,6 +44,7 @@ from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, module_surgery,
                             reproducibility)
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
+from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
@@ -1083,9 +1084,13 @@ class Trainer:
             for logger in loggers:
                 try:
                     # Fetch from logger. If it succeeds, stop trying the rest of the loggers
-                    logger.get_file_artifact(artifact_name=save_latest_artifact_name,
-                                             destination=latest_checkpoint_path,
-                                             progress_bar=load_progress_bar)
+                    get_file(
+                        path=save_latest_artifact_name,
+                        destination=latest_checkpoint_path,
+                        object_store=logger,
+                        overwrite=True,
+                        progress_bar=load_progress_bar,
+                    )
                     break
                 except (NotImplementedError, FileNotFoundError):
                     # Ignore errors caused by no checkpoint saved with logger

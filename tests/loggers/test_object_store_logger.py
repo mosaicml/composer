@@ -46,16 +46,12 @@ def object_store_test_helper(tmp_path: pathlib.Path,
         destination.should_log_artifact = my_filter_func
     logger = Logger(dummy_state, destinations=[destination])
     artifact_name = 'artifact_name'
-    symlink_artifact_name = 'latest_artifact'
     destination.run_event(Event.INIT, dummy_state, logger)
 
     file_path = os.path.join(tmp_path, f'file')
     with open(file_path, 'w+') as f:
         f.write('1')
     logger.file_artifact(LogLevel.FIT, artifact_name, file_path, overwrite=overwrite)
-
-    # Add symlink to ``artifact_name``.
-    logger.symlink_artifact(LogLevel.FIT, artifact_name, symlink_artifact_name, overwrite=overwrite)
 
     file_path_2 = os.path.join(tmp_path, f'file_2')
     with open(file_path_2, 'w+') as f:
@@ -83,11 +79,6 @@ def object_store_test_helper(tmp_path: pathlib.Path,
     expected_upload_uri = f'{provider}://{container}/{artifact_name}'
     assert upload_uri == expected_upload_uri
 
-    # verify upload uri for symlink is correct
-    upload_uri = destination.get_uri_for_artifact(symlink_artifact_name)
-    expected_upload_uri = f'{provider}://{container}/{symlink_artifact_name}'
-    assert upload_uri == expected_upload_uri
-
     if not should_filter:
         # Test downloading artifact
         download_path = os.path.join(tmp_path, 'download')
@@ -97,18 +88,13 @@ def object_store_test_helper(tmp_path: pathlib.Path,
 
     # now assert that we have a dummy file in the artifact folder
     artifact_file = os.path.join(str(remote_dir), artifact_name)
-    symlink_artifact_name = os.path.join(str(remote_dir), symlink_artifact_name + '.symlink')
     if should_filter:
         # If the filter works, nothing should be logged
         assert not os.path.exists(artifact_file)
-        assert not os.path.exists(symlink_artifact_name)
     else:
         # Verify artifact contains the correct value
         with open(artifact_file, 'r') as f:
             assert f.read() == '1' if not overwrite else '2'
-        # Verify symlink is pointing to the artifact
-        with open(symlink_artifact_name) as f:
-            assert f.read() == artifact_name
 
 
 def test_object_store_logger(tmp_path: pathlib.Path, dummy_state: State, monkeypatch: pytest.MonkeyPatch):
