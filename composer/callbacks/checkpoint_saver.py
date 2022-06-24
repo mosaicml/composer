@@ -392,7 +392,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 os.symlink(relative_checkpoint_path, symlink_name)
                 if self.artifact_name is not None and self.latest_artifact_name is not None:
                     symlink_artifact_name = format_name_with_dist_and_time(self.latest_artifact_name, state.run_name,
-                                                                           state.timestamp).lstrip('/')
+                                                                           state.timestamp).lstrip('/') + '.symlink'
                     artifact_name = format_name_with_dist_and_time(self.artifact_name, state.run_name,
                                                                    state.timestamp).lstrip('/')
                     # Always overwrite for symlinks since we use the same filename for latest
