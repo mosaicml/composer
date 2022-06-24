@@ -114,7 +114,7 @@ def getKanikoCommand(buildArgs) {
     // Constructs a kaniko command from the buildArgs
     def cliArgsList = []
     def tags = []
-     buildArgs.each { key, val ->
+    buildArgs.each { key, val ->
         if (key == 'TAGS') {
             val.each { tag ->
                 tags << tag
@@ -128,18 +128,16 @@ def getKanikoCommand(buildArgs) {
         cliArgsList << "--build-arg '$key=$val'"
     }
     String cliArgs = cliArgsList.join(' ')
-
-    cliArgs = "$cliArgs --dockerfile Dockerfile --context ./docker"
-    String destinations = ""
+    String kanikoCommand = '/kaniko/executor --cache=true --dockerfile Dockerfile --context ./docker --cleanup'
+    kanikoCommand += " --cache-repo=${cacheRepo} ${cliArgs}"
     for (tag in tags) {
-        destinations = "$destinations --destination $tag"
+        kanikoCommand += " --destination $tag"
     }
 
     if (cliArgs.contains(cacheRepo)) {
         error("The kaniko args should not ever attempt to push images to the cache repo, ${cacheRepo}")
     }
 
-    String kanikoCommand = "/kaniko/executor --cache=true --cache-repo=${cacheRepo} ${cliArgs} --cleanup"
     return kanikoCommand
 }
 
