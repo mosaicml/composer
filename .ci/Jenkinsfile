@@ -316,8 +316,6 @@ stage('Build') {
     pytorchDockerBuildMatrix.each { buildArgs ->
         Boolean isComposerImage = buildArgs['TARGET'] == 'composer_stage'
         Boolean shouldPushToDestinations = isMergeCommit && gitBranch == baseBranch
-        String label = buildArgs['TAGS'][0]
-
         Boolean shouldBuildImage = didDockerChange  // Always build the image if the ./docker folder changed
 
         if (!shouldPushToDestinations) {
@@ -344,7 +342,7 @@ stage('Build') {
             String stagingImageTag = generateStagingImageTag()
             buildArgs['TAGS'] << stagingImageTag
             String kanikoCommand = getKanikoCommand(buildArgs)
-            jobs << [ "${label}": { ->
+            jobs << [ "${buildArgs}": { ->
                 trackBuild(
                     job: jenkinsShellJobName,
                     parameters: [
