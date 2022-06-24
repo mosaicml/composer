@@ -298,7 +298,7 @@ stage('Prepare') {
         echo "gitBranch: $gitBranch"
         echo "gitCommit: $gitCommit"
 
-        didDockerChange = true  // TODO(Ravi) Unset this hardcode. isPathModified('docker/')
+        didDockerChange = isPathModified('docker/')
         pytorchDockerBuildMatrix = readYaml(file:  './docker/build_matrix.yaml')
 
         // Keep track of whether dependencies changed, in which case a conda build should be tested
