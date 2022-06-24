@@ -83,7 +83,7 @@ class StreamingDatasetWriter(object):
         compression (str, optional): Compression algorithm and optional compression level. Currently supported: 'gz', 'gz:[1-9]' or None. Defaults to 'gz:6'.
     """
 
-    default_compression = 'gz'
+    default_compression = 'gz:6'
 
     def __init__(self,
                  dirname: str,
