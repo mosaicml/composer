@@ -35,6 +35,8 @@ def _ensure_transient_errors_are_wrapped(e: Exception):
     if isinstance(e, SSHException):
         if 'Server connection dropped:' in str(e):
             raise ObjectStoreTransientError from e
+    if isinstance(e, (TimeoutError, ConnectionError)):
+        raise ObjectStoreTransientError from e
     raise e
 
 
