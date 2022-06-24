@@ -374,8 +374,6 @@ def get_file(
             progress_bar=progress_bar,
         )
     except FileNotFoundError as e:
-        if path.endswith('.symlink'):
-            raise e
         new_path = path + '.symlink'
         try:
             # Follow the symlink
