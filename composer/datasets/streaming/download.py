@@ -45,7 +45,7 @@ def download_from_sftp(remote: str, local: str) -> None:
         local (str): Local path (local filesystem).
     """
     try:
-        from paramiko import AutoAddPolicy, RSAKey, SSHClient, SSHConfig
+        from paramiko import AutoAddPolicy, SSHClient
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='paramiko') from e
 
@@ -61,24 +61,12 @@ def download_from_sftp(remote: str, local: str) -> None:
     port = url.port
     username = url.username
     password = url.password
-    key_filename = None
     remote_path = url.path
 
-    # Parse SSH Config if it exists
-    config = SSHConfig.from_path(os.path.abspath('/Users/abhinav/.ssh/config'))
-    host_config = config.lookup(hostname)
-    if 'hostname' in host_config:
-        hostname = host_config['hostname']
-    if 'port' in host_config:
-        port = host_config['port']
-    if 'user' in host_config:
-        username = host_config['user']
-    if 'password' in host_config:
-        password = host_config['password']
-    if 'identityfile' in host_config:
-        key_filename = host_config['identityfile'][0]
+    # Get SSH key file if specified
+    key_filename = os.environ.get('COMPOSER_SFTP_KEY_FILE', None)
 
-    # Defaults
+    # Default port
     port = port if port else 22
 
     # Local tmp

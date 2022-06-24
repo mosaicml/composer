@@ -29,6 +29,17 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
             'class': StreamingADE20k,
             'kwargs': {},
         },
+        'ade20k_sftp': {
+            'remote':
+                'sftp://mosaicml-test@s-d26bfe922c2141cca.server.transfer.us-west-2.amazonaws.com:22/mosaicml-internal-dataset-ade20k/mds/1',
+            'num_samples': {
+                'train': 20206,
+                'val': 2000,
+            },
+            'class':
+                StreamingADE20k,
+            'kwargs': {},
+        },
         'imagenet1k': {
             'remote': 's3://mosaicml-internal-dataset-imagenet1k/mds/1/',
             'num_samples': {
@@ -85,6 +96,7 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
 @pytest.mark.filterwarnings(r'ignore::pytest.PytestUnraisableExceptionWarning')
 @pytest.mark.parametrize('name', [
     'ade20k',
+    'ade20k_sftp',
     'imagenet1k',
     'coco',
     'cifar10',
