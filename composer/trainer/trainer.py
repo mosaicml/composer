@@ -367,10 +367,10 @@ class Trainer:
             metrics returned by ``model.metrics()`` will be used during evaluation.
             ``None`` results in no evaluation. (default: ``None``)
         eval_interval (int | str | Time | (State, Event) -> bool, optional): Specifies how frequently to run evaluation.
-            An integer, which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time` 
+            An integer, which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time`
             object, or a callable.
              Defaults to ``1`` (evaluate every epoch).
-            
+
             If an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the evaluator will be run
             with this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of
             :attr:`.TimeUnit.BATCH` or :attr:`.TimeUnit.EPOCH`.
@@ -1973,7 +1973,7 @@ class Trainer:
                 self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
                 metrics.update(self.state.outputs, targets)
-                
+
                 now = datetime.datetime.now()
                 batch_time = now - last_wct
 

@@ -55,19 +55,19 @@ class TensorboardLogger(LoggerDestination):
                  rank_zero_only: bool = True,
                  log_level: LogLevel = LogLevel.BATCH):
 
+        self.log_dir = log_dir
         self.artifact_name = artifact_name
         self.flush_interval = flush_interval
-        self.log_dir = log_dir
-        self.writer: SummaryWriter
         self.rank_zero_only = rank_zero_only
         self.log_level = log_level
+        self.writer: SummaryWriter
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         del log_level
 
         if (not self.rank_zero_only) or dist.get_global_rank() == 0:
             for tag, data_point in data.items():
-                if isinstance(data_point, str): # Will error out with weird caffe2 import error.
+                if isinstance(data_point, str):  # Will error out with weird caffe2 import error.
                     continue
                 try:
                     self.writer.add_scalar(tag, data_point, global_step=int(state.timestamp.batch))
@@ -92,7 +92,7 @@ class TensorboardLogger(LoggerDestination):
     def eval_start(self, state: State, logger: Logger) -> None:
         # Flush any log calls that occurred during INIT when using the trainer in eval-only mode
         self._flush(logger)
-    
+
     def eval_end(self, state: State, logger: Logger) -> None:
         # Flush any log calls that occurred during INIT when using the trainer in eval-only mode
         self._flush(logger)
