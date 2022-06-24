@@ -318,30 +318,29 @@ stage('Build') {
         Boolean shouldPushToDestinations = isMergeCommit && gitBranch == baseBranch
         String label = buildArgs['TAGS'][0]
 
+        Boolean shouldBuildImage = didDockerChange  // Always build the image if the ./docker folder changed
+
         if (!shouldPushToDestinations) {
             buildArgs['TAGS'] = []
         }
 
-        if (isComposerImage) {
-            if (!buildArgs['COMPOSER_INSTALL_COMMAND'].contains('==')) {
-                // If this is a composer image and it is the latest tag, skip it -- build the versioned tag instead
-                return
-            }
+        if (isComposerImage && buildArgs['COMPOSER_INSTALL_COMMAND'] == 'mosaicml[all]GIT_COMMIT') {
+            // If this is a composer image and it is the 'GIT_COMMIT' entry in the matrix
+            // then build and publish the image on the staging repo
             if (!isMergeCommit) {
                 // Skip composer images except on merge commits -- it's slow!
-                return
+                // return  // TODO (ravi) -- uncomment this line
             }
-            // Then set the install command to the git commit string, and build and push it to
-            // the mosaicml/composer_staging repo
             String stagingTagName = "mosaicml/composer_staging:${gitCommitHash[0..6]}"
             if (!buildArgs['CUDA_VERSION']) {
                 stagingTagName += '_cpu'
             }
             buildArgs['COMPOSER_INSTALL_COMMAND'] = "mosaicml[all] @ git+https://github.com/mosaicml/composer.git@${gitCommitHash}"
             buildArgs['TAGS'] << stagingTagName
+            shouldBuildImage = true  // always build the image if it's a composer image
         }
 
-        if (didDockerChange || isComposerImage) {
+        if (shouldBuildImage) {
             String stagingImageTag = generateStagingImageTag()
             buildArgs['TAGS'] << stagingImageTag
             String kanikoCommand = getKanikoCommand(buildArgs)
@@ -372,7 +371,7 @@ stage('Build') {
                 }
             }]
         }
-        else {
+        else if (!isComposerImage) {
             // If not rebuilding the docker image, and it's not a composer image, then run CPU tests acorss all images,
             // and run GPU tests only on the "latest" image
             // Only run tests on the 'mosaicml/pytorch' or 'mosaicml/pytorch_vision' images -- not 'mosaicml/composer'
