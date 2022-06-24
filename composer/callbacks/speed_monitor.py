@@ -62,10 +62,6 @@ class SpeedMonitor(Callback):
     """
 
     def __init__(self, window_size: int = 100):
-        # Track the epoch num samples and wct to compute throughput over the entire epoch
-        self.epoch_start_num_samples = 0
-        self.epoch_start_wct = 0.0
-
         # Track the batch num samples and wct to compute throughput over a window of batches
         self.batch_start_num_samples = 0
         self.batch_start_wct = 0.0
@@ -78,8 +74,6 @@ class SpeedMonitor(Callback):
 
     def state_dict(self) -> Dict[str, Any]:
         return {
-            'epoch_start_num_samples': self.epoch_start_num_samples,
-            'epoch_start_wct': self.epoch_start_wct,
             'batch_start_num_samples': self.batch_start_num_samples,
             'batch_start_wct': self.batch_start_wct,
             'batch_wct_buffer': self.batch_wct_buffer,
@@ -90,8 +84,6 @@ class SpeedMonitor(Callback):
         }
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
-        self.epoch_start_num_samples = state['epoch_start_num_samples']
-        self.epoch_start_wct = state['epoch_start_wct']
         self.batch_start_num_samples = state['batch_start_num_samples']
         self.batch_start_wct = state['batch_start_wct']
         self.batch_wct_buffer = deque(
@@ -103,11 +95,6 @@ class SpeedMonitor(Callback):
             maxlen=self.window_size,
         )
         self.total_eval_wct = state['total_eval_wct']
-
-    def epoch_start(self, state: State, logger: Logger):
-        del logger  # unused
-        self.epoch_start_wct = state.timestamp.total_wct.total_seconds()
-        self.epoch_start_num_samples = int(state.timestamp.sample)
 
     def batch_start(self, state: State, logger: Logger) -> None:
         del logger  # unused
