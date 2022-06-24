@@ -88,7 +88,10 @@ def test_reader(remote_local: Tuple[str, str], batch_size: int, share_remote_loc
     remote, local = remote_local
     if share_remote_local:
         local = remote
-    write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
+    write_synthetic_streaming_dataset(dirname=remote,
+                                      samples=samples,
+                                      shard_size_limit=shard_size_limit,
+                                      compression=None)
 
     # Build StreamingDataset
     dataset = StreamingDataset(remote=remote, local=local, shuffle=shuffle, decoders=decoders, batch_size=batch_size)
@@ -160,7 +163,10 @@ def test_reader_getitem(remote_local: Tuple[str, str], share_remote_local: bool)
     remote, local = remote_local
     if share_remote_local:
         local = remote
-    write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
+    write_synthetic_streaming_dataset(dirname=remote,
+                                      samples=samples,
+                                      shard_size_limit=shard_size_limit,
+                                      compression=None)
 
     # Build StreamingDataset
     dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders)
