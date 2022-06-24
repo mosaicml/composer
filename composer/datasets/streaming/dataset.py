@@ -203,7 +203,7 @@ class StreamingDataset(IterableDataset):
             # If this worker is in charge of downloading the shard, download it.
             # Otherwise, wait until shard gets downloaded by another worker on this node
             # This produces deterministic sample order.
-            basename = get_shard_basename(shard, compression_scheme=self.compression_scheme)
+            basename = get_shard_basename(shard, compression_name=self.compression_scheme)
             self._download_file(basename, wait=(shard not in part_shards_to_download))
             self._insert_shard_samples(shard, part_min_id, part_max_id)
 

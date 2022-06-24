@@ -6,6 +6,7 @@ import os
 import pathlib
 import shutil
 import time
+from filecmp import dircmp
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -25,6 +26,15 @@ def remote_local(tmp_path: pathlib.Path) -> Tuple[str, str]:
     return str(remote), str(local)
 
 
+@pytest.fixture
+def compressed_remote_local(tmp_path: pathlib.Path) -> Tuple[str, str, str]:
+    compressed = tmp_path / 'compressed'
+    remote = tmp_path / 'remote'
+    local = tmp_path / 'local'
+    list(x.mkdir() for x in [compressed, remote, local])
+    return tuple(str(x) for x in [compressed, remote, local])
+
+
 def get_fake_samples_decoders(num_samples: int) -> Tuple[List[Dict[str, bytes]], Dict[str, Callable[[bytes], Any]]]:
     samples = [{'uid': f'{ix:06}'.encode('utf-8'), 'data': (3 * ix).to_bytes(4, 'big')} for ix in range(num_samples)]
     decoders = {
@@ -34,8 +44,10 @@ def get_fake_samples_decoders(num_samples: int) -> Tuple[List[Dict[str, bytes]],
     return samples, decoders
 
 
-def write_synthetic_streaming_dataset(dirname: str, samples: List[Dict[str, bytes]], shard_size_limit: int,
-                                      compression: Optional[str]) -> None:
+def write_synthetic_streaming_dataset(dirname: str,
+                                      samples: List[Dict[str, bytes]],
+                                      shard_size_limit: int,
+                                      compression: Optional[str] = StreamingDatasetWriter.default_compression) -> None:
     first_sample_fields = list(samples[0].keys())
     with StreamingDatasetWriter(dirname=dirname,
                                 fields=first_sample_fields,
@@ -47,9 +59,7 @@ def write_synthetic_streaming_dataset(dirname: str, samples: List[Dict[str, byte
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize('num_samples', [100, 10000])
 @pytest.mark.parametrize('shard_size_limit', [1 << 8, 1 << 16, 1 << 24])
-@pytest.mark.parametrize('compression', [None, 'gz:5', 'gz'])
-def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limit: int,
-                compression: Optional[str]) -> None:
+def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limit: int) -> None:
     dirname, _ = remote_local
     samples, _ = get_fake_samples_decoders(num_samples)
 
@@ -61,10 +71,7 @@ def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limi
     expected_num_shards = math.ceil(num_samples / expected_samples_per_shard)
     expected_num_files = expected_num_shards + 1 + 1  # the index file and compression metadata file
 
-    write_synthetic_streaming_dataset(dirname=dirname,
-                                      samples=samples,
-                                      shard_size_limit=shard_size_limit,
-                                      compression=compression)
+    write_synthetic_streaming_dataset(dirname=dirname, samples=samples, shard_size_limit=shard_size_limit)
     files = os.listdir(dirname)
 
     assert len(files) == expected_num_files, f'Files written ({len(files)}) != expected ({expected_num_files}).'
@@ -74,19 +81,14 @@ def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limi
 @pytest.mark.parametrize('batch_size', [None, 1, 2])
 @pytest.mark.parametrize('share_remote_local', [False, True])
 @pytest.mark.parametrize('shuffle', [False, True])
-@pytest.mark.parametrize('compression', [None, 'gz:5', 'gz'])
-def test_reader(remote_local: Tuple[str, str], batch_size: int, share_remote_local: bool, shuffle: bool,
-                compression: Optional[str]) -> None:
+def test_reader(remote_local: Tuple[str, str], batch_size: int, share_remote_local: bool, shuffle: bool) -> None:
     num_samples = 117
     shard_size_limit = 1 << 8
     samples, decoders = get_fake_samples_decoders(num_samples)
     remote, local = remote_local
     if share_remote_local:
         local = remote
-    write_synthetic_streaming_dataset(dirname=remote,
-                                      samples=samples,
-                                      shard_size_limit=shard_size_limit,
-                                      compression=compression)
+    write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
 
     # Build StreamingDataset
     dataset = StreamingDataset(remote=remote, local=local, shuffle=shuffle, decoders=decoders, batch_size=batch_size)
@@ -119,9 +121,8 @@ def test_reader(remote_local: Tuple[str, str], batch_size: int, share_remote_loc
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize('created_ago', [0.5, 3])
 @pytest.mark.parametrize('timeout', [1])
-@pytest.mark.parametrize('compression', [None, 'gz:5', 'gz'])
-def test_reader_after_crash(remote_local: Tuple[str, str], created_ago: float, timeout: float,
-                            compression: Optional[str]) -> None:
+def test_reader_after_crash(remote_local: Tuple[str, str], created_ago: float, timeout: float) -> None:
+    compression = StreamingDatasetWriter.default_compression
     compression_ext = f'.{compression.split(":")[0]}' if compression is not None else ''
     num_samples = 117
     shard_size_limit = 1 << 8
@@ -152,18 +153,14 @@ def test_reader_after_crash(remote_local: Tuple[str, str], created_ago: float, t
         pytest.param(False, marks=pytest.mark.xfail(reason='__getitem__ currently expects shards to exist')),
     ],
 )
-@pytest.mark.parametrize('compression', [None, 'gz:5', 'gz'])
-def test_reader_getitem(remote_local: Tuple[str, str], share_remote_local: bool, compression: Optional[str]) -> None:
+def test_reader_getitem(remote_local: Tuple[str, str], share_remote_local: bool) -> None:
     num_samples = 117
     shard_size_limit = 1 << 8
     samples, decoders = get_fake_samples_decoders(num_samples)
     remote, local = remote_local
     if share_remote_local:
         local = remote
-    write_synthetic_streaming_dataset(dirname=remote,
-                                      samples=samples,
-                                      shard_size_limit=shard_size_limit,
-                                      compression=compression)
+    write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
 
     # Build StreamingDataset
     dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders)
@@ -187,17 +184,13 @@ def test_reader_getitem(remote_local: Tuple[str, str], share_remote_local: bool,
         )),
 ])
 @pytest.mark.parametrize('shuffle', [False, True])
-@pytest.mark.parametrize('compression', [None, 'gz:5', 'gz'])
 def test_dataloader_single_device(remote_local: Tuple[str, str], batch_size: int, drop_last: bool, num_workers: int,
-                                  persistent_workers: bool, shuffle: bool, compression: Optional[str]):
+                                  persistent_workers: bool, shuffle: bool):
     num_samples = 31
     shard_size_limit = 1 << 6
     samples, decoders = get_fake_samples_decoders(num_samples)
     remote, local = remote_local
-    write_synthetic_streaming_dataset(dirname=remote,
-                                      samples=samples,
-                                      shard_size_limit=shard_size_limit,
-                                      compression=compression)
+    write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
 
     # Build StreamingDataset
     dataset = StreamingDataset(remote=remote, local=local, shuffle=shuffle, decoders=decoders, batch_size=batch_size)
@@ -263,9 +256,8 @@ def test_dataloader_single_device(remote_local: Tuple[str, str], batch_size: int
 @pytest.mark.parametrize('num_samples', [30, 31])
 @pytest.mark.parametrize('num_workers', [1, 3])
 @pytest.mark.parametrize('shuffle', [False, True])
-@pytest.mark.parametrize('compression', [None, 'gz:5', 'gz'])
 def test_dataloader_multi_device(remote_local: Tuple[str, str], batch_size: int, drop_last: bool, multinode: bool,
-                                 num_samples: int, num_workers: int, shuffle: bool, compression: Optional[str]):
+                                 num_samples: int, num_workers: int, shuffle: bool):
 
     if multinode:
         # Force different nodes
@@ -291,10 +283,7 @@ def test_dataloader_multi_device(remote_local: Tuple[str, str], batch_size: int,
 
     # Create remote dataset on global device 0
     if global_device == 0:
-        write_synthetic_streaming_dataset(dirname=remote,
-                                          samples=samples,
-                                          shard_size_limit=shard_size_limit,
-                                          compression=compression)
+        write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
     dist.barrier()
 
     # Build StreamingDataset
@@ -363,3 +352,35 @@ def test_dataloader_multi_device(remote_local: Tuple[str, str], batch_size: int,
         assert sample_order != second_sample_order
     else:
         assert sample_order == second_sample_order
+
+
+@pytest.mark.timeout(10)
+@pytest.mark.parametrize('compression', [None, 'gz', 'gz:5'])
+def test_compression(compressed_remote_local: Tuple[str, str, str], compression: Optional[str]):
+    num_samples = 31
+    shard_size_limit = 1 << 6
+    shuffle = True
+    compressed, remote, local = compressed_remote_local
+    samples, decoders = get_fake_samples_decoders(num_samples)
+
+    write_synthetic_streaming_dataset(dirname=compressed,
+                                      samples=samples,
+                                      shard_size_limit=shard_size_limit,
+                                      compression=compression)
+    write_synthetic_streaming_dataset(dirname=remote,
+                                      samples=samples,
+                                      shard_size_limit=shard_size_limit,
+                                      compression=None)
+
+    dataset = StreamingDataset(remote=compressed, local=local, shuffle=shuffle, decoders=decoders)
+
+    list(x for x in dataset)  # download samples
+
+    dcmp = dircmp(remote, local)
+
+    def check_for_diff_files(dir: dircmp):
+        assert len(dir.diff_files) == 0
+        for subdir in dir.subdirs:
+            check_for_diff_files(subdir)
+
+    check_for_diff_files(dcmp)

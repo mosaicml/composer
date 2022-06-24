@@ -6,8 +6,9 @@
 
 import gzip as gz
 import os
+from io import BufferedWriter
 from types import TracebackType
-from typing import Dict, Iterable, List, Optional, Type
+from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
 import numpy as np
 from tqdm import tqdm
@@ -16,6 +17,24 @@ from composer.datasets.streaming.format import (StreamingDatasetIndex, get_compr
                                                 get_index_basename, get_shard_basename, sample_dict_to_bytes)
 
 __all__ = ['StreamingDatasetWriter']
+
+
+def _parse_compression_args(compression: Optional[str]) -> Dict[str, Any]:
+    """Sets compression settings for the given compression algorithm
+
+    Args:
+        compression (str, optional): Compression algorithm and optional compression level. Currently supported: 'gz', 'gz:[1-9]' or None.
+    """
+    if compression is None:
+        return {'name': None}
+
+    elif compression.startswith('gz'):
+        default_compression_level = 6
+        compression += f':{default_compression_level}'
+        return {'name': 'gz', 'compresslevel': int(compression.split(':')[1])}
+
+    else:
+        raise NotImplementedError('Unknown compression algorithm')
 
 
 class StreamingDatasetWriter(object):
@@ -61,14 +80,16 @@ class StreamingDatasetWriter(object):
         dirname (str): Directory to write shards to.
         fields: (List[str]): The fields to save for each sample.
         shard_size_limit (int): Maximum shard size in bytes. Default: `1 << 24`.
-        compression (Optional[str]): Compression algorithm and optional compression level. Currently supported: 'gz', 'gz:[1-9]' or None.
+        compression (str, optional): Compression algorithm and optional compression level. Currently supported: 'gz', 'gz:[1-9]' or None. Defaults to 'gz:6'.
     """
+
+    default_compression = 'gz'
 
     def __init__(self,
                  dirname: str,
                  fields: List[str],
                  shard_size_limit: int = 1 << 24,
-                 compression: Optional[str] = 'gz') -> None:
+                 compression: Optional[str] = default_compression) -> None:
         if len(fields) != len(set(fields)):
             raise ValueError(f'fields={fields} must be unique.')
         if shard_size_limit <= 0:
@@ -89,36 +110,25 @@ class StreamingDatasetWriter(object):
         self.new_shard_size = 0
 
         # compression scheme for shards
-        self.compression_scheme = None
-        self.open_f = lambda n: open(n, 'xb')
-        self._set_compression_settings(compression)
+        self.compression_scheme = _parse_compression_args(compression)
 
-    def _set_compression_settings(self, compression: Optional[str]):
-        """Sets compression settings for the given compression algorithm
+    def _create_binary_file(self, fname: str) -> Union[BufferedWriter, gz.GzipFile]:
+        """opens a (potentially compressed) file in binary mode"""
 
-        Args:
-            compression (str): Compression algorithm and optional compression level. Currently supported: 'gz', 'gz:[1-9]' or None.
-        """
-        gz_compression_level = 6
-        if compression is not None:
-            compression_args = compression.split(':')
-            self.compression_scheme = compression_args[0]
-            if self.compression_scheme == 'gz' and len(compression_args) > 1:
-                gz_compression_level = int(compression_args[1])
-
+        if self.compression_scheme['name'] == 'gz':
+            return gz.open(fname, 'xb', compresslevel=self.compression_scheme['compresslevel'])
+        elif self.compression_scheme['name'] == None:
+            return open(fname, 'xb')
         else:
-            self.compression_scheme = None
-
-        if self.compression_scheme == 'gz':
-            self.open_f = lambda n: gz.open(n, 'xb', compresslevel=gz_compression_level)
+            raise NotImplementedError('unknown compression algorithm')
 
     def _flush_shard(self) -> None:
         """Flush cached samples to a new dataset shard."""
         shard = len(self.samples_per_shard)
-        basename = get_shard_basename(shard, compression_scheme=self.compression_scheme)
+        basename = get_shard_basename(shard, compression_name=self.compression_scheme['name'])
         filename = os.path.join(self.dirname, basename)
 
-        with self.open_f(filename) as out:
+        with self._create_binary_file(filename) as out:
             for data in self.new_samples:
                 out.write(data)
 
@@ -133,18 +143,18 @@ class StreamingDatasetWriter(object):
             raise RuntimeError('Attempted to write compression metadata file while samples are still being processed.')
         filename = os.path.join(self.dirname, get_compression_scheme_basename())
         with open(filename, 'x') as out:
-            out.write(self.compression_scheme if self.compression_scheme is not None else '')
+            out.write(self.compression_scheme['name'] if self.compression_scheme['name'] is not None else '')
 
     def _write_index(self) -> None:
         """Save dataset index file."""
         if self.new_samples:
             raise RuntimeError('Attempted to write index file while samples are still being processed.')
-        filename = os.path.join(self.dirname, get_index_basename(self.compression_scheme))
+        filename = os.path.join(self.dirname, get_index_basename(self.compression_scheme['name']))
         samples_per_shard = np.array(self.samples_per_shard, np.int64)
         bytes_per_shard = np.array(self.bytes_per_shard, np.int64)
         bytes_per_sample = np.array(self.bytes_per_sample, np.int64)
         index = StreamingDatasetIndex(samples_per_shard, bytes_per_shard, bytes_per_sample, self.fields)
-        with self.open_f(filename) as out:
+        with self._create_binary_file(filename) as out:
             index.dump(out)
 
     def write_sample(self, sample: Dict[str, bytes]) -> None:

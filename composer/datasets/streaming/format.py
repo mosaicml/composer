@@ -48,32 +48,32 @@ def get_compression_scheme_basename() -> str:
     return 'compression.txt'
 
 
-def get_index_basename(compression_scheme: Optional[str] = None) -> str:
+def get_index_basename(compression_name: Optional[str] = None) -> str:
     """Get the basename for a streaming dataset index.
 
     Args:
-        compression_scheme (Optional[str]): compression extension of index file
+        compression_name (Optional[str]): compression extension of index file
 
     Returns:
         str: Basename of file.
     """
-    compression_scheme = '.' + compression_scheme if compression_scheme is not None else ''
-    return f'index.mds{compression_scheme}'
+    compression_name = '.' + compression_name if compression_name is not None else ''
+    return f'index.mds{compression_name}'
 
 
-def get_shard_basename(shard: int, compression_scheme: Optional[str] = None) -> str:
+def get_shard_basename(shard: int, compression_name: Optional[str] = None) -> str:
     """Get the basename for a streaming dataset shard.
 
     Args:
         shard (int): Shard index.
-        compression_scheme (Optional[str]): compression extension of shard file
+        compression_name (Optional[str]): compression extension of shard file
 
     Returns:
         str: Basename of file.
-        compression_scheme (Optional[str]): the compression scheme
+        compression_name (Optional[str]): the compression scheme
     """
-    compression_scheme = '.' + compression_scheme if compression_scheme is not None else ''
-    return f'{shard:06}.mds{compression_scheme}'
+    compression_name = '.' + compression_name if compression_name is not None else ''
+    return f'{shard:06}.mds{compression_name}'
 
 
 def sample_dict_to_bytes(obj: Dict[str, bytes], keys: List[str]) -> bytes:

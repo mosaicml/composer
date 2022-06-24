@@ -97,18 +97,6 @@ def dispatch_download(remote, local, timeout: float):
         timeout (float): How long to wait for file to download before raising an exception.
     """
 
-    def dispatch_decompress(local, local_decompressed, compression_scheme):
-        """ Decompresses file, if necessary, otherwise does nothing. """
-        tempfile = local_decompressed + '.tmp'
-        if compression_scheme == 'gz':
-            with gzip.open(local, 'rb') as gzipfile:
-                with open(tempfile, 'xb') as dest_file:
-                    shutil.copyfileobj(gzipfile, dest_file)
-        else:
-            raise NotImplementedError
-        os.rename(tempfile, local_decompressed)
-        os.remove(local)
-
     local_decompressed, compression_scheme = split_compression_suffix(local)
     if os.path.exists(local_decompressed):
         return
@@ -124,7 +112,15 @@ def dispatch_download(remote, local, timeout: float):
         download_from_local(remote, local)
 
     if compression_scheme is not None:
-        dispatch_decompress(local, local_decompressed, compression_scheme)
+        tempfile = local_decompressed + '.tmp'
+        if compression_scheme == 'gz':
+            with gzip.open(local, 'rb') as gzipfile:
+                with open(tempfile, 'xb') as dest_file:
+                    shutil.copyfileobj(gzipfile, dest_file)
+        else:
+            raise NotImplementedError
+        os.rename(tempfile, local_decompressed)
+        os.remove(local)
 
 
 def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: int = 2, timeout: float = 60) -> None:
