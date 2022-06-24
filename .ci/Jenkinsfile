@@ -7,13 +7,14 @@ pCloud = 'colo-research-01' // name of the jenkins cloud to use
 gitUrl = null
 gitBranch = null
 gitCommit = null
+gitCommitHash = null
 baseBranch = 'dev'  // the branch on which merge-commits should be pushed to dockerhub
 
 // Docker build settings
 pytorchDockerBuildMatrix = null // The pytorch docker build matrix
 didDockerChange = false
 dockerBuildCpuLimit = '4'
-dockerBuildMemLimit = '40Gi'
+dockerBuildMemLimit = '50Gi'
 dockerBuildTimeout = '7200'  // timeout for docker builds, in seconds. Builds from scratch can be slow.
 // must use the kaniko debug image, as Jenkins needs shell access
 // see https://github.com/GoogleContainerTools/kaniko#debug-image
@@ -299,6 +300,7 @@ stage('Prepare') {
         gitUrl = loadedSCM.GIT_URL
         gitBranch = loadedSCM.GIT_BRANCH
         gitCommit = loadedSCM.GIT_COMMIT
+        gitCommitHash = loadedSCM.GIT_COMMIT
 
         if (env.CHANGE_ID) {
             // Use the origin/pr/PR_NUMBER/merge to support commits in external repos
@@ -335,17 +337,37 @@ stage('Build') {
         String stagingImage = entry[2]  // stagingImage is where the built docker image is always pushed
         // buildArgs contains the entry from the build matrix. It has the format [{key: key, value: value}, ...].
         def buildArgs = entry[3]
+        Boolean isComposerImage = buildArgs['TARGET'] == 'composer_stage'
 
-        if (didDockerChange) {
             // If changing docker, build the docker images first
             // Then, run pytest in the newly-built image
 
-            Boolean shouldPushToDestinations = isMergeCommit && gitBranch == baseBranch
+        Boolean shouldPushToDestinations = isMergeCommit && gitBranch == baseBranch
 
-            if (shouldPushToDestinations) {
-                kanikoCommand = "$kanikoCommand $destinations"
+        if (shouldPushToDestinations) {
+            kanikoCommand = "$kanikoCommand $destinations"
+        }
+
+        if (isComposerImage) {
+            if (!buildArgs['COMPOSER_INSTALL_COMMAND'].contains('==')) {
+                // If this is a composer image and it is the latest tag, skip it -- we'll build the versioned tag instead
+                return
             }
+            if (!isMergeCommit) {
+                // Skip composer images except on merge commits -- it's slow!
+                return
+            }
+            // Then set the install command to the git commit string, and build and push it to
+            // the mosaicml/composer_staging repo
+            String stagingTagName = "mosaicml/composer_staging:${gitCommitHash[0..6]}"
+            if (!buildArgs['CUDA_VERSION']) {
+                stagingTagName += '_cpu'
+            }
+            buildArgs['COMPOSER_INSTALL_COMMAND'] = "mosaicml[all] @ git+https://github.com/mosaicml/composer.git@${gitCommitHash}"
+            kanikoCommand = "$kanikoCommand --destination $stagingTagName"
+        }
 
+        if (didDockerChange || isComposerImage) {
             jobs << [ "$buildArgs": { ->
                 trackBuild(
                     job: jenkinsShellJobName,
@@ -363,14 +385,7 @@ stage('Build') {
                         booleanParam(name: 'P_MOUNT_KANIKO_CREDENTIALS', value: true),
                     ]
                 )
-                Boolean isPyTorchImage = false
-
-                buildArgs['TAGS'].each { tag ->
-                    if (tag.startsWith('mosaicml/pytorch')) {
-                        isPyTorchImage = true
-                    }
-                }
-                if (isPyTorchImage) {
+                if (!isComposerImage) {
                     // Only run tests on the 'mosaicml/pytorch' or 'mosaicml/pytorch_vision' images,
                     // not 'mosaicml/composer'
                     def subJobs = [:]
@@ -384,23 +399,19 @@ stage('Build') {
             }]
         }
         else {
-            // If not rebuilding the docker image, then run CPU tests acorss all images,
+            // If not rebuilding the docker image, and it's not a composer image, then run CPU tests acorss all images,
             // and run GPU tests only on the "latest" image
             // Only run tests on the 'mosaicml/pytorch' or 'mosaicml/pytorch_vision' images -- not 'mosaicml/composer'
             Boolean isCpuImage = buildArgs['CUDA_VERSION'] == ''
             Boolean shouldRunGpuTests = false
-            Boolean isPyTorchImage = false
 
             buildArgs['TAGS'].each { tag ->
                 if (pytestGpuImageTagsToTest.contains(tag)) {
                     shouldRunGpuTests = true
                 }
-                if (tag.startsWith('mosaicml/pytorch')) {
-                    isPyTorchImage = true
-                }
             }
 
-            if ((isCpuImage || shouldRunGpuTests) && isPyTorchImage) {
+            if (isCpuImage || shouldRunGpuTests) {
                 String existingImageTag = buildArgs['TAGS'][0]
                 scheduleJob(jobs, existingImageTag, buildArgs)
             }
