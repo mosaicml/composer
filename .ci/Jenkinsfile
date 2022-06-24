@@ -102,57 +102,46 @@ Boolean isPathModified(...prefixes) {
     return false
 }
 
-def getDockerBuildMatrix(String buildConfigYamlPath, String buildContext, String dockerfile) {
-    /*
-    Generates a build matrix from the given yaml file
-    For each entry in the matrix, it returns a tuple of
-    (
-        (str) base kaniko command,
-        (str) destinations. To push the image to these destinations, append this string to the base kaniko command.
-        (str) the staging image to where the base kaniko command always pushes
-        (list) a list of (key, value) pairs of build args
-    )
-    */
-
-    def buildMatrix = readYaml(file: buildConfigYamlPath)
-
-    return buildMatrix.collect { buildArgs ->
-
-        def cliArgsList = []
-        def tags = []
-
-        buildArgs.each { key, val ->
-            if (key == 'TAGS') {
-                val.each { tag ->
-                    tags << tag
-                }
-                return
-            }
-            if (key == 'TARGET') {
-                cliArgsList << "--target '$val'"
-                return
-            }
-            cliArgsList << "--build-arg '$key=$val'"
-        }
-        String cliArgs = cliArgsList.join(' ')
-        String stagingTag = UUID.randomUUID()
-        cliArgs = "$cliArgs --dockerfile $dockerfile --context $buildContext"
-        cliArgs = "$cliArgs --destination ${stagingDockerRepo}:${stagingTag}"
-        String destinations = ""
-        for (tag in tags) {
-            destinations = "$destinations --destination $tag"
-        }
-
-        if (cliArgs.contains(cacheRepo)) {
-            error("The kaniko args should not ever attempt to push images to the cache repo, ${cacheRepo}")
-        }
-
-        String kanikoCommand = "/kaniko/executor --cache=true --cache-repo=${cacheRepo} ${cliArgs} --cleanup"
-        String stagingImage = "${stagingDockerRepo}:${stagingTag}"
-
-        return [kanikoCommand, destinations, stagingImage, buildArgs]
-    }
+String generateStagingImage() {
+    // Generates a staging image tag
+    String stagingTag = UUID.randomUUID()
+    String stagingImage = "${stagingDockerRepo}:${stagingTag}"
+    return stagingImage
 }
+
+def getKanikoCommand(buildArgs) {
+    // Constructs a kaniko command from the buildArgs
+    def cliArgsList = []
+    def tags = []
+     buildArgs.each { key, val ->
+        if (key == 'TAGS') {
+            val.each { tag ->
+                tags << tag
+            }
+            return
+        }
+        if (key == 'TARGET') {
+            cliArgsList << "--target '$val'"
+            return
+        }
+        cliArgsList << "--build-arg '$key=$val'"
+    }
+    String cliArgs = cliArgsList.join(' ')
+
+    cliArgs = "$cliArgs --dockerfile Dockerfile --context ./docker"
+    String destinations = ""
+    for (tag in tags) {
+        destinations = "$destinations --destination $tag"
+    }
+
+    if (cliArgs.contains(cacheRepo)) {
+        error("The kaniko args should not ever attempt to push images to the cache repo, ${cacheRepo}")
+    }
+
+    String kanikoCommand = "/kaniko/executor --cache=true --cache-repo=${cacheRepo} ${cliArgs} --cleanup"
+    return kanikoCommand
+}
+
 
 void trackBuild(Map buildArgs) {
     // 1. Run a build() command, but manually echo a link to the spawned job, since it may not show up
@@ -311,12 +300,8 @@ stage('Prepare') {
         echo "gitBranch: $gitBranch"
         echo "gitCommit: $gitCommit"
 
-        didDockerChange = isPathModified('docker/')
-
-        String dockerfile = 'Dockerfile'
-        String buildContext = './docker'
-        String buildMatrix = './docker/build_matrix.yaml'
-        pytorchDockerBuildMatrix = getDockerBuildMatrix(buildMatrix, buildContext, dockerfile)
+        didDockerChange = true  // TODO(Ravi) Unset this hardcode. isPathModified('docker/')
+        pytorchDockerBuildMatrix = readYaml(file:  './docker/build_matrix.yaml')
 
         // Keep track of whether dependencies changed, in which case a conda build should be tested
         dependenciesChanged = isPathModified('setup.py') || isPathModified('meta.yaml')
@@ -330,22 +315,13 @@ stage('Build') {
         isMergeCommit = false
     }
 
-    pytorchDockerBuildMatrix.each { entry ->
-        // Extract the values from the buildMatrix
-        String kanikoCommand = entry[0]  // kanikoCommand is the command to run
-        String destinations = entry[1]  // The destinations to append to the kanikoCommand to push the image
-        String stagingImage = entry[2]  // stagingImage is where the built docker image is always pushed
-        // buildArgs contains the entry from the build matrix. It has the format [{key: key, value: value}, ...].
-        def buildArgs = entry[3]
+    pytorchDockerBuildMatrix.each { buildArgs ->
         Boolean isComposerImage = buildArgs['TARGET'] == 'composer_stage'
-
-            // If changing docker, build the docker images first
-            // Then, run pytest in the newly-built image
-
         Boolean shouldPushToDestinations = isMergeCommit && gitBranch == baseBranch
+        String label = buildArgs['TAGS'][0]
 
-        if (shouldPushToDestinations) {
-            kanikoCommand = "$kanikoCommand $destinations"
+        if (!shouldPushToDestinations) {
+            buildArgs['TAGS'].clear()
         }
 
         if (isComposerImage) {
@@ -355,7 +331,7 @@ stage('Build') {
             }
             if (!isMergeCommit) {
                 // Skip composer images except on merge commits -- it's slow!
-                return
+                // return // TODO(ravi) Uncomment this line
             }
             // Then set the install command to the git commit string, and build and push it to
             // the mosaicml/composer_staging repo
@@ -368,7 +344,10 @@ stage('Build') {
         }
 
         if (didDockerChange || isComposerImage) {
-            jobs << [ "$buildArgs": { ->
+            String stagingImage = generateStagingImage()
+            buildArgs['TAGS'] << stagingImage
+            String kanikoCommand = getKanikoCommand(buildArgs)
+            jobs << [ "${label}": { ->
                 trackBuild(
                     job: jenkinsShellJobName,
                     parameters: [
