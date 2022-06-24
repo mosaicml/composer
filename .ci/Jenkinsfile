@@ -329,7 +329,7 @@ stage('Build') {
             }
             if (!isMergeCommit) {
                 // Skip composer images except on merge commits -- it's slow!
-                // return // TODO(ravi) Uncomment this line
+                return
             }
             // Then set the install command to the git commit string, and build and push it to
             // the mosaicml/composer_staging repo
