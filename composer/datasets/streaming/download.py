@@ -17,6 +17,7 @@ __all__ = ['download_or_wait']
 
 def download_from_s3(remote: str, local: str, timeout: float) -> None:
     """Download a file from remote to local.
+
     Args:
         remote (str): Remote path (S3).
         local (str): Local path (local filesystem).
@@ -39,6 +40,7 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
 
 def download_from_sftp(remote: str, local: str) -> None:
     """Download a file from remote to local.
+
     Args:
         remote (str): Remote path (SFTP).
         local (str): Local path (local filesystem).
@@ -77,6 +79,7 @@ def download_from_sftp(remote: str, local: str) -> None:
 
 def download_from_local(remote: str, local: str) -> None:
     """Download a file from remote to local.
+
     Args:
         remote (str): Remote path (local filesystem).
         local (str): Local path (local filesystem).
@@ -111,12 +114,17 @@ def dispatch_download(remote: Optional[str], local: str, timeout: float):
         download_from_local(remote, local)
 
 
-def download_or_wait(remote: Optional[str], local: str, wait: bool = False, max_retries: int = 2, timeout: float = 60) -> None:
-    """Downloads a file from remote to local, or waits for it to be downloaded. Does not do any thread safety checks, so we assume the calling function is using ``wait`` correctly.
+def download_or_wait(remote: Optional[str], local: str, wait: bool = False, max_retries: int = 2,
+                     timeout: float = 60) -> None:
+    """Downloads a file from remote to local, or waits for it to be downloaded.
+
+    Does not do any thread safety checks, so we assume the calling function is using ``wait`` correctly.
+
     Args:
         remote (Optional[str]): Remote path (S3 or local filesystem).
         local (str): Local path (local filesystem).
-        wait (bool, default False): If ``true``, then do not actively download the file, but instead wait (up to ``timeout`` seconds) for the file to arrive.
+        wait (bool, default False): If ``true``, then do not actively download the file, but instead wait (up to
+            ``timeout`` seconds) for the file to arrive.
         max_retries (int, default 2): Number of download re-attempts before giving up.
         timeout (float, default 60): How long to wait for file to download before raising an exception.
     """
