@@ -340,7 +340,7 @@ stage('Build') {
                 stagingTagName += '_cpu'
             }
             buildArgs['COMPOSER_INSTALL_COMMAND'] = "mosaicml[all] @ git+https://github.com/mosaicml/composer.git@${gitCommitHash}"
-            kanikoCommand = "$kanikoCommand --destination $stagingTagName"
+            buildArgs['TAGS'] << stagingTagName
         }
 
         if (didDockerChange || isComposerImage) {
