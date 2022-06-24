@@ -62,6 +62,7 @@ class TensorboardLogger(LoggerDestination):
         self.should_eval: Callable
         self.rank_zero_only = rank_zero_only
         self.log_level = log_level
+        self.running_eval_batch = 0
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         del log_level
@@ -71,12 +72,19 @@ class TensorboardLogger(LoggerDestination):
                 if isinstance(data_point, str): # Will error out with weird caffe2 import error.
                     continue
                 try:
-                    self.writer.add_scalar(tag, data_point, global_step=int(state.timestamp.batch))
+                    # TODO(eracah): Only partially fixes the issue b/c eval_timestamp is reset after each eval
+                    if 'metrics/eval' in tag:
+                        self.running_eval_batch += state.eval_timestamp.batch
+                        global_step = self.running_eval_batch
+                    else:
+                        global_step = state.timestamp.batch
+                    self.writer.add_scalar(tag, data_point, global_step=int(global_step))
                 except NotImplementedError:
                     pass
 
     def init(self, state: State, logger: Logger) -> None:
-        self.log_dir = str(Path.home() / 'tensorboard_logs' / f'{state.run_name}')
+        if self.log_dir is None:
+            self.log_dir = str(Path.home() / 'tensorboard_logs' / f'{state.run_name}')
         if self.artifact_name is None:
             self.artifact_name = self.log_dir
         self.writer = SummaryWriter(log_dir=self.log_dir)
@@ -90,6 +98,10 @@ class TensorboardLogger(LoggerDestination):
         self._flush(logger)
 
     def eval_start(self, state: State, logger: Logger) -> None:
+        # Flush any log calls that occurred during INIT when using the trainer in eval-only mode
+        self._flush(logger)
+    
+    def eval_end(self, state: State, logger: Logger) -> None:
         # Flush any log calls that occurred during INIT when using the trainer in eval-only mode
         self._flush(logger)
 
