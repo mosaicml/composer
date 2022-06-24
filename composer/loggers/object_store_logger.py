@@ -340,6 +340,7 @@ class ObjectStoreLogger(LoggerDestination):
                     except queue.Empty:
                         break
                     self._enqueued_objects.remove(object_name)
+                    self._completed_queue.task_done()
 
                 # Enqueue all objects that are in self._logged_objects but not in self._file_upload_queue
                 objects_to_delete = []
@@ -394,8 +395,18 @@ class ObjectStoreLogger(LoggerDestination):
         self._tempdir = None
         self._finished = None
         self._workers.clear()
-        self._logged_objects.clear()
-        self._enqueued_objects.clear()
+        assert len(self._logged_objects) == 0, 'should be drained by self._enqueue_uploads'
+        assert self._file_upload_queue.empty()
+        while True:
+            # Empty the completed queue
+            try:
+                object_name = self._completed_queue.get_nowait()
+            except queue.Empty:
+                break
+            self._enqueued_objects.remove(object_name)
+            self._completed_queue.task_done()
+        assert len(self._enqueued_objects) == 0, 'all objects should be uploaded'
+
         self._enqueue_thread = None
 
     def get_uri_for_artifact(self, artifact_name: str) -> str:
