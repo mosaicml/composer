@@ -327,7 +327,7 @@ stage('Build') {
             // then build and publish the image on the staging repo
             if (!isMergeCommit) {
                 // Skip composer images except on merge commits -- it's slow!
-                // return  // TODO (ravi) -- uncomment this line
+                return
             }
             String stagingTagName = "mosaicml/composer_staging:${gitCommitHash[0..6]}"
             if (!buildArgs['CUDA_VERSION']) {
