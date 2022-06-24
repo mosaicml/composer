@@ -23,6 +23,10 @@ from composer.utils import dist
 __all__ = ['StreamingDataset']
 
 
+class DatasetCompressionException(Exception):
+    pass
+
+
 class StreamingDataset(IterableDataset):
     """A sharded, streaming, iterable dataset.
 
@@ -102,6 +106,8 @@ class StreamingDataset(IterableDataset):
         with open(compression_local, 'r+') as fp:
             compression_scheme = fp.read()
             self.compression_scheme = compression_scheme if compression_scheme != '' else None
+            if remote == local and self.compression_scheme is not None:
+                raise DatasetCompressionException('cannot decompress when remote == local')
             fp.seek(0)
             fp.write('')
             fp.truncate()
