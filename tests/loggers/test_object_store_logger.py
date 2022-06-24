@@ -11,6 +11,7 @@ from composer.core.event import Event
 from composer.core.state import State
 from composer.loggers import Logger, LogLevel
 from composer.loggers.logger_hparams_registry import ObjectStoreLoggerHparams
+from composer.utils.file_helpers import create_symlink_file
 from composer.utils.object_store.object_store_hparams import LibcloudObjectStoreHparams
 
 
@@ -55,7 +56,10 @@ def object_store_test_helper(tmp_path: pathlib.Path,
     logger.file_artifact(LogLevel.FIT, artifact_name, file_path, overwrite=overwrite)
 
     # Add symlink to ``artifact_name``.
-    logger.symlink_artifact(LogLevel.FIT, artifact_name, symlink_artifact_name, overwrite=overwrite)
+    temp_symlink_filepath = str(tmp_path / 'latest_artifact_symlink.symlink')
+    create_symlink_file(artifact_name, temp_symlink_filepath)
+    # Always override symlinks
+    logger.file_artifact(LogLevel.FIT, symlink_artifact_name, temp_symlink_filepath, overwrite=True)
 
     file_path_2 = os.path.join(tmp_path, f'file_2')
     with open(file_path_2, 'w+') as f:
