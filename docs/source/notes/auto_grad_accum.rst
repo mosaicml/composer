@@ -51,11 +51,11 @@ This functionality takes advantage of a unique design within our Trainer -- we a
 
     This is an experimental feature, so please try it out and let us know what works, and what breaks!
 
-For some examples of this in action, see our `blog_post <https://www.mosaicml.com/blog/farewell-oom>`_.
-
 .. admonition:: attention
 
-    If your model has `BatchNorm` layers, use with caution. Small microbatch sizes when the number of accumulation steps is high mean fewer samples used to compute these statistics. Empirically for small microbatch sizes convergence could be adversely affected (e.g. `Wu et al, 2018 <https://openaccess.thecvf.com/content_ECCV_2018/papers/Yuxin_Wu_Group_Normalization_ECCV_2018_paper.pdf>_`). Using `SyncBatchNorm` or substituting your batch normalization with other techniques could alleviate these issues.
+    If your model has ``BatchNorm`` layers, use with caution. Small microbatch sizes when the accumulation steps are high mean that fewer samples are used to compute these statistics. Empirically for small microbatch sizes convergence could be adversely affected (e.g. `Wu et al, 2018 <https://openaccess.thecvf.com/content_ECCV_2018/papers/Yuxin_Wu_Group_Normalization_ECCV_2018_paper.pdf>_` and `Ying et al, 2018 <https://arxiv.org/pdf/1811.06992.pdf>`). Using ``SyncBatchNorm`` or substituting your batch norm layer with other techniques could alleviate these issues.
+
+For some examples of this in action, see our `blog_post <https://www.mosaicml.com/blog/farewell-oom>`_.
 
 Caveats
 -------
