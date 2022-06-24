@@ -59,10 +59,8 @@ class TensorboardLogger(LoggerDestination):
         self.flush_interval = flush_interval
         self.log_dir = log_dir
         self.writer: SummaryWriter
-        self.should_eval: Callable
         self.rank_zero_only = rank_zero_only
         self.log_level = log_level
-        self.running_eval_batch = 0
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         del log_level
@@ -72,13 +70,7 @@ class TensorboardLogger(LoggerDestination):
                 if isinstance(data_point, str): # Will error out with weird caffe2 import error.
                     continue
                 try:
-                    # TODO(eracah): Only partially fixes the issue b/c eval_timestamp is reset after each eval
-                    if 'metrics/eval' in tag:
-                        self.running_eval_batch += state.eval_timestamp.batch
-                        global_step = self.running_eval_batch
-                    else:
-                        global_step = state.timestamp.batch
-                    self.writer.add_scalar(tag, data_point, global_step=int(global_step))
+                    self.writer.add_scalar(tag, data_point, global_step=int(state.timestamp.batch))
                 except NotImplementedError:
                     pass
 
