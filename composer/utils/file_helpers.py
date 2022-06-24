@@ -341,6 +341,30 @@ def get_file(
     Raises:
         FileNotFoundError: If the ``path`` does not exist.
     """
+    if path.endswith('.symlink'):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            symlink_file_name = os.path.join(tmpdir, 'file.symlink')
+            # Retrieve the symlink
+            _get_file(
+                path=path,
+                destination=symlink_file_name,
+                object_store=object_store,
+                overwrite=False,
+                progress_bar=progress_bar,
+            )
+            # Read object name in the symlink
+            with open(symlink_file_name, 'r') as f:
+                real_path = f.read()
+
+        # Recurse
+        return get_file(
+            path=real_path,
+            destination=destination,
+            object_store=object_store,
+            overwrite=overwrite,
+            progress_bar=progress_bar,
+        )
+
     try:
         _get_file(
             path=path,
@@ -353,27 +377,10 @@ def get_file(
         if path.endswith('.symlink'):
             raise e
         new_path = path + '.symlink'
-        with tempfile.TemporaryDirectory() as tmpdir:
-            symlink_file_name = os.path.join(tmpdir, 'file.symlink')
-            try:
-                # Retrieve the symlink
-                _get_file(
-                    path=new_path,
-                    destination=symlink_file_name,
-                    object_store=object_store,
-                    overwrite=False,
-                    progress_bar=progress_bar,
-                )
-            except FileNotFoundError as ee:
-                # Raise the original error first
-                raise e from ee
-            # Read object name in symlink and recurse
-            with open(symlink_file_name, 'r') as f:
-                real_path = f.read()
         try:
             # Follow the symlink
             return get_file(
-                path=real_path,
+                path=new_path,
                 destination=destination,
                 object_store=object_store,
                 overwrite=overwrite,
