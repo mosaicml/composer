@@ -60,7 +60,7 @@ class SFTPObjectStore(ObjectStore):
             :class:`paramiko.client.MissingHostKeyPolicy` to use for a missing host key. Defaults to ``'RejectPolicy'``.
 
             Built-in options:
-            *   ``'RejectPolicy'`` (the default), which will reject any host key authorized in the ``known_hosts_filename``.
+            *   ``'RejectPolicy'`` (the default), which will reject any host key not authorized in the ``known_hosts_filename``.
             *   ``'AutoAddPolicy'``, which will add any unknown host key.
             *   ``'WarningPolicy'``, which will warn on an unknown host key.
 
