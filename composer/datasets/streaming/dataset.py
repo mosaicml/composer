@@ -148,16 +148,13 @@ class StreamingDataset(IterableDataset):
     def _insert_shard_samples(self, shard: int, part_min_id: int, part_max_id: int) -> None:
         """Load the given locally cached shard into the dataset.
 
-        Every time you call __iter__ on this dataset, it registers the list of
-        samples you have left, which will not be the full epoch if the dataset
-        isn't finished loaded when you start training.
+        Every time you call __iter__ on this dataset, it registers the list of samples you have left, which will not be
+        the full epoch if the dataset isn't finished loaded when you start training.
 
-        Calls to _insert_shard_samples during training modify the samples remaining on
-        these iterations on the fly to insert these new samples and then re-sort,
-        making the shuffle as perfect as was possible.
+        Calls to _insert_shard_samples during training modify the samples remaining on these iterations on the fly to
+        insert these new samples and then re-sort, making the shuffle as perfect as was possible.
 
-        This operation takes the lock, so batch your _insert_shard_samples calls where
-        possible.
+        This operation takes the lock, so batch your _insert_shard_samples calls where possible.
 
         Args:
             shard (int): Shard to load.
@@ -248,8 +245,7 @@ class StreamingDataset(IterableDataset):
     def __getitem__(self, idx: int) -> Any:
         """Get the sample at the index, assuming its shard is loaded.
 
-        Do not call this directly unless the shard containing this idx has been loaded.
-        Will crash otherwise.
+        Do not call this directly unless the shard containing this idx has been loaded. Will crash otherwise.
 
         Args:
             idx (int): Sample ID.
@@ -284,8 +280,7 @@ class StreamingDataset(IterableDataset):
     def _next_id(self, epoch: int) -> Optional[int]:
         """Get next sample of the growing epoch given by epoch, or None if done.
 
-        If we are currently out of samples but not finished downloading the
-        shards, blocks until it has new samples.
+        If we are currently out of samples but not finished downloading the shards, blocks until it has new samples.
 
         Args:
             epoch (int): The epoch, an identifier for this sequence of samples.
@@ -335,9 +330,8 @@ class StreamingDataset(IterableDataset):
     def __iter__(self) -> Iterator[Any]:
         """Iterate over all the samples in our partition.
 
-        If not all samples have been downloaded yet, iterates over what it has
-        while inserting the remainder into the sequence behind the scenes as it
-        progresses.
+        If not all samples have been downloaded yet, iterates over what it has while inserting the remainder into the
+        sequence behind the scenes as it progresses.
 
         Returns:
             Iterator[Any]: Each sample.
