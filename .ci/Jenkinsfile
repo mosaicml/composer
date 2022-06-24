@@ -79,7 +79,8 @@ Boolean isPathModified(...prefixes) {
     // starts with any specified prefix
     def changedFiles = []
 
-    // Adapted from https://stackoverflow.com/questions/50437626/how-to-get-list-of-all-modified-files-in-pipeline-jenkins
+    // Adapted from
+    // https://stackoverflow.com/questions/50437626/how-to-get-list-of-all-modified-files-in-pipeline-jenkins
     currentBuild.changeSets.each { entries ->
         entries.each { entry ->
             entry.affectedFiles.each { file ->
@@ -326,7 +327,7 @@ stage('Build') {
 
         if (isComposerImage) {
             if (!buildArgs['COMPOSER_INSTALL_COMMAND'].contains('==')) {
-                // If this is a composer image and it is the latest tag, skip it -- we'll build the versioned tag instead
+                // If this is a composer image and it is the latest tag, skip it -- build the versioned tag instead
                 return
             }
             if (!isMergeCommit) {
