@@ -103,11 +103,10 @@ Boolean isPathModified(...prefixes) {
     return false
 }
 
-String generateStagingImage() {
+String generateStagingImageTag() {
     // Generates a staging image tag
     String stagingTag = UUID.randomUUID()
-    String stagingImage = "${stagingDockerRepo}:${stagingTag}"
-    return stagingImage
+    return "${stagingDockerRepo}:${stagingTag}"
 }
 
 def getKanikoCommand(buildArgs) {
@@ -343,8 +342,8 @@ stage('Build') {
         }
 
         if (didDockerChange || isComposerImage) {
-            String stagingImage = generateStagingImage()
-            buildArgs['TAGS'] << stagingImage
+            String stagingImageTag = generateStagingImageTag()
+            buildArgs['TAGS'] << stagingImageTag
             String kanikoCommand = getKanikoCommand(buildArgs)
             jobs << [ "${label}": { ->
                 trackBuild(
@@ -367,7 +366,7 @@ stage('Build') {
                     // Only run tests on the 'mosaicml/pytorch' or 'mosaicml/pytorch_vision' images,
                     // not 'mosaicml/composer'
                     def subJobs = [:]
-                    scheduleJob(subJobs, stagingImage, buildArgs)
+                    scheduleJob(subJobs, stagingImageTag, buildArgs)
                     subJobs.failFast = true
                     parallel(subJobs)
                 }
