@@ -87,7 +87,7 @@ def download_from_local(remote: str, local: str) -> None:
     os.rename(local_tmp, local)
 
 
-def dispatch_download(remote, local, timeout: float):
+def dispatch_download(remote: str, local: str, timeout: float):
     """Use the correct download handler to download the file
     Args:
         remote (str): Remote path (local filesystem).
