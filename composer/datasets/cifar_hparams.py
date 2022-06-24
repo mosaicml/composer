@@ -162,7 +162,7 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                     transforms.Normalize(cifar10_mean, cifar10_std),
                 ])
 
-            with dist.wait_for_rank_zero():
+            with dist.run_local_rank_zero_first():
                 dataset = CIFAR10(
                     self.datadir,
                     train=self.is_train,

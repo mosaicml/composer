@@ -53,7 +53,7 @@ class MNISTDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
             transform = transforms.Compose([transforms.ToTensor()])
 
-            with dist.wait_for_rank_zero():
+            with dist.run_local_rank_zero_first():
                 dataset = datasets.MNIST(
                     self.datadir,
                     train=self.is_train,
