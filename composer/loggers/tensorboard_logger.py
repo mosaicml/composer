@@ -52,14 +52,12 @@ class TensorboardLogger(LoggerDestination):
                  log_dir: Optional[str] = None,
                  artifact_name: Optional[str] = None,
                  flush_interval: int = 100,
-                 rank_zero_only: bool = True,
-                 log_level: LogLevel = LogLevel.BATCH):
+                 rank_zero_only: bool = True):
 
         self.log_dir = log_dir
         self.artifact_name = artifact_name
         self.flush_interval = flush_interval
         self.rank_zero_only = rank_zero_only
-        self.log_level = log_level
         self.writer: SummaryWriter
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
@@ -83,7 +81,7 @@ class TensorboardLogger(LoggerDestination):
         #self.should_eval = evaluate_periodically(state.evaluators[0].eval_interval)
 
     def batch_end(self, state: State, logger: Logger) -> None:
-        if self.log_level == LogLevel.BATCH and int(state.timestamp.batch) % self.flush_interval == 0:
+        if int(state.timestamp.batch) % self.flush_interval == 0:
             self._flush(logger)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
