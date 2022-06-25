@@ -74,7 +74,7 @@ class TensorboardLogger(LoggerDestination):
 
     def init(self, state: State, logger: Logger) -> None:
         if self.log_dir is None:
-            self.log_dir = str(Path.home() / 'tensorboard_logs' / f'{state.run_name}')
+            self.log_dir = f'tensorboard/{state.run_name}'
         if self.artifact_name is None:
             self.artifact_name = self.log_dir
         self.writer = SummaryWriter(log_dir=self.log_dir)
