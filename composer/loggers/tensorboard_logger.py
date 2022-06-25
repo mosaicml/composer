@@ -58,7 +58,7 @@ class TensorboardLogger(LoggerDestination):
         self.artifact_name = artifact_name
         self.flush_interval = flush_interval
         self.rank_zero_only = rank_zero_only
-        self.writer: SummaryWriter
+        self.writer: Optional[SummaryWriter] = None
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         del log_level
