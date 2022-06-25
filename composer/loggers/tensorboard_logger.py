@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Log to `Tensorboard <https://www.tensorflow.org/tensorboard/get_started#:~:text=TensorBoard%20is%20a%20tool%20for,dimensional%20space%2C%20and%20much%20more./>`_."""
+"""Log to `Tensorboard <https://www.tensorflow.org/tensorboard/>`_."""
 
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
