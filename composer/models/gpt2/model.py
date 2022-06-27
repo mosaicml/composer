@@ -18,8 +18,9 @@ __all__ = ["create_gpt2"]
 
 
 def create_gpt2(use_pretrained: Optional[bool] = False,
+                pretrained_model_name: Optional[str] = None,
                 model_config: Optional[dict] = None,
-                tokenizer: Optional[transformers.GPT2Tokenizer] = None,
+                tokenizer_name: Optional[str] = None,
                 gradient_checkpointing: Optional[bool] = False):
     """Implements :class:`~composer.models.huggingface.HuggingFaceModel` to wrap `Hugging Face GPT-2
     transformers <https://huggingface.co/docs/transformers/master/en/model_doc/gpt2#overview>`_. Logs training and
@@ -71,7 +72,7 @@ def create_gpt2(use_pretrained: Optional[bool] = False,
               "use_cache": true,
               "vocab_size": 50257
             }
-            tokenizer (transformers.GPT2Tokenizer, optional): Tokenizer used to preprocess the dataset
+            tokenizer_name (str, optional): Tokenizer name used to preprocess the dataset
                 and validate the models inputs.
     To create a GPT-2 model for language modeling pretraining:
 
@@ -89,15 +90,23 @@ def create_gpt2(use_pretrained: Optional[bool] = False,
     if not model_config:
         model_config = {}
 
-    model_name = 'gpt2'
+    if not pretrained_model_name:
+        pretrained_model_name = 'gpt2'
+
     if use_pretrained:
-        model = transformers.AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=model_name,
+        model = transformers.AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=pretrained_model_name,
                                                                   **model_config)
     else:
-        config = transformers.AutoConfig.from_pretrained(model_name, **model_config)
+        config = transformers.AutoConfig.from_pretrained(pretrained_model_name, **model_config)
         model = transformers.AutoModelForCausalLM.from_config(config)  # type: ignore (thirdparty)
 
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()  # type: ignore
+
+    # setup the tokenizer
+    if tokenizer_name:
+        tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_name)
+    else:
+        tokenizer = None
 
     return HuggingFaceModel(model=model, tokenizer=tokenizer, metrics=[HFCrossEntropy(), Perplexity()])

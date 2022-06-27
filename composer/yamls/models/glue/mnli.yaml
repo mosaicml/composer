@@ -35,6 +35,7 @@ model:
   bert_classification:
     num_labels: 3
     use_pretrained: true
+    pretrained_model_name: bert-base-uncased
 optimizers:
   decoupled_adamw:
     lr: 5.0e-5

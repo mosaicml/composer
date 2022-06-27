@@ -36,6 +36,7 @@ model:
   bert:
     use_pretrained: false
     tokenizer_name: bert-base-uncased
+    pretrained_model_name: bert-base-uncased
 optimizers:
   decoupled_adamw:
     lr: 5.0e-4

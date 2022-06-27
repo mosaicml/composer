@@ -126,6 +126,7 @@ def configure_model_hparams_for_synthetic(model_hparams: ModelHparams) -> None:
 
         # force a non-pretrained model
         model_hparams.use_pretrained = False
+        model_hparams.pretrained_model_name = None
 
         # generate tokenizers and synthetic models
         tokenizer = generate_synthetic_tokenizer(tokenizer_family=tokenizer_family)

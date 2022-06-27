@@ -20,8 +20,9 @@ __all__ = ["create_bert_mlm", "create_bert_classification"]
 
 
 def create_bert_mlm(use_pretrained: Optional[bool] = False,
+                    pretrained_model_name: Optional[str] = None,
                     model_config: Optional[dict] = None,
-                    tokenizer: Optional[transformers.BertTokenizer] = None,
+                    tokenizer_name: Optional[str] = None,
                     gradient_checkpointing: Optional[bool] = False):
     """BERT model based on |:hugging_face:| Transformers.
 
@@ -59,7 +60,7 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
               "use_cache": true,
               "vocab_size": 30522
             }
-            tokenizer (transformers.BertTokenizer, optional): Tokenizer used to preprocess the dataset
+            tokenizer_name (transformers.BertTokenizer, optional): Tokenizer name used to preprocess the dataset
                 and validate the models inputs.
     To create a BERT model for Masked Language Model pretraining:
 
@@ -76,16 +77,24 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
     if not model_config:
         model_config = {}
 
-    model_name = 'bert-base-uncased'
+    if not pretrained_model_name:
+        pretrained_model_name = 'bert-base-uncased'
+
     if use_pretrained:
-        model = transformers.AutoModelForMaskedLM.from_pretrained(pretrained_model_name_or_path=model_name,
+        model = transformers.AutoModelForMaskedLM.from_pretrained(pretrained_model_name_or_path=pretrained_model_name,
                                                                   **model_config)
     else:
-        config = transformers.AutoConfig.from_pretrained(model_name, **model_config)
+        config = transformers.AutoConfig.from_pretrained(pretrained_model_name, **model_config)
         model = transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
 
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()  # type: ignore
+
+    # setup the tokenizer
+    if tokenizer_name:
+        tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_name)
+    else:
+        tokenizer = None
 
     metrics = [
         LanguageCrossEntropy(ignore_index=-100, vocab_size=model.config.vocab_size),
@@ -96,8 +105,9 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
 
 def create_bert_classification(num_labels: Optional[int] = 2,
                                use_pretrained: Optional[bool] = False,
+                               pretrained_model_name: Optional[str] = None,
                                model_config: Optional[dict] = None,
-                               tokenizer: Optional[transformers.BertTokenizer] = None,
+                               tokenizer_name: Optional[str] = None,
                                gradient_checkpointing: Optional[bool] = False):
     """BERT classification model based on |:hugging_face:| Transformers.
 
@@ -145,7 +155,7 @@ def create_bert_classification(num_labels: Optional[int] = 2,
               "use_cache": true,
               "vocab_size": 30522
             }
-            tokenizer (transformers.BertTokenizer, optional): Tokenizer used to preprocess the dataset
+            tokenizer_name (str, optional): Tokenizer name used to preprocess the dataset
                 and validate the models inputs.
     To create a BERT model for classification:
 
@@ -163,17 +173,25 @@ def create_bert_classification(num_labels: Optional[int] = 2,
         model_config = {}
 
     model_config['num_labels'] = num_labels
-    model_name = 'bert-base-uncased'
+
+    if not pretrained_model_name:
+        pretrained_model_name = 'bert-base-uncased'
 
     if use_pretrained:
         model = transformers.AutoModelForSequenceClassification.from_pretrained(
-            pretrained_model_name_or_path=model_name, **model_config)
+            pretrained_model_name_or_path=pretrained_model_name, **model_config)
     else:
-        config = transformers.AutoConfig.from_pretrained(model_name, **model_config)
+        config = transformers.AutoConfig.from_pretrained(pretrained_model_name, **model_config)
         model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
 
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()  # type: ignore
+
+    # setup the tokenizer
+    if tokenizer_name:
+        tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_name)
+    else:
+        tokenizer = None
 
     metrics = [
         Accuracy(),
