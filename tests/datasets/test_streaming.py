@@ -82,7 +82,7 @@ def test_reader(remote_local: Tuple[str, str], batch_size: int, remote_arg: str,
         remote, local = remote_local
         dirname = remote
     else:
-        assert False, f'Unknown valiue of remote_arg: {remote_arg}'
+        assert False, f'Unknown value of remote_arg: {remote_arg}'
     write_synthetic_streaming_dataset(dirname=dirname, samples=samples, shard_size_limit=shard_size_limit)
 
     # Build StreamingDataset
