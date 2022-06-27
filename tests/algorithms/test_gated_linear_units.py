@@ -6,12 +6,12 @@ from typing import Tuple
 import pytest
 import torch
 from torch.nn.functional import gelu, relu
+from transformers import BertModel
 
 from composer.algorithms.gated_linear_units import GatedLinearUnits, apply_gated_linear_units
 from composer.algorithms.gated_linear_units.gated_linear_unit_layers import BERTGatedFFOutput
 from composer.core.event import Event
 from composer.loggers import Logger
-from composer.models import BERTModel
 from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker
 
 
@@ -56,7 +56,7 @@ def synthetic_bert_state():
     return synthetic_hf_state_maker(synthetic_config)
 
 
-def assert_is_glu_instance(model: BERTModel):
+def assert_is_glu_instance(model: BertModel):
     pytest.importorskip('transformers')
     from transformers.models.bert.modeling_bert import BertOutput
 
@@ -81,7 +81,7 @@ def test_gated_linear_units_algorithm(synthetic_bert_state: Tuple, empty_logger:
     state, _, _ = synthetic_bert_state
     gated_linear_units = GatedLinearUnits()
 
-    assert isinstance(state.model, BERTModel)
+    assert isinstance(state.model, BertModel)
     gated_linear_units.apply(Event.INIT, state, empty_logger)
 
     assert_is_glu_instance(state.model)

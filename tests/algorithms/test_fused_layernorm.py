@@ -5,11 +5,11 @@ from typing import Tuple
 
 import pytest
 from torch.nn import LayerNorm
+from transformers import BertModel
 
 from composer.algorithms.fused_layernorm import FusedLayerNorm, apply_fused_layernorm
 from composer.core.event import Event
 from composer.loggers import Logger
-from composer.models import BERTModel
 from tests.common import device
 from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker
 
@@ -20,7 +20,7 @@ def synthetic_bert_state():
     return synthetic_hf_state_maker(synthetic_config)
 
 
-def assert_is_fln_instance(model: BERTModel):
+def assert_is_fln_instance(model: BertModel):
     pytest.importorskip('apex')
     from apex.normalization.fused_layer_norm import FusedLayerNorm as APEXFusedLayerNorm
 
@@ -47,7 +47,7 @@ def test_fused_layernorm_algorithm(synthetic_bert_state: Tuple, empty_logger: Lo
     if device == 'gpu':
         state.model = state.model.cuda()  # move the model to gpu
 
-    assert isinstance(state.model, BERTModel)
+    assert isinstance(state.model, BertModel)
     fused_layernorm.apply(Event.INIT, state, empty_logger)
 
     assert_is_fln_instance(state.model)
