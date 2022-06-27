@@ -5,10 +5,11 @@ from typing import Any, Callable, Dict
 
 import pytest
 
-from composer.optim.scheduler import (ComposerScheduler, CosineAnnealingWarmRestartsScheduler,
-                                      CosineAnnealingWithWarmupScheduler, ExponentialScheduler,
-                                      LinearWithWarmupScheduler, MultiStepScheduler, MultiStepWithWarmupScheduler,
-                                      PolynomialScheduler, PolynomialWithWarmupScheduler, StepScheduler)
+from composer.optim.scheduler import (ComposerScheduler, ConstantWithWarmupScheduler,
+                                      CosineAnnealingWarmRestartsScheduler, CosineAnnealingWithWarmupScheduler,
+                                      ExponentialScheduler, LinearWithWarmupScheduler, MultiStepScheduler,
+                                      MultiStepWithWarmupScheduler, PolynomialScheduler, PolynomialWithWarmupScheduler,
+                                      StepScheduler)
 from composer.optim.scheduler_hparams_registry import scheduler_registry
 from tests.common.hparams import construct_from_yaml
 
@@ -37,6 +38,9 @@ scheduler_settings: Dict[Callable[..., ComposerScheduler], Dict[str, Any]] = {
     },
     MultiStepWithWarmupScheduler: {
         'milestones': [0],
+        't_warmup': '0ep',
+    },
+    ConstantWithWarmupScheduler: {
         't_warmup': '0ep',
     },
     LinearWithWarmupScheduler: {

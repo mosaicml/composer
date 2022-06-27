@@ -85,16 +85,26 @@ def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limi
 
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize('batch_size', [None, 1, 2])
-@pytest.mark.parametrize('share_remote_local', [False, True])
+@pytest.mark.parametrize('remote_arg', ['none', 'same', 'different'])
 @pytest.mark.parametrize('shuffle', [False, True])
-def test_reader(remote_local: Tuple[str, str], batch_size: int, share_remote_local: bool, shuffle: bool) -> None:
+def test_reader(remote_local: Tuple[str, str], batch_size: int, remote_arg: str, shuffle: bool):
     num_samples = 117
     shard_size_limit = 1 << 8
     samples, decoders = get_fake_samples_decoders(num_samples)
-    remote, local = remote_local
-    if share_remote_local:
-        local = remote
-    write_synthetic_streaming_dataset(dirname=remote,
+    if remote_arg == 'none':
+        remote, local = remote_local
+        dirname = local
+        remote = None
+    elif remote_arg == 'same':
+        remote, local = remote_local
+        dirname = local
+        remote = local
+    elif remote_arg == 'different':
+        remote, local = remote_local
+        dirname = remote
+    else:
+        assert False, f'Unknown value of remote_arg: {remote_arg}'
+    write_synthetic_streaming_dataset(dirname=dirname,
                                       samples=samples,
                                       shard_size_limit=shard_size_limit,
                                       compression=None)

@@ -232,7 +232,7 @@ class TrainerHparams(hp.Hparams):
         save_num_checkpoints_to_keep (int, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         autoresume (bool, optional): See :class:`.Trainer`.
 
-        deepspeed (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
+        deepspeed_config (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
             config for training  (see :class:`.Trainer` for more details). If ``None`` (the default), DeepSpeed will not
             be used.
 

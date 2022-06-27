@@ -100,7 +100,8 @@ def bytes_to_sample_dict(data: bytes, keys: List[str]) -> Dict[str, bytes]:
 
     Args:
         data (bytes): The encoded sample data.
-        keys (List[str]): The field names. Must be in the same order as the ``keys`` used when calling :func:`.sample_dict_to_bytes`.
+        keys (List[str]): The field names. Must be in the same order as the ``keys`` used when calling
+            :func:`.sample_dict_to_bytes`.
 
     Returns:
         Dict[str, bytes]: The decoded sample dict.
@@ -135,13 +136,11 @@ def read_array(fp: Union[BufferedIOBase, GzipFile], count: int, dtype: type) -> 
 class StreamingDatasetIndex(object):
     """Streaming Dataset index file, containing all the info about shards and samples.
 
-    The shards are binary buffers with samples concatenated together. All the
-    offset info across the whole dataset is contained in the index file. Workers
-    read this file to calculate how much of which shards their slice is.
+    The shards are binary buffers with samples concatenated together. All the offset info across the whole dataset is
+    contained in the index file. Workers read this file to calculate how much of which shards their slice is.
 
-    Each sample is a dict of str to bytes. All samples must contain the same
-    dict keys (fields). These strings are stored in the index file for
-    efficiency.
+    Each sample is a dict of str to bytes. All samples must contain the same dict keys (fields). These strings are
+    stored in the index file for efficiency.
 
     Args:
         samples_per_shard (NDArray[np.int64]): Number of samples of each shard.
@@ -294,17 +293,42 @@ class StreamingDatasetIndex(object):
     def get_partition(self, world: World, batch_size: Optional[int] = None) -> Tuple[List[int], List[int], int, int]:
         """Get the shards and sample range of a given partition of the dataset.
 
+
+        When `batch_size` is provided, worker indices will be constructed so that there is at most one incomplete batch
+        at the end of each epoch. For example, if the DataLoader is reading over::
+
+            (samples=[0, 1, 2, 3, 4, 5, 6, 7], num_workers=3, batch_size=2, drop_last=True)
+
+        but `batch_size` is not hinted to the StreamingDataset ahead of time, then the samples will by default be
+        assigned like::
+
+            w0: [0, 1, 2],
+            w1: [3, 4, 5],
+            w2: [6, 7]
+
+        and will be read as batches like (with samples [2] and [5] dropped as incomplete)::
+
+            [0, 1],
+            [3, 4],
+            [6, 7].
+
+        The above is suboptimal because we could have dropped no samples. So when `batch_size` is provided as a hint,
+        we assign samples like this::
+
+            w0: [0, 1, 2, 3],
+            w1: [4, 5],
+            w2: [6, 7]
+
+        which will be read as batches like::
+
+            [0, 1],
+            [4, 5],
+            [6, 7],
+            [2, 3].
+
         Args:
             world (World): Context about workers, devices, and nodes.
             batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader.
-                                    Worker indices will be constructed so that there is at most 1 incomplete batch at the end of each epoch.
-                                    E.g. if the DataLoader is reading over (samples=[0, 1, 2, 3, 4, 5, 6, 7], num_workers=3, batch_size=2, drop_last=True)
-                                    but `batch_size` is not hinted to the StreamingDataset ahead of time
-                                    then the samples will by default be assigned like: w0: [0, 1, 2], w1: [3, 4, 5], w2: [6, 7]
-                                    and will be read as batches: [0, 1], [3, 4], [6, 7] (with batches [2] and [5] dropped as incomplete)
-                                    but this is suboptimal because we could have dropped no samples.
-                                    So when `batch_size` is provided as a hint, we assign samples like this: w0: [0, 1, 2, 3], w1: [4, 5], w2: [6, 7]
-                                    which will be read as batches: [0, 1], [4, 5], [6, 7], [2, 3]
 
         Returns:
             shards (List[int]): The shards that this partition overlaps.

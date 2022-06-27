@@ -44,6 +44,7 @@ from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, module_surgery,
                             reproducibility)
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
+from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
@@ -612,7 +613,7 @@ class Trainer:
             .. note:: This is implemented by taking the batch yielded by the ``train_dataloader`` and splitting
                 it into ``grad_accum`` sections. Each section is of size ``train_dataloader // grad_accum``.
                 If the batch size of the dataloader is not divisible by ``grad_accum``,
-                then the last section will be of size ``batch_size % grad_accum``.
+                then the last section will be of size ``batch_size mod grad_accum``.
         seed (int, optional): The seed used in randomization. If ``None``, then a random seed
             will be created. (default: ``None``)
 
@@ -740,6 +741,8 @@ class Trainer:
         # Profiling
         profiler: Optional[Profiler] = None,
     ):
+        algorithms = list(ensure_tuple(algorithms))
+
         # Determine whether DeepSpeed is enabled
         deepspeed_enabled = deepspeed_config is not None
 
@@ -791,25 +794,13 @@ class Trainer:
                 DeprecationWarning((f"Using the 'grad_clip_norm' field in Trainer is deprecated. Please use"
                                     'the GradientClipping Algorithm in composer.algorithms.gradient_clipping.')))
 
-            print_warning = False
-            if algorithms is not None:
-                if isinstance(algorithms, Sequence):
-                    if any([isinstance(algo, GradientClipping) for algo in algorithms]):
-                        print_warning = True
-                elif isinstance(algorithms, GradientClipping):
-                    print_warning = True
-
-                if print_warning:
-                    warnings.warn(
-                        RuntimeWarning(
-                            f'The GradientClipping algorithm is already specified. Ignoring grad_clip_norm={grad_clip_norm}'
-                        ))
-
+            if any(isinstance(alg, GradientClipping) for alg in algorithms):
+                warnings.warn(
+                    UserWarning(
+                        f'The GradientClipping algorithm is already specified. Ignoring grad_clip_norm={grad_clip_norm}'
+                    ))
             else:
-                if algorithms is not None:
-                    algorithms.append(GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm))
-                else:
-                    algorithms = [GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm)]
+                algorithms.append(GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm))
 
         # Run Name
         if run_name is None:
@@ -825,9 +816,8 @@ class Trainer:
                            grad_accum=grad_accum,
                            precision=precision,
                            optimizers=optimizers,
-                           run_name=run_name)
-
-        self.state.deepspeed_config = deepspeed_config
+                           run_name=run_name,
+                           deepspeed_config=deepspeed_config)
 
         # Profiler
         if profiler is not None:
@@ -941,7 +931,7 @@ class Trainer:
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
 
         # Configure Deepspeed
-        if deepspeed_config is not None:
+        if self.state.deepspeed_config is not None:
             try:
                 import deepspeed
             except ImportError as e:
@@ -1004,10 +994,15 @@ class Trainer:
                 progress_bar=load_progress_bar,
                 ignore_keys=load_ignore_keys,
             )
-            # Always ignore the run_name in the checkpoint so it is consistent with what was used for Event.INIT.
             self.state.run_name = run_name
-            log.info(f'Setting seed to {self.state.seed}')
-            reproducibility.seed_all(self.state.seed)
+
+        # reseed here. This helps with a couple of issues:
+        # 1. rng state may change at Event.INIT. For example, if an algorithm creates a new module and module
+        # parameters are initialized randomly, rng state will change. This reseeding nullifies such effects.
+        # 2. While resuming from a checkpoint, we want to spin dataloader and bring it back to the same state as at the time
+        # of the checkpoint. Therefore, spinning needs to start from the same rng state as in the original run.
+        log.info(f'Setting seed to {self.state.seed}')
+        reproducibility.seed_all(self.state.seed)
 
         # Move the model and optimizers to the specified device
         if not self.deepspeed_enabled:
@@ -1094,9 +1089,13 @@ class Trainer:
             for logger in loggers:
                 try:
                     # Fetch from logger. If it succeeds, stop trying the rest of the loggers
-                    logger.get_file_artifact(artifact_name=save_latest_artifact_name,
-                                             destination=latest_checkpoint_path,
-                                             progress_bar=load_progress_bar)
+                    get_file(
+                        path=save_latest_artifact_name,
+                        destination=latest_checkpoint_path,
+                        object_store=logger,
+                        overwrite=True,
+                        progress_bar=load_progress_bar,
+                    )
                     break
                 except (NotImplementedError, FileNotFoundError):
                     # Ignore errors caused by no checkpoint saved with logger
@@ -1656,9 +1655,8 @@ class Trainer:
                         else:
                             optimizer.step()
             except RuntimeError as e:
-                if _is_cuda_oom(e):
-                    log.debug((f"Rank {dist.get_global_rank()} OOM'd. "
-                               'grad_accum will be increased prior to reattempting training on the current batch.'))
+                if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
+                    log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     should_handle_cuda_oom = 1
                 elif 'Timed out' in str(e):
                     # Catch timeout errors and only reraise if we did not encounter OOM on other ranks. Error
@@ -1682,14 +1680,18 @@ class Trainer:
                         ('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
                          'The GPU does not have enough memory to process even 1 sample.'))
                 else:
+                    original_grad_accum = self.state.grad_accum
                     self.state.grad_accum = min(2 * self.state.grad_accum, device_batch_size)
-                    self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
+                    log.info(('CUDA out of memory detected. Gradient Accumulation '
+                              f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
+                              'and the batch will be retrained.'))
             elif caught_timeout_error:
                 # If not CUDA out of memory, raise exception to user. Note that this truncates the call stack
                 # back only to this newly raised error.
                 raise caught_timeout_error
             else:
-                # Otherwise, return calculated loss
+                # Otherwise, log grad_accum and return calculated loss
+                self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
                 return total_loss
 
     def _train_microbatches(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
