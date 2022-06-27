@@ -12,7 +12,7 @@ val_dataset:
     download: true
     shuffle: false
     drop_last: false
-optimizer:
+optimizers:
   sgd:
     lr: 0.1
     momentum: 0.9
@@ -29,8 +29,6 @@ max_duration: 10ep
 train_batch_size: 2048
 eval_batch_size: 1000
 seed: 42
-device:
-  cpu: {}
 dataloader:
   pin_memory: true
   timeout: 0
@@ -38,4 +36,3 @@ dataloader:
   persistent_workers: true
   num_workers: 1
 grad_accum: 1
-precision: fp32

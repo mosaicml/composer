@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Central components used by other modules.
 
@@ -18,19 +19,19 @@ from composer.core.state import State
 from composer.core.time import Time, Timestamp, TimeUnit, ensure_time
 
 __all__ = [
-    "Algorithm",
-    "Callback",
-    "DataSpec",
-    "ensure_data_spec",
-    "Engine",
-    "Trace",
-    "Evaluator",
-    "Event",
-    "Precision",
-    "State",
-    "Time",
-    "Timestamp",
-    "TimeUnit",
-    "ensure_time",
-    "ensure_evaluator",
+    'Algorithm',
+    'Callback',
+    'DataSpec',
+    'ensure_data_spec',
+    'Engine',
+    'Trace',
+    'Evaluator',
+    'Event',
+    'Precision',
+    'State',
+    'Time',
+    'Timestamp',
+    'TimeUnit',
+    'ensure_time',
+    'ensure_evaluator',
 ]

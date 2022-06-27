@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
 import pytest
@@ -52,12 +53,12 @@ def test_channels_last_functional(simple_conv_model: SimpleConvModel):
 
 
 @pytest.mark.parametrize(
-    "device",
-    [pytest.param("cpu"), pytest.param("gpu", marks=pytest.mark.gpu)],
+    'device',
+    [pytest.param('cpu'), pytest.param('gpu', marks=pytest.mark.gpu)],
 )
 def test_channels_last_algorithm(state: State, empty_logger: Logger, device: str):
     channels_last = ChannelsLast()
-    if device == "gpu":
+    if device == 'gpu':
         state.model = state.model.cuda()  # move the model to gpu
 
     assert isinstance(state.model, SimpleConvModel)

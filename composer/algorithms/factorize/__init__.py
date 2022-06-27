@@ -1,8 +1,9 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Decomposes linear operators into pairs of smaller linear operators.
 
-See :class:`~composer.algorithms.Factorize` or the :doc:`Method Card </method_cards/factorize>` for details.
+See :class:`.Factorize` or the :doc:`Method Card </method_cards/factorize>` for details.
 """
 
 from composer.algorithms.factorize.factorize import Factorize as Factorize
@@ -15,12 +16,12 @@ from composer.algorithms.factorize.factorize_modules import FactorizedLinear as 
 from composer.algorithms.factorize.factorize_modules import factorizing_could_speedup as factorizing_could_speedup
 
 __all__ = [
-    "Factorize",
-    "apply_factorization",
-    "LowRankSolution",
-    "factorize_conv2d",
-    "factorize_matrix",
-    "FactorizedConv2d",
-    "FactorizedLinear",
-    "factorizing_could_speedup",
+    'Factorize',
+    'apply_factorization',
+    'LowRankSolution',
+    'factorize_conv2d',
+    'factorize_matrix',
+    'FactorizedConv2d',
+    'FactorizedLinear',
+    'factorizing_could_speedup',
 ]

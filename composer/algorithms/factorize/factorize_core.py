@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import dataclasses
 from typing import Optional, Tuple, Union
@@ -18,23 +19,27 @@ class LowRankSolution:
     to the original output space.
 
     Args:
-        Wa: First linear operation in the factorized approximation. For a
+        Wa (torch.Tensor, optional): First linear operation in the
+            factorized approximation. For a
             factorized linear operation, ``Wa`` is a matrix. For a factorized
             convolution, ``Wa`` matches the shape of the convolution's
             original weight parameter, except along the channel axis.
-        Wb: Second linear operation in the factorized approximation. Shape
+        Wb (torch.Tensor, optional): Second linear operation in the
+            factorized approximation. Shape
             is such that composing ``Wb`` with ``Wb`` yields an output of
             the same size as the original operation.
-        bias: vector added to the output of the second linear operation
-        rank: output dimensionality (channels or features) of the first linear
-            operation, and input dimensionality of the second input operation.
-        nmse: normalized mean squared error obtained during the optimization
-            procedure used to derive ``Wa``, ``Wb``, and ``bias``. This is
-            equal to the raw mean squared error between the factorized
-            approximation's output and the original output, divided by the
-            variance of the original output. A value of 0 means no error
-            was introduced, and a value of 1 corresponds to capturing the
-            output no better than chance.
+        bias (torch.Tensor, optional): Vector added to the output of
+            the second linear operation.
+        rank (int, optional): Output dimensionality (channels or features) of
+            the first linear operation, and input dimensionality of the second
+            input operation. Default: ``-1``.
+        nmse (float, optional): Normalized mean squared error obtained during
+            the optimization procedure used to derive ``Wa``, ``Wb``, and
+            ``bias``. This is equal to the raw mean squared error between
+            the factorized approximation's output and the original output,
+            divided by the variance of the original output. A value of 0
+            means no error was introduced, and a value of 1 corresponds to
+            capturing the output no better than chance. Default: ``0.0``.
     """
     Wa: Optional[torch.Tensor] = None
     Wb: Optional[torch.Tensor] = None
@@ -45,11 +50,11 @@ class LowRankSolution:
 
 def _lstsq(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
     if A.shape[0] != B.shape[0]:
-        raise RuntimeError(f"A has different number of rows than B! A.shape = {A.shape}, B.shape = {B.shape}")
+        raise RuntimeError(f'A has different number of rows than B! A.shape = {A.shape}, B.shape = {B.shape}')
     if A.ndim != 2:
-        raise RuntimeError("A is not a rank 2 tensor: has shape", A.shape)
+        raise RuntimeError('A is not a rank 2 tensor: has shape', A.shape)
     if B.ndim != 2:
-        raise RuntimeError("B is not a rank 2 tensor: has shape", A.shape)
+        raise RuntimeError('B is not a rank 2 tensor: has shape', A.shape)
 
     # TODO more intelligence regarding choice of lstsq `driver` arg
     return torch.linalg.lstsq(A, B).solution
@@ -90,7 +95,7 @@ def factorize_matrix(X: torch.Tensor,
     Given a matrix ``W`` of shape ``[D, M]``, a bias vector of length ``M``,
     and a target rank ``rank < D``, returns a solution ``(Wa, Wb, new_bias)`` of
     tensors of shapes ``[N, rank]``, ``[rank, D]``, and ``M``, respectively.
-    These  tensors are chosen so as to minimize:
+    These tensors are chosen so as to minimize:
 
     :math:`||` ``Y - (X @ Wa @ Wb + new_bias)`` :math:`||_F`,
 
@@ -103,33 +108,32 @@ def factorize_matrix(X: torch.Tensor,
 
     The input matrix can either be a single matrix ``W`` or a pair of matrices
     ``(Wa, Wb)``. The latter case corresponds to using a matrix ``W = Wa @ Wb``
-    that has already been factorized, and is supported in order to facilitate
-    progressively decreasing the rank of matrix.
+    that has already been factorized and is supported in order to facilitate
+    progressively decreasing the rank of the matrix.
 
     Args:
-        X: input used to evaluate the quality of the approximation. Shape is
-            ``[N, D]``, where ``N`` is often the number of input samples and
+        X (torch.Tensor): Input used to evaluate the quality of the approximation.
+            Shape is ``[N, D]``, where ``N`` is often the number of input samples and
             ``D`` is the dimensionality of each sample.
-        Y: output of applying the original matrix to ``X``. Must have shape
-            ``[N, M]`` for some ``M``.
-        Wa: either the matrix to be factorized, or the first of the two smaller
+        Y (torch.Tensor): Output of applying the original matrix to ``X``.
+            Must have shape ``[N, M]`` for some ``M``.
+        Wa (torch.Tensor): Either the matrix to be factorized, or the first of the two smaller
             matrices in the already-factorized representation of this matrix.
             Must be of shape ``[D, M]`` in the former case and shape ``[D, d]``
             in the latter, for some ``d < D``.
-        Wb: if present, ``Wa`` is interpreted as the first of two smaller
-            matrices, and ``Wb`` is taken to be the second. Must be of shape
-            ``[d, M]``.
-        bias: a vector added to the output after performing the matrix
-            product with X
-        rank: number of columns in the latent representation of X
-        n_iters: number of iterations used in the optimization process. Higher
+        Wb (torch.Tensor, optional): If present, ``Wa`` is interpreted
+            as the first of two smaller matrices, and ``Wb`` is taken to be the second.
+            Must be of shape ``[d, M]``.
+        bias (torch.Tensor, optional): A vector added to the output after
+            performing the matrix product with X.
+        rank (int | float, optional): the number of columns in the latent representation of X.
+            Default: ``.25``.
+        n_iters (int, optional): number of iterations used in the optimization process. Higher
             numbers yield lower mean squared error, though there are usually
-            diminishing returns after a handful of iterations.
+            diminishing returns after a handful of iterations. Default: ``3``.
 
     Returns:
-        solution:
-            a :class:`~LowRankSolution` of rank ``rank`` that approximates
-            the original matrix.
+        LowRankSolution: A solution of rank ``rank`` that approximates the original convolution operation.
     """
     X = X.detach()
     Y = Y.detach()
@@ -216,11 +220,11 @@ def _activations_conv2d_to_mat(activations,
                                dilation=1,
                                groups=1):
     if np.max(stride) > 1:
-        raise NotImplementedError(f"Stride != 1 not implemented; got {stride}")
+        raise NotImplementedError(f'Stride != 1 not implemented; got {stride}')
     if np.max(dilation) > 1:
-        raise NotImplementedError(f"Dilation != 1 not implemented; got {dilation}")
+        raise NotImplementedError(f'Dilation != 1 not implemented; got {dilation}')
     if groups != 1:
-        raise NotImplementedError(f"Groups != 1 not implemented; got {groups}")
+        raise NotImplementedError(f'Groups != 1 not implemented; got {groups}')
     if np.max(padding) > 0 and padding_mode.lower() != 'zeros':
         if not isinstance(padding, list):
             padding = [padding]
@@ -247,7 +251,7 @@ def _mat_to_weights_conv2d(mat: Optional[torch.Tensor], kernel_size) -> Optional
     return w.reshape(w.shape[0], -1, *kernel_size)
 
 
-def factorize_conv2d(X,
+def factorize_conv2d(X: torch.Tensor,
                      Wa: torch.Tensor,
                      Wb: Optional[torch.Tensor] = None,
                      rank: Union[int, float] = .25,
@@ -255,8 +259,9 @@ def factorize_conv2d(X,
                      biasB: Optional[torch.Tensor] = None,
                      n_iters=3,
                      **conv2d_kwargs) -> LowRankSolution:
-    """Approximates a KxK convolution by factorizing it into a KxK convolution with fewer channels followed by a 1x1
-    convolution.
+    """Approximates a :math:`K \\times K` convolution by factorizing it into a
+    :math:`K \\times K` convolution  with fewer channels followed by a
+    :math:`1 \\times 1` convolution.
 
     Given a convolutional weight tensor ``W`` for a 2d convolution of shape
     ``[out_channels, in_channels, k_h, k_w]`` and a vector ``bias`` of length
@@ -271,40 +276,39 @@ def factorize_conv2d(X,
     non-channel dimensions, and :math:`||\\cdot||_F` denotes the sum of
     squared elements.
 
-    Similar to :func:`~factorize_matrix`, this function allows passing in an
+    Similar to :func:`.factorize_matrix`, this function allows passing in an
     already-factorized weight tensor in order to enable progressive
     factorization. In this case, the single tensor ``W`` is replaced with
     a similar ``(Wa, Wb)`` pair as the output, though not necessarily with
     the same rank.
 
     Args:
-        X: a tensor of shape ``[N, in_channels, H, W]``, for some
+        X (torch.Tensor): A tensor of shape ``[N, in_channels, H, W]``, for some
             ``N``, ``H``, and ``W``.
-        Wa: The first weight tensor to convolve with ``X``. If
+        Wa (torch.Tensor): The first weight tensor to convolve with ``X``. If
             ``Wb`` is not provided, must be of shape
             ``[out_channels, in_channels, k_h, k_w]``. Otherwise, must be of
             shape ``[original_rank, in_channels, k_h, k_w]`` for some
             ``original_rank < min(in_channels, out_channels)``.
-        Wb: The second weight tensor to convolve with the input. If
-            provided, must be of shape ``[out_channels, original_rank, 1, 1]``.
-        rank: number of channels in the latent representation of ``X``
-        biasA: optional vector of biases. If ``Wb`` is ``None``, must
-            have length ``out_channels``. Otherwise must have length
+        Wb (torch.Tensor, optional): The second weight tensor to convolve.
+            with the input. If provided, must be of shape ``[out_channels, original_rank, 1, 1]``.
+        rank (int | float, optional): number of channels in the latent representation of ``X``.
+            Default: ``.25``.
+        biasA (torch.Tensor, optional): Optional vector of biases. If ``Wb`` is
+            ``None``, must have length ``out_channels``. Otherwise must have length
             ``original_rank``.
-        biasB: if provided, must have length ``out_channels``.
-        n_iters: number of iterations used in the optimization process. Higher
-            numbers yield lower mean squared error, though there are usually
-            diminishing returns after a handful of iterations.
-        **conv2d_kwargs: arguments such as ``padding``, ``stride``,
+        biasB (torch.Tensor, optional): If provided, must have length ``out_channels``.
+        n_iters (int, optional): number of iterations used in the optimization process.
+            Higher numbers yield lower mean squared error, though there are usually
+            diminishing returns after a handful of iterations. Default: ``3``.
+        **conv2d_kwargs: Arguments such as ``padding``, ``stride``,
             ``dilation``, ``groups``, etc used in the original convolution. If
             these are not provided, the factorized tensors might not preserve
             the function computed by the original weight tensor as well.
             Note that not all combinations of arguments are supported.
 
     Returns:
-        solution:
-            A :class:`~composer.algorithms.factorize.LowRankSolution` of
-            rank ``rank`` that approximates the original convolution operation
+        LowRankSolution: A solution of rank ``rank`` that approximates the original convolution operation.
 
     Raises:
         RuntimeError:
@@ -337,7 +341,7 @@ def factorize_conv2d(X,
             Y_mat += biasB
     elif biasB is not None:
         # fail fast if user passes in inconsistent combination of args
-        raise RuntimeError("Got biasB, but Wb=None; cannot apply bias")
+        raise RuntimeError('Got biasB, but Wb=None; cannot apply bias')
 
     ret = factorize_matrix(X_mat, Y_mat, Wa, Wb, rank=rank, n_iters=n_iters)
 

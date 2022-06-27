@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ general and classification interfaces for
 :class:`.BERTModel`."""
@@ -14,7 +15,7 @@ from composer.utils import MissingConditionalImportError
 if TYPE_CHECKING:
     from composer.models.bert import BERTModel
 
-__all__ = ["BERTForClassificationHparams", "BERTHparams"]
+__all__ = ['BERTForClassificationHparams', 'BERTHparams']
 
 
 @dataclass
@@ -31,22 +32,22 @@ class BERTForClassificationHparams(TransformerHparams):
         gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
         num_labels (int, optional): The number of classes in the segmentation task. Default: ``2``.
     """
-    num_labels: int = hp.optional(doc="The number of possible labels for the task.", default=2)
+    num_labels: int = hp.optional(doc='The number of possible labels for the task.', default=2)
 
     def validate(self):
         if self.num_labels < 1:
-            raise ValueError("The number of target labels must be at least one.")
+            raise ValueError('The number of target labels must be at least one.')
 
-    def initialize_object(self) -> "BERTModel":
+    def initialize_object(self) -> 'BERTModel':
         try:
             import transformers
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+            raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
         from composer.models.bert.model import BERTModel
         self.validate()
 
-        model_hparams = {"num_labels": self.num_labels}
+        model_hparams = {'num_labels': self.num_labels}
 
         if self.model_config:
             config = transformers.BertConfig.from_dict(self.model_config, **model_hparams)
@@ -64,7 +65,7 @@ class BERTForClassificationHparams(TransformerHparams):
 
         if self.use_pretrained:
             # TODO (Moin): handle the warnings on not using the seq_relationship head
-            assert transformers.AutoModelForSequenceClassification.from_pretrained is not None, "from_pretrained should not be None"
+            assert transformers.AutoModelForSequenceClassification.from_pretrained is not None, 'from_pretrained should not be None'
             model = transformers.AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name,
                                                                                     **model_hparams)
         else:
@@ -94,11 +95,11 @@ class BERTHparams(TransformerHparams):
         gradient_checkpointing (bool, optional): Use gradient checkpointing. default: False.
     """
 
-    def initialize_object(self) -> "BERTModel":
+    def initialize_object(self) -> 'BERTModel':
         try:
             import transformers
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+            raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
         from composer.models.bert.model import BERTModel
         self.validate()
@@ -121,7 +122,7 @@ class BERTHparams(TransformerHparams):
 
         if self.use_pretrained:
             # TODO (Moin): handle the warnings on not using the seq_relationship head
-            assert transformers.AutoModelForMaskedLM.from_pretrained is not None, "from_pretrained should not be None"
+            assert transformers.AutoModelForMaskedLM.from_pretrained is not None, 'from_pretrained should not be None'
             model = transformers.AutoModelForMaskedLM.from_pretrained(self.pretrained_model_name)
         else:
             model = transformers.AutoModelForMaskedLM.from_config(config)  #type: ignore (thirdparty)

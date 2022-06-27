@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.ComposerDeepLabV3`."""
 
@@ -8,7 +9,7 @@ import yahp as hp
 
 from composer.models.model_hparams import ModelHparams
 
-__all__ = ["DeepLabV3Hparams"]
+__all__ = ['DeepLabV3Hparams']
 
 
 @dataclass
@@ -30,15 +31,15 @@ class DeepLabV3Hparams(ModelHparams):
 
     backbone_arch: str = hp.optional("The backbone architecture to use. Must be either ['resnet50', resnet101'].",
                                      default='resnet101')
-    is_backbone_pretrained: bool = hp.optional("If true, use pre-trained weights for backbone.", default=True)
+    is_backbone_pretrained: bool = hp.optional('If true, use pre-trained weights for backbone.', default=True)
     backbone_url: str = hp.optional(
         "Url to download model weights from. If blank (default), will download from PyTorch's url.", default='')
-    use_plus: bool = hp.optional("If true (default), use DeepLabv3+ head instead of DeepLabv3.", default=True)
-    sync_bn: bool = hp.optional("If true, use SyncBatchNorm to sync batch norm statistics across GPUs.", default=True)
+    use_plus: bool = hp.optional('If true (default), use DeepLabv3+ head instead of DeepLabv3.', default=True)
+    sync_bn: bool = hp.optional('If true, use SyncBatchNorm to sync batch norm statistics across GPUs.', default=True)
 
     def validate(self):
         if self.num_classes is None:
-            raise ValueError("num_classes must be specified")
+            raise ValueError('num_classes must be specified')
 
         if self.backbone_arch not in ['resnet50', 'resnet101']:
             raise ValueError(f"backbone_arch must be one of ['resnet50', 'resnet101']: not {self.backbone_arch}")
@@ -47,7 +48,7 @@ class DeepLabV3Hparams(ModelHparams):
         from composer.models.deeplabv3.deeplabv3 import ComposerDeepLabV3
 
         if self.num_classes is None:
-            raise ValueError("num_classes must be specified")
+            raise ValueError('num_classes must be specified')
 
         return ComposerDeepLabV3(num_classes=self.num_classes,
                                  backbone_arch=self.backbone_arch,

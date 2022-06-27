@@ -6,6 +6,15 @@
    :card: shadow
 
    ---
+   .. link-button:: agc.html
+      :text: AGC
+      :classes: card-title
+
+   :badge:`CV,badge-primary`
+   ++++++++++++++
+   Clips gradients based on the ratio of their norms with weights' norms.
+
+   ---
    .. link-button:: alibi.html
       :text: Alibi
       :classes: card-title
@@ -75,6 +84,25 @@
 
    :badge:`CV,badge-primary` :badge:`NLP,badge-success`
    ++++++++++++++
+   Uses Fused LayerNorm kernels for increased GPU utilization.
+
+   ---
+   .. link-button:: fused_layernorm.html
+      :text: Fused LayerNorm
+      :classes: card-title
+
+   :badge:`CV,badge-primary` :badge:`NLP,badge-success`
+   ++++++++++++++
+   Swaps linear layers for Gated Linear Units in the feed-forward network.
+
+   ---
+   .. link-button:: gated_linear_units.html
+      :text: Gated Linear Units
+      :classes: card-title
+
+   :badge:`NLP,badge-success`
+   ++++++++++++++
+
    Factorize GEMMs into smaller GEMMs
 
    ---
@@ -145,7 +173,7 @@
       :text: ScaleSchedule
       :classes: card-title
 
-   
+
    ++++++++++++++
    Scale the learning rate schedule by a factor
 

@@ -1,10 +1,11 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Implements ViT-S/16 as a :class:`.ComposerClassifier`."""
 
 from composer.models.tasks import ComposerClassifier
 
-__all__ = ["ViTSmallPatch16"]
+__all__ = ['ViTSmallPatch16']
 
 
 class ViTSmallPatch16(ComposerClassifier):

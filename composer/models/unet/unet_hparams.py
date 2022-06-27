@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for
 :class:`~composer.models.unet.unet.UNet`."""
@@ -7,7 +8,7 @@ from dataclasses import dataclass
 
 from composer.models.model_hparams import ModelHparams
 
-__all__ = ["UnetHparams"]
+__all__ = ['UnetHparams']
 
 
 @dataclass
@@ -21,5 +22,5 @@ class UnetHparams(ModelHparams):
 
     def initialize_object(self):
         from composer.models.unet.unet import UNet
-        assert self.num_classes is not None, "num_classes must be specified."
+        assert self.num_classes is not None, 'num_classes must be specified.'
         return UNet(num_classes=self.num_classes)

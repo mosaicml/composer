@@ -1,11 +1,12 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Core CutMix classes and functions."""
 
 from __future__ import annotations
 
 import logging
-from typing import Optional, Tuple
+from typing import Any, Callable, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -17,7 +18,7 @@ from composer.loss.utils import ensure_targets_one_hot
 
 log = logging.getLogger(__name__)
 
-__all__ = ["CutMix", "cutmix_batch"]
+__all__ = ['CutMix', 'cutmix_batch']
 
 
 def cutmix_batch(input: Tensor,
@@ -54,8 +55,8 @@ def cutmix_batch(input: Tensor,
         or ``alpha``.
 
     Args:
-        input (:class:`torch.Tensor`): input tensor of shape ``(N, C, H, W)``
-        target (:class:`torch.Tensor`): target tensor of either shape ``N`` or
+        input (torch.Tensor): input tensor of shape ``(N, C, H, W)``.
+        target (torch.Tensor): target tensor of either shape ``N`` or
             ``(N, num_classes)``. In the former case, elements of ``target``
             must be integer class ids in the range ``0..num_classes``. In the
             latter case, rows of ``target`` may be arbitrary vectors of targets,
@@ -101,7 +102,7 @@ def cutmix_batch(input: Tensor,
             X_mixed, target_perm, area, _ = cutmix_batch(X, y, alpha=0.2)
     """
     if bbox is not None and length is not None:
-        raise ValueError(f"Cannot provide both length and bbox; got {length} and {bbox}")
+        raise ValueError(f'Cannot provide both length and bbox; got {length} and {bbox}')
 
     # Create shuffled indicies across the batch in preparation for cutting and mixing.
     # Use given indices if there are any.
@@ -144,8 +145,8 @@ def cutmix_batch(input: Tensor,
 
 
 class CutMix(Algorithm):
-    """`CutMix <https://arxiv.org/abs/1905.04899>`_ trains the network on non-overlapping combinations of pairs of
-    examples and interpolated targets rather than individual examples and targets.
+    """`CutMix <https://arxiv.org/abs/1905.04899>`_ trains the network on non-overlapping combinations
+    of pairs of examples and interpolated targets rather than individual examples and targets.
 
     This is done by taking a non-overlapping combination of a given batch X with a
     randomly permuted copy of X. The area is drawn from a ``Beta(alpha, alpha)``
@@ -163,6 +164,14 @@ class CutMix(Algorithm):
             box such that each pixel has an equal probability of being mixed.
             If ``False``, defaults to the sampling used in the original
             paper implementation. Default: ``False``.
+        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
+            from the batch. Can also be a pair of get and set functions, where the getter
+            is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
+            is the input. Default: ``0``.
+        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target
+            from the batch. Can also be a pair of get and set functions, where the getter
+            is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
+            is the target. Default: ``1``.
 
     Example:
         .. testcode::
@@ -179,7 +188,14 @@ class CutMix(Algorithm):
             )
     """
 
-    def __init__(self, alpha: float = 1., interpolate_loss: bool = False, uniform_sampling: bool = False):
+    def __init__(
+        self,
+        alpha: float = 1.,
+        interpolate_loss: bool = False,
+        uniform_sampling: bool = False,
+        input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
+        target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
+    ):
         self.alpha = alpha
         self.interpolate_loss = interpolate_loss
         self._uniform_sampling = uniform_sampling
@@ -189,6 +205,7 @@ class CutMix(Algorithm):
         self._bbox: Tuple[int, int, int, int] = (0, 0, 0, 0)
         self._permuted_target = torch.Tensor()
         self._adjusted_lambda = 0.0
+        self.input_key, self.target_key = input_key, target_key
 
     def match(self, event: Event, state: State) -> bool:
         if self.interpolate_loss:
@@ -197,24 +214,18 @@ class CutMix(Algorithm):
             return event in [Event.BEFORE_FORWARD, Event.BEFORE_LOSS]
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Applies CutMix augmentation on State input.
+        input = state.batch_get_item(key=self.input_key)
+        target = state.batch_get_item(key=self.target_key)
 
-        Args:
-            event (:class:`Event`): the current event
-            state (:class:`State`): the current trainer state
-            logger (:class:`Logger`): the training logger
-        """
-
-        input, target = state.batch
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
-            "Multiple tensors for inputs or targets not supported yet."
+            'Multiple tensors for inputs or targets not supported yet.'
         alpha = self.alpha
 
         if event == Event.BEFORE_FORWARD:
             if not isinstance(input, torch.Tensor):
-                raise NotImplementedError("Multiple tensors for inputs not supported yet.")
+                raise NotImplementedError('Multiple tensors for inputs not supported yet.')
             if not isinstance(target, torch.Tensor):
-                raise NotImplementedError("Multiple tensors for targets not supported yet.")
+                raise NotImplementedError('Multiple tensors for targets not supported yet.')
 
             # these are saved only for testing
             self._indices = _gen_indices(input)
@@ -233,14 +244,14 @@ class CutMix(Algorithm):
                                                                   indices=self._indices,
                                                                   uniform_sampling=self._uniform_sampling)
 
-            state.batch = (new_input, target)
+            state.batch_set_item(key=self.input_key, value=new_input)
 
         if not self.interpolate_loss and event == Event.BEFORE_LOSS:
             # Interpolate the targets
             if not isinstance(state.outputs, torch.Tensor):
-                raise NotImplementedError("Multiple output tensors not supported yet")
+                raise NotImplementedError('Multiple output tensors not supported yet')
             if not isinstance(target, torch.Tensor):
-                raise NotImplementedError("Multiple target tensors not supported yet")
+                raise NotImplementedError('Multiple target tensors not supported yet')
             if self._permuted_target.ndim > 2 and self._permuted_target.shape[-2:] == input.shape[-2:]:
                 # Target has the same height and width as the input, no need to interpolate.
                 x1, y1, x2, y2 = self._bbox
@@ -252,31 +263,31 @@ class CutMix(Algorithm):
                 # Interpolate to get the new target
                 target = self._adjusted_lambda * target + (1 - self._adjusted_lambda) * permuted_target
             # Create the new batch
-            state.batch = (input, target)
+            state.batch_set_item(key=self.target_key, value=target)
 
         if self.interpolate_loss and event == Event.BEFORE_BACKWARD:
             if self._permuted_target.ndim > 2 and self._permuted_target.shape[-2:] == input.shape[-2:]:
                 raise ValueError("Can't interpolate loss when target has the same height and width as the input")
 
             # Grab the loss function
-            if hasattr(state.model, "loss"):
+            if hasattr(state.model, 'loss'):
                 loss_fn = state.model.loss
-            elif hasattr(state.model, "module") and hasattr(state.model.module, "loss"):
+            elif hasattr(state.model, 'module') and hasattr(state.model.module, 'loss'):
                 if isinstance(state.model.module, torch.nn.Module):
                     loss_fn = state.model.module.loss
                 else:
-                    raise TypeError("state.model.module must be a torch module")
+                    raise TypeError('state.model.module must be a torch module')
             else:
-                raise AttributeError("Loss must be accesable via model.loss or model.module.loss")
+                raise AttributeError('Loss must be accesable via model.loss or model.module.loss')
             # Verify that the loss is callable
             if not callable(loss_fn):
-                raise TypeError("Loss must be callable")
+                raise TypeError('Loss must be callable')
             # Interpolate the loss
             new_loss = loss_fn(state.outputs, (input, self._permuted_target))
             if not isinstance(state.loss, torch.Tensor):
-                raise NotImplementedError("Multiple losses not supported yet")
+                raise NotImplementedError('Multiple losses not supported yet')
             if not isinstance(new_loss, torch.Tensor):
-                raise NotImplementedError("Multiple losses not supported yet")
+                raise NotImplementedError('Multiple losses not supported yet')
             state.loss = self._adjusted_lambda * state.loss + (1 - self._adjusted_lambda) * new_loss
 
 
@@ -284,8 +295,8 @@ def _gen_indices(x: Tensor) -> Tensor:
     """Generates indices of a random permutation of elements of a batch.
 
     Args:
-        x (:class:`torch.Tensor): input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
-            are feature dimensions.
+        x (torch.Tensor): input tensor of shape ``(B, d1, d2, ..., dn)``,
+            B is batch size, d1-dn are feature dimensions.
 
     Returns:
         indices: A random permutation of the batch indices.
@@ -294,13 +305,13 @@ def _gen_indices(x: Tensor) -> Tensor:
 
 
 def _gen_cutmix_coef(alpha: float) -> float:
-    """Generates lambda from ``Beta(alpha, alpha)``
+    """Generates lambda from ``Beta(alpha, alpha)``.
 
     Args:
-        alpha (float): Parameter for the ``Beta(alpha, alpha)`` distribution
+        alpha (float): Parameter for the ``Beta(alpha, alpha)`` distribution.
 
     Returns:
-        cutmix_lambda: Lambda parameter for performing cutmix.
+        cutmix_lambda: Lambda parameter for performing CutMix.
     """
     # First check if alpha is positive.
     assert alpha >= 0
@@ -320,7 +331,7 @@ def _rand_bbox(W: int,
                cx: Optional[int] = None,
                cy: Optional[int] = None,
                uniform_sampling: bool = False) -> Tuple[int, int, int, int]:
-    """Randomly samples a bounding box with area determined by cutmix_lambda.
+    """Randomly samples a bounding box with area determined by ``cutmix_lambda``.
 
     Adapted from original implementation https://github.com/clovaai/CutMix-PyTorch
 
@@ -370,7 +381,7 @@ def _adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
 
     Args:
         cutmix_lambda (float): Lambda param from cutmix, used to set the area of the box.
-        x (:class:`torch.Tensor`): input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
+        x (torch.Tensor): input tensor of shape ``(B, d1, d2, ..., dn)``, B is batch size, d1-dn
             are feature dimensions.
         bbox (tuple): (x1, y1, x2, y2) coordinates of the boundind box, obeying x2 > x1, y2 > y1.
 

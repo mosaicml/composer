@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """SSD 300 resnet backbones in PyTorch adapted from MLCommons.
 
@@ -94,7 +95,7 @@ class Loss(nn.Module):
         self.scale_wh = 1.0 / dboxes.scale_wh
 
         self.sl1_loss = nn.SmoothL1Loss(reduce=False)
-        self.dboxes = nn.Parameter(dboxes(order="xywh").transpose(0, 1).unsqueeze(dim=0), requires_grad=False)
+        self.dboxes = nn.Parameter(dboxes(order='xywh').transpose(0, 1).unsqueeze(dim=0), requires_grad=False)
         # Two factor are from following links
         # http://jany.st/post/2017-11-05-single-shot-detector-ssd-from-scratch-in-tensorflow.html
         self.con_loss = nn.CrossEntropyLoss(reduce=False)

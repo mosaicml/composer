@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Enum class for the numerical precision to be used by the model."""
 
@@ -10,7 +11,7 @@ from packaging import version
 
 from composer.utils.string_enum import StringEnum
 
-__all__ = ["Precision", "get_precision_context"]
+__all__ = ['Precision', 'get_precision_context']
 
 
 class Precision(StringEnum):
@@ -25,10 +26,10 @@ class Precision(StringEnum):
         BF16: Use 16-bit BFloat mixed precision. Requires PyTorch
             1.10. Compatible with CPUs and GPUs.
     """
-    AMP = "amp"
-    FP16 = "fp16"
-    FP32 = "fp32"
-    BF16 = "bf16"
+    AMP = 'amp'
+    FP16 = 'fp16'
+    FP32 = 'fp32'
+    BF16 = 'bf16'
 
 
 @contextlib.contextmanager
@@ -44,7 +45,6 @@ def get_precision_context(precision: Union[str, Precision]) -> Generator[None, N
     Args:
         precision (str | Precision): Precision for the context
     """
-
     precision = Precision(precision)
     if precision == Precision.FP32:
         if torch.cuda.is_available():
@@ -63,9 +63,9 @@ def get_precision_context(precision: Union[str, Precision]) -> Generator[None, N
         with torch.cuda.amp.autocast(True):
             yield
     elif precision == Precision.BF16:
-        if version.parse(torch.__version__) < version.parse("1.10"):
-            raise ValueError(f"BF16 precision requires torch > 1.10, got version {torch.__version__}")
-        with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):
+        if version.parse(torch.__version__) < version.parse('1.10'):
+            raise ValueError(f'BF16 precision requires torch > 1.10, got version {torch.__version__}')
+        with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):  # type: ignore (torch < 1.10 guard)
             yield
     else:
-        raise ValueError(f"Unsupported precision: {precision}")
+        raise ValueError(f'Unsupported precision: {precision}')

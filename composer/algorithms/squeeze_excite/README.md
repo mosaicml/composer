@@ -45,6 +45,8 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
+<!-- TODO: Address timeouts -->
+<!--pytest-codeblocks:skip-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate point in the training loop
@@ -52,20 +54,19 @@ def training_loop(model, train_loader):
 from composer.algorithms import SqueezeExcite
 from composer.trainer import Trainer
 
-def train_model(model, train_dataloader):
-    algo = SqueezeExcite(
-        min_channels=128,
-        latent_channels=64
-    )
+algo = SqueezeExcite(
+    min_channels=128,
+    latent_channels=64
+)
 
-    trainer = Trainer(
-        model=model,
-        train_dataloader=train_dataloader,
-        max_duration='10ep',
-        algorithms=[algo]
-    )
+trainer = Trainer(
+    model=model,
+    train_dataloader=train_dataloader,
+    max_duration='10ep',
+    algorithms=[algo]
+)
 
-    trainer.fit()
+trainer.fit()
 ```
 
 ## Implementation Details

@@ -1,7 +1,7 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
-"""The :class:`StreamingDatsetIndex` format that defines shard/sample metadata for :class:`StreamingDataset`.
-"""
+"""The :class:`StreamingDatsetIndex` format that defines shard/sample metadata for :class:`StreamingDataset`."""
 
 import math
 from io import BufferedIOBase, BufferedReader, BufferedWriter, BytesIO
@@ -13,11 +13,11 @@ from numpy.typing import NDArray
 from composer.datasets.streaming.world import World
 
 __all__ = [
-    "get_index_basename",
-    "get_shard_basename",
-    "sample_dict_to_bytes",
-    "bytes_to_sample_dict",
-    "StreamingDatasetIndex",
+    'get_index_basename',
+    'get_shard_basename',
+    'sample_dict_to_bytes',
+    'bytes_to_sample_dict',
+    'StreamingDatasetIndex',
 ]
 
 
@@ -118,7 +118,6 @@ class StreamingDatasetIndex(object):
 
     def __init__(self, samples_per_shard: NDArray[np.int64], bytes_per_shard: NDArray[np.int64],
                  bytes_per_sample: NDArray[np.int64], fields: List[str]) -> None:
-
         self.samples_per_shard = samples_per_shard
         self.bytes_per_shard = bytes_per_shard
         self.bytes_per_sample = bytes_per_sample
@@ -160,14 +159,30 @@ class StreamingDatasetIndex(object):
         Returns:
             cls: The loaded object.
         """
-
-        dtype = np.int64
-        total_samples, total_bytes, num_shards, num_fields = read_array(fp, 4, dtype)
+        magic, version, num_shards = read_array(fp, 3, np.uint32)
+        assert magic == 0xDA7AD06E
+        assert version == 1
+        total_samples, total_bytes = read_array(fp, 2, np.int64)
         del total_bytes
-        samples_per_shard = read_array(fp, num_shards, dtype)
-        bytes_per_shard = read_array(fp, num_shards, dtype)
-        bytes_per_sample = read_array(fp, total_samples, dtype)
-        bytes_per_field = read_array(fp, num_fields, dtype)
+        samples_per_shard = read_array(fp, num_shards, np.int64)
+        bytes_per_shard = read_array(fp, num_shards, np.int64)
+        bps_format, = read_array(fp, 1, np.int32)
+        if not bps_format:
+            sample_bytes, = read_array(fp, 1, np.int64)
+            bytes_per_sample = np.full(total_samples, sample_bytes)
+        elif bps_format == 1:
+            bytes_per_sample = read_array(fp, total_samples, np.int8)
+        elif bps_format == 2:
+            bytes_per_sample = read_array(fp, total_samples, np.int16)
+        elif bps_format == 4:
+            bytes_per_sample = read_array(fp, total_samples, np.int32)
+        elif bps_format == 8:
+            bytes_per_sample = read_array(fp, total_samples, np.int64)
+        else:
+            assert False
+        bytes_per_sample = bytes_per_sample.astype(np.int64)
+        num_fields, = read_array(fp, 1, np.int32)
+        bytes_per_field = read_array(fp, num_fields, np.int32)
         fields = [fp.read(size).decode('utf-8') for size in bytes_per_field]
         return cls(samples_per_shard, bytes_per_shard, bytes_per_sample, fields)
 
@@ -177,12 +192,38 @@ class StreamingDatasetIndex(object):
         Returns:
             bytes: The serialized form.
         """
-        header = np.array([self.total_samples, self.total_bytes, self.num_shards, self.num_fields], np.int64)
-        bytes_per_field = np.array(list(map(len, self.fields)), np.int64)
-        arrays = header, self.samples_per_shard, self.bytes_per_shard, self.bytes_per_sample, bytes_per_field
-        arrays = np.concatenate(arrays, dtype=np.int64).tobytes()
-        fields = b''.join(map(lambda s: s.encode('utf-8'), self.fields))
-        return arrays + fields
+        magic = 0xDA7AD06E
+        version = 1
+        header = np.array([magic, version, self.num_shards], np.uint32)
+        totals = np.array([self.total_samples, self.total_bytes], np.int64)
+        if not len(self.bytes_per_sample):
+            bps_format = 1
+            bps = self.bytes_per_sample.astype(np.int8)
+        elif len(set(self.bytes_per_sample)) == 1:
+            bps_format = 0
+            bps = np.int64(self.bytes_per_sample[0])
+        else:
+            max_bps = self.bytes_per_sample.max()
+            if max_bps < 256:
+                bps_format = 1
+                bps = self.bytes_per_sample.astype(np.int8)
+            elif max_bps < (1 << 16):
+                bps_format = 2
+                bps = self.bytes_per_sample.astype(np.int16)
+            elif max_bps < (1 << 32):
+                bps_format = 4
+                bps = self.bytes_per_sample.astype(np.int32)
+            else:
+                bps_format = 8
+                bps = self.bytes_per_sample
+        bps_format = np.int32(bps_format)
+        num_fields = np.int32(len(self.fields))
+        bytes_per_field = np.array([len(field.encode('utf-8')) for field in self.fields], np.int32)
+        arrays = (header, totals, self.samples_per_shard, self.bytes_per_shard, bps_format, bps, num_fields,
+                  bytes_per_field)
+        array_bytes = b''.join([arr.tobytes() for arr in arrays])
+        field_bytes = b''.join([field.encode('utf-8') for field in self.fields])
+        return array_bytes + field_bytes
 
     def dump(self, fp: BufferedWriter) -> None:
         """Dump a StreamingDatasetIndex to the file.
@@ -211,12 +252,12 @@ class StreamingDatasetIndex(object):
         sample_shard_begins = np.array(sample_shard_begins, np.int64)
         sample_shards = np.array(sample_shards, np.int64)
 
-        sample_ends = self.bytes_per_sample.cumsum()
+        sample_ends = self.bytes_per_sample.astype(np.int64).cumsum()
         sample_begins = sample_ends - self.bytes_per_sample
         sample_shard_offsets = sample_begins - sample_shard_begins
         return sample_shards, sample_shard_offsets
 
-    def get_partition(self, world: World, batch_size: Optional[int] = None) -> Tuple[List[int], int, int]:
+    def get_partition(self, world: World, batch_size: Optional[int] = None) -> Tuple[List[int], List[int], int, int]:
         """Get the shards and sample range of a given partition of the dataset.
 
         Args:
@@ -232,13 +273,15 @@ class StreamingDatasetIndex(object):
                                     which will be read as batches: [0, 1], [4, 5], [6, 7], [2, 3]
 
         Returns:
-            shards (Sequence[int]): The shards that this partition overlaps.
+            shards (List[int]): The shards that this partition overlaps.
+            shards_to_download (List[int]): The shards that this worker should download (subset of ``shards``).
             min_id (int): The lowest sample ID of this partition.
             max_id (int): The highest sample ID of this partition.
         """
-
         global_device = world.global_device
         global_num_devices = world.global_num_devices
+        node_worker = world.node_worker
+        node_num_workers = world.node_num_workers
         device_worker = world.device_worker
         device_num_workers = world.device_num_workers
 
@@ -261,7 +304,7 @@ class StreamingDatasetIndex(object):
         expected_device_samples = math.ceil(self.total_samples / global_num_devices)
         if device_samples < expected_device_samples:
             if device_samples != expected_device_samples - 1:
-                raise RuntimeError("Found device partition with incorrect # samples")
+                raise RuntimeError('Found device partition with incorrect # samples')
             device_min_id -= 1
             device_samples += 1
 
@@ -289,4 +332,14 @@ class StreamingDatasetIndex(object):
         min_shard = self.sample_shards[worker_min_id]
         max_shard = self.sample_shards[worker_max_id]
         shards = list(range(min_shard, max_shard + 1))
-        return shards, worker_min_id, worker_max_id
+
+        # Ensure that each shard only gets downloaded by 1 worker, so there are no race conditions.
+        # To do this, we skip downloading the last shard (likely overlapped with next worker) unless:
+        # - you are the last worker on your node (no files shared across nodes so you have to download it again!)
+        # - you are downloading the last sample of the shard (no overlap with next worker)
+        if ((node_worker + 1 == node_num_workers) or
+            (worker_max_id + 1 < self.total_samples and self.sample_shards[worker_max_id + 1] != max_shard)):
+            shards_to_download = shards
+        else:
+            shards_to_download = shards[:-1]
+        return shards, shards_to_download, worker_min_id, worker_max_id

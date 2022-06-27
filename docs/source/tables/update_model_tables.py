@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Helper function to generate the README table."""
 import os
@@ -25,7 +26,7 @@ metadata = utils.get_metadata(
 
 # add extra keys
 for name, md in metadata.items():
-    md['_github_link'] = f"{name}/"
+    md['_github_link'] = f'{name}/'
     md['_hparams_path'] = os.path.join('composer', 'yamls', 'models', md['_hparams'])
     md['_hparams_link'] = f"../yamls/models/{md['_hparams']}"
 

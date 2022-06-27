@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.MNIST_Classifier`."""
 
@@ -6,7 +7,7 @@ from dataclasses import asdict, dataclass
 
 from composer.models.model_hparams import ModelHparams
 
-__all__ = ["MnistClassifierHparams"]
+__all__ = ['MnistClassifierHparams']
 
 
 @dataclass

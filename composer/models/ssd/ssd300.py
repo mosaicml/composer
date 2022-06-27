@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """SSD 300 architecture in PyTorch adapted from MLCommons.
 
@@ -12,7 +13,7 @@ import torch.nn as nn
 
 from composer.models.ssd.base_model import ResNet34
 
-__all__ = ["SSD300"]
+__all__ = ['SSD300']
 
 
 class SSD300(nn.Module):

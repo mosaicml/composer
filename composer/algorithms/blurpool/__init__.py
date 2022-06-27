@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """`BlurPool <http://proceedings.mlr.press/v97/zhang19a.html>`_ adds anti-aliasing filters to convolutional layers to
 increase accuracy and invariance to small shifts in the input.
@@ -15,11 +16,11 @@ from composer.algorithms.blurpool.blurpool_layers import blur_2d as blur_2d
 from composer.algorithms.blurpool.blurpool_layers import blurmax_pool2d as blurmax_pool2d
 
 __all__ = [
-    "BlurPool",
-    "apply_blurpool",
-    "BlurConv2d",
-    "BlurMaxPool2d",
-    "BlurPool2d",
-    "blur_2d",
-    "blurmax_pool2d",
+    'BlurPool',
+    'apply_blurpool',
+    'BlurConv2d',
+    'BlurMaxPool2d',
+    'BlurPool2d',
+    'blur_2d',
+    'blurmax_pool2d',
 ]

@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """A ResNet model family adapted for CIFAR10 image sizes.
 
@@ -8,7 +9,7 @@ See the :doc:`Model Card </model_cards/cifar_resnet>` for more details.
 from composer.models.resnet_cifar.model import ComposerResNetCIFAR as ComposerResNetCIFAR
 from composer.models.resnet_cifar.resnet_cifar_hparams import ResNetCIFARHparams as ResNetCIFARHparams
 
-__all__ = ["ComposerResNetCIFAR", "ResNetCIFARHparams"]
+__all__ = ['ComposerResNetCIFAR', 'ResNetCIFARHparams']
 
 _metadata = {
     'resnet9': {

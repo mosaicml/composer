@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Core code for sequence length warmup."""
 
@@ -17,14 +18,14 @@ from composer.loggers import Logger
 from composer.models import ComposerTransformer
 from composer.utils import ensure_tuple
 
-__all__ = ["SeqLengthWarmup", "set_batch_sequence_length"]
+__all__ = ['SeqLengthWarmup', 'set_batch_sequence_length']
 
 
 def set_batch_sequence_length(batch: Dict[str, torch.Tensor], curr_seq_len: int, truncate: bool = True) -> Batch:
     """Set the sequence length of a batch.
 
     Changes the sequence length of all tensors in the provided dictionary
-    to ``curr_seq_len``, by either truncating the tensors (``truncate=True``)
+    to ``curr_seq_len`` by either truncating the tensors (``truncate=True``)
     or reshaping the tensors to create new examples from the extra tokens
     (``truncate=False``).
 
@@ -36,7 +37,7 @@ def set_batch_sequence_length(batch: Dict[str, torch.Tensor], curr_seq_len: int,
     .. note::
 
         Variable input lengths can create CUDA OOM errors. To avoid this,
-        we follow `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
+        we follow the `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
         and pre-allocate the memory with a blank forward and backward pass.
 
     Args:
@@ -77,7 +78,7 @@ def set_batch_sequence_length(batch: Dict[str, torch.Tensor], curr_seq_len: int,
         batch['input_ids'] = input_ids
 
         for k, v in batch.items():
-            if k == "input_ids":
+            if k == 'input_ids':
                 continue
             v = v.view(-1)
             v = v[:tensor_len]
@@ -101,18 +102,18 @@ class SeqLengthWarmup(Algorithm):
     create new examples from the extra tokens (``truncate=False``).
 
     This algorithm runs on :attr:`~composer.core.event.Event.AFTER_DATALOADER` to modify
-    the sequence length of a batch of data, after the model and data have been moved to
+    the sequence length of a batch of data after the model and data have been moved to
     accelerators.
 
     .. note::
 
         ``step_size`` should be a `multiple of eight <https://developer.nvidia.com/blog/optimizing-gpu-performance-tensor-cores/>`_ for
-        optimal throughput on NVIDIA GPUs
+        optimal throughput on NVIDIA GPUs.
 
     .. note::
 
         Variable input lengths can create CUDA OOM errors. To avoid this,
-        we follow `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
+        we follow the `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
         and pre-allocate the memory with a blank forward and backward pass.
 
     See the :doc:`Method Card </method_cards/seq_length_warmup>` for more details.
@@ -184,14 +185,14 @@ class SeqLengthWarmup(Algorithm):
             self._original_model = state.model
             return
 
-        assert state.dataloader is not None, "dataloader should be set on AFTER_DATALOADER"
-        assert state.max_duration is not None, "max_duration should be set on AFTER_DATALOADER"
+        assert state.dataloader is not None, 'dataloader should be set on AFTER_DATALOADER'
+        assert state.max_duration is not None, 'max_duration should be set on AFTER_DATALOADER'
 
         # in order to avoid OOMs, we do a forward and a backward pass on a dummy input.
         if not self._activated:
             # ensure that input_ids is a valid model input. since we don't need the
             # results, we don't use all inputs.
-            assert self._original_model is not None, "original model should be set on Event.INIT"
+            assert self._original_model is not None, 'original model should be set on Event.INIT'
             model_inputs = self._original_model.get_model_inputs()
             if 'input_ids' not in model_inputs:
                 raise RuntimeError("'input_ids' must be in model inputs")
@@ -210,12 +211,12 @@ class SeqLengthWarmup(Algorithm):
                 # Both PyTorch and FFCV dataloaders define a `batch_size` attribute
                 # This exception would mainly be raised if the user is passing in a custom
                 # iterable
-                per_gpu_macrobatch = getattr(state.dataloader, "batch_size")
+                per_gpu_macrobatch = getattr(state.dataloader, 'batch_size')
             except AttributeError as e:
                 raise AttributeError(
-                    "Sequence Length Warmup requires the `state.dataloader` to have a `batch_size` attribute.") from e
+                    'Sequence Length Warmup requires the `state.dataloader` to have a `batch_size` attribute.') from e
             if per_gpu_macrobatch is None:
-                raise RuntimeError("Sequence Length Warmup algorithm requires constant batch size.")
+                raise RuntimeError('Sequence Length Warmup algorithm requires constant batch size.')
             per_gpu_batch = ceil(per_gpu_macrobatch / state.grad_accum)
 
             input_ids = torch.randint(low=0,
@@ -225,9 +226,9 @@ class SeqLengthWarmup(Algorithm):
             labels = input_ids.clone()
             attn_mask = torch.ones_like(labels)
             model_inputs = {
-                "input_ids": input_ids,
-                "labels": labels,
-                "attention_mask": attn_mask,
+                'input_ids': input_ids,
+                'labels': labels,
+                'attention_mask': attn_mask,
             }
 
             # start by running a forward and backward pass
@@ -248,7 +249,7 @@ class SeqLengthWarmup(Algorithm):
 
         if state.max_duration.unit == TimeUnit.EPOCH:
             if state.dataloader_len is None:
-                raise RuntimeError("Sequential Length Warmup requires the dataloader to be sized.")
+                raise RuntimeError('Sequential Length Warmup requires the dataloader to be sized.')
             num_optimization_steps = int(state.dataloader_len) * state.max_duration.value
         elif state.max_duration.unit == TimeUnit.BATCH:
             num_optimization_steps = state.max_duration.value

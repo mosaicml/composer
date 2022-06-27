@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import pytest
 from torch.utils.data import DataLoader
@@ -24,12 +25,12 @@ def _assert_predict_events_called_expected_number_of_times(
 
     for event, expected in event_to_num_expected_invocations.items():
         actual = event_counter.event_to_num_calls[event]
-        assert expected == actual, f"Event {event} expected to be called {expected} times, but instead it was called {actual} times"
+        assert expected == actual, f'Event {event} expected to be called {expected} times, but instead it was called {actual} times'
 
 
 class TestTrainerPredict():
 
-    @pytest.mark.parametrize("subset_num_batches", [-1, 1])
+    @pytest.mark.parametrize('subset_num_batches', [-1, 1])
     def test_predict(self, subset_num_batches: int):
         # Create the trainer and train
         event_counter_callback = EventCounterCallback()
@@ -51,3 +52,33 @@ class TestTrainerPredict():
         # Validate that the predict events were called the correct number of times
         num_predict_batches = subset_num_batches if subset_num_batches >= 0 else len(predict_dl)
         _assert_predict_events_called_expected_number_of_times(event_counter_callback, num_predict_batches)
+
+    def test_timestamps(self):
+        # Construct the trainer
+        event_counter_callback = EventCounterCallback()
+        trainer = Trainer(
+            model=SimpleModel(),
+            callbacks=[event_counter_callback],
+        )
+
+        # Predict on the model
+        predict_dataloader = DataLoader(dataset=RandomClassificationDataset())
+        trainer.predict(predict_dataloader)
+
+        # Ensure that the predict timestamp matches the number of prediction events
+        assert event_counter_callback.event_to_num_calls[
+            Event.PREDICT_BATCH_START] == trainer.state.predict_timestamp.batch
+        assert trainer.state.predict_timestamp.batch == trainer.state.predict_timestamp.batch_in_epoch
+
+        # Ensure that if we predict again, the predict timestamp was reset
+
+        # Reset the event counter callback
+        event_counter_callback.event_to_num_calls = {k: 0 for k in event_counter_callback.event_to_num_calls}
+
+        # Predict again
+        trainer.predict(predict_dataloader)
+
+        # Validate the same invariants
+        assert event_counter_callback.event_to_num_calls[
+            Event.PREDICT_BATCH_START] == trainer.state.predict_timestamp.batch
+        assert trainer.state.predict_timestamp.batch == trainer.state.predict_timestamp.batch_in_epoch

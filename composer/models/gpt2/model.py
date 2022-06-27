@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """GPT-2 model based on `Hugging Face GPT-2 <https://huggingface.co/docs/transformers/master/en/model_doc/gpt2>`_.
 
@@ -20,7 +21,7 @@ if TYPE_CHECKING:
 
     from composer.core.types import Batch
 
-__all__ = ["GPT2Model"]
+__all__ = ['GPT2Model']
 
 
 class GPT2Model(ComposerTransformer):
@@ -56,7 +57,7 @@ class GPT2Model(ComposerTransformer):
                  gradient_checkpointing: bool = False) -> None:
 
         if tokenizer is None:
-            model_inputs = {"input_ids", "attention_mask"}
+            model_inputs = {'input_ids', 'attention_mask'}
         else:
             model_inputs = set(tokenizer.model_input_names)
 

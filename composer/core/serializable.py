@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Serialization interface used by checkpointing."""
 
@@ -6,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-__all__ = ["Serializable"]
+__all__ = ['Serializable']
 
 
 class Serializable:

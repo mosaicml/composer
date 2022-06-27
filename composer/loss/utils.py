@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Loss-related utilities."""
 
@@ -10,7 +11,7 @@ from typing import Optional
 import torch
 from torch.nn import functional as F
 
-__all__ = ["infer_target_type", "ensure_targets_one_hot", "check_for_index_targets"]
+__all__ = ['infer_target_type', 'ensure_targets_one_hot', 'check_for_index_targets']
 
 
 def infer_target_type(input: torch.Tensor, targets: torch.Tensor) -> str:
@@ -33,12 +34,13 @@ def ensure_targets_one_hot(input: torch.Tensor,
                            targets: torch.Tensor,
                            num_classes: Optional[float] = None) -> torch.Tensor:
     r"""Ensures that the targets are in a one-hot format rather than an index format.
+
     Args:
         input (torch.Tensor): :math:`(N, C)` where `C = number of classes` or :math:`(N, C, H, W)`
             in case of 2D Loss, or :math:`(N, C, d_1, d_2, ..., d_K)` where :math:`K \geq 1`
             in the case of K-dimensional loss. `input` is expected to contain unnormalized scores
             (often referred to as logits).
-        target (torch.Tensor) : If containing class indices, shape :math:`(N)` where each value is
+        targets (torch.Tensor) : If containing class indices, shape :math:`(N)` where each value is
             :math:`0 \leq \text{targets}[i] \leq C-1`, or :math:`(N, d_1, d_2, ..., d_K)` with
             :math:`K \geq 1` in the case of K-dimensional loss. If containing class probabilities,
             same shape as the input.
@@ -50,7 +52,7 @@ def ensure_targets_one_hot(input: torch.Tensor,
         if num_classes is None:
             num_classes = input.shape[1]
         if targets.min() < 0:
-            warnings.warn("Negative label indices are being ignored in conversion to one-hot labels")
+            warnings.warn('Negative label indices are being ignored in conversion to one-hot labels')
             # Map all negative indicies to a class to drop.
             targets[targets < 0] = num_classes
             targets = F.one_hot(targets, num_classes=num_classes + 1)

@@ -1,10 +1,11 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
 import pytest
 import torch
 
-from composer.algorithms import CutMix, CutMixHparams
+from composer.algorithms import CutMix
 from composer.algorithms.cutmix.cutmix import _rand_bbox, cutmix_batch
 from composer.core import Event
 from composer.models import ComposerClassifier
@@ -90,9 +91,3 @@ class TestCutMix:
         y_perm = algorithm._permuted_target
         # Validate results
         validate_cutmix(x=x_fake, y=y_fake, indices=algorithm._indices, x_cutmix=x, y_perm=y_perm, bbox=algorithm._bbox)
-
-
-def test_cutmix_hparams():
-    hparams = CutMixHparams(alpha=1.0)
-    algorithm = hparams.initialize_object()
-    assert isinstance(algorithm, CutMix)

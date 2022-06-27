@@ -65,7 +65,7 @@ DataSpec
 Sometimes, the data configuration requires more than just the dataloader. Some example
 additional configurations include:
 
--  Some transforms should be run on the data after it has been moved 
+-  Some transforms should be run on the data after it has been moved
    onto the correct device (e.g. ``GPU``).
 -  Custom batch types would need a ``split_batch`` function that tells
    our trainer how to split the batches into microbatches for gradient
@@ -115,8 +115,8 @@ For more information, see :doc:`Evaluation</trainer/evaluation>`.
 Batch Types
 -----------
 
-For custom batch types (not torch.Tensor, List, Tuple, Mapping), implement and provide 
-the ``split_batch`` function to the trainer using :class:`.DataSpec` above. Here's an 
+For custom batch types (not torch.Tensor, List, Tuple, Mapping), implement and provide
+the ``split_batch`` function to the trainer using :class:`.DataSpec` above. Here's an
 example function or when the batch from the dataloader is a tuple of two tensors:
 
 .. code:: python

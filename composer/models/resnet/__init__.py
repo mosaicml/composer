@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """The ResNet model family is a set of convolutional neural networks described in `Deep Residual Learning for Image
 Recognition <https://arxiv.org/abs/1512.03385>`_ (He et al, 2015). ResNets can be used as the base for a variety of
@@ -10,7 +11,7 @@ See the :doc:`Model Card </model_cards/resnet>` for more details.
 from composer.models.resnet.model import ComposerResNet as ComposerResNet
 from composer.models.resnet.resnet_hparams import ResNetHparams as ResNetHparams
 
-__all__ = ["ComposerResNet", "ResNetHparams"]
+__all__ = ['ComposerResNet', 'ResNetHparams']
 
 _metadata = {
     'resnet18': {

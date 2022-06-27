@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """A simple convolutional neural network extending :class:`.ComposerClassifier`."""
 
@@ -11,7 +12,7 @@ from torch.nn import functional as F
 from composer.models.initializers import Initializer
 from composer.models.tasks import ComposerClassifier
 
-__all__ = ["Model", "MNIST_Classifier"]
+__all__ = ['Model', 'MNIST_Classifier']
 
 
 class Model(nn.Module):

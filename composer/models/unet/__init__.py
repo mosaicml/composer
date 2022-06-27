@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """The Unet architecture used in image segmentation. The example we are using is for BRATS medical brain tumor dataset.
 
@@ -8,7 +9,7 @@ See the :doc:`Model Card </model_cards/unet>` for more details.
 from composer.models.unet.unet import UNet as UNet
 from composer.models.unet.unet_hparams import UnetHparams as UnetHparams
 
-__all__ = ["UNet", "UnetHparams"]
+__all__ = ['UNet', 'UnetHparams']
 
 _task = 'Image Segmentation'
 _dataset = 'BRATS'

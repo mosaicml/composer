@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Profiler Schedules."""
 
@@ -7,7 +8,7 @@ from typing import Callable
 from composer.core.state import State
 from composer.profiler.profiler_action import ProfilerAction
 
-__all__ = ["cyclic_schedule"]
+__all__ = ['cyclic_schedule']
 
 
 def cyclic_schedule(

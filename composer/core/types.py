@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Reference for common types used throughout the composer library.
 
@@ -20,7 +21,7 @@ import torch.utils.data
 
 from composer.utils.string_enum import StringEnum
 
-__all__ = ["Batch", "PyTorchScheduler", "JSON", "MemoryFormat", "BreakEpochException"]
+__all__ = ['Batch', 'PyTorchScheduler', 'JSON', 'MemoryFormat', 'BreakEpochException']
 
 Batch = Any
 
@@ -56,7 +57,7 @@ class MemoryFormat(StringEnum):
         PRESERVE_FORMAT: A way to tell operations to make the output tensor to have the same memory format as the input
             tensor.
     """
-    CONTIGUOUS_FORMAT = "contiguous_format"
-    CHANNELS_LAST = "channels_last"
-    CHANNELS_LAST_3D = "channels_last_3d"
-    PRESERVE_FORMAT = "preserve_format"
+    CONTIGUOUS_FORMAT = 'contiguous_format'
+    CHANNELS_LAST = 'channels_last'
+    CHANNELS_LAST_3D = 'channels_last_3d'
+    PRESERVE_FORMAT = 'preserve_format'

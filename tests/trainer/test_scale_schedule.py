@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 from typing import List
 
@@ -11,9 +12,10 @@ from torch.optim.lr_scheduler import ExponentialLR
 from composer.core import Callback, State, TimeUnit
 from composer.core.types import PyTorchScheduler
 from composer.loggers.logger import Logger
-from composer.optim import MultiStepSchedulerHparams, SGDHparams
-from composer.trainer import TrainerHparams
+from composer.optim import MultiStepScheduler
+from composer.optim.optimizer_hparams_registry import SGDHparams
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
+from composer.trainer.trainer_hparams import TrainerHparams
 from tests.common.models import SimpleModel
 
 
@@ -27,7 +29,7 @@ def flatten(lst: list):
 
 
 @pytest.mark.parametrize('ssr', [0.5, 0.75, 1.0])
-@pytest.mark.filterwarnings(r"ignore:.*Detected call of \`lr_schedule.*:UserWarning")
+@pytest.mark.filterwarnings(r'ignore:.*Detected call of \`lr_schedule.*:UserWarning')
 class TestScaleSchedule():
 
     @staticmethod
@@ -98,16 +100,16 @@ class CheckScaleSchedule(Callback):
 @pytest.mark.parametrize('ssr', [0.5, 0.75, 1.0])
 class TestScaleScheduleTrainer():
 
-    @pytest.mark.filterwarnings(r"ignore:.*Detected call of \`lr_schedule.*:UserWarning")
+    @pytest.mark.filterwarnings(r'ignore:.*Detected call of \`lr_schedule.*:UserWarning')
     def test_epochs_scaled(
         self,
         ssr: float,
         composer_trainer_hparams: TrainerHparams,
     ):
 
-        composer_trainer_hparams.optimizer = SGDHparams(lr=1.0)
+        composer_trainer_hparams.optimizers = SGDHparams(lr=1.0)
         composer_trainer_hparams.max_duration = '10ep'
-        composer_trainer_hparams.schedulers = [MultiStepSchedulerHparams(milestones=['30ba', '50ba'], gamma=0.1)]
+        composer_trainer_hparams.schedulers = [MultiStepScheduler(milestones=['30ba', '50ba'], gamma=0.1)]
 
         composer_trainer_hparams.scale_schedule_ratio = ssr
         trainer = composer_trainer_hparams.initialize_object()
