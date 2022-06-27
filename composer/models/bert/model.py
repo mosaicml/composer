@@ -16,7 +16,7 @@ from composer.metrics.nlp import BinaryF1Score, LanguageCrossEntropy, MaskedAccu
 from composer.models.huggingface import HuggingFaceModel
 from composer.utils.import_helpers import MissingConditionalImportError
 
-__all__ = ["create_bert_mlm", "create_bert_classification"]
+__all__ = ['create_bert_mlm', 'create_bert_classification']
 
 
 def create_bert_mlm(use_pretrained: Optional[bool] = False,
@@ -72,7 +72,7 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
     try:
         import transformers
     except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
     if not model_config:
         model_config = {}
@@ -167,7 +167,7 @@ def create_bert_classification(num_labels: Optional[int] = 2,
     try:
         import transformers
     except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
     if not model_config:
         model_config = {}

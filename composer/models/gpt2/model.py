@@ -14,7 +14,7 @@ from composer.metrics.nlp import HFCrossEntropy, Perplexity
 from composer.models.huggingface import HuggingFaceModel
 from composer.utils.import_helpers import MissingConditionalImportError
 
-__all__ = ["create_gpt2"]
+__all__ = ['create_gpt2']
 
 
 def create_gpt2(use_pretrained: Optional[bool] = False,
@@ -85,7 +85,7 @@ def create_gpt2(use_pretrained: Optional[bool] = False,
     try:
         import transformers
     except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
     if not model_config:
         model_config = {}

@@ -16,7 +16,7 @@ from composer.loggers.logger import Logger, LogLevel, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 
-__all__ = ["ProgressBarLogger"]
+__all__ = ['ProgressBarLogger']
 
 _IS_TRAIN_TO_KEYS_TO_LOG = {True: ['loss/train'], False: ['metrics/eval/Accuracy']}
 
@@ -124,9 +124,9 @@ class ProgressBarLogger(LoggerDestination):
         else:
             self.should_log = console_log_level
         if isinstance(stream, str):
-            if stream.lower() == "stdout":
+            if stream.lower() == 'stdout':
                 stream = sys.stdout
-            elif stream.lower() == "stderr":
+            elif stream.lower() == 'stderr':
                 stream = sys.stderr
             else:
                 raise ValueError(
@@ -155,8 +155,8 @@ class ProgressBarLogger(LoggerDestination):
     def _start(self, state: State):
         if dist.get_local_rank() != 0 or not self.show_pbar:
             return
-        assert self.is_train is not None, "self.is_train should be set by the callback"
-        assert state.dataloader_len is not None, "dataloader_len should be set when using tqdm"
+        assert self.is_train is not None, 'self.is_train should be set by the callback'
+        assert state.dataloader_len is not None, 'dataloader_len should be set when using tqdm'
 
         split = 'train' if self.is_train else 'val'
         desc = f'Epoch {int(state.timestamp.epoch):5d} {split:5s}'
@@ -229,16 +229,16 @@ class ProgressBarLogger(LoggerDestination):
 
     def state_dict(self) -> Dict[str, Any]:
         return {
-            "pbars": {k: v.state_dict() for (k, v) in self.pbars.items()},
-            "is_train": self.is_train,
+            'pbars': {k: v.state_dict() for (k, v) in self.pbars.items()},
+            'is_train': self.is_train,
         }
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
         self.pbars = {}
-        for is_train, pbar_state in state["pbars"].items():
+        for is_train, pbar_state in state['pbars'].items():
             self.pbars[is_train] = _ProgressBarLoggerInstance(
                 file=self.stream,
                 state=_ProgressBarLoggerInstanceState(**pbar_state),
             )
 
-        self.is_train = state["is_train"]
+        self.is_train = state['is_train']

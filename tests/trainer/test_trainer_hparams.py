@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from typing import TypedDict
 
 
-@pytest.mark.parametrize("method,typeddict_cls", [[Trainer.fit, FitKwargs], [Trainer.eval, EvalKwargs]])
+@pytest.mark.parametrize('method,typeddict_cls', [[Trainer.fit, FitKwargs], [Trainer.eval, EvalKwargs]])
 def test_kwargs_match_signature(method: Callable, typeddict_cls: Type[TypedDict]):
     assert typing.get_type_hints(method) == typing.get_type_hints(typeddict_cls)
 

@@ -15,15 +15,15 @@ from composer.trainer.trainer_hparams import TrainerHparams
 
 
 def run_and_measure_memory(precision: Precision) -> int:
-    hparams_f = os.path.join(os.path.dirname(composer.__file__), "yamls", "models", "resnet56_cifar10_synthetic.yaml")
+    hparams_f = os.path.join(os.path.dirname(composer.__file__), 'yamls', 'models', 'resnet56_cifar10_synthetic.yaml')
     hparams = TrainerHparams.create(f=hparams_f, cli_args=False)
     hparams.train_subset_num_batches = 1
-    hparams.eval_interval = "0ep"
+    hparams.eval_interval = '0ep'
     assert isinstance(hparams, TrainerHparams)
     hparams.precision = precision
     hparams.dataloader.num_workers = 0
     hparams.dataloader.persistent_workers = False
-    hparams.max_duration = "1ep"
+    hparams.max_duration = '1ep'
     assert isinstance(hparams.train_dataset, SyntheticHparamsMixin)
     hparams.train_dataset.use_synthetic = True
     assert isinstance(hparams.val_dataset, SyntheticHparamsMixin)
@@ -38,10 +38,10 @@ def run_and_measure_memory(precision: Precision) -> int:
 
 @pytest.mark.gpu
 @pytest.mark.timeout(5)
-@pytest.mark.parametrize("precision", [Precision.AMP, Precision.BF16])
+@pytest.mark.parametrize('precision', [Precision.AMP, Precision.BF16])
 def test_precision_memory(precision: Precision):
-    if version.parse(torch.__version__) < version.parse("1.10"):
-        pytest.skip("Test required torch >= 1.10")
+    if version.parse(torch.__version__) < version.parse('1.10'):
+        pytest.skip('Test required torch >= 1.10')
     memory_full = run_and_measure_memory(Precision.FP32)
     memory_precision = run_and_measure_memory(precision)
     assert memory_precision < 0.7 * memory_full

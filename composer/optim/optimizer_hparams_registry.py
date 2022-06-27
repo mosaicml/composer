@@ -17,14 +17,14 @@ from composer.optim import DecoupledAdamW, DecoupledSGDW
 # Optimizer parameters and defaults match those in torch.optim
 
 __all__ = [
-    "OptimizerHparams",
-    "AdamHparams",
-    "RAdamHparams",
-    "AdamWHparams",
-    "DecoupledAdamWHparams",
-    "SGDHparams",
-    "DecoupledSGDWHparams",
-    "RMSpropHparams",
+    'OptimizerHparams',
+    'AdamHparams',
+    'RAdamHparams',
+    'AdamWHparams',
+    'DecoupledAdamWHparams',
+    'SGDHparams',
+    'DecoupledSGDWHparams',
+    'RMSpropHparams',
 ]
 
 
@@ -49,7 +49,7 @@ class OptimizerHparams(hp.Hparams, ABC):
                 this optimizer to optimize.
         """
         if self.optimizer_cls is None:
-            raise ValueError(f"{type(self).__name__}.optimizer_cls must be defined")
+            raise ValueError(f'{type(self).__name__}.optimizer_cls must be defined')
         return self.optimizer_cls(param_group, **asdict(self))
 
 
@@ -69,11 +69,11 @@ class AdamHparams(OptimizerHparams):
 
     optimizer_cls = torch.optim.Adam
 
-    lr: float = hp.auto(torch.optim.Adam, "lr", ignore_docstring_errors=True)
-    betas: List[float] = hp.auto(torch.optim.Adam, "betas", ignore_docstring_errors=True)
-    eps: float = hp.auto(torch.optim.Adam, "eps", ignore_docstring_errors=True)
-    weight_decay: float = hp.auto(torch.optim.Adam, "weight_decay", ignore_docstring_errors=True)
-    amsgrad: bool = hp.auto(torch.optim.Adam, "amsgrad", ignore_docstring_errors=True)
+    lr: float = hp.auto(torch.optim.Adam, 'lr', ignore_docstring_errors=True)
+    betas: List[float] = hp.auto(torch.optim.Adam, 'betas', ignore_docstring_errors=True)
+    eps: float = hp.auto(torch.optim.Adam, 'eps', ignore_docstring_errors=True)
+    weight_decay: float = hp.auto(torch.optim.Adam, 'weight_decay', ignore_docstring_errors=True)
+    amsgrad: bool = hp.auto(torch.optim.Adam, 'amsgrad', ignore_docstring_errors=True)
 
 
 @dataclass
@@ -91,10 +91,10 @@ class RAdamHparams(OptimizerHparams):
 
     optimizer_cls = torch_optimizer.RAdam
 
-    lr: float = hp.auto(torch_optimizer.RAdam, "lr", ignore_docstring_errors=True)
-    betas: List[float] = hp.auto(torch_optimizer.RAdam, "betas", ignore_docstring_errors=True)
-    eps: float = hp.auto(torch_optimizer.RAdam, "eps", ignore_docstring_errors=True)
-    weight_decay: float = hp.auto(torch_optimizer.RAdam, "weight_decay", ignore_docstring_errors=True)
+    lr: float = hp.auto(torch_optimizer.RAdam, 'lr', ignore_docstring_errors=True)
+    betas: List[float] = hp.auto(torch_optimizer.RAdam, 'betas', ignore_docstring_errors=True)
+    eps: float = hp.auto(torch_optimizer.RAdam, 'eps', ignore_docstring_errors=True)
+    weight_decay: float = hp.auto(torch_optimizer.RAdam, 'weight_decay', ignore_docstring_errors=True)
 
 
 @dataclass
@@ -113,11 +113,11 @@ class AdamWHparams(OptimizerHparams):
 
     optimizer_cls = torch.optim.AdamW
 
-    lr: float = hp.auto(torch.optim.AdamW, "lr", ignore_docstring_errors=True)
-    betas: List[float] = hp.auto(torch.optim.AdamW, "betas", ignore_docstring_errors=True)
-    eps: float = hp.auto(torch.optim.AdamW, "eps", ignore_docstring_errors=True)
-    weight_decay: float = hp.auto(torch.optim.AdamW, "weight_decay", ignore_docstring_errors=True)
-    amsgrad: bool = hp.auto(torch.optim.AdamW, "amsgrad", ignore_docstring_errors=True)
+    lr: float = hp.auto(torch.optim.AdamW, 'lr', ignore_docstring_errors=True)
+    betas: List[float] = hp.auto(torch.optim.AdamW, 'betas', ignore_docstring_errors=True)
+    eps: float = hp.auto(torch.optim.AdamW, 'eps', ignore_docstring_errors=True)
+    weight_decay: float = hp.auto(torch.optim.AdamW, 'weight_decay', ignore_docstring_errors=True)
+    amsgrad: bool = hp.auto(torch.optim.AdamW, 'amsgrad', ignore_docstring_errors=True)
 
 
 @dataclass
@@ -136,11 +136,11 @@ class DecoupledAdamWHparams(OptimizerHparams):
 
     optimizer_cls = DecoupledAdamW
 
-    lr: float = hp.auto(DecoupledAdamW, "lr")
-    betas: List[float] = hp.auto(DecoupledAdamW, "betas")
-    eps: float = hp.auto(DecoupledAdamW, "eps")
-    weight_decay: float = hp.auto(DecoupledAdamW, "weight_decay")
-    amsgrad: bool = hp.auto(DecoupledAdamW, "amsgrad")
+    lr: float = hp.auto(DecoupledAdamW, 'lr')
+    betas: List[float] = hp.auto(DecoupledAdamW, 'betas')
+    eps: float = hp.auto(DecoupledAdamW, 'eps')
+    weight_decay: float = hp.auto(DecoupledAdamW, 'weight_decay')
+    amsgrad: bool = hp.auto(DecoupledAdamW, 'amsgrad')
 
 
 @dataclass
@@ -159,11 +159,11 @@ class SGDHparams(OptimizerHparams):
 
     optimizer_cls = torch.optim.SGD
 
-    lr: float = hp.auto(torch.optim.SGD, "lr", ignore_docstring_errors=True)
-    momentum: float = hp.auto(torch.optim.SGD, "momentum", ignore_docstring_errors=True)
-    weight_decay: float = hp.auto(torch.optim.SGD, "weight_decay", ignore_docstring_errors=True)
-    dampening: float = hp.auto(torch.optim.SGD, "dampening", ignore_docstring_errors=True)
-    nesterov: bool = hp.auto(torch.optim.SGD, "nesterov", ignore_docstring_errors=True)
+    lr: float = hp.auto(torch.optim.SGD, 'lr', ignore_docstring_errors=True)
+    momentum: float = hp.auto(torch.optim.SGD, 'momentum', ignore_docstring_errors=True)
+    weight_decay: float = hp.auto(torch.optim.SGD, 'weight_decay', ignore_docstring_errors=True)
+    dampening: float = hp.auto(torch.optim.SGD, 'dampening', ignore_docstring_errors=True)
+    nesterov: bool = hp.auto(torch.optim.SGD, 'nesterov', ignore_docstring_errors=True)
 
 
 @dataclass
@@ -182,11 +182,11 @@ class DecoupledSGDWHparams(OptimizerHparams):
 
     optimizer_cls = DecoupledSGDW
 
-    lr: float = hp.auto(DecoupledSGDW, "lr")
-    momentum: float = hp.auto(DecoupledSGDW, "momentum")
-    weight_decay: float = hp.auto(DecoupledSGDW, "weight_decay")
-    dampening: float = hp.auto(DecoupledSGDW, "dampening")
-    nesterov: bool = hp.auto(DecoupledSGDW, "nesterov")
+    lr: float = hp.auto(DecoupledSGDW, 'lr')
+    momentum: float = hp.auto(DecoupledSGDW, 'momentum')
+    weight_decay: float = hp.auto(DecoupledSGDW, 'weight_decay')
+    dampening: float = hp.auto(DecoupledSGDW, 'dampening')
+    nesterov: bool = hp.auto(DecoupledSGDW, 'nesterov')
 
 
 @dataclass
@@ -206,20 +206,20 @@ class RMSpropHparams(OptimizerHparams):
 
     optimizer_cls = torch.optim.RMSprop
 
-    lr: float = hp.auto(torch.optim.RMSprop, "lr", ignore_docstring_errors=True)
-    alpha: float = hp.auto(torch.optim.RMSprop, "alpha", ignore_docstring_errors=True)
-    eps: float = hp.auto(torch.optim.RMSprop, "eps", ignore_docstring_errors=True)
-    momentum: float = hp.auto(torch.optim.RMSprop, "momentum", ignore_docstring_errors=True)
-    weight_decay: float = hp.auto(torch.optim.RMSprop, "weight_decay", ignore_docstring_errors=True)
-    centered: float = hp.auto(torch.optim.RMSprop, "centered", ignore_docstring_errors=True)
+    lr: float = hp.auto(torch.optim.RMSprop, 'lr', ignore_docstring_errors=True)
+    alpha: float = hp.auto(torch.optim.RMSprop, 'alpha', ignore_docstring_errors=True)
+    eps: float = hp.auto(torch.optim.RMSprop, 'eps', ignore_docstring_errors=True)
+    momentum: float = hp.auto(torch.optim.RMSprop, 'momentum', ignore_docstring_errors=True)
+    weight_decay: float = hp.auto(torch.optim.RMSprop, 'weight_decay', ignore_docstring_errors=True)
+    centered: float = hp.auto(torch.optim.RMSprop, 'centered', ignore_docstring_errors=True)
 
 
 optimizer_registry = {
-    "adam": AdamHparams,
-    "adamw": AdamWHparams,
-    "decoupled_adamw": DecoupledAdamWHparams,
-    "radam": RAdamHparams,
-    "sgd": SGDHparams,
-    "decoupled_sgdw": DecoupledSGDWHparams,
-    "rmsprop": RMSpropHparams,
+    'adam': AdamHparams,
+    'adamw': AdamWHparams,
+    'decoupled_adamw': DecoupledAdamWHparams,
+    'radam': RAdamHparams,
+    'sgd': SGDHparams,
+    'decoupled_sgdw': DecoupledSGDWHparams,
+    'rmsprop': RMSpropHparams,
 }

@@ -53,7 +53,7 @@ def make_synthetic_dataloader(dataset_config: dict):
     dataloader = LMDatasetHparams(use_synthetic=True,
                                   tokenizer_name=dataset_config['tokenizer_family'],
                                   use_masked_lm=dataset_config['use_masked_lm'],
-                                  max_seq_length=dataset_config["chars_per_sample"],
+                                  max_seq_length=dataset_config['chars_per_sample'],
                                   split='train')
     dataloader = dataloader.initialize_object(batch_size=dataset_config['num_samples'],
                                               dataloader_hparams=DataLoaderHparams(num_workers=0,
@@ -76,8 +76,9 @@ def synthetic_hf_state_maker(config) -> Tuple:
     state = State(
         model=model,
         rank_zero_seed=0,
+        run_name='run_name',
         dataloader=dataloader,
-        dataloader_label="train",
+        dataloader_label='train',
         max_duration='1ep',
     )
 
@@ -86,6 +87,6 @@ def synthetic_hf_state_maker(config) -> Tuple:
 
 @pytest.fixture(params=make_dataset_configs())
 def synthetic_hf_state(request):
-    pytest.importorskip("transformers")
+    pytest.importorskip('transformers')
     config = request.param
     return synthetic_hf_state_maker(config)

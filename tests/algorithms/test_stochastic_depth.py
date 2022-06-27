@@ -27,12 +27,12 @@ def state(minimal_state: State):
 
 @pytest.fixture()
 def target_layer_name() -> str:
-    return "ResNetBottleneck"
+    return 'ResNetBottleneck'
 
 
 @pytest.fixture()
 def stochastic_method():
-    return "block"
+    return 'block'
 
 
 @pytest.mark.parametrize('stochastic_method', ['block', 'sample'])
@@ -210,11 +210,11 @@ class TestStochasticDepthDropRate:
                     drop_rates.append(child.drop_rate)
                 self.get_drop_rate_list(child, drop_rates)
 
-    @pytest.mark.parametrize("step", [50, 100, 1000])
-    @pytest.mark.parametrize("drop_rate", [0.0, 0.5, 1.0])
-    @pytest.mark.parametrize("drop_distribution", ['uniform', 'linear'])
-    @pytest.mark.parametrize("use_same_gpu_seed", [True])
-    @pytest.mark.parametrize("drop_warmup", ["0.1dur"])
+    @pytest.mark.parametrize('step', [50, 100, 1000])
+    @pytest.mark.parametrize('drop_rate', [0.0, 0.5, 1.0])
+    @pytest.mark.parametrize('drop_distribution', ['uniform', 'linear'])
+    @pytest.mark.parametrize('use_same_gpu_seed', [True])
+    @pytest.mark.parametrize('drop_warmup', ['0.1dur'])
     @pytest.mark.timeout(5)
     def test_drop_rate_warmup(self, algorithm: StochasticDepth, step: int, state: State):
         old_drop_rates = []
@@ -233,17 +233,17 @@ class TestStochasticDepthDropRate:
 
 class TestStochasticDepthInputValidation():
 
-    @pytest.mark.parametrize("stochastic_method", ['nonsense'])
+    @pytest.mark.parametrize('stochastic_method', ['nonsense'])
     def test_invalid_method_name(self, stochastic_method: str, target_layer_name: str):
         with pytest.raises(ValueError):
             StochasticDepth(stochastic_method=stochastic_method, target_layer_name=target_layer_name)
 
-    @pytest.mark.parametrize("target_layer_name", ['nonsense_pt2'])
+    @pytest.mark.parametrize('target_layer_name', ['nonsense_pt2'])
     def test_invalid_layer_name(self, stochastic_method: str, target_layer_name: str):
         with pytest.raises(ValueError):
             StochasticDepth(stochastic_method=stochastic_method, target_layer_name=target_layer_name)
 
-    @pytest.mark.parametrize("drop_rate", [-0.5, 1.7])
+    @pytest.mark.parametrize('drop_rate', [-0.5, 1.7])
     def test_invalid_drop_rate(self, stochastic_method: str, target_layer_name: str, drop_rate: float):
         with pytest.raises(ValueError):
             StochasticDepth(
@@ -252,7 +252,7 @@ class TestStochasticDepthInputValidation():
                 drop_rate=drop_rate,
             )
 
-    @pytest.mark.parametrize("drop_distribution", ['nonsense_pt3'])
+    @pytest.mark.parametrize('drop_distribution', ['nonsense_pt3'])
     def test_invalid_drop_distribution(self, stochastic_method: str, target_layer_name: str, drop_distribution: str):
         with pytest.raises(ValueError):
             StochasticDepth(stochastic_method=stochastic_method,

@@ -6,4 +6,4 @@ from composer.utils import import_object
 
 
 def test_dynamic_import_object():
-    assert import_object("functools:partial") is partial
+    assert import_object('functools:partial') is partial

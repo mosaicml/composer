@@ -16,7 +16,7 @@ from composer.utils.import_helpers import MissingConditionalImportError
 if TYPE_CHECKING:
     import transformers
 
-__all__ = ["HuggingFaceModel"]
+__all__ = ['HuggingFaceModel']
 
 
 class HuggingFaceModel(ComposerModel):
@@ -49,7 +49,7 @@ class HuggingFaceModel(ComposerModel):
         try:
             import transformers
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+            raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
         super().__init__()
         self.model = model

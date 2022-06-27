@@ -24,7 +24,4 @@ test-dist:
 test-dist-gpu:
 	$(PYTHON) -m composer.cli.launcher -n $(WORLD_SIZE) --master_port $(MASTER_PORT) $(EXTRA_LAUNCHER_ARGS) -m $(PYTEST) -m gpu $(EXTRA_ARGS)
 
-clean-notebooks:
-	$(PYTHON) scripts/clean_notebooks.py -i examples/*.ipynb
-
-.PHONY: test test-gpu test-dist test-dist-gpu clean-notebooks
+.PHONY: test test-gpu test-dist test-dist-gpu

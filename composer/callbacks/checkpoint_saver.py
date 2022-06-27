@@ -23,7 +23,7 @@ from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, F
 
 log = logging.getLogger(__name__)
 
-__all__ = ["CheckpointSaver", "checkpoint_periodically"]
+__all__ = ['CheckpointSaver', 'checkpoint_periodically']
 
 
 def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State, Event], bool]:
@@ -52,14 +52,14 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
         save_event = Event.BATCH_CHECKPOINT
     else:
         raise NotImplementedError(
-            f"Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH or TimeUnit.BATCH.")
+            f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH or TimeUnit.BATCH.')
 
     last_checkpoint_batch: Optional[Time] = None
 
     def save_interval(state: State, event: Event):
         nonlocal last_checkpoint_batch
         elapsed_duration = state.get_elapsed_duration()
-        assert elapsed_duration is not None, "elapsed_duration is set on the BATCH_CHECKPOINT and EPOCH_CHECKPOINT"
+        assert elapsed_duration is not None, 'elapsed_duration is set on the BATCH_CHECKPOINT and EPOCH_CHECKPOINT'
 
         if elapsed_duration >= 1.0:
             # if doing batch-wise checkpointing, and we saved a checkpoint at the batch_checkpoint event
@@ -74,7 +74,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
         elif save_event == Event.BATCH_CHECKPOINT:
             count = state.timestamp.batch
         else:
-            raise RuntimeError(f"Invalid save_event: {save_event}")
+            raise RuntimeError(f'Invalid save_event: {save_event}')
 
         if event == save_event and int(count) % int(interval) == 0:
             last_checkpoint_batch = state.timestamp.batch
@@ -158,7 +158,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             Consider the following scenario where:
 
-            *   The :attr:`~.Logger.run_name` is ``'awesome-training-run'``
+            *   The :attr:`~.State.run_name` is ``'awesome-training-run'``
             *   The default ``folder='{{run_name}}/checkpoints'`` is used.
             *   The default ``name='ep{{epoch}}-ba{{batch}}-rank{{rank}}'`` is used.
             *   The current epoch count is ``1``.
@@ -198,7 +198,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             Consider the following scenario, where:
 
-            *   The :attr:`~.Logger.run_name` is 'awesome-training-run'
+            *   The :attr:`~.State.run_name` is 'awesome-training-run'
             *   The default ``folder='{{run_name}}/checkpoints'`` is used.
             *   The default ``name='ep{{epoch}}-ba{{batch}}-rank{{rank}}'`` is used.
             *   The default ``latest_filename='latest-rank{{rank}}'`` is used.
@@ -288,12 +288,12 @@ class CheckpointSaver(Callback):  # noqa: D101
 
     def __init__(
         self,
-        folder: str = "{run_name}/checkpoints",
-        filename: str = "ep{epoch}-ba{batch}-rank{rank}",
-        artifact_name: Optional[str] = "{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}",
-        latest_filename: Optional[str] = "latest-rank{rank}",
-        latest_artifact_name: Optional[str] = "{run_name}/checkpoints/latest-rank{rank}",
-        save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = "1ep",
+        folder: str = '{run_name}/checkpoints',
+        filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
+        artifact_name: Optional[str] = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
+        latest_filename: Optional[str] = 'latest-rank{rank}',
+        latest_artifact_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
+        save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = '1ep',
         *,
         overwrite: bool = False,
         num_checkpoints_to_keep: int = -1,
@@ -315,73 +315,71 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.weights_only = weights_only
 
     def init(self, state: State, logger: Logger) -> None:
-        del state  # unused
-        folder = format_name_with_dist(self.folder, logger.run_name)
+        del logger  # unused
+        folder = format_name_with_dist(self.folder, state.run_name)
         os.makedirs(folder, exist_ok=True)
 
     def fit_start(self, state: State, logger: Logger) -> None:
+        del logger  # unused
         # Verify safety with self.overwrite. Note that this has to be done at fit_start as opposed to init since it requires state.timestamp
         # from any checkpoints which are loaded, and checkpoint loading happens after Event.INIT.
         if not self.overwrite:
-            folder = format_name_with_dist(self.folder, logger.run_name)
+            folder = format_name_with_dist(self.folder, state.run_name)
             ensure_folder_has_no_conflicting_files(folder, self.filename, state.timestamp)
         # Ensure no rank proceeds (and potentially attempts to write to the folder), until all ranks have validated that the folder is safe.
         dist.barrier()
         if state.is_model_deepspeed:
             if self.weights_only:
                 NotImplementedError(
-                    ("Saving checkpoints with `weights_only=True` is not currently supported when using DeepSpeed. "
-                     "See https://github.com/mosaicml/composer/issues/685."))
+                    ('Saving checkpoints with `weights_only=True` is not currently supported when using DeepSpeed. '
+                     'See https://github.com/mosaicml/composer/issues/685.'))
 
     def batch_checkpoint(self, state: State, logger: Logger):
         if self.save_interval(state, Event.BATCH_CHECKPOINT):
             # If training is finished, log at the FIT loglevel
             elapsed_duration = state.get_elapsed_duration()
-            assert elapsed_duration is not None, "elapsed_duration is set on Event.BATCH_CHECKPOINT"
+            assert elapsed_duration is not None, 'elapsed_duration is set on Event.BATCH_CHECKPOINT'
             log_level = LogLevel.BATCH if elapsed_duration < 1.0 else LogLevel.FIT
             self._save_checkpoint(state, logger, log_level)
 
     def epoch_checkpoint(self, state: State, logger: Logger):
         if self.save_interval(state, Event.EPOCH_CHECKPOINT):
             elapsed_duration = state.get_elapsed_duration()
-            assert elapsed_duration is not None, "elapsed_duration is set on Event.BATCH_CHECKPOINT"
+            assert elapsed_duration is not None, 'elapsed_duration is set on Event.BATCH_CHECKPOINT'
             log_level = LogLevel.EPOCH if elapsed_duration < 1.0 else LogLevel.FIT
             self._save_checkpoint(state, logger, log_level)
 
     def _save_checkpoint(self, state: State, logger: Logger, log_level: LogLevel):
-        checkpoint_filepath = os.path.join(format_name_with_dist(self.folder, logger.run_name), self.filename)
-        checkpoint_filepaths = checkpoint.save_checkpoint(state,
-                                                          logger,
-                                                          checkpoint_filepath,
-                                                          weights_only=self.weights_only)
+        checkpoint_filepath = os.path.join(format_name_with_dist(self.folder, state.run_name), self.filename)
+        checkpoint_filepaths = checkpoint.save_checkpoint(state, checkpoint_filepath, weights_only=self.weights_only)
 
         if dist.get_global_rank() < len(checkpoint_filepaths):
             # Log the checkpoint as an artifact
             checkpoint_filepath = checkpoint_filepaths[dist.get_global_rank()]
             if self.artifact_name is not None:
-                artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name,
-                                                               state.timestamp).lstrip("/")
+                artifact_name = format_name_with_dist_and_time(self.artifact_name, state.run_name,
+                                                               state.timestamp).lstrip('/')
                 if state.is_model_deepspeed and not is_tar(artifact_name):
                     # Deepspeed requires tarballs; appending `.tar`
-                    artifact_name += ".tar"
+                    artifact_name += '.tar'
                 logger.file_artifact(log_level=log_level,
                                      artifact_name=artifact_name,
                                      file_path=checkpoint_filepath,
                                      overwrite=self.overwrite)
 
             if self.latest_filename is not None:
-                formatted_folder_path = format_name_with_dist(self.folder, logger.run_name)
+                formatted_folder_path = format_name_with_dist(self.folder, state.run_name)
                 symlink_name = os.path.join(
                     formatted_folder_path,
                     format_name_with_dist_and_time(
                         self.latest_filename,
-                        logger.run_name,
+                        state.run_name,
                         state.timestamp,
-                    ).lstrip("/"),
+                    ).lstrip('/'),
                 )
                 if state.is_model_deepspeed and not is_tar(symlink_name):
                     # Deepspeed requires tarballs; appending `.tar`
-                    symlink_name += ".tar"
+                    symlink_name += '.tar'
                 symlink_dirname = os.path.dirname(symlink_name)
                 if symlink_dirname:
                     os.makedirs(symlink_dirname, exist_ok=True)
@@ -392,10 +390,10 @@ class CheckpointSaver(Callback):  # noqa: D101
                 relative_checkpoint_path = os.path.relpath(checkpoint_filepath, formatted_folder_path)
                 os.symlink(relative_checkpoint_path, symlink_name)
                 if self.artifact_name is not None and self.latest_artifact_name is not None:
-                    symlink_artifact_name = format_name_with_dist_and_time(self.latest_artifact_name, logger.run_name,
-                                                                           state.timestamp).lstrip("/")
-                    artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name,
-                                                                   state.timestamp).lstrip("/")
+                    symlink_artifact_name = format_name_with_dist_and_time(self.latest_artifact_name, state.run_name,
+                                                                           state.timestamp).lstrip('/')
+                    artifact_name = format_name_with_dist_and_time(self.artifact_name, state.run_name,
+                                                                   state.timestamp).lstrip('/')
                     # Always overwrite for symlinks since we use the same filename for latest
                     logger.symlink_artifact(log_level=log_level,
                                             existing_artifact_name=artifact_name,

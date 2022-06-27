@@ -33,14 +33,14 @@ class MinimalConditionalModel(nn.Module):
             return self.choice2(Tensor([1]))
         if input == 3:
             return self.choice3(Tensor([1]))
-        raise Exception("Invalid input:", input)
+        raise Exception('Invalid input:', input)
 
     def loss(self, output: Tensor, target: Tensor):
         return (output - target) * (output - target)
 
 
 @pytest.mark.timeout(90)
-@pytest.mark.parametrize("ddp_sync_strategy,expected_grads", [
+@pytest.mark.parametrize('ddp_sync_strategy,expected_grads', [
     pytest.param('single_auto_sync', ([-1, None, None], [-1, -1.5, None], [-1, -1.5, None]), id='single_auto_sync'),
     pytest.param('multi_auto_sync', ([-1.5, None, None], [-1.5, -1.5, None], [-1.5, -1.5, None]), id='multi_auto_sync'),
     pytest.param('forced_sync', ([-1, None, None], [-1, -1, None], [-1.5, -1.5, None]), id='forced_sync'),
@@ -54,11 +54,12 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[List[Opt
     state = State(
         model=original_model,
         rank_zero_seed=rank_zero_seed,
+        run_name='run_name',
         optimizers=optimizer,
         grad_accum=2,
-        max_duration="1ep",
+        max_duration='1ep',
         dataloader=dummy_train_dataloader,
-        dataloader_label="train",
+        dataloader_label='train',
         precision='fp32',
     )
 
