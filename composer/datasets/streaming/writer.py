@@ -139,6 +139,7 @@ class StreamingDatasetWriter(object):
 
     def _write_compression_scheme(self) -> None:
         """Save dataset compression metadata"""
+        assert self.compression_scheme is not None, "compression scheme should be set if writing this file"
         if self.new_samples:
             raise RuntimeError('Attempted to write compression metadata file while samples are still being processed.')
         filename = os.path.join(self.dirname, get_compression_scheme_basename())
