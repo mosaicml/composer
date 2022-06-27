@@ -128,18 +128,21 @@ class StreamingDataset(IterableDataset):
         self.batch_size = batch_size
 
         compression_basename = get_compression_scheme_basename()
-        try:
-            compression_local = self._download_file(compression_basename, wait=(dist.get_local_rank() != 0))
-            with open(compression_local, 'r') as fp:
-                compression_scheme = fp.read()
-                self.compression_scheme = compression_scheme if compression_scheme != '' else None
-                if remote == local and self.compression_scheme is not None:
-                    raise DatasetCompressionException('cannot decompress when remote == local')
+        if remote is not None:
+            try:
+                compression_local = self._download_file(compression_basename, wait=(dist.get_local_rank() != 0))
+                with open(compression_local, 'r') as fp:
+                    compression_scheme = fp.read()
+                    self.compression_scheme = compression_scheme if compression_scheme != '' else None
+                    if remote == local and self.compression_scheme is not None:
+                        raise DatasetCompressionException('cannot decompress when remote == local')
 
-            # remove compression metadata file, since local dataset is decompressed.
-            os.remove(compression_local)
+                # remove compression metadata file, since local dataset is decompressed.
+                os.remove(compression_local)
 
-        except FileNotFoundError:
+            except FileNotFoundError:
+                self.compression_scheme = None
+        else:
             self.compression_scheme = None
 
         # Load the index file containing the shard metadata
