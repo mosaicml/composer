@@ -39,7 +39,7 @@ def assert_is_fln_instance(model):
 def test_fused_layernorm_functional(synthetic_bert_state: Tuple, device: str):
     state, _, _ = synthetic_bert_state
     apply_fused_layernorm(state.model, state.optimizers)
-    assert_is_fln_instance(state.model)
+    assert_is_fln_instance(state.model.model)
 
 
 @device('gpu')
@@ -57,4 +57,4 @@ def test_fused_layernorm_algorithm(synthetic_bert_state: Tuple, empty_logger: Lo
                                                                         BertForSequenceClassification)
     fused_layernorm.apply(Event.INIT, state, empty_logger)
 
-    assert_is_fln_instance(state.model)
+    assert_is_fln_instance(state.model.model)
