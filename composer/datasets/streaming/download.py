@@ -7,8 +7,8 @@
 import os
 import shutil
 import time
-from typing import Optional
 import urllib.parse
+from typing import Optional
 
 from composer.utils import MissingConditionalImportError
 
@@ -43,7 +43,7 @@ def download_from_sftp(remote: str, local: str) -> None:
 
     Authentication must be provided via username/password in the `remote` URI, or a valid SSH config, or a default key
     discoverable in ``~/.ssh/``.
-    
+
     Args:
         remote (str): Remote path (SFTP).
         local (str): Local path (local filesystem).
@@ -130,7 +130,10 @@ def dispatch_download(remote: Optional[str], local: str, timeout: float):
         download_from_local(remote, local)
 
 
-def download_or_wait(remote: Optional[str], local: str, wait: bool = False, max_retries: int = 2,
+def download_or_wait(remote: Optional[str],
+                     local: str,
+                     wait: bool = False,
+                     max_retries: int = 2,
                      timeout: float = 60) -> None:
     """Downloads a file from remote to local, or waits for it to be downloaded.
 
