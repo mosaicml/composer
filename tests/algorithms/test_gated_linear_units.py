@@ -6,7 +6,6 @@ from typing import Tuple
 import pytest
 import torch
 from torch.nn.functional import gelu, relu
-from transformers import BertModel
 
 from composer.algorithms.gated_linear_units import GatedLinearUnits, apply_gated_linear_units
 from composer.algorithms.gated_linear_units.gated_linear_unit_layers import BERTGatedFFOutput
@@ -56,10 +55,12 @@ def synthetic_bert_state():
     return synthetic_hf_state_maker(synthetic_config)
 
 
-def assert_is_glu_instance(model: BertModel):
+def assert_is_glu_instance(model):
     pytest.importorskip('transformers')
+    from transformers import BertForMaskedLM, BertForSequenceClassification
     from transformers.models.bert.modeling_bert import BertOutput
 
+    assert isinstance(model, BertForMaskedLM) or isinstance(model, BertForSequenceClassification)
     # ensure that within the entire model, no BertOutput exists, and at least one BERTGatedFFOutput does.
     for module_class in model.modules():
         assert not isinstance(
@@ -74,14 +75,18 @@ def assert_is_glu_instance(model: BertModel):
 def test_gated_linear_units_functional(synthetic_bert_state: Tuple):
     state, _, _ = synthetic_bert_state
     apply_gated_linear_units(state.model, state.optimizers)
-    assert_is_glu_instance(state.model)
+    assert_is_glu_instance(state.model.model)
 
 
 def test_gated_linear_units_algorithm(synthetic_bert_state: Tuple, empty_logger: Logger):
+    pytest.importorskip('transformers')
+    from transformers import BertForMaskedLM, BertForSequenceClassification
     state, _, _ = synthetic_bert_state
     gated_linear_units = GatedLinearUnits()
 
-    assert isinstance(state.model, BertModel)
+    # state.model wrapped in HuggingFaceModel wrapped
+    assert isinstance(state.model.model, BertForMaskedLM) or isinstance(state.model.model,
+                                                                        BertForSequenceClassification)
     gated_linear_units.apply(Event.INIT, state, empty_logger)
 
-    assert_is_glu_instance(state.model)
+    assert_is_glu_instance(state.model.model)
