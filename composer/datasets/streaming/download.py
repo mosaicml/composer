@@ -140,7 +140,7 @@ def download_or_wait(remote: Optional[str],
     Does not do any thread safety checks, so we assume the calling function is using ``wait`` correctly.
 
     Args:
-        remote (Optional[str]): Remote path (S3 or local filesystem).
+        remote (Optional[str]): Remote path (S3, SFTP, or local filesystem).
         local (str): Local path (local filesystem).
         wait (bool, default False): If ``true``, then do not actively download the file, but instead wait (up to
             ``timeout`` seconds) for the file to arrive.
