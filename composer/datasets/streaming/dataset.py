@@ -56,7 +56,7 @@ class StreamingDataset(IterableDataset):
         [2, 3].
 
     Args:
-        remote (Optional[str]): Download shards from this remote S3 path or directory.
+        remote (Optional[str]): Download shards from this remote path or directory.
         local (str): Download shards to this local directory for for caching.
         shuffle (bool): Whether to shuffle the samples.  Note that if `shuffle=False`, the sample order is
             deterministic but dependent on the DataLoader's `num_workers`.
