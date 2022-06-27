@@ -380,7 +380,8 @@ def test_compression(compressed_remote_local: Tuple[str, str, str], compression:
 
     dataset = StreamingDataset(remote=compressed, local=local, shuffle=shuffle, decoders=decoders)
 
-    list(x for x in dataset)  # download samples
+    for x in dataset:
+        pass  # download sample
 
     dcmp = dircmp(remote, local)
 
