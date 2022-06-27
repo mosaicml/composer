@@ -39,7 +39,7 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
     try:
         s3.download_file(obj.netloc, obj.path.lstrip('/'), local)
     except DataNotFoundError:
-        raise FileNotFoundError
+        raise FileNotFoundError from e
 
 
 def download_from_sftp(remote: str, local: str) -> None:
