@@ -23,10 +23,11 @@ class StreamingDatasetWriter(object):
 
     Samples are expected to be of type: ``Dict[str, bytes]``.
 
-    Given each sample, :class:`StreamingDatasetWriter` only writes out the values for a subset of keys (`fields`) that are globally shared across the dataset.
+    Given each sample, :class:`StreamingDatasetWriter` only writes out the values for a subset of keys (``fields``)
+    that are globally shared across the dataset.
 
-    :class:`StreamingDatasetWriter` automatically shards the dataset such that each shard is of size <= ``shard_size_limit`` bytes.
-
+    :class:`StreamingDatasetWriter` automatically shards the dataset such that each shard is of size <=
+    ``shard_size_limit`` bytes.
 
     .. doctest::
 
