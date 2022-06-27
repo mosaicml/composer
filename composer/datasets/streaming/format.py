@@ -259,38 +259,40 @@ class StreamingDatasetIndex(object):
     def get_partition(self, world: World, batch_size: Optional[int] = None) -> Tuple[List[int], List[int], int, int]:
         """Get the shards and sample range of a given partition of the dataset.
 
+        When ``batch_size`` is provided, worker indices will be constructed so that there is at most one incomplete
+        batch at the end of each epoch. For example, if the DataLoader is reading over::
 
-        When ``batch_size`` is provided, worker indices will be constructed so that there is at most one incomplete batch
-        at the end of each epoch. For example, if the DataLoader is reading over::
-
-            (samples=[0, 1, 2, 3, 4, 5, 6, 7], num_workers=3, batch_size=2, drop_last=True)
+            samples: [0, 1, 2, 3, 4, 5, 6, 7]
+            num_workers: 3
+            batch_size: 2
+            drop_last: True
 
         but ``batch_size`` is not hinted to the StreamingDataset ahead of time, then the samples will by default be
         assigned like::
 
-            w0: [0, 1, 2],
-            w1: [3, 4, 5],
-            w2: [6, 7]
+            worker 0: [0, 1, 2]
+            worker 1: [3, 4, 5]
+            worker 2: [6, 7]
 
         and will be read as batches like (with samples [2] and [5] dropped as incomplete)::
 
-            [0, 1],
-            [3, 4],
-            [6, 7].
+            batch 0: [0, 1]
+            batch 1: [3, 4]
+            batch 2: [6, 7]
 
         The above is suboptimal because we could have dropped no samples. So when ``batch_size`` is provided as a hint,
         we assign samples like this::
 
-            w0: [0, 1, 2, 3],
-            w1: [4, 5],
-            w2: [6, 7]
+            worker 0: [0, 1, 2, 3]
+            worker 1: [4, 5]
+            worker 2: [6, 7]
 
         which will be read as batches like::
 
-            [0, 1],
-            [4, 5],
-            [6, 7],
-            [2, 3].
+            batch 0: [0, 1]
+            batch 1: [4, 5]
+            batch 2: [6, 7]
+            batch 3: [2, 3]
 
         Args:
             world (World): Context about workers, devices, and nodes.
