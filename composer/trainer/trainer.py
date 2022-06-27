@@ -994,10 +994,15 @@ class Trainer:
                 progress_bar=load_progress_bar,
                 ignore_keys=load_ignore_keys,
             )
-            # Always ignore the run_name in the checkpoint so it is consistent with what was used for Event.INIT.
             self.state.run_name = run_name
-            log.info(f'Setting seed to {self.state.seed}')
-            reproducibility.seed_all(self.state.seed)
+
+        # reseed here. This helps with a couple of issues:
+        # 1. rng state may change at Event.INIT. For example, if an algorithm creates a new module and module
+        # parameters are initialized randomly, rng state will change. This reseeding nullifies such effects.
+        # 2. While resuming from a checkpoint, we want to spin dataloader and bring it back to the same state as at the time
+        # of the checkpoint. Therefore, spinning needs to start from the same rng state as in the original run.
+        log.info(f'Setting seed to {self.state.seed}')
+        reproducibility.seed_all(self.state.seed)
 
         # Move the model and optimizers to the specified device
         if not self.deepspeed_enabled:
