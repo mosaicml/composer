@@ -260,12 +260,12 @@ class StreamingDatasetIndex(object):
         """Get the shards and sample range of a given partition of the dataset.
 
 
-        When `batch_size` is provided, worker indices will be constructed so that there is at most one incomplete batch
+        When ``batch_size`` is provided, worker indices will be constructed so that there is at most one incomplete batch
         at the end of each epoch. For example, if the DataLoader is reading over::
 
             (samples=[0, 1, 2, 3, 4, 5, 6, 7], num_workers=3, batch_size=2, drop_last=True)
 
-        but `batch_size` is not hinted to the StreamingDataset ahead of time, then the samples will by default be
+        but ``batch_size`` is not hinted to the StreamingDataset ahead of time, then the samples will by default be
         assigned like::
 
             w0: [0, 1, 2],
@@ -278,7 +278,7 @@ class StreamingDatasetIndex(object):
             [3, 4],
             [6, 7].
 
-        The above is suboptimal because we could have dropped no samples. So when `batch_size` is provided as a hint,
+        The above is suboptimal because we could have dropped no samples. So when ``batch_size`` is provided as a hint,
         we assign samples like this::
 
             w0: [0, 1, 2, 3],
