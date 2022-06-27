@@ -26,6 +26,7 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
     try:
         import boto3
         from botocore.config import Config
+        from botocore.exceptions import DataNotFoundError
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='boto3') from e
 
@@ -35,7 +36,10 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
 
     config = Config(read_timeout=timeout)
     s3 = boto3.client('s3', config=config)
-    s3.download_file(obj.netloc, obj.path.lstrip('/'), local)
+    try:
+        s3.download_file(obj.netloc, obj.path.lstrip('/'), local)
+    except DataNotFoundError:
+        raise FileNotFoundError
 
 
 def download_from_sftp(remote: str, local: str) -> None:
