@@ -160,6 +160,9 @@ class CutMix(Algorithm):
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
             one element of the pair. Default: ``1``.
+        interpolate_loss (bool, optional): Interpolates the loss rather than the labels.
+            A useful trick when using a cross entropy loss. Will produce incorrect behavior
+            if the loss is not a linear function of the targets. Default: ``False``
         uniform_sampling (bool, optional): If ``True``, sample the bounding
             box such that each pixel has an equal probability of being mixed.
             If ``False``, defaults to the sampling used in the original
