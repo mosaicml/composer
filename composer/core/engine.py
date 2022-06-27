@@ -70,7 +70,6 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from typing import ContextManager, Dict, Optional, Sequence, Union, cast
 
-from composer.algorithms.warnings import NotIntendedUseWarning
 from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.event import Event
@@ -327,8 +326,7 @@ class Engine():
         cutmixes = [a for a in algorithms if isinstance(a, CutMix)]
         if len(mixups) > 0 and len(cutmixes) > 0:
             if mixups[0].interpolate_loss and cutmixes[0].interpolate_loss:
-                warnings.warn('Using MixUp and CutMix both with `interpolate_loss=True` can behave strangely',
-                              NotIntendedUseWarning)
+                warnings.warn('Using MixUp and CutMix both with `interpolate_loss=True` can behave strangely')
 
         if event.is_after_event:
             """Establish a FILO queue of algorithms ``before_`` and ``after_`` an event.
