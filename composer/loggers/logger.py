@@ -125,38 +125,6 @@ class Logger:
                 overwrite=overwrite,
             )
 
-    def symlink_artifact(
-        self,
-        log_level: Union[str, int, LogLevel],
-        existing_artifact_name: str,
-        symlink_artifact_name: str,
-        overwrite: bool = False,
-    ):
-        """Symlink ``existing_artifact_name`` as ``symlink_artifact_name``.
-
-        Both ``existing_artifact_name`` and ``symlink_artifact_name`` can be specified as format strings.
-        See :func:`~.composer.utils.file_helpers.format_name_with_dist` for more information.
-
-        Args:
-            log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
-                :class:`LogLevel`.
-            existing_artifact_name (str): A format string for the name of symlinked artifact.
-            symlink_artifact_name (str): A format string for the symlink name of artifact.
-            overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``symlink_artifact_name``.
-                (default: ``False``)
-        """
-        log_level = LogLevel(log_level)
-        for destination in self.destinations:
-            destination.log_symlink_artifact(
-                state=self._state,
-                log_level=log_level,
-                existing_artifact_name=format_name_with_dist(format_str=existing_artifact_name,
-                                                             run_name=self._state.run_name),
-                symlink_artifact_name=format_name_with_dist(format_str=symlink_artifact_name,
-                                                            run_name=self._state.run_name),
-                overwrite=overwrite,
-            )
-
     def data_fit(self, data: Dict[str, Any]) -> None:
         """Helper function for ``self.data(LogLevel.FIT, data)``."""
         self.data(LogLevel.FIT, data)
