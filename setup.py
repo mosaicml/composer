@@ -122,6 +122,8 @@ extra_deps['dev'] = [
     'pypandoc==1.8.1',
     'GitPython==3.1.27',
     'moto[s3]>=3.1.12,<3.2',
+    'mock-ssh-server==0.9.1',
+    'cryptography==37.0.2',
 ]
 
 extra_deps['deepspeed'] = [
@@ -162,6 +164,7 @@ extra_deps['mlperf'] = [
 
 extra_deps['streaming'] = [
     'boto3>=1.21.45,<2',
+    'paramiko>=2.11.0,<3',
 ]
 
 extra_deps['libcloud'] = [
@@ -206,8 +209,10 @@ setup(name=package_name,
       ],
       install_requires=install_requires,
       entry_points={
-          'console_scripts':
-              ['composer = composer.cli.launcher:main', 'composer_collect_env = composer.utils.collect_env:main'],
+          'console_scripts': [
+              'composer = composer.cli.launcher:main',
+              'composer_collect_env = composer.utils.collect_env:main',
+          ],
       },
       extras_require=extra_deps,
       dependency_links=['https://developer.download.nvidia.com/compute/redist'],

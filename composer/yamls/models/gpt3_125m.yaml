@@ -77,5 +77,8 @@ dataloader:
 deepspeed_config:
   zero_optimization:
     stage: 0
-grad_clip_norm: 1.0
+algorithms:
+  gradient_clipping:
+    clipping_type: "norm"
+    clipping_threshold: 1.0
 eval_interval: 1000ba

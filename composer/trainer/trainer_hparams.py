@@ -232,7 +232,7 @@ class TrainerHparams(hp.Hparams):
         save_num_checkpoints_to_keep (int, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         autoresume (bool, optional): See :class:`.Trainer`.
 
-        deepspeed (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
+        deepspeed_config (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
             config for training  (see :class:`.Trainer` for more details). If ``None`` (the default), DeepSpeed will not
             be used.
 
@@ -587,9 +587,6 @@ class FitKwargs(TypedDict):
     grad_accum: Optional[Union[int, str]]
     precision: Optional[Union[str, Precision]]
 
-    # Grad Clipping
-    grad_clip_norm: Optional[float]
-
 
 @dataclasses.dataclass
 class FitHparams(hp.Hparams):
@@ -615,7 +612,6 @@ class FitHparams(hp.Hparams):
         eval_subset_num_batches (int, optional): See :meth:`.Trainer.fit`.
         precision (Precision, optional): See :meth:`.Trainer.fit`.
         grad_accum (int, optional): See :meth:`.Trainer.fit`.
-        grad_clip_norm (float, optional): See :meth:`.Trainer.fit`.
     """
 
     hparams_registry = {
@@ -655,9 +651,6 @@ class FitHparams(hp.Hparams):
     # Numerics
     precision: Optional[Precision] = hp.auto(Trainer.fit, 'precision')
     grad_accum: Optional[Union[int, str]] = hp.auto(Trainer.fit, 'grad_accum')
-
-    # Grad Clipping
-    grad_clip_norm: Optional[float] = hp.auto(Trainer.fit, 'grad_clip_norm')
 
     def initialize_object(self, model: ComposerModel, dataloader_hparams: DataLoaderHparams) -> FitKwargs:
         """Construct a kwargs dictionary that can be unpacked and passed into :meth:`.Trainer.fit`.
@@ -703,7 +696,6 @@ class FitHparams(hp.Hparams):
             'eval_interval': self.eval_interval,
             'grad_accum': self.grad_accum,
             'precision': self.precision,
-            'grad_clip_norm': self.grad_clip_norm,
         }
 
 

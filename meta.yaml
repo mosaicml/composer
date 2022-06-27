@@ -43,6 +43,8 @@ requirements:
     - pycocotools >=2.0.4,<3
     - boto3 >=1.21.45,<2
     - apache-libcloud >=3.5.1,<4
+    - paramiko>=2.11.0,<3
+
 test:
   requires:
     - fasteners ==0.17.3,<0.18
@@ -64,8 +66,11 @@ test:
     - pycocotools >=2.0.4,<3
     - boto3 >=1.21.45,<2
     - apache-libcloud>=3.5.1,<4
+    - paramiko>=2.11.0,<3
     - cpuonly >=2.0,<3
     - moto >=3.1.12,<3.2
+    - cryptography >=37.0.2,<38
+    # - mock-ssh-server >=0.9.1,<1 # mock-ssh-server is not available on conda; installing with pip
   files:
     - "**/composer/**"
     - "**/tests/**"
@@ -76,8 +81,8 @@ test:
     - composer
     - tests
   commands:
-    # deepspeed is not available on conda, and timm has a conda version conflict
-    - pip install 'deepspeed>=0.5.5' 'timm>=0.5.4'
+    # deepspeed, codeblocks, and mock-ssh-server are not available on conda, and timm has a conda version conflict
+    - pip install 'deepspeed>=0.5.5' 'timm>=0.5.4' 'pytest_codeblocks==0.15.0' 'mock-ssh-server>=0.9.1,<1'
     - make test DURATION=all EXTRA_ARGS="-v -m 'not gpu and not vision and not daily and not remote'"
     - make test-dist DURATION=all WORLD_SIZE=2 EXTRA_ARGS="-v -m 'not gpu and not vision and not daily and not remote'"
 

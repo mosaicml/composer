@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import datetime
 import os
+from contextlib import contextmanager
 from typing import Any, List, Optional, Sequence, TypeVar, cast
 
 import torch
@@ -420,3 +421,35 @@ def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool, shuffle: 
         num_replicas=get_world_size(),
         rank=get_global_rank(),
     )
+
+
+@contextmanager
+def run_local_rank_zero_first():
+    """Context manager to hold all non-zero ranks until rank zero completes.
+
+    The below example will let the local rank zero download
+    the dataset, and hold all non-rank zeros until the
+    download is complete.
+
+    .. code-block: python
+
+        with run_local_rank_zero_first():
+            dataset = CIFAR10(
+                ...,
+                download=True,
+            )
+
+    This prevents race conditions where multiple
+    ranks attempt to download the dataset to the
+    same location.
+    """
+    if not is_initialized():
+        return
+
+    # hold non-zero ranks until rank zero done
+    if get_local_rank() != 0:
+        dist.barrier()
+        yield
+    else:
+        yield
+        dist.barrier()

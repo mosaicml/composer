@@ -5,7 +5,6 @@ from typing import Dict, Type, Union
 
 import yahp as hp
 
-from composer.algorithms.agc import AGC
 from composer.algorithms.alibi import Alibi
 from composer.algorithms.augmix import AugMix
 from composer.algorithms.blurpool import BlurPool
@@ -15,7 +14,10 @@ from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
 from composer.algorithms.ema import EMA
 from composer.algorithms.factorize import Factorize
+from composer.algorithms.fused_layernorm import FusedLayerNorm
+from composer.algorithms.gated_linear_units import GatedLinearUnits
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm
+from composer.algorithms.gradient_clipping import GradientClipping
 from composer.algorithms.label_smoothing import LabelSmoothing
 from composer.algorithms.layer_freezing import LayerFreezing
 from composer.algorithms.mixup import MixUp
@@ -38,6 +40,8 @@ algorithm_registry: Dict[str, Union[Type[Algorithm], Type[hp.Hparams]]] = {
     'cutout': CutOut,
     'ema': EMA,
     'factorize': Factorize,
+    'fused_layernorm': FusedLayerNorm,
+    'gated_linear_units': GatedLinearUnits,
     'ghost_batchnorm': GhostBatchNorm,
     'label_smoothing': LabelSmoothing,
     'layer_freezing': LayerFreezing,
@@ -53,5 +57,5 @@ algorithm_registry: Dict[str, Union[Type[Algorithm], Type[hp.Hparams]]] = {
     'sam': SAM,
     'alibi': Alibi,
     'selective_backprop': SelectiveBackprop,
-    'agc': AGC,
+    'gradient_clipping': GradientClipping,
 }

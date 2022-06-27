@@ -35,6 +35,8 @@ def test_get_file_uri_not_found(tmp_path: pathlib.Path):
 
 
 def test_get_file_object_store(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
+    pytest.importorskip('libcloud')
+
     remote_dir = tmp_path / 'remote_dir'
     os.makedirs(remote_dir)
     monkeypatch.setenv('OBJECT_STORE_KEY', str(remote_dir))  # for the local option, the key is the path
@@ -55,6 +57,8 @@ def test_get_file_object_store(tmp_path: pathlib.Path, monkeypatch: pytest.Monke
 
 
 def test_get_file_object_store_with_symlink(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
+    pytest.importorskip('libcloud')
+
     remote_dir = tmp_path / 'remote_dir'
     os.makedirs(remote_dir)
     monkeypatch.setenv('OBJECT_STORE_KEY', str(remote_dir))  # for the local option, the key is the path
@@ -89,6 +93,8 @@ def test_get_file_object_store_with_symlink(tmp_path: pathlib.Path, monkeypatch:
 
 
 def test_get_file_object_store_not_found(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
+    pytest.importorskip('libcloud')
+
     remote_dir = tmp_path / 'remote_dir'
     os.makedirs(remote_dir)
     monkeypatch.setenv('OBJECT_STORE_KEY', str(remote_dir))  # for the local option, the key is the path
