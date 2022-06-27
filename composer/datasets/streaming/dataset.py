@@ -27,7 +27,7 @@ class StreamingDataset(IterableDataset):
 
     Features:
     * :class:`StreamingDataset` reads samples from binary `.mds` files that were written out by
-        :class:`StreamingDatasetWriter`.
+    :class:`StreamingDatasetWriter`.
     * Supports downloading data from S3, SFTP, or local filesystem.
     * Supports multi-gpu and multi-node training, with smart local caching to minimize network bandwidth.
     * Also provides best-effort shuffling to preserve randomness when ``shuffle=True``.
