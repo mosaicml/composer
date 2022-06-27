@@ -59,9 +59,7 @@ def write_synthetic_streaming_dataset(dirname: str,
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize('num_samples', [100, 10000])
 @pytest.mark.parametrize('shard_size_limit', [1 << 8, 1 << 16, 1 << 24])
-@pytest.mark.parametrize('compression', ['gz', None])
-def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limit: int,
-                compression: Optional[str]) -> None:
+def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limit: int) -> None:
     dirname, _ = remote_local
     samples, _ = get_fake_samples_decoders(num_samples)
 
@@ -71,13 +69,10 @@ def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limi
 
     expected_samples_per_shard = shard_size_limit // first_sample_bytes
     expected_num_shards = math.ceil(num_samples / expected_samples_per_shard)
-    expected_num_files = expected_num_shards + 1 + (1 if compression else 0
+    expected_num_files = expected_num_shards + 1 + (1 if StreamingDatasetWriter.default_compression else 0
                                                    )  # the index file and compression metadata file
 
-    write_synthetic_streaming_dataset(dirname=dirname,
-                                      samples=samples,
-                                      shard_size_limit=shard_size_limit,
-                                      compression=compression)
+    write_synthetic_streaming_dataset(dirname=dirname, samples=samples, shard_size_limit=shard_size_limit)
     files = os.listdir(dirname)
 
     assert len(files) == expected_num_files, f'Files written ({len(files)}) != expected ({expected_num_files}).'
