@@ -149,6 +149,8 @@ def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: i
             else:
                 dispatch_download(remote, local, timeout=timeout)
             break
+        except FileNotFoundError:
+            raise  # bubble up file not found error
         except Exception as e:  # Retry for all causes of failure.
             error_msgs.append(e)
             last_error = e

@@ -59,7 +59,9 @@ def write_synthetic_streaming_dataset(dirname: str,
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize('num_samples', [100, 10000])
 @pytest.mark.parametrize('shard_size_limit', [1 << 8, 1 << 16, 1 << 24])
-def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limit: int) -> None:
+@pytest.mark.parametrize('compression', ['gz', None])
+def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limit: int,
+                compression: Optional[str]) -> None:
     dirname, _ = remote_local
     samples, _ = get_fake_samples_decoders(num_samples)
 
@@ -69,9 +71,13 @@ def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limi
 
     expected_samples_per_shard = shard_size_limit // first_sample_bytes
     expected_num_shards = math.ceil(num_samples / expected_samples_per_shard)
-    expected_num_files = expected_num_shards + 1 + 1  # the index file and compression metadata file
+    expected_num_files = expected_num_shards + 1 + (1 if compression else 0
+                                                   )  # the index file and compression metadata file
 
-    write_synthetic_streaming_dataset(dirname=dirname, samples=samples, shard_size_limit=shard_size_limit)
+    write_synthetic_streaming_dataset(dirname=dirname,
+                                      samples=samples,
+                                      shard_size_limit=shard_size_limit,
+                                      compression=compression)
     files = os.listdir(dirname)
 
     assert len(files) == expected_num_files, f'Files written ({len(files)}) != expected ({expected_num_files}).'
@@ -172,7 +178,7 @@ def test_reader_getitem(remote_local: Tuple[str, str], share_remote_local: bool)
     dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders)
 
     # Test retrieving random sample
-    _ = list(data for data in dataset)[17]  # we need to call the iter dunder to invoke `download` ... is this a bug?
+    _ = dataset[17]
 
 
 @pytest.mark.daily()
@@ -360,6 +366,13 @@ def test_dataloader_multi_device(remote_local: Tuple[str, str], batch_size: int,
         assert sample_order == second_sample_order
 
 
+def check_for_diff_files(dir: dircmp):
+    """ check recursively for different files in a dircmp object """
+    assert len(dir.diff_files) == 0
+    for subdir in dir.subdirs:
+        check_for_diff_files(subdir)
+
+
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize('compression', [None, 'gz', 'gz:5'])
 def test_compression(compressed_remote_local: Tuple[str, str, str], compression: Optional[str]):
@@ -380,14 +393,8 @@ def test_compression(compressed_remote_local: Tuple[str, str, str], compression:
 
     dataset = StreamingDataset(remote=compressed, local=local, shuffle=shuffle, decoders=decoders)
 
-    for x in dataset:
+    for _ in dataset:
         pass  # download sample
 
     dcmp = dircmp(remote, local)
-
-    def check_for_diff_files(dir: dircmp):
-        assert len(dir.diff_files) == 0
-        for subdir in dir.subdirs:
-            check_for_diff_files(subdir)
-
     check_for_diff_files(dcmp)
