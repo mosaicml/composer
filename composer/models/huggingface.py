@@ -103,3 +103,14 @@ class HuggingFaceModel(ComposerModel):
 
     def metrics(self, train: bool = False):
         return self.train_metrics if train else self.valid_metrics
+
+    def get_model_inputs(self):
+        """Returns a set of inputs that the model expects in the forward pass.
+        If an algorithm wants to interact with the model inputs (for instance,
+        popping the labels for a custom loss fn, or adding attention head masks
+        for head pruning, it must access self.set_model_inputs().
+        Returns:
+            model_inputs: The set of keys that are expected in the Mapping used to compute the forward pass.
+        """
+
+        return self.model_inputs

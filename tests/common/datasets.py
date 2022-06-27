@@ -123,7 +123,7 @@ def configure_dataset_hparams_for_synthetic(
 
     dataset_hparams.use_synthetic = True
 
-    if type(model_hparams) in model_hparams_to_tokenizer_family:
+    if model_hparams and type(model_hparams) in model_hparams_to_tokenizer_family:
         tokenizer_family = model_hparams_to_tokenizer_family[type(model_hparams)]
         assert isinstance(dataset_hparams, (GLUEHparams, LMDatasetHparams))
         dataset_hparams.tokenizer_name = tokenizer_family

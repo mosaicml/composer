@@ -121,7 +121,8 @@ class SimpleConvModelHparams(ModelHparams):
 
 def configure_model_hparams_for_synthetic(model_hparams: ModelHparams) -> None:
     # configure Transformer-based models for synthetic testing
-    if type(model_hparams) in model_hparams_to_tokenizer_family:
+    if type(model_hparams) in model_hparams_to_tokenizer_family.keys():
+        assert isinstance(model_hparams, (BERTHparams, GPT2Hparams, BERTForClassificationHparams))
         tokenizer_family = model_hparams_to_tokenizer_family[type(model_hparams)]
 
         # force a non-pretrained model
