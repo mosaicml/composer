@@ -27,49 +27,52 @@ class StreamingDataset(IterableDataset):
 
     Features:
 
-    * :class:`StreamingDataset` reads samples from binary `.mds` files that were written out by
+    * :class:`StreamingDataset` reads samples from binary ``.mds`` files that were written out by
       :class:`StreamingDatasetWriter`.
     * Supports downloading data from S3, SFTP, or local filesystem.
     * Supports multi-gpu and multi-node training, with smart local caching to minimize network bandwidth.
     * Also provides best-effort shuffling to preserve randomness when ``shuffle=True``.
 
-    When `batch_size` is provided, worker indices will be constructed so that there is at most one incomplete batch at
+    When ``batch_size`` is provided, worker indices will be constructed so that there is at most one incomplete batch at
     the end of each epoch. For example, if the DataLoader is reading over::
 
-        (samples=[0, 1, 2, 3, 4, 5, 6, 7], num_workers=3, batch_size=2, drop_last=True)
+        samples: [0, 1, 2, 3, 4, 5, 6, 7]
+        num_workers: 3
+        batch_size: 2
+        drop_last: True
 
-    but `batch_size` is not hinted to the StreamingDataset ahead of time, then the samples will by default be assigned
+    but ``batch_size`` is not hinted to the StreamingDataset ahead of time, then the samples will by default be assigned
     like::
 
-        w0: [0, 1, 2],
-        w1: [3, 4, 5],
-        w2: [6, 7]
+        worker 0: [0, 1, 2]
+        worker 1: [3, 4, 5]
+        worker 2: [6, 7]
 
     and will be read as batches like (with samples [2] and [5] dropped as incomplete)::
 
-        [0, 1],
-        [3, 4],
-        [6, 7].
+        batch 0: [0, 1]
+        batch 1: [3, 4]
+        batch 2: [6, 7]
 
-    The above is suboptimal because we could have dropped no samples. So when `batch_size` is provided as a hint, we
+    The above is suboptimal because we could have dropped no samples. So when ``batch_size`` is provided as a hint, we
     assign samples like this::
 
-        w0: [0, 1, 2, 3],
-        w1: [4, 5],
-        w2: [6, 7]
+        worker 0: [0, 1, 2, 3]
+        worker 1: [4, 5]
+        worker 2: [6, 7]
 
     which will be read as batches like::
 
-        [0, 1],
-        [4, 5],
-        [6, 7],
-        [2, 3].
+        batch 0: [0, 1]
+        batch 1: [4, 5]
+        batch 2: [6, 7]
+        batch 3: [2, 3]
 
     Args:
         remote (Optional[str]): Download shards from this remote path or directory.
         local (str): Download shards to this local directory for for caching.
-        shuffle (bool): Whether to shuffle the samples.  Note that if `shuffle=False`, the sample order is
-            deterministic but dependent on the DataLoader's `num_workers`.
+        shuffle (bool): Whether to shuffle the samples.  Note that if ``shuffle=False``, the sample order is
+            deterministic but dependent on the DataLoader's ``num_workers``.
         decoders (Dict[str, Callable[bytes, Any]]]): For each sample field you wish to read, you must provide a decoder
             to convert the raw bytes to an object.
         max_retries (int): Number of download re-attempts before giving up. Default: 2.
