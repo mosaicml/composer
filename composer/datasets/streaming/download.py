@@ -8,7 +8,7 @@ import os
 import shutil
 import time
 from typing import Optional
-import urllib
+import urllib.parse
 
 from composer.utils import MissingConditionalImportError
 
