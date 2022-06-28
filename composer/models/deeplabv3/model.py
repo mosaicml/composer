@@ -166,6 +166,8 @@ def composer_deeplabv3(num_classes: int,
         initializers (List[Initializer], optional): Initializers for the model. ``[]`` for no initialization.
             Default: ``[]``.
 
+    Returns:
+        ComposerModel: instance of :class:`.ComposerClassifier` with a DeepLabv3(+) model.
 
     Example:
 

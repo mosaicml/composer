@@ -19,6 +19,10 @@ def composer_efficientnetb0(num_classes: int = 1000, drop_connect_rate: float = 
         drop_connect_rate (float, optional): Probability of dropping a sample within a block before identity
             connection. Default: ``0.2``.
 
+    Returns:
+        ComposerModel: instance of :class:`.ComposerClassifier` with a EfficientNet-B0 model.
+
+
     Example:
 
     .. testcode::

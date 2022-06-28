@@ -36,6 +36,9 @@ def composer_timm(model_name: str,
         bn_momentum (float, optional): BatchNorm momentum override (model default if ``None``). Default: ``None``.
         bn_eps (float, optional): BatchNorm epsilon override (model default if ``None``). Default: ``None``.
 
+    Returns:
+        ComposerModel: instance of :class:`.ComposerClassifier` with the specified TIMM model.
+
     Resnet18 Example:
 
     .. testcode::

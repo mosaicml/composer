@@ -26,6 +26,9 @@ def composer_resnet_cifar(model_name: str,
         initializers (List[Initializer], optional): Initializers for the model. ``None`` for no initialization.
             Default: ``None``.
 
+    Returns:
+        ComposerModel: instance of :class:`.ComposerClassifier` with a CIFAR ResNet model.
+
     Example:
 
     .. testcode::

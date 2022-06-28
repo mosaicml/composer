@@ -54,6 +54,9 @@ def mnist_model(num_classes: int = 10, initializers: Optional[List[Initializer]]
         initializers (List[Initializer], optional): list of Initializers
             for the model. ``None`` for no initialization. Default: ``None``
 
+    Returns:
+        ComposerModel: instance of :class:`.ComposerClassifier` with a simple MNIST model.
+
     Example:
 
     .. testcode::

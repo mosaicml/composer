@@ -46,6 +46,8 @@ def composer_resnet(model_name: str,
         loss_name (str, optional): Loss function to use. E.g. 'soft_cross_entropy' or
             'binary_cross_entropy_with_logits'. Loss function must be in
             :mod:`~composer.loss.loss`. Default: ``'soft_cross_entropy'``".
+    Returns:
+        ComposerModel: instance of :class:`.ComposerClassifier` with a torchvision ResNet model.
 
     Example:
 

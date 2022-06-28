@@ -25,6 +25,9 @@ def vit_small_patch16(num_classes: int = 1000,
         channels (int, optional): number of  image channels. Default: ``3``.
         dropout (float, optional): 0.0 - 1.0 dropout rate. Default: ``0``.
         embedding_dropout (float, optional): 0.0 - 1.0 embedding dropout rate. Default: ``0``.
+
+    Returns:
+        ComposerModel: instance of :class:`.ComposerClassifier` with a ViT-S/16 model.
     """
 
     from vit_pytorch import ViT
