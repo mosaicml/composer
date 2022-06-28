@@ -27,6 +27,13 @@ class DatasetCompressionException(Exception):
     pass
 
 
+class DownloadStatus(object):
+    NOT_STARTED = 1
+    IN_PROGRESS = 2
+    DONE = 3
+    FAILED = 4
+
+
 class StreamingDataset(IterableDataset):
     """A sharded, streaming, iterable dataset.
 
@@ -161,7 +168,7 @@ class StreamingDataset(IterableDataset):
         self._next_epoch = 0
         self._epoch_to_todo_ids = {}
         self._downloaded_ids = []
-        self._is_downloaded = False
+        self._download_status = DownloadStatus.NOT_STARTED
 
     def _download_file(self, basename: str, wait: bool = False) -> str:
         """Safely download a file from remote to local cache.
@@ -209,14 +216,14 @@ class StreamingDataset(IterableDataset):
             # Extend and optionally reshuffle the remaining samples of any
             # epochs we have in progress.
             if self.shuffle:
-                if not self._is_downloaded:
+                if self._download_status == DownloadStatus.IN_PROGRESS:
                     self._downloaded_ids.extend(new_ids)
                     np.random.shuffle(self._downloaded_ids)
                 for todo_ids in self._epoch_to_todo_ids.values():
                     todo_ids.extend(new_ids)
                     np.random.shuffle(todo_ids)
             else:
-                if not self._is_downloaded:
+                if self._download_status == DownloadStatus.IN_PROGRESS:
                     self._downloaded_ids.extend(new_ids)
                 for todo_ids in self._epoch_to_todo_ids.values():
                     todo_ids.extend(new_ids)
@@ -227,8 +234,9 @@ class StreamingDataset(IterableDataset):
             self._lock = Lock()
 
         with self._lock:
-            if self._is_downloaded:
+            if self._download_status != DownloadStatus.NOT_STARTED:
                 return
+            self._download_status = DownloadStatus.IN_PROGRESS
 
         # We find out num workers, and therefore num partitions, when __iter__ is called.
         # From the partition, derive our shard overlap range and exact sample range.
@@ -246,11 +254,15 @@ class StreamingDataset(IterableDataset):
             # Otherwise, wait until shard gets downloaded by another worker on this node
             # This produces deterministic sample order.
             basename = get_shard_basename(shard, compression_name=self.compression_scheme)
-            self._download_file(basename, wait=(shard not in part_shards_to_download))
+            try:
+                self._download_file(basename, wait=(shard not in part_shards_to_download))
+            except:
+                self._download_status = DownloadStatus.FAILED
+                return
             self._insert_shard_samples(shard, part_min_id, part_max_id)
 
         with self._lock:
-            self._is_downloaded = True
+            self._download_status = DownloadStatus.DONE
 
     def __len__(self) -> int:
         """Get the length of the dataset.
@@ -334,11 +346,15 @@ class StreamingDataset(IterableDataset):
                         return todo_ids.pop(-1)
                     else:
                         return todo_ids.pop(0)
-                elif self._is_downloaded:
+                elif self._download_status == DownloadStatus.IN_PROGRESS:
+                    pass
+                elif self._download_status == DownloadStatus.DONE:
                     del self._epoch_to_todo_ids[epoch]
                     return None
+                elif self._download_status == DownloadStatus.FAILED:
+                    raise RuntimeError('Shard download failure.')
                 else:
-                    pass
+                    raise RuntimeError('Unexpected download status.')
             sleep(0.25)
 
     def _iter_ids(self) -> Iterator[int]:
@@ -348,7 +364,7 @@ class StreamingDataset(IterableDataset):
             Iterator[int]: Each sample ID.
         """
         with self._lock:
-            is_downloaded = self._is_downloaded
+            is_downloaded = self._download_status == DownloadStatus.DONE
 
         if is_downloaded:
             ids = list(self._downloaded_ids)

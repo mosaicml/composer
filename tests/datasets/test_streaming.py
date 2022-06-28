@@ -14,6 +14,7 @@ import pytest
 from torch.utils.data import DataLoader
 
 from composer.datasets.streaming import StreamingDataset, StreamingDatasetWriter
+from composer.datasets.streaming.dataset import DownloadStatus
 from composer.utils import dist
 
 
@@ -130,6 +131,50 @@ def test_reader(remote_local: Tuple[str, str], batch_size: int, remote_arg: str,
     # Test length
     assert rcvd_samples == num_samples, f'Only received {rcvd_samples} samples, expected {num_samples}'
     assert len(dataset) == num_samples, f'Got dataset length={len(dataset)} samples, expected {num_samples}'
+
+
+@pytest.mark.timeout(3)
+@pytest.mark.parametrize(
+    'missing_file',
+    [
+        'index',
+        'shard',
+    ],
+)
+def test_reader_download_fail(remote_local: Tuple[str, str], missing_file: str):
+    num_samples = 117
+    shard_size_limit = 1 << 8
+    samples, decoders = get_fake_samples_decoders(num_samples)
+    remote, local = remote_local
+    write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
+
+    if missing_file == 'index':
+        os.remove(os.path.join(remote, 'index.mds'))
+    elif missing_file == 'shard':
+        os.remove(os.path.join(remote, '000001.mds'))
+
+    # Build and iterate over StreamingDataset
+    try:
+        dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders, timeout=1)
+        for _ in dataset:
+            pass
+    except Exception as e:
+        print(f'Successfully raised error: {e}')
+
+
+@pytest.mark.timeout(10)
+def test_reader_all_downloaded(remote_local: Tuple[str, str]):
+    num_samples = 100000
+    shard_size_limit = 1 << 8
+    samples, decoders = get_fake_samples_decoders(num_samples)
+    remote, _ = remote_local
+    write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
+
+    # Build and iterate over StreamingDataset
+    dataset = StreamingDataset(remote=remote, local=remote, shuffle=False, decoders=decoders, timeout=1)
+    for _ in dataset:
+        assert dataset._download_status == DownloadStatus.DONE, \
+            'Dataset is fully downloaded but iter(dataset) does not detect that right away on the first sample'
 
 
 @pytest.mark.timeout(10)
