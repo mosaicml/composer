@@ -55,7 +55,7 @@ def download_from_sftp(remote: str, local: str) -> None:
         local (str): Local path (local filesystem).
     """
     try:
-        from paramiko import AutoAddPolicy, SSHClient
+        from paramiko import SSHClient
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='paramiko') from e
 
@@ -75,6 +75,7 @@ def download_from_sftp(remote: str, local: str) -> None:
 
     # Get SSH key file if specified
     key_filename = os.environ.get('COMPOSER_SFTP_KEY_FILE', None)
+    known_hosts_filename = os.environ.get('COMPOSER_SFTP_KNOWN_HOSTS_FILE', None)
 
     # Default port
     port = port if port else 22
@@ -86,12 +87,14 @@ def download_from_sftp(remote: str, local: str) -> None:
 
     with SSHClient() as ssh_client:
         # Connect SSH Client
-        ssh_client.set_missing_host_key_policy(AutoAddPolicy)
-        ssh_client.connect(hostname=hostname,
-                           port=port,
-                           username=username,
-                           password=password,
-                           key_filename=key_filename)
+        ssh_client.load_system_host_keys(known_hosts_filename)
+        ssh_client.connect(
+            hostname=hostname,
+            port=port,
+            username=username,
+            password=password,
+            key_filename=key_filename,
+        )
 
         # SFTP Client
         sftp_client = ssh_client.open_sftp()
