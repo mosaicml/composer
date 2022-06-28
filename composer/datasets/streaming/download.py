@@ -4,11 +4,14 @@
 """Download handling for :class:`StreamingDataset`.
 """
 
+import gzip
 import os
 import shutil
 import time
 import urllib.parse
+from typing import Optional
 
+from composer.datasets.streaming.format import split_compression_suffix
 from composer.utils import MissingConditionalImportError
 
 __all__ = ['download_or_wait']
@@ -16,6 +19,7 @@ __all__ = ['download_or_wait']
 
 def download_from_s3(remote: str, local: str, timeout: float) -> None:
     """Download a file from remote to local.
+
     Args:
         remote (str): Remote path (S3).
         local (str): Local path (local filesystem).
@@ -24,6 +28,7 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
     try:
         import boto3
         from botocore.config import Config
+        from botocore.exceptions import DataNotFoundError
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='boto3') from e
 
@@ -33,13 +38,18 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
 
     config = Config(read_timeout=timeout)
     s3 = boto3.client('s3', config=config)
-    s3.download_file(obj.netloc, obj.path.lstrip('/'), local)
+    try:
+        s3.download_file(obj.netloc, obj.path.lstrip('/'), local)
+    except DataNotFoundError as e:
+        raise FileNotFoundError from e
 
 
 def download_from_sftp(remote: str, local: str) -> None:
     """Download a file from remote SFTP server to local filepath.
-    Authentication must be provided via username/password in the `remote` URI,
-    or a valid SSH config, or a default key discoverable in ``~/.ssh/``.
+
+    Authentication must be provided via username/password in the ``remote`` URI, or a valid SSH config, or a default key
+    discoverable in ``~/.ssh/``.
+
     Args:
         remote (str): Remote path (SFTP).
         local (str): Local path (local filesystem).
@@ -91,6 +101,7 @@ def download_from_sftp(remote: str, local: str) -> None:
 
 def download_from_local(remote: str, local: str) -> None:
     """Download a file from remote to local.
+
     Args:
         remote (str): Remote path (local filesystem).
         local (str): Local path (local filesystem).
@@ -102,33 +113,57 @@ def download_from_local(remote: str, local: str) -> None:
     os.rename(local_tmp, local)
 
 
-def dispatch_download(remote, local, timeout: float):
+def dispatch_download(remote: Optional[str], local: str, timeout: float):
     """Use the correct download handler to download the file
+
     Args:
-        remote (str): Remote path (local filesystem).
+        remote (Optional[str]): Remote path (local filesystem).
         local (str): Local path (local filesystem).
         timeout (float): How long to wait for file to download before raising an exception.
     """
-    if os.path.exists(local):
+
+    local_decompressed, compression_scheme = split_compression_suffix(local)
+    if os.path.exists(local_decompressed):
         return
 
     local_dir = os.path.dirname(local)
     os.makedirs(local_dir, exist_ok=True)
 
-    if remote.startswith('s3://'):
+    if not remote:
+        raise ValueError('In the absence of local dataset, path to remote dataset must be provided')
+    elif remote.startswith('s3://'):
         download_from_s3(remote, local, timeout)
     elif remote.startswith('sftp://'):
         download_from_sftp(remote, local)
     else:
         download_from_local(remote, local)
 
+    if compression_scheme is not None:
+        tempfile = local_decompressed + '.tmp'
+        if compression_scheme == 'gz':
+            with gzip.open(local, 'rb') as gzipfile:
+                with open(tempfile, 'xb') as dest_file:
+                    shutil.copyfileobj(gzipfile, dest_file)
+        else:
+            raise NotImplementedError
+        os.rename(tempfile, local_decompressed)
+        os.remove(local)
 
-def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: int = 2, timeout: float = 60) -> None:
-    """Downloads a file from remote to local, or waits for it to be downloaded. Does not do any thread safety checks, so we assume the calling function is using ``wait`` correctly.
+
+def download_or_wait(remote: Optional[str],
+                     local: str,
+                     wait: bool = False,
+                     max_retries: int = 2,
+                     timeout: float = 60) -> None:
+    """Downloads a file from remote to local, or waits for it to be downloaded.
+
+    Does not do any thread safety checks, so we assume the calling function is using ``wait`` correctly.
+
     Args:
-        remote (str): Remote path (S3 or SFTP or local filesystem).
+        remote (Optional[str]): Remote path (S3, SFTP, or local filesystem).
         local (str): Local path (local filesystem).
-        wait (bool, default False): If ``true``, then do not actively download the file, but instead wait (up to ``timeout`` seconds) for the file to arrive.
+        wait (bool, default False): If ``true``, then do not actively download the file, but instead wait (up to
+            ``timeout`` seconds) for the file to arrive.
         max_retries (int, default 2): Number of download re-attempts before giving up.
         timeout (float, default 60): How long to wait for file to download before raising an exception.
     """
@@ -145,6 +180,8 @@ def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: i
             else:
                 dispatch_download(remote, local, timeout=timeout)
             break
+        except FileNotFoundError:
+            raise  # bubble up file not found error
         except Exception as e:  # Retry for all causes of failure.
             error_msgs.append(e)
             last_error = e
