@@ -784,8 +784,9 @@ class Trainer:
 
         # Move the model and optimizers to the device
         if not deepspeed_enabled:
+            self.state.model = self._device.module_to_device(self.state.model)
             # Move any remaining optimizer parameters onto the device
-            # It is possible that optimizer initialize created some non-module tensors on CPU
+            # It is possible that optimizer initialize created some internal tensors on CPU
             # that need to be moved onto GPU.
             optimizers = map_collection(optimizers, self._device.optimizer_to_device)
 
