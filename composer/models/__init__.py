@@ -18,8 +18,8 @@ from composer.models.classify_mnist import MnistClassifierHparams as MnistClassi
 from composer.models.classify_mnist import create_mnist_model as create_mnist_model
 from composer.models.deeplabv3 import DeepLabV3Hparams as DeepLabV3Hparams
 from composer.models.deeplabv3 import composer_deeplabv3 as composer_deeplabv3
-from composer.models.efficientnetb0 import EfficientNetB0 as EfficientNetB0
 from composer.models.efficientnetb0 import EfficientNetB0Hparams as EfficientNetB0Hparams
+from composer.models.efficientnetb0 import composer_efficientnetb0 as composer_efficientnetb0
 from composer.models.gpt2 import GPT2Hparams as GPT2Hparams
 from composer.models.gpt2 import create_gpt2 as create_gpt2
 from composer.models.huggingface import HuggingFaceModel as HuggingFaceModel
