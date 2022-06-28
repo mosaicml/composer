@@ -12,8 +12,8 @@ See :doc:`Composer Model </composer_model>` for more details.
 from composer.models.base import ComposerModel as ComposerModel
 from composer.models.bert import BERTForClassificationHparams as BERTForClassificationHparams
 from composer.models.bert import BERTHparams as BERTHparams
-from composer.models.bert import create_bert_mlm as create_bert_mlm
 from composer.models.bert import create_bert_classification as create_bert_classification
+from composer.models.bert import create_bert_mlm as create_bert_mlm
 from composer.models.classify_mnist import MNIST_Classifier as MNIST_Classifier
 from composer.models.classify_mnist import MnistClassifierHparams as MnistClassifierHparams
 from composer.models.deeplabv3 import ComposerDeepLabV3 as ComposerDeepLabV3
