@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Sequence, Union
 
 import torch
 from torchmetrics import MeanSquaredError, Metric, MetricCollection
@@ -116,3 +116,122 @@ class BERTModel(ComposerTransformer):
 
     def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
         return MetricCollection(self.train_metrics) if train else MetricCollection(self.val_metrics)
+
+
+class BertForClassification(BERTModel):
+    """BERT model based on |:hugging_face:| Transformers for Classification.
+    Sequence classification falls within this category.
+
+    For more information, see `Transformers <https://huggingface.co/transformers/>`_.
+
+    Args:
+        module (transformers.BertModel): An instance of BertModel that
+            contains the forward pass function.
+        config (transformers.BertConfig): The BertConfig object that
+            stores information about the model hyperparameters.
+        tokenizer (transformers.BertTokenizer): An instance of BertTokenizer. Necessary to process model inputs.
+
+    """
+
+    def __init__(self,
+                 module: transformers.BertModel,
+                 config: transformers.BertConfig,
+                 tokenizer: Optional[transformers.BertTokenizer] = None) -> None:
+        assert (self.config.num_labels > 1, 'Model has only one label, use BertForRegression instead.')
+        super().__init__(
+            module=module,  #type: ignore (thirdparty)
+            config=config,
+            tokenizer=tokenizer)
+
+    def loss_fn(self, *args, **kwargs) -> Callable:
+        loss_fct = torch.nn.functional.CrossEntropyLoss(*args, **kwargs)
+        if hasattr(self.config, 'problem_type'):
+            if self.config.problem_type == 'multi_label_classification':
+                raise NotImplementedError('Calculating loss directly not supported yet.'
+                                         )  #torch.nn.functional.BCEWithLogitsLoss(*args, **kwargs)
+        return loss_fct
+
+    def loss(self, outputs: Mapping[str, torch.Tensor], batch: Batch, *args,
+             **kwargs) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
+        if outputs.get('loss', None) is None:
+            loss_fn = self.loss_fn(*args, **kwargs)
+            loss_val: torch.Tensor = loss_fn(outputs['logits'].view(-1, self.config.num_labels),
+                                             batch['labels'].view(-1))
+            outputs['loss'] = loss_val  #type:ignore this output is a HF output object
+        return outputs['loss']
+
+
+class BertForPretraining(BERTModel):
+    """BERT model based on |:hugging_face:| Transformers For Masked Language Model Pretraining.
+    Masked Language Models fall within this category.
+
+    For more information, see `Transformers <https://huggingface.co/transformers/>`_.
+
+    Args:
+        module (transformers.BertModel): An instance of BertModel that
+            contains the forward pass function.
+        config (transformers.BertConfig): The BertConfig object that
+            stores information about the model hyperparameters.
+        tokenizer (transformers.BertTokenizer): An instance of BertTokenizer. Necessary to process model inputs.
+
+    """
+
+    def __init__(self,
+                 module: transformers.BertModel,
+                 config: transformers.BertConfig,
+                 tokenizer: Optional[transformers.BertTokenizer] = None) -> None:
+        assert (self.config.num_labels == self.config.vocab_size, 'Number of labels not equivalent to vocabulary size')
+        super().__init__(
+            module=module,  #type: ignore (thirdparty)
+            config=config,
+            tokenizer=tokenizer)
+
+    def loss_fn(self, *args, **kwargs) -> Callable:
+        loss_fct = torch.nn.functional.CrossEntropyLoss(*args, **kwargs)
+        return loss_fct
+
+    def loss(self, outputs: Mapping[str, torch.Tensor], batch: Batch, *args,
+             **kwargs) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
+        if outputs.get('loss', None) is None:
+            loss_fn = self.loss_fn(*args, **kwargs)
+            loss_val: torch.Tensor = loss_fn(outputs['logits'], batch['labels'])
+            outputs['loss'] = loss_val  #type:ignore this output is a HF output object
+        return outputs['loss']
+
+
+class BertForRegression(BERTModel):
+    """BERT model based on |:hugging_face:| Transformers for Regression.
+    Masked Language Models and sequence classification are fall within this category.
+
+    For more information, see `Transformers <https://huggingface.co/transformers/>`_.
+
+    Args:
+        module (transformers.BertModel): An instance of BertModel that
+            contains the forward pass function.
+        config (transformers.BertConfig): The BertConfig object that
+            stores information about the model hyperparameters.
+        tokenizer (transformers.BertTokenizer): An instance of BertTokenizer. Necessary to process model inputs.
+
+    """
+
+    def __init__(self,
+                 module: transformers.BertModel,
+                 config: transformers.BertConfig,
+                 tokenizer: Optional[transformers.BertTokenizer] = None) -> None:
+        assert (self.config.num_labels == 1, 'Model must have one label for regression.')
+        super().__init__(
+            module=module,  #type: ignore (thirdparty)
+            config=config,
+            tokenizer=tokenizer)
+
+    def loss_fn(self, *args, **kwargs) -> Callable:
+        loss_fct = torch.nn.functional.MSELoss(*args, **kwargs)
+        return loss_fct
+
+    def loss(self, outputs: Mapping[str, torch.Tensor], batch: Batch, *args,
+             **kwargs) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
+        if outputs.get('loss', None) is None:
+            loss_fn = self.loss_fn(*args, **kwargs)
+            loss_val: torch.Tensor = loss_fn(outputs['logits'].squeeze(), batch['labels'].squeeze())
+            outputs['loss'] = loss_val  #type:ignore this output is a HF output object
+        return outputs['loss']

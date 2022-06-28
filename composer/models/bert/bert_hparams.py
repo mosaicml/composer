@@ -13,9 +13,9 @@ from composer.models.transformer_hparams import TransformerHparams
 from composer.utils import MissingConditionalImportError
 
 if TYPE_CHECKING:
-    from composer.models.bert import BERTModel
+    from composer.models.bert import BertForClassification, BertForPretraining, BertForRegression, BERTModel
 
-__all__ = ['BERTForClassificationHparams', 'BERTHparams']
+__all__ = ['BERTForClassificationHparams', 'BERTHparams', 'BertForPretrainingHparams', 'BERTForRegressionHparams']
 
 
 @dataclass
@@ -38,13 +38,13 @@ class BERTForClassificationHparams(TransformerHparams):
         if self.num_labels < 1:
             raise ValueError('The number of target labels must be at least one.')
 
-    def initialize_object(self) -> 'BERTModel':
+    def initialize_object(self) -> 'BertForClassification':
         try:
             import transformers
         except ImportError as e:
             raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
-        from composer.models.bert.model import BERTModel
+        from composer.models.bert.model import BertForClassification
         self.validate()
 
         model_hparams = {'num_labels': self.num_labels}
@@ -75,7 +75,7 @@ class BERTForClassificationHparams(TransformerHparams):
             model = transformers.AutoModelForSequenceClassification.from_config(  #type: ignore (thirdparty)
                 config)
 
-        return BERTModel(
+        return BertForClassification(
             module=model,
             config=config,  #type: ignore (thirdparty)
             tokenizer=tokenizer,
@@ -128,6 +128,124 @@ class BERTHparams(TransformerHparams):
             model = transformers.AutoModelForMaskedLM.from_config(config)  #type: ignore (thirdparty)
 
         return BERTModel(
+            module=model,
+            config=config,  #type: ignore (thirdparty)
+            tokenizer=tokenizer,
+        )
+
+
+@dataclass
+class BertForPretrainingHparams(BERTHparams):
+    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ classification interface for
+    :class:`.BERTModel`.
+
+    Args:
+        pretrained_model_name (str): Pretrained model name to pull from Hugging Face Model Hub.
+        model_config (Dict[str, JSON]): A dictionary providing a HuggingFace model configuration.
+        tokenizer_name (Optional[str]): The tokenizer used for this model,
+            necessary to assert required model inputs.
+        use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights.
+        gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
+        num_labels (int, optional): The number of classes in the segmentation task. Default: ``2``.
+    """
+
+    def initialize_object(self) -> 'BertForPretraining':
+        try:
+            import transformers
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
+
+        from composer.models.bert.model import BertForPretraining
+        self.validate()
+
+        if self.model_config:
+            config = transformers.BertConfig.from_dict(self.model_config)
+        elif self.pretrained_model_name is not None:
+            config = transformers.BertConfig.from_pretrained(self.pretrained_model_name)
+        else:
+            raise ValueError('One of pretrained_model_name or model_config needed.')
+
+        # set the number of labels ot the vocab size, used for measuring MLM accuracy
+        config.num_labels = config.vocab_size
+
+        # setup the tokenizer in the hparams interface
+        if self.tokenizer_name is not None:
+            tokenizer = transformers.BertTokenizer.from_pretrained(self.tokenizer_name)
+        else:
+            tokenizer = None
+
+        if self.use_pretrained:
+            # TODO (Moin): handle the warnings on not using the seq_relationship head
+            assert transformers.AutoModelForMaskedLM.from_pretrained is not None, 'from_pretrained should not be None'
+            model = transformers.AutoModelForMaskedLM.from_pretrained(self.pretrained_model_name)
+        else:
+            model = transformers.AutoModelForMaskedLM.from_config(config)  #type: ignore (thirdparty)
+
+        return BertForPretraining(
+            module=model,
+            config=config,  #type: ignore (thirdparty)
+            tokenizer=tokenizer,
+        )
+
+
+@dataclass
+class BERTForRegressionHparams(TransformerHparams):
+    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ classification interface for
+    :class:`.BERTModel`.
+
+    Args:
+        pretrained_model_name (str): Pretrained model name to pull from Hugging Face Model Hub.
+        model_config (Dict[str, JSON]): A dictionary providing a HuggingFace model configuration.
+        tokenizer_name (Optional[str]): The tokenizer used for this model,
+            necessary to assert required model inputs.
+        use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights.
+        gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
+        num_labels (int, optional): The number of classes in the segmentation task. Default: ``2``.
+    """
+    num_labels: int = hp.optional(doc='The number of possible labels for the task.', default=2)
+
+    def validate(self):
+        if self.num_labels < 1:
+            raise ValueError('The number of target labels must be at least one.')
+
+    def initialize_object(self) -> 'BertForRegression':
+        try:
+            import transformers
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
+
+        from composer.models.bert.model import BertForRegression
+        self.validate()
+
+        model_hparams = {'num_labels': self.num_labels}
+
+        if self.model_config:
+            config = transformers.BertConfig.from_dict(self.model_config, **model_hparams)
+        elif self.pretrained_model_name is not None:
+            config = transformers.BertConfig.from_pretrained(self.pretrained_model_name, **model_hparams)
+        else:
+            raise ValueError('One of pretrained_model_name or model_config needed.')
+        config.num_labels = self.num_labels
+
+        # setup the tokenizer in the hparams interface
+        if self.tokenizer_name is not None:
+            tokenizer = transformers.BertTokenizer.from_pretrained(self.tokenizer_name)
+        else:
+            tokenizer = None
+
+        if self.use_pretrained:
+            # TODO (Moin): handle the warnings on not using the seq_relationship head
+            assert transformers.AutoModelForSequenceClassification.from_pretrained is not None, 'from_pretrained should not be None'
+            model = transformers.AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name,
+                                                                                    **model_hparams)
+        else:
+            # an invariant to ensure that we don't lose keys when creating the HF config
+            for k, v in model_hparams.items():
+                assert getattr(config, k) == v
+            model = transformers.AutoModelForSequenceClassification.from_config(  #type: ignore (thirdparty)
+                config)
+
+        return BertForRegression(
             module=model,
             config=config,  #type: ignore (thirdparty)
             tokenizer=tokenizer,
