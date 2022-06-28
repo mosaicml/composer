@@ -445,11 +445,12 @@ def run_local_rank_zero_first():
     """
     if not is_initialized():
         yield
+        return
+    
+    # hold non-zero ranks until rank zero done
+    if get_local_rank() != 0:
+        dist.barrier()
+        yield
     else:
-        # hold non-zero ranks until rank zero done
-        if get_local_rank() != 0:
-            dist.barrier()
-            yield
-        else:
-            yield
-            dist.barrier()
+        yield
+        dist.barrier()
