@@ -14,7 +14,6 @@ import pytest
 from torch.utils.data import DataLoader
 
 from composer.datasets.streaming import StreamingDataset, StreamingDatasetWriter
-from composer.datasets.streaming.dataset import _DownloadStatus
 from composer.utils import dist
 
 

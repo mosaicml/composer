@@ -170,6 +170,7 @@ class StreamingDataset(IterableDataset):
         self._epoch_to_todo_ids = {}
         self._downloaded_ids = []
         self._download_status = _DownloadStatus.NOT_STARTED
+        self._download_exception: Exception
 
     def _download_file(self, basename: str, wait: bool = False) -> str:
         """Safely download a file from remote to local cache.
@@ -259,7 +260,7 @@ class StreamingDataset(IterableDataset):
                 self._download_file(basename, wait=(shard not in part_shards_to_download))
             except Exception as e:
                 self._download_status = _DownloadStatus.FAILED
-                self._exception = e
+                self._download_exception = e
             self._insert_shard_samples(shard, part_min_id, part_max_id)
 
         with self._lock:
@@ -353,7 +354,7 @@ class StreamingDataset(IterableDataset):
                     del self._epoch_to_todo_ids[epoch]
                     return None
                 elif self._download_status == _DownloadStatus.FAILED:
-                    raise self._exception
+                    raise self._download_exception
                 else:
                     raise RuntimeError('Unexpected download status.')
             sleep(0.25)
