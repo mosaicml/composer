@@ -483,20 +483,26 @@ def _upload_worker(
             else:
                 continue
         uri = object_store.get_uri(object_name)
-        if not overwrite:
-            try:
-                object_store.get_object_size(object_name)
-            except FileNotFoundError:
-                # Good! It shouldn't exist.
-                pass
-            else:
-                # Exceptions will be detected on the next batch_end or epoch_end event
-                raise FileExistsError(f'Object {uri} already exists, but allow_overwrite was set to False.')
-        log.info('Uploading file %s to %s', file_path_to_upload, uri)
-        retry(ObjectStoreTransientError, num_attempts=num_attempts)(lambda: object_store.upload_object(
-            object_name=object_name,
-            filename=file_path_to_upload,
-        ))()
-        os.remove(file_path_to_upload)
-        file_queue.task_done()
-        completed_queue.put_nowait(object_name)
+
+        # defining as a function-in-function to use decorator notation with num_attempts as an argument
+        @retry(ObjectStoreTransientError, num_attempts=num_attempts)
+        def upload_file():
+            if not overwrite:
+                try:
+                    object_store.get_object_size(object_name)
+                except FileNotFoundError:
+                    # Good! It shouldn't exist.
+                    pass
+                else:
+                    # Exceptions will be detected on the next batch_end or epoch_end event
+                    raise FileExistsError(f'Object {uri} already exists, but allow_overwrite was set to False.')
+            log.info('Uploading file %s to %s', file_path_to_upload, uri)
+            object_store.upload_object(
+                object_name=object_name,
+                filename=file_path_to_upload,
+            )
+            os.remove(file_path_to_upload)
+            file_queue.task_done()
+            completed_queue.put_nowait(object_name)
+
+        upload_file()
