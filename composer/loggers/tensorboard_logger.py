@@ -72,7 +72,8 @@ class TensorboardLogger(LoggerDestination):
         if self.log_dir is None:
             self.log_dir = 'tensorboard_logs'
         summary_writer_log_dir = Path(self.log_dir) / self.run_name
-        self.writer = SummaryWriter(log_dir=summary_writer_log_dir)
+        self.writer = SummaryWriter(log_dir=summary_writer_log_dir,
+                                    filename_suffix=self.run_name)
 
     def batch_end(self, state: State, logger: Logger) -> None:
         if int(state.timestamp.batch) % self.flush_interval == 0:
