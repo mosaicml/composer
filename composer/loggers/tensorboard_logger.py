@@ -96,10 +96,10 @@ class TensorboardLogger(LoggerDestination):
         # Flush the file on fit_end, in case if was not flushed on epoch_end and the trainer is re-used
         # (which would defer when `self.close()` would be invoked)
         self._flush(logger)
+        logger.file_artifact(LogLevel.FIT,
+                        artifact_name=self.run_name,
+                        file_path=self.writer.file_writer.event_writer._file_name,
+                        overwrite=True)
 
     def _flush(self, logger: Logger):
         self.writer.flush()
-        logger.file_artifact(LogLevel.FIT,
-                             artifact_name=self.run_name,
-                             file_path=self.writer.file_writer.event_writer._file_name,
-                             overwrite=True)
