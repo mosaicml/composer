@@ -29,7 +29,7 @@ def create_composer_resnet(model_name: str,
                            width_per_group: int = 64,
                            initializers: Optional[List[Initializer]] = None,
                            loss_name: str = 'soft_cross_entropy') -> ComposerClassifier:
-    """Helper function to create a ComposerClassifier with a torchvision ResNet model.
+    """Helper function to create a :class:`.ComposerClassifier` with a torchvision ResNet model.
 
     From `Deep Residual Learning for Image Recognition <https://arxiv.org/abs/1512.03385>`_ (He et al, 2015).
 

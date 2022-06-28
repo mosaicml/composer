@@ -46,7 +46,7 @@ def deeplabv3(num_classes: int,
               sync_bn: bool = True,
               use_plus: bool = True,
               initializers: Sequence[Initializer] = ()):
-    """Helper function to build a torchvision DeepLabV3 model with a 3x3 convolution layer and dropout removed.
+    """Helper function to build a mmsegmentation DeepLabV3 model.
 
     Args:
         num_classes (int): Number of classes in the segmentation task.
@@ -146,8 +146,8 @@ def composer_deeplabv3(num_classes: int,
                        sync_bn: bool = True,
                        use_plus: bool = True,
                        initializers: Sequence[Initializer] = ()):
-    """Helper function to create a ComposerClassifier with a DeepLabv3(+) model. Logs Mean Intersection over Union
-        (MIoU) and Cross Entropy during training and validation.
+    """Helper function to create a :class:`.ComposerClassifier` with a DeepLabv3(+) model. Logs
+        Mean Intersection over Union (MIoU) and Cross Entropy during training and validation.
 
     From `Rethinking Atrous Convolution for Semantic Image Segmentation <https://arxiv.org/abs/1706.05587>`_
         (Chen et al, 2017).

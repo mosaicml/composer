@@ -47,7 +47,7 @@ class Model(nn.Module):
 
 
 def create_mnist_model(num_classes: int = 10, initializers: Optional[List[Initializer]] = None):
-    """Helper function to create a ComposerClassifier with a simple convolutional neural network.
+    """Helper function to create a :class:`.ComposerClassifier` with a simple convolutional neural network.
 
     Args:
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``10``
