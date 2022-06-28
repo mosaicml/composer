@@ -19,7 +19,7 @@ trainer = Trainer(
     algorithms=[
         BlurPool(replace_convs=True, replace_maxpools=True, blur_first=True),
         ChannelsLast(),
-        CutMix(num_classes=10),
+        CutMix(alpha=1.0),
         LabelSmoothing(smoothing=0.1),
     ]
 )
