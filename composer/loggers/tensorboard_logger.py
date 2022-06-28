@@ -69,7 +69,7 @@ class TensorboardLogger(LoggerDestination):
 
     def init(self, state: State, logger: Logger) -> None:
         if self.run_name is None:
-            self.run_name = f'{state.run_name}'
+            self.run_name = state.run_name
         if self.log_dir is None:
             self.log_dir = 'tensorboard_logs'
         summary_writer_log_dir = Path(self.log_dir) / self.run_name
