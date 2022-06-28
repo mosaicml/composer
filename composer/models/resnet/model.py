@@ -85,7 +85,7 @@ def composer_resnet(model_name: str,
     train_metrics = Accuracy()
     val_metrics = MetricCollection([CrossEntropy(), Accuracy()])
 
-    # Apply Initializers to model (TODO: do this in ComposerClassifier?)
+    # Apply Initializers to model
     for initializer in initializers:
         initializer = Initializer(initializer)
         model.apply(initializer.get_initializer())

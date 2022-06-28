@@ -32,8 +32,8 @@ from composer.models.resnet_cifar import composer_resnet_cifar as composer_resne
 from composer.models.ssd import SSD as SSD
 from composer.models.ssd import SSDHparams as SSDHparams
 from composer.models.tasks import ComposerClassifier as ComposerClassifier
-from composer.models.timm import Timm as Timm
 from composer.models.timm import TimmHparams as TimmHparams
+from composer.models.timm import composer_timm as composer_timm
 from composer.models.unet import UNet as UNet
 from composer.models.unet import UnetHparams as UnetHparams
 from composer.models.vit_small_patch16 import ViTSmallPatch16Hparams as ViTSmallPatch16Hparams
