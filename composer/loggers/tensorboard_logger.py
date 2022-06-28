@@ -86,9 +86,6 @@ class TensorboardLogger(LoggerDestination):
     def epoch_end(self, state: State, logger: Logger) -> None:
         self._flush(logger)
 
-    def eval_start(self, state: State, logger: Logger) -> None:
-        self._flush(logger)
-
     def eval_end(self, state: State, logger: Logger) -> None:
         self._flush(logger)
 
@@ -101,6 +98,8 @@ class TensorboardLogger(LoggerDestination):
         self.writer.flush()
         file_path = self.writer.file_writer.event_writer._file_name
         logger.file_artifact(LogLevel.FIT,
-                             artifact_name=Path(file_path).stem,
+                            # For a file to be readable by Tensorboard, it must start with
+                            # 'events.out.tfevents'.
+                             artifact_name=f'events.out.tfevents.{self.run_name}',
                              file_path=file_path,
                              overwrite=True)
