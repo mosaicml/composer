@@ -4,12 +4,14 @@
 """Download handling for :class:`StreamingDataset`.
 """
 
+import gzip
 import os
 import shutil
 import time
 import urllib.parse
 from typing import Optional
 
+from composer.datasets.streaming.format import split_compression_suffix
 from composer.utils import MissingConditionalImportError
 
 __all__ = ['download_or_wait']
@@ -26,6 +28,7 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
     try:
         import boto3
         from botocore.config import Config
+        from botocore.exceptions import DataNotFoundError
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='boto3') from e
 
@@ -35,7 +38,10 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
 
     config = Config(read_timeout=timeout)
     s3 = boto3.client('s3', config=config)
-    s3.download_file(obj.netloc, obj.path.lstrip('/'), local)
+    try:
+        s3.download_file(obj.netloc, obj.path.lstrip('/'), local)
+    except DataNotFoundError as e:
+        raise FileNotFoundError from e
 
 
 def download_from_sftp(remote: str, local: str) -> None:
@@ -118,7 +124,9 @@ def dispatch_download(remote: Optional[str], local: str, timeout: float):
         local (str): Local path (local filesystem).
         timeout (float): How long to wait for file to download before raising an exception.
     """
-    if os.path.exists(local):
+
+    local_decompressed, compression_scheme = split_compression_suffix(local)
+    if os.path.exists(local_decompressed):
         return
 
     local_dir = os.path.dirname(local)
@@ -132,6 +140,17 @@ def dispatch_download(remote: Optional[str], local: str, timeout: float):
         download_from_sftp(remote, local)
     else:
         download_from_local(remote, local)
+
+    if compression_scheme is not None:
+        tempfile = local_decompressed + '.tmp'
+        if compression_scheme == 'gz':
+            with gzip.open(local, 'rb') as gzipfile:
+                with open(tempfile, 'xb') as dest_file:
+                    shutil.copyfileobj(gzipfile, dest_file)
+        else:
+            raise NotImplementedError
+        os.rename(tempfile, local_decompressed)
+        os.remove(local)
 
 
 def download_or_wait(remote: Optional[str],
@@ -164,6 +183,8 @@ def download_or_wait(remote: Optional[str],
             else:
                 dispatch_download(remote, local, timeout=timeout)
             break
+        except FileNotFoundError:
+            raise  # bubble up file not found error
         except Exception as e:  # Retry for all causes of failure.
             error_msgs.append(e)
             last_error = e
