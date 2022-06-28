@@ -22,7 +22,7 @@ def create_gpt2(use_pretrained: Optional[bool] = False,
                 model_config: Optional[dict] = None,
                 tokenizer_name: Optional[str] = None,
                 gradient_checkpointing: Optional[bool] = False):
-    """Implements :class:`~composer.models.huggingface.HuggingFaceModel` to wrap `Hugging Face GPT-2
+    """Implements :class:`~composer.models.huggingface.HuggingFaceModel` to wrap `Hugging Face GPT-2 \
     transformers <https://huggingface.co/docs/transformers/master/en/model_doc/gpt2#overview>`_. Logs training and
     validation perplexity.
 
