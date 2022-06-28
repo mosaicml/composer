@@ -27,8 +27,8 @@ from composer.models.initializers import Initializer as Initializer
 from composer.models.model_hparams import ModelHparams as ModelHparams
 from composer.models.resnet import ResNetHparams as ResNetHparams
 from composer.models.resnet import create_composer_resnet as create_composer_resnet
-from composer.models.resnet_cifar import ComposerResNetCIFAR as ComposerResNetCIFAR
 from composer.models.resnet_cifar import ResNetCIFARHparams as ResNetCIFARHparams
+from composer.models.resnet_cifar import composer_resnet_cifar as composer_resnet_cifar
 from composer.models.ssd import SSD as SSD
 from composer.models.ssd import SSDHparams as SSDHparams
 from composer.models.tasks import ComposerClassifier as ComposerClassifier
