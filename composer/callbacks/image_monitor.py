@@ -4,6 +4,7 @@
 """Monitor image inputs and optionally outputs."""
 from math import floor, sqrt
 from typing import Any, Callable, Optional, Tuple, Union
+import wandb
 
 from composer.core import Callback, State, Time, TimeUnit
 from composer.loggers import Logger
