@@ -13,6 +13,8 @@ from typing import Optional
 
 from composer.datasets.streaming.format import split_compression_suffix
 from composer.utils import MissingConditionalImportError
+# TODO: refactor to use object store for download, until then, use this private method.
+from composer.utils.object_store.s3_object_store import _ensure_not_found_errors_are_wrapped
 
 __all__ = ['download_or_wait']
 
@@ -28,7 +30,7 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
     try:
         import boto3
         from botocore.config import Config
-        from botocore.exceptions import DataNotFoundError
+        from botocore.exceptions import ClientError
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='boto3') from e
 
@@ -40,8 +42,8 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
     s3 = boto3.client('s3', config=config)
     try:
         s3.download_file(obj.netloc, obj.path.lstrip('/'), local)
-    except DataNotFoundError as e:
-        raise FileNotFoundError from e
+    except ClientError as e:
+        _ensure_not_found_errors_are_wrapped(e)
 
 
 def download_from_sftp(remote: str, local: str) -> None:
