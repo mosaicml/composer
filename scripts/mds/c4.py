@@ -22,25 +22,28 @@ def parse_args() -> Namespace:
     """Parse commandline arguments."""
     args = ArgumentParser()
     args.add_argument('--out_root', type=str, required=True)
-    args.add_argument('--shard_size_limit', type=int, default=1 << 27)
+    args.add_argument('--shard_size_limit', type=int, default=1 << 30)
     args.add_argument('--tqdm', type=int, default=1)
     return args.parse_args()
 
 
-def get(split: str) -> Dataset:
+def get(split: str) -> IterableDataset:
     """Collect the samples for this dataset split.
 
     Args:
         split (str): Split name.
 
     Returns:
-        A HF Dataset.
+        An IterableDataset.
     """
 
     class ShardedC4(IterableDataset):
 
         def __init__(self):
             self.dataset = datasets.load_dataset(path='c4', name='en', split=split, streaming=True)
+
+        def num_shards(self):
+          return len(self.dataset._ex_iterable.kwargs['filepaths'])
 
         def __iter__(self):
             worker_info = get_worker_info()
@@ -64,15 +67,16 @@ def each(dataset: IterableDataset) -> Iterable[Dict[str, bytes]]:
     Yields:
         Sample dicts.
     """
-    num_workers = 0
+    num_workers = min(64, dataset.num_shards())
     batch_size = 512
-    prefetch_factor = max(1, 2 * batch_size // num_workers) if num_workers > 0 else None
+    prefetch_factor = max(1, 2 * batch_size // num_workers) if num_workers > 0 else 2
 
     loader = DataLoader(
         dataset=dataset,
         sampler=None,
         batch_size=batch_size,
         num_workers=num_workers,
+        prefetch_factor=prefetch_factor,
     )
     for batch in loader:
         keys = list(batch.keys())
@@ -93,7 +97,7 @@ def main(args: Namespace) -> None:
     fields = ['text', 'timestamp', 'url']
 
     for (split, split_new_name, expected_num_samples) in [
-            # ('train', 'train', 364868892),
+        ('train', 'train', 364868892),
         ('validation', 'val', 364608),
     ]:
         # Get dataset
@@ -102,7 +106,8 @@ def main(args: Namespace) -> None:
         # Write samples
         with StreamingDatasetWriter(dirname=os.path.join(args.out_root, split_new_name),
                                     fields=fields,
-                                    shard_size_limit=args.shard_size_limit) as out:
+                                    shard_size_limit=args.shard_size_limit,
+                                    compression=None) as out:
             out.write_samples(samples=each(dataset), use_tqdm=bool(args.tqdm), total=expected_num_samples)
 
 
