@@ -229,9 +229,13 @@ class StreamingDataset(IterableDataset):
                     np.random.shuffle(todo_ids)
             else:
                 if self._download_status == _DownloadStatus.IN_PROGRESS:
+                    self._downloaded_ids.reverse()
                     self._downloaded_ids.extend(new_ids)
+                    self._downloaded_ids.reverse()
                 for todo_ids in self._epoch_to_todo_ids.values():
+                    todo_ids.reverse()
                     todo_ids.extend(new_ids)
+                    todo_ids.reverse()
 
     def download(self) -> None:
         """Download and assimilate missing shards."""
@@ -346,11 +350,7 @@ class StreamingDataset(IterableDataset):
             with self._lock:
                 todo_ids = self._epoch_to_todo_ids[epoch]
                 if todo_ids:
-                    # Higher perf to pop last, but shuffle=False wants in-order traversal
-                    if self.shuffle:
-                        return todo_ids.pop(-1)
-                    else:
-                        return todo_ids.pop(0)
+                    return todo_ids.pop()
                 elif self._download_status == _DownloadStatus.IN_PROGRESS:
                     pass
                 elif self._download_status == _DownloadStatus.DONE:
