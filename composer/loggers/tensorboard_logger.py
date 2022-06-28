@@ -98,8 +98,8 @@ class TensorboardLogger(LoggerDestination):
         self.writer.flush()
         file_path = self.writer.file_writer.event_writer._file_name
         logger.file_artifact(LogLevel.FIT,
-                            # For a file to be readable by Tensorboard, it must start with
-                            # 'events.out.tfevents'.
+                             # For a file to be readable by Tensorboard, it must start with
+                             # 'events.out.tfevents'.
                              artifact_name=f'events.out.tfevents.{self.run_name}',
                              file_path=file_path,
                              overwrite=True)
