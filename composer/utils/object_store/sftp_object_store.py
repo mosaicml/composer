@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import pathlib
 import urllib.parse
@@ -28,16 +29,6 @@ def _set_kwarg(value: Any, kwargs: Dict[str, Any], arg_name: str, kwarg_name: st
     if kwarg_name in kwargs:
         raise ValueError(f'The `{arg_name}` should be not be specified directly if also included via `connect_kwargs`')
     kwargs[kwarg_name] = value
-
-
-def _ensure_transient_errors_are_wrapped(e: Exception):
-    from paramiko import SSHException
-    if isinstance(e, SSHException):
-        if 'Server connection dropped:' in str(e):
-            raise ObjectStoreTransientError from e
-    if isinstance(e, (TimeoutError, ConnectionError)):
-        raise ObjectStoreTransientError from e
-    raise e
 
 
 class SFTPObjectStore(ObjectStore):
@@ -157,6 +148,7 @@ class SFTPObjectStore(ObjectStore):
                     "Invalid `missing_host_key_policy`. Must be 'AutoAddPolicy', 'RejectPolicy', or 'WarningPolicy'.")
         self.ssh_client.set_missing_host_key_policy(missing_host_key_policy)
         self.ssh_client.load_system_host_keys(known_hosts_filename)
+        self._connect_kwargs = connect_kwargs
         self.ssh_client.connect(**connect_kwargs)
         self.sftp_client = self.ssh_client.open_sftp()
 
@@ -169,10 +161,39 @@ class SFTPObjectStore(ObjectStore):
 
     def get_object_size(self, object_name: str) -> int:
         object_name = os.path.join(self.cwd, object_name)
-        st_size = self.sftp_client.stat(object_name).st_size
+        with self._handle_transient_errors():
+            st_size = self.sftp_client.stat(object_name).st_size
         if st_size is None:
             raise RuntimeError('Cannot determine object size: stat(object_name).st_size is None')
         return st_size
+
+    @contextlib.contextmanager
+    def _handle_transient_errors(self):
+        from paramiko import SSHException
+        try:
+            yield
+        except Exception as e:
+            if not self._is_cnx_alive():
+                # If the connection dropped, then it's a transient error. Create a new one, and raise the exception to try again.
+                self.close()
+                self.ssh_client.connect(**self._connect_kwargs)
+                self.sftp_client = self.ssh_client.open_sftp()
+                raise ObjectStoreTransientError from e
+            if isinstance(e, SSHException):
+                if 'Server connection dropped:' in str(e):
+                    raise ObjectStoreTransientError from e
+            if isinstance(e, (TimeoutError, ConnectionError, EOFError)):
+                raise ObjectStoreTransientError from e
+            raise e
+
+    def _is_cnx_alive(self):
+        transport = self.ssh_client.get_transport()
+        assert transport is not None, 'transport should not be None'
+        if not transport.is_active() or not transport.is_alive():
+            return False
+        channel = self.sftp_client.get_channel()
+        assert channel is not None, 'channels not be None if the transport is alive'
+        return channel.active and not channel.closed
 
     def upload_object(
         self,
@@ -182,12 +203,10 @@ class SFTPObjectStore(ObjectStore):
     ) -> None:
         object_name = os.path.join(self.cwd, object_name)
         dirname = os.path.dirname(object_name)
-        if dirname:
-            self.ssh_client.exec_command(f'mkdir -p {dirname}')
-        try:
+        with self._handle_transient_errors():
+            if dirname:
+                self.ssh_client.exec_command(f'mkdir -p {dirname}')
             self.sftp_client.put(str(filename), object_name, callback=callback, confirm=True)
-        except Exception as e:
-            _ensure_transient_errors_are_wrapped(e)
 
     def download_object(
         self,
@@ -207,14 +226,15 @@ class SFTPObjectStore(ObjectStore):
         tmp_path = str(filename) + f'.{uuid.uuid4()}.tmp'
 
         try:
-            self.sftp_client.get(remotepath=object_name, localpath=tmp_path, callback=callback)
-        except Exception as e:
+            with self._handle_transient_errors():
+                self.sftp_client.get(remotepath=object_name, localpath=tmp_path, callback=callback)
+        except Exception:
             # Make a best effort attempt to clean up the temporary file
             try:
                 os.remove(tmp_path)
             except OSError:
                 pass
-            _ensure_transient_errors_are_wrapped(e)
+            raise
         else:
             if overwrite:
                 os.replace(tmp_path, filename)
