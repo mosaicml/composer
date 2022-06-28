@@ -135,7 +135,7 @@ class StreamingDatasetWriter(object):
         basename = get_shard_basename(shard, compression_name=self.compression_scheme)
         filename = os.path.join(self.dirname, basename)
 
-        Thread(target=self._thread_flush_shard, args=(self.new_samples, filename), daemon=True).start()
+        Thread(target=self._thread_flush_shard, args=(self.new_samples, filename), daemon=False).start()
 
         self.samples_per_shard.append(len(self.new_samples))
         self.bytes_per_shard.append(self.new_shard_size)

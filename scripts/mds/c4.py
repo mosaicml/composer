@@ -22,7 +22,7 @@ def parse_args() -> Namespace:
     """Parse commandline arguments."""
     args = ArgumentParser()
     args.add_argument('--out_root', type=str, required=True)
-    args.add_argument('--shard_size_limit', type=int, default=1 << 30)
+    args.add_argument('--shard_size_limit', type=int, default=1 << 28)
     args.add_argument('--tqdm', type=int, default=1)
     return args.parse_args()
 
