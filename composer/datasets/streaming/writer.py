@@ -41,12 +41,13 @@ class StreamingDatasetWriter(object):
     """
     Used for writing a :class:`StreamingDataset` from a list of samples.
 
-    Samples are expected to be of type: `Dict[str, bytes]`.
+    Samples are expected to be of type: ``Dict[str, bytes]``.
 
-    Given each sample, :class:`StreamingDatasetWriter` only writes out the values for a subset of keys (`fields`) that are globally shared across the dataset.
+    Given each sample, :class:`StreamingDatasetWriter` only writes out the values for a subset of keys (``fields``)
+    that are globally shared across the dataset.
 
-    :class:`StreamingDatasetWriter` automatically shards the dataset such that each shard is of size <= `shard_size_limit` bytes.
-
+    :class:`StreamingDatasetWriter` automatically shards the dataset such that each shard is of size <=
+    ``shard_size_limit`` bytes.
 
     .. doctest::
 
@@ -79,8 +80,8 @@ class StreamingDatasetWriter(object):
     Args:
         dirname (str): Directory to write shards to.
         fields: (List[str]): The fields to save for each sample.
-        shard_size_limit (int): Maximum shard size in bytes. Default: `1 << 24`.
-        compression (str, optional): Compression algorithm and optional compression level. Currently supported: 'gz', 'gz:[1-9]' or None. Defaults to 'gz:6'.
+        shard_size_limit (int): Maximum shard size in bytes. Default: ``1 << 24``.
+        compression (str, optional): Compression algorithm and optional compression level. Currently supported: 'gz', 'gz:[1-9]' or None. Defaults to ``None``.
     """
 
     default_compression = None
