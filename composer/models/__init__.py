@@ -13,8 +13,8 @@ from composer.models.base import ComposerModel as ComposerModel
 from composer.models.bert import BERTForClassificationHparams as BERTForClassificationHparams
 from composer.models.bert import BERTHparams as BERTHparams
 from composer.models.bert import BERTModel as BERTModel
-from composer.models.classify_mnist import MNIST_Classifier as MNIST_Classifier
 from composer.models.classify_mnist import MnistClassifierHparams as MnistClassifierHparams
+from composer.models.classify_mnist import create_mnist_model as create_mnist_model
 from composer.models.deeplabv3 import ComposerDeepLabV3 as ComposerDeepLabV3
 from composer.models.deeplabv3 import DeepLabV3Hparams as DeepLabV3Hparams
 from composer.models.efficientnetb0 import EfficientNetB0 as EfficientNetB0

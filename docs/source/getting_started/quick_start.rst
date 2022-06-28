@@ -35,7 +35,7 @@ we train an MNIST classifer with a recipe of methods:
     from torch.utils.data import DataLoader
 
     from composer import Trainer
-    from composer.models import MNIST_Classifier
+    from composer.models import create_mnist_model
     from composer.algorithms import LabelSmoothing, CutMix, ChannelsLast
 
     transform = transforms.Compose([transforms.ToTensor()])
@@ -43,7 +43,7 @@ we train an MNIST classifer with a recipe of methods:
     train_dataloader = DataLoader(dataset, batch_size=128)
 
     trainer = Trainer(
-        model=MNIST_Classifier(num_classes=10),
+        model=create_mnist_model(num_classes=10),
         train_dataloader=train_dataloader,
         max_duration="2ep",
         algorithms=[

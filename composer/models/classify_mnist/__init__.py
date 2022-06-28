@@ -3,9 +3,9 @@
 
 """A simple example convolutional neural network which can be used to classify MNIST data."""
 from composer.models.classify_mnist.mnist_hparams import MnistClassifierHparams as MnistClassifierHparams
-from composer.models.classify_mnist.model import MNIST_Classifier as MNIST_Classifier
+from composer.models.classify_mnist.model import create_mnist_model as create_mnist_model
 
-__all__ = ['MNIST_Classifier', 'MnistClassifierHparams']
+__all__ = ['create_mnist_model', 'MnistClassifierHparams']
 
 _task = 'Image Classification'
 _dataset = 'MNIST'
