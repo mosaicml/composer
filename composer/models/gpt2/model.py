@@ -33,13 +33,15 @@ def create_gpt2(use_pretrained: Optional[bool] = False,
         gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
         use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights. Default: ``False``.
         model_config (dict): A dictionary providing a HuggingFace model configuration.
-            default model_config:
+        tokenizer_name (str, optional): Tokenizer name used to preprocess the dataset
+        and validate the models inputs.
+
+        .. code-block::
+
             {
               "_name_or_path": "gpt2",
               "activation_function": "gelu_new",
-              "architectures": [
-                "GPT2LMHeadModel"
-              ],
+              "architectures": ["GPT2LMHeadModel"],
               "attn_pdrop": 0.1,
               "bos_token_id": 50256,
               "embd_pdrop": 0.1,
@@ -63,24 +65,23 @@ def create_gpt2(use_pretrained: Optional[bool] = False,
               "summary_type": "cls_index",
               "summary_use_proj": true,
               "task_specific_params": {
-                "text-generation": {
-                  "do_sample": true,
-                  "max_length": 50
-                }
+              "text-generation": {
+              "do_sample": true,
+              "max_length": 50 }
               },
               "transformers_version": "4.16.0",
               "use_cache": true,
               "vocab_size": 50257
             }
-            tokenizer_name (str, optional): Tokenizer name used to preprocess the dataset
-                and validate the models inputs.
-    To create a GPT-2 model for language modeling pretraining:
+
+   To create a GPT-2 model for language modeling pretraining:
 
     .. testcode::
 
         from composer.models import create_gpt2
 
         composer_model = create_gpt2()
+
     """
     try:
         import transformers

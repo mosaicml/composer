@@ -33,13 +33,15 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
         gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
         use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights. Default: ``False``.
         model_config (dict): The settings used to create a Hugging Face BertConfig. BertConfig is used to specify the
-            architecture of a Hugging Face model.
-            default config:
+        architecture of a Hugging Face model.
+        tokenizer_name (transformers.BertTokenizer, optional): Tokenizer name used to preprocess the dataset
+        and validate the models inputs.
+
+        .. code-block::
+
             {
               "_name_or_path": "bert-base-uncased",
-              "architectures": [
-                "BertForMaskedLM"
-              ],
+              "architectures": ["BertForMaskedLM"],
               "attention_probs_dropout_prob": 0.1,
               "classifier_dropout": null,
               "gradient_checkpointing": false,
@@ -60,14 +62,14 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
               "use_cache": true,
               "vocab_size": 30522
             }
-            tokenizer_name (transformers.BertTokenizer, optional): Tokenizer name used to preprocess the dataset
-                and validate the models inputs.
-    To create a BERT model for Masked Language Model pretraining:
+
+   To create a BERT model for Masked Language Model pretraining:
 
     .. testcode::
 
         from composer.models import create_bert_mlm
         model = create_bert_mlm()
+
     """
     try:
         import transformers
@@ -118,8 +120,12 @@ def create_bert_classification(num_labels: Optional[int] = 2,
         gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
         use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights. Default: ``False``.
         model_config (dict): The settings used to create a Hugging Face BertConfig. BertConfig is used to specify the
-            architecture of a Hugging Face model.
-            default config:
+        architecture of a Hugging Face model.
+        tokenizer_name (str, optional): Tokenizer name used to preprocess the dataset
+        and validate the models inputs.
+
+        .. code-block::
+
             {
               "_name_or_path": "bert-base-uncased",
               "architectures": [
@@ -155,14 +161,14 @@ def create_bert_classification(num_labels: Optional[int] = 2,
               "use_cache": true,
               "vocab_size": 30522
             }
-            tokenizer_name (str, optional): Tokenizer name used to preprocess the dataset
-                and validate the models inputs.
-    To create a BERT model for classification:
+
+   To create a BERT model for classification:
 
     .. testcode::
 
         from composer.models import create_bert_classification
         model = create_bert_classification(num_labels=3) # if the task has three classes.
+
     """
     try:
         import transformers
