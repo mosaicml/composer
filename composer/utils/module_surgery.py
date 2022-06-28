@@ -177,13 +177,17 @@ def replace_module_classes(
             indices[policy_class] += 1
             if replacement is not None:
                 assert child not in replaced_pairs
-                # Preserve the device with surgery
-                # However, some children don't have any parameters, so using a for loop
-                for p in child.parameters():
-                    replacement = replacement.to(p.device)
-                    break
-                replaced_pairs[child] = replacement
 
+                # Preserve the device with surgery
+                try:
+                    p = next(child.parameters())
+                except StopIteration:
+                    # Some children don't have any parameters
+                    pass
+                else:
+                    replacement = replacement.to(p.device)
+
+                replaced_pairs[child] = replacement
                 for parent, name in parents:
                     # update each parent with the replaced child
                     setattr(parent, name, replacement)
