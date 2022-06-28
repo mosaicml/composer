@@ -41,8 +41,7 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
-from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, module_surgery,
-                            reproducibility)
+from composer.utils import ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, reproducibility
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -785,19 +784,6 @@ class Trainer:
 
         # Move the model and optimizers to the device
         if not deepspeed_enabled:
-            # DeepSpeed handles the movement and sharding automatically
-            host_model_params = model.parameters()
-            model = self._device.module_to_device(model)
-            device_model_params = model.parameters()
-
-            # Use surgery to update the parameters of the optimizers, now that the model is on the device
-            # see https://pytorch.org/docs/stable/optim.html#constructing-it
-            module_surgery.replace_params_in_optimizer(
-                old_params=host_model_params,
-                new_params=device_model_params,
-                optimizers=optimizers,
-            )
-
             # Move any remaining optimizer parameters onto the device
             optimizers = map_collection(optimizers, self._device.optimizer_to_device)
 

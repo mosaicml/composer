@@ -6,6 +6,7 @@ import contextlib
 import copy
 import datetime
 import os
+import pathlib
 import time
 from typing import List, Optional, Union
 
@@ -33,6 +34,7 @@ from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices import Device
 from composer.trainer.trainer import _generate_run_name
 from composer.utils import dist, reproducibility
+from composer.utils.iter_helpers import map_collection
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
 from tests.common.events import EventCounterCallback
@@ -100,6 +102,13 @@ class TestTrainerInit():
         parameters = trainer.state.optimizers[0].param_groups[0]['params']
         target_device = 'cuda' if device == 'gpu' else 'cpu'
         assert all(param.device.type == target_device for param in parameters)
+
+
+def _assert_optimizer_is_on_device(optimizer: torch.optim.Optimizer):
+    for state in optimizer.state.values():
+        for v in state.values():
+            if isinstance(v, torch.Tensor):
+                assert v.device.type == 'cuda'
 
 
 class TestTrainerInitOrFit:
@@ -388,7 +397,27 @@ class TestTrainerInitOrFit:
     @pytest.mark.gpu
     def test_device(self, model: ComposerModel):
         trainer = Trainer(model=model, device='gpu')
-        assert next(trainer.state.model.parameters()).device.type == 'cuda'
+        # Run fit to ensure there are no device mismatches
+        trainer.fit()
+
+        # Finally assert the devices are correct
+        assert all(p.device.type == 'cuda' for p in trainer.state.model.parameters())
+        map_collection(trainer.state.optimizers, _assert_optimizer_is_on_device)
+
+    @pytest.mark.gpu
+    def test_device_with_checkpoint(self, model: ComposerModel, tmp_path: pathlib.Path):
+        copied_model = copy.deepcopy(model)
+        trainer = Trainer(model=model, device='gpu')
+        checkpoint_path = str(tmp_path / 'checkpoint.pt')
+        trainer.save_checkpoint(checkpoint_path)
+
+        trainer_2 = Trainer(model=copied_model, load_path=checkpoint_path)
+        # Run fit to ensure there are no device mismatches
+        trainer_2.fit()
+
+        # And ensure the device on the new trainer is correct
+        assert all(p.device.type == 'cuda' for p in trainer_2.state.model.parameters())
+        map_collection(trainer_2.state.optimizers, _assert_optimizer_is_on_device)
 
     @pytest.mark.parametrize('precision', list(Precision))
     @pytest.mark.parametrize('device', ['cpu', pytest.param('gpu', marks=pytest.mark.gpu)])
