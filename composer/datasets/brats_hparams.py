@@ -4,6 +4,7 @@
 """BraTS (Brain Tumor Segmentation) dataset hyperparameters."""
 
 from dataclasses import dataclass
+from typing import Optional
 
 import torch
 import yahp as hp
@@ -29,14 +30,16 @@ class BratsDatasetHparams(DatasetHparams):
         oversampling (float): The oversampling ratio to use. Default: ``0.33``.
     """
 
-    oversampling: float = hp.optional("oversampling", default=0.33)
+    oversampling: float = hp.optional('oversampling', default=0.33)
+    is_train: bool = hp.optional('Whether to load the training data (the default) or validation data.', default=True)
+    datadir: Optional[str] = hp.optional('The path to the data directory', default=None)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
 
         oversampling = self.oversampling
 
         if self.datadir is None:
-            raise ValueError("datadir must be specified.")
+            raise ValueError('datadir must be specified.')
         x_train, y_train, x_val, y_val = get_data_split(self.datadir)
         dataset = PytTrain(x_train, y_train, oversampling) if self.is_train else PytVal(x_val, y_val)
         collate_fn = None if self.is_train else _my_collate

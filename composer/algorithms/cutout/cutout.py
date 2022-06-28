@@ -19,16 +19,16 @@ from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
-__all__ = ["CutOut", "cutout_batch"]
+__all__ = ['CutOut', 'cutout_batch']
 
-ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
+ImgT = TypeVar('ImgT', torch.Tensor, PillowImage)
 
 
 def cutout_batch(input: ImgT, num_holes: int = 1, length: float = 0.5, uniform_sampling: bool = False) -> ImgT:
-    """See :class:`CutOut`.
+    """See :class:`.CutOut`.
 
     Args:
-        input (PIL.Image.Image | :class:`torch.Tensor`): Image or batch of images. If
+        input (PIL.Image.Image | torch.Tensor): Image or batch of images. If
             a :class:`torch.Tensor`, must be a single image of shape ``(C, H, W)``
             or a batch of images of shape ``(N, C, H, W)``.
         num_holes: Integer number of holes to cut out. Default: ``1``.
@@ -125,13 +125,11 @@ class CutOut(Algorithm):
         self.input_key = input_key
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.AFTER_DATALOADER."""
         return event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Applies cutout on input images."""
         x = state.batch_get_item(self.input_key)
-        assert isinstance(x, Tensor), "Multiple tensors not supported for Cutout."
+        assert isinstance(x, Tensor), 'Multiple tensors not supported for Cutout.'
 
         new_x = cutout_batch(x, num_holes=self.num_holes, length=self.length, uniform_sampling=self.uniform_sampling)
         state.batch_set_item(self.input_key, new_x)

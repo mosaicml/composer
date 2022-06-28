@@ -10,7 +10,7 @@ Dataset <http://image-net.org/>`_ for more details.
 import os
 import textwrap
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 import torch
@@ -32,7 +32,7 @@ from composer.utils import dist
 IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
 IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
 
-__all__ = ["ImagenetDatasetHparams", "StreamingImageNet1kHparams"]
+__all__ = ['ImagenetDatasetHparams', 'StreamingImageNet1kHparams']
 
 
 @dataclass
@@ -48,16 +48,22 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         ffcv_dest (str): <file>.ffcv file that has dataset samples. Default: ``"imagenet_train.ffcv"``.
         ffcv_write_dataset (std): Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist. Default:
         ``False``.
+        datadir (str): The path to the data directory.
+        is_train (bool): Whether to load the training data or validation data. Default:
+            ``True``.
     """
-    resize_size: int = hp.optional("resize size. Set to -1 to not resize", default=-1)
-    crop_size: int = hp.optional("crop size", default=224)
-    use_ffcv: bool = hp.optional("whether to use ffcv for faster dataloading", default=False)
+    resize_size: int = hp.optional('resize size. Set to -1 to not resize', default=-1)
+    crop_size: int = hp.optional('crop size', default=224)
+    use_ffcv: bool = hp.optional('whether to use ffcv for faster dataloading', default=False)
+    ffcv_cpu_only: bool = hp.optional('Use cpu for all transformations.', default=False)
     ffcv_dir: str = hp.optional(
         "A directory containing train/val <file>.ffcv files. If these files don't exist and ffcv_write_dataset is true, train/val <file>.ffcv files will be created in this dir.",
-        default="/tmp")
-    ffcv_dest: str = hp.optional("<file>.ffcv file that has dataset samples", default="imagenet_train.ffcv")
+        default='/tmp')
+    ffcv_dest: str = hp.optional('<file>.ffcv file that has dataset samples', default='imagenet_train.ffcv')
     ffcv_write_dataset: bool = hp.optional("Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist",
                                            default=False)
+    is_train: bool = hp.optional('Whether to load the training data (the default) or validation data.', default=True)
+    datadir: Optional[str] = hp.optional('The path to the data directory', default=None)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
 
@@ -85,16 +91,16 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                     To use ffcv with Composer, please install ffcv in your environment."""))
 
             if self.is_train:
-                split = "train"
+                split = 'train'
             else:
-                split = "val"
+                split = 'val'
             dataset_filepath = os.path.join(self.ffcv_dir, self.ffcv_dest)
             # always create if ffcv_write_dataset is true
             if self.ffcv_write_dataset:
                 if dist.get_local_rank() == 0:
                     if self.datadir is None:
                         raise ValueError(
-                            "datadir is required if use_synthetic is False and ffcv_write_dataset is True.")
+                            'datadir is required if use_synthetic is False and ffcv_write_dataset is True.')
                     ds = ImageFolder(os.path.join(self.datadir, split))
                     write_ffcv_dataset(dataset=ds,
                                        write_path=dataset_filepath,
@@ -124,12 +130,21 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 image_pipeline.extend([CenterCropRGBImageDecoder((self.crop_size, self.crop_size), ratio=ratio)])
                 dtype = np.float32
             # Common transforms for train and test
-            image_pipeline.extend([
-                ffcv.transforms.ToTensor(),
-                ffcv.transforms.ToDevice(this_device, non_blocking=True),
-                ffcv.transforms.ToTorchImage(),
-                ffcv.transforms.NormalizeImage(np.array(IMAGENET_CHANNEL_MEAN), np.array(IMAGENET_CHANNEL_STD), dtype),
-            ])
+            if self.ffcv_cpu_only:
+                image_pipeline.extend([
+                    ffcv.transforms.NormalizeImage(np.array(IMAGENET_CHANNEL_MEAN), np.array(IMAGENET_CHANNEL_STD),
+                                                   dtype),
+                    ffcv.transforms.ToTensor(),
+                    ffcv.transforms.ToTorchImage(),
+                ])
+            else:
+                image_pipeline.extend([
+                    ffcv.transforms.ToTensor(),
+                    ffcv.transforms.ToDevice(this_device, non_blocking=True),
+                    ffcv.transforms.ToTorchImage(),
+                    ffcv.transforms.NormalizeImage(np.array(IMAGENET_CHANNEL_MEAN), np.array(IMAGENET_CHANNEL_STD),
+                                                   dtype),
+                ])
 
             is_distributed = dist.get_world_size() > 1
 
@@ -165,19 +180,19 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                     transforms.RandomHorizontalFlip()
                 ]
                 transformation = transforms.Compose(train_transforms)
-                split = "train"
+                split = 'train'
             else:
                 transformation = transforms.Compose([
                     transforms.Resize(self.resize_size),
                     transforms.CenterCrop(self.crop_size),
                 ])
-                split = "val"
+                split = 'val'
 
             device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
             collate_fn = pil_image_collate
 
             if self.datadir is None:
-                raise ValueError("datadir must be specified if self.synthetic is False")
+                raise ValueError('datadir must be specified if self.synthetic is False')
             dataset = ImageFolder(os.path.join(self.datadir, split), transformation)
         sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
@@ -210,8 +225,8 @@ class StreamingImageNet1kHparams(DatasetHparams):
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
                              default='/tmp/mds-cache/mds-imagenet1k/')
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')
-    resize_size: int = hp.optional("Resize size. Set to -1 to not resize", default=-1)
-    crop_size: int = hp.optional("Crop size", default=224)
+    resize_size: int = hp.optional('Resize size. Set to -1 to not resize', default=-1)
+    crop_size: int = hp.optional('Crop size', default=224)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
         dataset = StreamingImageNet1k(remote=self.remote,

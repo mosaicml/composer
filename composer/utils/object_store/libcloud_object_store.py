@@ -5,7 +5,6 @@
 import io
 import os
 import pathlib
-import tempfile
 import uuid
 from typing import Any, Callable, Dict, Optional, Union
 
@@ -16,7 +15,7 @@ from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.iter_helpers import iterate_with_callback
 from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
 
-__all__ = ["LibcloudObjectStore"]
+__all__ = ['LibcloudObjectStore']
 
 
 class LibcloudObjectStore(ObjectStore):
@@ -85,7 +84,7 @@ class LibcloudObjectStore(ObjectStore):
         try:
             from libcloud.storage.providers import get_driver
         except ImportError as e:
-            raise MissingConditionalImportError("libcloud", "apache-libcloud") from e
+            raise MissingConditionalImportError('libcloud', 'apache-libcloud') from e
         provider_cls = get_driver(provider)
         if provider_kwargs is None:
             provider_kwargs = {}
@@ -95,7 +94,7 @@ class LibcloudObjectStore(ObjectStore):
         self._container = self._provider.get_container(container)
 
     def get_uri(self, object_name: str):
-        return f"{self._provider_name}://{self._container.name}/{object_name}"
+        return f'{self._provider_name}://{self._container.name}/{object_name}'
 
     def upload_object(
         self,
@@ -103,7 +102,7 @@ class LibcloudObjectStore(ObjectStore):
         filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
     ):
-        with open(filename, "rb") as f:
+        with open(filename, 'rb') as f:
             stream = iterate_with_callback(_file_to_iterator(f, self.chunk_size),
                                            os.fstat(f.fileno()).st_size, callback)
             try:
@@ -121,7 +120,7 @@ class LibcloudObjectStore(ObjectStore):
             if isinstance(exc, LibcloudError):
                 # The S3 driver does not encode the error code in an easy-to-parse manner
                 # So first checking if the error code is non-transient
-                is_transient_error = any(x in str(exc) for x in ("408", "409", "425", "429", "500", "503", '504'))
+                is_transient_error = any(x in str(exc) for x in ('408', '409', '425', '429', '500', '503', '504'))
                 if not is_transient_error:
                     raise exc
             raise ObjectStoreTransientError() from exc
@@ -130,41 +129,16 @@ class LibcloudObjectStore(ObjectStore):
     def _get_object(self, object_name: str):
         """Get object from object store.
 
-        Recursively follow any symlinks. If an object does not exist, automatically
-        checks if it is a symlink by appending ``.symlink``.
-
         Args:
             object_name (str): The name of the object.
         """
         from libcloud.storage.types import ObjectDoesNotExistError
-        obj = None
         try:
-            obj = self._provider.get_object(self._container.name, object_name)
+            return self._provider.get_object(self._container.name, object_name)
         except ObjectDoesNotExistError as e:
-            # Object not found, check for potential symlink
-            try:
-                if not object_name.endswith(".symlink"):
-                    obj = self._provider.get_object(self._container.name, object_name + ".symlink")
-                else:
-                    raise e
-            except ObjectDoesNotExistError as e:
-                raise FileNotFoundError(f"Object not found: {self.get_uri(object_name)}") from e
+            raise FileNotFoundError(f'Object not found: {self.get_uri(object_name)}') from e
         except Exception as e:
             self._ensure_transient_errors_are_wrapped(e)
-        # Recursively trace any symlinks
-        if obj.name.endswith(".symlink"):
-            # Download symlink object to temporary folder
-            with tempfile.TemporaryDirectory() as tmpdir:
-                tmppath = os.path.join(tmpdir, str(uuid.uuid4()))
-                try:
-                    self._provider.download_object(obj=obj, destination_path=tmppath, delete_on_failure=True)
-                except Exception as e:
-                    self._ensure_transient_errors_are_wrapped(e)
-                # Read object name in symlink and recurse
-                with open(tmppath) as f:
-                    symlinked_object_name = f.read()
-                    return self._get_object(symlinked_object_name)
-        return obj
 
     def get_object_size(self, object_name: str) -> int:
         return self._get_object(object_name).size
@@ -178,13 +152,13 @@ class LibcloudObjectStore(ObjectStore):
     ):
         if os.path.exists(filename) and not overwrite:
             # If the file already exits, short-circuit and skip the download
-            raise FileExistsError(f"filename {filename} exists and overwrite was set to False.")
+            raise FileExistsError(f'filename {filename} exists and overwrite was set to False.')
 
         obj = self._get_object(object_name)
         # Download first to a tempfile, and then rename, in case if the file gets corrupted in transit
-        tmp_filepath = str(filename) + f".{uuid.uuid4()}.tmp"
+        tmp_filepath = str(filename) + f'.{uuid.uuid4()}.tmp'
         try:
-            with open(tmp_filepath, "wb+") as f:
+            with open(tmp_filepath, 'wb+') as f:
                 stream = self._provider.download_object_as_stream(obj, chunk_size=self.chunk_size)
                 for chunk in iterate_with_callback(stream, obj.size, callback):
                     f.write(chunk)

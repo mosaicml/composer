@@ -38,7 +38,6 @@ For example, a simple algorithm that shortens training:
 For more information about events, see :class:`~composer.core.event.Event`.
 """
 
-from composer.algorithms.agc import AGC
 from composer.algorithms.alibi import Alibi
 from composer.algorithms.augmix import AugmentAndMixTransform, AugMix
 from composer.algorithms.blurpool import BlurPool
@@ -48,7 +47,10 @@ from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
 from composer.algorithms.ema import EMA
 from composer.algorithms.factorize import Factorize
+from composer.algorithms.fused_layernorm import FusedLayerNorm
+from composer.algorithms.gated_linear_units import GatedLinearUnits
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm
+from composer.algorithms.gradient_clipping import GradientClipping
 from composer.algorithms.label_smoothing import LabelSmoothing
 from composer.algorithms.layer_freezing import LayerFreezing
 from composer.algorithms.mixup import MixUp
@@ -63,32 +65,34 @@ from composer.algorithms.stochastic_depth import StochasticDepth
 from composer.algorithms.swa import SWA
 
 __all__ = [
-    "AGC",
-    "Alibi",
-    "AugmentAndMixTransform",
-    "AugMix",
-    "BlurPool",
-    "ChannelsLast",
-    "ColOut",
-    "ColOutTransform",
-    "CutMix",
-    "CutOut",
-    "EMA",
-    "Factorize",
-    "GhostBatchNorm",
-    "LabelSmoothing",
-    "LayerFreezing",
-    "MixUp",
-    "NoOpModel",
-    "ProgressiveResizing",
-    "RandAugment",
-    "RandAugmentTransform",
-    "SAM",
-    "SelectiveBackprop",
-    "SeqLengthWarmup",
-    "SqueezeExcite",
-    "SqueezeExcite2d",
-    "SqueezeExciteConv2d",
-    "StochasticDepth",
-    "SWA",
+    'Alibi',
+    'AugmentAndMixTransform',
+    'AugMix',
+    'BlurPool',
+    'ChannelsLast',
+    'ColOut',
+    'ColOutTransform',
+    'CutMix',
+    'CutOut',
+    'EMA',
+    'Factorize',
+    'FusedLayerNorm',
+    'GatedLinearUnits',
+    'GhostBatchNorm',
+    'GradientClipping',
+    'LabelSmoothing',
+    'LayerFreezing',
+    'MixUp',
+    'NoOpModel',
+    'ProgressiveResizing',
+    'RandAugment',
+    'RandAugmentTransform',
+    'SAM',
+    'SelectiveBackprop',
+    'SeqLengthWarmup',
+    'SqueezeExcite',
+    'SqueezeExcite2d',
+    'SqueezeExciteConv2d',
+    'StochasticDepth',
+    'SWA',
 ]

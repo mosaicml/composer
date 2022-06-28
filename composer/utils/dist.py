@@ -34,30 +34,31 @@ from __future__ import annotations
 
 import datetime
 import os
+from contextlib import contextmanager
 from typing import Any, List, Optional, Sequence, TypeVar, cast
 
 import torch
 import torch.distributed as dist
 import torch.utils.data
 
-TObj = TypeVar("TObj")
+TObj = TypeVar('TObj')
 
 __all__ = [
-    "all_gather",
-    "all_gather_object",
-    "all_reduce",
-    "barrier",
-    "broadcast",
-    "broadcast_object_list",
-    "get_global_rank",
-    "get_local_rank",
-    "get_local_world_size",
-    "get_node_rank",
-    "get_sampler",
-    "get_world_size",
-    "initialize_dist",
-    "is_available",
-    "is_initialized",
+    'all_gather',
+    'all_gather_object',
+    'all_reduce',
+    'barrier',
+    'broadcast',
+    'broadcast_object_list',
+    'get_global_rank',
+    'get_local_rank',
+    'get_local_world_size',
+    'get_node_rank',
+    'get_sampler',
+    'get_world_size',
+    'initialize_dist',
+    'is_available',
+    'is_initialized',
 ]
 
 
@@ -75,17 +76,17 @@ def _get_distributed_config_var(
         if env_var in os.environ:
             env_value = int(os.environ[env_var])
             if dist_value != env_value:
-                raise RuntimeError("Torch distributed has been initialized with a value of "
-                                   f"{dist_value} for {human_name}, but environment variable "
-                                   f"{env_var} has value {env_value}.")
+                raise RuntimeError('Torch distributed has been initialized with a value of '
+                                   f'{dist_value} for {human_name}, but environment variable '
+                                   f'{env_var} has value {env_value}.')
         return dist_value
 
     if env_var in os.environ:
         return int(os.environ[env_var])
 
     if dist.is_initialized():
-        raise RuntimeError("Torch distributed is initialized but environment variable "
-                           f"{env_var} is not set.")
+        raise RuntimeError('Torch distributed is initialized but environment variable '
+                           f'{env_var} is not set.')
 
     return default
 
@@ -96,10 +97,10 @@ def get_world_size() -> int:
     Returns:
         int: The world size.
     """
-    return _get_distributed_config_var(env_var="WORLD_SIZE",
-                                       human_name="world size",
+    return _get_distributed_config_var(env_var='WORLD_SIZE',
+                                       human_name='world size',
                                        default=1,
-                                       fetch_fn_name="get_world_size")
+                                       fetch_fn_name='get_world_size')
 
 
 def get_global_rank() -> int:
@@ -108,7 +109,7 @@ def get_global_rank() -> int:
     Returns:
         int: The global rank.
     """
-    return _get_distributed_config_var(env_var="RANK", human_name="global rank", default=0, fetch_fn_name="get_rank")
+    return _get_distributed_config_var(env_var='RANK', human_name='global rank', default=0, fetch_fn_name='get_rank')
 
 
 def get_local_world_size() -> int:
@@ -117,7 +118,7 @@ def get_local_world_size() -> int:
     Returns:
         int: The local world size.
     """
-    return _get_distributed_config_var(env_var="LOCAL_WORLD_SIZE", default=1, human_name="local world size")
+    return _get_distributed_config_var(env_var='LOCAL_WORLD_SIZE', default=1, human_name='local world size')
 
 
 def get_local_rank() -> int:
@@ -126,7 +127,7 @@ def get_local_rank() -> int:
     Returns:
         int: The local rank.
     """
-    return _get_distributed_config_var(env_var="LOCAL_RANK", default=0, human_name="local rank")
+    return _get_distributed_config_var(env_var='LOCAL_RANK', default=0, human_name='local rank')
 
 
 def get_node_rank() -> int:
@@ -138,7 +139,7 @@ def get_node_rank() -> int:
     Returns:
         int: The node rank, starting at 0.
     """
-    return _get_distributed_config_var(env_var="NODE_RANK", default=0, human_name="node rank")
+    return _get_distributed_config_var(env_var='NODE_RANK', default=0, human_name='node rank')
 
 
 def barrier() -> None:
@@ -154,15 +155,15 @@ def barrier() -> None:
     world_size = get_world_size()
     if world_size == 1:
         return
-    raise RuntimeError(f"The world_size({world_size}) > 1, but the distributed package is not "
-                       "available or has not been initialized. Please check you have initialized "
-                       "the distributed runtime and that PyTorch has been built with distributed "
-                       "support.")
+    raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
+                       'available or has not been initialized. Please check you have initialized '
+                       'the distributed runtime and that PyTorch has been built with distributed '
+                       'support.')
 
 
 def all_reduce(
     tensor: torch.Tensor,
-    reduce_operation: str = "SUM",
+    reduce_operation: str = 'SUM',
 ) -> None:
     """Reduce a ``tensor`` by applying the ``reduce_operation``.
 
@@ -199,10 +200,10 @@ def all_reduce(
     world_size = get_world_size()
     if world_size == 1:
         return
-    raise RuntimeError(f"The world_size({world_size}) > 1, but the distributed package is not "
-                       "available or has not been initialized. Please check you have initialized "
-                       "the distributed runtime and that PyTorch has been built with distributed "
-                       "support.")
+    raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
+                       'available or has not been initialized. Please check you have initialized '
+                       'the distributed runtime and that PyTorch has been built with distributed '
+                       'support.')
 
 
 def broadcast(tensor: torch.Tensor, src: int) -> None:
@@ -222,10 +223,10 @@ def broadcast(tensor: torch.Tensor, src: int) -> None:
     world_size = get_world_size()
     if world_size == 1:
         return
-    raise RuntimeError(f"The world_size({world_size}) > 1, but the distributed package is not "
-                       "available or has not been initialized. Please check you have initialized "
-                       "the distributed runtime and that PyTorch has been built with distributed "
-                       "support.")
+    raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
+                       'available or has not been initialized. Please check you have initialized '
+                       'the distributed runtime and that PyTorch has been built with distributed '
+                       'support.')
 
 
 def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
@@ -253,10 +254,10 @@ def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
     world_size = get_world_size()
     if world_size == 1:
         return
-    raise RuntimeError(f"The world_size({world_size}) > 1, but the distributed package is not "
-                       "available or has not been initialized. Please check you have initialized "
-                       "the distributed runtime and that PyTorch has been built with distributed "
-                       "support.")
+    raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
+                       'available or has not been initialized. Please check you have initialized '
+                       'the distributed runtime and that PyTorch has been built with distributed '
+                       'support.')
 
 
 def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
@@ -277,10 +278,10 @@ def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
     world_size = get_world_size()
     if world_size == 1:
         return [tensor]
-    raise RuntimeError(f"The world_size({world_size}) > 1, but the distributed package is not "
-                       "available or has not been initialized. Please check you have initialized "
-                       "the distributed runtime and that PyTorch has been built with distributed "
-                       "support.")
+    raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
+                       'available or has not been initialized. Please check you have initialized '
+                       'the distributed runtime and that PyTorch has been built with distributed '
+                       'support.')
 
 
 def all_gather_object(obj: TObj) -> List[TObj]:
@@ -303,10 +304,10 @@ def all_gather_object(obj: TObj) -> List[TObj]:
     world_size = get_world_size()
     if world_size == 1:
         return [obj]
-    raise RuntimeError(f"The world_size({world_size}) > 1, but the distributed package is not "
-                       "available or has not been initialized. Please check you have initialized "
-                       "the distributed runtime and that PyTorch has been built with distributed "
-                       "support.")
+    raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
+                       'available or has not been initialized. Please check you have initialized '
+                       'the distributed runtime and that PyTorch has been built with distributed '
+                       'support.')
 
 
 def is_available():
@@ -355,16 +356,16 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
         timeout (datetime.timedelta): The timeout for operations executed against the process group.
     """
     if get_world_size() > 1 and not dist.is_available():
-        raise RuntimeError("When the world size is > 1, ``torch.distributed`` must be used. However, it is "
-                           "not available in your installation of PyTorch. Please install or build PyTorch "
-                           "with distributed support.")
+        raise RuntimeError('When the world size is > 1, ``torch.distributed`` must be used. However, it is '
+                           'not available in your installation of PyTorch. Please install or build PyTorch '
+                           'with distributed support.')
         return
 
     if dist.is_initialized():
         if dist.get_backend() != backend.lower():
-            raise RuntimeError(f"The requested backend ({backend}) differs from the backend "
-                               f"of the current process group ({dist.get_backend()}). If you "
-                               "wish to change backends, please restart the python process.")
+            raise RuntimeError(f'The requested backend ({backend}) differs from the backend '
+                               f'of the current process group ({dist.get_backend()}). If you '
+                               'wish to change backends, please restart the python process.')
         return
 
     # If any of these variables are set, and they do not match the single rank defaults,
@@ -375,11 +376,11 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
     # then fill the rest in.
 
     dist_env_var_defaults = {
-        "NODE_RANK": "0",
-        "WORLD_SIZE": "1",
-        "LOCAL_WORLD_SIZE": "1",
-        "RANK": "0",
-        "LOCAL_RANK": "0",
+        'NODE_RANK': '0',
+        'WORLD_SIZE': '1',
+        'LOCAL_WORLD_SIZE': '1',
+        'RANK': '0',
+        'LOCAL_RANK': '0',
     }
 
     dist_env_vars_match_defaults = all(os.environ.get(k, v) == v for (k, v) in dist_env_var_defaults.items())
@@ -420,3 +421,35 @@ def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool, shuffle: 
         num_replicas=get_world_size(),
         rank=get_global_rank(),
     )
+
+
+@contextmanager
+def run_local_rank_zero_first():
+    """Context manager to hold all non-zero ranks until rank zero completes.
+
+    The below example will let the local rank zero download
+    the dataset, and hold all non-rank zeros until the
+    download is complete.
+
+    .. code-block: python
+
+        with run_local_rank_zero_first():
+            dataset = CIFAR10(
+                ...,
+                download=True,
+            )
+
+    This prevents race conditions where multiple
+    ranks attempt to download the dataset to the
+    same location.
+    """
+    if not is_initialized():
+        return
+
+    # hold non-zero ranks until rank zero done
+    if get_local_rank() != 0:
+        dist.barrier()
+        yield
+    else:
+        yield
+        dist.barrier()

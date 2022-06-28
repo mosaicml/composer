@@ -11,7 +11,7 @@ import yahp as hp
 from composer.models.model_hparams import ModelHparams
 from composer.models.resnet_cifar import ComposerResNetCIFAR
 
-__all__ = ["ResNetCIFARHparams"]
+__all__ = ['ResNetCIFARHparams']
 
 
 @dataclass
@@ -24,7 +24,7 @@ class ResNetCIFARHparams(ModelHparams):
         initializers (List[Initializer], optional): Initializers for the model. ``None`` for no initialization. Default: ``None``.
     """
     model_name: Optional[str] = hp.optional('"cifar_resnet_9", "cifar_resnet_20" or "cifar_resnet_56"', default=None)
-    num_classes: int = hp.optional("The number of classes.  Needed for classification tasks", default=10)
+    num_classes: int = hp.optional('The number of classes.  Needed for classification tasks', default=10)
 
     def validate(self):
         if self.model_name is None:

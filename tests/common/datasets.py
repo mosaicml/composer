@@ -17,7 +17,6 @@ from composer.datasets.glue_hparams import GLUEHparams
 from composer.datasets.lm_dataset_hparams import LMDatasetHparams
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.models import ModelHparams
-from composer.models.transformer_hparams import TransformerHparams
 from tests.common.models import model_hparams_to_tokenizer_family
 
 
@@ -45,8 +44,8 @@ class RandomClassificationDataset(Dataset):
 @dataclasses.dataclass
 class RandomClassificationDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
-    data_shape: List[int] = hp.optional("data shape", default_factory=lambda: [1, 1, 1])
-    num_classes: int = hp.optional("num_classes", default=2)
+    data_shape: List[int] = hp.optional('data shape', default_factory=lambda: [1, 1, 1])
+    num_classes: int = hp.optional('num_classes', default=2)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
         assert self.data_shape is not None
@@ -104,7 +103,7 @@ class RandomImageDataset(VisionDataset):
         if self.is_PIL:
             x = x.numpy()
             x = (x - x.min())
-            x = (x * (255 / x.max())).astype("uint8")
+            x = (x * (255 / x.max())).astype('uint8')
             x = Image.fromarray(x)
 
         if self.transform is not None:
@@ -118,16 +117,13 @@ def configure_dataset_hparams_for_synthetic(
     model_hparams: Optional[ModelHparams] = None,
 ) -> None:
     if not isinstance(dataset_hparams, SyntheticHparamsMixin):
-        pytest.xfail(f"{dataset_hparams.__class__.__name__} does not support synthetic data or num_total_batches")
+        pytest.xfail(f'{dataset_hparams.__class__.__name__} does not support synthetic data or num_total_batches')
 
     assert isinstance(dataset_hparams, SyntheticHparamsMixin)
 
     dataset_hparams.use_synthetic = True
 
-    if isinstance(model_hparams, TransformerHparams):
-        if type(model_hparams) not in model_hparams_to_tokenizer_family:
-            raise ValueError(f"Model {type(model_hparams)} is currently not supported for synthetic testing!")
-
+    if model_hparams and type(model_hparams) in model_hparams_to_tokenizer_family:
         tokenizer_family = model_hparams_to_tokenizer_family[type(model_hparams)]
         assert isinstance(dataset_hparams, (GLUEHparams, LMDatasetHparams))
         dataset_hparams.tokenizer_name = tokenizer_family

@@ -13,9 +13,9 @@ from typing import Any, Callable, Dict, Optional, Union
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
 
-__all__ = ["S3ObjectStore"]
+__all__ = ['S3ObjectStore']
 
-_NOT_FOUND_CODES = ("404", "NoSuchKey")
+_NOT_FOUND_CODES = ('404', 'NoSuchKey')
 
 
 def _ensure_not_found_errors_are_wrapped(uri: str, e: Exception):
@@ -23,7 +23,7 @@ def _ensure_not_found_errors_are_wrapped(uri: str, e: Exception):
     if isinstance(e, botocore.exceptions.ClientError):
         # error: Member "response" is unknown (reportGeneralTypeIssues)
         if e.response['Error']['Code'] in _NOT_FOUND_CODES:  # type: ignore
-            raise FileNotFoundError(f"Object {uri} not found") from e
+            raise FileNotFoundError(f'Object {uri} not found') from e
     raise e
 
 
@@ -80,7 +80,7 @@ class S3ObjectStore(ObjectStore):
             from boto3.s3.transfer import TransferConfig
             from botocore.config import Config
         except ImportError as e:
-            raise MissingConditionalImportError("s3", "boto3") from e
+            raise MissingConditionalImportError('s3', 'boto3') from e
         self.bucket = bucket
         if client_config is None:
             client_config = {}
@@ -99,7 +99,7 @@ class S3ObjectStore(ObjectStore):
         self.transfer_config = TransferConfig(**transfer_config)
 
     def get_uri(self, object_name: str) -> str:
-        return f"s3://{self.bucket}/{object_name}"
+        return f's3://{self.bucket}/{object_name}'
 
     def get_object_size(self, object_name: str) -> int:
         try:
@@ -130,8 +130,8 @@ class S3ObjectStore(ObjectStore):
         callback: Optional[Callable[[int, int], None]] = None,
     ):
         if os.path.exists(filename) and not overwrite:
-            raise FileExistsError(f"The file at {filename} already exists")
-        tmp_path = str(filename) + f".{uuid.uuid4()}.tmp"
+            raise FileExistsError(f'The file at {filename} already exists')
+        tmp_path = str(filename) + f'.{uuid.uuid4()}.tmp'
         if callback is None:
             cb_wrapper = None
         else:

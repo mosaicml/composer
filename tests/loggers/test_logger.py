@@ -17,15 +17,15 @@ def test_logger_file_artifact(dummy_state: State):
                               overwrite: bool):
             nonlocal file_logged
             file_logged = True
-            assert artifact_name == "foo"
-            assert file_path.name == "bar"
+            assert artifact_name == 'foo'
+            assert file_path.name == 'bar'
             assert overwrite
 
     logger = Logger(state=dummy_state, destinations=[DummyLoggerDestination()])
     logger.file_artifact(
-        log_level="epoch",
-        artifact_name="foo",
-        file_path="bar",
+        log_level='epoch',
+        artifact_name='foo',
+        file_path='bar',
         overwrite=True,
     )
 

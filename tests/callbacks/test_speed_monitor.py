@@ -36,21 +36,19 @@ def test_speed_monitor():
         loggers=in_memory_logger,
         train_dataloader=DataLoader(RandomClassificationDataset()),
         eval_dataloader=DataLoader(RandomClassificationDataset()),
-        max_duration="1ep",
+        max_duration='1ep',
     )
     trainer.fit()
 
     wall_clock_train_calls = len(in_memory_logger.data['wall_clock/train'])
     wall_clock_val_calls = len(in_memory_logger.data['wall_clock/val'])
     wall_clock_total_calls = len(in_memory_logger.data['wall_clock/total'])
-    throughput_step_calls = len(in_memory_logger.data['samples/step'])
-    throughput_epoch_calls = len(in_memory_logger.data['samples/epoch'])
+    throughput_step_calls = len(in_memory_logger.data['throughput/samples_per_sec'])
     _assert_no_negative_values(in_memory_logger.data['wall_clock/train'])
     _assert_no_negative_values(in_memory_logger.data['wall_clock/val'])
     _assert_no_negative_values(in_memory_logger.data['wall_clock/total'])
     _assert_no_negative_values(in_memory_logger.data['wall_clock/train'])
-    _assert_no_negative_values(in_memory_logger.data['samples/step'])
-    _assert_no_negative_values(in_memory_logger.data['samples/epoch'])
+    _assert_no_negative_values(in_memory_logger.data['throughput/samples_per_sec'])
 
     assert isinstance(trainer.state.dataloader, collections.abc.Sized)
     assert trainer.state.dataloader_label is not None
@@ -58,9 +56,7 @@ def test_speed_monitor():
     expected_step_calls = (trainer.state.dataloader_len - speed_monitor.window_size + 1) * int(
         trainer.state.timestamp.epoch)
     assert throughput_step_calls == expected_step_calls
-    max_epochs = int(trainer.state.timestamp.epoch)
     num_batches = int(trainer.state.timestamp.batch)
-    assert throughput_epoch_calls == max_epochs
     assert wall_clock_total_calls == num_batches
     assert wall_clock_train_calls == num_batches
     assert wall_clock_val_calls == num_batches

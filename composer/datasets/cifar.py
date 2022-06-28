@@ -13,13 +13,14 @@ from typing import Any, Optional
 import numpy as np
 from PIL import Image
 from torchvision import transforms
+from torchvision.datasets import VisionDataset
 
 from composer.datasets.streaming import StreamingDataset
 
-__all__ = ["StreamingCIFAR10"]
+__all__ = ['StreamingCIFAR10']
 
 
-class StreamingCIFAR10(StreamingDataset):
+class StreamingCIFAR10(StreamingDataset, VisionDataset):
     """
     Implementation of the CIFAR10 dataset using StreamingDataset.
 
@@ -75,17 +76,18 @@ class StreamingCIFAR10(StreamingDataset):
         channel_means = 0.4914, 0.4822, 0.4465
         channel_stds = 0.247, 0.243, 0.261
         if split == 'train':
-            self.transform = transforms.Compose([
+            transform = transforms.Compose([
                 transforms.RandomCrop(32, 4),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize(channel_means, channel_stds),
             ])
         else:
-            self.transform = transforms.Compose([
+            transform = transforms.Compose([
                 transforms.ToTensor(),
                 transforms.Normalize(channel_means, channel_stds),
             ])
+        VisionDataset.__init__(self, root=local, transform=transform)
 
     def __getitem__(self, idx: int) -> Any:
         """Get the decoded and transformed (image, class) pair by ID.
@@ -98,6 +100,7 @@ class StreamingCIFAR10(StreamingDataset):
         """
         obj = super().__getitem__(idx)
         x = obj['x']
+        assert self.transform is not None, 'transform set in __init__'
         x = self.transform(x)
         y = obj['y']
         return x, y

@@ -8,6 +8,7 @@ dataset.
 """
 
 from dataclasses import dataclass
+from typing import Optional
 
 import torch
 import torchvision.transforms.functional as TF
@@ -24,7 +25,7 @@ from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.datasets.utils import NormalizationFn, pil_image_collate
 from composer.utils import dist
 
-__all__ = ["ADE20kDatasetHparams", "StreamingADE20kHparams"]
+__all__ = ['ADE20kDatasetHparams', 'StreamingADE20kHparams']
 
 
 @dataclass
@@ -39,30 +40,33 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         final_size (int): the final size of the image and target. Default: ``512``.
         ignore_background (bool): if true, ignore the background class when calculating the training loss.
             Default: ``true``.
+        datadir (str): The path to the data directory.
     """
 
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')
-    base_size: int = hp.optional("Initial size of the image and target before other augmentations", default=512)
-    min_resize_scale: float = hp.optional("Minimum value that the image and target can be scaled", default=0.5)
-    max_resize_scale: float = hp.optional("Maximum value that the image and target can be scaled", default=2.0)
-    final_size: int = hp.optional("Final size of the image and target", default=512)
-    ignore_background: bool = hp.optional("If true, ignore the background class in training loss", default=True)
+    base_size: int = hp.optional('Initial size of the image and target before other augmentations', default=512)
+    min_resize_scale: float = hp.optional('Minimum value that the image and target can be scaled', default=0.5)
+    max_resize_scale: float = hp.optional('Maximum value that the image and target can be scaled', default=2.0)
+    final_size: int = hp.optional('Final size of the image and target', default=512)
+    ignore_background: bool = hp.optional('If true, ignore the background class in training loss', default=True)
+
+    datadir: Optional[str] = hp.optional('The path to the data directory', default=None)
 
     def validate(self):
         if self.datadir is None and not self.use_synthetic:
-            raise ValueError("datadir must specify the path to the ADE20k dataset.")
+            raise ValueError('datadir must specify the path to the ADE20k dataset.')
 
         if self.split not in ['train', 'val', 'test']:
             raise ValueError(f"split value {self.split} must be one of ['train', 'val', 'test'].")
 
         if self.base_size <= 0:
-            raise ValueError("base_size cannot be zero or negative.")
+            raise ValueError('base_size cannot be zero or negative.')
 
         if self.min_resize_scale <= 0:
-            raise ValueError("min_resize_scale cannot be zero or negative")
+            raise ValueError('min_resize_scale cannot be zero or negative')
 
         if self.max_resize_scale < self.min_resize_scale:
-            raise ValueError("max_resize_scale cannot be less than min_resize_scale")
+            raise ValueError('max_resize_scale cannot be less than min_resize_scale')
 
     def initialize_object(self, batch_size, dataloader_hparams) -> DataSpec:
         self.validate()
@@ -123,7 +127,7 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
             # Add check to avoid type ignore below
             if self.datadir is None:
-                raise ValueError("datadir must specify the path to the ADE20k dataset.")
+                raise ValueError('datadir must specify the path to the ADE20k dataset.')
 
             dataset = ADE20k(datadir=self.datadir,
                              split=self.split,
@@ -157,16 +161,16 @@ class StreamingADE20kHparams(DatasetHparams):
             Default: ``true``.
     """
 
-    remote: str = hp.optional("Remote directory (S3 or local filesystem) where dataset is stored",
-                              default="s3://mosaicml-internal-dataset-ade20k/mds/1/")
-    local: str = hp.optional("Local filesystem directory where dataset is cached during operation",
-                             default="/tmp/mds-cache/mds-ade20k/")
+    remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
+                              default='s3://mosaicml-internal-dataset-ade20k/mds/1/')
+    local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
+                             default='/tmp/mds-cache/mds-ade20k/')
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')
-    base_size: int = hp.optional("Initial size of the image and target before other augmentations", default=512)
-    min_resize_scale: float = hp.optional("Minimum value that the image and target can be scaled", default=0.5)
-    max_resize_scale: float = hp.optional("Maximum value that the image and target can be scaled", default=2.0)
-    final_size: int = hp.optional("Final size of the image and target", default=512)
-    ignore_background: bool = hp.optional("If true, ignore the background class in training loss", default=True)
+    base_size: int = hp.optional('Initial size of the image and target before other augmentations', default=512)
+    min_resize_scale: float = hp.optional('Minimum value that the image and target can be scaled', default=0.5)
+    max_resize_scale: float = hp.optional('Maximum value that the image and target can be scaled', default=2.0)
+    final_size: int = hp.optional('Final size of the image and target', default=512)
+    ignore_background: bool = hp.optional('If true, ignore the background class in training loss', default=True)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
         dataset = StreamingADE20k(remote=self.remote,

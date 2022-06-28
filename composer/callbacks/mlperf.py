@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Create compliant results file for MLPerf Training benchmark."""
+"""Create a submission for MLPerf Training benchmark."""
 
 import json
 import logging
@@ -33,9 +33,11 @@ except ImportError:
     mlperf_available = False
 
 # this callback only supports the following options:
-BENCHMARKS = ("resnet",)
-DIVISIONS = ("open",)
-STATUS = ("onprem", "cloud", "preview")
+BENCHMARKS = ('resnet',)
+DIVISIONS = ('open',)
+STATUS = ('onprem', 'cloud', 'preview')
+
+__all__ = ['MLPerfCallback', 'get_system_description']
 
 
 def _global_rank_zero() -> bool:
@@ -92,7 +94,7 @@ class MLPerfCallback(Callback):
 
     .. note::
 
-        This is currently an experimental logger, that has not been used (yet)
+        This is currently an experimental logger that has not been used (yet)
         to submit an actual result to MLPerf. Please use with caution.
 
     .. note::
@@ -107,12 +109,16 @@ class MLPerfCallback(Callback):
         index (int): The repetition index of this run. The filename created will be
             ``result_[index].txt``.
         benchmark (str, optional): Benchmark name. Currently only ``resnet`` supported.
+            Default: ``'resnet'``.
         target (float, optional): The target metric before the mllogger marks the stop
             of the timing run. Default: ``0.759`` (resnet benchmark).
         division (str, optional): Division of submission. Currently only ``open`` division supported.
-        metric_name (str, optional): name of the metric to compare against the target. Default: ``Accuracy``.
-        metric_label (str, optional): label name. The metric will be accessed via ``state.current_metrics[metric_label][metric_name]``.
-        submitter (str, optional): Submitting organization. Default: MosaicML.
+            Default: ``'open'``.
+        metric_name (str, optional): name of the metric to compare against the target.
+            Default: ``Accuracy``.
+        metric_label (str, optional): The label name. The metric will be accessed via
+            ``state.current_metrics[metric_label][metric_name]``.
+        submitter (str, optional): Submitting organization. Default: ``"MosaicML"``.
         system_name (str, optional): Name of the system (e.g. 8xA100_composer). If
             not provided, system name will default to ``[world_size]x[device_name]_composer``,
             e.g. ``8xNVIDIA_A100_80GB_composer``.
@@ -132,9 +138,9 @@ class MLPerfCallback(Callback):
         division: str = 'open',
         metric_name: str = 'Accuracy',
         metric_label: str = 'eval',
-        submitter: str = "MosaicML",
+        submitter: str = 'MosaicML',
         system_name: Optional[str] = None,
-        status: str = "onprem",
+        status: str = 'onprem',
         cache_clear_cmd: Optional[str] = None,
         host_processors_per_node: Optional[int] = None,
     ) -> None:
@@ -142,11 +148,11 @@ class MLPerfCallback(Callback):
         _require_mlperf_logging()
 
         if benchmark not in BENCHMARKS:
-            raise ValueError(f"benchmark: {benchmark} must be one of {BENCHMARKS}")
+            raise ValueError(f'benchmark: {benchmark} must be one of {BENCHMARKS}')
         if division not in DIVISIONS:
-            raise ValueError(f"division: {division} must be one of {DIVISIONS}")
+            raise ValueError(f'division: {division} must be one of {DIVISIONS}')
         if status not in STATUS:
-            raise ValueError(f"status: {status} must be one of {STATUS}")
+            raise ValueError(f'status: {status} must be one of {STATUS}')
 
         self.mllogger = mllog.get_mllogger()
         self.target = target
@@ -198,7 +204,7 @@ class MLPerfCallback(Callback):
                 subprocess.run(self.cache_clear_cmd.split(), check=True, text=True)
                 self.mllogger.start(key=mllog.constants.CACHE_CLEAR)
         else:
-            warnings.warn("cache_clear_cmd was not provided. For a valid submission, please provide the command.")
+            warnings.warn('cache_clear_cmd was not provided. For a valid submission, please provide the command.')
 
         dist.barrier()
 
@@ -250,16 +256,20 @@ class MLPerfCallback(Callback):
             import ffcv  # type: ignore
 
             if isinstance(dataloader, ffcv.loader.Loader):
-                return (dataloader.batch_size, len(dataloader) * dataloader.batch_size)  # type: ignore
+                # Use the cached attribute ffcv.init_traversal_order to compute number of samples
+                return (
+                    dataloader.batch_size,  # type: ignore
+                    len(dataloader.next_traversal_order()) * dist.get_world_size()  # type: ignore
+                )
         except ImportError:
             pass
 
-        raise TypeError(f"torch dataloader or ffcv dataloader required (and ffcv installed)")
+        raise TypeError(f'torch dataloader or ffcv dataloader required (and ffcv installed)')
 
     def fit_start(self, state: State, logger: Logger) -> None:
         if _global_rank_zero():
             if len(state.evaluators) > 1:
-                raise ValueError("Only one evaluator is supported for the MLPerfCallback.")
+                raise ValueError('Only one evaluator is supported for the MLPerfCallback.')
 
             if state.train_dataloader is None:
                 raise ValueError('Train dataloader need to be provided')
@@ -268,7 +278,7 @@ class MLPerfCallback(Callback):
             _, eval_num_samples = self._get_dataloader_stats(state.evaluators[0].dataloader.dataloader)
 
             if batch_size is None:
-                raise ValueError("Batch size is required to be set for dataloader.")
+                raise ValueError('Batch size is required to be set for dataloader.')
 
             self._log_dict({
                 constants.SEED: state.seed,
@@ -315,7 +325,7 @@ class MLPerfCallback(Callback):
             self.mllogger.event(key=constants.BLOCK_STOP, metadata={'first_epoch_num': state.timestamp.epoch.value})
 
             if accuracy > self.target and not self.success:
-                self.mllogger.event(key=constants.RUN_STOP, metadata={"status": "success"})
+                self.mllogger.event(key=constants.RUN_STOP, metadata={'status': 'success'})
                 self.mllogger.logger.removeHandler(self._file_handler)
                 self.success = True  # only log once
 
@@ -333,15 +343,16 @@ def get_system_description(
 ) -> Dict[str, str]:
     """Generates a valid system description.
 
-    Make a best effort to auto-populate some of the fields, but should
+    Makes a best effort to auto-populate some of the fields, but should
     be manually checked prior to submission. The system name is
-    auto-generated as "[world_size]x[device_name]_composer", e.g.
-    "8xNVIDIA_A100_80GB_composer".
+    auto-generated as ``"[world_size]x[device_name]_composer"``, e.g.
+    ``"8xNVIDIA_A100_80GB_composer"``.
 
     Args:
-        submitter (str): Name of the submitter organization
-        division (str): Submission division (open, closed)
-        status (str): system status (cloud, onprem, preview)
+        submitter (str): Name of the submitting organization.
+        division (str): Submission division (open, closed).
+        status (str): System status (cloud, onprem, preview).
+        system_name (str, optional): System name. Default: ``None``.
 
     Returns:
         system description as a dictionary
@@ -350,47 +361,47 @@ def get_system_description(
     cpu_info = cpuinfo.get_cpu_info()
 
     system_desc = {
-        "submitter": submitter,
-        "division": division,
-        "status": status,
-        "number_of_nodes": dist.get_world_size() / dist.get_local_world_size(),
-        "host_processors_per_node": str(host_processors_per_node) if host_processors_per_node else "",
-        "host_processor_model_name": str(cpu_info.get('brand_raw', "CPU")),
-        "host_processor_core_count": str(psutil.cpu_count(logical=False)),
-        "host_processor_vcpu_count": "",
-        "host_processor_frequency": "",
-        "host_processor_caches": "",
-        "host_processor_interconnect": "",
-        "host_memory_capacity": "",
-        "host_storage_type": "",
-        "host_storage_capacity": "",
-        "host_networking": "",
-        "host_networking_topology": "",
-        "host_memory_configuration": "",
-        "accelerators_per_node": str(dist.get_local_world_size()) if is_cuda else "0",
-        "accelerator_model_name": str(torch.cuda.get_device_name(None)) if is_cuda else "",
-        "accelerator_host_interconnect": "",
-        "accelerator_frequency": "",
-        "accelerator_on-chip_memories": "",
-        "accelerator_memory_configuration": "",
-        "accelerator_memory_capacity": "",
-        "accelerator_interconnect": "",
-        "accelerator_interconnect_topology": "",
-        "cooling": "",
-        "hw_notes": "",
-        "framework":
-            f"PyTorch v{torch.__version__} and MosaicML composer v{composer.__version__}",  # type: ignore (third-party missing stub)
-        "other_software_stack": {
-            "cuda_version": torch.version.cuda if is_cuda else "",  # type: ignore (third-party missing stub)
-            "composer_version": composer.__version__,
-            "python_version": sys.version,
+        'submitter': submitter,
+        'division': division,
+        'status': status,
+        'number_of_nodes': dist.get_world_size() / dist.get_local_world_size(),
+        'host_processors_per_node': str(host_processors_per_node) if host_processors_per_node else '',
+        'host_processor_model_name': str(cpu_info.get('brand_raw', 'CPU')),
+        'host_processor_core_count': str(psutil.cpu_count(logical=False)),
+        'host_processor_vcpu_count': '',
+        'host_processor_frequency': '',
+        'host_processor_caches': '',
+        'host_processor_interconnect': '',
+        'host_memory_capacity': '',
+        'host_storage_type': '',
+        'host_storage_capacity': '',
+        'host_networking': '',
+        'host_networking_topology': '',
+        'host_memory_configuration': '',
+        'accelerators_per_node': str(dist.get_local_world_size()) if is_cuda else '0',
+        'accelerator_model_name': str(torch.cuda.get_device_name(None)) if is_cuda else '',
+        'accelerator_host_interconnect': '',
+        'accelerator_frequency': '',
+        'accelerator_on-chip_memories': '',
+        'accelerator_memory_configuration': '',
+        'accelerator_memory_capacity': '',
+        'accelerator_interconnect': '',
+        'accelerator_interconnect_topology': '',
+        'cooling': '',
+        'hw_notes': '',
+        'framework':
+            f'PyTorch v{torch.__version__} and MosaicML composer v{composer.__version__}',  # type: ignore (third-party missing stub)
+        'other_software_stack': {
+            'cuda_version': torch.version.cuda if is_cuda else '',  # type: ignore (third-party missing stub)
+            'composer_version': composer.__version__,
+            'python_version': sys.version,
         },
-        "operating_system": f"{platform.system()} {platform.release()}",
-        "sw_notes": "",
+        'operating_system': f'{platform.system()} {platform.release()}',
+        'sw_notes': '',
     }
 
     if system_desc['number_of_nodes'] != 1:
-        warnings.warn("Number of nodes > 1 not tested, proceed with caution.")
+        warnings.warn('Number of nodes > 1 not tested, proceed with caution.')
 
     if system_name is None:
         world_size = dist.get_world_size()
@@ -400,7 +411,7 @@ def get_system_description(
             device_name = system_desc['host_processor_model_name']
 
         device_name = device_name.replace(' ', '_')
-        system_name = f"{world_size}x{device_name}_composer"
+        system_name = f'{world_size}x{device_name}_composer'
 
     # default to system name as "[world_size]x[device_name]"
     # e.g. 8xNVIDIA_A100_80GB

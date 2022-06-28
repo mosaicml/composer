@@ -11,10 +11,11 @@ import torch.utils.data
 from composer.core import State, Time
 from composer.core.time import TimeUnit
 from composer.models.base import ComposerModel
-from composer.optim.scheduler import (ComposerScheduler, CosineAnnealingScheduler, CosineAnnealingWarmRestartsScheduler,
-                                      CosineAnnealingWithWarmupScheduler, ExponentialScheduler, LinearScheduler,
-                                      LinearWithWarmupScheduler, MultiStepScheduler, MultiStepWithWarmupScheduler,
-                                      PolynomialScheduler, PolynomialWithWarmupScheduler, StepScheduler)
+from composer.optim.scheduler import (ComposerScheduler, ConstantWithWarmupScheduler, CosineAnnealingScheduler,
+                                      CosineAnnealingWarmRestartsScheduler, CosineAnnealingWithWarmupScheduler,
+                                      ExponentialScheduler, LinearScheduler, LinearWithWarmupScheduler,
+                                      MultiStepScheduler, MultiStepWithWarmupScheduler, PolynomialScheduler,
+                                      PolynomialWithWarmupScheduler, StepScheduler)
 from composer.trainer.trainer import Trainer
 
 MAX_DURATION = '1000ep'
@@ -25,15 +26,15 @@ STEPS_PER_EPOCH = 1000
 def dummy_schedulers_state(dummy_model: torch.nn.Module, rank_zero_seed: int):
     state = State(
         model=dummy_model,
-        run_name="run_name",
+        run_name='run_name',
         rank_zero_seed=rank_zero_seed,
         max_duration=MAX_DURATION,
     )
-    state.set_dataloader([None] * STEPS_PER_EPOCH, "train")
+    state.set_dataloader([None] * STEPS_PER_EPOCH, 'train')
     return state
 
 
-@pytest.mark.parametrize("scheduler,ssr,test_times,expected_lrs", [
+@pytest.mark.parametrize('scheduler,ssr,test_times,expected_lrs', [
     pytest.param(StepScheduler(step_size='10ba'), 1.0, ['5ba', '15ba', '35ba'], [1.0, 0.1, 0.001]),
     pytest.param(StepScheduler(step_size='0.002dur', gamma=0.8), 1.0, ['1000ba', '3000ba', '7000ba'],
                  [1.0, 0.8, 0.512]),
@@ -75,6 +76,16 @@ def dummy_schedulers_state(dummy_model: torch.nn.Module, rank_zero_seed: int):
                  ['0ba', '5ba', '15ba', '25ba', '45ba'], [0.0, 0.5, 1.0, 0.1, 0.01]),
     pytest.param(MultiStepWithWarmupScheduler(t_warmup='10ba', milestones=cast(List, ['2ep', '4ep']), gamma=0.5), 0.5,
                  ['0ba', '5ba', '15ba', '1500ba', '2500ba'], [0.0, 0.5, 1.0, 0.5, 0.25]),
+    pytest.param(ConstantWithWarmupScheduler(t_warmup='500ep'), 1.0,
+                 ['0ba', '250000ba', '500000ba', '750000ba', '1000000ba'], [0.0, 0.5, 1.0, 1.0, 1.0]),
+    pytest.param(ConstantWithWarmupScheduler(t_warmup='500ep', alpha=3.0), 1.0,
+                 ['0ba', '250000ba', '500000ba', '500500ba', '501000ba', '502000ba'], [0.0, 1.5, 3.0, 3.0, 3.0, 3.0]),
+    pytest.param(ConstantWithWarmupScheduler(t_warmup='500ep', alpha=3.0), 1.0,
+                 ['0ba', '250000ba', '500000ba', '500500ba', '501000ba', '502000ba'], [0.0, 1.5, 3.0, 3.0, 3.0, 3.0]),
+    pytest.param(ConstantWithWarmupScheduler(t_warmup='0.0005dur'), 1.0, ['0ba', '250ba', '500ba', '499750ba'],
+                 [0.0, 0.5, 1.0, 1.0]),
+    pytest.param(ConstantWithWarmupScheduler(t_warmup='500ep', alpha=3.0, t_max='501000ep'), 0.5,
+                 ['0ba', '250000ba', '500000ba', '500500ba', '501000ba', '502000ba'], [0.0, 1.5, 3.0, 3.0, 3.0, 3.0]),
     pytest.param(LinearWithWarmupScheduler(t_warmup='500ep'), 1.0,
                  ['0ba', '250000ba', '500000ba', '750000ba', '1000000ba'], [0.0, 0.5, 1.0, 0.5, 0.0]),
     pytest.param(LinearWithWarmupScheduler(t_warmup='500ep', alpha_i=3.0, alpha_f=2.0, t_max='1002ep'), 0.5,
@@ -116,7 +127,7 @@ def test_scheduler_init(scheduler: ComposerScheduler, ssr: float, test_times: Li
 
 
 @pytest.mark.parametrize(
-    "scheduler,ssr,should_raise",
+    'scheduler,ssr,should_raise',
     [
         (StepScheduler(step_size='2ba'), 1.0, None),
         (StepScheduler(step_size='0.2dur', gamma=0.8), 0.5, None),

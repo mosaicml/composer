@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import pathlib
 import re
+import tempfile
 import uuid
 from typing import TYPE_CHECKING, Optional, Union
 
@@ -29,6 +30,7 @@ __all__ = [
     'format_name_with_dist',
     'format_name_with_dist_and_time',
     'is_tar',
+    'create_symlink_file',
 ]
 
 
@@ -41,7 +43,7 @@ def is_tar(name: Union[str, pathlib.Path]) -> bool:
     Returns:
         bool: Whether ``name`` is a tarball.
     """
-    return any(str(name).endswith(x) for x in (".tar", ".tgz", ".tar.gz", ".tar.bz2", ".tar.lzma"))
+    return any(str(name).endswith(x) for x in ('.tar', '.tgz', '.tar.gz', '.tar.bz2', '.tar.lzma'))
 
 
 def ensure_folder_is_empty(folder_name: Union[str, pathlib.Path]):
@@ -59,8 +61,8 @@ def ensure_folder_is_empty(folder_name: Union[str, pathlib.Path]):
         # Filter out hidden folders
         dirs[:] = (x for x in dirs if not x.startswith('.'))
         for file in files:
-            if not file.startswith("."):
-                raise FileExistsError(f"{folder_name} is not empty; {os.path.join(root, file)} exists.")
+            if not file.startswith('.'):
+                raise FileExistsError(f'{folder_name} is not empty; {os.path.join(root, file)} exists.')
 
 
 def ensure_folder_has_no_conflicting_files(folder_name: Union[str, pathlib.Path], filename: str, timestamp: Timestamp):
@@ -79,13 +81,13 @@ def ensure_folder_has_no_conflicting_files(folder_name: Union[str, pathlib.Path]
         FileExistsError: If ``folder_name`` contains any files matching the ``filename`` template before ``timestamp``.
     """
     # Prepare regex pattern by replacing f-string formatting with regex.
-    pattern = f"^{filename}$"
+    pattern = f'^{filename}$'
     # Format time vars for capture
-    time_names = ["epoch", "batch", "sample", "token", "batch_in_epoch", "sample_in_epoch", "token_in_epoch"]
-    captured_names = {time_name: f"{{{time_name}}}" in filename for time_name in time_names}
+    time_names = ['epoch', 'batch', 'sample', 'token', 'batch_in_epoch', 'sample_in_epoch', 'token_in_epoch']
+    captured_names = {time_name: f'{{{time_name}}}' in filename for time_name in time_names}
     for time_name, is_captured in captured_names.items():
         if is_captured:
-            pattern = pattern.replace(f"{{{time_name}}}", f"(?P<{time_name}>\\d+)")
+            pattern = pattern.replace(f'{{{time_name}}}', f'(?P<{time_name}>\\d+)')
     # Format rank information
     pattern = pattern.format(rank=dist.get_global_rank(),
                              local_rank=dist.get_local_rank(),
@@ -101,28 +103,28 @@ def ensure_folder_has_no_conflicting_files(folder_name: Union[str, pathlib.Path]
         if match is not None:
             valid_match = True
             # Check each base unit of time and flag later checkpoints
-            if captured_names["token"] and Time.from_token(int(match.group("token"))) > timestamp.token:
+            if captured_names['token'] and Time.from_token(int(match.group('token'))) > timestamp.token:
                 valid_match = False
-            elif captured_names["sample"] and Time.from_sample(int(match.group("sample"))) > timestamp.sample:
+            elif captured_names['sample'] and Time.from_sample(int(match.group('sample'))) > timestamp.sample:
                 valid_match = False
-            elif captured_names["batch"] and Time.from_batch(int(match.group("batch"))) > timestamp.batch:
+            elif captured_names['batch'] and Time.from_batch(int(match.group('batch'))) > timestamp.batch:
                 valid_match = False
-            elif captured_names["epoch"] and Time.from_epoch(int(match.group("epoch"))) > timestamp.epoch:
+            elif captured_names['epoch'] and Time.from_epoch(int(match.group('epoch'))) > timestamp.epoch:
                 valid_match = False
             # If epoch count is same, check batch_in_epoch, sample_in_epoch, token_in_epoch
-            elif captured_names["epoch"] and Time.from_epoch(int(match.group("epoch"))) == timestamp.epoch:
-                if captured_names["token_in_epoch"] and Time.from_token(int(
-                        match.group("token_in_epoch"))) > timestamp.token_in_epoch:
+            elif captured_names['epoch'] and Time.from_epoch(int(match.group('epoch'))) == timestamp.epoch:
+                if captured_names['token_in_epoch'] and Time.from_token(int(
+                        match.group('token_in_epoch'))) > timestamp.token_in_epoch:
                     valid_match = False
-                elif captured_names["sample_in_epoch"] and Time.from_sample(int(
-                        match.group("sample_in_epoch"))) > timestamp.sample_in_epoch:
+                elif captured_names['sample_in_epoch'] and Time.from_sample(int(
+                        match.group('sample_in_epoch'))) > timestamp.sample_in_epoch:
                     valid_match = False
-                elif captured_names["batch_in_epoch"] and Time.from_batch(int(
-                        match.group("batch_in_epoch"))) > timestamp.batch_in_epoch:
+                elif captured_names['batch_in_epoch'] and Time.from_batch(int(
+                        match.group('batch_in_epoch'))) > timestamp.batch_in_epoch:
                     valid_match = False
             if not valid_match:
                 raise FileExistsError(
-                    f"{os.path.join(folder_name, file)} exists and conflicts in namespace with a future checkpoint of the current run."
+                    f'{os.path.join(folder_name, file)} exists and conflicts in namespace with a future checkpoint of the current run.'
                 )
 
 
@@ -339,13 +341,69 @@ def get_file(
     Raises:
         FileNotFoundError: If the ``path`` does not exist.
     """
+    if path.endswith('.symlink'):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            symlink_file_name = os.path.join(tmpdir, 'file.symlink')
+            # Retrieve the symlink
+            _get_file(
+                path=path,
+                destination=symlink_file_name,
+                object_store=object_store,
+                overwrite=False,
+                progress_bar=progress_bar,
+            )
+            # Read object name in the symlink
+            with open(symlink_file_name, 'r') as f:
+                real_path = f.read()
+
+        # Recurse
+        return get_file(
+            path=real_path,
+            destination=destination,
+            object_store=object_store,
+            overwrite=overwrite,
+            progress_bar=progress_bar,
+        )
+
+    try:
+        _get_file(
+            path=path,
+            destination=destination,
+            object_store=object_store,
+            overwrite=overwrite,
+            progress_bar=progress_bar,
+        )
+    except FileNotFoundError as e:
+        new_path = path + '.symlink'
+        try:
+            # Follow the symlink
+            return get_file(
+                path=new_path,
+                destination=destination,
+                object_store=object_store,
+                overwrite=overwrite,
+                progress_bar=progress_bar,
+            )
+        except FileNotFoundError as ee:
+            # Raise the original not found error first, which contains the path to the user-specified file
+            raise e from ee
+
+
+def _get_file(
+    path: str,
+    destination: str,
+    object_store: Optional[Union[ObjectStore, LoggerDestination]],
+    overwrite: bool,
+    progress_bar: bool,
+):
+    # Underlying _get_file logic that does not deal with symlinks
     if object_store is not None:
         if isinstance(object_store, ObjectStore):
             total_size_in_bytes = object_store.get_object_size(path)
             object_store.download_object(
                 object_name=path,
                 filename=destination,
-                callback=_get_callback(f"Downloading {path}") if progress_bar else None,
+                callback=_get_callback(f'Downloading {path}') if progress_bar else None,
                 overwrite=overwrite,
             )
         else:
@@ -358,14 +416,14 @@ def get_file(
             )
         return
 
-    if path.lower().startswith("http://") or path.lower().startswith("https://"):
+    if path.lower().startswith('http://') or path.lower().startswith('https://'):
         # it's a url
         with requests.get(path, stream=True) as r:
             try:
                 r.raise_for_status()
             except requests.exceptions.HTTPError as e:
                 if r.status_code == 404:
-                    raise FileNotFoundError(f"URL {path} not found") from e
+                    raise FileNotFoundError(f'URL {path} not found') from e
                 raise e
             total_size_in_bytes = r.headers.get('content-length')
             if total_size_in_bytes is not None:
@@ -373,13 +431,13 @@ def get_file(
             else:
                 total_size_in_bytes = 0
 
-            tmp_path = destination + f".{uuid.uuid4()}.tmp"
+            tmp_path = destination + f'.{uuid.uuid4()}.tmp'
             try:
-                with open(tmp_path, "wb") as f:
+                with open(tmp_path, 'wb') as f:
                     for data in iterate_with_callback(
                             r.iter_content(2**20),
                             total_size_in_bytes,
-                            callback=_get_callback(f"Downloading {path}") if progress_bar else None,
+                            callback=_get_callback(f'Downloading {path}') if progress_bar else None,
                     ):
                         f.write(data)
             except:
@@ -388,25 +446,56 @@ def get_file(
                     os.remove(tmp_path)
                 except OSError:
                     pass
+                raise
             else:
                 os.rename(tmp_path, destination)
         return
 
     # It's a local filepath
     if not os.path.exists(path):
-        raise FileNotFoundError(f"Local path {path} does not exist")
+        raise FileNotFoundError(f'Local path {path} does not exist')
     os.symlink(os.path.abspath(path), destination)
 
 
 def _get_callback(description: str):
     if len(description) > 60:
-        description = description[:42] + "..." + description[-15:]
+        description = description[:42] + '...' + description[-15:]
     pbar = None
 
     def callback(num_bytes: int, total_size: int):
         nonlocal pbar
         if num_bytes == 0 or pbar is None:
             pbar = tqdm.tqdm(desc=description, total=total_size, unit='iB', unit_scale=True)
-        pbar.update(num_bytes)
+        n = num_bytes - pbar.n
+        pbar.update(n)
+        if num_bytes == total_size:
+            pbar.close()
 
     return callback
+
+
+def create_symlink_file(
+    existing_path: str,
+    destination_filename: Union[str, pathlib.Path],
+):
+    """Create a symlink file, which can be followed by :func:`get_file`.
+
+    Unlike unix symlinks, symlink files can be created by this function are normal text files and can be
+    uploaded to object stores via :meth:`.ObjectStore.upload_object` or loggers via :meth:`.Logger.file_artifact`
+    that otherwise would not support unix-style symlinks.
+
+    Args:
+        existing_path (str): The name of existing object that the symlink file should point to.
+        destination_filename (str | pathlib.Path): The filename to which to write the symlink.
+            It must end in ``'.symlink'``.
+    """
+    # Loggers might not natively support symlinks, so we emulate symlinks via text files ending with `.symlink`
+    # This text file contains the name of the object it is pointing to.
+    # Only symlink if we're logging artifact to begin with
+    # Write artifact name into file to emulate symlink
+    # Add .symlink extension so we can identify as emulated symlink when downloading
+    destination_filename = str(destination_filename)
+    if not destination_filename.endswith('.symlink'):
+        raise ValueError('The symlink filename must end with .symlink.')
+    with open(destination_filename, 'x') as f:
+        f.write(existing_path)

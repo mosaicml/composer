@@ -27,8 +27,7 @@ def apply_blurpool(model: torch.nn.Module,
                    blur_first: bool = True,
                    min_channels: int = 16,
                    optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> torch.nn.Module:
-    """Add anti-aliasing filters to the strided :class:`torch.nn.Conv2d` and/or :class:`torch.nn.MaxPool2d` modules
-    within `model`.
+    """Add anti-aliasing filters to strided :class:`torch.nn.Conv2d` and/or :class:`torch.nn.MaxPool2d` modules.
 
     These filters increase invariance to small spatial shifts in the input
     (`Zhang 2019 <http://proceedings.mlr.press/v97/zhang19a.html>`_).
@@ -47,7 +46,7 @@ def apply_blurpool(model: torch.nn.Module,
             See :class:`.BlurConv2d` for further discussion. Default: ``True``.
         min_channels (int, optional): Skip replacing layers with in_channels < min_channels.
             Commonly used to prevent the blurring of the first layer. Default: 16.
-        optimizers (:class:`torch.optim.Optimizer` | Sequence[:class:`torch.optim.Optimizer`], optional):
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
             Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
             constructed with ``model.parameters()`` must be specified here so
             they will optimize the correct parameters.
@@ -83,10 +82,10 @@ def apply_blurpool(model: torch.nn.Module,
 
 
 class BlurPool(Algorithm):
-    """`BlurPool <http://proceedings.mlr.press/v97/zhang19a.html>`_ adds anti-aliasing filters to convolutional layers
-    to increase accuracy and invariance to small shifts in the input.
+    """`BlurPool <http://proceedings.mlr.press/v97/zhang19a.html>`_ adds anti-aliasing filters to convolutional layers.
 
-    Runs on :attr:`~composer.core.event.Event.INIT`.
+    This algorithm increases accuracy and invariance to small shifts in the input. It runs on
+    :attr:`~composer.core.event.Event.INIT`.
 
     Args:
         replace_convs (bool): replace strided :class:`torch.nn.Conv2d` modules with
@@ -119,24 +118,9 @@ class BlurPool(Algorithm):
                 'Both replace_maxpool and replace_convs are set to False. BlurPool will not be modifying the model.')
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on :attr:`~composer.core.event.Event.INIT`.
-
-        Args:
-            event (Event): The current event.
-            state (State): The current state.
-        Returns:
-            bool: True if this algorithm should run now.
-        """
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Adds anti-aliasing filters to the maxpools and/or convolutions.
-
-        Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Logger): the training logger
-        """
         assert state.model is not None
 
         apply_blurpool(state.model,
@@ -172,8 +156,8 @@ def _log_surgery_result(model: torch.nn.Module):
     num_blurconv_layers = module_surgery.count_module_instances(model, BlurConv2d)
     if num_blurconv_layers == 0 and num_blurpool_layers == 0:
         warnings.warn(
-            NoEffectWarning("Applying BlurPool did not change any layers. "
-                            "No strided Conv2d or Pool2d layers were found."))
+            NoEffectWarning('Applying BlurPool did not change any layers. '
+                            'No strided Conv2d or Pool2d layers were found.'))
     log.info(f'Applied BlurPool to model {model.__class__.__name__}. '
              f'Model now has {num_blurpool_layers} BlurMaxPool2d '
              f'and {num_blurconv_layers} BlurConv2D layers.')

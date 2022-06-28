@@ -1,25 +1,26 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Monitor gradient during training."""
+"""Monitor gradients during training."""
 
 from composer.core import State
 from composer.core.callback import Callback
 from composer.loggers import Logger
 
-__all__ = ["GradMonitor"]
+__all__ = ['GradMonitor']
 
 
 class GradMonitor(Callback):
-    """Computes and logs the L2 norm of gradients on the :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH` event.
+    """Computes and logs the L2 norm of gradients on the :attr:`.Event.AFTER_TRAIN_BATCH` event.
 
     L2 norms are calculated after the reduction of gradients across GPUs. This function iterates over the parameters of
-    the model and hence may cause a reduction in throughput while training large models. In order to ensure the
-    correctness of norm, this function should be called after gradient unscaling in cases where gradients are scaled.
+    the model and may cause a reduction in throughput while training large models. In order to ensure the
+    correctness of the norm, this function should be called after gradient unscaling in cases where gradients are scaled.
 
     Example:
     .. doctest::
 
+        >>> from composer import Trainer
         >>> from composer.callbacks import GradMonitor
         >>> # constructing trainer object with this callback
         >>> trainer = Trainer(
@@ -31,24 +32,23 @@ class GradMonitor(Callback):
         ...     callbacks=[GradMonitor()],
         ... )
 
-    The L2 norms are logged by the :class:`~composer.loggers.logger.Logger` to the following keys as described below.
+    The L2 norms are logged by the :class:`.Logger` to the following keys as described below.
 
     +-----------------------------------+-------------------------------------------------------------+
     | Key                               | Logged data                                                 |
     +===================================+=============================================================+
     |                                   | L2 norm of the gradients of all parameters in the model     |
-    | ``grad_l2_norm/step``             | on the :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH` |
-    |                                   | event                                                       |
+    | ``grad_l2_norm/step``             | on the :attr:`.Event.AFTER_TRAIN_BATCH` event.              |
+    |                                   |                                                             |
     +-----------------------------------+-------------------------------------------------------------+
     |                                   | Layer-wise L2 norms if ``log_layer_grad_norms``             |
-    | ``layer_grad_l2_norm/LAYER_NAME`` | is True (default False)                                     |
+    | ``layer_grad_l2_norm/LAYER_NAME`` | is ``True``. Default: ``False``.                            |
     |                                   |                                                             |
     +-----------------------------------+-------------------------------------------------------------+
 
     Args:
-        log_layer_grad_norms (bool, optional):
-            Whether to log the L2 normalization of each layer.
-            Defaults to False.
+        log_layer_grad_norms (bool, optional): Whether to log the L2 normalization of each layer.
+            Default: ``False``.
     """
 
     def __init__(self, log_layer_grad_norms: bool = False):

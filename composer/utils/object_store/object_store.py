@@ -5,9 +5,10 @@
 
 import abc
 import pathlib
-from typing import Callable, Optional, Union
+from types import TracebackType
+from typing import Callable, Optional, Type, Union
 
-__all__ = ["ObjectStore", "ObjectStoreTransientError"]
+__all__ = ['ObjectStore', 'ObjectStoreTransientError']
 
 
 class ObjectStoreTransientError(RuntimeError):
@@ -75,7 +76,7 @@ class ObjectStore(abc.ABC):
         Returns:
             str: The URI for ``object_name`` in the object store.
         """
-        raise NotImplementedError(f"{type(self).__name__}.get_uri is not implemented")
+        raise NotImplementedError(f'{type(self).__name__}.get_uri is not implemented')
 
     def upload_object(
         self,
@@ -95,7 +96,7 @@ class ObjectStore(abc.ABC):
             ObjectStoreTransientError: If there was a transient connection issue with uploading the object.
         """
         del object_name, filename, callback  # unused
-        raise NotImplementedError(f"{type(self).__name__}.upload_object is not implemented")
+        raise NotImplementedError(f'{type(self).__name__}.upload_object is not implemented')
 
     def get_object_size(self, object_name: str) -> int:
         """Get the size of an object, in bytes.
@@ -110,7 +111,7 @@ class ObjectStore(abc.ABC):
             FileNotFoundError: If the file was not found in the object store.
             ObjectStoreTransientError: If there was a transient connection issue with getting the object size.
         """
-        raise NotImplementedError(f"{type(self).__name__}.get_object_size is not implemented")
+        raise NotImplementedError(f'{type(self).__name__}.get_object_size is not implemented')
 
     def download_object(
         self,
@@ -134,4 +135,20 @@ class ObjectStore(abc.ABC):
             ObjectStoreTransientError: If there was a transient connection issue with downloading the object.
         """
         del object_name, filename, overwrite, callback  # unused
-        raise NotImplementedError(f"{type(self).__name__}.download_object is not implemented")
+        raise NotImplementedError(f'{type(self).__name__}.download_object is not implemented')
+
+    def close(self):
+        """Close the object store."""
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ):
+        del exc_type, exc, traceback  # unused
+        self.close()

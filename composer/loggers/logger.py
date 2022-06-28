@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from composer.core.state import State
     from composer.loggers.logger_destination import LoggerDestination
 
-__all__ = ["LoggerDestination", "Logger", "LogLevel", "format_log_data_value"]
+__all__ = ['LoggerDestination', 'Logger', 'LogLevel', 'format_log_data_value']
 
 
 class LogLevel(IntEnum):
@@ -125,38 +125,6 @@ class Logger:
                 overwrite=overwrite,
             )
 
-    def symlink_artifact(
-        self,
-        log_level: Union[str, int, LogLevel],
-        existing_artifact_name: str,
-        symlink_artifact_name: str,
-        overwrite: bool = False,
-    ):
-        """Symlink ``existing_artifact_name`` as ``symlink_artifact_name``.
-
-        Both ``existing_artifact_name`` and ``symlink_artifact_name`` can be specified as format strings.
-        See :func:`~.composer.utils.file_helpers.format_name_with_dist` for more information.
-
-        Args:
-            log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
-                :class:`LogLevel`.
-            existing_artifact_name (str): A format string for the name of symlinked artifact.
-            symlink_artifact_name (str): A format string for the symlink name of artifact.
-            overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``symlink_artifact_name``.
-                (default: ``False``)
-        """
-        log_level = LogLevel(log_level)
-        for destination in self.destinations:
-            destination.log_symlink_artifact(
-                state=self._state,
-                log_level=log_level,
-                existing_artifact_name=format_name_with_dist(format_str=existing_artifact_name,
-                                                             run_name=self._state.run_name),
-                symlink_artifact_name=format_name_with_dist(format_str=symlink_artifact_name,
-                                                            run_name=self._state.run_name),
-                overwrite=overwrite,
-            )
-
     def data_fit(self, data: Dict[str, Any]) -> None:
         """Helper function for ``self.data(LogLevel.FIT, data)``."""
         self.data(LogLevel.FIT, data)
@@ -180,17 +148,17 @@ def format_log_data_value(data: Any) -> str:
         str: ``data`` as a string.
     """
     if data is None:
-        return "None"
+        return 'None'
     if isinstance(data, str):
         return f"\"{data}\""
     if isinstance(data, int):
         return str(data)
     if isinstance(data, float):
-        return f"{data:.4f}"
+        return f'{data:.4f}'
     if isinstance(data, torch.Tensor):
         if data.shape == () or reduce(operator.mul, data.shape, 1) == 1:
             return format_log_data_value(data.cpu().item())
-        return "Tensor of shape " + str(data.shape)
+        return 'Tensor of shape ' + str(data.shape)
     if isinstance(data, collections.abc.Mapping):
         output = ['{ ']
         for k, v in data.items():
@@ -198,9 +166,9 @@ def format_log_data_value(data: Any) -> str:
             v = format_log_data_value(v)
             output.append(f"\"{k}\": {v}, ")
         output.append('}')
-        return "".join(output)
+        return ''.join(output)
     if isinstance(data, collections.abc.Iterable):
-        return "[" + ", ".join(format_log_data_value(v) for v in data) + "]"
+        return '[' + ', '.join(format_log_data_value(v) for v in data) + ']'
 
     # Unknown format catch-all
     return str(data)

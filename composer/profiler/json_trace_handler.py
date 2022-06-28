@@ -25,7 +25,7 @@ from composer.utils import dist, ensure_folder_is_empty
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
                                          format_name_with_dist, format_name_with_dist_and_time)
 
-__all__ = ["JSONTraceHandler"]
+__all__ = ['JSONTraceHandler']
 
 
 class JSONTraceHandler(TraceHandler):  # noqa: D101
@@ -190,46 +190,46 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
     def batch_start(self, state: State, logger: Logger) -> None:
         del logger  # unusued
         if state.profiler is None:
-            raise RuntimeError(("The Composer Profiler was not enabled, which is required to use the "
-                                f"{type(self).__name__}. To enable, set the `prof_schedule` argument of the Trainer."))
+            raise RuntimeError(('The Composer Profiler was not enabled, which is required to use the '
+                                f'{type(self).__name__}. To enable, set the `prof_schedule` argument of the Trainer.'))
         if state.profiler.schedule(state) != ProfilerAction.SKIP and not self._is_trace_active:
             # Starting a new profiling cycle
             wall_clock_ns = time.time_ns()
             self._record_event(
-                name="process_name",
-                ph="M",  # metadata
+                name='process_name',
+                ph='M',  # metadata
                 wall_clock_ns=wall_clock_ns,
                 tid=os.getpid(),
                 pid=dist.get_global_rank(),
-                args={"name": f"Rank {dist.get_global_rank()} training loop process"})
+                args={'name': f'Rank {dist.get_global_rank()} training loop process'})
             self._record_event(
-                name="thread_name",
-                ph="M",  # metadata
+                name='thread_name',
+                ph='M',  # metadata
                 wall_clock_ns=wall_clock_ns,
                 tid=os.getpid(),
                 pid=dist.get_global_rank(),
-                args={"name": f"Training Loop"})
+                args={'name': f'Training Loop'})
             self._record_event(
-                name="thread_sort_index",
-                ph="M",  # metadata
+                name='thread_sort_index',
+                ph='M',  # metadata
                 wall_clock_ns=wall_clock_ns,
                 tid=os.getpid(),
                 pid=dist.get_global_rank(),
-                args={"sort_index": 0})  # training loop thread should be first
+                args={'sort_index': 0})  # training loop thread should be first
             self._record_event(
-                name="global_rank",
-                ph="M",  # metadata
+                name='global_rank',
+                ph='M',  # metadata
                 wall_clock_ns=wall_clock_ns,
                 tid=os.getpid(),
                 pid=dist.get_global_rank(),
-                args={"value": dist.get_global_rank()})
+                args={'value': dist.get_global_rank()})
             self._record_event(
-                name="process_sort_index",
-                ph="M",  # metadata
+                name='process_sort_index',
+                ph='M',  # metadata
                 wall_clock_ns=wall_clock_ns,
                 tid=os.getpid(),
                 pid=dist.get_global_rank(),
-                args={"sort_index": dist.get_global_rank()})  # sort index for processes should be the global rank
+                args={'sort_index': dist.get_global_rank()})  # sort index for processes should be the global rank
             # Synchronize the clocks
             # Each rank will record a timestamp at approxmately the same real world time
             clock_sync_a = time.time_ns()
@@ -239,20 +239,20 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
             clock_sync_b = time.time_ns()
             clock_sync_error_bound = clock_sync_b - clock_sync_a
             self._record_event(
-                name="clock_sync_timestamp_us",
-                ph="M",  # metadata
+                name='clock_sync_timestamp_us',
+                ph='M',  # metadata
                 wall_clock_ns=wall_clock_ns,
                 tid=os.getpid(),
                 pid=dist.get_global_rank(),
-                args={"value": clock_sync_time_ns // 1000})
+                args={'value': clock_sync_time_ns // 1000})
 
             self._record_event(
-                name="clock_sync_error_bound",
-                ph="M",  # metadata
+                name='clock_sync_error_bound',
+                ph='M',  # metadata
                 wall_clock_ns=wall_clock_ns,
                 tid=os.getpid(),
                 pid=dist.get_global_rank(),
-                args={"value": clock_sync_error_bound // 1000})
+                args={'value': clock_sync_error_bound // 1000})
 
             self._is_trace_active = True
 
@@ -282,7 +282,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
                     except queue.Empty:
                         break
                     if not is_first_line:
-                        s = ",\n" + s
+                        s = ',\n' + s
                     is_first_line = False
                     f.write(s)
                 f.write('\n]\n')
@@ -318,7 +318,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
 
                 if os.path.exists(merged_trace_filename):
                     # Include the existing merged trace in the new trace
-                    with tempfile.NamedTemporaryFile("x+", delete=False) as f:
+                    with tempfile.NamedTemporaryFile('x+', delete=False) as f:
                         merge_traces(f.name, merged_trace_filename, *trace_files_to_merge)
                         os.rename(f.name, merged_trace_filename)
                 else:
@@ -358,13 +358,13 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
         timestamp: Timestamp,
         wall_clock_time_ns: int,
     ) -> None:
-        ph = "B" if is_start else "E"
+        ph = 'B' if is_start else 'E'
         args = {}
-        args["epoch"] = timestamp.epoch.value
-        args["batch"] = timestamp.batch.value
+        args['epoch'] = timestamp.epoch.value
+        args['batch'] = timestamp.batch.value
         self._record_event(
             name=name,
-            categories=",".join(categories),
+            categories=','.join(categories),
             ph=ph,
             wall_clock_ns=wall_clock_time_ns,
             pid=dist.get_global_rank(),
@@ -380,24 +380,24 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
         wall_clock_time_ns: int,
     ) -> None:
         args = {}
-        args["epoch"] = timestamp.epoch.value
-        args["batch"] = timestamp.batch.value
+        args['epoch'] = timestamp.epoch.value
+        args['batch'] = timestamp.batch.value
         self._record_event(
             name=name,
-            categories=",".join(categories),
-            ph="i",
+            categories=','.join(categories),
+            ph='i',
             wall_clock_ns=wall_clock_time_ns,
             args=args,
             pid=dist.get_global_rank(),
             tid=os.getpid(),
-            s="p",  # mark instant event for at process level
+            s='p',  # mark instant event for at process level
         )
 
     def process_counter_event(self, name: str, categories: Union[List[str], Tuple[str, ...]], timestamp: Timestamp,
                               wall_clock_time_ns: int, values: Dict[str, Union[int, float]]) -> None:
         self._record_event(
             name=name,
-            categories=",".join(categories),
+            categories=','.join(categories),
             ph='C',  # counter event
             wall_clock_ns=wall_clock_time_ns,
             pid=dist.get_global_rank(),
@@ -405,7 +405,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
             args=values,
         )
 
-    def _record_event(self, name: str, ph: str, wall_clock_ns: int, pid: int, tid: int, categories: str = "", **kwargs):
+    def _record_event(self, name: str, ph: str, wall_clock_ns: int, pid: int, tid: int, categories: str = '', **kwargs):
         """Helper function to record an event in the trace.
 
         Args:
@@ -430,19 +430,19 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
             kwargs: Any extra info to record with the event, such as event specific fields.
         """
         data = {
-            "name": name,
-            "cat": categories,
-            "ph": ph,
-            "ts": wall_clock_ns // 1000,  # tracing clock timestamp, in microseconds
-            "pid": pid,
-            "tid": tid,
+            'name': name,
+            'cat': categories,
+            'ph': ph,
+            'ts': wall_clock_ns // 1000,  # tracing clock timestamp, in microseconds
+            'pid': pid,
+            'tid': tid,
             **kwargs,
         }
         entry = json.dumps(data, indent=None)
         self._queue.put_nowait(entry)
 
     def process_chrome_json_trace_file(self, filepath: pathlib.Path) -> None:
-        with (gzip.open(filepath, 'rt') if str(filepath).endswith('.gz') else open(filepath, "r")) as f:
+        with (gzip.open(filepath, 'rt') if str(filepath).endswith('.gz') else open(filepath, 'r')) as f:
             # It may be an incomplete trace file that is missing the closing ] bracket, as is permitted
             # in the chrome json format spec
             trace_data_str = f.read().strip()
@@ -451,12 +451,12 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
             trace_data = json.loads(trace_data_str)
 
         if isinstance(trace_data, dict):
-            event_list = trace_data["traceEvents"]
+            event_list = trace_data['traceEvents']
         else:
             event_list = trace_data
 
         if not isinstance(event_list, list):
-            raise TypeError("A trace file should either be a dict or a list")
+            raise TypeError('A trace file should either be a dict or a list')
 
         for entry in event_list:
             entry['pid'] = dist.get_global_rank()  # override the PID to the global rank

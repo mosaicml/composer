@@ -19,9 +19,9 @@ def test_memory_monitor_warnings_on_cpu_models(device: str):
         callbacks=MemoryMonitor(),
         device='cpu',
         train_dataloader=DataLoader(RandomClassificationDataset()),
-        max_duration="1ba",
+        max_duration='1ba',
     )
-    with pytest.warns(UserWarning, match="The memory monitor only works on CUDA devices"):
+    with pytest.warns(UserWarning, match='The memory monitor only works on CUDA devices'):
         trainer.fit()
 
 
@@ -35,10 +35,10 @@ def test_memory_monitor_gpu():
         callbacks=memory_monitor,
         loggers=in_memory_logger,
         train_dataloader=DataLoader(RandomClassificationDataset()),
-        max_duration="1ba",
+        max_duration='1ba',
     )
     trainer.fit()
 
-    num_memory_monitor_calls = len(in_memory_logger.data["memory/alloc_requests"])
+    num_memory_monitor_calls = len(in_memory_logger.data['memory/alloc_requests'])
 
     assert num_memory_monitor_calls == int(trainer.state.timestamp.batch)

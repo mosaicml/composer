@@ -35,8 +35,8 @@ from composer.utils.iter_helpers import ensure_tuple
 log = logging.getLogger(__name__)
 
 __all__ = [
-    "ReplacementFunction", "replace_module_classes", "count_module_instances", "update_params_in_optimizer",
-    "replace_params_in_optimizer"
+    'ReplacementFunction', 'replace_module_classes', 'count_module_instances', 'update_params_in_optimizer',
+    'replace_params_in_optimizer'
 ]
 
 ReplacementFunction = Callable[[torch.nn.Module, int], Optional[torch.nn.Module]]
@@ -276,6 +276,12 @@ def _find_param_in_optimizer(param: torch.nn.parameter.Parameter, optimizer: Opt
     return -1
 
 
+def _ordered_diff(first: List, second: List) -> List:
+    """Returns first - second while maintaining the order in first."""
+    second_list = set(second)
+    return [item for item in first if item not in second_list]
+
+
 def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
                                new_params: Iterable[torch.nn.parameter.Parameter],
                                optimizers: Union[Optimizer, Sequence[Optimizer]]) -> None:
@@ -312,14 +318,16 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
             same parameter group, or if any of them are not found at all.
     """
     if len(ensure_tuple(optimizers)) > 1:
-        raise NotImplementedError("Surgery with multiple optimizers is not yet supported.")
+        raise NotImplementedError('Surgery with multiple optimizers is not yet supported.')
     opt = ensure_tuple(optimizers)[0]
 
-    # diff the two sets of parameters to find what needs to be removed or added
-    old_values = set(old_params)
-    new_values = set(new_params)
-    removed_params = old_values - new_values
-    added_params = new_values - old_values
+    # diff the two collection of parameters to find what needs to be removed or added
+    # We need to maintain the order of parameters here for training resumption
+    # with optimizers that store state so do not use set.
+    old_values = list(old_params)
+    new_values = list(new_params)
+    removed_params = _ordered_diff(old_values, new_values)
+    added_params = _ordered_diff(new_values, old_values)
 
     if len(removed_params) == 0 and len(added_params) == 0:
         return  # nothing to do
@@ -337,11 +345,11 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
         old_group_idxs = [_find_param_in_optimizer(p, opt) for p in removed_params]
 
         if len(old_group_idxs) == 0:
-            raise RuntimeError("No parameters were removed, so unable to infer the group into which to add parameters.")
+            raise RuntimeError('No parameters were removed, so unable to infer the group into which to add parameters.')
 
         missing_param_groups = [x for x in old_group_idxs if x < 0]
         if len(missing_param_groups) > 0:
-            raise RuntimeError(f"Parameter groups {missing_param_groups} are not in the optimizer")
+            raise RuntimeError(f'Parameter groups {missing_param_groups} are not in the optimizer')
 
         if min(old_group_idxs) != max(old_group_idxs) and len(added_params):
             raise RuntimeError(
@@ -380,22 +388,22 @@ def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Paramete
             if a param from ``old_params`` cannot be found.
     """
     if len(ensure_tuple(optimizers)) > 1:
-        raise NotImplementedError("Surgery with multiple optimizers is not yet supported.")
+        raise NotImplementedError('Surgery with multiple optimizers is not yet supported.')
 
     opt = ensure_tuple(optimizers)[0]
 
     param_to_idxs_map = {}
     for group_idx, param_group in enumerate(opt.param_groups):
-        param_list = param_group["params"]
+        param_list = param_group['params']
         for param_idx, param in enumerate(param_list):
             param_to_idxs_map[param] = (group_idx, param_idx)
 
     for old_param, new_param in itertools.zip_longest(old_params, new_params):
         if old_params is None or new_params is None:
-            raise RuntimeError("old_params and new_params have different lengths.")
+            raise RuntimeError('old_params and new_params have different lengths.')
 
         if not old_param in param_to_idxs_map:
-            raise RuntimeError(f"Parameter {old_param} is missing from the optimizer.")
+            raise RuntimeError(f'Parameter {old_param} is missing from the optimizer.')
 
         group_idx, param_idx = param_to_idxs_map[old_param]
-        opt.param_groups[group_idx]["params"][param_idx] = new_param
+        opt.param_groups[group_idx]['params'][param_idx] = new_param

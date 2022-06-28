@@ -13,7 +13,7 @@ from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
 from composer.loss.utils import ensure_targets_one_hot
 
-__all__ = ["LabelSmoothing", "smooth_labels"]
+__all__ = ['LabelSmoothing', 'smooth_labels']
 
 
 def smooth_labels(logits: torch.Tensor, target: torch.Tensor, smoothing: float = 0.1):
@@ -25,7 +25,7 @@ def smooth_labels(logits: torch.Tensor, target: torch.Tensor, smoothing: float =
     Args:
         logits (torch.Tensor): predicted value for ``target``, or any other tensor
             with the same shape. Shape must be ``(N, num_classes, ...)`` for
-            ``N`` examples and ``num_classes`` classes, with any number of
+            ``N`` examples and ``num_classes`` classes with any number of
             optional extra dimensions.
         target (torch.Tensor): target tensor of either shape ``N`` or
             ``(N, num_classes, ...)``. In the former case, elements of
@@ -38,7 +38,7 @@ def smooth_labels(logits: torch.Tensor, target: torch.Tensor, smoothing: float =
             Default: ``0.1``.
 
     Returns:
-        targets_smooth (torch.Tensor): The smoothed targets
+        torch.Tensor: The smoothed targets.
 
     Example:
         .. testcode::
@@ -105,8 +105,8 @@ class LabelSmoothing(Algorithm):
         labels = state.batch_get_item(self.target_key)
 
         if event == Event.BEFORE_LOSS:
-            assert isinstance(state.outputs, torch.Tensor), "Multiple tensors not supported yet"
-            assert isinstance(labels, torch.Tensor), "Multiple tensors not supported yet"
+            assert isinstance(state.outputs, torch.Tensor), 'Multiple tensors not supported yet'
+            assert isinstance(labels, torch.Tensor), 'Multiple tensors not supported yet'
 
             self.original_labels = labels.clone()
             smoothed_labels = smooth_labels(

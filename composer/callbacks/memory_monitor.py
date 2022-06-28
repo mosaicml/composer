@@ -14,18 +14,19 @@ from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
-__all__ = ["MemoryMonitor"]
+__all__ = ['MemoryMonitor']
 
 
 class MemoryMonitor(Callback):
     """Logs the memory usage of the model.
 
-    This callback calls the torch memory stats API for cuda (see :func:`torch.cuda.memory_stats`) on the
-    :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH` and reports different memory statistics.
+    This callback calls the torch memory stats API for CUDA (see :func:`torch.cuda.memory_stats`)
+    on the :attr:`.Event.AFTER_TRAIN_BATCH` and reports different memory statistics.
 
     Example:
     .. doctest::
 
+        >>> from composer import Trainer
         >>> from composer.callbacks import MemoryMonitor
         >>> # constructing trainer object with this callback
         >>> trainer = Trainer(
@@ -45,7 +46,7 @@ class MemoryMonitor(Callback):
     +==========================+=============================================================+
     |                          | Several memory usage statistics                             |
     | ``memory/{statistic}``   | are logged on                                               |
-    |                          | :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH` event. |
+    |                          | :attr:`.Event.AFTER_TRAIN_BATCH` event.                     |
     +--------------------------+-------------------------------------------------------------+
 
     The following statistics are recorded:
@@ -69,7 +70,7 @@ class MemoryMonitor(Callback):
     +----------------+--------------------------------------------------------------------------------+
 
     .. note::
-        Memory usage monitoring is only supported for the GPU devices.
+        Memory usage monitoring is only supported for GPU devices.
     """
 
     def __init__(self) -> None:
@@ -82,7 +83,7 @@ class MemoryMonitor(Callback):
         model_device = next(state.model.parameters()).device
 
         if model_device.type != 'cuda':
-            warnings.warn(f"The memory monitor only works on CUDA devices, but the model is on {model_device.type}.")
+            warnings.warn(f'The memory monitor only works on CUDA devices, but the model is on {model_device.type}.')
 
     def after_train_batch(self, state: State, logger: Logger):
         memory_report = {}
@@ -97,13 +98,13 @@ class MemoryMonitor(Callback):
 
 
 _MEMORY_STATS = {
-    "allocation.all.allocated": "alloc_requests",
-    "allocation.all.freed": "free_requests",
-    "allocated_bytes.all.allocated": "allocated_mem",
-    "active_bytes.all.current": "active_mem",
-    "inactive_split_bytes.all.current": "inactive_mem",
-    "reserved_bytes.all.current": "reserved_mem",
-    "num_alloc_retries": "alloc_retries",
+    'allocation.all.allocated': 'alloc_requests',
+    'allocation.all.freed': 'free_requests',
+    'allocated_bytes.all.allocated': 'allocated_mem',
+    'active_bytes.all.current': 'active_mem',
+    'inactive_split_bytes.all.current': 'inactive_mem',
+    'reserved_bytes.all.current': 'reserved_mem',
+    'num_alloc_retries': 'alloc_retries',
 }
 
 

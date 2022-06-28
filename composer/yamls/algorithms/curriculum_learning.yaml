@@ -1,5 +1,0 @@
-    duration: 0.3
-    min_seq_length: 8
-    max_seq_length: 1024
-    step_size: 8
-    truncate: "true"

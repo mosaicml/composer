@@ -49,23 +49,23 @@ else:
 
 # Specifically excluding `FitKwargs` and `EvalKwargs` from `__all__` and documentation
 # They exist purely for pyright and should never need
-__all__ = ["TrainerHparams", "load", "FitHparams", "EvalHparams", "ExperimentHparams"]
+__all__ = ['TrainerHparams', 'load', 'FitHparams', 'EvalHparams', 'ExperimentHparams']
 
 Scheduler = Union[ComposerScheduler, PyTorchScheduler]
 
 model_registry = {
-    "unet": UnetHparams,
-    "ssd": SSDHparams,
-    "deeplabv3": DeepLabV3Hparams,
-    "efficientnetb0": EfficientNetB0Hparams,
-    "resnet_cifar": ResNetCIFARHparams,
-    "resnet": ResNetHparams,
-    "mnist_classifier": MnistClassifierHparams,
-    "gpt2": GPT2Hparams,
-    "bert": BERTHparams,
-    "bert_classification": BERTForClassificationHparams,
-    "timm": TimmHparams,
-    "vit_small_patch16": ViTSmallPatch16Hparams
+    'unet': UnetHparams,
+    'ssd': SSDHparams,
+    'deeplabv3': DeepLabV3Hparams,
+    'efficientnetb0': EfficientNetB0Hparams,
+    'resnet_cifar': ResNetCIFARHparams,
+    'resnet': ResNetHparams,
+    'mnist_classifier': MnistClassifierHparams,
+    'gpt2': GPT2Hparams,
+    'bert': BERTHparams,
+    'bert_classification': BERTForClassificationHparams,
+    'timm': TimmHparams,
+    'vit_small_patch16': ViTSmallPatch16Hparams
 }
 
 
@@ -81,15 +81,15 @@ def _initialize_dataloader(
     if dataset_hparams is not None:
         if batch_size is None:
             raise ValueError(
-                f"The batch size for {dataloader_label} must be specified if the {dataloader_label} dataset is specified"
+                f'The batch size for {dataloader_label} must be specified if the {dataloader_label} dataset is specified'
             )
 
         train_device_batch_size = batch_size // dist.get_world_size()
         if dataset_hparams.shuffle and subset_num_batches is not None:
             warnings.warn(
-                (f"SubsetNumBatchesWarning: When specifying `subset_num_batches` for the {dataloader_label} dataset, "
-                 f"dataset_hparams.shuffle should be set to False. "
-                 "Otherwise, each epoch may load a different subset of samples."))
+                (f'SubsetNumBatchesWarning: When specifying `subset_num_batches` for the {dataloader_label} dataset, '
+                 f'dataset_hparams.shuffle should be set to False. '
+                 'Otherwise, each epoch may load a different subset of samples.'))
         dataloader = dataset_hparams.initialize_object(train_device_batch_size, dataloader_hparams)
     return dataloader
 
@@ -106,11 +106,11 @@ def _initialize_eval_dataloader(
     eval_dataloader = None
     if eval_dataset_hparams is not None and evaluators is not None:
         raise ValueError(
-            "Either `eval_dataset` or `evaluators` should be specified. It is not permitted to specify both.")
+            'Either `eval_dataset` or `evaluators` should be specified. It is not permitted to specify both.')
     if eval_dataset_hparams is not None:
         eval_dataloader = _initialize_dataloader(
             eval_dataset_hparams,
-            "eval",
+            'eval',
             eval_batch_size,
             eval_subset_num_batches,
             dataloader_hparams,
@@ -122,10 +122,10 @@ def _initialize_eval_dataloader(
         ]
         for evaluator in evaluators:
             if evaluator.eval_dataset.shuffle and eval_subset_num_batches is not None:
-                warnings.warn(("SubsetNumBatchesWarning: When specifying eval_subset_num_batches, "
-                               f"(set to {eval_subset_num_batches}), evaluator.dataloader.shuffle "
+                warnings.warn(('SubsetNumBatchesWarning: When specifying eval_subset_num_batches, '
+                               f'(set to {eval_subset_num_batches}), evaluator.dataloader.shuffle '
                                f"(for Evaluator: '{evaluator.label}') should be set to False. Otherwise, "
-                               "each evaluation epoch may load a different subset of samples."))
+                               'each evaluation epoch may load a different subset of samples.'))
     return eval_dataloader
 
 
@@ -232,7 +232,7 @@ class TrainerHparams(hp.Hparams):
         save_num_checkpoints_to_keep (int, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         autoresume (bool, optional): See :class:`.Trainer`.
 
-        deepspeed (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
+        deepspeed_config (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
             config for training  (see :class:`.Trainer` for more details). If ``None`` (the default), DeepSpeed will not
             be used.
 
@@ -253,154 +253,154 @@ class TrainerHparams(hp.Hparams):
     """
 
     hparams_registry = {  # type: ignore
-        "algorithms": algorithm_registry,
-        "optimizers": optimizer_registry,
-        "schedulers": scheduler_registry,
-        "loggers": logger_registry,
-        "load_logger_destination": logger_registry,
-        "model": model_registry,
-        "train_dataset": dataset_registry,
-        "val_dataset": dataset_registry,
-        "callbacks": callback_registry,
-        "device": device_registry,
-        "load_object_store": object_store_registry,
+        'algorithms': algorithm_registry,
+        'optimizers': optimizer_registry,
+        'schedulers': scheduler_registry,
+        'loggers': logger_registry,
+        'load_logger_destination': logger_registry,
+        'model': model_registry,
+        'train_dataset': dataset_registry,
+        'val_dataset': dataset_registry,
+        'callbacks': callback_registry,
+        'device': device_registry,
+        'load_object_store': object_store_registry,
     }
 
-    model: ModelHparams = hp.auto(Trainer, "model")
+    model: ModelHparams = hp.auto(Trainer, 'model')
 
     # Shared data
-    dataloader: DataLoaderHparams = hp.optional(doc="dataloader hparams", default=DataLoaderHparams())
+    dataloader: DataLoaderHparams = hp.optional(doc='dataloader hparams', default=DataLoaderHparams())
 
     # Train Data
-    train_dataset: Optional[DatasetHparams] = hp.optional(doc="Training dataset hparams", default=None)
-    train_dataloader_label: str = hp.auto(Trainer, "train_dataloader_label")
+    train_dataset: Optional[DatasetHparams] = hp.optional(doc='Training dataset hparams', default=None)
+    train_dataloader_label: str = hp.auto(Trainer, 'train_dataloader_label')
     train_batch_size: Optional[int] = hp.optional(
-        doc="batch size for each optimization step, across all devices and gradient accumulations.",
+        doc='batch size for each optimization step, across all devices and gradient accumulations.',
         default=None,
     )
-    train_subset_num_batches: int = hp.auto(Trainer, "train_subset_num_batches")
-    compute_training_metrics: bool = hp.auto(Trainer, "compute_training_metrics")
+    train_subset_num_batches: int = hp.auto(Trainer, 'train_subset_num_batches')
+    compute_training_metrics: bool = hp.auto(Trainer, 'compute_training_metrics')
 
     # Stopping Conditions
-    max_duration: Optional[Union[str, int]] = hp.auto(Trainer, "max_duration")
+    max_duration: Optional[Union[str, int]] = hp.auto(Trainer, 'max_duration')
 
     # Algorithms
-    algorithms: Optional[List[Algorithm]] = hp.auto(Trainer, "algorithms")
+    algorithms: Optional[List[Algorithm]] = hp.auto(Trainer, 'algorithms')
 
     # Optimizer and Scheduler
-    optimizers: Optional[OptimizerHparams] = hp.auto(Trainer, "optimizers")
-    schedulers: Optional[List[ComposerScheduler]] = hp.auto(Trainer, "schedulers")
-    scale_schedule_ratio: float = hp.auto(Trainer, "scale_schedule_ratio")
-    step_schedulers_every_batch: Optional[bool] = hp.auto(Trainer, "step_schedulers_every_batch")
+    optimizers: Optional[OptimizerHparams] = hp.auto(Trainer, 'optimizers')
+    schedulers: Optional[List[ComposerScheduler]] = hp.auto(Trainer, 'schedulers')
+    scale_schedule_ratio: float = hp.auto(Trainer, 'scale_schedule_ratio')
+    step_schedulers_every_batch: Optional[bool] = hp.auto(Trainer, 'step_schedulers_every_batch')
 
     # Evaluation
-    val_dataset: Optional[DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)
-    evaluators: Optional[List[EvaluatorHparams]] = hp.optional(doc="Evaluators", default=None)
-    eval_batch_size: Optional[int] = hp.optional(doc="batch size to use for each evaluation step", default=None)
-    eval_interval: Union[int, str] = hp.auto(Trainer, "eval_interval")
-    eval_subset_num_batches: int = hp.auto(Trainer, "eval_subset_num_batches")
+    val_dataset: Optional[DatasetHparams] = hp.optional(doc='Validation dataset hparams', default=None)
+    evaluators: Optional[List[EvaluatorHparams]] = hp.optional(doc='Evaluators', default=None)
+    eval_batch_size: Optional[int] = hp.optional(doc='batch size to use for each evaluation step', default=None)
+    eval_interval: Union[int, str] = hp.auto(Trainer, 'eval_interval')
+    eval_subset_num_batches: int = hp.auto(Trainer, 'eval_subset_num_batches')
 
     # Callbacks
-    callbacks: Optional[List[Callback]] = hp.auto(Trainer, "callbacks")
+    callbacks: Optional[List[Callback]] = hp.auto(Trainer, 'callbacks')
 
     # Logging
-    loggers: Optional[List[LoggerDestination]] = hp.auto(Trainer, "loggers")
-    run_name: Optional[str] = hp.auto(Trainer, "run_name")
-    progress_bar: bool = hp.auto(Trainer, "progress_bar")
-    log_to_console: Optional[bool] = hp.auto(Trainer, "log_to_console")
-    console_log_level: LogLevel = hp.auto(Trainer, "console_log_level")
-    console_stream: str = hp.auto(Trainer, "console_stream")
-    python_log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
+    loggers: Optional[List[LoggerDestination]] = hp.auto(Trainer, 'loggers')
+    run_name: Optional[str] = hp.auto(Trainer, 'run_name')
+    progress_bar: bool = hp.auto(Trainer, 'progress_bar')
+    log_to_console: Optional[bool] = hp.auto(Trainer, 'log_to_console')
+    console_log_level: LogLevel = hp.auto(Trainer, 'console_log_level')
+    console_stream: str = hp.auto(Trainer, 'console_stream')
+    python_log_level: str = hp.optional(doc='Python loglevel to use composer', default='INFO')
 
     # Load Checkpoint
-    load_path: Optional[str] = hp.auto(Trainer, "load_path")
+    load_path: Optional[str] = hp.auto(Trainer, 'load_path')
     load_object_store: Optional[ObjectStoreHparams] = hp.optional(
-        doc=(("If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for "
-              "connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath, "
-              "leave blank. This parameter has no effect if `load_path` is not specified.")),
+        doc=(('If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for '
+              'connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath, '
+              'leave blank. This parameter has no effect if `load_path` is not specified.')),
         default=None)
     load_logger_destination: Optional[LoggerDestination] = hp.optional(
-        ("Alternative argument to `load_object_store` to support loading from a logger destination. This parameter "
-         "has no effect if `load_path` is not specified or `load_object_store` is specified, which will be "
-         "used instead of this."),
+        ('Alternative argument to `load_object_store` to support loading from a logger destination. This parameter '
+         'has no effect if `load_path` is not specified or `load_object_store` is specified, which will be '
+         'used instead of this.'),
         default=None)
-    load_weights_only: bool = hp.auto(Trainer, "load_weights_only")
-    load_strict_model_weights: bool = hp.auto(Trainer, "load_strict_model_weights")
-    load_ignore_keys: Optional[List[str]] = hp.auto(Trainer, "load_ignore_keys")
-    load_progress_bar: bool = hp.auto(Trainer, "load_progress_bar")
+    load_weights_only: bool = hp.auto(Trainer, 'load_weights_only')
+    load_strict_model_weights: bool = hp.auto(Trainer, 'load_strict_model_weights')
+    load_ignore_keys: Optional[List[str]] = hp.auto(Trainer, 'load_ignore_keys')
+    load_progress_bar: bool = hp.auto(Trainer, 'load_progress_bar')
 
     # Save Checkpoint
-    save_folder: Optional[str] = hp.auto(Trainer, "save_folder")
-    save_filename: str = hp.auto(Trainer, "save_filename")
-    save_artifact_name: str = hp.auto(Trainer, "save_artifact_name")
-    save_latest_filename: str = hp.auto(Trainer, "save_latest_filename")
-    save_latest_artifact_name: str = hp.auto(Trainer, "save_latest_artifact_name")
-    save_overwrite: bool = hp.auto(Trainer, "save_overwrite")
-    save_weights_only: bool = hp.auto(Trainer, "save_weights_only")
-    save_interval: str = hp.auto(Trainer, "save_interval")
-    save_num_checkpoints_to_keep: int = hp.auto(Trainer, "save_num_checkpoints_to_keep")
+    save_folder: Optional[str] = hp.auto(Trainer, 'save_folder')
+    save_filename: str = hp.auto(Trainer, 'save_filename')
+    save_artifact_name: str = hp.auto(Trainer, 'save_artifact_name')
+    save_latest_filename: str = hp.auto(Trainer, 'save_latest_filename')
+    save_latest_artifact_name: str = hp.auto(Trainer, 'save_latest_artifact_name')
+    save_overwrite: bool = hp.auto(Trainer, 'save_overwrite')
+    save_weights_only: bool = hp.auto(Trainer, 'save_weights_only')
+    save_interval: str = hp.auto(Trainer, 'save_interval')
+    save_num_checkpoints_to_keep: int = hp.auto(Trainer, 'save_num_checkpoints_to_keep')
 
     # Graceful Resumption
-    autoresume: bool = hp.auto(Trainer, "autoresume")
+    autoresume: bool = hp.auto(Trainer, 'autoresume')
     # DeepSpeed
-    deepspeed_config: Optional[Dict[str, JSON]] = hp.auto(Trainer, "deepspeed_config")
+    deepspeed_config: Optional[Dict[str, JSON]] = hp.auto(Trainer, 'deepspeed_config')
 
     # System/Numerics
-    device: Optional[Device] = hp.auto(Trainer, "device")
-    precision: Optional[Precision] = hp.auto(Trainer, "precision")
-    grad_accum: Union[int, str] = hp.auto(Trainer, "grad_accum")
+    device: Optional[Device] = hp.auto(Trainer, 'device')
+    precision: Optional[Precision] = hp.auto(Trainer, 'precision')
+    grad_accum: Union[int, str] = hp.auto(Trainer, 'grad_accum')
 
     # Reproducibility
-    seed: Optional[int] = hp.auto(Trainer, "seed")
-    deterministic_mode: bool = hp.auto(Trainer, "deterministic_mode")
+    seed: Optional[int] = hp.auto(Trainer, 'seed')
+    deterministic_mode: bool = hp.auto(Trainer, 'deterministic_mode')
 
     # Distributed
-    dist_timeout: float = hp.auto(Trainer, "dist_timeout")
-    ddp_sync_strategy: Optional[DDPSyncStrategy] = hp.auto(Trainer, "ddp_sync_strategy")
+    dist_timeout: float = hp.auto(Trainer, 'dist_timeout')
+    ddp_sync_strategy: Optional[DDPSyncStrategy] = hp.auto(Trainer, 'ddp_sync_strategy')
 
     # Grad Clip Norm
-    grad_clip_norm: float = hp.auto(Trainer, "grad_clip_norm")
+    grad_clip_norm: float = hp.auto(Trainer, 'grad_clip_norm')
 
     # Profiling
-    profiler: Optional[Profiler] = hp.auto(Trainer, "profiler")
+    profiler: Optional[Profiler] = hp.auto(Trainer, 'profiler')
 
     def validate(self):
         super().validate()
 
         if self.deepspeed_config is not None:
-            self.deepspeed_config["steps_per_print"] = cast(int, self.deepspeed_config.get("steps_per_print", 1e20))
+            self.deepspeed_config['steps_per_print'] = cast(int, self.deepspeed_config.get('steps_per_print', 1e20))
 
-            if "zero_optimization" in self.deepspeed_config:
-                zero_stage = cast(dict, self.deepspeed_config["zero_optimization"]).get("stage", 0)
+            if 'zero_optimization' in self.deepspeed_config:
+                zero_stage = cast(dict, self.deepspeed_config['zero_optimization']).get('stage', 0)
             else:
                 zero_stage = 0
 
             if self.deterministic_mode and zero_stage > 0:
-                raise ValueError("Deepspeed with zero stage > 0 is not compatible with deterministic mode")
+                raise ValueError('Deepspeed with zero stage > 0 is not compatible with deterministic mode')
 
         world_size = dist.get_world_size()
 
         if self.train_batch_size is not None and self.train_batch_size % world_size != 0:
             raise ValueError(
-                f"Batch size ({self.train_batch_size}) not divisible by the total number of processes ({world_size}).")
+                f'Batch size ({self.train_batch_size}) not divisible by the total number of processes ({world_size}).')
 
         val_dataset_exists = self.val_dataset is not None
         evaluators_exist = self.evaluators is not None and len(self.evaluators) > 0
         if val_dataset_exists and evaluators_exist:
-            raise ValueError("Either val_dataset or evaluators should be set, but not both.")
+            raise ValueError('Either val_dataset or evaluators should be set, but not both.')
 
         if (val_dataset_exists or evaluators_exist) and self.eval_batch_size is None:
-            raise ValueError("eval_batch_size must be specified if val_dataset or evaluators are specified.")
+            raise ValueError('eval_batch_size must be specified if val_dataset or evaluators are specified.')
 
         if self.eval_batch_size is not None and self.eval_batch_size % world_size != 0:
             raise ValueError(
-                f"Eval batch size ({self.eval_batch_size}) not divisible by the total number of processes ({world_size})."
+                f'Eval batch size ({self.eval_batch_size}) not divisible by the total number of processes ({world_size}).'
             )
 
         if self.scale_schedule_ratio <= 0:
-            raise ValueError("scale_schedule_ratio must be a positive value.")
+            raise ValueError('scale_schedule_ratio must be a positive value.')
 
-        if (isinstance(self.grad_accum, str) and self.grad_accum != "auto") or (isinstance(self.grad_accum, int) and
+        if (isinstance(self.grad_accum, str) and self.grad_accum != 'auto') or (isinstance(self.grad_accum, int) and
                                                                                 self.grad_accum < 1):
             raise ValueError('grad_accum must be "auto" or an int greater than or equal to 1.')
 
@@ -452,7 +452,7 @@ class TrainerHparams(hp.Hparams):
         load_object_store = None
         if self.load_object_store is not None and self.load_logger_destination is not None:
             raise ValueError(
-                "load_object_store and load_logger_destination cannot both be non-None. Please provide only one location to load from."
+                'load_object_store and load_logger_destination cannot both be non-None. Please provide only one location to load from.'
             )
         elif self.load_object_store is not None:
             load_object_store = self.load_object_store.initialize_object()
@@ -547,12 +547,12 @@ class TrainerHparams(hp.Hparams):
     def load(cls, model: str) -> TrainerHparams:
         model_hparams_file = os.path.join(
             os.path.dirname(composer.__file__),
-            "yamls",
-            "models",
-            f"{model}.yaml",
+            'yamls',
+            'models',
+            f'{model}.yaml',
         )
         trainer_hparams = TrainerHparams.create(model_hparams_file, cli_args=False)
-        assert isinstance(trainer_hparams, TrainerHparams), "trainer hparams should return an instance of self"
+        assert isinstance(trainer_hparams, TrainerHparams), 'trainer hparams should return an instance of self'
         return trainer_hparams
 
 
@@ -587,9 +587,6 @@ class FitKwargs(TypedDict):
     grad_accum: Optional[Union[int, str]]
     precision: Optional[Union[str, Precision]]
 
-    # Grad Clipping
-    grad_clip_norm: Optional[float]
-
 
 @dataclasses.dataclass
 class FitHparams(hp.Hparams):
@@ -615,49 +612,45 @@ class FitHparams(hp.Hparams):
         eval_subset_num_batches (int, optional): See :meth:`.Trainer.fit`.
         precision (Precision, optional): See :meth:`.Trainer.fit`.
         grad_accum (int, optional): See :meth:`.Trainer.fit`.
-        grad_clip_norm (float, optional): See :meth:`.Trainer.fit`.
     """
 
     hparams_registry = {
-        "train_dataset": dataset_registry,
-        "schedulers": scheduler_registry,
-        "eval_dataset": dataset_registry,
+        'train_dataset': dataset_registry,
+        'schedulers': scheduler_registry,
+        'eval_dataset': dataset_registry,
     }
     # Train dataloader
-    train_dataset: Optional[DatasetHparams] = hp.required("Train dataset")
+    train_dataset: Optional[DatasetHparams] = hp.required('Train dataset')
     train_batch_size: Optional[int] = hp.optional(
-        doc="batch size for each optimization step, across all devices and gradient accumulations.",
+        doc='batch size for each optimization step, across all devices and gradient accumulations.',
         default=None,
     )
-    train_dataloader_label: str = hp.auto(Trainer.fit, "train_dataloader_label")
-    train_subset_num_batches: Optional[int] = hp.auto(Trainer.fit, "train_subset_num_batches")
-    compute_training_metrics: Optional[bool] = hp.auto(Trainer.fit, "compute_training_metrics")
+    train_dataloader_label: str = hp.auto(Trainer.fit, 'train_dataloader_label')
+    train_subset_num_batches: Optional[int] = hp.auto(Trainer.fit, 'train_subset_num_batches')
+    compute_training_metrics: Optional[bool] = hp.auto(Trainer.fit, 'compute_training_metrics')
 
     # Timing
-    reset_time: bool = hp.auto(Trainer.fit, "reset_time")
-    duration: Optional[Union[int, str]] = hp.auto(Trainer.fit, "duration")
+    reset_time: bool = hp.auto(Trainer.fit, 'reset_time')
+    duration: Optional[Union[int, str]] = hp.auto(Trainer.fit, 'duration')
 
     # Schedulers
-    schedulers: Optional[List[ComposerScheduler]] = hp.auto(Trainer.fit, "schedulers")
+    schedulers: Optional[List[ComposerScheduler]] = hp.auto(Trainer.fit, 'schedulers')
     scale_schedule_ratio: float = hp.optional(
-        doc="Ratio by which to scale the training duration and learning rate schedules.",
+        doc='Ratio by which to scale the training duration and learning rate schedules.',
         default=1.0,
     )
-    step_schedulers_every_batch: Optional[bool] = hp.auto(Trainer.fit, "step_schedulers_every_batch")
+    step_schedulers_every_batch: Optional[bool] = hp.auto(Trainer.fit, 'step_schedulers_every_batch')
 
     # Evaluation
-    eval_dataset: Optional[DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)
-    evaluators: Optional[List[EvaluatorHparams]] = hp.optional(doc="Evaluators", default=None)
-    eval_batch_size: Optional[int] = hp.optional(doc="batch size to use for each evaluation step", default=None)
-    eval_interval: Union[int, str] = hp.auto(Trainer.fit, "eval_interval")
-    eval_subset_num_batches: int = hp.auto(Trainer.fit, "eval_subset_num_batches")
+    eval_dataset: Optional[DatasetHparams] = hp.optional(doc='Validation dataset hparams', default=None)
+    evaluators: Optional[List[EvaluatorHparams]] = hp.optional(doc='Evaluators', default=None)
+    eval_batch_size: Optional[int] = hp.optional(doc='batch size to use for each evaluation step', default=None)
+    eval_interval: Union[int, str] = hp.auto(Trainer.fit, 'eval_interval')
+    eval_subset_num_batches: int = hp.auto(Trainer.fit, 'eval_subset_num_batches')
 
     # Numerics
-    precision: Optional[Precision] = hp.auto(Trainer.fit, "precision")
-    grad_accum: Optional[Union[int, str]] = hp.auto(Trainer.fit, "grad_accum")
-
-    # Grad Clipping
-    grad_clip_norm: Optional[float] = hp.auto(Trainer.fit, "grad_clip_norm")
+    precision: Optional[Precision] = hp.auto(Trainer.fit, 'precision')
+    grad_accum: Optional[Union[int, str]] = hp.auto(Trainer.fit, 'grad_accum')
 
     def initialize_object(self, model: ComposerModel, dataloader_hparams: DataLoaderHparams) -> FitKwargs:
         """Construct a kwargs dictionary that can be unpacked and passed into :meth:`.Trainer.fit`.
@@ -689,21 +682,20 @@ class FitHparams(hp.Hparams):
         )
 
         return {
-            "train_dataloader": train_dataloader,
-            "train_dataloader_label": self.train_dataloader_label,
-            "train_subset_num_batches": self.train_subset_num_batches,
-            "compute_training_metrics": self.compute_training_metrics,
-            "reset_time": self.reset_time,
-            "duration": self.duration,
-            "schedulers": self.schedulers,
-            "scale_schedule_ratio": self.scale_schedule_ratio,
-            "step_schedulers_every_batch": self.step_schedulers_every_batch,
-            "eval_dataloader": eval_dataloader,
-            "eval_subset_num_batches": self.eval_subset_num_batches,
-            "eval_interval": self.eval_interval,
-            "grad_accum": self.grad_accum,
-            "precision": self.precision,
-            "grad_clip_norm": self.grad_clip_norm,
+            'train_dataloader': train_dataloader,
+            'train_dataloader_label': self.train_dataloader_label,
+            'train_subset_num_batches': self.train_subset_num_batches,
+            'compute_training_metrics': self.compute_training_metrics,
+            'reset_time': self.reset_time,
+            'duration': self.duration,
+            'schedulers': self.schedulers,
+            'scale_schedule_ratio': self.scale_schedule_ratio,
+            'step_schedulers_every_batch': self.step_schedulers_every_batch,
+            'eval_dataloader': eval_dataloader,
+            'eval_subset_num_batches': self.eval_subset_num_batches,
+            'eval_interval': self.eval_interval,
+            'grad_accum': self.grad_accum,
+            'precision': self.precision,
         }
 
 
@@ -737,17 +729,17 @@ class EvalHparams(hp.Hparams):
     """
 
     hparams_registry = {
-        "dataset": dataset_registry,
+        'dataset': dataset_registry,
     }
-    dataset: DatasetHparams = hp.required(doc="Validation dataset hparams")
-    batch_size: int = hp.required(doc="batch size to use for each evaluation step")
-    dataloader_label: str = hp.auto(Trainer.eval, "dataloader_label")
-    subset_num_batches: int = hp.auto(Trainer.eval, "subset_num_batches")
-    log_level: LogLevel = hp.auto(Trainer.eval, "log_level")
+    dataset: DatasetHparams = hp.required(doc='Validation dataset hparams')
+    batch_size: int = hp.required(doc='batch size to use for each evaluation step')
+    dataloader_label: str = hp.auto(Trainer.eval, 'dataloader_label')
+    subset_num_batches: int = hp.auto(Trainer.eval, 'subset_num_batches')
+    log_level: LogLevel = hp.auto(Trainer.eval, 'log_level')
     metric_names: Optional[List[str]] = hp.optional(
         doc=(
-            "Name of the metrics for the evaluator. Can be a torchmetrics metric name or the "
-            "class name of a metric returned by model.metrics(). If None (the default), uses all metrics in the model"),
+            'Name of the metrics for the evaluator. Can be a torchmetrics metric name or the '
+            'class name of a metric returned by model.metrics(). If None (the default), uses all metrics in the model'),
         default=None,
     )
 
@@ -769,7 +761,7 @@ class EvalHparams(hp.Hparams):
             subset_num_batches=self.subset_num_batches,
             dataloader_hparams=dataloader_hparams,
         )
-        assert dataloader is not None, "The dataloader is a required argument"
+        assert dataloader is not None, 'The dataloader is a required argument'
 
         # Metrics
 
@@ -792,20 +784,20 @@ class EvalHparams(hp.Hparams):
                 try:
                     metric = model_metrics[metric_name]
                 except KeyError as e:
-                    raise RuntimeError((f"No metric found with the name {metric_name}. Check if this "
-                                        "metric is compatible/listed in your model metrics. ")) from e
-                assert isinstance(metric, Metric), "all values of a MetricCollection.__getitem__ should be a metric"
+                    raise RuntimeError((f'No metric found with the name {metric_name}. Check if this '
+                                        'metric is compatible/listed in your model metrics. ')) from e
+                assert isinstance(metric, Metric), 'all values of a MetricCollection.__getitem__ should be a metric'
                 metrics.add_metrics(copy.deepcopy(metric))
             if len(metrics) == 0:
-                raise RuntimeError(("No metrics compatible with your model were added to this evaluator. "
-                                    "Check that the metrics you specified are compatible/listed in your model."))
+                raise RuntimeError(('No metrics compatible with your model were added to this evaluator. '
+                                    'Check that the metrics you specified are compatible/listed in your model.'))
 
         return {
-            "dataloader": dataloader,
-            "dataloader_label": self.dataloader_label,
-            "metrics": metrics,
-            "subset_num_batches": self.subset_num_batches,
-            "log_level": self.log_level,
+            'dataloader': dataloader,
+            'dataloader_label': self.dataloader_label,
+            'metrics': metrics,
+            'subset_num_batches': self.subset_num_batches,
+            'log_level': self.log_level,
         }
 
 
@@ -872,9 +864,9 @@ class ExperimentHparams(hp.Hparams):
         fits (List[FitHparams]): The hparams for calls to :meth:`.Trainer.fit`.
         evals (List[EvalHparams]): The hparams for calls to :meth:`.Trainer.eval`.
     """
-    trainer: TrainerHparams = hp.required("Trainer hparams")
-    fits: List[FitHparams] = hp.optional("Fit hparams", default_factory=list)
-    evals: List[EvalHparams] = hp.optional("Eval hparams", default_factory=list)
+    trainer: TrainerHparams = hp.required('Trainer hparams')
+    fits: List[FitHparams] = hp.optional('Fit hparams', default_factory=list)
+    evals: List[EvalHparams] = hp.optional('Eval hparams', default_factory=list)
 
     def initialize_object(self) -> Tuple[Trainer, List[FitKwargs], List[EvalKwargs]]:
         """Construct the :class:`.Trainer`, :meth:`~Trainer.fit` kwargs, and :meth:`~Trainer.eval` kwargs.

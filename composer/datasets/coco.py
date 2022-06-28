@@ -15,12 +15,13 @@ import numpy as np
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
+from torchvision.datasets import VisionDataset
 
 from composer.core.types import Batch
 from composer.datasets.streaming import StreamingDataset
 from composer.models.ssd.utils import SSDTransformer, dboxes300_coco
 
-__all__ = ["COCODetection", "StreamingCOCO"]
+__all__ = ['COCODetection', 'StreamingCOCO']
 
 
 class COCODetection(Dataset):
@@ -47,26 +48,26 @@ class COCODetection(Dataset):
         self.label_info = {}
         # 0 stands for the background
         cnt = 0
-        self.label_info[cnt] = "background"
-        for cat in self.data["categories"]:
+        self.label_info[cnt] = 'background'
+        for cat in self.data['categories']:
             cnt += 1
-            self.label_map[cat["id"]] = cnt
-            self.label_info[cnt] = cat["name"]
+            self.label_map[cat['id']] = cnt
+            self.label_info[cnt] = cat['name']
 
         # build inference for images
-        for img in self.data["images"]:
-            img_id = img["id"]
-            img_name = img["file_name"]
-            img_size = (img["height"], img["width"])
+        for img in self.data['images']:
+            img_id = img['id']
+            img_name = img['file_name']
+            img_size = (img['height'], img['width'])
             if img_id in self.images:
-                raise Exception("dulpicated image record")
+                raise Exception('dulpicated image record')
             self.images[img_id] = (img_name, img_size, [])
 
         # read bboxes
-        for bboxes in self.data["annotations"]:
-            img_id = bboxes["image_id"]
-            bbox = bboxes["bbox"]
-            bbox_label = self.label_map[bboxes["category_id"]]
+        for bboxes in self.data['annotations']:
+            img_id = bboxes['image_id']
+            bbox = bboxes['bbox']
+            bbox_label = self.label_map[bboxes['category_id']]
             self.images[img_id][2].append((bbox, bbox_label))
 
         for k, v in list(self.images.items()):
@@ -89,7 +90,7 @@ class COCODetection(Dataset):
         fn = img_data[0]
         img_path = os.path.join(self.img_folder, fn)
 
-        img = Image.open(img_path).convert("RGB")
+        img = Image.open(img_path).convert('RGB')
 
         htot, wtot = img_data[1]
         bbox_sizes = []
@@ -133,7 +134,7 @@ def split_dict_fn(batch: Batch, num_microbatches: int) -> Sequence[Batch]:  #typ
             ))  #type: ignore
 
 
-class StreamingCOCO(StreamingDataset):
+class StreamingCOCO(StreamingDataset, VisionDataset):
     """
     Implementation of the COCO dataset using StreamingDataset.
 
@@ -190,10 +191,11 @@ class StreamingCOCO(StreamingDataset):
         # Define custom transforms
         dboxes = dboxes300_coco()
         input_size = 300
-        if split == "train":
-            self.transform = SSDTransformer(dboxes, (input_size, input_size), val=False, num_cropping_iterations=1)
+        if split == 'train':
+            transform = SSDTransformer(dboxes, (input_size, input_size), val=False, num_cropping_iterations=1)
         else:
-            self.transform = SSDTransformer(dboxes, (input_size, input_size), val=True)
+            transform = SSDTransformer(dboxes, (input_size, input_size), val=True)
+        VisionDataset.__init__(self, root=local, transform=transform)
 
     def __getitem__(self, idx: int) -> Any:
         x = super().__getitem__(idx)
@@ -203,6 +205,6 @@ class StreamingCOCO(StreamingDataset):
         wtot = x['wtot']
         bbox_sizes = x['bbox_sizes']
         bbox_labels = x['bbox_labels']
-        if self.transform:
-            img, (htot, wtot), bbox_sizes, bbox_labels = self.transform(img, (htot, wtot), bbox_sizes, bbox_labels)
+        assert self.transform is not None, 'transform set in __init__'
+        img, (htot, wtot), bbox_sizes, bbox_labels = self.transform(img, (htot, wtot), bbox_sizes, bbox_labels)
         return img, img_id, (htot, wtot), bbox_sizes, bbox_labels

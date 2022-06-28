@@ -13,12 +13,13 @@ from composer.utils import StringEnum
 
 class Initializer(StringEnum):
     """Sets the initialization scheme for different layers of a PyTorch model."""
-    KAIMING_NORMAL = "kaiming_normal"
-    KAIMING_UNIFORM = "kaiming_uniform"
-    BN_UNIFORM = "bn_uniform"
-    BN_ONES = "bn_ones"
-    XAVIER_UNIFORM = "xavier_uniform"
-    LINEAR_LOG_CONSTANT_BIAS = "linear_log_constant_bias"
+    KAIMING_NORMAL = 'kaiming_normal'
+    KAIMING_UNIFORM = 'kaiming_uniform'
+    BN_UNIFORM = 'bn_uniform'
+    BN_ONES = 'bn_ones'
+    XAVIER_UNIFORM = 'xavier_uniform'
+    XAVIER_NORMAL = 'xavier_normal'
+    LINEAR_LOG_CONSTANT_BIAS = 'linear_log_constant_bias'
 
     def get_initializer(self) -> Callable[[torch.nn.Module], None]:
         """Get the initializer function.
@@ -39,6 +40,10 @@ class Initializer(StringEnum):
             if isinstance(w, torch.nn.Linear) or isinstance(w, torch.nn.Conv2d):
                 torch.nn.init.xavier_uniform_(w.weight)
 
+        def xavier_normal(w: nn.Module):
+            if isinstance(w, torch.nn.Linear) or isinstance(w, torch.nn.Conv2d):
+                torch.nn.init.xavier_normal_(w.weight)
+
         def bn_ones(w: nn.Module):
             if isinstance(w, torch.nn.BatchNorm2d):
                 w.weight.data = torch.ones_like(w.weight.data)
@@ -54,12 +59,13 @@ class Initializer(StringEnum):
                 w.bias.data = torch.ones(w.bias.shape) * -torch.log(torch.tensor(w.bias.shape[0]))
 
         initializer_dict = {
-            "kaiming_normal": kaiming_normal,
-            "kaiming_uniform": kaiming_uniform,
-            "bn_uniform": bn_uniform,
-            "bn_ones": bn_ones,
-            "xavier_uniform": xavier_uniform,
-            "linear_log_constant_bias": linear_log_constant_bias
+            'kaiming_normal': kaiming_normal,
+            'kaiming_uniform': kaiming_uniform,
+            'bn_uniform': bn_uniform,
+            'bn_ones': bn_ones,
+            'xavier_uniform': xavier_uniform,
+            'xavier_normal': xavier_normal,
+            'linear_log_constant_bias': linear_log_constant_bias
         }
         if self.value not in initializer_dict:
             raise ValueError(f"Initializer '{self.value}' not found.")

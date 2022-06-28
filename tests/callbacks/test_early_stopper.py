@@ -22,15 +22,15 @@ from tests.metrics import MetricSetterCallback
 def test_early_stopper(metric_sequence: List[float], unit: TimeUnit, device: str):
 
     if unit == TimeUnit.EPOCH:
-        dataloader_label = "eval"
+        dataloader_label = 'eval'
     else:
-        dataloader_label = "train"
+        dataloader_label = 'train'
 
     test_device = DeviceGPU() if device == 'gpu' else DeviceCPU()
 
-    early_stopper = EarlyStopper("Accuracy", dataloader_label, patience=Time(3, unit))
+    early_stopper = EarlyStopper('Accuracy', dataloader_label, patience=Time(3, unit))
 
-    test_metric_setter = MetricSetterCallback("Accuracy", dataloader_label, metric_sequence, unit, test_device)
+    test_metric_setter = MetricSetterCallback('Accuracy', dataloader_label, metric_sequence, unit, test_device)
 
     trainer = Trainer(
         model=SimpleModel(num_features=5),
@@ -42,7 +42,7 @@ def test_early_stopper(metric_sequence: List[float], unit: TimeUnit, device: str
             RandomClassificationDataset(shape=(5, 1, 1)),
             batch_size=4,
         ),
-        max_duration="30ep",
+        max_duration='30ep',
         callbacks=[test_metric_setter, early_stopper],
     )
 
