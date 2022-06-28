@@ -5,6 +5,7 @@
 from math import floor, sqrt
 from typing import Any, Callable, Optional, Tuple, Union
 import wandb
+from torchvision.utils import make_grid
 
 from composer.core import Callback, State, Time, TimeUnit
 from composer.loggers import Logger
