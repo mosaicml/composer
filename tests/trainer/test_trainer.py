@@ -395,8 +395,13 @@ class TestTrainerInitOrFit:
         trainer.fit()
 
     @pytest.mark.gpu
-    def test_device(self, model: ComposerModel):
-        trainer = Trainer(model=model, device='gpu')
+    def test_device(
+        self,
+        model: ComposerModel,
+        max_duration: Time[int],
+        train_dataloader: DataLoader,
+    ):
+        trainer = Trainer(model=model, device='gpu', max_duration=max_duration, train_dataloader=train_dataloader)
         # Run fit to ensure there are no device mismatches
         trainer.fit()
 
@@ -405,15 +410,24 @@ class TestTrainerInitOrFit:
         map_collection(trainer.state.optimizers, _assert_optimizer_is_on_device)
 
     @pytest.mark.gpu
-    def test_device_with_checkpoint(self, model: ComposerModel, tmp_path: pathlib.Path):
+    def test_device_with_checkpoint(
+        self,
+        model: ComposerModel,
+        tmp_path: pathlib.Path,
+        max_duration: Time[int],
+        train_dataloader: DataLoader,
+    ):
         copied_model = copy.deepcopy(model)
-        trainer = Trainer(model=model, device='gpu')
+        trainer = Trainer(model=model, device='gpu', max_duration=max_duration, train_dataloader=train_dataloader)
         checkpoint_path = str(tmp_path / 'checkpoint.pt')
         trainer.save_checkpoint(checkpoint_path)
 
-        trainer_2 = Trainer(model=copied_model, load_path=checkpoint_path)
+        trainer_2 = Trainer(model=copied_model,
+                            load_path=checkpoint_path,
+                            max_duration=max_duration,
+                            train_dataloader=train_dataloader)
         # Run fit to ensure there are no device mismatches
-        trainer_2.fit()
+        trainer_2.fit(reset_time=True)
 
         # And ensure the device on the new trainer is correct
         assert all(p.device.type == 'cuda' for p in trainer_2.state.model.parameters())
