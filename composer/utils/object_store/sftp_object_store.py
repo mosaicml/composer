@@ -182,7 +182,7 @@ class SFTPObjectStore(ObjectStore):
             if isinstance(e, SSHException):
                 if 'Server connection dropped:' in str(e):
                     raise ObjectStoreTransientError from e
-            if isinstance(e, (TimeoutError, ConnectionError)):
+            if isinstance(e, (TimeoutError, ConnectionError, EOFError)):
                 raise ObjectStoreTransientError from e
             raise e
 
