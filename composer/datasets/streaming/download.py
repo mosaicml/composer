@@ -41,7 +41,7 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
 def download_from_sftp(remote: str, local: str) -> None:
     """Download a file from remote SFTP server to local filepath.
 
-    Authentication must be provided via username/password in the `remote` URI, or a valid SSH config, or a default key
+    Authentication must be provided via username/password in the ``remote`` URI, or a valid SSH config, or a default key
     discoverable in ``~/.ssh/``.
 
     Args:
@@ -109,6 +109,7 @@ def download_from_local(remote: str, local: str) -> None:
 
 def dispatch_download(remote: Optional[str], local: str, timeout: float):
     """Use the correct download handler to download the file
+
     Args:
         remote (Optional[str]): Remote path (local filesystem).
         local (str): Local path (local filesystem).
