@@ -43,7 +43,7 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
     try:
         s3.download_file(obj.netloc, obj.path.lstrip('/'), local)
     except ClientError as e:
-        _ensure_not_found_errors_are_wrapped(e)
+        _ensure_not_found_errors_are_wrapped(remote, e)
 
 
 def download_from_sftp(remote: str, local: str) -> None:
