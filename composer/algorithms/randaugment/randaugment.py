@@ -20,23 +20,23 @@ from composer.core import Algorithm, Event, State
 from composer.datasets.utils import add_vision_dataset_transform
 from composer.loggers import Logger
 
-__all__ = ['RandAugment', "RandAugmentTransform", 'randaugment_image']
+__all__ = ['RandAugment', 'RandAugmentTransform', 'randaugment_image']
 
-ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
+ImgT = TypeVar('ImgT', torch.Tensor, PillowImage)
 
 
 def randaugment_image(img: ImgT,
                       severity: int = 9,
                       depth: int = 2,
-                      augmentation_set: List = augmentation_sets["all"]) -> ImgT:
-    """Randomly applies a sequence of image data augmentations
-    (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_) to an image or batch of
-    images. See :class:`.RandAugment` or the
-    :doc:`Method Card </method_cards/randaugment>` for details. This function only acts on
-    a single image (or batch of images) per call and is unlikely to be used in a training
-    loop. Use :class:`.RandAugmentTransform`
-    to use RandAugment as part of a :class:`torchvision.datasets.VisionDataset`\\'s
-    ``transform``.
+                      augmentation_set: List = augmentation_sets['all']) -> ImgT:
+    """Randomly applies a sequence of image data augmentations  to an image or batch of images.
+
+    This technique is adapted from `Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_).
+
+    See :class:`.RandAugment` or the :doc:`Method Card </method_cards/randaugment>`
+    for details. This function only acts on a single image (or batch of images) per call and
+    is unlikely to be used in a training loop. Use :class:`.RandAugmentTransform` to use
+    :class:`.RandAugment` as part of a :class:`torchvision.datasets.VisionDataset` ``transform``.
 
     Example:
         .. testcode::
@@ -56,8 +56,7 @@ def randaugment_image(img: ImgT,
         img (PIL.Image.Image | torch.Tensor): Image or batch of images to be RandAugmented.
         severity (int, optional): See :class:`.RandAugment`.
         depth (int, optional): See :class:`.RandAugment`.
-        augmentation_set (str, optional): See
-            :class:`.RandAugment`.
+        augmentation_set (str, optional): See :class:`.RandAugment`.
 
     Returns:
         PIL.Image: RandAugmented image.
@@ -75,10 +74,9 @@ def randaugment_image(img: ImgT,
 
 
 class RandAugmentTransform(torch.nn.Module):
-    """Wraps :func:`.randaugment_image` in a
-    ``torchvision``-compatible transform. See
-    :class:`.RandAugment` or the :doc:`Method
-    Card </method_cards/randaugment>` for more details.
+    """Wraps :func:`.randaugment_image` in a ``torchvision``-compatible transform.
+
+    See :class:`.RandAugment` or the :doc:`Method Card </method_cards/randaugment>` for more details.
 
     Example:
         .. testcode::
@@ -91,7 +89,10 @@ class RandAugmentTransform(torch.nn.Module):
                 depth=2,
                 augmentation_set="all"
             )
-            composed = transforms.Compose([randaugment_transform, transforms.RandomHorizontalFlip()])
+            composed = transforms.Compose([
+                randaugment_transform,
+                transforms.RandomHorizontalFlip()
+            ])
             transformed_image = composed(image)
 
     Args:
@@ -101,14 +102,14 @@ class RandAugmentTransform(torch.nn.Module):
             :class:`.RandAugment`.
     """
 
-    def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = "all"):
+    def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = 'all'):
         super().__init__()
         if severity < 0 or severity > 10:
-            raise ValueError("RandAugment severity value must satisfy 0 ≤ severity ≤ 10")
+            raise ValueError('RandAugment severity value must satisfy 0 ≤ severity ≤ 10')
         if depth < 0:
-            raise ValueError("RandAugment depth value must be ≥ 0")
+            raise ValueError('RandAugment depth value must be ≥ 0')
         if augmentation_set not in augmentation_sets.keys():
-            raise KeyError(f"RandAugment augmentation_set is not one of {augmentation_sets.keys()}")
+            raise KeyError(f'RandAugment augmentation_set is not one of {augmentation_sets.keys()}')
         self.severity = severity
         self.depth = depth
         self.augmentation_set = augmentation_sets[augmentation_set]
@@ -121,12 +122,12 @@ class RandAugmentTransform(torch.nn.Module):
 
 
 class RandAugment(Algorithm):
-    """Randomly applies a sequence of image data augmentations (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_)
-    to an image.
+    """Randomly applies a sequence of image data augmentations to an image.
 
-    This algorithm runs on on :attr:`~composer.core.event.Event.INIT` to insert a dataset
+    This algorithm (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_) runs on
+    :attr:`~composer.core.event.Event.INIT` to insert a dataset
     transformation. It is a no-op if this algorithm already applied itself on the
-    :attr:`State.train_dataloader.dataset`.
+    :attr:`.State.train_dataloader.dataset`.
 
     See the :doc:`Method Card </method_cards/randaugment>` for more details.
 
@@ -153,17 +154,18 @@ class RandAugment(Algorithm):
     Args:
         severity (int, optional): Severity of augmentation operators (between 1 to 10). M
             in the original paper. Default: ``9``.
-        depth (int, optional): Depth of augmentation chain. N in the original paper
+        depth (int, optional): Depth of augmentation chain. N in the original paper.
             Default: ``2``.
-        augmentation_set (str, optional): Must be one of the following options:
+        augmentation_set (str, optional): Must be one of the following options
+            as also described in :attr:`.augmentation_primitives.augmentation_sets`:
 
-            * ``"augmentations_all"``
+            * ``"all"``
                 Uses all augmentations from the paper.
-            * ``"augmentations_corruption_safe"``
-                Like ``"augmentations_all"``, but excludes transforms that are part of
+            * ``"safe"``
+                Like ``"all"``, but excludes transforms that are part of
                 the ImageNet-C/CIFAR10-C test sets
-            * ``"augmentations_original"``
-                Like ``"augmentations_all"``, but some of the implementations
+            * ``"original"``
+                Like ``"all"``, but some of the implementations
                 are identical to the original Github repository, which contains
                 implementation specificities for the augmentations
                 ``"color"``, ``"contrast"``, ``"sharpness"``, and ``"brightness"``. The
@@ -172,18 +174,18 @@ class RandAugment(Algorithm):
                 :math:`intensity \\times 0.18 + .1`, which ranges from 0.28 (intensity =
                 1) to 1.9 (intensity 10). These augmentations have different effects
                 depending on whether they are < 0 or > 0 (or < 1 or > 1).
-                "augmentations_all" uses implementations of "color", "contrast",
-                "sharpness", and "brightness" that account for diverging effects around 0
-                (or 1).
+                ``"all"`` uses implementations of ``"color"``, ``"contrast"``,
+                ``"sharpness"``, and ``"brightness"`` that account for diverging effects
+                around 0 (or 1).
 
             Default: ``"all"``.
     """
 
-    def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = "all"):
+    def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = 'all'):
         if severity < 0 or severity > 10:
-            raise ValueError("RandAugment severity value must be 0 ≤ severity ≤ 10")
+            raise ValueError('RandAugment severity value must be 0 ≤ severity ≤ 10')
         if augmentation_set not in augmentation_sets.keys():
-            raise KeyError(f"randaugment_augmentation_set is not one of {augmentation_sets.keys()}")
+            raise KeyError(f'randaugment_augmentation_set is not one of {augmentation_sets.keys()}')
         self.severity = severity
         self.depth = depth
         self.augmentation_set = augmentation_set
@@ -192,14 +194,14 @@ class RandAugment(Algorithm):
     def match(self, event: Event, state: State) -> bool:
         if event != Event.FIT_START:
             return False
-        assert state.dataloader is not None, "dataloader should be defined on fit start"
+        assert state.dataloader is not None, 'dataloader should be defined on fit start'
         if not isinstance(state.dataloader, torch.utils.data.DataLoader):
-            raise TypeError(f"{type(self).__name__} requires a PyTorch dataloader.")
+            raise TypeError(f'{type(self).__name__} requires a PyTorch dataloader.')
         return state.dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         ra = RandAugmentTransform(severity=self.severity, depth=self.depth, augmentation_set=self.augmentation_set)
-        assert isinstance(state.dataloader, torch.utils.data.DataLoader), "The dataloader type is checked on match()"
+        assert isinstance(state.dataloader, torch.utils.data.DataLoader), 'The dataloader type is checked on match()'
         dataset = state.dataloader.dataset
         if not isinstance(dataset, VisionDataset):
             raise TypeError(

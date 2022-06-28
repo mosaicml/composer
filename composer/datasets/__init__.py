@@ -1,44 +1,19 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Natively supported datasets.
+"""Natively supported datasets."""
 
-Modules in datasets namespace define utilities and mechanisms to create dataloaders from the given hyperparameters.  Two
-of the important classes in this module are described below:
-
-* All datasets derive from the abstract base class :class:`~.DatasetHparams` and it contains common parameters such as
-  ``shuffle``. :class:`~.DatasetHparams` returns a dataloader (a :class:`torch.utils.data.DataLoader` or a
-  :class:`~.DataSpec`) for the trainer.
-
-* :class:`~.DataLoaderHparams` contains the :class:`torch.utils.data.DataLoader` settings that are common across
-  both training and eval datasets. See the documentation of :class:`~.DataLoaderHparams` for more details on these
-  settings.
-"""
-
-from composer.datasets.ade20k import ADE20kDatasetHparams, ADE20kWebDatasetHparams, StreamingADE20kHparams
-from composer.datasets.brats import BratsDatasetHparams
-from composer.datasets.c4 import C4DatasetHparams
-from composer.datasets.cifar import (CIFAR10DatasetHparams, CIFAR10WebDatasetHparams, CIFAR20WebDatasetHparams,
-                                     CIFAR100WebDatasetHparams)
-from composer.datasets.coco import COCODatasetHparams, StreamingCOCOHparams
-from composer.datasets.dataloader import DataLoaderHparams
-from composer.datasets.dataset_registry import get_dataset_registry
-from composer.datasets.evaluator import EvaluatorHparams
-from composer.datasets.glue import GLUEHparams
-from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
-from composer.datasets.imagenet import (Imagenet1kWebDatasetHparams, ImagenetDatasetHparams, StreamingImageNet1kHparams,
-                                        TinyImagenet200WebDatasetHparams)
-from composer.datasets.lm_datasets import LMDatasetHparams
-from composer.datasets.mnist import MNISTDatasetHparams, MNISTWebDatasetHparams
-from composer.datasets.synthetic import (MemoryFormat, SyntheticBatchPairDataset, SyntheticDataLabelType,
-                                         SyntheticDataType, SyntheticPILDataset)
+from composer.datasets.ade20k import ADE20k, StreamingADE20k
+from composer.datasets.brats import PytTrain, PytVal
+from composer.datasets.c4 import C4Dataset, StreamingC4
+from composer.datasets.cifar import StreamingCIFAR10
+from composer.datasets.coco import COCODetection, StreamingCOCO
+from composer.datasets.imagenet import StreamingImageNet1k
+from composer.datasets.synthetic import (SyntheticBatchPairDataset, SyntheticDataLabelType, SyntheticDataType,
+                                         SyntheticPILDataset)
 
 __all__ = [
-    "ADE20kDatasetHparams", "StreamingADE20kHparams", "ADE20kWebDatasetHparams", "BratsDatasetHparams",
-    "C4DatasetHparams", "CIFAR10DatasetHparams", "CIFAR10WebDatasetHparams", "CIFAR20WebDatasetHparams",
-    "CIFAR100WebDatasetHparams", "COCODatasetHparams", "StreamingCOCOHparams", "DataLoaderHparams",
-    "get_dataset_registry", "EvaluatorHparams", "GLUEHparams", "DatasetHparams", "SyntheticHparamsMixin",
-    "WebDatasetHparams", "Imagenet1kWebDatasetHparams", "ImagenetDatasetHparams", "TinyImagenet200WebDatasetHparams",
-    "StreamingImageNet1kHparams", "LMDatasetHparams", "MNISTDatasetHparams", "MNISTWebDatasetHparams", "MemoryFormat",
-    "SyntheticBatchPairDataset", "SyntheticDataLabelType", "SyntheticDataType", "SyntheticPILDataset"
+    'ADE20k', 'StreamingADE20k', 'PytTrain', 'PytVal', 'C4Dataset', 'StreamingC4', 'StreamingCIFAR10', 'COCODetection',
+    'StreamingCOCO', 'StreamingImageNet1k', 'SyntheticBatchPairDataset', 'SyntheticDataLabelType', 'SyntheticDataType',
+    'SyntheticPILDataset'
 ]

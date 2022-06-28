@@ -13,11 +13,9 @@ from composer.loggers import Logger
 
 
 class ThresholdStopper(Callback):
-    """This callback tracks a training or evaluation metric and halts training when the
-    metric value reaches a certain threshold.
+    """Halt training when a metric value reaches a certain threshold.
 
-    Example
-
+    Example:
     .. doctest::
 
         >>> from composer.callbacks.threshold_stopper import ThresholdStopper
@@ -73,16 +71,16 @@ class ThresholdStopper(Callback):
         if callable(comp):
             self.comp_func = comp
         if isinstance(comp, str):
-            if comp.lower() in ("greater", "gt"):
+            if comp.lower() in ('greater', 'gt'):
                 self.comp_func = torch.greater
-            elif comp.lower() in ("less", "lt"):
+            elif comp.lower() in ('less', 'lt'):
                 self.comp_func = torch.less
             else:
                 raise ValueError(
                     "Unrecognized comp string. Use the strings 'gt', 'greater', 'lt' or 'less' or a callable comparison operator"
                 )
         if comp is None:
-            if any(substr in monitor.lower() for substr in ["loss", "error", "perplexity"]):
+            if any(substr in monitor.lower() for substr in ['loss', 'error', 'perplexity']):
                 self.comp_func = torch.less
             else:
                 self.comp_func = torch.greater

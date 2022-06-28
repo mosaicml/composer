@@ -8,7 +8,7 @@ import textwrap
 import warnings
 from enum import Enum
 
-__all__ = ["StringEnum"]
+__all__ = ['StringEnum']
 
 
 class StringEnum(Enum):
@@ -73,7 +73,7 @@ class StringEnum(Enum):
             cls_name = self.__class__.__name__
             warnings.warn(
                 f"Detected comparision between a string and {cls_name}. Please use {cls_name}('{other}') "
-                f"to convert both types to {cls_name} before comparing.",
+                f'to convert both types to {cls_name} before comparing.',
                 category=UserWarning)
             try:
                 o_enum = type(self)(other)
@@ -108,5 +108,5 @@ class StringEnum(Enum):
             except KeyError:
                 if value.lower() != value:
                     return cls(value.lower())
-                raise ValueError(f"Value {value} not found in {cls.__name__}")
-        raise TypeError(f"Unable to convert value({value}) of type {type(value)} into {cls.__name__}")
+                raise ValueError(f'Value {value} not found in {cls.__name__}')
+        raise TypeError(f'Unable to convert value({value}) of type {type(value)} into {cls.__name__}')
