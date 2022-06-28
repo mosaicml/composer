@@ -14,14 +14,14 @@ from composer.algorithms.stochastic_depth.stochastic_depth import _STOCHASTIC_LA
 from composer.algorithms.stochastic_depth.stochastic_layers import make_resnet_bottleneck_stochastic
 from composer.core import Event, State
 from composer.core.time import TimeUnit
-from composer.models import create_composer_resnet
+from composer.models import composer_resnet
 from composer.utils import module_surgery
 
 
 @pytest.fixture()
 def state(minimal_state: State):
     """stochastic depth tests require ResNet model."""
-    minimal_state.model = create_composer_resnet(model_name='resnet50', num_classes=100)
+    minimal_state.model = composer_resnet(model_name='resnet50', num_classes=100)
     return minimal_state
 
 

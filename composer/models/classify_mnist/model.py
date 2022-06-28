@@ -12,7 +12,7 @@ from torch.nn import functional as F
 from composer.models.initializers import Initializer
 from composer.models.tasks import ComposerClassifier
 
-__all__ = ['Model', 'create_mnist_model']
+__all__ = ['Model', 'mnist_model']
 
 
 class Model(nn.Module):
@@ -46,7 +46,7 @@ class Model(nn.Module):
         return self.fc2(out)
 
 
-def create_mnist_model(num_classes: int = 10, initializers: Optional[List[Initializer]] = None):
+def mnist_model(num_classes: int = 10, initializers: Optional[List[Initializer]] = None):
     """Helper function to create a :class:`.ComposerClassifier` with a simple convolutional neural network.
 
     Args:
@@ -58,9 +58,9 @@ def create_mnist_model(num_classes: int = 10, initializers: Optional[List[Initia
 
     .. testcode::
 
-        from composer.models import create_mnist_model
+        from composer.models import mnist_model
 
-        model = create_mnist_model()
+        model = mnist_model()
     """
 
     if initializers is None:

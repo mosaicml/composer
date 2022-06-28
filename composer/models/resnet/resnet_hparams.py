@@ -1,21 +1,21 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :func:`.create_composer_resnet`."""
+"""`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :func:`.composer_resnet`."""
 
 from dataclasses import dataclass
 
 import yahp as hp
 
 from composer.models.model_hparams import ModelHparams
-from composer.models.resnet.model import create_composer_resnet, valid_model_names
+from composer.models.resnet.model import composer_resnet, valid_model_names
 
 __all__ = ['ResNetHparams']
 
 
 @dataclass
 class ResNetHparams(ModelHparams):
-    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :func:`.create_composer_resnet`.
+    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :func:`.composer_resnet`.
 
     Args:
         model_name (str): Name of the ResNet model instance. Either [``"resnet18"``, ``"resnet34"``, ``"resnet50"``, ``"resnet101"``,
@@ -47,10 +47,10 @@ class ResNetHparams(ModelHparams):
     def initialize_object(self):
         if self.num_classes is None:
             raise ValueError('num_classes must be specified')
-        return create_composer_resnet(model_name=self.model_name,
-                                      num_classes=self.num_classes,
-                                      pretrained=self.pretrained,
-                                      groups=self.groups,
-                                      width_per_group=self.width_per_group,
-                                      initializers=self.initializers,
-                                      loss_name=self.loss_name)
+        return composer_resnet(model_name=self.model_name,
+                               num_classes=self.num_classes,
+                               pretrained=self.pretrained,
+                               groups=self.groups,
+                               width_per_group=self.width_per_group,
+                               initializers=self.initializers,
+                               loss_name=self.loss_name)

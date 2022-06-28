@@ -8,9 +8,9 @@ The ResNet model family is a set of convolutional neural networks that can be us
 ## How to Use
 
 ```python
-from composer.models import create_composer_resnet
+from composer.models import composer_resnet
 
-model = create_composer_resnet(
+model = composer_resnet(
     model_name="resnet50",
     num_classes=1000,
     pretrained=False
@@ -72,6 +72,6 @@ Code and hyperparameters: [DeepLearningExamples Github repository](https://githu
 ## API Reference
 
 ```{eval-rst}
-.. autofunction:: composer.models.resnet.model.create_composer_resnet
+.. autofunction:: composer.models.resnet.model.composer_resnet
     :noindex:
 ```

@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 from composer import Trainer
-from composer.models import create_mnist_model
+from composer.models import mnist_model
 from composer.profiler import JSONTraceHandler, cyclic_schedule
 from composer.profiler.profiler import Profiler
 
@@ -38,7 +38,7 @@ train_dataloader = DataLoader(
 # [dataloader-end]
 
 # Instantiate Model
-model = create_mnist_model(num_classes=10)
+model = mnist_model(num_classes=10)
 
 # [trainer-start]
 # Instantiate the trainer

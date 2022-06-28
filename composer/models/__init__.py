@@ -15,7 +15,7 @@ from composer.models.bert import BERTHparams as BERTHparams
 from composer.models.bert import create_bert_classification as create_bert_classification
 from composer.models.bert import create_bert_mlm as create_bert_mlm
 from composer.models.classify_mnist import MnistClassifierHparams as MnistClassifierHparams
-from composer.models.classify_mnist import create_mnist_model as create_mnist_model
+from composer.models.classify_mnist import mnist_model as mnist_model
 from composer.models.deeplabv3 import DeepLabV3Hparams as DeepLabV3Hparams
 from composer.models.deeplabv3 import composer_deeplabv3 as composer_deeplabv3
 from composer.models.efficientnetb0 import EfficientNetB0Hparams as EfficientNetB0Hparams
@@ -26,7 +26,7 @@ from composer.models.huggingface import HuggingFaceModel as HuggingFaceModel
 from composer.models.initializers import Initializer as Initializer
 from composer.models.model_hparams import ModelHparams as ModelHparams
 from composer.models.resnet import ResNetHparams as ResNetHparams
-from composer.models.resnet import create_composer_resnet as create_composer_resnet
+from composer.models.resnet import composer_resnet as composer_resnet
 from composer.models.resnet_cifar import ResNetCIFARHparams as ResNetCIFARHparams
 from composer.models.resnet_cifar import composer_resnet_cifar as composer_resnet_cifar
 from composer.models.ssd import SSD as SSD

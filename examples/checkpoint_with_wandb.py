@@ -12,7 +12,7 @@ from torchvision.transforms import ToTensor
 
 from composer import Trainer
 from composer.loggers import WandBLogger
-from composer.models.classify_mnist import create_mnist_model
+from composer.models.classify_mnist import mnist_model
 
 # Configure the WandBLogger to log artifacts, and set the project name
 # The project name must be deterministic, so we can restore from it
@@ -23,7 +23,7 @@ wandb_logger = WandBLogger(
 
 # Configure the trainer -- here, we train a simple MNIST classifier
 print('Starting the first training run\n')
-model = create_mnist_model(num_classes=10)
+model = mnist_model(num_classes=10)
 optimizer = SGD(model.parameters(), lr=0.01)
 train_dataloader = torch.utils.data.DataLoader(
     dataset=MNIST('~/datasets', train=True, download=True, transform=ToTensor()),

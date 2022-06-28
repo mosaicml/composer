@@ -15,20 +15,20 @@ from composer.metrics import CrossEntropy
 from composer.models.initializers import Initializer
 from composer.models.tasks import ComposerClassifier
 
-__all__ = ['create_composer_resnet']
+__all__ = ['composer_resnet']
 
 log = logging.getLogger(__name__)
 
 valid_model_names = ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']
 
 
-def create_composer_resnet(model_name: str,
-                           num_classes: int = 1000,
-                           pretrained: bool = False,
-                           groups: int = 1,
-                           width_per_group: int = 64,
-                           initializers: Optional[List[Initializer]] = None,
-                           loss_name: str = 'soft_cross_entropy') -> ComposerClassifier:
+def composer_resnet(model_name: str,
+                    num_classes: int = 1000,
+                    pretrained: bool = False,
+                    groups: int = 1,
+                    width_per_group: int = 64,
+                    initializers: Optional[List[Initializer]] = None,
+                    loss_name: str = 'soft_cross_entropy') -> ComposerClassifier:
     """Helper function to create a :class:`.ComposerClassifier` with a torchvision ResNet model.
 
     From `Deep Residual Learning for Image Recognition <https://arxiv.org/abs/1512.03385>`_ (He et al, 2015).
@@ -51,9 +51,9 @@ def create_composer_resnet(model_name: str,
 
     .. testcode::
 
-        from composer.models import create_composer_resnet
+        from composer.models import composer_resnet
 
-        model = create_composer_resnet(model_name='resnet18')  # creates a torchvision resnet18 for image classification
+        model = composer_resnet(model_name='resnet18')  # creates a torchvision resnet18 for image classification
     """
 
     valid_model_names = ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']
