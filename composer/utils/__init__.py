@@ -5,8 +5,9 @@
 from composer.utils.batch_helpers import batch_get, batch_set
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.collect_env import configure_excepthook, disable_env_report, enable_env_report, print_env
-from composer.utils.file_helpers import (ensure_folder_has_no_conflicting_files, ensure_folder_is_empty,
-                                         format_name_with_dist, format_name_with_dist_and_time, get_file, is_tar)
+from composer.utils.file_helpers import (create_symlink_file, ensure_folder_has_no_conflicting_files,
+                                         ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time,
+                                         get_file, is_tar)
 from composer.utils.import_helpers import MissingConditionalImportError, import_object
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_collection
 from composer.utils.object_store import LibcloudObjectStore, ObjectStore, ObjectStoreTransientError
@@ -18,6 +19,7 @@ __all__ = [
     'map_collection',
     'IteratorFileStream',
     'get_file',
+    'create_symlink_file',
     'ObjectStore',
     'ObjectStoreTransientError',
     'LibcloudObjectStore',

@@ -14,42 +14,76 @@ import numpy as np
 from torch.utils.data import IterableDataset
 
 from composer.datasets.streaming.download import download_or_wait
-from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict, get_index_basename,
-                                                get_shard_basename)
+from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict,
+                                                get_compression_scheme_basename, get_index_basename, get_shard_basename,
+                                                split_compression_suffix)
 from composer.datasets.streaming.world import get_world
 from composer.utils import dist
 
 __all__ = ['StreamingDataset']
 
 
+class DatasetCompressionException(Exception):
+    pass
+
+
 class StreamingDataset(IterableDataset):
     """A sharded, streaming, iterable dataset.
 
-    :class:`StreamingDataset` reads samples from binary `.mds` files that were written out by :class:`StreamingDatasetWriter`.
+    Features:
 
-    It currently supports downloading data from etiher S3 paths or local filepaths.
+    * :class:`StreamingDataset` reads samples from binary ``.mds`` files that were written out by
+      :class:`StreamingDatasetWriter`.
+    * Supports downloading data from S3, SFTP, or local filesystem.
+    * Supports multi-gpu and multi-node training, with smart local caching to minimize network bandwidth.
+    * Also provides best-effort shuffling to preserve randomness when ``shuffle=True``.
 
-    It supports multi-gpu + multi-node training, and has smart local cacheing to minimize network bandwidth.
+    When ``batch_size`` is provided, worker indices will be constructed so that there is at most one incomplete batch at
+    the end of each epoch. For example, if the DataLoader is reading over::
 
-    It also provides best-effort shuffling to preserve randomness when ``shuffle=True``.
+        samples: [0, 1, 2, 3, 4, 5, 6, 7]
+        num_workers: 3
+        batch_size: 2
+        drop_last: True
+
+    but ``batch_size`` is not hinted to the StreamingDataset ahead of time, then the samples will by default be assigned
+    like::
+
+        worker 0: [0, 1, 2]
+        worker 1: [3, 4, 5]
+        worker 2: [6, 7]
+
+    and will be read as batches like (with samples [2] and [5] dropped as incomplete)::
+
+        batch 0: [0, 1]
+        batch 1: [3, 4]
+        batch 2: [6, 7]
+
+    The above is suboptimal because we could have dropped no samples. So when ``batch_size`` is provided as a hint, we
+    assign samples like this::
+
+        worker 0: [0, 1, 2, 3]
+        worker 1: [4, 5]
+        worker 2: [6, 7]
+
+    which will be read as batches like::
+
+        batch 0: [0, 1]
+        batch 1: [4, 5]
+        batch 2: [6, 7]
+        batch 3: [2, 3]
 
     Args:
-        remote (str): Download shards from this remote S3 path or directory.
+        remote (Optional[str]): Download shards from this remote path or directory.
         local (str): Download shards to this local directory for for caching.
-        shuffle (bool): Whether to shuffle the samples.  Note that if `shuffle=False`, the sample order is deterministic but dependent on the DataLoader's `num_workers`.
-        decoders (Dict[str, Callable[bytes, Any]]]): For each sample field you wish to read, you must provide a decoder to convert the raw bytes to an object.
+        shuffle (bool): Whether to shuffle the samples.  Note that if ``shuffle=False``, the sample order is
+            deterministic but dependent on the DataLoader's ``num_workers``.
+        decoders (Dict[str, Callable[bytes, Any]]]): For each sample field you wish to read, you must provide a decoder
+            to convert the raw bytes to an object.
         max_retries (int): Number of download re-attempts before giving up. Default: 2.
         timeout (float): How long to wait for shard to download before raising an exception. Default: 60 sec.
-        batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default: ``None``.
-                                    Worker indices will be constructed so that there is at most 1 incomplete batch at the end of each epoch.
-                                    E.g. if the DataLoader is reading over (samples=[0, 1, 2, 3, 4, 5, 6, 7], num_workers=3, batch_size=2, drop_last=True)
-                                    but `batch_size` is not hinted to the StreamingDataset ahead of time
-                                    then the samples will by default be assigned like: w0: [0, 1, 2], w1: [3, 4, 5], w2: [6, 7]
-                                    and will be read as batches: [0, 1], [3, 4], [6, 7] (with batches [2] and [5] dropped as incomplete)
-                                    but this is suboptimal because we could have dropped no samples.
-                                    So when `batch_size` is provided as a hint, we assign samples like this: w0: [0, 1, 2, 3], w1: [4, 5], w2: [6, 7]
-                                    which will be read as batches: [0, 1], [4, 5], [6, 7], [2, 3]
-
+        batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default:
+            ``None``.
 
     .. doctest::
 
@@ -80,7 +114,7 @@ class StreamingDataset(IterableDataset):
     """
 
     def __init__(self,
-                 remote: str,
+                 remote: Optional[str],
                  local: str,
                  shuffle: bool,
                  decoders: Dict[str, Callable[[bytes], Any]],
@@ -96,10 +130,28 @@ class StreamingDataset(IterableDataset):
         self.timeout = timeout
         self.batch_size = batch_size
 
+        compression_basename = get_compression_scheme_basename()
+        if remote is not None:
+            try:
+                compression_local = self._download_file(compression_basename, wait=(dist.get_local_rank() != 0))
+                with open(compression_local, 'r') as fp:
+                    compression_scheme = fp.read()
+                    self.compression_scheme = compression_scheme if compression_scheme != '' else None
+                    if remote == local and self.compression_scheme is not None:
+                        raise DatasetCompressionException('cannot decompress when remote == local')
+
+                # remove compression metadata file, since local dataset is decompressed.
+                os.remove(compression_local)
+
+            except FileNotFoundError:
+                self.compression_scheme = None
+        else:
+            self.compression_scheme = None
+
         # Load the index file containing the shard metadata
         # This file contains the shard and offset in bytes of each sample (for direct access).
         # Only local device 0 on each node downloads the index. All other devices wait.
-        index_basename = get_index_basename()
+        index_basename = get_index_basename(self.compression_scheme)
         index_local = self._download_file(index_basename, wait=(dist.get_local_rank() != 0))
         with open(index_local, 'rb') as fp:
             self.index = StreamingDatasetIndex.load(fp)
@@ -111,7 +163,7 @@ class StreamingDataset(IterableDataset):
         self._downloaded_ids = []
         self._is_downloaded = False
 
-    def _download_file(self, basename: str, wait=False) -> str:
+    def _download_file(self, basename: str, wait: bool = False) -> str:
         """Safely download a file from remote to local cache.
 
         Args:
@@ -121,24 +173,25 @@ class StreamingDataset(IterableDataset):
         Returns:
             str: Local cache filename.
         """
-        remote = os.path.join(self.remote, basename)
+        if self.remote is None:
+            remote = self.remote
+        else:
+            remote = os.path.join(self.remote, basename)
         local = os.path.join(self.local, basename)
         download_or_wait(remote=remote, local=local, wait=wait, max_retries=self.max_retries, timeout=self.timeout)
+        local, _ = split_compression_suffix(local)
         return local
 
     def _insert_shard_samples(self, shard: int, part_min_id: int, part_max_id: int) -> None:
         """Load the given locally cached shard into the dataset.
 
-        Every time you call __iter__ on this dataset, it registers the list of
-        samples you have left, which will not be the full epoch if the dataset
-        isn't finished loaded when you start training.
+        Every time you call __iter__ on this dataset, it registers the list of samples you have left, which will not be
+        the full epoch if the dataset isn't finished loaded when you start training.
 
-        Calls to _insert_shard_samples during training modify the samples remaining on
-        these iterations on the fly to insert these new samples and then re-sort,
-        making the shuffle as perfect as was possible.
+        Calls to _insert_shard_samples during training modify the samples remaining on these iterations on the fly to
+        insert these new samples and then re-sort, making the shuffle as perfect as was possible.
 
-        This operation takes the lock, so batch your _insert_shard_samples calls where
-        possible.
+        This operation takes the lock, so batch your _insert_shard_samples calls where possible.
 
         Args:
             shard (int): Shard to load.
@@ -192,7 +245,7 @@ class StreamingDataset(IterableDataset):
             # If this worker is in charge of downloading the shard, download it.
             # Otherwise, wait until shard gets downloaded by another worker on this node
             # This produces deterministic sample order.
-            basename = get_shard_basename(shard)
+            basename = get_shard_basename(shard, compression_name=self.compression_scheme)
             self._download_file(basename, wait=(shard not in part_shards_to_download))
             self._insert_shard_samples(shard, part_min_id, part_max_id)
 
@@ -229,8 +282,7 @@ class StreamingDataset(IterableDataset):
     def __getitem__(self, idx: int) -> Any:
         """Get the sample at the index, assuming its shard is loaded.
 
-        Do not call this directly unless the shard containing this idx has been loaded.
-        Will crash otherwise.
+        Do not call this directly unless the shard containing this idx has been loaded. Will crash otherwise.
 
         Args:
             idx (int): Sample ID.
@@ -265,8 +317,7 @@ class StreamingDataset(IterableDataset):
     def _next_id(self, epoch: int) -> Optional[int]:
         """Get next sample of the growing epoch given by epoch, or None if done.
 
-        If we are currently out of samples but not finished downloading the
-        shards, blocks until it has new samples.
+        If we are currently out of samples but not finished downloading the shards, blocks until it has new samples.
 
         Args:
             epoch (int): The epoch, an identifier for this sequence of samples.
@@ -316,9 +367,8 @@ class StreamingDataset(IterableDataset):
     def __iter__(self) -> Iterator[Any]:
         """Iterate over all the samples in our partition.
 
-        If not all samples have been downloaded yet, iterates over what it has
-        while inserting the remainder into the sequence behind the scenes as it
-        progresses.
+        If not all samples have been downloaded yet, iterates over what it has while inserting the remainder into the
+        sequence behind the scenes as it progresses.
 
         Returns:
             Iterator[Any]: Each sample.

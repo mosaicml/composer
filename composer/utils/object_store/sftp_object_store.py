@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Utility for uploading to and downloading from cloud object stores."""
+
+from __future__ import annotations
+
 import os
 import pathlib
 import urllib.parse
@@ -14,6 +17,7 @@ from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTra
 __all__ = ['SFTPObjectStore']
 
 try:
+    import paramiko.client
     from paramiko import SSHClient
     _PARAMIKO_AVAILABLE = True
 except ImportError:
@@ -31,6 +35,8 @@ def _ensure_transient_errors_are_wrapped(e: Exception):
     if isinstance(e, SSHException):
         if 'Server connection dropped:' in str(e):
             raise ObjectStoreTransientError from e
+    if isinstance(e, (TimeoutError, ConnectionError)):
+        raise ObjectStoreTransientError from e
     raise e
 
 
@@ -52,6 +58,15 @@ class SFTPObjectStore(ObjectStore):
             specified in ``~/.ssh/`` or via a SSH agent.
         known_hosts_filename (pathlib.Path | str, optional): The filename of the known hosts file. If not specified,
             the default SSH known hosts will be used.
+        missing_host_key_policy (str | paramiko.client.MissingHostKeyPolicy): The class name or instance of
+            :class:`paramiko.client.MissingHostKeyPolicy` to use for a missing host key. Defaults to ``'RejectPolicy'``.
+
+            Built-in options:
+            *   ``'RejectPolicy'`` (the default), which will reject any host key not authorized in the ``known_hosts_filename``.
+            *   ``'AutoAddPolicy'``, which will add any unknown host key.
+            *   ``'WarningPolicy'``, which will warn on an unknown host key.
+
+            For custom logic, subclass :class:`paramiko.client.MissingHostKeyPolicy`, and provide an instance of this class.
         cwd (str, optional): The directory to navigate to upon creating the SSH connection. If not present
             it will be created.
         connect_kwargs (Dict[str, Any], optional): Any additional kwargs to pass through to :meth:`.SSHClient.connect`.
@@ -65,7 +80,8 @@ class SFTPObjectStore(ObjectStore):
         password: Optional[str] = None,
         known_hosts_filename: Optional[Union[pathlib.Path, str]] = None,
         key_filename: Optional[Union[pathlib.Path, str]] = None,
-        cwd: Optional[str] = None,
+        missing_host_key_policy: Union[str, paramiko.client.MissingHostKeyPolicy] = 'RejectPolicy',
+        cwd: str = '',
         connect_kwargs: Optional[Dict[str, Any]] = None,
     ):
         if not _PARAMIKO_AVAILABLE:
@@ -110,9 +126,9 @@ class SFTPObjectStore(ObjectStore):
         if key_filename:
             _set_kwarg(key_filename, connect_kwargs, arg_name='key_filename', kwarg_name='key_filename')
 
-        if cwd is not None:
-            if not cwd.endswith('/'):
-                cwd += '/'
+        if cwd and not cwd.endswith('/'):
+            cwd += '/'
+        self.cwd = cwd
 
         netloc = ''
         if username:
@@ -125,19 +141,24 @@ class SFTPObjectStore(ObjectStore):
         self._base_uri = urllib.parse.urlunsplit((
             'sftp',  # scheme
             netloc,  # netloc
-            '/' + (cwd or ''),  # path
+            '/' + cwd,  # path
             None,  # query
             None,  # fragment
         ))
         self.ssh_client = SSHClient()
         if known_hosts_filename is not None:
             known_hosts_filename = str(known_hosts_filename)
+        if isinstance(missing_host_key_policy, str):
+            try:
+                missing_host_key_policy = getattr(paramiko.client, missing_host_key_policy)()
+                assert isinstance(missing_host_key_policy, paramiko.client.MissingHostKeyPolicy)
+            except AttributeError:
+                raise ValueError(
+                    "Invalid `missing_host_key_policy`. Must be 'AutoAddPolicy', 'RejectPolicy', or 'WarningPolicy'.")
+        self.ssh_client.set_missing_host_key_policy(missing_host_key_policy)
         self.ssh_client.load_system_host_keys(known_hosts_filename)
         self.ssh_client.connect(**connect_kwargs)
         self.sftp_client = self.ssh_client.open_sftp()
-        if cwd:
-            self.ssh_client.exec_command(f'mkdir -p {cwd}')
-            self.sftp_client.chdir(cwd)
 
     def close(self):
         self.sftp_client.close()
@@ -147,6 +168,7 @@ class SFTPObjectStore(ObjectStore):
         return self._base_uri + object_name
 
     def get_object_size(self, object_name: str) -> int:
+        object_name = os.path.join(self.cwd, object_name)
         st_size = self.sftp_client.stat(object_name).st_size
         if st_size is None:
             raise RuntimeError('Cannot determine object size: stat(object_name).st_size is None')
@@ -158,6 +180,7 @@ class SFTPObjectStore(ObjectStore):
         filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
     ) -> None:
+        object_name = os.path.join(self.cwd, object_name)
         dirname = os.path.dirname(object_name)
         if dirname:
             self.ssh_client.exec_command(f'mkdir -p {dirname}')
@@ -166,11 +189,14 @@ class SFTPObjectStore(ObjectStore):
         except Exception as e:
             _ensure_transient_errors_are_wrapped(e)
 
-    def download_object(self,
-                        object_name: str,
-                        filename: Union[str, pathlib.Path],
-                        overwrite: bool = False,
-                        callback: Optional[Callable[[int, int], None]] = None) -> None:
+    def download_object(
+        self,
+        object_name: str,
+        filename: Union[str, pathlib.Path],
+        overwrite: bool = False,
+        callback: Optional[Callable[[int, int], None]] = None,
+    ) -> None:
+        object_name = os.path.join(self.cwd, object_name)
         dirname = os.path.dirname(filename)
         if dirname:
             os.makedirs(dirname, exist_ok=True)
