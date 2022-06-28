@@ -27,13 +27,16 @@ log = logging.getLogger(__name__)
 class ComposerClassifier(ComposerModel):
     """A convenience class that creates a :class:`.ComposerModel` for classification tasks from a vanilla PyTorch model.
     :class:`.ComposerClassifier` requires batches in the form: (``input``, ``target``) and includes a basic
-    classification training loop with :func:`.soft_cross_entropy` loss and accuracy logging.
+    classification training loop with a loss function `loss_fn` which takes in the model's outputs and the labels.
 
     Args:
         module (torch.nn.Module): A PyTorch neural network module.
-        loss_name (str, optional): Loss function to use. E.g. 'soft_cross_entropy' or
-            'binary_cross_entropy_with_logits'. Loss function must be in
-            :mod:`~composer.loss.loss`. Default: ``'soft_cross_entropy'``".
+        train_metrics (Metric | MetricCollection, optional): A torchmetric or collection of torchmetrics to be
+            computed on the training set throughout training.
+        val_metrics (Metric | MetricCollection, optional): A torchmetric or collection of torchmetrics to be
+            computed on the validation set throughout training.
+        loss_fn (Callable, optional): Loss function to use. This loss function should have at least two arguments:
+            1) the output of the model and 2) ``target`` i.e. labels from the dataset.
 
     Returns:
         ComposerClassifier: An instance of :class:`.ComposerClassifier`.
