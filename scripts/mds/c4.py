@@ -13,6 +13,7 @@ from typing import Any, Dict, Iterable, List, Tuple
 import datasets
 import torch
 from datasets import Dataset
+from torch.utils.data import DataLoader, IterableDataset, get_worker_info
 
 from composer.datasets.streaming import StreamingDatasetWriter
 
@@ -35,10 +36,26 @@ def get(split: str) -> Dataset:
     Returns:
         A HF Dataset.
     """
-    return datasets.load_dataset(path='c4', name='en', split=split)
+
+    class ShardedC4(IterableDataset):
+
+        def __init__(self):
+            self.dataset = datasets.load_dataset(path='c4', name='en', split=split, streaming=True)
+
+        def __iter__(self):
+            worker_info = get_worker_info()
+            if worker_info:
+                num_workers = worker_info.num_workers
+                worker_id = worker_info.id
+                shards = self.dataset._ex_iterable.kwargs['filepaths']
+                assert len(shards) % num_workers == 0
+                self.dataset._ex_iterable.kwargs['filepaths'] = shards[worker_id::num_workers]
+            return iter(self.dataset)
+
+    return ShardedC4()
 
 
-def each(dataset: Dataset) -> Iterable[Dict[str, bytes]]:
+def each(dataset: IterableDataset) -> Iterable[Dict[str, bytes]]:
     """Generator over each dataset sample.
 
     Args:
@@ -47,19 +64,24 @@ def each(dataset: Dataset) -> Iterable[Dict[str, bytes]]:
     Yields:
         Sample dicts.
     """
-    num_workers = 64
+    num_workers = 0
     batch_size = 512
-    prefetch_factor = max(1, 2 * batch_size // num_workers)
+    prefetch_factor = max(1, 2 * batch_size // num_workers) if num_workers > 0 else None
 
-    loader = torch.utils.data.DataLoader(dataset=dataset,
-                                         batch_size=batch_size,
-                                         num_workers=num_workers,
-                                         prefetch_factor=prefetch_factor)
+    loader = DataLoader(
+        dataset=dataset,
+        sampler=None,
+        batch_size=batch_size,
+        num_workers=num_workers,
+    )
     for batch in loader:
         keys = list(batch.keys())
         current_bs = len(batch[keys[0]])
         for idx in range(current_bs):
             yield {key: batch_values[idx].encode('utf-8') for key, batch_values in batch.items()}
+
+    # for sample in dataset:
+    #     yield {key: value.encode('utf-8') for key, value in sample.items()}
 
 
 def main(args: Namespace) -> None:
@@ -71,7 +93,7 @@ def main(args: Namespace) -> None:
     fields = ['text', 'timestamp', 'url']
 
     for (split, split_new_name, expected_num_samples) in [
-        ('train', 'train', 364868892),
+            # ('train', 'train', 364868892),
         ('validation', 'val', 364608),
     ]:
         # Get dataset
