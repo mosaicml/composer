@@ -60,7 +60,7 @@ def mnist_model(num_classes: int = 10, initializers: Optional[List[Initializer]]
 
         from composer.models import mnist_model
 
-        model = create_mnist_model()
+        model = mnist_model()
     """
 
     if initializers is None:
