@@ -15,8 +15,8 @@ from composer.models.bert import BERTHparams as BERTHparams
 from composer.models.bert import BERTModel as BERTModel
 from composer.models.classify_mnist import MnistClassifierHparams as MnistClassifierHparams
 from composer.models.classify_mnist import create_mnist_model as create_mnist_model
-from composer.models.deeplabv3 import ComposerDeepLabV3 as ComposerDeepLabV3
 from composer.models.deeplabv3 import DeepLabV3Hparams as DeepLabV3Hparams
+from composer.models.deeplabv3 import composer_deeplabv3 as composer_deeplabv3
 from composer.models.efficientnetb0 import EfficientNetB0 as EfficientNetB0
 from composer.models.efficientnetb0 import EfficientNetB0Hparams as EfficientNetB0Hparams
 from composer.models.gpt2 import GPT2Hparams as GPT2Hparams
