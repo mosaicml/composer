@@ -57,14 +57,15 @@ class TensorboardLogger(LoggerDestination):
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         del log_level
 
-        if (not self.rank_zero_only) or dist.get_global_rank() == 0:
-            for tag, data_point in data.items():
-                if isinstance(data_point, str):  # Will error out with weird caffe2 import error.
-                    continue
-                try:
-                    self.writer.add_scalar(tag, data_point, global_step=int(state.timestamp.batch))
-                except NotImplementedError:
-                    pass
+        if self.rank_zero_only and dist.get_global_rank() != 0:
+            return
+        for tag, data_point in data.items():
+            if isinstance(data_point, str):  # Will error out with weird caffe2 import error.
+                continue
+            try:
+                self.writer.add_scalar(tag, data_point, global_step=int(state.timestamp.batch))
+            except NotImplementedError:
+                pass
 
     def init(self, state: State, logger: Logger) -> None:
         if self.run_name is None:
