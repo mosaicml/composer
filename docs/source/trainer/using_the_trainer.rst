@@ -205,11 +205,11 @@ well as Composer's custom schedulers.
 .. testcode::
 
     from composer import Trainer
-    from composer.models import ComposerResNet
+    from composer.models import create_composer_resnet
     from torch.optim import SGD
     from torch.optim.lr_scheduler import LinearLR
 
-    model = ComposerResNet(model_name="resnet50", num_classes=1000)
+    model = create_composer_resnet(model_name="resnet50", num_classes=1000)
     optimizer = SGD(model.parameters(), lr=0.1)
     scheduler = LinearLR(optimizer)
 

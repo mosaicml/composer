@@ -1,21 +1,21 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.ComposerResNet`."""
+"""`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :func:`.create_composer_resnet`."""
 
 from dataclasses import dataclass
 
 import yahp as hp
 
 from composer.models.model_hparams import ModelHparams
-from composer.models.resnet.model import ComposerResNet
+from composer.models.resnet.model import create_composer_resnet, valid_model_names
 
 __all__ = ['ResNetHparams']
 
 
 @dataclass
 class ResNetHparams(ModelHparams):
-    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.ComposerResNet`.
+    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :func:`.create_composer_resnet`.
 
     Args:
         model_name (str): Name of the ResNet model instance. Either [``"resnet18"``, ``"resnet34"``, ``"resnet50"``, ``"resnet101"``,
@@ -30,8 +30,7 @@ class ResNetHparams(ModelHparams):
     """
 
     model_name: str = hp.optional(
-        f"ResNet architecture to instantiate, must be one of {ComposerResNet.valid_model_names}. (default: '')",
-        default='')
+        f"ResNet architecture to instantiate, must be one of {valid_model_names}. (default: '')", default='')
     pretrained: bool = hp.optional('If true, use ImageNet pretrained weights. (default: ``False``)', default=False)
     groups: int = hp.optional(
         'Number of filter groups for the 3x3 convolution layer in bottleneck block. (default: ``1``)', default=1)
@@ -42,19 +41,16 @@ class ResNetHparams(ModelHparams):
         default='soft_cross_entropy')
 
     def validate(self):
-        if self.model_name not in ComposerResNet.valid_model_names:
-            raise ValueError(f'model_name must be one of {ComposerResNet.valid_model_names}, but got {self.model_name}')
-
         if self.num_classes is None:
             raise ValueError('num_classes must be specified')
 
     def initialize_object(self):
         if self.num_classes is None:
             raise ValueError('num_classes must be specified')
-        return ComposerResNet(model_name=self.model_name,
-                              num_classes=self.num_classes,
-                              pretrained=self.pretrained,
-                              groups=self.groups,
-                              width_per_group=self.width_per_group,
-                              initializers=self.initializers,
-                              loss_name=self.loss_name)
+        return create_composer_resnet(model_name=self.model_name,
+                                      num_classes=self.num_classes,
+                                      pretrained=self.pretrained,
+                                      groups=self.groups,
+                                      width_per_group=self.width_per_group,
+                                      initializers=self.initializers,
+                                      loss_name=self.loss_name)

@@ -24,8 +24,8 @@ from composer.models.gpt2 import GPT2Model as GPT2Model
 from composer.models.huggingface import HuggingFaceModel as HuggingFaceModel
 from composer.models.initializers import Initializer as Initializer
 from composer.models.model_hparams import ModelHparams as ModelHparams
-from composer.models.resnet import ComposerResNet as ComposerResNet
 from composer.models.resnet import ResNetHparams as ResNetHparams
+from composer.models.resnet import create_composer_resnet as create_composer_resnet
 from composer.models.resnet_cifar import ComposerResNetCIFAR as ComposerResNetCIFAR
 from composer.models.resnet_cifar import ResNetCIFARHparams as ResNetCIFARHparams
 from composer.models.ssd import SSD as SSD

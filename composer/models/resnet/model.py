@@ -3,18 +3,33 @@
 
 """A :class:`.ComposerClassifier` wrapper around the torchvision implementations of the ResNet model family."""
 
+import logging
 from typing import List, Optional
 
+from torchmetrics import MetricCollection
+from torchmetrics.classification import Accuracy
 from torchvision.models import resnet
 
+from composer.loss import loss_registry
+from composer.metrics import CrossEntropy
 from composer.models.initializers import Initializer
 from composer.models.tasks import ComposerClassifier
 
-__all__ = ['ComposerResNet']
+__all__ = ['create_composer_resnet']
+
+log = logging.getLogger(__name__)
+
+valid_model_names = ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']
 
 
-class ComposerResNet(ComposerClassifier):
-    """A :class:`.ComposerClassifier` wrapper around the torchvision implementations of the ResNet model family.
+def create_composer_resnet(model_name: str,
+                           num_classes: int = 1000,
+                           pretrained: bool = False,
+                           groups: int = 1,
+                           width_per_group: int = 64,
+                           initializers: Optional[List[Initializer]] = None,
+                           loss_name: str = 'soft_cross_entropy') -> ComposerClassifier:
+    """Helper function to create a ComposerClassifier with a torchvision ResNet model.
 
     From `Deep Residual Learning for Image Recognition <https://arxiv.org/abs/1512.03385>`_ (He et al, 2015).
 
@@ -36,38 +51,44 @@ class ComposerResNet(ComposerClassifier):
 
     .. testcode::
 
-        from composer.models import ComposerResNet
+        from composer.models import create_composer_resnet
 
-        model = ComposerResNet(model_name='resnet18')  # creates a torchvision resnet18 for image classification
+        model = create_composer_resnet(model_name='resnet18')  # creates a torchvision resnet18 for image classification
     """
 
     valid_model_names = ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']
+    if model_name not in valid_model_names:
+        raise ValueError(f'model_name must be one of {valid_model_names} instead of {model_name}.')
 
-    def __init__(
-        self,
-        model_name: str,
-        num_classes: int = 1000,
-        pretrained: bool = False,
-        groups: int = 1,
-        width_per_group: int = 64,
-        initializers: Optional[List[Initializer]] = None,
-        loss_name: str = 'soft_cross_entropy',
-    ) -> None:
+    if loss_name not in loss_registry.keys():
+        raise ValueError(f'Unrecognized loss function: {loss_name}. Please ensure the '
+                         'specified loss function is present in composer.loss.loss.py')
 
-        if model_name not in self.valid_model_names:
-            raise ValueError(f'model_name must be one of {self.valid_model_names} instead of {model_name}.')
+    if loss_name == 'binary_cross_entropy_with_logits':
+        log.warning('UserWarning: Using `binary_cross_entropy_loss_with_logits` '
+                    'without using `initializers.linear_log_constant_bias` can degrade '
+                    'performance. '
+                    'Please ensure you are using `initializers. '
+                    'linear_log_constant_bias`.')
 
-        if initializers is None:
-            initializers = []
+    if initializers is None:
+        initializers = []
 
-        model_func = getattr(resnet, model_name)
-        model = model_func(pretrained=pretrained,
-                           num_classes=num_classes,
-                           groups=groups,
-                           width_per_group=width_per_group)
+    # Instantiate model
+    model_fn = getattr(resnet, model_name)
+    model = model_fn(pretrained=pretrained, num_classes=num_classes, groups=groups, width_per_group=width_per_group)
 
-        for initializer in initializers:
-            initializer = Initializer(initializer)
-            model.apply(initializer.get_initializer())
+    # Grab loss function from loss registry
+    loss_fn = loss_registry[loss_name]
 
-        super().__init__(module=model, loss_name=loss_name)
+    # Create metrics for train and validation
+    train_metrics = Accuracy()
+    val_metrics = MetricCollection([CrossEntropy(), Accuracy()])
+
+    # Apply Initializers to model (TODO: do this in ComposerClassifier?)
+    for initializer in initializers:
+        initializer = Initializer(initializer)
+        model.apply(initializer.get_initializer())
+
+    composer_model = ComposerClassifier(model, train_metrics=train_metrics, val_metrics=val_metrics, loss_fn=loss_fn)
+    return composer_model
