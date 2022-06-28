@@ -14,7 +14,7 @@ import pytest
 from torch.utils.data import DataLoader
 
 from composer.datasets.streaming import StreamingDataset, StreamingDatasetWriter
-from composer.datasets.streaming.dataset import DownloadStatus
+from composer.datasets.streaming.dataset import _DownloadStatus
 from composer.utils import dist
 
 
@@ -160,21 +160,6 @@ def test_reader_download_fail(remote_local: Tuple[str, str], missing_file: str):
             pass
     except Exception as e:
         print(f'Successfully raised error: {e}')
-
-
-@pytest.mark.timeout(10)
-def test_reader_all_downloaded(remote_local: Tuple[str, str]):
-    num_samples = 100000
-    shard_size_limit = 1 << 8
-    samples, decoders = get_fake_samples_decoders(num_samples)
-    remote, _ = remote_local
-    write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
-
-    # Build and iterate over StreamingDataset
-    dataset = StreamingDataset(remote=remote, local=remote, shuffle=False, decoders=decoders, timeout=1)
-    for _ in dataset:
-        assert dataset._download_status == DownloadStatus.DONE, \
-            'Dataset is fully downloaded but iter(dataset) does not detect that right away on the first sample'
 
 
 @pytest.mark.timeout(10)
