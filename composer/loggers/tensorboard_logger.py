@@ -50,12 +50,10 @@ class TensorboardLogger(LoggerDestination):
     """
 
     def __init__(self,
-                 run_name: Optional[str] = None,
                  log_dir: Optional[str] = None,
                  flush_interval: int = 100,
                  rank_zero_only: bool = True):
 
-        self.run_name = run_name
         self.log_dir = log_dir
         self.flush_interval = flush_interval
         self.rank_zero_only = rank_zero_only
@@ -80,12 +78,10 @@ class TensorboardLogger(LoggerDestination):
                 pass
 
     def init(self, state: State, logger: Logger) -> None:
-        if self.run_name is None:
-            self.run_name = state.run_name
         if self.log_dir is None:
             self.log_dir = 'tensorboard_logs'
-        summary_writer_log_dir = Path(self.log_dir) / self.run_name
-        self.writer = SummaryWriter(log_dir=summary_writer_log_dir, filename_suffix=self.run_name)
+        summary_writer_log_dir = Path(self.log_dir) / state.run_name
+        self.writer = SummaryWriter(log_dir=summary_writer_log_dir)
 
     def batch_end(self, state: State, logger: Logger) -> None:
         if int(state.timestamp.batch) % self.flush_interval == 0:
@@ -109,8 +105,10 @@ class TensorboardLogger(LoggerDestination):
 
         assert self.writer is not None
         self.writer.flush()
+        
         assert self.writer.file_writer is not None
         file_path = self.writer.file_writer.event_writer._file_name
+
         logger.file_artifact(
             LogLevel.FIT,
             # For a file to be readable by Tensorboard, it must start with
