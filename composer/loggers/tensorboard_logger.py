@@ -59,7 +59,7 @@ class TensorboardLogger(LoggerDestination):
         self.log_dir = log_dir
         self.flush_interval = flush_interval
         self.rank_zero_only = rank_zero_only
-        self.writer: SummaryWriter = SummaryWriter()
+        self.writer: Optional[SummaryWriter] = None
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         del log_level
@@ -73,6 +73,7 @@ class TensorboardLogger(LoggerDestination):
             # If a non-(scalars/arrays/tensors/strings) is passed, we skip logging it,
             # so that we do not crash the job.
             try:
+                assert self.writer is not None
                 self.writer.add_scalar(tag, data_point, global_step=int(state.timestamp.batch))
             # Gets raised if data_point is not a tensor, array, scalar, or string.
             except NotImplementedError:
@@ -105,10 +106,11 @@ class TensorboardLogger(LoggerDestination):
         # To avoid empty log artifacts for each rank.
         if self.rank_zero_only and dist.get_global_rank() != 0:
             return
+
+        assert self.writer is not None
         self.writer.flush()
-        file_path = self.log_dir  # Initialize for pyright.
-        if self.writer.file_writer is not None:  # To satisfy pyright.
-            file_path = self.writer.file_writer.event_writer._file_name
+        assert self.writer.file_writer is not None
+        file_path = self.writer.file_writer.event_writer._file_name
         logger.file_artifact(
             LogLevel.FIT,
             # For a file to be readable by Tensorboard, it must start with
