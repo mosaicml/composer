@@ -120,7 +120,7 @@ class State(Serializable):
             ... )
             >>> trainer.fit()
             >>> trainer.state.current_metrics
-            {'train': {'Accuracy': tensor(...)}, 'eval': {'Accuracy': tensor(...)}}
+            {'train': {'Accuracy': tensor(...)}, 'eval': {'CrossEntropy': tensor(...), 'Accuracy': tensor(...)}}
 
             Or, when using an :class:`.Evaluator`:
 
