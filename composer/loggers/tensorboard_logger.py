@@ -102,6 +102,6 @@ class TensorboardLogger(LoggerDestination):
             LogLevel.FIT,
             # For a file to be readable by Tensorboard, it must start with
             # 'events.out.tfevents'.
-            artifact_name='tensorboard_logs/{self.run_name}/events.out.tfevents-{self.run_name}',
+            artifact_name='tensorboard_logs/{run_name}/events.out.tfevents-{run_name}-{rank}',
             file_path=file_path,
             overwrite=True)
