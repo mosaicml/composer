@@ -108,20 +108,19 @@ class ImageMonitor(Callback):
         outputs = outputs.argmax(dim=1).cpu().numpy()
         outputs -= shift
 
-        mask_list = []
-        for image, target, output in zip(images, targets, outputs):
+        table = wandb.Table(columns=['Image'])
+        for image, target, prediction in zip(images, targets, outputs):
             img_mask_pair = wandb.Image(image,
                                         masks={
                                             "ground truth": {
                                                 "mask_data": target
                                             },
                                             "prediction": {
-                                                "mask_data": output
+                                                "mask_data": prediction
                                             }
                                         })
-            mask_list.append(img_mask_pair)
-
-        return mask_list
+            table.add_data(img_mask_pair)
+        return table
 
     def before_forward(self, state, logger):
         if self.mode.lower() == 'input':
