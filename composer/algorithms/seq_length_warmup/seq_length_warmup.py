@@ -15,7 +15,7 @@ from composer.core.precision import get_precision_context
 from composer.core.time import TimeUnit
 from composer.core.types import Batch
 from composer.loggers import Logger
-from composer.models import ComposerTransformer
+from composer.models import HuggingFaceModel
 from composer.utils import dist, ensure_tuple
 
 __all__ = ['SeqLengthWarmup', 'set_batch_sequence_length']
@@ -170,7 +170,7 @@ class SeqLengthWarmup(Algorithm):
         self.preserve_eos = preserve_eos
 
         if self.duration < 0 or self.duration > 1:
-            raise ValueError(f'Duration must be getween 0 and 1, got: {self.duration}')
+            raise ValueError(f'Duration must be between 0 and 1, got: {self.duration}')
 
         if self.max_seq_length < self.min_seq_length:
             raise ValueError(f'max_seq_length={self.max_seq_length} must be '
@@ -185,10 +185,10 @@ class SeqLengthWarmup(Algorithm):
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         if event == Event.INIT:
-            if not isinstance(state.model, ComposerTransformer):
+            if not isinstance(state.model, HuggingFaceModel):
                 raise RuntimeError(
                     textwrap.dedent(f"""\
-                    {type(self).__name__} requires state.model to be of type {ComposerTransformer.__name__}, not of type {type(state.model)}"""
+                    {type(self).__name__} requires state.model to be of type {HuggingFaceModel.__name__}, not of type {type(state.model)}"""
                                    ))
 
             self._original_model = state.model
