@@ -239,6 +239,11 @@ class SFTPObjectStoreHparams(ObjectStoreHparams):
     port: int = hp.auto(SFTPObjectStore, 'port')
     username: Optional[str] = hp.auto(SFTPObjectStore, 'username')
     known_hosts_filename: Optional[str] = hp.auto(SFTPObjectStore, 'known_hosts_filename')
+    known_hosts_filename_environ: str = hp.optional(
+        ('The name of an environment variable containing '
+         'the path to a SSH known hosts file. Note that `known_hosts_filename` takes precedence over this variable.'),
+        default='COMPOSER_SFTP_KNOWN_HOSTS_FILE',
+    )
     key_filename: Optional[str] = hp.auto(SFTPObjectStore, 'key_filename')
     key_filename_environ: str = hp.optional(
         ('The name of an environment variable containing '
@@ -256,6 +261,11 @@ class SFTPObjectStoreHparams(ObjectStoreHparams):
         del kwargs['key_filename_environ']
         if self.key_filename_environ in os.environ and self.key_filename is None:
             kwargs['key_filename'] = os.environ[self.key_filename_environ]
+
+        del kwargs['known_hosts_filename_environ']
+        if self.known_hosts_filename_environ in os.environ and self.known_hosts_filename is None:
+            kwargs['known_hosts_filename'] = os.environ[self.known_hosts_filename_environ]
+
         return kwargs
 
 

@@ -11,7 +11,10 @@ from typing import Callable, Dict, Optional, Sequence, Type, Union
 
 import torch
 
+from composer.models.huggingface import HuggingFaceModel
+
 try:
+    from transformers import BertForMaskedLM, BertForSequenceClassification
     from transformers.models.bert.modeling_bert import BertIntermediate, BertOutput
     IS_TRANSFORMERS_INSTALLED = True
 except ImportError as e:
@@ -21,7 +24,6 @@ from composer.algorithms.gated_linear_units.gated_linear_unit_layers import BERT
 from composer.algorithms.warnings import NoEffectWarning
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
-from composer.models import BERTModel
 from composer.utils import MissingConditionalImportError, module_surgery
 
 log = logging.getLogger(__name__)
@@ -79,9 +81,10 @@ def apply_gated_linear_units(model: torch.nn.Module,
     if not IS_TRANSFORMERS_INSTALLED:
         raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers')
 
-    # ensure that the model is an instance of a BERTModel, since our replacement policy is only defined for BERTs
-    if not isinstance(model, BERTModel):
-        raise TypeError('Gated Linear Units only has a surgery policy defined for instances of BERTModel.')
+    # ensure that the model is an instance of a BERT model, since our replacement policy is only defined for BERTs
+    if not isinstance(model, HuggingFaceModel) and not (isinstance(model.model, BertForMaskedLM) or
+                                                        isinstance(model.model, BertForSequenceClassification)):
+        raise TypeError('Gated Linear Units only has a surgery policy defined for instances of BERT models.')
 
     if act_fn is None:
         # get the activation functions used
