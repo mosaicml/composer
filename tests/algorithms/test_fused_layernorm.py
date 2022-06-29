@@ -27,6 +27,7 @@ def assert_is_fln_instance(model):
 
     assert isinstance(model, BertForMaskedLM) or isinstance(model, BertForSequenceClassification)
     # ensure that within the entire model, no PyTorch LayerNorm exists, and at least one APEX FLN does.
+    assert model.modules is not None, 'model has .modules method'
     for module_class in model.modules():
         assert not isinstance(
             module_class, LayerNorm), 'A torch.nn.LayerNorm should not be found in the model after surgery is applied.'
