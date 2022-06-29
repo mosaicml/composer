@@ -776,9 +776,6 @@ class Timestamp(Serializable):
                 f'batch_wct={repr(self.batch_wct)}'
                 ')')
 
-    def __str__(self) -> str:
-        return f'{int(self.epoch):0>3}EP:{int(self.batch):0>5}BA:{int(self.batch) // 1000:0>5}kSP'
-
 
 def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str]) -> Time:
     """Ensure ``maybe_time`` is an instance of :class:`.Time`.

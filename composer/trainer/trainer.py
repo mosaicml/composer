@@ -967,7 +967,7 @@ class Trainer:
         self._rng_state = None
         # If autoresume is enabled, first check for existing checkpoints to load
         if autoresume:
-            log.info('Searching for a previous autoresume checkpoint path')
+            log.info('Searching for a previous checkpoint to autoresume')
             if save_folder is None:
                 raise ValueError('The `save_folder` must be specified when autoresume is enabled.')
             if save_overwrite:
@@ -981,7 +981,9 @@ class Trainer:
                 raise ValueError(
                     'The `save_latest_artifact_name` must be specified so autoresume can load the latest checkpoint.')
             if run_name is None:
-                raise ValueError('run_name must be specified so autoresume knows which run to load from.')
+                raise ValueError(
+                    'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
+                )
             autoresume_checkpoint_path = self._get_autoresume_checkpoint(
                 save_folder=save_folder,
                 save_latest_filename=save_latest_filename,
