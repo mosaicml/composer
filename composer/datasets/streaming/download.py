@@ -43,7 +43,7 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
     try:
         s3.download_file(obj.netloc, obj.path.lstrip('/'), local)
     except ClientError as e:
-        _ensure_not_found_errors_are_wrapped(e)
+        _ensure_not_found_errors_are_wrapped(remote, e)
 
 
 def download_from_sftp(remote: str, local: str) -> None:
@@ -172,13 +172,14 @@ def download_or_wait(remote: Optional[str],
         max_retries (int, default 2): Number of download re-attempts before giving up.
         timeout (float, default 60): How long to wait for file to download before raising an exception.
     """
+    local_decompressed, _ = split_compression_suffix(local)
     last_error = None
     error_msgs = []
     for _ in range(1 + max_retries):
         try:
             if wait:
                 start = time.time()
-                while not os.path.exists(local):
+                while not os.path.exists(local_decompressed):
                     if time.time() - start > timeout:
                         raise TimeoutError(f'Waited longer than {timeout}s for other worker to download {local}.')
                     time.sleep(0.25)
