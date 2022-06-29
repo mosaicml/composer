@@ -103,8 +103,10 @@ class ImageMonitor(Callback):
         if self.mode.lower() == 'classification':
             table = wandb.Table(columns=['Image', 'target'])
             for image, target in zip(images, targets):
+                # Move channels to the last dimension
+                image = image.permute(1, 2, 0)
                 image = wandb.Image(image)
-                table.add_data(target, image)
+                table.add_data(image, target)
             logger.data_batch({'Images/Inputs' : table})
 
         elif self.mode.lower() == 'segmentation':
