@@ -6,13 +6,12 @@
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from torch.utils.tensorboard import SummaryWriter
-
 from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
-import time
+from composer.utils.import_helpers import MissingConditionalImportError
+
 
 __all__ = ['TensorboardLogger']
 
@@ -50,7 +49,13 @@ class TensorboardLogger(LoggerDestination):
             Default: :attr:`True`.
     """
 
-    def __init__(self, log_dir: Optional[str] = None, flush_interval: int = 100, rank_zero_only: bool = True):
+    def __init__(self, log_dir: Optional[str] = None, flush_interval: int = 100, rank_zero_only: bool = True): 
+        try:
+            from torch.utils.tensorboard import SummaryWriter
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='tensorboard',
+                                                conda_package='tensorboard',
+                                                conda_channel='conda-forge') from e
 
         self.log_dir = log_dir
         self.flush_interval = flush_interval
@@ -76,6 +81,7 @@ class TensorboardLogger(LoggerDestination):
                 pass
 
     def init(self, state: State, logger: Logger) -> None:
+        from torch.utils.tensorboard import SummaryWriter
         # We set the log_dir to a constant, so all runs can be co-located together.
         if self.log_dir is None:
             self.log_dir = 'tensorboard_logs'
