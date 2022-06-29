@@ -50,6 +50,8 @@ class ImageMonitor(Callback):
         interval (str, optional): Time string specifying how often to log images. For example, ``interval='1ep'`` means
             images are logged once every epoch, while ``interval='100ba'`` means images are logged once every 100
             batches. Default: ``"100ba"``.
+        eval_interval (str, optional): Time string specifying how often to log images during evaluation. For example,
+            ``eval_interval='100ba'`` means images are logged once every 100 batches. Default: ``"10ba"``.
         mode (str, optional): How to log the image labels. Valid values are ``"input"`` (input only)
             and "segmentation" which saves segmentation masks. Default: ``"input"``.
         num_images (int, optional): Number of images to log. Must be less than or equal to than the microbatch size.
@@ -66,11 +68,13 @@ class ImageMonitor(Callback):
 
     def __init__(self,
                  interval: str = '100ba',
+                 eval_interval: str = '10ba',
                  mode: str = 'input',
                  num_images: int = 8,
                  input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
                  target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1):
         self.interval = interval
+        self.eval_interval = eval_interval
         self.mode = mode
         self.num_images = num_images
         self.input_key = input_key
@@ -101,12 +105,12 @@ class ImageMonitor(Callback):
         outputs = outputs[0:self.num_images]
 
         # Shift targets so that the background class is 0
-        shift = targets.min()
-        targets -= shift
+        targets += 1
+        targets[targets < 0] = 0
         # Convert outputs to segmentation masks. Assume channels are first dim
         outputs = outputs[0:self.num_images]
         outputs = outputs.argmax(dim=1).cpu().numpy()
-        outputs -= shift
+        outputs += 1
 
         table = wandb.Table(columns=['Image'])
         for image, target, prediction in zip(images, targets, outputs):
@@ -145,9 +149,10 @@ class ImageMonitor(Callback):
 
     def eval_after_forward(self, state, logger):
         if self.mode.lower() == 'segmentation':
-            inputs = state.batch_get_item(key=self.input_key)
-            targets = state.batch_get_item(key=self.target_key)
-            outputs = state.outputs
+            if state.timestamp.get(self.eval_interval.unit).value % self.eval_interval.value == 0:
+                inputs = state.batch_get_item(key=self.input_key)
+                targets = state.batch_get_item(key=self.target_key)
+                outputs = state.outputs
 
-            mask_list = self._make_segmentation_images(inputs, targets, outputs)
-            logger.data_batch({'Images/Eval': mask_list})
+                mask_list = self._make_segmentation_images(inputs, targets, outputs)
+                logger.data_batch({'Images/Eval': mask_list})
