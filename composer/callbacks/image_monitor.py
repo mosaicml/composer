@@ -4,6 +4,7 @@
 """Monitor image inputs and optionally outputs."""
 from math import floor, sqrt
 from typing import Any, Callable, Optional, Tuple, Union
+
 import wandb
 from torchvision.utils import make_grid
 
@@ -98,8 +99,8 @@ class ImageMonitor(Callback):
         inputs = state.batch_get_item(key=self.input_key)
         targets = state.batch_get_item(key=self.target_key)
 
-        images = inputs[0:self.num_images]
-        targets = targets[0:self.num_images]
+        images = inputs[0:self.num_images].data.cpu().numpy()
+        targets = targets[0:self.num_images].data.cpu().numpy()
         if self.mode.lower() == 'input':
             images = make_grid(input[0:self.num_images], nrow=self.nrow, normalize=True)
             images = wandb.Image(images)
@@ -107,6 +108,6 @@ class ImageMonitor(Callback):
         elif self.mode.lower() == 'segmentation':
             mask_list = []
             for image, target in zip(images, targets):
-                img_mask_pair = wandb.Image(image, masks={"ground truth" : {"mask_data" : target}})
+                img_mask_pair = wandb.Image(image, masks={"ground truth": {"mask_data": target}})
                 mask_list.append(img_mask_pair)
             logger.data_batch({'Images/Inputs': mask_list})
