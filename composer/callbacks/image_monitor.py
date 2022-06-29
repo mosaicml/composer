@@ -99,8 +99,8 @@ class ImageMonitor(Callback):
         inputs = state.batch_get_item(key=self.input_key)
         targets = state.batch_get_item(key=self.target_key)
 
-        images = inputs[0:self.num_images].data.cpu().numpy()
-        targets = targets[0:self.num_images].data.cpu().numpy()
+        images = inputs[0:self.num_images].data.cpu().permute(1,2,0).numpy()
+        targets = targets[0:self.num_images].data.cpu().permute(1,2,0).numpy()
         if self.mode.lower() == 'input':
             images = make_grid(input[0:self.num_images], nrow=self.nrow, normalize=True)
             images = wandb.Image(images)
