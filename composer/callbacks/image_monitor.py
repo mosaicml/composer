@@ -105,6 +105,8 @@ class ImageMonitor(Callback):
             images = wandb.Image(images)
             logger.data_batch({'Images/Inputs': images})
         elif self.mode.lower() == 'segmentation':
-            images = make_grid(input[0:self.num_images], nrow=self.nrow, normalize=True)
-            images = wandb.Image(images)
-            logger.data_batch({'Images/Inputs': images})
+            mask_list = []
+            for image, target in zip(images, targets):
+                img_mask_pair = wandb.Image(image, masks={"ground truth" : {"mask_data" : target}})
+                mask_list.append(img_mask_pair)
+            logger.data_batch({'Images/Inputs': mask_list})
