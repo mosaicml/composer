@@ -136,7 +136,7 @@ def cutmix_batch(input: Tensor,
     X_cutmix[:, :, rx:rw, ry:rh] = X_cutmix[shuffled_idx, :, rx:rw, ry:rh]
     # adjust lambda to exactly match pixel ratio. This is an implementation detail taken from
     # the original implementation, and implies lambda is not actually beta distributed.
-    adjusted_lambda = _adjust_lambda(cutmix_lambda, input, bbox)
+    adjusted_lambda = _adjust_lambda(input, bbox)
 
     # Make a shuffled version of y for interpolation
     y_shuffled = target[shuffled_idx]
@@ -220,16 +220,14 @@ class CutMix(Algorithm):
         input = state.batch_get_item(key=self.input_key)
         target = state.batch_get_item(key=self.target_key)
 
-        assert isinstance(input, Tensor) and isinstance(target, Tensor), \
-            'Multiple tensors for inputs or targets not supported yet.'
+        if not isinstance(input, torch.Tensor):
+            raise NotImplementedError('Multiple tensors for inputs not supported yet.')
+        if not isinstance(target, torch.Tensor):
+            raise NotImplementedError('Multiple tensors for targets not supported yet.')
+
         alpha = self.alpha
 
         if event == Event.BEFORE_FORWARD:
-            if not isinstance(input, torch.Tensor):
-                raise NotImplementedError('Multiple tensors for inputs not supported yet.')
-            if not isinstance(target, torch.Tensor):
-                raise NotImplementedError('Multiple tensors for targets not supported yet.')
-
             # these are saved only for testing
             self._indices = _gen_indices(input)
 
@@ -238,7 +236,7 @@ class CutMix(Algorithm):
                                     input.shape[3],
                                     _cutmix_lambda,
                                     uniform_sampling=self._uniform_sampling)
-            self._adjusted_lambda = _adjust_lambda(_cutmix_lambda, input, self._bbox)
+            self._adjusted_lambda = _adjust_lambda(input, self._bbox)
 
             new_input, self._permuted_target, _, _ = cutmix_batch(input=input,
                                                                   target=target,
@@ -379,11 +377,10 @@ def _rand_bbox(W: int,
     return bbx1, bby1, bbx2, bby2
 
 
-def _adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
+def _adjust_lambda(x: Tensor, bbox: Tuple) -> float:
     """Rescale the cutmix lambda according to the size of the clipped bounding box.
 
     Args:
-        cutmix_lambda (float): Lambda param from cutmix, used to set the area of the box.
         x (torch.Tensor): input tensor of shape ``(B, d1, d2, ..., dn)``, B is batch size, d1-dn
             are feature dimensions.
         bbox (tuple): (x1, y1, x2, y2) coordinates of the boundind box, obeying x2 > x1, y2 > y1.
