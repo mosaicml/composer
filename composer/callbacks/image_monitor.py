@@ -142,6 +142,7 @@ class ImageMonitor(Callback):
                 mask_list = self._make_segmentation_images(inputs, targets, outputs)
                 logger.data_batch({'Images/Train': mask_list})
 
+    '''
     def eval_after_forward(self, state, logger):
         if self.mode.lower() == 'segmentation':
             inputs = state.batch_get_item(key=self.input_key)
@@ -150,3 +151,4 @@ class ImageMonitor(Callback):
 
             mask_list = self._make_segmentation_images(inputs, targets, outputs)
             logger.data_batch({'Images/Eval': mask_list})
+    '''
