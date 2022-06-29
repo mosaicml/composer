@@ -19,6 +19,7 @@ from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.progress_bar_logger import ProgressBarLogger
+from composer.loggers.tensorboard_logger import TensorboardLogger
 from composer.loggers.wandb_logger import WandBLogger
 from composer.utils import import_object
 from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
@@ -82,6 +83,7 @@ logger_registry: Dict[str, Union[Type[LoggerDestination], Type[hp.Hparams]]] = {
     'file': FileLogger,
     'wandb': WandBLogger,
     'progress_bar': ProgressBarLogger,
+    'tensorboard': TensorboardLogger,
     'in_memory': InMemoryLogger,
     'object_store': ObjectStoreLoggerHparams,
 }
