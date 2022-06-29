@@ -90,10 +90,21 @@ class ImageMonitor(Callback):
         except ValueError as error:
             raise ValueError(f'Invalid time string for parameter interval') from error
 
+        # Check that the eval interval timestring is parsable and convert into time object
+        try:
+            self.eval_interval = Time.from_timestring(eval_interval)
+        except ValueError as error:
+            raise ValueError(f'Invalid time string for parameter eval_interval') from error
+
         # Verify that the interval has supported units.
         if self.interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
             raise ValueError(f'Invalid time unit for parameter interval: '
                              f'{self.interval.unit}')
+
+        # Verify that the eval interval has supported units.
+        if self.eval_interval.unit not in [TimeUnit.BATCH]:
+            raise ValueError(f'Invalid time unit for parameter eval_interval: '
+                             f'{self.eval_interval.unit}')
 
         # Ensure that the number of images is a perfect square
         self.nrow = floor(sqrt(self.num_images))
