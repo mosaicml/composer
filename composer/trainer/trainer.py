@@ -367,8 +367,9 @@ class Trainer:
             :class:`.Evaluator`. If a :class:`.DataSpec` or :class:`.DataLoader` is passed in, then all
             metrics returned by ``model.metrics()`` will be used during evaluation.
             ``None`` results in no evaluation. (default: ``None``)
-        eval_interval (int | str | Time | (State, Event) -> bool, optional): An integer, which will be
-            interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time` object, or a callable.
+        eval_interval (int | str | Time | (State, Event) -> bool, optional): Specifies how frequently to run evaluation.
+            An integer, which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time`
+            object, or a callable.
             Defaults to ``1`` (evaluate every epoch).
 
             If an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the evaluator will be run
@@ -1432,7 +1433,7 @@ class Trainer:
         """Run training for the specified number of epochs and log results."""
         # print training start
         log.info('Using precision %s', self.state.precision)
-        self.logger.data_fit({'trainer/algorithms': [str(algo) for algo in self.state.algorithms]})
+        self.logger.data_fit({algo.__class__.__name__: 1 for algo in self.state.algorithms})
 
         assert self.state.dataloader is not None, 'dataloader is set in __init__() or fit()'
         assert self._train_data_spec is not None, 'The train data spec is set in __init__() or fit()'
@@ -1992,7 +1993,6 @@ class Trainer:
                 self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
                 metrics.update(self.state.outputs, targets)
-                self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics, log_level=log_level)
 
                 now = datetime.datetime.now()
                 batch_time = now - last_wct
