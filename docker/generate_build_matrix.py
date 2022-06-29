@@ -84,6 +84,9 @@ def _get_composer_tags(composer_version: str, use_cuda: bool):
     if not composer_version:
         composer_version = 'latest'
     composer_version = composer_version.lstrip('=')
+    if composer_version == 'GIT_COMMIT':
+        # Jenkins will set the tag
+        return []
     tag = f'mosaicml/composer:{composer_version}'
     if not use_cuda:
         tag += '_cpu'
@@ -153,7 +156,8 @@ def _main():
 
     composer_entries = []
 
-    composer_versions = ['', '==0.7.1']  # Only build images for the latest composer version
+    # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
+    composer_versions = ['', '==0.7.1', 'GIT_COMMIT']  # Only build images for the latest composer version
     composer_python_versions = ['3.9']  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):
@@ -169,7 +173,7 @@ def _main():
             'PYTORCH_VERSION': pytorch_version,
             'TARGET': 'composer_stage',
             'TORCHVISION_VERSION': _get_torchvision_version(pytorch_version),
-            'COMPOSER_VERSION': composer_version,
+            'COMPOSER_INSTALL_COMMAND': f'mosaicml[all]{composer_version}',
             'TAGS': _get_composer_tags(
                 composer_version=composer_version,
                 use_cuda=use_cuda,
@@ -208,8 +212,12 @@ def _main():
     headers = ['Composer Version', 'CUDA Support', 'Docker Tag']
     table = []
     for entry in composer_entries:
+
+        if len(entry['TAGS']) == 0:
+            continue
+
         table.append([
-            entry['COMPOSER_VERSION'].lstrip('=') or 'latest',  # Pytorch version
+            entry['TAGS'][0].split(':')[1].replace('_cpu', ''),  # Composer version, or 'latest'
             'No' if entry['BASE_IMAGE'].startswith('ubuntu:') else 'Yes',  # Whether there is Cuda support
             ', '.join(reversed(list(f'`{x}`' for x in entry['TAGS']))),  # Docker tags
         ])

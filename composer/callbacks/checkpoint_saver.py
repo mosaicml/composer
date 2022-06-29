@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import os
 import pathlib
+import tempfile
 import textwrap
 from typing import Callable, List, Optional, Tuple, Union
 
@@ -18,8 +19,8 @@ from composer.loggers import Logger
 from composer.loggers.logger import LogLevel
 from composer.utils import checkpoint, dist
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
-                                         ensure_folder_has_no_conflicting_files, format_name_with_dist,
-                                         format_name_with_dist_and_time, is_tar)
+                                         create_symlink_file, ensure_folder_has_no_conflicting_files,
+                                         format_name_with_dist, format_name_with_dist_and_time, is_tar)
 
 log = logging.getLogger(__name__)
 
@@ -229,7 +230,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             Whenever a new checkpoint is saved, a symlink artifact is created or updated to point to the latest checkpoint's ``artifact_name``.
             The artifact name will be determined by this format string. This parameter has no effect if ``latest_filename`` or ``artifact_name`` is ``None``.
 
-            .. seealso:: :meth:`.Logger.log_symlink_artifact` for symlink artifact logging.
+            .. seealso:: :func:`.write_symlink` for symlink artifact logging.
 
             The same format variables for ``filename`` are available.
 
@@ -391,14 +392,19 @@ class CheckpointSaver(Callback):  # noqa: D101
                 os.symlink(relative_checkpoint_path, symlink_name)
                 if self.artifact_name is not None and self.latest_artifact_name is not None:
                     symlink_artifact_name = format_name_with_dist_and_time(self.latest_artifact_name, state.run_name,
-                                                                           state.timestamp).lstrip('/')
+                                                                           state.timestamp).lstrip('/') + '.symlink'
                     artifact_name = format_name_with_dist_and_time(self.artifact_name, state.run_name,
                                                                    state.timestamp).lstrip('/')
                     # Always overwrite for symlinks since we use the same filename for latest
-                    logger.symlink_artifact(log_level=log_level,
-                                            existing_artifact_name=artifact_name,
-                                            symlink_artifact_name=symlink_artifact_name,
-                                            overwrite=True)
+                    with tempfile.TemporaryDirectory() as tmpdir:
+                        symlink_filename = os.path.join(tmpdir, 'latest.symlink')
+                        create_symlink_file(artifact_name, symlink_filename)
+                        logger.file_artifact(
+                            log_level=log_level,
+                            artifact_name=symlink_artifact_name,
+                            file_path=symlink_filename,
+                            overwrite=True,
+                        )
 
         timestamp = state.timestamp
 

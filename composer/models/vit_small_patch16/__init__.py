@@ -4,7 +4,9 @@
 """ViT Small Patch 16 for image classification."""
 
 from composer.models.vit_small_patch16.hparams import ViTSmallPatch16Hparams as ViTSmallPatch16Hparams
-from composer.models.vit_small_patch16.model import ViTSmallPatch16 as ViTSmallPatch16
+from composer.models.vit_small_patch16.model import vit_small_patch16 as vit_small_patch16
+
+__all__ = ['vit_small_patch16', 'ViTSmallPatch16Hparams']
 
 _task = 'Image Classification'
 _dataset = 'ImageNet'
