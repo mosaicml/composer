@@ -200,6 +200,7 @@ class SeqLengthWarmup(Algorithm):
                 raise RuntimeError("'labels' must be in model inputs")
 
             # create fake inputs
+            assert self._original_model.config is not None, 'model of type HuggingFaceModel should have .config'
             vocab_size = self._original_model.config.vocab_size
 
             # simplifying assumption: Composer doesn't support model-parallelism,

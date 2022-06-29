@@ -96,6 +96,7 @@ def test_trainer_eval_timestamp():
     True,
     False,
 ])
+@pytest.mark.timeout(15)
 def test_eval_at_fit_end(eval_at_fit_end: bool):
     """Test the `eval_subset_num_batches` and `eval_interval` works when specified on init."""
 
