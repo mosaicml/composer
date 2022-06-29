@@ -27,11 +27,6 @@ class TensorboardLogger(LoggerDestination):
     `events.out.tfevents.*`
 
     Args:
-        run_name (str, optional): Tensorboard run name.
-            This is the name of the run as will appear in the Tensorboard GUI. Also, this
-            will be the name of the directory where the log files for this run will be
-            stored. The full path to this directory will be {log_dir}/{run_name}.
-            If not specified, the :attr:`.State.run_name` will be used.
         log_dir (str, optional): The path to the directory where all the tensorboard logs
             will be saved. This is also the value that should be specified when starting
             a tensorboard server. e.g. `tensorboard --logdir={log_dir}`. If not specified
