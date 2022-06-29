@@ -160,7 +160,7 @@ class ImageMonitor(Callback):
 
     def eval_after_forward(self, state, logger):
         if self.mode.lower() == 'segmentation':
-            if state.timestamp.get(self.eval_interval.unit).value % self.eval_interval.value == 0:
+            if state.eval_timestamp.get(self.eval_interval.unit).value % self.eval_interval.value == 0:
                 inputs = state.batch_get_item(key=self.input_key)
                 targets = state.batch_get_item(key=self.target_key)
                 outputs = state.outputs
