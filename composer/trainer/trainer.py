@@ -44,6 +44,7 @@ from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, module_surgery,
                             reproducibility)
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
+from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
@@ -993,10 +994,15 @@ class Trainer:
                 progress_bar=load_progress_bar,
                 ignore_keys=load_ignore_keys,
             )
-            # Always ignore the run_name in the checkpoint so it is consistent with what was used for Event.INIT.
             self.state.run_name = run_name
-            log.info(f'Setting seed to {self.state.seed}')
-            reproducibility.seed_all(self.state.seed)
+
+        # reseed here. This helps with a couple of issues:
+        # 1. rng state may change at Event.INIT. For example, if an algorithm creates a new module and module
+        # parameters are initialized randomly, rng state will change. This reseeding nullifies such effects.
+        # 2. While resuming from a checkpoint, we want to spin dataloader and bring it back to the same state as at the time
+        # of the checkpoint. Therefore, spinning needs to start from the same rng state as in the original run.
+        log.info(f'Setting seed to {self.state.seed}')
+        reproducibility.seed_all(self.state.seed)
 
         # Move the model and optimizers to the specified device
         if not self.deepspeed_enabled:
@@ -1083,9 +1089,13 @@ class Trainer:
             for logger in loggers:
                 try:
                     # Fetch from logger. If it succeeds, stop trying the rest of the loggers
-                    logger.get_file_artifact(artifact_name=save_latest_artifact_name,
-                                             destination=latest_checkpoint_path,
-                                             progress_bar=load_progress_bar)
+                    get_file(
+                        path=save_latest_artifact_name,
+                        destination=latest_checkpoint_path,
+                        object_store=logger,
+                        overwrite=True,
+                        progress_bar=load_progress_bar,
+                    )
                     break
                 except (NotImplementedError, FileNotFoundError):
                     # Ignore errors caused by no checkpoint saved with logger
