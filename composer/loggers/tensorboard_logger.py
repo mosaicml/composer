@@ -76,9 +76,14 @@ class TensorboardLogger(LoggerDestination):
                 pass
 
     def init(self, state: State, logger: Logger) -> None:
+        # We set the log_dir to a constant, so all runs can be co-located together.
         if self.log_dir is None:
             self.log_dir = 'tensorboard_logs'
+
+        # We name the child directory after the run_name to ensure the run_name shows up
+        # in the Tensorboard GUI.
         summary_writer_log_dir = Path(self.log_dir) / state.run_name
+
         # To disable automatic flushing we set flushing to once a year ;)
         flush_secs = 365 * 3600 * 24
         self.writer = SummaryWriter(log_dir=summary_writer_log_dir, flush_secs=flush_secs)
@@ -112,7 +117,8 @@ class TensorboardLogger(LoggerDestination):
         logger.file_artifact(
             LogLevel.FIT,
             # For a file to be readable by Tensorboard, it must start with
-            # 'events.out.tfevents'.
+            # 'events.out.tfevents'. Child directory is named after run_name, so the logs
+            # are named properly in the Tensorboard GUI.
             artifact_name='tensorboard_logs/{run_name}/events.out.tfevents-{run_name}-{rank}',
             file_path=file_path,
             overwrite=True)
