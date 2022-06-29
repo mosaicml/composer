@@ -4,7 +4,7 @@
 """Log to `Tensorboard <https://www.tensorflow.org/tensorboard/>`_."""
 
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -51,7 +51,7 @@ class TensorboardLogger(LoggerDestination):
         self.log_dir = log_dir
         self.flush_interval = flush_interval
         self.rank_zero_only = rank_zero_only
-        self.writer: Optional[SummaryWriter] = None
+        self.writer: SummaryWriter = SummaryWriter()
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         del log_level
@@ -67,7 +67,7 @@ class TensorboardLogger(LoggerDestination):
             try:
                 self.writer.add_scalar(tag, data_point, global_step=int(state.timestamp.batch))
             # Gets raised if data_point is not a tensor, array, scalar, or string.
-            except NotImplementedError: 
+            except NotImplementedError:
                 pass
 
     def init(self, state: State, logger: Logger) -> None:
@@ -76,8 +76,7 @@ class TensorboardLogger(LoggerDestination):
         if self.log_dir is None:
             self.log_dir = 'tensorboard_logs'
         summary_writer_log_dir = Path(self.log_dir) / self.run_name
-        self.writer = SummaryWriter(log_dir=summary_writer_log_dir,
-                                    filename_suffix=self.run_name)
+        self.writer = SummaryWriter(log_dir=summary_writer_log_dir, filename_suffix=self.run_name)
 
     def batch_end(self, state: State, logger: Logger) -> None:
         if int(state.timestamp.batch) % self.flush_interval == 0:
@@ -96,10 +95,13 @@ class TensorboardLogger(LoggerDestination):
 
     def _flush(self, logger: Logger):
         self.writer.flush()
-        file_path = self.writer.file_writer.event_writer._file_name
-        logger.file_artifact(LogLevel.FIT,
-                             # For a file to be readable by Tensorboard, it must start with
-                             # 'events.out.tfevents'.
-                             artifact_name='{tensorboard_logs}/{self.run_name}/events.out.tfevents-{self.run_name}',
-                             file_path=file_path,
-                             overwrite=True)
+        file_path = self.log_dir  # Initialize for pyright.
+        if self.writer.file_writer is not None:  # To satisfy pyright.
+            file_path = self.writer.file_writer.event_writer._file_name
+        logger.file_artifact(
+            LogLevel.FIT,
+            # For a file to be readable by Tensorboard, it must start with
+            # 'events.out.tfevents'.
+            artifact_name='tensorboard_logs/{self.run_name}/events.out.tfevents-{self.run_name}',
+            file_path=file_path,
+            overwrite=True)
