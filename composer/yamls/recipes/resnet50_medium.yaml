@@ -51,6 +51,7 @@ model:
     - LINEAR_LOG_CONSTANT_BIAS
     loss_name: binary_cross_entropy_with_logits
     model_name: resnet50
+    num_classes: 1000
 optimizer:
   decoupled_sgdw:
     dampening: 0.0
