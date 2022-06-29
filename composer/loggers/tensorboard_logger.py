@@ -12,6 +12,7 @@ from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
+import time
 
 __all__ = ['TensorboardLogger']
 
@@ -49,10 +50,7 @@ class TensorboardLogger(LoggerDestination):
             Default: :attr:`True`.
     """
 
-    def __init__(self,
-                 log_dir: Optional[str] = None,
-                 flush_interval: int = 100,
-                 rank_zero_only: bool = True):
+    def __init__(self, log_dir: Optional[str] = None, flush_interval: int = 100, rank_zero_only: bool = True):
 
         self.log_dir = log_dir
         self.flush_interval = flush_interval
@@ -81,7 +79,9 @@ class TensorboardLogger(LoggerDestination):
         if self.log_dir is None:
             self.log_dir = 'tensorboard_logs'
         summary_writer_log_dir = Path(self.log_dir) / state.run_name
-        self.writer = SummaryWriter(log_dir=summary_writer_log_dir)
+        # To disable automatic flushing we set flushing to once a year ;)
+        flush_secs = 365 * 3600 * 24
+        self.writer = SummaryWriter(log_dir=summary_writer_log_dir, flush_secs=flush_secs)
 
     def batch_end(self, state: State, logger: Logger) -> None:
         if int(state.timestamp.batch) % self.flush_interval == 0:
@@ -105,7 +105,7 @@ class TensorboardLogger(LoggerDestination):
 
         assert self.writer is not None
         self.writer.flush()
-        
+
         assert self.writer.file_writer is not None
         file_path = self.writer.file_writer.event_writer._file_name
 
