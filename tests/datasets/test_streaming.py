@@ -132,6 +132,35 @@ def test_reader(remote_local: Tuple[str, str], batch_size: int, remote_arg: str,
     assert len(dataset) == num_samples, f'Got dataset length={len(dataset)} samples, expected {num_samples}'
 
 
+@pytest.mark.timeout(3)
+@pytest.mark.parametrize(
+    'missing_file',
+    [
+        'index',
+        'shard',
+    ],
+)
+def test_reader_download_fail(remote_local: Tuple[str, str], missing_file: str):
+    num_samples = 117
+    shard_size_limit = 1 << 8
+    samples, decoders = get_fake_samples_decoders(num_samples)
+    remote, local = remote_local
+    write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
+
+    if missing_file == 'index':
+        os.remove(os.path.join(remote, 'index.mds'))
+    elif missing_file == 'shard':
+        os.remove(os.path.join(remote, '000001.mds'))
+
+    # Build and iterate over StreamingDataset
+    try:
+        dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders, timeout=1)
+        for _ in dataset:
+            pass
+    except Exception as e:
+        print(f'Successfully raised error: {e}')
+
+
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize('created_ago', [0.5, 3])
 @pytest.mark.parametrize('timeout', [1])

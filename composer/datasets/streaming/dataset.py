@@ -4,6 +4,7 @@
 """The :class:`StreamingDataset` class, used for building streaming iterable datasets.
 """
 
+import enum
 import math
 import os
 from threading import Lock, Thread
@@ -25,6 +26,13 @@ __all__ = ['StreamingDataset']
 
 class DatasetCompressionException(Exception):
     pass
+
+
+class _DownloadStatus(enum.IntEnum):
+    NOT_STARTED = 1
+    IN_PROGRESS = 2
+    DONE = 3
+    FAILED = 4
 
 
 class StreamingDataset(IterableDataset):
@@ -130,10 +138,10 @@ class StreamingDataset(IterableDataset):
         self.timeout = timeout
         self.batch_size = batch_size
 
-        compression_basename = get_compression_scheme_basename()
-        if remote is not None:
+        self.compression_scheme = None
+        if remote is not None and dist.get_local_rank() == 0:
             try:
-                compression_local = self._download_file(compression_basename, wait=(dist.get_local_rank() != 0))
+                compression_local = self._download_file(get_compression_scheme_basename())
                 with open(compression_local, 'r') as fp:
                     compression_scheme = fp.read()
                     self.compression_scheme = compression_scheme if compression_scheme != '' else None
@@ -144,9 +152,12 @@ class StreamingDataset(IterableDataset):
                 os.remove(compression_local)
 
             except FileNotFoundError:
-                self.compression_scheme = None
-        else:
-            self.compression_scheme = None
+                pass
+
+        # Broadcast compression scheme to all ranks
+        compression_scheme_list = [self.compression_scheme]
+        dist.broadcast_object_list(compression_scheme_list)
+        self.compression_scheme = compression_scheme_list[0]
 
         # Load the index file containing the shard metadata
         # This file contains the shard and offset in bytes of each sample (for direct access).
@@ -161,7 +172,8 @@ class StreamingDataset(IterableDataset):
         self._next_epoch = 0
         self._epoch_to_todo_ids = {}
         self._downloaded_ids = []
-        self._is_downloaded = False
+        self._download_status = _DownloadStatus.NOT_STARTED
+        self._download_exception: Exception
 
     def _download_file(self, basename: str, wait: bool = False) -> str:
         """Safely download a file from remote to local cache.
@@ -209,14 +221,14 @@ class StreamingDataset(IterableDataset):
             # Extend and optionally reshuffle the remaining samples of any
             # epochs we have in progress.
             if self.shuffle:
-                if not self._is_downloaded:
+                if self._download_status == _DownloadStatus.IN_PROGRESS:
                     self._downloaded_ids.extend(new_ids)
                     np.random.shuffle(self._downloaded_ids)
                 for todo_ids in self._epoch_to_todo_ids.values():
                     todo_ids.extend(new_ids)
                     np.random.shuffle(todo_ids)
             else:
-                if not self._is_downloaded:
+                if self._download_status == _DownloadStatus.IN_PROGRESS:
                     self._downloaded_ids.extend(new_ids)
                 for todo_ids in self._epoch_to_todo_ids.values():
                     todo_ids.extend(new_ids)
@@ -227,8 +239,9 @@ class StreamingDataset(IterableDataset):
             self._lock = Lock()
 
         with self._lock:
-            if self._is_downloaded:
+            if self._download_status != _DownloadStatus.NOT_STARTED:
                 return
+            self._download_status = _DownloadStatus.IN_PROGRESS
 
         # We find out num workers, and therefore num partitions, when __iter__ is called.
         # From the partition, derive our shard overlap range and exact sample range.
@@ -246,11 +259,15 @@ class StreamingDataset(IterableDataset):
             # Otherwise, wait until shard gets downloaded by another worker on this node
             # This produces deterministic sample order.
             basename = get_shard_basename(shard, compression_name=self.compression_scheme)
-            self._download_file(basename, wait=(shard not in part_shards_to_download))
+            try:
+                self._download_file(basename, wait=(shard not in part_shards_to_download))
+            except Exception as e:
+                self._download_status = _DownloadStatus.FAILED
+                self._download_exception = e
             self._insert_shard_samples(shard, part_min_id, part_max_id)
 
         with self._lock:
-            self._is_downloaded = True
+            self._download_status = _DownloadStatus.DONE
 
     def __len__(self) -> int:
         """Get the length of the dataset.
@@ -334,11 +351,15 @@ class StreamingDataset(IterableDataset):
                         return todo_ids.pop(-1)
                     else:
                         return todo_ids.pop(0)
-                elif self._is_downloaded:
+                elif self._download_status == _DownloadStatus.IN_PROGRESS:
+                    pass
+                elif self._download_status == _DownloadStatus.DONE:
                     del self._epoch_to_todo_ids[epoch]
                     return None
+                elif self._download_status == _DownloadStatus.FAILED:
+                    raise self._download_exception
                 else:
-                    pass
+                    raise RuntimeError('Unexpected download status.')
             sleep(0.25)
 
     def _iter_ids(self) -> Iterator[int]:
@@ -348,7 +369,7 @@ class StreamingDataset(IterableDataset):
             Iterator[int]: Each sample ID.
         """
         with self._lock:
-            is_downloaded = self._is_downloaded
+            is_downloaded = self._download_status == _DownloadStatus.DONE
 
         if is_downloaded:
             ids = list(self._downloaded_ids)

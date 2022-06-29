@@ -33,11 +33,19 @@ def test_hparams_in_registry(constructor: Type[ObjectStoreHparams]):
     assert_in_registry(constructor, object_store_registry)
 
 
-def test_sftp_key_file_environ(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path):
-    private_key_filepath = '/path/to/private/key/file'
-    monkeypatch.setenv('COMPOSER_SFTP_KEY_FILE', private_key_filepath)
+@pytest.mark.parametrize('kwarg_name,environ_name', [
+    ['key_filename', 'COMPOSER_SFTP_KEY_FILE'],
+    ['known_hosts_filename', 'COMPOSER_SFTP_KNOWN_HOSTS_FILE'],
+])
+def test_filenames_as_environs(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path, kwarg_name: str,
+                               environ_name: str):
+    key_filepath = str(tmp_path / 'keyfile')
+    with open(key_filepath, 'w+') as f:
+        f.write('')
+
+    monkeypatch.setenv(environ_name, key_filepath)
     hparams = SFTPObjectStoreHparams(host='host',)
-    assert hparams.get_kwargs()['key_filename'] == private_key_filepath
+    assert hparams.get_kwargs()[kwarg_name] == key_filepath
     with get_object_store_ctx(hparams.get_object_store_cls(), monkeypatch, tmp_path):
         with hparams.initialize_object() as object_store:
             assert isinstance(object_store, ObjectStore)
