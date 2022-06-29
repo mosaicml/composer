@@ -41,6 +41,7 @@ from composer.trainer.devices.device_hparams_registry import device_registry
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, reproducibility
 from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
+from composer.utils.tqdm_utils import monkeypatch_tqdm
 
 if TYPE_CHECKING:
     from typing import TypedDict
@@ -406,6 +407,7 @@ class TrainerHparams(hp.Hparams):
 
     def initialize_object(self) -> Trainer:
         self.validate()
+        monkeypatch_tqdm()
 
         # Set the Python LogLevel for Composer
         import composer
