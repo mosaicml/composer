@@ -49,8 +49,8 @@ class ImageMonitor(Callback):
         interval (str, optional): Time string specifying how often to log images. For example, ``interval='1ep'`` means
             images are logged once every epoch, while ``interval='100ba'`` means images are logged once every 100
             batches. Default: ``"100ba"``.
-        mode (str, optional): How to log the image labels. Valid values are ``"classification"`` (single targets)
-            and "segmentation" which saves segmentation masks. Default: ``"classification"``.
+        mode (str, optional): How to log the image labels. Valid values are ``"input"`` (input only)
+            and "segmentation" which saves segmentation masks. Default: ``"input"``.
         num_images (int, optional): Number of images to log. Must be a perfect square that is no bigger than the
             microbatch size. Default: ``8``.
         input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
@@ -65,7 +65,7 @@ class ImageMonitor(Callback):
 
     def __init__(self,
                  interval: str = '100ba',
-                 mode: str = 'classification',
+                 mode: str = 'input',
                  num_images: int = 8,
                  input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
                  target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1):
@@ -76,8 +76,8 @@ class ImageMonitor(Callback):
         self.target_key = target_key
 
         # Check that the output mode is valid
-        if self.mode not in ['classification', 'segmentation']:
-            raise ValueError(f'Invalid output mode: {mode}')
+        if self.mode not in ['input', 'segmentation']:
+            raise ValueError(f'Invalid mode: {mode}')
 
         # Check that the interval timestring is parsable and convert into time object
         try:
@@ -100,13 +100,10 @@ class ImageMonitor(Callback):
 
         images = inputs[0:self.num_images]
         targets = targets[0:self.num_images]
-        if self.mode.lower() == 'classification':
-            table = wandb.Table(columns=['Image', 'target'])
-            for image, target in zip(images, targets):
-                image = wandb.Image(image)
-                table.add_data(image, target)
-            logger.data_batch({'Images/Inputs' : table})
-
+        if self.mode.lower() == 'input':
+            images = make_grid(input[0:self.num_images], nrow=self.nrow, normalize=True)
+            images = wandb.Image(images)
+            logger.data_batch({'Images/Inputs': images})
         elif self.mode.lower() == 'segmentation':
             images = make_grid(input[0:self.num_images], nrow=self.nrow, normalize=True)
             images = wandb.Image(images)
