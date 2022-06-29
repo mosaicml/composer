@@ -83,11 +83,13 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
         pretrained_model_name = 'bert-base-uncased'
 
     if use_pretrained:
+        assert transformers.AutoModelForMaskedLM.from_pretrained is not None, 'AutoModelForMaskedLM has from_pretrained method'
         model = transformers.AutoModelForMaskedLM.from_pretrained(pretrained_model_name_or_path=pretrained_model_name,
                                                                   **model_config)
     else:
         config = transformers.AutoConfig.from_pretrained(pretrained_model_name, **model_config)
-        model = transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
+        assert transformers.AutoModelForMaskedLM.from_config is not None, 'AutoModelForMaskedLM has from_config method'
+        model = transformers.AutoModelForMaskedLM.from_config(config)
 
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()  # type: ignore
@@ -184,14 +186,16 @@ def create_bert_classification(num_labels: Optional[int] = 2,
         pretrained_model_name = 'bert-base-uncased'
 
     if use_pretrained:
+        assert transformers.AutoModelForSequenceClassification.from_pretrained is not None, 'AutoModelForSequenceClassification has from_pretrained method'
         model = transformers.AutoModelForSequenceClassification.from_pretrained(
             pretrained_model_name_or_path=pretrained_model_name, **model_config)
     else:
         config = transformers.AutoConfig.from_pretrained(pretrained_model_name, **model_config)
-        model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
+        assert transformers.AutoModelForSequenceClassification.from_config is not None, 'AutoModelForSequenceClassification has from_config method'
+        model = transformers.AutoModelForSequenceClassification.from_config(config)
 
     if gradient_checkpointing:
-        model.gradient_checkpointing_enable()  # type: ignore
+        model.gradient_checkpointing_enable()
 
     # setup the tokenizer
     if tokenizer_name:
