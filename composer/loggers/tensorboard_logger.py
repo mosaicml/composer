@@ -19,6 +19,14 @@ __all__ = ['TensorboardLogger']
 class TensorboardLogger(LoggerDestination):
     """Log to `Tensorboard <https://www.tensorflow.org/tensorboard/>`_.
 
+    If you are accessing your logs from a cloud bucket, like S3, they will be
+    in `{your_bucket_name}/tensorboard_logs/{run_name}` with names like
+    `events.out.tfevents-{run_name}-{rank}`.
+
+    If you are accessing your logs locally (from wherever you are running composer), the logs
+    will be in the relative path: `tensorboard_logs/{run_name}` with names starting with
+    `events.out.tfevents.*`
+
     Args:
         run_name (str, optional): Tensorboard run name.
             This is the name of the run as will appear in the Tensorboard GUI. Also, this
