@@ -104,7 +104,7 @@ class ImageMonitor(Callback):
         shift = targets.min()
         targets -= shift
         # Convert outputs to segmentation masks. Assume channels are first dim
-        outputs = state.outputs[0:self.num_images]
+        outputs = outputs[0:self.num_images]
         outputs = outputs.argmax(dim=1).cpu().numpy()
         outputs -= shift
 
