@@ -52,8 +52,8 @@ class ImageMonitor(Callback):
             batches. Default: ``"100ba"``.
         mode (str, optional): How to log the image labels. Valid values are ``"input"`` (input only)
             and "segmentation" which saves segmentation masks. Default: ``"input"``.
-        num_images (int, optional): Number of images to log. Must be a perfect square that is no bigger than the
-            microbatch size. Default: ``8``.
+        num_images (int, optional): Number of images to log. Must be less than or equal to than the microbatch size.
+            Default: ``8``.
         input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
@@ -95,32 +95,59 @@ class ImageMonitor(Callback):
         self.nrow = floor(sqrt(self.num_images))
         self.num_images = self.nrow * self.nrow
 
+    def _make_segmentation_images(self, inputs, targets, outputs):
+        images = inputs[0:self.num_images].data.cpu().permute(0, 2, 3, 1).numpy()
+        targets = targets[0:self.num_images].data.cpu().numpy()
+        outputs = outputs[0:self.num_images]
+
+        # Shift targets so that the background class is 0
+        shift = targets.min()
+        targets -= shift
+        # Convert outputs to segmentation masks. Assume channels are first dim
+        outputs = state.outputs[0:self.num_images]
+        outputs = outputs.argmax(dim=1).cpu().numpy()
+        outputs -= shift
+
+        mask_list = []
+        for image, target, output in zip(images, targets, outputs):
+            img_mask_pair = wandb.Image(image,
+                                        masks={
+                                            "ground truth": {
+                                                "mask_data": target
+                                            },
+                                            "prediction": {
+                                                "mask_data": output
+                                            }
+                                        })
+            mask_list.append(img_mask_pair)
+
+        return mask_list
+
     def before_forward(self, state, logger):
         if self.mode.lower() == 'input':
-            inputs = state.batch_get_item(key=self.input_key)
-            targets = state.batch_get_item(key=self.target_key)
+            if state.timestamp.get(self.interval.unit).value % self.interval.value == 0:
+                inputs = state.batch_get_item(key=self.input_key)
+                targets = state.batch_get_item(key=self.target_key)
 
-            images = make_grid(input[0:self.num_images], nrow=self.nrow, normalize=True)
-            images = wandb.Image(images)
-            logger.data_batch({'Images/Inputs': images})
+                images = make_grid(input[0:self.num_images], nrow=self.nrow, normalize=True)
+                images = wandb.Image(images)
+                logger.data_batch({'Images/Inputs': images})
 
     def after_forward(self, state, logger):
         if self.mode.lower() == 'segmentation':
+            if state.timestamp.get(self.interval.unit).value % self.interval.value == 0:
+                inputs = state.batch_get_item(key=self.input_key)
+                targets = state.batch_get_item(key=self.target_key)
+                outputs = state.outputs
+
+                mask_list = self._make_segmentation_images(inputs, targets, outputs)
+                logger.data_batch({'Images/Train': mask_list})
+
+    def eval_after_forward(self, state, logger):
+        if self.mode.lower() == 'segmentation':
             inputs = state.batch_get_item(key=self.input_key)
             targets = state.batch_get_item(key=self.target_key)
+            outputs = state.outputs
 
-            images = inputs[0:self.num_images].data.cpu().permute(0,2,3,1).numpy()
-            targets = targets[0:self.num_images].data.cpu().numpy()
-            # Shift targets so that the background class is 0
-            shift = targets.min()
-            targets -= shift
-            # Convert outputs to segmentation masks. Assume channels are first dim
-            outputs = state.outputs[0:self.num_images]
-            outputs = outputs.argmax(dim=1).cpu().numpy()
-            outputs -= shift
-
-            mask_list = []
-            for image, target, output in zip(images, targets, outputs):
-                img_mask_pair = wandb.Image(image, masks={"ground truth": {"mask_data": target}, "prediction": {"mask_data": output}})
-                mask_list.append(img_mask_pair)
-            logger.data_batch({'Images/Inputs': mask_list})
+            mask_list = self._make_segmentation_images(inputs, targets, outputs)
+            logger.data_batch({'Images/Eval': mask_list})
