@@ -24,8 +24,8 @@ def _should_printer_print_new_line():
 
 
 def _new_status_printer(file):
-    """
-    Manage the printing and in-place updating of a line of characters.
+    """Manage the printing and in-place updating of a line of characters.
+
     Note that if the string is longer than a line, then in-place
     updating may not work (it will print a new line at each refresh).
     """
