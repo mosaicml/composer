@@ -94,6 +94,9 @@ class TensorboardLogger(LoggerDestination):
         self._flush(logger)
 
     def _flush(self, logger: Logger):
+        # To avoid empty log artifacts for each rank.
+        if self.rank_zero_only and dist.get_global_rank() != 0:
+            return
         self.writer.flush()
         file_path = self.log_dir  # Initialize for pyright.
         if self.writer.file_writer is not None:  # To satisfy pyright.
