@@ -101,6 +101,7 @@ class ImageMonitor(Callback):
 
         images = inputs[0:self.num_images].data.cpu().permute(0,2,3,1).numpy()
         targets = targets[0:self.num_images].data.cpu().numpy()
+        targets += targets.min()
         if self.mode.lower() == 'input':
             images = make_grid(input[0:self.num_images], nrow=self.nrow, normalize=True)
             images = wandb.Image(images)
