@@ -32,6 +32,7 @@ def apply_alibi(
     attention_module: Type[torch.nn.Module],
     attr_to_replace: str,
     alibi_attention: Callable,
+    causal: bool,
     mask_replacement_function: Optional[Callable[[torch.nn.Module, int], torch.nn.Module]] = None,
     optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
 ) -> None:
@@ -78,6 +79,7 @@ def apply_alibi(
             ALiBi is implemented. Used to replace
             ``{attention_module}.{attr_to_replace}``. Example:
             ``composer.algorithms.alibi._gpt2_alibi._attn``.
+        causal (bool): See :class:`.Alibi`.
         mask_replacement_function ([Callable[[torch.nn.Module, int], torch.nn.Module]], optional):
             Function to replace model's attention mask. This can be
             necessary for evaluating on sequence lengths longer than the model was
@@ -109,7 +111,10 @@ def apply_alibi(
 
     def convert_attention(module: torch.nn.Module, module_index: Optional[int] = None):
         del module_index  # unused
-        module = _register_alibi(module=module, n_heads=heads_per_layer, max_token_length=max_sequence_length)
+        module = _register_alibi(module=module,
+                                 n_heads=heads_per_layer,
+                                 max_token_length=max_sequence_length,
+                                 causal=causal)
         setattr(module, attr_to_replace, MethodType(alibi_attention, module))
         if mask_replacement_function:
             module = mask_replacement_function(module, max_sequence_length)
@@ -178,6 +183,9 @@ class Alibi(Algorithm):
             ALiBi is implemented. Used to replace
             ``{attention_module}.{attr_to_replace}``. Example:
             ``'composer.algorithms.alibi._gpt2_alibi._attn'``.
+        causal (bool): Whether to generate the ALiBi attention bias for causal attention.
+            For example, this should be ``True`` for a GPT model and ``False`` for
+            a BERT model.
         mask_replacement_function (str, optional): Path to function to replace model's
             attention mask. This can be necessary if evaluating
             on sequence lengths longer than the model was initialized to
@@ -202,6 +210,7 @@ class Alibi(Algorithm):
                  attention_module_name: str,
                  attr_to_replace: str,
                  alibi_attention: str,
+                 causal: bool,
                  mask_replacement_function: Optional[str] = None,
                  heads_per_layer: Optional[int] = None,
                  max_sequence_length: int = 8192,
@@ -211,6 +220,7 @@ class Alibi(Algorithm):
         self.attention_module_name = attention_module_name
         self.attr_to_replace = attr_to_replace
         self.alibi_attention = alibi_attention
+        self.causal = causal
         self.mask_replacement_function = mask_replacement_function
         self.heads_per_layer = heads_per_layer
         self.max_sequence_length = max_sequence_length
@@ -238,6 +248,7 @@ class Alibi(Algorithm):
                 max_sequence_length=self.max_sequence_length,
                 position_embedding_attribute=self.position_embedding_attribute,
                 attr_to_replace=self.attr_to_replace,
+                causal=self.causal,
                 # Access method from string
                 attention_module=_lazy_import(self.attention_module_name),
                 # Access method from string
@@ -285,18 +296,36 @@ def _zero_and_freeze_expand_position_embeddings(
     return None, None
 
 
-def _register_alibi(module: torch.nn.Module, n_heads: int, max_token_length: int):
-    # Modified from https://github.com/ofirpress/attention_with_linear_biases/blob/5b327adc6d131e28b40ba58906b30bb469483519/fairseq/models/transformer.py#L742
-    slopes = torch.Tensor(_get_alibi_head_slopes(n_heads))
-    # In the next line, the part after the * is what constructs the diagonal matrix
-    # (right matrix in Figure 3 in the paper).
-    # If you run it you'll see that it doesn't exactly print out the same matrix as we
-    # have in Figure 3, but one where all rows are identical.
-    # This works because the softmax operation is invariant to translation, and our bias
-    # functions are always linear.
-    alibi = slopes.unsqueeze(1).unsqueeze(1) * \
-        torch.arange(max_token_length). \
-        unsqueeze(0).unsqueeze(0).expand(n_heads, -1, -1)
+def _register_alibi(module: torch.nn.Module, n_heads: int, max_token_length: int, causal: bool):
+    if causal:  # e.g., for GPT
+        # Modified from https://github.com/ofirpress/attention_with_linear_biases/blob/5b327adc6d131e28b40ba58906b30bb469483519/fairseq/models/transformer.py#L742
+        slopes = torch.Tensor(_get_alibi_head_slopes(n_heads))
+        # In the next line, the part after the * is what constructs the diagonal matrix
+        # (right matrix in Figure 3 in the paper).
+        # If you run it you'll see that it doesn't exactly print out the same matrix as we
+        # have in Figure 3, but one where all rows are identical.
+        # This works because the softmax operation is invariant to translation, and our bias
+        # functions are always linear.
+        alibi = slopes.unsqueeze(1).unsqueeze(1) * \
+            torch.arange(max_token_length). \
+            unsqueeze(0).unsqueeze(0).expand(n_heads, -1, -1)
+
+    else:  # e.g., for BERT
+        # Following https://github.com/ofirpress/attention_with_linear_biases/issues/5 (Implementation 1)
+        # In the causal case, you can exploit the fact that softmax is invariant to a uniform translation
+        # of the logits, which makes the math work out *after* applying causal masking. If no causal masking
+        # will be applied, it is necessary to construct the diagonal mask.
+        context_position = torch.arange(max_token_length)[:, None]
+        memory_position = torch.arange(max_token_length)[None, :]
+        relative_position = torch.abs(memory_position - context_position)
+        # [n_heads, max_token_length, max_token_length]
+        relative_position = relative_position.unsqueeze(0).expand(n_heads, -1, -1)
+
+        slopes = torch.Tensor(_get_alibi_head_slopes(n_heads))
+        alibi = slopes.unsqueeze(1).unsqueeze(1) * -relative_position
+        # [1, n_heads, max_token_length, max_token_length]
+        alibi = alibi.unsqueeze(0)
+
     module.register_buffer('alibi', alibi)
     return module
 
@@ -339,3 +368,38 @@ def _lazy_import(name: Optional[str]) -> Any[Callable, ModuleType, None]:
                       f" path you're attempting to import.")
         raise
     return mod
+
+
+# from composer.algorithms.alibi._gpt2_alibi import _attn
+# from composer.algorithms.alibi._gpt2_alibi import enlarge_mask
+# from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
+
+# from composer.algorithms.alibi._bert_alibi import forward
+# from transformers.models.bert.modeling_bert import BertSelfAttention
+
+# from composer.models import BERTModel
+# import transformers
+
+# config = transformers.BertConfig()
+# hf_model = transformers.BertLMHeadModel(config=config)
+# tokenizer = transformers.BertTokenizer.from_pretrained("bert-base-uncased")
+# model = BERTModel(module=hf_model, config=config, tokenizer=tokenizer)
+
+# model.eval()
+
+# batch = {'input_ids': torch.LongTensor([[849, 849, 849, 220, 2843, 2832, 383, 893]]), 'attention_mask': torch.Tensor([[1, 1, 1, 1, 1, 1, 1, 1]])}
+# outs_before = model.module.forward(output_attentions=True, **batch)
+
+# apply_alibi(
+#     model=model,
+#     heads_per_layer=12,
+#     max_sequence_length=128,
+#     position_embedding_attribute="module.bert.embeddings.position_embeddings",#"module.transformer.wpe",
+#     attention_module=BertSelfAttention,
+#     attr_to_replace="forward",
+#     alibi_attention=forward,
+#     causal=False,
+#     # mask_replacement_function=enlarge_mask
+# )
+# outs_after = model.module.forward(output_attentions=True, **batch)
+# foo
