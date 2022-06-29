@@ -76,7 +76,7 @@ class ImageMonitor(Callback):
         self.target_key = target_key
 
         # Check that the output mode is valid
-        if self.output_mode not in ['classification', 'segmentation']:
+        if self.mode not in ['classification', 'segmentation']:
             raise ValueError(f'Invalid output mode: {mode}')
 
         # Check that the interval timestring is parsable and convert into time object
