@@ -996,7 +996,7 @@ class Trainer:
                 load_object_store = None
                 # Disable `load_weights_only` since this applies only to the initial training run
                 load_weights_only = False
-                log.info('Autoresuming training from checkppoint')
+                log.info('Autoresuming training from checkpoint')
             else:
                 log.info('No previous autoresume checkpoint found')
         # Actually load the checkpoint from potentially updated arguments
