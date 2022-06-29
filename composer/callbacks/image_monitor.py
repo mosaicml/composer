@@ -49,29 +49,35 @@ class ImageMonitor(Callback):
         interval (str, optional): Time string specifying how often to log images. For example, ``interval='1ep'`` means
             images are logged once every epoch, while ``interval='100ba'`` means images are logged once every 100
             batches. Default: ``"100ba"``.
-        output_mode (str, optional): How to log the output images. Valid values are ``"None"`` (no outputs)
-            and "segmentation" which saves segmentation masks. Default: ``"None"``.
+        mode (str, optional): How to log the image labels. Valid values are ``"classification"`` (single targets)
+            and "segmentation" which saves segmentation masks. Default: ``"classification"``.
         num_images (int, optional): Number of images to log. Must be a perfect square that is no bigger than the
             microbatch size. Default: ``8``.
         input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
             is the input. Default: ``0``.
+        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target
+            from the batch. Can also be a pair of get and set functions, where the getter
+            is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
+            is the target. Default: ``1``.
     """
 
     def __init__(self,
                  interval: str = '100ba',
-                 output_mode: Optional[str] = 'None',
+                 mode: str = 'classification',
                  num_images: int = 8,
-                 input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0):
+                 input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
+                 target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1):
         self.interval = interval
-        self.output_mode = output_mode
+        self.mode = mode
         self.num_images = num_images
         self.input_key = input_key
+        self.target_key = target_key
 
         # Check that the output mode is valid
-        if self.output_mode not in ['None', 'segmentation']:
-            raise ValueError(f'Invalid output mode: {output_mode}')
+        if self.output_mode not in ['classification', 'segmentation']:
+            raise ValueError(f'Invalid output mode: {mode}')
 
         # Check that the interval timestring is parsable and convert into time object
         try:
@@ -89,7 +95,19 @@ class ImageMonitor(Callback):
         self.num_images = self.nrow * self.nrow
 
     def before_forward(self, state, logger):
-        input = state.batch_get_item(key=self.input_key)
-        images = make_grid(input[0:self.num_images], nrow=self.nrow, normalize=True)
-        images = wandb.Image(images)
-        logger.data_batch({'Images/Inputs': images})
+        inputs = state.batch_get_item(key=self.input_key)
+        targets = state.batch_get_item(key=self.target_key)
+
+        images = inputs[0:self.num_images]
+        targets = targets[0:self.num_images]
+        if self.mode.lower() == 'classification':
+            table = wandb.Table(columns=['Image', 'target'])
+            for image, target in zip(images, targets):
+                image = wandb.Image(image)
+                table.add_data(target, image)
+            logger.data_batch({'Images/Inputs' : table})
+
+        elif self.mode.lower() == 'segmentation':
+            images = make_grid(input[0:self.num_images], nrow=self.nrow, normalize=True)
+            images = wandb.Image(images)
+            logger.data_batch({'Images/Inputs': images})
