@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional, Union
 
 from torchmetrics import Metric
 from torchmetrics.collections import MetricCollection
@@ -43,7 +43,8 @@ class HuggingFaceModel(ComposerModel):
 
     def __init__(self,
                  model: transformers.PreTrainedModel,
-                 tokenizer: Optional[transformers.PreTrainedTokenizer] = None,
+                 tokenizer: Optional[Union[transformers.PreTrainedTokenizer,
+                                           transformers.PreTrainedTokenizerFast]] = None,
                  use_logits: Optional[bool] = False,
                  metrics: Optional[List[Metric]] = None) -> None:
         try:
@@ -63,6 +64,7 @@ class HuggingFaceModel(ComposerModel):
             elif isinstance(self.model.base_model, transformers.BertModel):
                 self.model_inputs = {'input_ids', 'attention_mask', 'token_type_ids'}
         else:
+            assert tokenizer.model_input_names is not None, 'the tokenizer should have a model input name'
             self.model_inputs = set(tokenizer.model_input_names)
 
         self.use_logits = use_logits

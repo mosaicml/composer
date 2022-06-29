@@ -62,6 +62,7 @@ def assert_is_glu_instance(model):
 
     assert isinstance(model, BertForMaskedLM) or isinstance(model, BertForSequenceClassification)
     # ensure that within the entire model, no BertOutput exists, and at least one BERTGatedFFOutput does.
+    assert model.modules is not None, 'model has .modules method'
     for module_class in model.modules():
         assert not isinstance(
             module_class, BertOutput

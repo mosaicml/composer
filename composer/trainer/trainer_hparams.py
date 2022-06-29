@@ -411,7 +411,7 @@ class TrainerHparams(hp.Hparams):
 
         # Set the Python LogLevel for Composer
         import composer
-        logging.getLogger(composer.__name__).setLevel(self.python_log_level)
+        logging.getLogger(composer.__name__).setLevel(self.python_log_level.upper())
 
         # Device
         device = self.device
