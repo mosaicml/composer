@@ -1656,11 +1656,7 @@ class Trainer:
                 else:
                     raise
 
-            # Propagate across all ranks if any rank hit CUDA OOM
-            should_handle_cuda_oom = self._device.tensor_to_device(
-                torch.tensor([should_handle_cuda_oom], dtype=torch.uint8))
-            dist.all_reduce(should_handle_cuda_oom, reduce_operation='MAX')
-            if int(should_handle_cuda_oom.item()) == 1:
+            if should_handle_cuda_oom == 1:
                 # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_timeout_error since
                 # it is likely transient, e.g. timeout because certain ranks OOMed and didn't reach barrier.
                 # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
@@ -1717,8 +1713,21 @@ class Trainer:
             current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(batch) for batch in microbatches])
 
             for microbatch_idx, self.state.batch in enumerate(microbatches):
-                is_final_microbatch = microbatch_idx + 1 == len(microbatches)
-                self._train_microbatch(use_grad_scaling, current_batch_size, total_loss, is_final_microbatch)
+                fail = 0
+                try:
+                    is_final_microbatch = microbatch_idx + 1 == len(microbatches)
+                    self._train_microbatch(use_grad_scaling, current_batch_size, total_loss, is_final_microbatch)
+                except RuntimeError as e:
+                    if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
+                        fail = 1
+                    else:
+                        raise
+
+                fail = self._device.tensor_to_device(torch.tensor([fail], dtype=torch.int8))
+                dist.all_reduce(fail, reduce_operation='SUM')
+
+                if fail.item() > 0:
+                    raise RuntimeError('CUDA out of memory')
 
             # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
             if use_grad_scaling:
