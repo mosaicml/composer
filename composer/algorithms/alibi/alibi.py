@@ -237,9 +237,14 @@ class Alibi(Algorithm):
                 try:
                     self.heads_per_layer = state.model.config.n_head  # type: ignore
                 except AttributeError:
-                    log.exception('alibi.heads_per_layer not provided, and unable to '
-                                  'determine number of heads from model.config.n_head.'
-                                  ' Please provide alibi. heads_per_layer.')
+                    try:
+                        self.heads_per_layer = state.model.config.num_attention_heads  # type: ignore
+                    except AttributeError:
+                        log.exception('alibi.heads_per_layer not provided, and unable to '
+                                    'determine number of heads from model.config.'
+                                    ' Please provide alibi. heads_per_layer.')
+                        raise
+                    raise
 
             apply_alibi(
                 state.model,
