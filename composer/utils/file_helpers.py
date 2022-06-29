@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import pathlib
 import re
+import tempfile
 import uuid
 from typing import TYPE_CHECKING, Optional, Union
 
@@ -29,6 +30,7 @@ __all__ = [
     'format_name_with_dist',
     'format_name_with_dist_and_time',
     'is_tar',
+    'create_symlink_file',
 ]
 
 
@@ -339,6 +341,62 @@ def get_file(
     Raises:
         FileNotFoundError: If the ``path`` does not exist.
     """
+    if path.endswith('.symlink'):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            symlink_file_name = os.path.join(tmpdir, 'file.symlink')
+            # Retrieve the symlink
+            _get_file(
+                path=path,
+                destination=symlink_file_name,
+                object_store=object_store,
+                overwrite=False,
+                progress_bar=progress_bar,
+            )
+            # Read object name in the symlink
+            with open(symlink_file_name, 'r') as f:
+                real_path = f.read()
+
+        # Recurse
+        return get_file(
+            path=real_path,
+            destination=destination,
+            object_store=object_store,
+            overwrite=overwrite,
+            progress_bar=progress_bar,
+        )
+
+    try:
+        _get_file(
+            path=path,
+            destination=destination,
+            object_store=object_store,
+            overwrite=overwrite,
+            progress_bar=progress_bar,
+        )
+    except FileNotFoundError as e:
+        new_path = path + '.symlink'
+        try:
+            # Follow the symlink
+            return get_file(
+                path=new_path,
+                destination=destination,
+                object_store=object_store,
+                overwrite=overwrite,
+                progress_bar=progress_bar,
+            )
+        except FileNotFoundError as ee:
+            # Raise the original not found error first, which contains the path to the user-specified file
+            raise e from ee
+
+
+def _get_file(
+    path: str,
+    destination: str,
+    object_store: Optional[Union[ObjectStore, LoggerDestination]],
+    overwrite: bool,
+    progress_bar: bool,
+):
+    # Underlying _get_file logic that does not deal with symlinks
     if object_store is not None:
         if isinstance(object_store, ObjectStore):
             total_size_in_bytes = object_store.get_object_size(path)
@@ -388,6 +446,7 @@ def get_file(
                     os.remove(tmp_path)
                 except OSError:
                     pass
+                raise
             else:
                 os.rename(tmp_path, destination)
         return
@@ -407,6 +466,36 @@ def _get_callback(description: str):
         nonlocal pbar
         if num_bytes == 0 or pbar is None:
             pbar = tqdm.tqdm(desc=description, total=total_size, unit='iB', unit_scale=True)
-        pbar.update(num_bytes)
+        n = num_bytes - pbar.n
+        pbar.update(n)
+        if num_bytes == total_size:
+            pbar.close()
 
     return callback
+
+
+def create_symlink_file(
+    existing_path: str,
+    destination_filename: Union[str, pathlib.Path],
+):
+    """Create a symlink file, which can be followed by :func:`get_file`.
+
+    Unlike unix symlinks, symlink files can be created by this function are normal text files and can be
+    uploaded to object stores via :meth:`.ObjectStore.upload_object` or loggers via :meth:`.Logger.file_artifact`
+    that otherwise would not support unix-style symlinks.
+
+    Args:
+        existing_path (str): The name of existing object that the symlink file should point to.
+        destination_filename (str | pathlib.Path): The filename to which to write the symlink.
+            It must end in ``'.symlink'``.
+    """
+    # Loggers might not natively support symlinks, so we emulate symlinks via text files ending with `.symlink`
+    # This text file contains the name of the object it is pointing to.
+    # Only symlink if we're logging artifact to begin with
+    # Write artifact name into file to emulate symlink
+    # Add .symlink extension so we can identify as emulated symlink when downloading
+    destination_filename = str(destination_filename)
+    if not destination_filename.endswith('.symlink'):
+        raise ValueError('The symlink filename must end with .symlink.')
+    with open(destination_filename, 'x') as f:
+        f.write(existing_path)

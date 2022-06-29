@@ -162,12 +162,14 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                     transforms.Normalize(cifar10_mean, cifar10_std),
                 ])
 
-            dataset = CIFAR10(
-                self.datadir,
-                train=self.is_train,
-                download=self.download,
-                transform=transformation,
-            )
+            with dist.run_local_rank_zero_first():
+                dataset = CIFAR10(
+                    self.datadir,
+                    train=self.is_train,
+                    download=dist.get_local_rank() == 0 and self.download,
+                    transform=transformation,
+                )
+
         sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
         return dataloader_hparams.initialize_object(dataset,

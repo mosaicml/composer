@@ -101,41 +101,6 @@ class LoggerDestination(Callback, ABC):
         del state, log_level, artifact_name, file_path, overwrite  # unused
         pass
 
-    def log_symlink_artifact(
-        self,
-        state: State,
-        log_level: LogLevel,
-        existing_artifact_name: str,
-        symlink_artifact_name: str,
-        overwrite: bool,
-    ):
-        """Create a symlink.
-
-        of a file artifact stored at ``existing_artifact_name`` to an artifact named
-        ``symlink_artifact_name``.
-
-        Subclasses should implement this method to create a symlink of a file artifact stored at
-        ``existing_artifact_name`` to an artifact named ``symlink_artifact_name``.. However, not all loggers need to
-        implement this method. For example, the :class:`~composer.loggers.tqdm_logger.TQDMLogger` does not implement
-        this method, as it cannot handle file artifacts and thus does not need to do any special symlinking.
-
-        .. note::
-
-            *   This method will block the training loop. For optimal performance, it is recommended that this
-                method enqueue creating the symlink in the background and return immediately.
-                Then, use a background thread(s) or process(s) to read from this queue to perform any I/O.
-
-        Args:
-            state (State): The training state.
-            log_level (Union[str, LogLevel]): A :class:`LogLevel`.
-            existing_artifact_name (str): The name of symlinked artifact.
-            symlink_artifact_name (str): The symlink name of artifact.
-            overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``symlink_artifact_name``.
-                (default: ``False``)
-        """
-        del state, log_level, existing_artifact_name, symlink_artifact_name, overwrite  # unused
-        pass
-
     def get_file_artifact(
         self,
         artifact_name: str,

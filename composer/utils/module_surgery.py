@@ -276,6 +276,12 @@ def _find_param_in_optimizer(param: torch.nn.parameter.Parameter, optimizer: Opt
     return -1
 
 
+def _ordered_diff(first: List, second: List) -> List:
+    """Returns first - second while maintaining the order in first."""
+    second_list = set(second)
+    return [item for item in first if item not in second_list]
+
+
 def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
                                new_params: Iterable[torch.nn.parameter.Parameter],
                                optimizers: Union[Optimizer, Sequence[Optimizer]]) -> None:
@@ -315,11 +321,13 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
         raise NotImplementedError('Surgery with multiple optimizers is not yet supported.')
     opt = ensure_tuple(optimizers)[0]
 
-    # diff the two sets of parameters to find what needs to be removed or added
-    old_values = set(old_params)
-    new_values = set(new_params)
-    removed_params = old_values - new_values
-    added_params = new_values - old_values
+    # diff the two collection of parameters to find what needs to be removed or added
+    # We need to maintain the order of parameters here for training resumption
+    # with optimizers that store state so do not use set.
+    old_values = list(old_params)
+    new_values = list(new_params)
+    removed_params = _ordered_diff(old_values, new_values)
+    added_params = _ordered_diff(new_values, old_values)
 
     if len(removed_params) == 0 and len(added_params) == 0:
         return  # nothing to do

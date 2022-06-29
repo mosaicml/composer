@@ -56,13 +56,13 @@ Composer features:
 ## Benefits
 
 <p align="center">
-  <a href="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_light.svg#gh-light-mode-only" class="only-light">
-    <img src="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_light.svg" width="85%"/>
+  <a href="https://storage.googleapis.com/docs.mosaicml.com/images/composer_graph_light_06212022.svg?ref=Fiey0Xei#gh-light-mode-only" class="only-light">
+    <img src="https://storage.googleapis.com/docs.mosaicml.com/images/composer_graph_light_06212022.svg?ref=Fiey0Xei" width="75%"/>
   </a>
   <!-- link to the light mode image even on dark mode, so it will be readable in a new tab -->
   <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_BEGIN -->
-  <a href="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_light.svg#gh-dark-mode-only" class="only-dark">
-    <img src="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_dark.svg" width="85%"/>
+  <a href="https://storage.googleapis.com/docs.mosaicml.com/images/composer_graph_dark_06212022.svg?ref=Fiey0Xei#gh-dark-mode-only" class="only-dark">
+    <img src="https://storage.googleapis.com/docs.mosaicml.com/images/composer_graph_dark_06212022.svg?ref=Fiey0Xei" width="75%"/>
   </a>
   <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_END -->
 </p>
@@ -132,7 +132,7 @@ from torchvision import datasets, transforms
 
 from composer import Trainer
 from composer.algorithms import BlurPool, ChannelsLast, CutMix, LabelSmoothing
-from composer.models import MNIST_Classifier
+from composer.models import mnist_model
 
 transform = transforms.Compose([transforms.ToTensor()])
 train_dataset = datasets.MNIST("data", download=True, train=True, transform=transform)
@@ -140,18 +140,16 @@ eval_dataset = datasets.MNIST("data", download=True, train=False, transform=tran
 train_dataloader = DataLoader(train_dataset, batch_size=128)
 eval_dataloader = DataLoader(eval_dataset, batch_size=128)
 
-trainer = Trainer(
-    model=MNIST_Classifier(num_classes=10),
-    train_dataloader=train_dataloader,
-    eval_dataloader=eval_dataloader,
-    max_duration="2ep",
-    algorithms=[
-        BlurPool(replace_convs=True, replace_maxpools=True, blur_first=True),
-        ChannelsLast(),
-        CutMix(num_classes=10),
-        LabelSmoothing(smoothing=0.1),
-    ]
-)
+trainer = Trainer(model=mnist_model(num_classes=10),
+                  train_dataloader=train_dataloader,
+                  eval_dataloader=eval_dataloader,
+                  max_duration="2ep",
+                  algorithms=[
+                      BlurPool(replace_convs=True, replace_maxpools=True, blur_first=True),
+                      ChannelsLast(),
+                      CutMix(num_classes=10),
+                      LabelSmoothing(smoothing=0.1),
+                  ])
 trainer.fit()
 ```
 <!-- end_example_2 -->

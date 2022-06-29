@@ -17,10 +17,10 @@ import composer
 import composer.algorithms
 from composer import Algorithm
 from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
-                                 Factorize, FusedLayerNorm, GhostBatchNorm, GradientClipping, LabelSmoothing,
-                                 LayerFreezing, MixUp, NoOpModel, ProgressiveResizing, RandAugment, SelectiveBackprop,
-                                 SeqLengthWarmup, SqueezeExcite, StochasticDepth)
-from composer.models import ComposerResNet
+                                 Factorize, FusedLayerNorm, GatedLinearUnits, GhostBatchNorm, GradientClipping,
+                                 LabelSmoothing, LayerFreezing, MixUp, NoOpModel, ProgressiveResizing, RandAugment,
+                                 SelectiveBackprop, SeqLengthWarmup, SqueezeExcite, StochasticDepth)
+from composer.models import composer_resnet
 from composer.models.base import ComposerModel
 from tests import common
 from tests.fixtures.synthetic_hf_state import (make_synthetic_bert_dataloader, make_synthetic_bert_model,
@@ -53,7 +53,7 @@ simple_vision_pil_settings = {
 }
 
 simple_resnet_settings = {
-    'model': (ComposerResNet, {
+    'model': (composer_resnet, {
         'model_name': 'resnet18',
         'num_classes': 2
     }),
@@ -100,8 +100,9 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     },
     Factorize: simple_resnet_settings,
     FusedLayerNorm: simple_bert_settings,
+    GatedLinearUnits: simple_bert_settings,
     GhostBatchNorm: {
-        'model': (ComposerResNet, {
+        'model': (composer_resnet, {
             'model_name': 'resnet18',
             'num_classes': 2
         }),
@@ -123,7 +124,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     SeqLengthWarmup: None,  # NLP settings needed
     SqueezeExcite: simple_resnet_settings,
     StochasticDepth: {
-        'model': (ComposerResNet, {
+        'model': (composer_resnet, {
             'model_name': 'resnet50',
             'num_classes': 2
         }),
@@ -136,7 +137,6 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
             'drop_rate': 0.2,
             'drop_distribution': 'linear',
             'drop_warmup': '0.0dur',
-            'use_same_gpu_seed': False,
         }
     },
     SWA: {
@@ -212,6 +212,9 @@ def get_algs_with_marks():
         if alg_cls in (CutMix, MixUp, LabelSmoothing):
             # see: https://github.com/mosaicml/composer/issues/362
             pytest.importorskip('torch', minversion='1.10', reason='Pytorch 1.10 required.')
+
+        if alg_cls in (Alibi, GatedLinearUnits, SeqLengthWarmup):
+            pytest.importorskip('transformers')
 
         if alg_cls == SWA:
             # TODO(matthew): Fix
