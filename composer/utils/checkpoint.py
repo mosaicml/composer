@@ -151,6 +151,7 @@ def load_checkpoint(
             :attr:`load_weights_only` is not None. Otherwise, None.
     """
     # download the checkpoint to the node-local folder
+    log.debug('Loading checkpoint at %s', path)
     tempdir_ctx = tempfile.TemporaryDirectory() if dist.get_local_rank() == 0 else contextlib.nullcontext(None)
     with tempdir_ctx as tempdir:
         try:
@@ -205,6 +206,7 @@ def _download_checkpoint(
     *   The ``extracted_rank_n`` is a boolean flag indicating whether a tarball was extracted on global
         rank greater than 0.
     """
+    log.debug('Downloading checkpoint to folder %s', node_checkpoint_folder)
     rank_zero_checkpoint_filepath = os.path.join(node_checkpoint_folder, 'rank0_checkpoint')
     rank_n_checkpoint_filepath = os.path.join(node_checkpoint_folder, f'rank{dist.get_global_rank()}_checkpoint')
     extracted_checkpoint_folder = None
@@ -391,6 +393,7 @@ def save_checkpoint(
     *,
     weights_only: bool = False,
 ) -> List[pathlib.Path]:  # noqa: D103
+    log.debug('Saving checkpoint to %s', filename)
     state_dict = {
         'state': state.state_dict(),
         'rng': reproducibility.get_rng_state(),
