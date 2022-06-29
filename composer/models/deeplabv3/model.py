@@ -189,11 +189,19 @@ def composer_deeplabv3(num_classes: int,
     train_metrics = MetricCollection([CrossEntropy(ignore_index=-1), MIoU(num_classes, ignore_index=-1)])
     val_metrics = MetricCollection([CrossEntropy(ignore_index=-1), MIoU(num_classes, ignore_index=-1)])
 
-    loss_fn = loss_registry['soft_cross_entropy']
-    loss_fn = functools.partial(loss_fn, ignore_index=-1)
+    ce_loss_fn = loss_registry['soft_cross_entropy']
+    ce_loss_fn = functools.partial(ce_loss_fn, ignore_index=-1)
+    import monai
+    dice_loss_fn = monai.losses.DiceLoss(include_background=True, to_onehot_y=False, softmax=True, batch=True)
+    def combo_loss(outputs, targets):
+        ce_loss = ce_loss_fn(outputs, targets)
+
+        one_hot_targets = monai.networks.utils.one_hot((target + 1).unsqueeze(1), num_classes=(outputs.shape[1] + 1))[:, 1:]
+        dice_loss = dice_loss_fn(outputs, one_hot_targets)
+        return ce_loss + dice_loss
 
     composer_model = ComposerClassifier(module=model,
                                         train_metrics=train_metrics,
                                         val_metrics=val_metrics,
-                                        loss_fn=loss_fn)
+                                        loss_fn=combo_loss)
     return composer_model
