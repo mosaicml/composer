@@ -216,7 +216,7 @@ class ProgressBarLogger(LoggerDestination):
                 unit = state.max_duration.unit
                 curr_duration = int(state.timestamp.get(unit))
                 total = state.max_duration.value
-                training_progress = f'[{unit.name}={curr_duration}/{total}]'
+                training_progress = f'[{unit.name.lower()}={curr_duration}/{total}]'
 
             log_str = f'[{log_level.name}]{training_progress}: {data_str}'
             self.log_to_console(log_str)
