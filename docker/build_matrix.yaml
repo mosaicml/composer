@@ -36,9 +36,9 @@
 - BASE_IMAGE: nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 11.3.1
   PYTHON_VERSION: '3.9'
-  PYTORCH_VERSION: 1.11.0
+  PYTORCH_VERSION: 1.12.0
   TAGS:
-  - mosaicml/pytorch:1.11.0_cu113-python3.9-ubuntu20.04
+  - mosaicml/pytorch:1.12.0_cu113-python3.9-ubuntu20.04
   - mosaicml/pytorch:latest
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.12.0
@@ -47,16 +47,7 @@
   PYTHON_VERSION: '3.9'
   PYTORCH_VERSION: 1.12.0
   TAGS:
-  - mosaicml/pytorch:1.12.0_cu113-python3.9-ubuntu20.04
-  - mosaicml/pytorch:1.12.0
-  TARGET: pytorch_stage
-  TORCHVISION_VERSION: 0.12.0
-- BASE_IMAGE: nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
-  CUDA_VERSION: 11.3.1
-  PYTHON_VERSION: '3.9'
-  PYTORCH_VERSION: 1.11.0
-  TAGS:
-  - mosaicml/pytorch_vision:1.11.0_cu113-python3.9-ubuntu20.04
+  - mosaicml/pytorch_vision:1.12.0_cu113-python3.9-ubuntu20.04
   - mosaicml/pytorch_vision:latest
   TARGET: vision_stage
   TORCHVISION_VERSION: 0.12.0
@@ -64,9 +55,9 @@
   CUDA_VERSION: ''
   MOFED_VERSION: ''
   PYTHON_VERSION: '3.9'
-  PYTORCH_VERSION: 1.11.0
+  PYTORCH_VERSION: 1.12.0
   TAGS:
-  - mosaicml/pytorch:1.11.0_cpu-python3.9-ubuntu20.04
+  - mosaicml/pytorch:1.12.0_cpu-python3.9-ubuntu20.04
   - mosaicml/pytorch:latest_cpu
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.12.0
@@ -74,9 +65,9 @@
   CUDA_VERSION: ''
   MOFED_VERSION: ''
   PYTHON_VERSION: '3.9'
-  PYTORCH_VERSION: 1.11.0
+  PYTORCH_VERSION: 1.12.0
   TAGS:
-  - mosaicml/pytorch_vision:1.11.0_cpu-python3.9-ubuntu20.04
+  - mosaicml/pytorch_vision:1.12.0_cpu-python3.9-ubuntu20.04
   - mosaicml/pytorch_vision:latest_cpu
   TARGET: vision_stage
   TORCHVISION_VERSION: 0.12.0
@@ -84,7 +75,7 @@
   COMPOSER_INSTALL_COMMAND: mosaicml[all]
   CUDA_VERSION: 11.3.1
   PYTHON_VERSION: '3.9'
-  PYTORCH_VERSION: 1.11.0
+  PYTORCH_VERSION: 1.12.0
   TAGS:
   - mosaicml/composer:latest
   TARGET: composer_stage
@@ -93,7 +84,7 @@
   COMPOSER_INSTALL_COMMAND: mosaicml[all]
   CUDA_VERSION: ''
   PYTHON_VERSION: '3.9'
-  PYTORCH_VERSION: 1.11.0
+  PYTORCH_VERSION: 1.12.0
   TAGS:
   - mosaicml/composer:latest_cpu
   TARGET: composer_stage
@@ -102,7 +93,7 @@
   COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.8.0
   CUDA_VERSION: 11.3.1
   PYTHON_VERSION: '3.9'
-  PYTORCH_VERSION: 1.11.0
+  PYTORCH_VERSION: 1.12.0
   TAGS:
   - mosaicml/composer:0.8.0
   TARGET: composer_stage
@@ -111,7 +102,7 @@
   COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.8.0
   CUDA_VERSION: ''
   PYTHON_VERSION: '3.9'
-  PYTORCH_VERSION: 1.11.0
+  PYTORCH_VERSION: 1.12.0
   TAGS:
   - mosaicml/composer:0.8.0_cpu
   TARGET: composer_stage
