@@ -160,8 +160,8 @@ class ProgressBarLogger(LoggerDestination):
                     else:
                         ll_friendly_name = 'epoch' if ll == LogLevel.EPOCH else 'batch'
 
-                    return ll <= console_log_level and (int(getattr(state.timestamp, ll_friendly_name)) %
-                                                        log_interval) == 0
+                    curr_progress = int(getattr(state.timestamp, ll_friendly_name)
+                    return ll <= console_log_level and (curr_progress % log_interval) == 0
 
                 self.should_log = should_log
             else:
@@ -208,7 +208,7 @@ class ProgressBarLogger(LoggerDestination):
             data_str = format_log_data_value(data)
 
             if state.max_duration.unit == TimeUnit.EPOCH:
-                training_progress = f'[batch={int(state.timestamp.batch)}/{state.dataloader_len}]'
+                training_progress = f'[batch={int(state.timestamp.batch)}/{int(state.dataloader_len)}]'
             else:
                 unit = state.max_duration.unit
                 curr_duration = int(state.timestamp.get(unit))
