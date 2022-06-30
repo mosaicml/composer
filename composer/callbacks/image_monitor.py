@@ -139,7 +139,7 @@ class ImageMonitor(Callback):
             table = self._make_input_images(inputs)
             logger.data_batch({'Images/Inputs': table})
 
-    def after_forward(self, state: State, logger: Logger):
+    def before_loss(self, state: State, logger: Logger):
         assert isinstance(self.interval, Time)
 
         if self.mode.lower() == 'segmentation':
