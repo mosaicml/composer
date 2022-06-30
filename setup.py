@@ -134,6 +134,8 @@ extra_deps['wandb'] = [
     'wandb>=0.12.17,<0.13',
 ]
 
+extra_deps['tensorboard'] = ['tensorboard>=2.9.1,<3.0.0']
+
 extra_deps['unet'] = [
     'monai>=0.8.0,<0.9',
     'scikit-learn>=1.0.1,<2',
@@ -212,7 +214,6 @@ setup(name=package_name,
           'console_scripts': [
               'composer = composer.cli.launcher:main',
               'composer_collect_env = composer.utils.collect_env:main',
-              'composer_train = composer.trainer.trainer_hparams:train_via_hparams',
           ],
       },
       extras_require=extra_deps,
