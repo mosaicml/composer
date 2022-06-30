@@ -189,7 +189,7 @@ class ProgressBarLogger(LoggerDestination):
         # log to console
         if self.should_log(state, log_level):
             data_str = format_log_data_value(data)
-            log_str = f'[{log_level.name}][batch={int(state.timestamp.batch)}]: {data_str}'
+            log_str = f'[{log_level.name}][curr_batch={int(state.timestamp.batch)} / total_batches={len(state.dataloader)}]: {data_str}'
             self.log_to_console(log_str)
 
     def log_to_console(self, log_str: str):
