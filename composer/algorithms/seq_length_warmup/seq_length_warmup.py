@@ -177,8 +177,6 @@ class SeqLengthWarmup(Algorithm):
                              f'greater than min_seq_length={self.min_seq_length}')
         self._activated = False
         self._original_model = None
-        self._failed_grad_accums = []
-        self._last_seq_len = -1
 
     def match(self, event: Event, state: State) -> bool:
         return (event == Event.INIT and self._original_model is None) or event == Event.AFTER_DATALOADER
@@ -228,7 +226,6 @@ class SeqLengthWarmup(Algorithm):
 
             grad_accum_successful = False
             while not grad_accum_successful:
-                print(f'Trying pre-activation for SLW with grad_accum={state.grad_accum} ... ')
                 per_gpu_batch = ceil(per_gpu_macrobatch / state.grad_accum)
                 model_inputs = {k: v[:per_gpu_batch] for k, v in batch_clone.items()}
 
@@ -282,8 +279,6 @@ class SeqLengthWarmup(Algorithm):
                 else:
                     grad_accum_successful = True
 
-                print(f"{'Success!' if grad_accum_successful else 'Failure...'}\n")
-
             self._activated = True
 
         if state.max_duration.unit == TimeUnit.EPOCH:
@@ -305,20 +300,9 @@ class SeqLengthWarmup(Algorithm):
         num_update_steps = (self.max_seq_length - self.min_seq_length) // self.step_size
         update_every_n_steps = num_warmup_steps // num_update_steps
 
-        print('num optimization steps', num_optimization_steps)
-        print('num_warmup_steps', num_warmup_steps)
-        print('num_update_steps', num_update_steps)
-        print('update_every_n_steps', update_every_n_steps)
-        print('timestamp.batch', int(state.timestamp.batch))
-
         curr_seq_len = self.step_size * (int(state.timestamp.batch) // update_every_n_steps) + self.min_seq_length
-        print('curr_seq_len', curr_seq_len)
         curr_seq_len = max(curr_seq_len, self.min_seq_length)
         curr_seq_len = min(curr_seq_len, self.max_seq_length)
-
-        if curr_seq_len != self._last_seq_len:
-            print(f'At batch {int(state.timestamp.batch)}, current sequence length = {curr_seq_len}.')
-        self._last_seq_len = int(curr_seq_len)
 
         state.batch = set_batch_sequence_length(state.batch, curr_seq_len, self.preserve_eos)
 
