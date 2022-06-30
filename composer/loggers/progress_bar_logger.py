@@ -119,6 +119,12 @@ class ProgressBarLogger(LoggerDestination):
             ``True``.
         stream (str | TextIO, optional): The console stream to use. If a string, it can either be ``'stdout'`` or
             ``'stderr'``. (default: :attr:`sys.stderr`)
+        log_interval (int, optional):
+            Frequency to print logs. If ``log_level`` is :attr:`~.LogLevel.EPOCH`,
+            logs will only be recorded every n epochs. If ``log_level`` is
+            :attr:`~.LogLevel.BATCH`, logs will be printed every n batches.  Otherwise, if
+            ``log_level`` is :attr:`~.LogLevel.FIT`, this parameter is ignored, as calls
+            at the :attr:`~.LogLevel.FIT` log level are always recorded. Default: ``1``.
     """
 
     def __init__(
@@ -127,6 +133,7 @@ class ProgressBarLogger(LoggerDestination):
         log_to_console: Optional[bool] = None,
         console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         stream: Union[str, TextIO] = sys.stderr,
+        log_interval: int = 1,
     ) -> None:
 
         self._show_pbar = progress_bar
@@ -146,7 +153,16 @@ class ProgressBarLogger(LoggerDestination):
         else:
             # set should_log to a Callable[[State, LogLevel], bool]
             if isinstance(console_log_level, LogLevel):
-                self.should_log = lambda state, ll: ll <= console_log_level
+
+                def should_log(state: State, ll: LogLevel):
+                    if ll not in (LogLevel.EPOCH or LogLevel.BATCH):
+                        return ll <= console_log_level
+                    else:
+                        ll_friendly_name = 'epoch' if ll == LogLevel.EPOCH else 'batch'
+
+                    return ll <= console_log_level and (getattr(state.timestamp, ll_friendly_name) % log_interval) == 0
+
+                self.should_log = should_log
             else:
                 self.should_log = console_log_level
 
@@ -189,7 +205,7 @@ class ProgressBarLogger(LoggerDestination):
         # log to console
         if self.should_log(state, log_level):
             data_str = format_log_data_value(data)
-            log_str = f'[{log_level.name}][curr_batch={int(state.timestamp.batch)} / total_batches={len(state.dataloader)}]: {data_str}'
+            log_str = f'[{log_level.name}][curr_batch={int(state.timestamp.batch)} / total_batches={int(state.dataloader_len)}]: {data_str}'
             self.log_to_console(log_str)
 
     def log_to_console(self, log_str: str):
