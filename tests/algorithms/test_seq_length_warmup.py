@@ -38,17 +38,25 @@ def check_batch(before, after, length, preserve_eos=False):
         assert k in before, "No keys should be added during sequence truncation"
 
 
+def check_forward_backward(model, batch):
+    model.zero_grad()
+    output = model.forward(batch)
+    output['loss'].backward()
+
+
 @pytest.mark.parametrize('synthetic_state_family', ['bert', 'gpt2'])
 @pytest.mark.parametrize('preserve_eos', [True, False])
 class TestSeqLengthWarmup:
 
     @pytest.mark.parametrize('curr_seq_length', [8, 64])
     def test_functional(self, synthetic_state_family: str, curr_seq_length: int, preserve_eos: bool):
-        _, _, dataloader = make_synthetic_state(synthetic_state_family)
+        state, _, dataloader = make_synthetic_state(synthetic_state_family)
         batch_before = next(iter(dataloader))
         batch_after = set_batch_sequence_length(deepcopy(batch_before), curr_seq_length, preserve_eos)
+        
         check_batch(batch_before, batch_after, curr_seq_length, preserve_eos)
-
+        check_forward_backward(state.model, batch_after)
+        
 
     def test_algorithm(self, synthetic_state_family: str, empty_logger: Logger, preserve_eos: bool):
         state, _, dataloader = make_synthetic_state(synthetic_state_family)
@@ -69,6 +77,7 @@ class TestSeqLengthWarmup:
             seq_length_warmup.min_seq_length,
             preserve_eos
         )
+        check_forward_backward(state.model, state.batch)
 
         # Note: max duration is 1 epoch
         state.timestamp = state.timestamp.to_next_batch(samples=state.batch['input_ids'].shape[0])
@@ -83,3 +92,4 @@ class TestSeqLengthWarmup:
             seq_length_warmup.max_seq_length,
             preserve_eos
         )
+        check_forward_backward(state.model, state.batch)
