@@ -96,6 +96,24 @@ def test_module_replacement(model_cls: Type[SimpleReplacementPolicy], recurse_on
     model.validate_replacements(recurse_on_replacements)
 
 
+@pytest.mark.gpu
+def test_module_replacement_gpu():
+    model = SimpleReplacementPolicy()
+    model = model.cuda()
+    module_surgery.replace_module_classes(
+        model,
+        optimizers=None,
+        policies=model.policy(),
+        recurse_on_replacements=False,
+    )
+
+    model.validate_replacements(False)
+
+    # Validate the model devices are correct
+    for p in model.parameters():
+        assert p.device.type == 'cuda'
+
+
 class _CopyLinear(torch.nn.Module):
 
     def __init__(self, in_features: int, out_features: int):

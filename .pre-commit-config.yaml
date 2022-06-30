@@ -35,7 +35,7 @@ repos:
         types: [python]
         pass_filenames: false
         args: [--warnings]
-        additional_dependencies: ["pyright@1.1.247"]
+        additional_dependencies: ["pyright@1.1.256"]
   -   repo: https://github.com/PyCQA/pydocstyle
       hooks:
       -   id: pydocstyle
