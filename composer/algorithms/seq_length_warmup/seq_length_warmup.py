@@ -24,7 +24,7 @@ __all__ = ['SeqLengthWarmup', 'set_batch_sequence_length']
 def set_batch_sequence_length(
     batch: Dict[str, torch.Tensor],
     curr_seq_len: int,
-    preserve_eos: bool = False,
+    preserve_end_of_sequence: bool = False,
 ) -> Batch:
     """Set the sequence length of a batch.
 
@@ -45,7 +45,7 @@ def set_batch_sequence_length(
     Args:
         batch (Dict[str, Tensor]): The input batch to the model, must be a dictionary.
         curr_seq_length (int): The desired sequence length to apply.
-        preserve_eos (bool, optional): Preserve the end-of-sequence of the batch when
+        preserve_end_of_sequence (bool, optional): Preserve the end-of-sequence of the batch when
             truncating. Useful when input formats include a unique end-of-sequence token.
             Default = ``False``.
 
@@ -73,7 +73,7 @@ def set_batch_sequence_length(
         return batch
 
     # Truncate, but preserve end-of-sequence tokens
-    if preserve_eos:
+    if preserve_end_of_sequence:
         r_idx = torch.arange(batch['attention_mask'].shape[0])
         # eos_idx should point to the final token index for each batch sample
         eos_idx = batch['attention_mask'].sum(1).long() - 1
@@ -135,7 +135,7 @@ class SeqLengthWarmup(Algorithm):
                                             min_seq_length=8,
                                             max_seq_length=1024,
                                             step_size=8,
-                                            preserve_eos=False)
+                                            preserve_end_of_sequence=False)
 
         trainer = Trainer(model=model,
                           train_dataloader=train_dataloader,
@@ -150,7 +150,7 @@ class SeqLengthWarmup(Algorithm):
         max_seq_length (int, optional): Maximum sequence length to stop the warmup.
             Default = ``1024``.
         step_size (int, optional): Step size of sequence length. Default = ``8``.
-        preserve_eos (bool, optional): Preserve the end-of-sequence of the batch when
+        preserve_end_of_sequence (bool, optional): Preserve the end-of-sequence of the batch when
             truncating. Useful when input formats include a unique end-of-sequence token.
             Default = ``False``.
     """
@@ -161,13 +161,13 @@ class SeqLengthWarmup(Algorithm):
         min_seq_length: int = 8,
         max_seq_length: int = 1024,
         step_size: int = 8,
-        preserve_eos: bool = False,
+        preserve_end_of_sequence: bool = False,
     ):
         self.duration = duration
         self.min_seq_length = min_seq_length
         self.max_seq_length = max_seq_length
         self.step_size = step_size
-        self.preserve_eos = preserve_eos
+        self.preserve_end_of_sequence = preserve_end_of_sequence
 
         if self.duration < 0 or self.duration > 1:
             raise ValueError(f'Duration must be between 0 and 1, got: {self.duration}')
@@ -304,7 +304,7 @@ class SeqLengthWarmup(Algorithm):
         curr_seq_len = max(curr_seq_len, self.min_seq_length)
         curr_seq_len = min(curr_seq_len, self.max_seq_length)
 
-        state.batch = set_batch_sequence_length(state.batch, curr_seq_len, self.preserve_eos)
+        state.batch = set_batch_sequence_length(state.batch, curr_seq_len, self.preserve_end_of_sequence)
 
         batch_size = state.batch['input_ids'].shape[0]
         logger.data_batch({

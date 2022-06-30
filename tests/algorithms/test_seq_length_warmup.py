@@ -15,7 +15,7 @@ def make_synthetic_state(family):
     return synthetic_hf_state_maker(synthetic_config)
 
 
-def check_batch(before, after, length, preserve_eos=False):
+def check_batch(before, after, length, preserve_end_of_sequence=False):
     before_lengths = [int(m.sum()) for m in before['attention_mask']]
 
     # Just make sure the lengths are correct
@@ -29,7 +29,7 @@ def check_batch(before, after, length, preserve_eos=False):
             
             assert after[k].shape[1] == min(before[k].shape[1], length), "Incorrect sequence length after truncation."
             
-            if preserve_eos:
+            if preserve_end_of_sequence:
                 # The last valid token before truncation should still be the last valid token
                 for seq_before, seq_after, before_length in zip(before[k], after[k], before_lengths):
                     assert seq_after[min(length, before_length)-1] == seq_before[before_length-1]
@@ -45,25 +45,25 @@ def check_forward_backward(model, batch):
 
 
 @pytest.mark.parametrize('synthetic_state_family', ['bert', 'gpt2'])
-@pytest.mark.parametrize('preserve_eos', [True, False])
+@pytest.mark.parametrize('preserve_end_of_sequence', [True, False])
 class TestSeqLengthWarmup:
 
     @pytest.mark.parametrize('curr_seq_length', [8, 64])
-    def test_functional(self, synthetic_state_family: str, curr_seq_length: int, preserve_eos: bool):
+    def test_functional(self, synthetic_state_family: str, curr_seq_length: int, preserve_end_of_sequence: bool):
         state, _, dataloader = make_synthetic_state(synthetic_state_family)
         batch_before = next(iter(dataloader))
-        batch_after = set_batch_sequence_length(deepcopy(batch_before), curr_seq_length, preserve_eos)
+        batch_after = set_batch_sequence_length(deepcopy(batch_before), curr_seq_length, preserve_end_of_sequence)
         
-        check_batch(batch_before, batch_after, curr_seq_length, preserve_eos)
+        check_batch(batch_before, batch_after, curr_seq_length, preserve_end_of_sequence)
         check_forward_backward(state.model, batch_after)
         
 
-    def test_algorithm(self, synthetic_state_family: str, empty_logger: Logger, preserve_eos: bool):
+    def test_algorithm(self, synthetic_state_family: str, empty_logger: Logger, preserve_end_of_sequence: bool):
         state, _, dataloader = make_synthetic_state(synthetic_state_family)
 
         # Synthetic dataset has a size of 2 batches per epoch (max duration = 1ep)
         seq_length_warmup = SeqLengthWarmup(
-            duration=0.5, min_seq_length=8, max_seq_length=16, preserve_eos=preserve_eos)
+            duration=0.5, min_seq_length=8, max_seq_length=16, preserve_end_of_sequence=preserve_end_of_sequence)
         seq_length_warmup.apply(Event.INIT, state, empty_logger)
 
         batch_before = next(iter(dataloader))
@@ -75,7 +75,7 @@ class TestSeqLengthWarmup:
             batch_before,
             state.batch,
             seq_length_warmup.min_seq_length,
-            preserve_eos
+            preserve_end_of_sequence
         )
         check_forward_backward(state.model, state.batch)
 
@@ -90,6 +90,6 @@ class TestSeqLengthWarmup:
             batch_before,
             state.batch,
             seq_length_warmup.max_seq_length,
-            preserve_eos
+            preserve_end_of_sequence
         )
         check_forward_backward(state.model, state.batch)
