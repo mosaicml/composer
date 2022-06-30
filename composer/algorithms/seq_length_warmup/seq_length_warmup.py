@@ -67,7 +67,8 @@ def set_batch_sequence_length(
     """
 
     assert isinstance(batch, Mapping)
-    assert 'attention_mask' in batch
+    if 'attention_mask' not in batch:
+        raise ValueError('Sequence Length Warmup requires that the batch has "attention_mask".')
 
     if curr_seq_len >= batch['attention_mask'].shape[1]:
         return batch
