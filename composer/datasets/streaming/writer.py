@@ -6,15 +6,20 @@
 
 import gzip as gz
 import os
+import urllib.parse
 from io import BufferedWriter
 from types import TracebackType
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 
 import numpy as np
+import urllib3
 from tqdm import tqdm
 
 from composer.datasets.streaming.format import (StreamingDatasetIndex, get_compression_scheme_basename,
                                                 get_index_basename, get_shard_basename, sample_dict_to_bytes)
+from composer.utils.object_store.object_store import ObjectStore
+from composer.utils.object_store.s3_object_store import S3ObjectStore
+from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 
 __all__ = ['StreamingDatasetWriter']
 
@@ -90,7 +95,9 @@ class StreamingDatasetWriter(object):
                  dirname: str,
                  fields: List[str],
                  shard_size_limit: int = 1 << 24,
-                 compression: Optional[str] = default_compression) -> None:
+                 compression: Optional[str] = default_compression,
+                 remote: Union[ObjectStore, str, None] = None,
+                 timeout: Optional[float] = None) -> None:
         if len(fields) != len(set(fields)):
             raise ValueError(f'fields={fields} must be unique.')
         if shard_size_limit <= 0:
@@ -113,6 +120,8 @@ class StreamingDatasetWriter(object):
         # compression scheme for shards
         self.compression_scheme, self.compression_level = _parse_compression_args(compression)
 
+        self.remote = _parse_remote(remote, timeout)
+
     def _create_binary_file(self, fname: str) -> Union[BufferedWriter, gz.GzipFile]:
         """opens a (potentially compressed) file in binary mode"""
 
@@ -133,6 +142,9 @@ class StreamingDatasetWriter(object):
             for data in self.new_samples:
                 out.write(data)
 
+        if self.remote is not None:
+            self.remote.upload_object(basename, filename)
+
         self.samples_per_shard.append(len(self.new_samples))
         self.bytes_per_shard.append(self.new_shard_size)
         self.new_samples = []
@@ -143,21 +155,27 @@ class StreamingDatasetWriter(object):
         assert self.compression_scheme is not None, 'compression scheme should be set if writing this file'
         if self.new_samples:
             raise RuntimeError('Attempted to write compression metadata file while samples are still being processed.')
-        filename = os.path.join(self.dirname, get_compression_scheme_basename())
+        basename = get_compression_scheme_basename()
+        filename = os.path.join(self.dirname, basename)
         with open(filename, 'x') as out:
             out.write(self.compression_scheme)
+        if self.remote is not None:
+            self.remote.upload_object(basename, filename)
 
     def _write_index(self) -> None:
         """Save dataset index file."""
         if self.new_samples:
             raise RuntimeError('Attempted to write index file while samples are still being processed.')
-        filename = os.path.join(self.dirname, get_index_basename(self.compression_scheme))
+        basename = get_index_basename(self.compression_scheme)
+        filename = os.path.join(self.dirname, basename)
         samples_per_shard = np.array(self.samples_per_shard, np.int64)
         bytes_per_shard = np.array(self.bytes_per_shard, np.int64)
         bytes_per_sample = np.array(self.bytes_per_sample, np.int64)
         index = StreamingDatasetIndex(samples_per_shard, bytes_per_shard, bytes_per_sample, self.fields)
         with self._create_binary_file(filename) as out:
             index.dump(out)
+        if self.remote is not None:
+            self.remote.upload_object(basename, filename)
 
     def write_sample(self, sample: Dict[str, bytes]) -> None:
         """Add a sample to the dataset.
@@ -202,3 +220,73 @@ class StreamingDatasetWriter(object):
     def __exit__(self, exc_type: Optional[Type[BaseException]], exc: Optional[BaseException],
                  traceback: Optional[TracebackType]) -> None:
         self.finish()
+
+
+def _parse_remote(remote: Union[ObjectStore, str, None], timeout: Optional[float]) -> Optional[ObjectStore]:
+    if isinstance(remote, str):
+        return get_object_store(remote, timeout)
+    elif isinstance(remote, ObjectStore):
+        return remote
+    elif remote is None:
+        return None
+    else:
+        raise ValueError('Bad argument for remote')
+
+
+def get_object_store(remote: str, timeout: Optional[float]) -> ObjectStore:
+    """Use the correct download handler to download the file
+
+    Args:
+        remote (Optional[str]): Remote path (local filesystem).
+        timeout (float): How long to wait for file to download before raising an exception.
+    """
+    if remote.startswith('s3://'):
+        return get_s3_object_store(remote, timeout)
+    elif remote.startswith('sftp://'):
+        return get_sftp_object_store(remote)
+    else:
+        raise ValueError('unsupported upload scheme')
+
+
+def get_s3_object_store(remote: str, timeout: Optional[float]) -> S3ObjectStore:
+    if timeout is None:
+        raise ValueError('Must specify timeout for s3 bucket')
+    obj = urllib3.parse.urlparse(remote)
+    if obj.scheme != 's3':
+        raise ValueError(f"Expected obj.scheme to be 's3', got {obj.scheme} for remote={remote}")
+    client_config = {'read_timeout': timeout}
+    bucket = obj.netloc
+    object_store = S3ObjectStore(bucket=bucket, client_config=client_config)
+    return object_store
+
+
+def get_sftp_object_store(remote: str) -> SFTPObjectStore:
+    url = urllib.parse.urlsplit(remote)
+    # Parse URL
+    if url.scheme.lower() != 'sftp':
+        raise ValueError('If specifying a URI, only the sftp scheme is supported.')
+    if not url.hostname:
+        raise ValueError('If specifying a URI, the URI must include the hostname.')
+    if url.query or url.fragment:
+        raise ValueError('Query and fragment parameters are not supported as part of a URI.')
+    hostname = url.hostname
+    port = url.port
+    username = url.username
+    password = url.password
+
+    # Get SSH key file if specified
+    key_filename = os.environ.get('COMPOSER_SFTP_KEY_FILE', None)
+    known_hosts_filename = os.environ.get('COMPOSER_SFTP_KNOWN_HOSTS_FILE', None)
+
+    # Default port
+    port = port if port else 22
+
+    object_store = SFTPObjectStore(
+        host=hostname,
+        port=port,
+        username=username,
+        password=password,
+        known_hosts_filename=known_hosts_filename,
+        key_filename=key_filename,
+    )
+    return object_store

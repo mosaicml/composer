@@ -12,9 +12,9 @@ import urllib.parse
 from typing import Optional
 
 from composer.datasets.streaming.format import split_compression_suffix
-from composer.utils import MissingConditionalImportError
 # TODO: refactor to use object store for download, until then, use this private method.
-from composer.utils.object_store.s3_object_store import _ensure_not_found_errors_are_wrapped
+from composer.utils.object_store.s3_object_store import S3ObjectStore
+from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 
 __all__ = ['download_or_wait']
 
@@ -27,23 +27,13 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
         local (str): Local path (local filesystem).
         timeout (float): How long to wait for shard to download before raising an exception.
     """
-    try:
-        import boto3
-        from botocore.config import Config
-        from botocore.exceptions import ClientError
-    except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='boto3') from e
-
     obj = urllib.parse.urlparse(remote)
     if obj.scheme != 's3':
         raise ValueError(f"Expected obj.scheme to be 's3', got {obj.scheme} for remote={remote}")
-
-    config = Config(read_timeout=timeout)
-    s3 = boto3.client('s3', config=config)
-    try:
-        s3.download_file(obj.netloc, obj.path.lstrip('/'), local)
-    except ClientError as e:
-        _ensure_not_found_errors_are_wrapped(e)
+    client_config = {'read_timeout': timeout}
+    bucket, key = obj.netloc, obj.path.lstrip('/')
+    object_store = S3ObjectStore(bucket=bucket, client_config=client_config)
+    object_store.download_object(key, local)
 
 
 def download_from_sftp(remote: str, local: str) -> None:
@@ -56,13 +46,8 @@ def download_from_sftp(remote: str, local: str) -> None:
         remote (str): Remote path (SFTP).
         local (str): Local path (local filesystem).
     """
-    try:
-        from paramiko import SSHClient
-    except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='paramiko') from e
-
-    # Parse URL
     url = urllib.parse.urlsplit(remote)
+    # Parse URL
     if url.scheme.lower() != 'sftp':
         raise ValueError('If specifying a URI, only the sftp scheme is supported.')
     if not url.hostname:
@@ -82,26 +67,16 @@ def download_from_sftp(remote: str, local: str) -> None:
     # Default port
     port = port if port else 22
 
-    # Local tmp
-    local_tmp = local + '.tmp'
-    if os.path.exists(local_tmp):
-        os.remove(local_tmp)
+    object_store = SFTPObjectStore(
+        host=hostname,
+        port=port,
+        username=username,
+        password=password,
+        known_hosts_filename=known_hosts_filename,
+        key_filename=key_filename,
+    )
 
-    with SSHClient() as ssh_client:
-        # Connect SSH Client
-        ssh_client.load_system_host_keys(known_hosts_filename)
-        ssh_client.connect(
-            hostname=hostname,
-            port=port,
-            username=username,
-            password=password,
-            key_filename=key_filename,
-        )
-
-        # SFTP Client
-        sftp_client = ssh_client.open_sftp()
-        sftp_client.get(remotepath=remote_path, localpath=local_tmp)
-    os.rename(local_tmp, local)
+    object_store.download_object(remote_path, local)
 
 
 def download_from_local(remote: str, local: str) -> None:
