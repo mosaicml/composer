@@ -211,7 +211,7 @@ class ProgressBarLogger(LoggerDestination):
             if state.max_duration.unit == TimeUnit.EPOCH:
                 assert state.dataloader_len is not None
                 total = int(state.dataloader_len)
-                training_progress = f'[batch={int(state.timestamp.batch)}/{total}]'
+                training_progress = f'[epoch={int(state.timestamp.epoch)}][batch={int(state.timestamp.batch_in_epoch)}/{total}]'
             else:
                 unit = state.max_duration.unit
                 curr_duration = int(state.timestamp.get(unit))
