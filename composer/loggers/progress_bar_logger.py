@@ -155,12 +155,13 @@ class ProgressBarLogger(LoggerDestination):
             if isinstance(console_log_level, LogLevel):
 
                 def should_log(state: State, ll: LogLevel):
-                    if ll != LogLevel.EPOCH or ll != LogLevel.BATCH:
+                    if ll != LogLevel.EPOCH and ll != LogLevel.BATCH:
                         return ll <= console_log_level
                     else:
                         ll_friendly_name = 'epoch' if ll == LogLevel.EPOCH else 'batch'
 
-                    return ll <= console_log_level and (getattr(state.timestamp, ll_friendly_name) % log_interval) == 0
+                    return ll <= console_log_level and (int(getattr(state.timestamp, ll_friendly_name)) %
+                                                        log_interval) == 0
 
                 self.should_log = should_log
             else:
@@ -205,7 +206,16 @@ class ProgressBarLogger(LoggerDestination):
         # log to console
         if self.should_log(state, log_level):
             data_str = format_log_data_value(data)
-            log_str = f'[{log_level.name}][{unit.name}={int(state.timestamp)} / {state.max_duration}]: {data_str}'
+
+            if state.max_duration.unit == TimeUnit.EPOCH:
+                training_progress = f'[batch={int(state.timestamp.batch)}/{state.dataloader_len}]'
+            else:
+                unit = state.max_duration.unit
+                curr_duration = int(state.timestamp.get(unit))
+                total = state.max_duration.value
+                training_progress = f"[{unit.name}={curr_duration}/{total}]"
+
+            log_str = f'[{log_level.name}]{training_progress}: {data_str}'
             self.log_to_console(log_str)
 
     def log_to_console(self, log_str: str):
