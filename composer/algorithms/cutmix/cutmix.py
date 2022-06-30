@@ -279,7 +279,7 @@ class CutMix(Algorithm):
                 else:
                     raise TypeError('state.model.module must be a torch module')
             else:
-                raise AttributeError('Loss must be accesable via model.loss or model.module.loss')
+                raise AttributeError('Loss must be accessible via model.loss or model.module.loss')
             # Verify that the loss is callable
             if not callable(loss_fn):
                 raise TypeError('Loss must be callable')
