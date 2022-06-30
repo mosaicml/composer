@@ -1,12 +1,11 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Monitor image inputs and optionally outputs."""
-from math import floor, sqrt
-from typing import Any, Callable, Optional, Tuple, Union
+"""Monitor train and eval images."""
+from typing import Any, Callable, Tuple, Union
 
+import torch
 import wandb
-from torchvision.utils import make_grid
 
 from composer.core import Callback, State, Time, TimeUnit
 from composer.loggers import Logger
@@ -74,7 +73,6 @@ class ImageMonitor(Callback):
                  input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
                  target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1):
         self.interval = interval
-        self.eval_interval = eval_interval
         self.mode = mode
         self.num_images = num_images
         self.input_key = input_key
@@ -90,27 +88,21 @@ class ImageMonitor(Callback):
         except ValueError as error:
             raise ValueError(f'Invalid time string for parameter interval') from error
 
-        # Check that the eval interval timestring is parsable and convert into time object
-        try:
-            self.eval_interval = Time.from_timestring(eval_interval)
-        except ValueError as error:
-            raise ValueError(f'Invalid time string for parameter eval_interval') from error
-
         # Verify that the interval has supported units.
         if self.interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
             raise ValueError(f'Invalid time unit for parameter interval: '
                              f'{self.interval.unit}')
 
-        # Verify that the eval interval has supported units.
-        if self.eval_interval.unit not in [TimeUnit.BATCH]:
-            raise ValueError(f'Invalid time unit for parameter eval_interval: '
-                             f'{self.eval_interval.unit}')
+    def _make_input_images(self, inputs: torch.Tensor):
+        images = inputs[0:self.num_images].data.cpu().permute(0, 2, 3, 1).numpy()
 
-        # Ensure that the number of images is a perfect square
-        self.nrow = floor(sqrt(self.num_images))
-        self.num_images = self.nrow * self.nrow
+        table = wandb.Table(columns=['Image'])
+        for image in images:
+            img = wandb.Image(image)
+            table.add_data(img)
+        return table
 
-    def _make_segmentation_images(self, inputs, targets, outputs):
+    def _make_segmentation_images(self, inputs: torch.Tensor, targets: torch.Tensor, outputs: torch.Tensor):
         images = inputs[0:self.num_images].data.cpu().permute(0, 2, 3, 1).numpy()
         targets = targets[0:self.num_images].data.cpu().numpy()
         outputs = outputs[0:self.num_images]
@@ -127,43 +119,60 @@ class ImageMonitor(Callback):
         for image, target, prediction in zip(images, targets, outputs):
             img_mask_pair = wandb.Image(image,
                                         masks={
-                                            "ground truth": {
-                                                "mask_data": target
+                                            'ground truth': {
+                                                'mask_data': target
                                             },
-                                            "prediction": {
-                                                "mask_data": prediction
+                                            'prediction': {
+                                                'mask_data': prediction
                                             }
                                         })
             table.add_data(img_mask_pair)
         return table
 
-    def before_forward(self, state, logger):
-        if self.mode.lower() == 'input':
-            if state.timestamp.get(self.interval.unit).value % self.interval.value == 0:
-                inputs = state.batch_get_item(key=self.input_key)
-                targets = state.batch_get_item(key=self.target_key)
+    def before_forward(self, state: State, logger: Logger):
+        assert isinstance(self.interval, Time)
 
-                images = make_grid(input[0:self.num_images], nrow=self.nrow, normalize=True)
-                images = wandb.Image(images)
-                logger.data_batch({'Images/Inputs': images})
+        if self.mode.lower() == 'input' and state.timestamp.get(self.interval.unit).value % self.interval.value == 0:
+            inputs = state.batch_get_item(key=self.input_key)
+            if not isinstance(inputs, torch.Tensor):
+                raise NotImplementedError('Multiple input tensors not supported yet')
+            table = self._make_input_images(inputs)
+            logger.data_batch({'Images/Inputs': table})
 
-    def after_forward(self, state, logger):
+    def after_forward(self, state: State, logger: Logger):
+        assert isinstance(self.interval, Time)
+
         if self.mode.lower() == 'segmentation':
             if state.timestamp.get(self.interval.unit).value % self.interval.value == 0:
                 inputs = state.batch_get_item(key=self.input_key)
                 targets = state.batch_get_item(key=self.target_key)
                 outputs = state.outputs
 
-                mask_list = self._make_segmentation_images(inputs, targets, outputs)
-                logger.data_batch({'Images/Train': mask_list})
+                if not isinstance(inputs, torch.Tensor):
+                    raise NotImplementedError('Multiple input tensors not supported yet')
+                if not isinstance(targets, torch.Tensor):
+                    raise NotImplementedError('Multiple target tensors not supported yet')
+                if not isinstance(outputs, torch.Tensor):
+                    raise NotImplementedError('Multiple output tensors not supported yet')
 
+                table = self._make_segmentation_images(inputs, targets, outputs)
+                logger.data_batch({'Images/Train': table})
 
-    def eval_after_forward(self, state, logger):
+    def eval_after_forward(self, state: State, logger: Logger):
+        assert isinstance(self.interval, Time)
+
         if self.mode.lower() == 'segmentation':
-            if state.eval_timestamp.get(self.eval_interval.unit).value % self.eval_interval.value == 0:
+            if state.eval_timestamp.get(TimeUnit.BATCH).value == 0:
                 inputs = state.batch_get_item(key=self.input_key)
                 targets = state.batch_get_item(key=self.target_key)
                 outputs = state.outputs
 
-                mask_list = self._make_segmentation_images(inputs, targets, outputs)
-                logger.data_batch({'Images/Eval': mask_list})
+                if not isinstance(inputs, torch.Tensor):
+                    raise NotImplementedError('Multiple input tensors not supported yet')
+                if not isinstance(targets, torch.Tensor):
+                    raise NotImplementedError('Multiple target tensors not supported yet')
+                if not isinstance(outputs, torch.Tensor):
+                    raise NotImplementedError('Multiple output tensors not supported yet')
+
+                table = self._make_segmentation_images(inputs, targets, outputs)
+                logger.data_batch({'Images/Eval': table})
