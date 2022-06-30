@@ -105,7 +105,10 @@ _EVENTS_WHERE_MAX_DURATION_IS_SET = [
     Event.BATCH_CHECKPOINT,
     Event.EPOCH_END,
     Event.EPOCH_CHECKPOINT,
+    Event.FIT_END,
 ]
+_EVAL_EVENTS = [e for e in Event if e.name.startswith('EVAL_')]
+_PREDICT_EVENTS = [e for e in Event if e.name.startswith('PREDICT_')]
 
 # Track whether atexit triggered _close(), which indicates whether the python process is shutting down
 # If so, do not run close() again via __del__(), as Python machinery (e.g. the ability to do conditional
@@ -211,6 +214,8 @@ class Engine():
         duration_marker = None
         event = Event(event)
 
+        self._debug_log(event, 'Running event')
+
         if self._is_closed:
             raise RuntimeError(('The engine was already closed and therefore cannot be used again. '
                                 'To fix, please create a new Engine (or Trainer)'))
@@ -269,6 +274,7 @@ class Engine():
                                                     ])
             ctx = cast(ContextManager, contextlib.nullcontext()) if marker is None else marker
             with ctx:
+                self._debug_log(event, f'Running algorithm {type(algorithm).__name__}')
                 exit_code = algorithm.apply(event, self.state, self.logger)
 
             trace_key = f'{algorithm}/{event}'
@@ -353,7 +359,7 @@ class Engine():
             # If so, error and instruct the user that they must call `trainer.close()`
             # so callbacks can clean up and reset their state properly
             for cb in self.state.callbacks:
-                # If it's not in the dictionary, then the callback is new, so it's closed by definition
+                # If it's not in the set, then the callback is new, so it's closed by definition
                 if cb in _OPEN_CALLBACKS:
                     raise RuntimeError(
                         ('Cannot create a new trainer with an open callback or logger from a previous trainer. '
@@ -371,6 +377,7 @@ class Engine():
                                                     ])
             ctx = cast(ContextManager, contextlib.nullcontext()) if marker is None else marker
             with ctx:
+                self._debug_log(event, f'Running callback {type(cb).__name__}')
                 cb.run_event(event, self.state, self.logger)
 
     def __del__(self):
@@ -379,6 +386,35 @@ class Engine():
             # Do not attempt to shutdown again, since close() already ran via __atexit__ or was already invoked
             return
         self.close()
+
+    def _debug_log(self, event: Event, msg: str):
+        """Helper to include timestamp and event info in log messages."""
+        if event in _EVAL_EVENTS:
+            log.debug(
+                '[ep=%i][ba=%i][eval_ba=%i][event=%s]: %s',
+                int(self.state.timestamp.epoch),
+                int(self.state.timestamp.batch),
+                int(self.state.eval_timestamp.batch),
+                event.name,
+                msg,
+            )
+        elif event in _PREDICT_EVENTS:
+            log.debug(
+                '[ep=%i][ba=%i][predict_ba=%i][event=%s]: %s',
+                int(self.state.timestamp.epoch),
+                int(self.state.timestamp.batch),
+                int(self.state.predict_timestamp.batch),
+                event.name,
+                msg,
+            )
+        else:
+            log.debug(
+                '[ep=%i][ba=%i][event=%s]: %s',
+                int(self.state.timestamp.epoch),
+                int(self.state.timestamp.batch),
+                event.name,
+                msg,
+            )
 
     def close(self) -> None:
         """Shutdown the engine.
@@ -400,9 +436,11 @@ class Engine():
     @staticmethod
     def _close(state: State, logger: Logger):
         """The actual shutdown logic, as a static method, so the underlying engine can still be garbage collected."""
+        log.debug('Closing the engine')
         callback_to_has_exception: Dict[Callback, bool] = {}
         for callback in state.callbacks:
             try:
+                log.debug('Closing callback %s', type(callback).__name__)
                 callback.close(state, logger)
             except Exception as e:
                 log.error(
@@ -416,6 +454,7 @@ class Engine():
         for callback in state.callbacks:
             if callback_to_has_exception[callback] is False:
                 try:
+                    log.debug('Post-closing callback %s', type(callback).__name__)
                     callback.post_close()
                 except Exception as e:
                     log.error(f'Error running {callback.__class__.__name__}.post_close().', exc_info=e, stack_info=True)

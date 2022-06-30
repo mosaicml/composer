@@ -39,7 +39,7 @@ pip install mosaicml
 ## Import required modules
 
 In this example we will use {class}`torch.utils.data.DataLoader` with the {class}`~torchvision.datasets.MNIST` dataset
-from {mod}`torchvision`. From `composer`, we will import the {class}`~.Profiler`, the {class}`~.MNIST_Classifier`
+from {mod}`torchvision`. From `composer`, we will import the {class}`~.Profiler`, the {func}`~.mnist_model`
 model and the {class}`~.Trainer` object.
 
 ```{literalinclude} ../../../../examples/profiler_demo.py
