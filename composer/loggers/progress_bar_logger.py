@@ -206,14 +206,17 @@ class ProgressBarLogger(LoggerDestination):
         # log to console
         if self.should_log(state, log_level):
             data_str = format_log_data_value(data)
+            assert state.max_duration is not None, 'max_duration should be set'
 
             if state.max_duration.unit == TimeUnit.EPOCH:
-                training_progress = f'[batch={int(state.timestamp.batch)}/{int(state.dataloader_len)}]'
+                assert state.dataloader_len is not None
+                total = int(state.dataloader_len)
+                training_progress = f'[batch={int(state.timestamp.batch)}/{total}]'
             else:
                 unit = state.max_duration.unit
                 curr_duration = int(state.timestamp.get(unit))
                 total = state.max_duration.value
-                training_progress = f"[{unit.name}={curr_duration}/{total}]"
+                training_progress = f'[{unit.name}={curr_duration}/{total}]'
 
             log_str = f'[{log_level.name}]{training_progress}: {data_str}'
             self.log_to_console(log_str)
