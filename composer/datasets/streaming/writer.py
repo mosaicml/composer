@@ -145,7 +145,7 @@ class StreamingDatasetWriter(object):
             raise RuntimeError('Attempted to write compression metadata file while samples are still being processed.')
         filename = os.path.join(self.dirname, get_compression_scheme_basename())
         with open(filename, 'x') as out:
-            out.write(self.compression_scheme)
+            out.write(self.compression_scheme + '\n')
 
     def _write_index(self) -> None:
         """Save dataset index file."""
