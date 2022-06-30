@@ -193,6 +193,7 @@ class ProgressBarLogger(LoggerDestination):
                 training_progress = ''
             elif state.max_duration.unit == TimeUnit.EPOCH:
                 if state.dataloader_len is None:
+                    total = int(state.dataloader_len)
                     curr_progress = '[batch={int(state.timestamp.batch_in_epoch)}/{total}]'
                 else:
                     curr_progress = '[batch={int(state.timestamp.batch_in_epoch)}]'
