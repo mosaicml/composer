@@ -351,6 +351,8 @@ class StreamingDataset(IterableDataset):
                         return todo_ids.pop(-1)
                     else:
                         return todo_ids.pop(0)
+                elif self._download_status == _DownloadStatus.NOT_STARTED:
+                    pass
                 elif self._download_status == _DownloadStatus.IN_PROGRESS:
                     pass
                 elif self._download_status == _DownloadStatus.DONE:
