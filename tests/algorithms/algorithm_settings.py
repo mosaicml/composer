@@ -86,9 +86,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     CutMix: {
         'model': common.SimpleConvModel,
         'dataset': common.RandomImageDataset,
-        'kwargs': {
-            'num_classes': 2
-        }
+        'kwargs': {}
     },
     CutOut: simple_vision_settings,
     EMA: {
