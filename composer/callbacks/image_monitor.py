@@ -96,10 +96,10 @@ class ImageMonitor(Callback):
     def _make_input_images(self, inputs: torch.Tensor):
         images = inputs[0:self.num_images].data.cpu().permute(0, 2, 3, 1).numpy()
 
-        table = wandb.Table(columns=['ID', 'Image'])
-        for i, image in enumerate(images):
+        table = wandb.Table(columns=['Image'])
+        for image in images:
             img = wandb.Image(image)
-            table.add_data(i, img)
+            table.add_data(img)
         return table
 
     def _make_segmentation_images(self, inputs: torch.Tensor, targets: torch.Tensor, outputs: torch.Tensor):
