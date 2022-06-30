@@ -155,7 +155,7 @@ class ProgressBarLogger(LoggerDestination):
             if isinstance(console_log_level, LogLevel):
 
                 def should_log(state: State, ll: LogLevel):
-                    if ll not in (LogLevel.EPOCH or LogLevel.BATCH):
+                    if ll != LogLevel.EPOCH or ll != LogLevel.BATCH:
                         return ll <= console_log_level
                     else:
                         ll_friendly_name = 'epoch' if ll == LogLevel.EPOCH else 'batch'
