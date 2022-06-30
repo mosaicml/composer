@@ -193,9 +193,9 @@ class ProgressBarLogger(LoggerDestination):
                 training_progress = ''
             elif state.max_duration.unit == TimeUnit.EPOCH:
                 if state.dataloader_len is None:
-                    curr_progress = '[batch={int(state.timestamp.batch_in_epoch)}/{total}]'
+                    curr_progress = f'[batch={int(state.timestamp.batch_in_epoch)}/{total}]'
                 else:
-                    curr_progress = '[batch={int(state.timestamp.batch_in_epoch)}]'
+                    curr_progress = f'[batch={int(state.timestamp.batch_in_epoch)}]'
 
                 training_progress = f'[epoch={int(state.timestamp.epoch)}]{curr_progress}'
             else:
