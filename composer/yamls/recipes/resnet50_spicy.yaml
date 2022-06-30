@@ -78,7 +78,7 @@ optimizer:
     weight_decay: 0.0003
 precision: AMP
 max_duration: 90ep
-scale_schedule_ratio: # Fraction of 90 epochs to train for. >2.6 for spicy recipe
+scale_schedule_ratio: # Fraction of 90 epochs to train for. >2.6 for spicy recipe 
 schedulers:
   cosine_decay_with_warmup:
     alpha_f: 0.0
