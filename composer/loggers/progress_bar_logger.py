@@ -160,8 +160,8 @@ class ProgressBarLogger(LoggerDestination):
                     else:
                         ll_friendly_name = 'epoch' if ll == LogLevel.EPOCH else 'batch'
 
-                    curr_progress = int(getattr(state.timestamp, ll_friendly_name)
-                    return ll <= console_log_level and (curr_progress % log_interval) == 0
+                    curr_progress = int(getattr(state.timestamp, ll_friendly_name))
+                    return (ll <= console_log_level) and (curr_progress % log_interval) == 0
 
                 self.should_log = should_log
             else:
