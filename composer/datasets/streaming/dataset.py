@@ -332,7 +332,9 @@ class StreamingDataset(IterableDataset):
         ids = list(self._downloaded_ids)
         if self.shuffle:
             np.random.shuffle(ids)
-        yield from ids
+            yield from ids
+        else:
+            yield from ids[::-1]
 
     def _iter_ids_dynamic(self) -> Iterator[int]:
         """Get an iterator over all our sample IDs as they become downloaded.
