@@ -53,10 +53,10 @@ class FileLogger(LoggerDestination):  # noqa: D101
 
     Example output::
 
-        [FIT][step=2]: {{ "logged_metric": "logged_value", }}
-        [EPOCH][step=2]: {{ "logged_metric": "logged_value", }}
-        [BATCH][step=2]: {{ "logged_metric": "logged_value", }}
-        [EPOCH][step=3]: {{ "logged_metric": "logged_value", }}
+        [FIT][batch=0 / total=2]: {{ "logged_metric": "logged_value", }}
+        [EPOCH][batch=0 / total=2]: {{ "logged_metric": "logged_value", }}
+        [BATCH][batch=1 / total=2]: {{ "logged_metric": "logged_value", }}
+        [EPOCH][batch=0 / total=2]: {{ "logged_metric": "logged_value", }}
 
 
     Args:
@@ -214,7 +214,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
             return
         data_str = format_log_data_value(data)
         self.write(
-            f'[{log_level.name}][batch={int(state.timestamp.batch)}]: ',
+            f'[{log_level.name}][curr_batch={int(state.timestamp.batch)} / total_batches={len(state.dataloader)}]: ',
             data_str + '\n',
         )
 
