@@ -119,12 +119,6 @@ class ProgressBarLogger(LoggerDestination):
             ``True``.
         stream (str | TextIO, optional): The console stream to use. If a string, it can either be ``'stdout'`` or
             ``'stderr'``. (default: :attr:`sys.stderr`)
-        log_interval (int, optional):
-            Frequency to print logs. If ``log_level`` is :attr:`~.LogLevel.EPOCH`,
-            logs will only be recorded every n epochs. If ``log_level`` is
-            :attr:`~.LogLevel.BATCH`, logs will be printed every n batches.  Otherwise, if
-            ``log_level`` is :attr:`~.LogLevel.FIT`, this parameter is ignored, as calls
-            at the :attr:`~.LogLevel.FIT` log level are always recorded. Default: ``1``.
     """
 
     def __init__(
@@ -133,7 +127,6 @@ class ProgressBarLogger(LoggerDestination):
         log_to_console: Optional[bool] = None,
         console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         stream: Union[str, TextIO] = sys.stderr,
-        log_interval: int = 1,
     ) -> None:
 
         self._show_pbar = progress_bar
@@ -153,17 +146,7 @@ class ProgressBarLogger(LoggerDestination):
         else:
             # set should_log to a Callable[[State, LogLevel], bool]
             if isinstance(console_log_level, LogLevel):
-
-                def should_log(state: State, ll: LogLevel):
-                    if ll != LogLevel.EPOCH and ll != LogLevel.BATCH:
-                        return ll <= console_log_level
-                    else:
-                        ll_friendly_name = 'epoch' if ll == LogLevel.EPOCH else 'batch'
-
-                    curr_progress = int(getattr(state.timestamp, ll_friendly_name))
-                    return (ll <= console_log_level) and (curr_progress % log_interval) == 0
-
-                self.should_log = should_log
+                self.should_log = lambda state, ll: ll <= console_log_level
             else:
                 self.should_log = console_log_level
 
