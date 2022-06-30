@@ -1,12 +1,13 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Type
+from typing import Type, cast
 
 import pytest
 from torch.utils.data import DataLoader
 
 from composer.core import Callback, Engine, Event, State
+from composer.core.time import Time
 from composer.loggers import Logger, LoggerDestination
 from composer.profiler import Profiler, ProfilerAction
 from composer.trainer import Trainer
@@ -146,6 +147,6 @@ class TestCallbackTrains:
         trainer.fit()
 
         assert trainer.state.max_duration is not None
-        trainer.state.max_duration *= 2
+        trainer.state.max_duration = cast(Time[int], trainer.state.max_duration * 2)
 
         trainer.fit()
