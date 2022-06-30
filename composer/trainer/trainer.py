@@ -1814,7 +1814,7 @@ class Trainer:
                     loss.mul_(microbatch_num_samples / current_batch_size)
                     total_loss += loss.detach().clone()
             else:
-                final_loss = 0
+                final_loss = self._device.tensor_to_device(torch.zeros(size=(1,)))
                 for loss in ensure_tuple(self.state.loss):
                     final_loss += loss
                 final_loss.backward(create_graph=self._backwards_create_graph)
