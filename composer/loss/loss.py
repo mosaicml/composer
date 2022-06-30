@@ -11,6 +11,7 @@ from typing import Optional
 import torch
 from torch import Tensor
 from torch.nn import functional as F
+from torch.nn.modules.loss import _Loss
 
 from composer.loss.utils import ensure_targets_one_hot, infer_target_type
 
@@ -155,6 +156,83 @@ def soft_cross_entropy(input: Tensor,
         return xentropy
     else:
         raise ValueError(f'Unrecognized target type {target_type}')
+
+
+class DiceLoss(_Loss):
+
+    def __init__(self,
+                 sigmoid: bool = False,
+                 softmax: bool = False,
+                 squared_pred: bool = False,
+                 jaccard: bool = False,
+                 reduction: str = 'mean',
+                 batch: bool = False,
+                 ignore_absent_classes: bool = True):
+        super().__init__(reduction=reduction)
+        self.sigmoid = sigmoid
+        self.softmax = softmax
+        self.squared_pred = squared_pred
+        self.jaccard = jaccard
+        self.reduction = reduction
+        self.batch = batch
+        self.ignore_absent_classes = ignore_absent_classes
+
+    def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        target = ensure_targets_one_hot(input, target)
+
+        if input.shape != target.shape:
+            raise AssertionError(f"ground truth has different shape ({target.shape}) from input ({input.shape})")
+
+        if self.sigmoid:
+            input = torch.sigmoid(input)
+
+        n_pred_ch = input.shape[1]
+        if self.softmax:
+            if n_pred_ch == 1:
+                warnings.warn("single channel prediction, `softmax=True` ignored.")
+            else:
+                input = torch.softmax(input, 1)
+
+        reduce_axis = torch.arange(2, len(input.shape)).tolist()
+        if self.batch:
+            # reducing spatial dimensions and batch
+            reduce_axis = [0] + reduce_axis
+
+        intersection = torch.sum(target * input, dim=reduce_axis)
+
+        if self.squared_pred:
+            target = torch.pow(target, 2)
+            input = torch.pow(input, 2)
+
+        ground_o = torch.sum(target, dim=reduce_axis)
+        pred_o = torch.sum(input, dim=reduce_axis)
+
+        denominator = ground_o + pred_o
+
+        if self.jaccard:
+            denominator = 2.0 * (denominator - intersection)
+
+        epsilon = 1e-5
+        ious = 1.0 - (2.0 * intersection + epsilon) / (denominator + epsilon)
+
+        if self.ignore_absent_classes:
+            if self.batch:
+                ious = ious[ground_o > 0]
+            else:
+                ious = ious[:, (ground_o.sum(dim=0) > 0)]
+
+        if self.reduction == 'mean':
+            iou = torch.mean(ious)  # the batch and channel average
+        elif self.reduction == 'sum':
+            iou = torch.sum(ious)  # sum over the batch and channel dims
+        elif self.reduction == 'none':
+            # If we are not computing voxelwise loss components at least
+            # make sure a none reduction maintains a broadcastable shape
+            iou = ious
+        else:
+            raise ValueError(f'Unsupported reduction: {self.reduction}, available options are ["mean", "sum", "none"].')
+
+        return iou
 
 
 loss_registry = {

@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from torchmetrics import MetricCollection
 from torchvision.models import _utils, resnet
 
-from composer.loss import loss_registry
+from composer.loss.loss import soft_cross_entropy, DiceLoss
 from composer.metrics import CrossEntropy, MIoU
 from composer.models.initializers import Initializer
 from composer.models.tasks import ComposerClassifier
@@ -145,7 +145,9 @@ def composer_deeplabv3(num_classes: int,
                        backbone_url: str = '',
                        sync_bn: bool = True,
                        use_plus: bool = True,
-                       initializers: Sequence[Initializer] = ()):
+                       initializers: Sequence[Initializer] = (),
+                       cross_entropy_weight: float = 1.0,
+                       dice_weight: float = 0.0):
     """Helper function to create a :class:`.ComposerClassifier` with a DeepLabv3(+) model. Logs
         Mean Intersection over Union (MIoU) and Cross Entropy during training and validation.
 
@@ -189,16 +191,19 @@ def composer_deeplabv3(num_classes: int,
     train_metrics = MetricCollection([CrossEntropy(ignore_index=-1), MIoU(num_classes, ignore_index=-1)])
     val_metrics = MetricCollection([CrossEntropy(ignore_index=-1), MIoU(num_classes, ignore_index=-1)])
 
-    ce_loss_fn = loss_registry['soft_cross_entropy']
-    ce_loss_fn = functools.partial(ce_loss_fn, ignore_index=-1)
-    import monai
-    dice_loss_fn = monai.losses.DiceLoss(include_background=True, to_onehot_y=False, softmax=True, batch=True)
-    def combo_loss(outputs, targets):
-        ce_loss = ce_loss_fn(outputs, targets)
+    ce_loss_fn = functools.partial(soft_cross_entropy, ignore_index=-1)
+    dice_loss_fn = DiceLoss(softmax=True, batch=True)
 
-        one_hot_targets = monai.networks.utils.one_hot((target + 1).unsqueeze(1), num_classes=(outputs.shape[1] + 1))[:, 1:]
-        dice_loss = dice_loss_fn(outputs, one_hot_targets)
-        return ce_loss + dice_loss
+    def combo_loss(output, target):
+        loss = []
+        print(cross_entropy_weight, dice_weight)
+        if cross_entropy_weight:
+            ce_loss = ce_loss_fn(output, target) * cross_entropy_weight
+            loss.append(ce_loss)
+        if dice_weight:
+            dice_loss = dice_loss_fn(output, target) * dice_weight
+            loss.append(dice_loss)
+        return loss
 
     composer_model = ComposerClassifier(module=model,
                                         train_metrics=train_metrics,

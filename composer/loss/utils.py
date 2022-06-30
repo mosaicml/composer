@@ -54,16 +54,17 @@ def ensure_targets_one_hot(input: torch.Tensor,
         if targets.min() < 0:
             warnings.warn('Negative label indices are being ignored in conversion to one-hot labels')
             # Map all negative indicies to a class to drop.
-            targets[targets < 0] = num_classes
-            targets = F.one_hot(targets, num_classes=num_classes + 1)
-            targets = torch.movedim(targets, -1, 1)
+            new_targets = targets.clone()
+            new_targets[targets < 0] = num_classes
+            new_targets = F.one_hot(new_targets, num_classes=num_classes + 1)
+            new_targets = torch.movedim(new_targets, -1, 1)
             # Drop any negative indices.
-            targets = targets[:, 0:-1]
+            new_targets = new_targets[:, 0:-1]
         else:
             targets = F.one_hot(targets, num_classes=num_classes)
-            targets = torch.movedim(targets, -1, 1)
-        targets = targets.float()
-    return targets
+            new_targets = torch.movedim(targets, -1, 1)
+        new_targets = new_targets.float()
+    return new_targets
 
 
 def check_for_index_targets(targets: torch.Tensor) -> bool:

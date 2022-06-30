@@ -39,6 +39,8 @@ class DeepLabV3Hparams(ModelHparams):
         "Url to download model weights from. If blank (default), will download from PyTorch's url.", default='')
     use_plus: bool = hp.optional('If true (default), use DeepLabv3+ head instead of DeepLabv3.', default=True)
     sync_bn: bool = hp.optional('If true, use SyncBatchNorm to sync batch norm statistics across GPUs.', default=True)
+    cross_entropy_weight: float = hp.optional("cross entropy loss weight", default=1.0)
+    dice_weight: float = hp.optional("dice loss weight", default=0.0)
 
     def validate(self):
         if self.num_classes is None:
@@ -59,4 +61,6 @@ class DeepLabV3Hparams(ModelHparams):
                                   backbone_url=self.backbone_url,
                                   use_plus=self.use_plus,
                                   sync_bn=self.sync_bn,
-                                  initializers=self.initializers)
+                                  initializers=self.initializers,
+                                  cross_entropy_weight=self.cross_entropy_weight,
+                                  dice_weight=self.dice_weight)
