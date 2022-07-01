@@ -21,7 +21,8 @@ tb_logger = TensorboardLogger(log_dir="./my_tensorboard_logs")
 
  If you are viewing or accessing you logs locally, choose this path wisely and remember it! Also make sure to use this same value for `log_dir` for any future runs (so all your runs can be visualized together!)
  
- If you will be using S3 to save your logs then the exact path you choose is not as important.
+ If you will be using S3 to save your logs then the exact path you choose is not as important, as your logs will automatically
+ be saved to a directory called `tensorboard_logs` inside of your bucket.
 
  Once we have our TensorboardLogger, we just need to add it to our Trainer and then we'll be good to go. Below is an example of training MNIST with Tensorboard Logging:
 
@@ -102,6 +103,8 @@ See [these instructions](#viewing-your-results-locally) for viewing your results
 
 ## Saving your Logs to S3
 You can also save your Tensorboard logs to cloud storage such as Amazon S3. This is especially useful in cases where your run environment does not have persistent storage.
+
+To save your logs to S3, you need to use an [`ObjectStoreLogger`](https://docs.mosaicml.com/en/stable/api_reference/composer.loggers.object_store_logger.html#composer.loggers.object_store_logger.ObjectStoreLogger).
 
 <!-- I can't figure out how to use the ObjectStoreLogger pythonically, so punting on this -->
 <!-- To save your logs to S3, you will need create an  `ObjectStoreLogger` object, like so:
@@ -193,3 +196,9 @@ aws s3 cp s3://my-s3-bucket-name/tensorboard_logs ./my_tensorboard_logs --recurs
 This command should copy all the Tensorboard log files from your S3 bucket to a local directory called `my_tensorboard_logs`.
 
 Now all of your tensorboard logs should exist locally. You can now view them using the [Viewing your Results Locally](#viewing-your-results-locally) instructions.
+
+Alternatively, if you are logging into AWS with your AWS SSO login, you should be able to view the logs like so:
+
+```bash
+ tensorboard --logdir=s3://my-bucket-name/tensorboard_logs
+```
