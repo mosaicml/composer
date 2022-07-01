@@ -12,7 +12,6 @@ from types import TracebackType
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 
 import numpy as np
-import urllib3
 from tqdm import tqdm
 
 from composer.datasets.streaming.format import (StreamingDatasetIndex, get_compression_scheme_basename,
@@ -251,7 +250,7 @@ def get_object_store(remote: str, timeout: Optional[float]) -> ObjectStore:
 def get_s3_object_store(remote: str, timeout: Optional[float]) -> S3ObjectStore:
     if timeout is None:
         raise ValueError('Must specify timeout for s3 bucket')
-    obj = urllib3.parse.urlparse(remote)
+    obj = urllib.parse.urlparse(remote)
     if obj.scheme != 's3':
         raise ValueError(f"Expected obj.scheme to be 's3', got {obj.scheme} for remote={remote}")
     client_config = {'read_timeout': timeout}
