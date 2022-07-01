@@ -86,7 +86,7 @@ def each(dataset: IterableDataset) -> Iterable[Dict[str, bytes]]:
 
 
 def main(args: Namespace) -> None:
-    """Main: create C4 streaming dataset, with 'gz' compression.
+    """Main: create C4 streaming dataset.
 
     Args:
         args (Namespace): Commandline arguments.
@@ -104,7 +104,7 @@ def main(args: Namespace) -> None:
         with StreamingDatasetWriter(dirname=os.path.join(args.out_root, split_new_name),
                                     fields=fields,
                                     shard_size_limit=args.shard_size_limit,
-                                    compression='gz') as out:
+                                    compression=None) as out:
             out.write_samples(samples=each(dataset), use_tqdm=bool(args.tqdm), total=expected_num_samples)
 
 
