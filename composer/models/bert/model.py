@@ -137,7 +137,7 @@ class BertForClassification(BERTModel):
                  module: transformers.BertModel,
                  config: transformers.BertConfig,
                  tokenizer: Optional[transformers.BertTokenizer] = None) -> None:
-        assert (self.config.num_labels > 1, 'Model has only one label, use BertForRegression instead.')
+        assert self.config.num_labels >= 1, 'Model has only one label, use BertForRegression instead.'
         super().__init__(
             module=module,  #type: ignore (thirdparty)
             config=config,
@@ -180,7 +180,7 @@ class BertForPretraining(BERTModel):
                  module: transformers.BertModel,
                  config: transformers.BertConfig,
                  tokenizer: Optional[transformers.BertTokenizer] = None) -> None:
-        assert (self.config.num_labels == self.config.vocab_size, 'Number of labels not equivalent to vocabulary size')
+        assert self.config.num_labels == self.config.vocab_size, 'Number of labels not equivalent to vocabulary size'
         super().__init__(
             module=module,  #type: ignore (thirdparty)
             config=config,
@@ -218,7 +218,7 @@ class BertForRegression(BERTModel):
                  module: transformers.BertModel,
                  config: transformers.BertConfig,
                  tokenizer: Optional[transformers.BertTokenizer] = None) -> None:
-        assert (self.config.num_labels == 1, 'Model must have one label for regression.')
+        assert self.config.num_labels == 1, 'Model must have one label for regression.'
         super().__init__(
             module=module,  #type: ignore (thirdparty)
             config=config,

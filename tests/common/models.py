@@ -11,7 +11,8 @@ import yahp as hp
 
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer
 from composer.models import ComposerClassifier
-from composer.models.bert.bert_hparams import BERTForClassificationHparams, BERTHparams
+from composer.models.bert.bert_hparams import (BERTForClassificationHparams, BertForPretrainingHparams,
+                                               BERTForRegressionHparams, BERTHparams)
 from composer.models.deeplabv3.deeplabv3_hparams import DeepLabV3Hparams
 from composer.models.gpt2.gpt2_hparams import GPT2Hparams
 from composer.models.model_hparams import ModelHparams
@@ -216,6 +217,49 @@ def generate_dummy_model_config(cls: Type[hp.Hparams], tokenizer) -> Dict[str, A
             'type_vocab_size': 2,
             'use_cache': True,
             'vocab_size': tokenizer.vocab_size
-        }
+        },
+        BertForPretrainingHparams: {
+            'architectures': ['BertForMaskedLM'],
+            'attention_probs_dropout_prob': 0.1,
+            'gradient_checkpointing': False,
+            'hidden_act': 'gelu',
+            'hidden_dropout_prob': 0.1,
+            'hidden_size': 64,
+            'initializer_range': 0.02,
+            'intermediate_size': 256,
+            'layer_norm_eps': 1e-12,
+            'max_position_embeddings': 512,
+            'model_type': 'bert',
+            'num_attention_heads': 1,
+            'num_hidden_layers': 1,
+            'pad_token_id': tokenizer.pad_token_id,
+            'position_embedding_type': 'absolute',
+            'transformers_version': '4.6.0.dev0',
+            'type_vocab_size': 2,
+            'use_cache': True,
+            'vocab_size': tokenizer.vocab_size,
+        },
+        BERTForRegressionHparams: {
+            'architectures': ['BertForSequenceClassification'],
+            'attention_probs_dropout_prob': 0.1,
+            'classifier_dropout': None,
+            'gradient_checkpointing': False,
+            'hidden_act': 'gelu',
+            'hidden_dropout_prob': 0.1,
+            'hidden_size': 64,
+            'initializer_range': 0.02,
+            'intermediate_size': 256,
+            'layer_norm_eps': 1e-12,
+            'max_position_embeddings': 512,
+            'model_type': 'bert',
+            'num_attention_heads': 1,
+            'num_hidden_layers': 1,
+            'pad_token_id': tokenizer.pad_token_id,
+            'position_embedding_type': 'absolute',
+            'transformers_version': '4.16.2',
+            'type_vocab_size': 2,
+            'use_cache': True,
+            'vocab_size': tokenizer.vocab_size
+        },
     }
     return model_to_dummy_mapping[cls]
