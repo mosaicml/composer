@@ -158,7 +158,7 @@ class StreamingDatasetWriter(object):
         basename = get_compression_scheme_basename()
         filename = os.path.join(self.dirname, basename)
         with open(filename, 'x') as out:
-            out.write(self.compression_scheme)
+            out.write(self.compression_scheme + '\n')
         if self.remote is not None:
             self.remote.upload_object(basename, filename)
 

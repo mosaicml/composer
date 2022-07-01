@@ -348,7 +348,7 @@ def print_env(file: Optional[TextIO] = None) -> None:
 
         Composer information
         --------------------
-        Composer version: 0.7.0
+        Composer version: 0.8.0
         Host processor model name: AMD EPYC 7502 32-Core Processor
         Host processor core count: 64
         Number of nodes: 1
