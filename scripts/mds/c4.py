@@ -43,7 +43,7 @@ def get(split: str) -> IterableDataset:
             self.dataset = datasets.load_dataset(path='c4', name='en', split=split, streaming=True)
 
         def num_shards(self):
-          return len(self.dataset._ex_iterable.kwargs['filepaths'])
+            return len(self.dataset._ex_iterable.kwargs['filepaths'])
 
         def __iter__(self):
             worker_info = get_worker_info()
@@ -84,12 +84,9 @@ def each(dataset: IterableDataset) -> Iterable[Dict[str, bytes]]:
         for idx in range(current_bs):
             yield {key: batch_values[idx].encode('utf-8') for key, batch_values in batch.items()}
 
-    # for sample in dataset:
-    #     yield {key: value.encode('utf-8') for key, value in sample.items()}
-
 
 def main(args: Namespace) -> None:
-    """Main: create C4 streaming dataset.
+    """Main: create C4 streaming dataset, with 'gz' compression.
 
     Args:
         args (Namespace): Commandline arguments.
@@ -107,7 +104,7 @@ def main(args: Namespace) -> None:
         with StreamingDatasetWriter(dirname=os.path.join(args.out_root, split_new_name),
                                     fields=fields,
                                     shard_size_limit=args.shard_size_limit,
-                                    compression=None) as out:
+                                    compression='gz') as out:
             out.write_samples(samples=each(dataset), use_tqdm=bool(args.tqdm), total=expected_num_samples)
 
 

@@ -7,7 +7,7 @@
 import gzip as gz
 import os
 from io import BufferedWriter
-from threading import Lock, Thread
+from threading import Thread
 from types import TracebackType
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 
