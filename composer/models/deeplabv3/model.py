@@ -196,7 +196,6 @@ def composer_deeplabv3(num_classes: int,
 
     def combo_loss(output, target):
         loss = []
-        print(cross_entropy_weight, dice_weight)
         if cross_entropy_weight:
             ce_loss = ce_loss_fn(output, target) * cross_entropy_weight
             loss.append(ce_loss)
