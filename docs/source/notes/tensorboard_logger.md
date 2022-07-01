@@ -1,4 +1,4 @@
-# Logging Your Results with Tensorboard
+# 📋 Tensorboard Monitoring
 
 ## Installing Tensorboard
 Before we get started make sure you have installed Tensorboard!
@@ -104,15 +104,7 @@ See [these instructions](#viewing-your-results-locally) for viewing your results
 ## Saving your Logs to S3
 You can also save your Tensorboard logs to cloud storage such as Amazon S3. This is especially useful in cases where your run environment does not have persistent storage.
 
-To save your logs to S3, you need to use an [`ObjectStoreLogger`](https://docs.mosaicml.com/en/stable/api_reference/composer.loggers.object_store_logger.html#composer.loggers.object_store_logger.ObjectStoreLogger).
-
-<!-- I can't figure out how to use the ObjectStoreLogger pythonically, so punting on this -->
-<!-- To save your logs to S3, you will need create an  `ObjectStoreLogger` object, like so:
-
-```python
-from composer.loggers import ObjectStoreLogger
-from composer.utils import
-``` -->
+To save your logs to S3, you need to use an {class}`~.ObjectStoreLogger`
 
 If you are using YAML configs you can get S3 logging by adding the following lines to your YAML file under loggers:
 
@@ -180,7 +172,7 @@ TensorBoard 2.9.1 at http://localhost:6006/ (Press CTRL+C to quit)
 ```
 
 Open the URL in your browser to access the Tensorboard viewer, which should look something like this:
-![tb_screenshot](./tensorboard_screenshot.png)
+![tb_screenshot](../_images/tensorboard_screenshot.png)
 
 Enjoy viewing your metrics!
 
@@ -197,7 +189,7 @@ This command should copy all the Tensorboard log files from your S3 bucket to a 
 
 Now all of your tensorboard logs should exist locally. You can now view them using the [Viewing your Results Locally](#viewing-your-results-locally) instructions.
 
-Alternatively, if you are logging into AWS with your AWS SSO login, you should be able to view the logs like so:
+Alternatively, if you are logging into AWS with your AWS SSO login, you should be able to view the logs directly without local copying, like so:
 
 ```bash
  tensorboard --logdir=s3://my-bucket-name/tensorboard_logs
