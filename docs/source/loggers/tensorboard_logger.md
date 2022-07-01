@@ -101,10 +101,7 @@ If all goes well, your loss and metric results will be logged Tensorboard log fi
 See [these instructions](#viewing-your-results-locally) for viewing your results in the Tensorboard viewer.
 
 ## Saving your Logs to S3
-If you run your training on a cluster without persistent local storage or you don't have ssh
-access to your cluster, you may not be able to access your Tensorboard logs after the training
-run is over. To solve this issue you can have your Tensorboard logs saved to some cloud storage
-somewhere, like Amazon S3. 
+You can also save your Tensorboard logs to cloud storage such as Amazon S3. This is especially useful in cases where your run environment does not have persistent storage.
 
 <!-- I can't figure out how to use the ObjectStoreLogger pythonically, so punting on this -->
 <!-- To save your logs to S3, you will need create an  `ObjectStoreLogger` object, like so:
