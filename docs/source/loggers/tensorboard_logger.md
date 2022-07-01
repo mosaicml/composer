@@ -170,7 +170,7 @@ If you saved your Tensorboard log files locally you can view them by starting a 
 tensorboard --logdir='./my_tensorboard_logs'
 ```
 
-This will start a a Tensorboard process, which will write a message to stdout that looks something like:
+This will start a Tensorboard process, which will write a message to stdout that looks something like:
 
 ```bash
 TensorBoard 2.9.1 at http://localhost:6006/ (Press CTRL+C to quit)
