@@ -41,8 +41,8 @@ eval_batch_size: 16
 seed: 19
 dataloader:
   pin_memory: true
-  persistent_workers: true
-  num_workers: 8
+  persistent_workers: false
+  num_workers: 0
   timeout: 0
   prefetch_factor: 2
 grad_accum: 1
