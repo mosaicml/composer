@@ -77,7 +77,7 @@ def set_batch_sequence_length(
     if preserve_end_of_sequence:
         r_idx = torch.arange(batch['attention_mask'].shape[0])
         # eos_idx should point to the final token index for each batch sample
-        eos_idx = batch['attention_mask'].sum(1).long() - 1
+        eos_idx = batch['attention_mask'].sum(dim=1).long() - 1
         # eos_idx_truncated is the same thing, after truncation is applied
         eos_idx_truncated = eos_idx.clamp(max=curr_seq_len - 1)
 
