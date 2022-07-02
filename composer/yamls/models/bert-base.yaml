@@ -66,6 +66,8 @@ max_duration: 286720000sp # Subsample the training data for ~275M samples
 train_batch_size: 4096 # Number of training examples to use per update
 eval_batch_size: 2048
 
+seed: 17
+
 precision: amp # Use mixed-precision training
 grad_clip_norm: -1.0 # Turn off gradient clipping
 grad_accum: auto # Use automatic gradient accumulation to avoid OOMs
