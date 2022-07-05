@@ -137,7 +137,17 @@ class ImageMonitor(Callback):
             if not isinstance(inputs, torch.Tensor):
                 raise NotImplementedError('Multiple input tensors not supported yet')
             table = self._make_input_images(inputs)
-            logger.data_batch({'Images/Inputs': table})
+            logger.data_batch({'Images/Train': table})
+
+    def eval_before_forward(self, state: State, logger: Logger):
+        assert isinstance(self.interval, Time)
+
+        if self.mode.lower() == 'input' and state.timestamp.get(self.interval.unit).value % self.interval.value == 0:
+            inputs = state.batch_get_item(key=self.input_key)
+            if not isinstance(inputs, torch.Tensor):
+                raise NotImplementedError('Multiple input tensors not supported yet')
+            table = self._make_input_images(inputs)
+            logger.data_batch({'Images/Eval': table})
 
     def before_loss(self, state: State, logger: Logger):
         assert isinstance(self.interval, Time)
