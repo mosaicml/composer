@@ -413,7 +413,7 @@ class TrainerHparams(hp.Hparams):
             raise ValueError('scale_schedule_ratio must be a positive value.')
 
         grad_accum = _parse_grad_accum(self.grad_accum)
-        if (grad_accum != 'auto') or (isinstance(grad_accum, int) and grad_accum < 1):
+        if (isinstance(grad_accum, str) and grad_accum != 'auto') or (isinstance(grad_accum, int) and grad_accum < 1):
             raise ValueError('grad_accum must be "auto" or an int greater than or equal to 1.')
 
     def initialize_object(self) -> Trainer:
