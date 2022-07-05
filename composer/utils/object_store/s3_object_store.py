@@ -85,7 +85,7 @@ class S3ObjectStore(ObjectStore):
         if client_config is None:
             client_config = {}
         config = Config(**client_config)
-        self.client = boto3.client(
+        self.client = boto3.Session().client(
             's3',
             config=config,
             region_name=region_name,
