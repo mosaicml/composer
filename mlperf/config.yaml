@@ -13,7 +13,7 @@ algorithms:
   - channels_last: {}
   - label_smoothing:
       smoothing: 0.08
-  #- progressive_resizing: {}
+  - progressive_resizing: {}
   - ema:
       half_life: 200ba
 callbacks:
@@ -49,7 +49,7 @@ scale_schedule_ratio: 0.32
 schedulers:
   - cosine_decay_with_warmup:
       t_warmup: "8ep"
-max_duration: 90ep
+max_duration: 30ep
 train_batch_size: 2048
 eval_batch_size: 2048
 eval_interval: 3
