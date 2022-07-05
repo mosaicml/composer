@@ -65,19 +65,18 @@ while True:
         long_description = long_description[:start] + long_description[end + len(end_tag):]
 
 install_requires = [
-    "pyyaml>=5.4.1,<6",
-    "tqdm>=4.62.3,<5",
-    "torchmetrics>=0.7.0,<0.8",
-    "torch_optimizer>=0.1.0,<0.2",
-    #"torchvision>=0.10.0",  # torchvision has strict pytorch requirements
-    #"torch>=1.9,<2",
-    "yahp==0.1.1",
-    "requests>=2.26.0,<3",
-    "numpy>=1.21.5,<2",
-    "apache-libcloud>=3.3.1,<4",
-    "psutil>=5.8.0,<6",
-    "coolname>=1.1.0,<2",
-    "py-cpuinfo>=8.0.0",
+    'pyyaml>=6.0,<7',
+    'tqdm>=4.62.3,<5',
+    'torchmetrics>=0.7.0,<0.8',
+    'torch_optimizer>=0.1.0,<0.2',
+    'torchvision>=0.10.0',  # torchvision has strict pytorch requirements
+    'torch>=1.9,<2',
+    'yahp>=0.1.1,<0.2',
+    'requests>=2.26.0,<3',
+    'numpy>=1.21.5,<2',
+    'psutil>=5.8.0,<6',
+    'coolname>=1.1.0,<2',
+    'py-cpuinfo>=8.0.0',
 ]
 extra_deps = {}
 

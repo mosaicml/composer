@@ -21,7 +21,6 @@ import composer
 from composer.algorithms.algorithm_hparams_registry import algorithm_registry
 from composer.callbacks.callback_hparams_registry import callback_registry
 from composer.core import Algorithm, Callback, DataSpec, Evaluator, Event, Precision, State, Time
-
 from composer.core.types import JSON, PyTorchScheduler
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_hparams_registry import dataset_registry
