@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import sys
 
 import pytest
 
@@ -14,7 +15,7 @@ from tests.common import configure_dataset_hparams_for_synthetic, configure_mode
 
 def walk_model_yamls():
     yamls = []
-    for root, dirs, files in os.walk(os.path.join(os.path.dirname(composer.__file__), 'yamls', 'models')):
+    for root, dirs, files in os.walk(os.path.join(os.path.dirname(composer.__file__), 'yamls')):
         del dirs  # unused
         for name in files:
             filepath = os.path.join(root, name)
@@ -28,6 +29,11 @@ def walk_model_yamls():
 @pytest.mark.parametrize('hparams_file', walk_model_yamls())
 class TestHparamsCreate:
 
+    @pytest.fixture(scope='function', autouse=True)
+    def ensure_device_cpu(self, monkeypatch: pytest.MonkeyPatch):
+        'Pass in --device cpu to the cli_args to force device CPU.'
+        monkeypatch.setattr(sys, 'argv', ['foo.py', '--device', 'cpu'])
+
     def test_hparams_create(self, hparams_file: str):
         if 'timm' in hparams_file:
             pytest.importorskip('timm')
@@ -37,7 +43,8 @@ class TestHparamsCreate:
             pytest.importorskip('monai')
         if 'deeplabv3' in hparams_file:
             pytest.importorskip('mmseg')
-        hparams = TrainerHparams.create(hparams_file, cli_args=False)
+
+        hparams = TrainerHparams.create(hparams_file, cli_args=True)
         assert isinstance(hparams, TrainerHparams)
 
     @pytest.mark.filterwarnings(
@@ -64,7 +71,7 @@ class TestHparamsCreate:
         if 'deeplabv3' in hparams_file:
             pytest.importorskip('mmseg')
 
-        hparams = TrainerHparams.create(hparams_file, cli_args=False)
+        hparams = TrainerHparams.create(hparams_file, cli_args=True)
         hparams.dataloader.num_workers = 0
         hparams.dataloader.persistent_workers = False
         hparams.dataloader.pin_memory = False
