@@ -13,16 +13,15 @@ algorithms:
   - channels_last: {}
   - label_smoothing:
       smoothing: 0.08
-  #- progressive_resizing:
-  #    size_increment: 4
-  #    delay_fraction: 0.4
-  #- ema:
-  #    update_interval: 20ba
+  #- progressive_resizing: {}
+  - ema:
+      half_life: 200ba
 callbacks:
   speed_monitor:
 train_dataset:
   imagenet:
-    datadir: /tmp/ILSVRC/Data/CLS-LOC/
+    #datadir: /tmp/ILSVRC/Data/CLS-LOC/
+    use_synthetic: true
     resize_size: -1
     crop_size: 176 
     is_train: true
@@ -31,13 +30,14 @@ train_dataset:
     use_ffcv: true
 val_dataset:
   imagenet:
-    datadir: /tmp/ILSVRC/Data/CLS-LOC/
+    #datadir: /tmp/ILSVRC/Data/CLS-LOC/
+    use_synthetic: true
     resize_size: 232
     crop_size: 224
     is_train: false
     shuffle: false
     drop_last: false
-    use_ffcv: true 
+    use_ffcv: true
 optimizers:
   decoupled_sgdw:
     lr: 2.048
