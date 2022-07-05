@@ -102,6 +102,12 @@ def resize_batch(input: torch.Tensor,
         # Convert back to original format for training
         y_sized = y_sized.squeeze(dim=1).to(target.dtype)
 
+    # Log results
+    log.debug(
+        textwrap.dedent(f"""\
+            Applied Progressive Resizing with scale_factor={scale_factor} and mode={mode}.
+            Old input dimensions: (H,W)={input.shape[2], input.shape[3]}.
+            New input dimensions: (H,W)={X_sized.shape[2], X_sized.shape[2]}"""))
     return X_sized, y_sized
 
 
