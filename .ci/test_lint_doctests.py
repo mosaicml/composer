@@ -65,22 +65,19 @@ def test_docker_build_matrix():
     with open(docker_folder / 'README.md', 'r') as f:
         existing_readme = f.read()
 
-    with open(docker_folder / 'pytorch' / 'build_matrix.yaml', 'r') as f:
+    with open(docker_folder / 'build_matrix.yaml', 'r') as f:
         existing_build_matrix = f.read()
 
     # Run the script
     check_output(
-        subprocess.run(['python', 'generate_build_matrix.py'],
-                       cwd=docker_folder / 'pytorch',
-                       capture_output=True,
-                       text=True))
+        subprocess.run(['python', 'generate_build_matrix.py'], cwd=docker_folder, capture_output=True, text=True))
 
     # Assert that the files did not change
 
     with open(docker_folder / 'README.md', 'r') as f:
         assert existing_readme == f.read()
 
-    with open(docker_folder / 'pytorch' / 'build_matrix.yaml', 'r') as f:
+    with open(docker_folder / 'build_matrix.yaml', 'r') as f:
         assert existing_build_matrix == f.read()
 
 

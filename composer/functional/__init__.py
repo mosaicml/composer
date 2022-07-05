@@ -24,6 +24,8 @@ from composer.algorithms.cutmix import cutmix_batch
 from composer.algorithms.cutout import cutout_batch
 from composer.algorithms.ema import compute_ema
 from composer.algorithms.factorize import apply_factorization
+from composer.algorithms.fused_layernorm import apply_fused_layernorm
+from composer.algorithms.gated_linear_units import apply_gated_linear_units
 from composer.algorithms.ghost_batchnorm.ghost_batchnorm import apply_ghost_batchnorm
 from composer.algorithms.gradient_clipping import apply_gradient_clipping
 from composer.algorithms.label_smoothing import smooth_labels
@@ -47,6 +49,8 @@ __all__ = [
     'cutmix_batch',
     'cutout_batch',
     'apply_factorization',
+    'apply_fused_layernorm',
+    'apply_gated_linear_units',
     'apply_ghost_batchnorm',
     'apply_gradient_clipping',
     'smooth_labels',

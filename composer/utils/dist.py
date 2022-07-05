@@ -33,7 +33,9 @@ If none of these environment variables are set, this module will safely assume a
 from __future__ import annotations
 
 import datetime
+import logging
 import os
+from contextlib import contextmanager
 from typing import Any, List, Optional, Sequence, TypeVar, cast
 
 import torch
@@ -59,6 +61,8 @@ __all__ = [
     'is_available',
     'is_initialized',
 ]
+
+log = logging.getLogger(__name__)
 
 
 def _get_distributed_config_var(
@@ -382,6 +386,15 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
         'LOCAL_RANK': '0',
     }
 
+    log.debug(
+        'Initializing torch.dist: global_rank=%d, local_rank=%d, world_size=%d, local_world_size=%d, node_rank=%d',
+        get_global_rank(),
+        get_local_rank(),
+        get_world_size(),
+        get_local_world_size(),
+        get_node_rank(),
+    )
+
     dist_env_vars_match_defaults = all(os.environ.get(k, v) == v for (k, v) in dist_env_var_defaults.items())
 
     if dist_env_vars_match_defaults:
@@ -420,3 +433,36 @@ def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool, shuffle: 
         num_replicas=get_world_size(),
         rank=get_global_rank(),
     )
+
+
+@contextmanager
+def run_local_rank_zero_first():
+    """Context manager to hold all non-zero ranks until rank zero completes.
+
+    The below example will let the local rank zero download
+    the dataset, and hold all non-rank zeros until the
+    download is complete.
+
+    .. code-block: python
+
+        with run_local_rank_zero_first():
+            dataset = CIFAR10(
+                ...,
+                download=True,
+            )
+
+    This prevents race conditions where multiple
+    ranks attempt to download the dataset to the
+    same location.
+    """
+    if not is_initialized():
+        yield
+        return
+
+    # hold non-zero ranks until rank zero done
+    if get_local_rank() != 0:
+        dist.barrier()
+        yield
+    else:
+        yield
+        dist.barrier()

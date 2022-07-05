@@ -4,6 +4,7 @@
 """COCO (Common Objects in Context) dataset hyperparameters."""
 import os
 from dataclasses import dataclass
+from typing import Optional
 
 import yahp as hp
 
@@ -18,7 +19,16 @@ __all__ = ['COCODatasetHparams', 'StreamingCOCOHparams']
 
 @dataclass
 class COCODatasetHparams(DatasetHparams):
-    """Defines an instance of the COCO Dataset."""
+    """Defines an instance of the COCO Dataset.
+
+    Args:
+        datadir (str): The path to the data directory.
+        is_train (bool): Whether to load the training data or validation data. Default:
+            ``True``.
+    """
+
+    is_train: bool = hp.optional('Whether to load the training data (the default) or validation data.', default=True)
+    datadir: Optional[str] = hp.optional('The path to the data directory', default=None)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
 

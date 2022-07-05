@@ -15,7 +15,7 @@ from composer.core.precision import get_precision_context
 from composer.core.time import TimeUnit
 from composer.core.types import Batch
 from composer.loggers import Logger
-from composer.models import ComposerTransformer
+from composer.models import HuggingFaceModel
 from composer.utils import ensure_tuple
 
 __all__ = ['SeqLengthWarmup', 'set_batch_sequence_length']
@@ -25,7 +25,7 @@ def set_batch_sequence_length(batch: Dict[str, torch.Tensor], curr_seq_len: int,
     """Set the sequence length of a batch.
 
     Changes the sequence length of all tensors in the provided dictionary
-    to ``curr_seq_len``, by either truncating the tensors (``truncate=True``)
+    to ``curr_seq_len`` by either truncating the tensors (``truncate=True``)
     or reshaping the tensors to create new examples from the extra tokens
     (``truncate=False``).
 
@@ -37,7 +37,7 @@ def set_batch_sequence_length(batch: Dict[str, torch.Tensor], curr_seq_len: int,
     .. note::
 
         Variable input lengths can create CUDA OOM errors. To avoid this,
-        we follow `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
+        we follow the `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
         and pre-allocate the memory with a blank forward and backward pass.
 
     Args:
@@ -102,18 +102,18 @@ class SeqLengthWarmup(Algorithm):
     create new examples from the extra tokens (``truncate=False``).
 
     This algorithm runs on :attr:`~composer.core.event.Event.AFTER_DATALOADER` to modify
-    the sequence length of a batch of data, after the model and data have been moved to
+    the sequence length of a batch of data after the model and data have been moved to
     accelerators.
 
     .. note::
 
         ``step_size`` should be a `multiple of eight <https://developer.nvidia.com/blog/optimizing-gpu-performance-tensor-cores/>`_ for
-        optimal throughput on NVIDIA GPUs
+        optimal throughput on NVIDIA GPUs.
 
     .. note::
 
         Variable input lengths can create CUDA OOM errors. To avoid this,
-        we follow `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
+        we follow the `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
         and pre-allocate the memory with a blank forward and backward pass.
 
     See the :doc:`Method Card </method_cards/seq_length_warmup>` for more details.
@@ -163,7 +163,7 @@ class SeqLengthWarmup(Algorithm):
         self.truncate = truncate
 
         if self.duration < 0 or self.duration > 1:
-            raise ValueError(f'Duration must be getween 0 and 1, got: {self.duration}')
+            raise ValueError(f'Duration must be between 0 and 1, got: {self.duration}')
 
         if self.max_seq_length < self.min_seq_length:
             raise ValueError(f'max_seq_length={self.max_seq_length} must be '
@@ -176,10 +176,10 @@ class SeqLengthWarmup(Algorithm):
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         if event == Event.INIT:
-            if not isinstance(state.model, ComposerTransformer):
+            if not isinstance(state.model, HuggingFaceModel):
                 raise RuntimeError(
                     textwrap.dedent(f"""\
-                    {type(self).__name__} requires state.model to be of type {ComposerTransformer.__name__}, not of type {type(state.model)}"""
+                    {type(self).__name__} requires state.model to be of type {HuggingFaceModel.__name__}, not of type {type(state.model)}"""
                                    ))
 
             self._original_model = state.model
@@ -200,6 +200,7 @@ class SeqLengthWarmup(Algorithm):
                 raise RuntimeError("'labels' must be in model inputs")
 
             # create fake inputs
+            assert self._original_model.config is not None, 'model of type HuggingFaceModel should have .config'
             vocab_size = self._original_model.config.vocab_size
 
             # simplifying assumption: Composer doesn't support model-parallelism,
