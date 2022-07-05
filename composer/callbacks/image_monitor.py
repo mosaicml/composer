@@ -94,7 +94,12 @@ class ImageMonitor(Callback):
                              f'{self.interval.unit}')
 
     def _make_input_images(self, inputs: torch.Tensor):
-        images = inputs[0:self.num_images].data.cpu().permute(0, 2, 3, 1).numpy()
+        if images.shape[0] < self.num_images:
+            num_images = images.shape[0]
+        else:
+            num_images = self.num_images
+
+        images = inputs[0:num_images].data.cpu().permute(0, 2, 3, 1).numpy()
 
         table = wandb.Table(columns=['Image'])
         for image in images:
@@ -103,15 +108,20 @@ class ImageMonitor(Callback):
         return table
 
     def _make_segmentation_images(self, inputs: torch.Tensor, targets: torch.Tensor, outputs: torch.Tensor):
-        images = inputs[0:self.num_images].data.cpu().permute(0, 2, 3, 1).numpy()
-        targets = targets[0:self.num_images].data.cpu().numpy()
-        outputs = outputs[0:self.num_images]
+        if min([inputs.shape[0], targets.shape[0], outputs.shape[0]]) < self.num_images:
+            num_images = min([inputs.shape[0], targets.shape[0], outputs.shape[0]])
+        else:
+            num_images = self.num_images
+
+        images = inputs[0:num_images].data.cpu().permute(0, 2, 3, 1).numpy()
+        targets = targets[0:num_images].data.cpu().numpy()
+        outputs = outputs[0:num_images]
 
         # Shift targets so that the background class is 0
         targets += 1
         targets[targets < 0] = 0
         # Convert outputs to segmentation masks. Assume channels are first dim
-        outputs = outputs[0:self.num_images]
+        outputs = outputs[0:num_images]
         outputs = outputs.argmax(dim=1).cpu().numpy()
         outputs += 1
 
