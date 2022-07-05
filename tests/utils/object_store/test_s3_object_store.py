@@ -18,7 +18,9 @@ def _worker(bucket: str, tmp_path: pathlib.Path, tid: int):
 
 
 @pytest.mark.timeout(15)
-@pytest.mark.remote  # This test requires properly configured aws credentials; otherwise
+# This test requires properly configured aws credentials; otherwise the s3 client would hit a NoCredentialsError
+# when constructing the Session, which occurs before the bug this test checks
+@pytest.mark.remote
 def test_s3_object_store_multi_threads(tmp_path: pathlib.Path):
     """Test to verify that we do not hit https://github.com/boto/boto3/issues/1592."""
     pytest.importorskip('boto3')
