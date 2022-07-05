@@ -17,8 +17,8 @@ all dependencies for both NLP and Vision models. They are built on top of the
 |--------------------|----------------|--------------------------------|
 | latest             | Yes            | `mosaicml/composer:latest`     |
 | latest             | No             | `mosaicml/composer:latest_cpu` |
-| 0.7.1              | Yes            | `mosaicml/composer:0.7.1`      |
-| 0.7.1              | No             | `mosaicml/composer:0.7.1_cpu`  |
+| 0.8.0              | Yes            | `mosaicml/composer:0.8.0`      |
+| 0.8.0              | No             | `mosaicml/composer:0.8.0_cpu`  |
 <!-- END_COMPOSER_BUILD_MATRIX -->
 
 

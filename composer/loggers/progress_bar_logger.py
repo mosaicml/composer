@@ -189,7 +189,23 @@ class ProgressBarLogger(LoggerDestination):
         # log to console
         if self.should_log(state, log_level):
             data_str = format_log_data_value(data)
-            log_str = f'[{log_level.name}][batch={int(state.timestamp.batch)}]: {data_str}'
+            if state.max_duration is None:
+                training_progress = ''
+            elif state.max_duration.unit == TimeUnit.EPOCH:
+                if state.dataloader_len is None:
+                    curr_progress = f'[batch={int(state.timestamp.batch_in_epoch)}]'
+                else:
+                    total = int(state.dataloader_len)
+                    curr_progress = f'[batch={int(state.timestamp.batch_in_epoch)}/{total}]'
+
+                training_progress = f'[epoch={int(state.timestamp.epoch)}]{curr_progress}'
+            else:
+                unit = state.max_duration.unit
+                curr_duration = int(state.timestamp.get(unit))
+                total = state.max_duration.value
+                training_progress = f'[{unit.name.lower()}={curr_duration}/{total}]'
+
+            log_str = f'[{log_level.name}]{training_progress}: {data_str}'
             self.log_to_console(log_str)
 
     def log_to_console(self, log_str: str):

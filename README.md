@@ -132,7 +132,7 @@ from torchvision import datasets, transforms
 
 from composer import Trainer
 from composer.algorithms import BlurPool, ChannelsLast, CutMix, LabelSmoothing
-from composer.models import MNIST_Classifier
+from composer.models import mnist_model
 
 transform = transforms.Compose([transforms.ToTensor()])
 train_dataset = datasets.MNIST("data", download=True, train=True, transform=transform)
@@ -148,7 +148,7 @@ trainer = Trainer(
     algorithms=[
         BlurPool(replace_convs=True, replace_maxpools=True, blur_first=True),
         ChannelsLast(),
-        CutMix(num_classes=10),
+        CutMix(alpha=1.0),
         LabelSmoothing(smoothing=0.1),
     ]
 )

@@ -421,7 +421,7 @@ class TrainerHparams(hp.Hparams):
 
         # Set the Python LogLevel for Composer
         import composer
-        logging.getLogger(composer.__name__).setLevel(self.python_log_level)
+        logging.getLogger(composer.__name__).setLevel(self.python_log_level.upper())
 
         # ensure grad_accum is 'auto' or an integer
         grad_accum = _parse_grad_accum(self.grad_accum)
