@@ -169,7 +169,7 @@ class SFTPObjectStore(ObjectStore):
 
     @contextlib.contextmanager
     def _handle_transient_errors(self):
-        from paramiko import SSHException
+        from paramiko import ChannelException, SSHException
         try:
             yield
         except Exception as e:
@@ -182,7 +182,7 @@ class SFTPObjectStore(ObjectStore):
             if isinstance(e, SSHException):
                 if 'Server connection dropped:' in str(e):
                     raise ObjectStoreTransientError from e
-            if isinstance(e, (TimeoutError, ConnectionError, EOFError)):
+            if isinstance(e, (TimeoutError, ConnectionError, EOFError, ChannelException)):
                 raise ObjectStoreTransientError from e
             raise e
 
