@@ -23,6 +23,8 @@ class ResNetHparams(ModelHparams):
             ``"resnet152"``].
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``1000``.
         weights (str, optional): If provided, pretrained weights can be specified, such as with ``IMAGENET1K_V2``. Default: ``None``.
+        pretrained (bool, optional): If True, use ImageNet pretrained weights. Default: ``False``. This parameter is deprecated and
+            will soon be removed.
         groups (int, optional): Number of filter groups for the 3x3 convolution layer in bottleneck blocks. Default: ``1``.
         width_per_group (int, optional): Initial width for each convolution group. Width doubles after each stage.
             Default: ``64``.
@@ -35,6 +37,9 @@ class ResNetHparams(ModelHparams):
     weights: Optional[str] = hp.optional(
         'If provided, pretrained weights can be specified, such as with ``IMAGENET1K_V2``. (default: ``None``)',
         default=None)
+    pretrained: bool = hp.optional(
+        'If True, use ImageNet pretrained weights. Default: ``False``. This parameter is deprecated and will soon be removed.',
+        default=False)
     groups: int = hp.optional(
         'Number of filter groups for the 3x3 convolution layer in bottleneck block. (default: ``1``)', default=1)
     width_per_group: int = hp.optional(
@@ -53,6 +58,7 @@ class ResNetHparams(ModelHparams):
         return composer_resnet(model_name=self.model_name,
                                num_classes=self.num_classes,
                                weights=self.weights,
+                               pretrained=self.pretrained,
                                groups=self.groups,
                                width_per_group=self.width_per_group,
                                initializers=self.initializers,
