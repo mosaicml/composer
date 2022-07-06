@@ -50,7 +50,7 @@ def set_batch_sequence_length(
         curr_seq_length (int): The desired sequence length to apply.
         truncate (bool, optional): Truncate sequences early, or reshape tensors to create
             new examples out of the extra tokens. Default: ``True``.
-        preserve_eos (bool, optional): Preserve the end-of-sequence of the batch when
+        preserve_end_of_sequence (bool, optional): Preserve the end-of-sequence of the batch when
             truncating. Useful when input formats include a unique end-of-sequence token.
             Ignored if ``truncate=False``. Default: ``False``.
             E.g., if ``batch["input_ids"]`` is ``[[10, 11, 12, 13, 14, 15]]``
@@ -202,7 +202,7 @@ class SeqLengthWarmup(Algorithm):
         step_size (int, optional): Step size of sequence length. Default = ``8``.
         truncate (bool, optional): Truncate sequences early, or reshape tensors to create
             new examples out of the extra tokens. Default: ``True``.
-        preserve_eos (bool, optional): Preserve the end-of-sequence of the batch when
+        preserve_end_of_sequence (bool, optional): Preserve the end-of-sequence of the batch when
             truncating. Useful when input formats include a unique end-of-sequence token.
             Ignored if ``truncate=False``. Default: ``False``.
             E.g., if ``batch["input_ids"]`` is ``[[10, 11, 12, 13, 14, 15]]``
