@@ -456,6 +456,11 @@ class StreamingDataset(IterableDataset):
         offset = self.index.sample_shard_offsets[idx]
         size = self.index.bytes_per_sample[idx]
 
+        # Create lock in __getitem__ because we are prevented from putting it in __init__ because of DataLoader
+        # num_workers and fork/spawn semantics.
+        if not hasattr(self, '_lock'):
+            self._lock = Lock()
+
         # Load its shard if not loaded.
         if not self._has_shard[shard]:
             self._download_shard(shard, [shard])
