@@ -353,67 +353,7 @@ class SeqLengthWarmup(Algorithm):
 
         # in order to avoid OOMs, we do a forward and a backward pass on a dummy input.
         if not self._activated:
-<<<<<<< HEAD
             self._activate_model(state, logger)
-=======
-            # ensure that input_ids is a valid model input. since we don't need the
-            # results, we don't use all inputs.
-            assert self._original_model is not None, 'original model should be set on Event.INIT'
-            model_inputs = self._original_model.get_model_inputs()
-            if 'input_ids' not in model_inputs:
-                raise RuntimeError("'input_ids' must be in model inputs")
-            if 'labels' not in model_inputs:
-                raise RuntimeError("'labels' must be in model inputs")
-
-            # create fake inputs
-            assert self._original_model.config is not None, 'model of type HuggingFaceModel should have .config'
-            vocab_size = self._original_model.config.vocab_size
-
-            # simplifying assumption: Composer doesn't support model-parallelism,
-            # so the first parameter's device is likely the same device for
-            # all of the parameters
-            device = next(state.model.parameters()).device
-
-            try:
-                # Both PyTorch and FFCV dataloaders define a `batch_size` attribute
-                # This exception would mainly be raised if the user is passing in a custom
-                # iterable
-                per_gpu_macrobatch = getattr(state.dataloader, 'batch_size')
-            except AttributeError as e:
-                raise AttributeError(
-                    'Sequence Length Warmup requires the `state.dataloader` to have a `batch_size` attribute.') from e
-            if per_gpu_macrobatch is None:
-                raise RuntimeError('Sequence Length Warmup algorithm requires constant batch size.')
-            per_gpu_batch = ceil(per_gpu_macrobatch / state.grad_accum)
-
-            input_ids = torch.randint(low=0,
-                                      high=vocab_size - 1,
-                                      size=(per_gpu_batch, self.max_seq_length),
-                                      device=device).long()
-            labels = input_ids.clone()
-            attn_mask = torch.ones_like(labels)
-            model_inputs = {
-                'input_ids': input_ids,
-                'labels': labels,
-                'attention_mask': attn_mask,
-            }
-
-            # start by running a forward and backward pass
-            # of the maximum sequence length to allocate cache.
-            with get_precision_context(state.precision):
-                outputs = state.model.forward(model_inputs)
-                loss = self._original_model.loss(outputs, model_inputs)
-
-            # since use_grad_scaling is in the Trainer, and we
-            # don't care about the loss values, skip scaling
-            for loss_item in ensure_tuple(loss):
-                loss_item.backward()
-
-            for optimizer in state.optimizers:
-                optimizer.zero_grad()
-
-            self._activated = True
->>>>>>> dev
 
         if state.max_duration.unit == TimeUnit.EPOCH:
             if state.dataloader_len is None:
