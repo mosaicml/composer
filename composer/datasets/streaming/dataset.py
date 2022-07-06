@@ -268,9 +268,11 @@ class StreamingDataset(IterableDataset):
         self._download_file(basename, wait)
         return shard
 
-    def _download_shards_pool(self, missing_shards: List[int], shards_to_download: List[int], min_id: int,
-                              max_id: int, num_processes: Optional[int]) -> None:
+    def _download_shards_blocking(self, missing_shards: List[int], shards_to_download: List[int], min_id: int,
+                                  max_id: int, num_processes: Optional[int]) -> None:
         """Download and load the given missing shards.
+
+        This is done in the main thread using a process pool.
 
         Args:
             missing_shards (List[int]): The missing shards.
@@ -282,20 +284,17 @@ class StreamingDataset(IterableDataset):
         """
         pool = Pool(num_processes)
         download_shard = lambda shard: self._download_shard(shard, shards_to_download)
-        try:
-            for shard in pool.imap_unordered(download_shard, missing_shards):
-                self._load_shards([shard], min_id, max_id)
-        except Exception as e:
-            with self._lock:
-                self._download_status = _DownloadStatus.FAILED
-                self._download_exception = e
-            return
+        for shard in pool.imap_unordered(download_shard, missing_shards):
+            self._load_shards([shard], min_id, max_id)
         with self._lock:
             self._download_status = _DownloadStatus.DONE
 
-    def _download_shards_sequential(self, missing_shards: List[int], shards_to_download: List[int], min_id: int,
-                                    max_id: int) -> None:
+    def _download_shards_thread(self, missing_shards: List[int], shards_to_download: List[int], min_id: int,
+                                max_id: int) -> None:
         """Download and load the given missing shards.
+
+        This method is run in a background thread, which cannot use process pools because daemonic threads can't have
+        child processes. In any case, with every worker downloading shards at once, process pool isn't necessary.
 
         Args:
             missing_shards (List[int]): The missing shards.
@@ -379,9 +378,9 @@ class StreamingDataset(IterableDataset):
 
         # Download any missing shards, either blocking or in a background thread.
         if blocking:
-            self._download_shards_pool(missing_shards, shards_to_download, min_id, max_id, num_processes)
+            self._download_shards_blocking(missing_shards, shards_to_download, min_id, max_id, num_processes)
         else:
-            Thread(target=self._download_shards_sequential, args=(missing_shards, shards_to_download, min_id, max_id),
+            Thread(target=self._download_shards_thread, args=(missing_shards, shards_to_download, min_id, max_id),
                    daemon=True).start()
 
         # Return whether done.
