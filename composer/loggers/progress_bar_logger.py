@@ -45,6 +45,7 @@ class _ProgressBar:
             bar_format=bar_format,
             file=file,
             dynamic_ncols=True,
+            leave=True,
             postfix=metrics,
             unit=unit.value,
         )
@@ -257,7 +258,7 @@ class ProgressBarLogger(LoggerDestination):
         return _ProgressBar(
             file=self.stream,
             total=total,
-            position=position + 1,
+            position=position,
             keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[self.is_train],
             bar_format=f'{desc} {{l_bar}}{{bar:25}}{{r_bar}}{{bar:-1b}}',
             unit=unit,
@@ -298,7 +299,10 @@ class ProgressBarLogger(LoggerDestination):
             self._close()
 
     def eval_end(self, state: State, logger: Logger) -> None:
-        self._close()
+        self.is_train = True
+        if self.eval_pbar:
+            self.eval_pbar.close()
+            self.eval_pbar = None
 
     def state_dict(self) -> Dict[str, Any]:
         return {
