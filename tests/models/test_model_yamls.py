@@ -78,7 +78,6 @@ class TestHparamsCreate:
 
         with open(hparams_file, 'r') as f:
             yaml_dict = yaml.safe_load(f)
-            print(yaml_dict)
 
         yaml_dict = self._ensure_device_cpu(yaml_dict)
 
