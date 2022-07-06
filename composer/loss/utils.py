@@ -47,6 +47,7 @@ def ensure_targets_one_hot(input: torch.Tensor,
         num_classes (int, optional): Number of classes. If not specified, this will be inferred
             from input. Default: ``None``
     """
+    new_targets = targets
     if infer_target_type(input, targets) == 'indices':
         # If the number of classes isn't specified, attempt to infer it from the input
         if num_classes is None:
