@@ -2,19 +2,20 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+from typing import Any, Dict
 
 import pytest
+import yaml
 
 import composer
 from composer.core.precision import Precision
-from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.trainer_hparams import TrainerHparams
 from tests.common import configure_dataset_hparams_for_synthetic, configure_model_hparams_for_synthetic
 
 
 def walk_model_yamls():
     yamls = []
-    for root, dirs, files in os.walk(os.path.join(os.path.dirname(composer.__file__), 'yamls', 'models')):
+    for root, dirs, files in os.walk(os.path.join(os.path.dirname(composer.__file__), 'yamls')):
         del dirs  # unused
         for name in files:
             filepath = os.path.join(root, name)
@@ -28,6 +29,11 @@ def walk_model_yamls():
 @pytest.mark.parametrize('hparams_file', walk_model_yamls())
 class TestHparamsCreate:
 
+    def _ensure_device_cpu(self, yaml_dict: Dict[str, Any]):
+        yaml_dict['device'] = {'cpu': {}}
+        yaml_dict['precision'] = 'fp32'
+        return yaml_dict
+
     def test_hparams_create(self, hparams_file: str):
         if 'timm' in hparams_file:
             pytest.importorskip('timm')
@@ -37,7 +43,14 @@ class TestHparamsCreate:
             pytest.importorskip('monai')
         if 'deeplabv3' in hparams_file:
             pytest.importorskip('mmseg')
-        hparams = TrainerHparams.create(hparams_file, cli_args=False)
+
+        with open(hparams_file, 'r') as f:
+            yaml_dict = yaml.safe_load(f)
+            print(yaml_dict)
+
+        yaml_dict = self._ensure_device_cpu(yaml_dict)
+
+        hparams = TrainerHparams.create(data=yaml_dict, cli_args=False)
         assert isinstance(hparams, TrainerHparams)
 
     @pytest.mark.filterwarnings(
@@ -64,7 +77,12 @@ class TestHparamsCreate:
         if 'deeplabv3' in hparams_file:
             pytest.importorskip('mmseg')
 
-        hparams = TrainerHparams.create(hparams_file, cli_args=False)
+        with open(hparams_file, 'r') as f:
+            yaml_dict = yaml.safe_load(f)
+
+        yaml_dict = self._ensure_device_cpu(yaml_dict)
+
+        hparams = TrainerHparams.create(data=yaml_dict, cli_args=False)
         hparams.dataloader.num_workers = 0
         hparams.dataloader.persistent_workers = False
         hparams.dataloader.pin_memory = False
@@ -79,7 +97,6 @@ class TestHparamsCreate:
         if hparams.evaluators is not None:
             for evaluator in hparams.evaluators:
                 configure_dataset_hparams_for_synthetic(evaluator.eval_dataset)
-        hparams.device = DeviceCPU()
         hparams.load_path = None
 
         hparams.initialize_object()
