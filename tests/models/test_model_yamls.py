@@ -31,6 +31,7 @@ class TestHparamsCreate:
 
     def _ensure_device_cpu(self, yaml_dict: Dict[str, Any]):
         yaml_dict['device'] = {'cpu': {}}
+        yaml_dict['precision'] = 'fp32'
         return yaml_dict
 
     def test_hparams_create(self, hparams_file: str):
