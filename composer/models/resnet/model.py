@@ -4,14 +4,13 @@
 """A :class:`.ComposerClassifier` wrapper around the torchvision implementations of the ResNet model family."""
 
 import logging
-from packaging import version
-from typing import List, Optional
 import warnings
+from typing import List, Optional
 
-
+import torchvision
+from packaging import version
 from torchmetrics import MetricCollection
 from torchmetrics.classification import Accuracy
-import torchvision
 from torchvision.models import resnet
 
 from composer.loss import loss_registry
@@ -85,8 +84,10 @@ def composer_resnet(model_name: str,
 
     # Configure pretrained/weights based on torchvision version
     if pretrained:
-        weights = "IMAGENET1K_V2"
-        warnings.warn("The ``pretrained`` argument for composer_resnet is deprecated and will be removed in the future. Please use ``weights`` instead.")
+        weights = 'IMAGENET1K_V2'
+        warnings.warn(
+            'The ``pretrained`` argument for composer_resnet is deprecated and will be removed in the future. Please use ``weights`` instead.'
+        )
     if weights:
         pretrained = True
 
