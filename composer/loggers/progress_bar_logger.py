@@ -257,7 +257,7 @@ class ProgressBarLogger(LoggerDestination):
         return _ProgressBar(
             file=self.stream,
             total=total,
-            position=position,
+            position=position + 1,
             keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[self.is_train],
             bar_format=f'{desc} {{l_bar}}{{bar:25}}{{r_bar}}{{bar:-1b}}',
             unit=unit,
