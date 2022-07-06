@@ -48,7 +48,7 @@ we train an MNIST classifer with a recipe of methods:
         max_duration="2ep",
         algorithms=[
             LabelSmoothing(smoothing=0.1),
-            CutMix(num_classes=10),
+            CutMix(alpha=1.0),
             ChannelsLast(),
             ]
     )
