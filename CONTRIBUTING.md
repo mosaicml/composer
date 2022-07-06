@@ -18,7 +18,7 @@ To set up the development environment in your local box, run the commands below.
 
 1\. Install the dependencies needed for testing and linting the code:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```bash
 pip install -e '.[dev]'
 ```
@@ -26,7 +26,7 @@ pip install -e '.[dev]'
 2\. Configure [pre-commit](https://pre-commit.com/), which automatically formats code before
 each commit:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```bash
 pre-commit install
 ```
@@ -39,7 +39,7 @@ To submit a contribution:
 
 2\. Clone your fork locally and add the mosaicml repo as a remote repository:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```bash
 git clone git@github.com:<github_id>/composer.git
 cd composer
@@ -48,7 +48,7 @@ git remote add upstream https://github.com/mosaicml/composer.git
 
 3\. Create a branch and make your proposed changes.
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```bash
 git checkout -b cool-new-feature
 ```

@@ -25,7 +25,7 @@ Constrains all gradients to be between $[-\lambda, \lambda]$, where $\lambda$ is
 the `clipping_threshold`.
 
 <!-- Usage: -->
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```python
 import composer.functional as cf
 cf.apply_gradient_clipping(model.parameters(),

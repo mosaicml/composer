@@ -115,7 +115,7 @@ extra_deps['dev'] = [
     'myst-parser==0.16.1',
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
-    'pytest_codeblocks==0.15.0',
+    'pytest_codeblocks==0.16.1',
     'traitlets==5.1.1',  # required by testbook. Version 5.2.2 has an import bug, so pinning to 5.1.1, which worked previously.
     'nbsphinx==0.8.8',
     'pandoc==2.2',

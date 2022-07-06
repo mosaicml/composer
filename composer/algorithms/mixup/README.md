@@ -65,8 +65,8 @@ def training_loop(model, train_loader):
 
 Here we run `mixup` using index labels and interpolate the loss (a trick when using cross entropy)
 
-<!-- TODO: Address timeouts -->
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.gpu-->
+<!--pytest.mark.timeout(15)-->
 ```python
 from composer.algorithms import MixUp
 from composer.trainer import Trainer

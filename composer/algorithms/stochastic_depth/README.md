@@ -10,7 +10,8 @@
 
 ### Functional Interface
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.gpu-->
+<!--pytest.mark.timeout(15)-->
 ```python
 # Run the Stochastic Depth algorithm directly on the model using the Composer functional API
 
@@ -52,8 +53,8 @@ for epoch in range(10):
 
 ### Composer Trainer
 
-<!-- TODO: Address timeouts -->
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.gpu-->
+<!--pytest.mark.timeout(15)-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate point in the training loop

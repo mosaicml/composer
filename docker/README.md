@@ -52,7 +52,7 @@ Pre-built images can be pulled from [MosaicML's DockerHub Repository](https://hu
 
 For example:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```bash
 docker pull mosaicml/composer
 ```

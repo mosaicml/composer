@@ -37,8 +37,8 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
-<!-- TODO: Address timeouts -->
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.gpu-->
+<!--pytest.mark.timeout(15)-->
 ```python
 from composer.trainer import Trainer
 from composer.algorithms import FusedLayerNorm
