@@ -52,7 +52,7 @@ def generate_tensors():
 def test_ensure_targets_one_hot(tensors):
     input, targets_idx, targets_one_hot = tensors
     targets_one_hot_test = ensure_targets_one_hot(input, targets_idx)
-    torch.testing.assert_close(targets_one_hot, targets_one_hot_test)
+    torch.testing.assert_close(targets_one_hot, targets_one_hot_test, check_stride=False)
 
 
 @pytest.mark.parametrize('tensors', generate_tensors())

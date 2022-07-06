@@ -29,7 +29,7 @@ def validate_model(model1, model2):
     model2_params = itertools.chain(model2.parameters(), model2.buffers())
 
     for model1_param, model2_param in zip(model1_params, model2_params):
-        torch.testing.assert_close(model1_param, model2_param)
+        torch.testing.assert_close(model1_param.data, model2_param)
 
 
 @pytest.mark.parametrize('smoothing', [0, 0.5, 0.99, 1])
