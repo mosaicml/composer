@@ -21,7 +21,7 @@ def validate_ema(model, original_model, ema_model, smoothing):
 
     for model_param, original_param, ema_param in zip(model_params, original_params, ema_params):
         new_param = original_param * smoothing + (1. - smoothing) * model_param
-        torch.testing.assert_close(ema_param, new_param)
+        torch.testing.assert_close(ema_param.data, new_param)
 
 
 def validate_model(model1, model2):
