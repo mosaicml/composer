@@ -330,7 +330,8 @@ class StreamingDataset(IterableDataset):
             bool: Whether all shards have been downloaded when it returns.
         """
         if not blocking:
-            assert num_processes is None, 'num_processes is only available if this method is called blocking'
+            if num_processes is not None:
+                raise ValueError('num_processes is only available if this method is called blocking')
 
         # Create lock in download() because we are prevented from putting it in __init__ because of DataLoader
         # num_workers and fork/spawn semantics.
