@@ -13,7 +13,7 @@ from composer import Callback
 from composer.callbacks import EarlyStopper, MemoryMonitor, SpeedMonitor, ThresholdStopper
 from composer.callbacks.callback_hparams_registry import callback_registry
 from composer.callbacks.mlperf import MLPerfCallback
-from composer.loggers import ObjectStoreLogger, WandBLogger
+from composer.loggers import ObjectStoreLogger, TensorboardLogger, WandBLogger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.logger_hparams_registry import ObjectStoreLoggerHparams, logger_registry
 from composer.loggers.progress_bar_logger import ProgressBarLogger
@@ -26,6 +26,13 @@ try:
     del wandb  # unused
 except ImportError:
     _WANDB_INSTALLED = False
+
+try:
+    import tensorboard
+    _TENSORBOARD_INSTALLED = True
+    del tensorboard  # unused
+except ImportError:
+    _TENSORBOARD_INSTALLED = False
 
 try:
     import mlperf_logging
@@ -103,6 +110,7 @@ _callback_marks: Dict[Union[Type[Callback], Type[hp.Hparams]], List[pytest.MarkD
         pytest.mark.filterwarnings(
             r'ignore:Specifying the ProgressBarLogger via `loggers` is deprecated:DeprecationWarning')
     ],
+    TensorboardLogger: [pytest.mark.skipif(not _TENSORBOARD_INSTALLED, reason='Tensorboard is optional'),],
     ObjectStoreLoggerHparams: [
         pytest.mark.filterwarnings(
             # post_close might not be called if being used outside of the trainer

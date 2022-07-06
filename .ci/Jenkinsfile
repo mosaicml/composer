@@ -364,7 +364,10 @@ stage('Build') {
                     // not 'mosaicml/composer'
                     def subJobs = [:]
                     scheduleJob(subJobs, stagingImageTag, buildArgs, originalTags)
-                    subJobs.failFast = true
+                    if (!isMergeCommit) {
+                        // Fail fast only on PR builds
+                        subJobs.failFast = true
+                    }
                     parallel(subJobs)
                 }
             }]
@@ -412,7 +415,10 @@ stage('Build') {
             }
         ]
     }
-    jobs.failFast = true
+    if (!isMergeCommit) {
+        // Fail fast only on PR builds
+        jobs.failFast = true
+    }
     try {
         parallel(jobs)
     }
