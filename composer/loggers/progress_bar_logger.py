@@ -48,7 +48,7 @@ class _ProgressBar:
             dynamic_ncols=True,
             # We set `leave=False` so TQDM does not jump around, but we emulate `leave=True` behavior when closing
             # by printing a dummy newline and refreshing to force tqdm to print to a stale line
-            leave=False,
+            leave=True,
             postfix=metrics,
             unit=unit.value,
         )
