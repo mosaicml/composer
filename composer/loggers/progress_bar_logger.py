@@ -263,7 +263,7 @@ class ProgressBarLogger(LoggerDestination):
         )
 
     def fit_start(self, state: State, logger: Logger) -> None:
-        # return
+        return
         self.dummy_pbar = _ProgressBar(
             file=self.stream,
             position=0,
