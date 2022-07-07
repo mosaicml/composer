@@ -5,10 +5,10 @@
 """
 
 import enum
-from io import FileIO
 import math
-from multiprocessing import Pool
 import os
+from io import FileIO
+from multiprocessing import Pool
 from threading import Lock, Thread
 from time import sleep
 from typing import Any, Callable, Dict, Iterator, List, Optional, Union
