@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import os
 import sys
 from typing import Any, Callable, Dict, List, Optional, TextIO, Union
 
@@ -40,12 +39,15 @@ class _ProgressBar:
         self.position = position
         self.unit = unit
         self.timestamp_key = timestamp_key
+        self.file = file
         self.pbar = tqdm.auto.tqdm(
             total=total,
             position=position,
             bar_format=bar_format,
             file=file,
             dynamic_ncols=True,
+            # We set `leave=False` so TQDM does not jump around, but we emulate `leave=True` behavior when closing
+            # by printing a dummy newline and refreshing to force tqdm to print to a stale line
             leave=False,
             postfix=metrics,
             unit=unit.value,
@@ -65,6 +67,15 @@ class _ProgressBar:
         self.pbar.update(int(n))
 
     def close(self):
+        if self.position == 0:
+            # Create a newline that will not be erased by leave=False. This allows for the finished pbar to be cached
+            print('', file=self.file, flush=True)
+            # Force a (potentially hidden) progress bar to re-render itself
+            self.pbar.refresh()
+        else:
+            self.pbar.refresh()
+             # Create a newline that will not be erased by leave=False. This allows for the finished pbar to be cached
+            print('', file=self.file, flush=True)
         self.pbar.close()
 
     def state_dict(self) -> Dict[str, Any]:
@@ -221,12 +232,8 @@ class ProgressBarLogger(LoggerDestination):
             Epoch     0 train 100%|█████████████████████████| 29/29
             Epoch     1 train 100%|█████████████████████████| 29/29
         """
-        position = 1 if not self.train_pbar else 2
-        if True: # not os.isatty(self.stream.fileno()):
-            # Always using position=1 if not connected to a terminal (stderr is not atty)
-            # position=0 does not update until the end, and position=2 results in progress bars overflowing the terminal.
-            # This does result in the train pbar being hidden during evaluation, but that's OK.
-            position = 1
+        # Always using position=1 to avoid jumping progress bars
+        position = 1
         label = state.dataloader_label
         assert state.max_duration is not None, 'max_duration should be set'
 
@@ -299,32 +306,20 @@ class ProgressBarLogger(LoggerDestination):
         # Otherwise, the same progress bar is used for all of training, so do not close it here
         assert state.max_duration is not None, 'max_duration should be set'
         if self.train_pbar and state.max_duration.unit == TimeUnit.EPOCH:
-            print('', file=self.stream, flush=True)
-            self.train_pbar.pbar.refresh()
             self.train_pbar.close()
             self.train_pbar = None
 
     def fit_end(self, state: State, logger: Logger) -> None:
         # If the train pbar isn't closed (i.e. not epoch style), then it would still be open here
-        import time
-        time.sleep(10)
         if self.train_pbar:
-            self.train_pbar.pbar.refresh()
-            if True: # not os.isatty(self.stream.fileno()):
-                print('', file=self.stream, flush=True)  # print a newline
             self.train_pbar.close()
             self.train_pbar = None
         if self.dummy_pbar:
-            print('', file=self.stream, flush=True)  # print a newline
             self.dummy_pbar.close()
             self.dummy_pbar = None
 
     def eval_end(self, state: State, logger: Logger) -> None:
         assert self.eval_pbar is not None
-        self.eval_pbar.pbar.refresh()
-        if True: # not os.isatty(self.stream.fileno()):
-            # Print a newline to preserve the pbar
-            print('', file=self.stream, flush=True)
         self.eval_pbar.close()
         self.eval_pbar = None
 
