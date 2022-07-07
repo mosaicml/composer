@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from typing import Any, Callable, Dict, List, Optional, TextIO, Union
 
@@ -41,7 +42,7 @@ class _ProgressBar:
         self.epoch_style = epoch_style
         self.pbar = tqdm.auto.tqdm(
             total=total,
-            position=position + 1,
+            position=position,
             bar_format=bar_format,
             file=file,
             dynamic_ncols=True,
@@ -131,6 +132,10 @@ class ProgressBarLogger(LoggerDestination):
     ) -> None:
 
         self._show_pbar = progress_bar
+        # The dummy pbar is to fix issues when streaming progress bars over k8s, where the progress bar in position 0
+        # doesn't update until it is finished.
+        # Need to have a dummy progress bar in position 0, so the "real" progress bars in positions 1 and 2 won't jump around
+        self.dummy_pbar: Optional[_ProgressBar] = None
         self.train_pbar: Optional[_ProgressBar] = None
         self.eval_pbar: Optional[_ProgressBar] = None
 
@@ -220,7 +225,7 @@ class ProgressBarLogger(LoggerDestination):
             Epoch     0 train 100%|█████████████████████████| 29/29
             Epoch     1 train 100%|█████████████████████████| 29/29
         """
-        position = 1 if self.train_pbar is not None else 0
+        position = 1 if self.train_pbar is None else 2
         label = state.dataloader_label
         assert state.max_duration is not None, 'max_duration should be set'
 
@@ -253,6 +258,17 @@ class ProgressBarLogger(LoggerDestination):
             epoch_style=epoch_style,
         )
 
+    def fit_start(self, state: State, logger: Logger) -> None:
+        self.dummy_pbar = _ProgressBar(
+            file=self.stream,
+            position=0,
+            total=1,
+            metrics={},
+            keys_to_log=[],
+            bar_format=' ',
+            unit=TimeUnit.DURATION,
+        )
+
     def epoch_start(self, state: State, logger: Logger) -> None:
         assert state.max_duration is not None, 'max_duration should be set'
         epoch_style = state.max_duration.unit == TimeUnit.EPOCH
@@ -283,6 +299,11 @@ class ProgressBarLogger(LoggerDestination):
         if self.train_pbar:
             self.train_pbar.close()
             self.train_pbar = None
+        if self.dummy_pbar:
+            self.dummy_pbar.close()
+            self.dummy_pbar = None
+            # Closing the dummy pbar duplicates the last pbar entry. Strip it from the terminal
+            print('\033[A' + ' ' * os.get_terminal_size().columns + '\033[A', file=self.stream, flush=True)
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if self.eval_pbar:
