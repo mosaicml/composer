@@ -179,25 +179,6 @@ class StreamingDataset(IterableDataset):
         self._download_status = _DownloadStatus.NOT_STARTED
         self._download_exception: Exception
 
-    def _download_file(self, basename: str, wait: bool = False) -> str:
-        """Safely download a file from remote to local cache.
-
-        Args:
-            basename (str): Basename of file to download.
-            wait (bool): Whether to wait for another worker to download the file.
-
-        Returns:
-            str: Local cache filename.
-        """
-        if self.remote is None:
-            remote = self.remote
-        else:
-            remote = os.path.join(self.remote, basename)
-        local = os.path.join(self.local, basename)
-        download_or_wait(remote=remote, local=local, wait=wait, max_retries=self.max_retries, timeout=self.timeout)
-        local, _ = split_compression_suffix(local)
-        return local
-
     def __len__(self) -> int:
         """Get the length of the dataset.
 
@@ -254,6 +235,76 @@ class StreamingDataset(IterableDataset):
             for shard in shards:
                 self._has_shard[shard] = True
 
+    def _load_any_local_shards(self) -> List[int]:
+        """Load any shards that are cached locally, returning the list of missing shards.
+
+        Returns:
+            List[int]: Missing shards that must be downloaded.
+        """
+        # Create lock in download() because we are prevented from putting it in __init__ because of DataLoader
+        # num_workers and fork/spawn semantics.
+        if not hasattr(self, '_lock'):
+            self._lock = Lock()
+
+        # Bail out if has already been called.
+        with self._lock:
+            if self._download_status != _DownloadStatus.NOT_STARTED:
+                return []
+            self._download_status = _DownloadStatus.IN_PROGRESS
+
+        # We find out num workers, and therefore num partitions, when __iter__ is called.
+        # From the partition, derive our shard overlap range and exact sample range.
+        world = get_world()
+        shards, _, min_id, max_id = self.index.get_partition(world, self.batch_size)
+
+        # Find and load cached shards given our sample range.
+        present_shards = []
+        missing_shards = []
+        for shard in shards:
+            basename = get_shard_basename(shard, self.compression_scheme)
+            filename = os.path.join(self.local, basename)
+            if os.path.isfile(filename):
+                present_shards.append(shard)
+            else:
+                missing_shards.append(shard)
+        self._load_shards(present_shards, min_id, max_id)
+
+        # If there are no missing shards, we're done.
+        if not missing_shards:
+            with self._lock:
+                self._download_status = _DownloadStatus.DONE
+            return []
+
+        # Always download the first shard first, if it is missing, because other workers may be waiting on it.
+        if self.shuffle:
+            if missing_shards[0] == shards[0]:
+                nonfirst = 1
+            else:
+                nonfirst = 0
+            missing_shards = np.array(missing_shards)
+            np.random.shuffle(missing_shards[nonfirst:])
+            missing_shards = missing_shards.tolist()
+
+        return missing_shards
+
+    def _download_file(self, basename: str, wait: bool = False) -> str:
+        """Safely download a file from remote to local cache.
+
+        Args:
+            basename (str): Basename of file to download.
+            wait (bool): Whether to wait for another worker to download the file.
+
+        Returns:
+            str: Local cache filename.
+        """
+        if self.remote is None:
+            remote = self.remote
+        else:
+            remote = os.path.join(self.remote, basename)
+        local = os.path.join(self.local, basename)
+        download_or_wait(remote=remote, local=local, wait=wait, max_retries=self.max_retries, timeout=self.timeout)
+        local, _ = split_compression_suffix(local)
+        return local
 
     def _download_shard(self, shard: int, shards_to_download: List[int]) -> int:
         """Download the given shard.
@@ -270,41 +321,40 @@ class StreamingDataset(IterableDataset):
         self._download_file(basename, wait)
         return shard
 
-    def _download_shards_blocking(self, missing_shards: List[int], shards_to_download: List[int], min_id: int,
-                                  max_id: int, num_processes: Optional[int]) -> None:
+    def _download_shards_via_pool(self, shards: List[int], num_processes: Optional[int]) -> None:
         """Download and load the given missing shards.
 
         This is done in the main thread using a process pool.
 
         Args:
-            missing_shards (List[int]): The missing shards.
-            shards_to_download (List[int]): List of shards to download by this worker.
-            min_id (int): Lowest sample ID of this partition.
-            max_id (int): Highest sample ID of this partition.
+            shards (List[int]): The missing shards.
             num_processes (Optional[int]): Number of concurrent shard downloads (ie, size of process pool). If None,
                 uses number of CPUs.
         """
+        world = get_world()
+        _, shards_to_download, min_id, max_id = self.index.get_partition(world, self.batch_size)
+
         pool = Pool(num_processes)
         download_shard = lambda shard: self._download_shard(shard, shards_to_download)
-        for shard in pool.imap_unordered(download_shard, missing_shards):
+        for shard in pool.imap_unordered(download_shard, shards):
             self._load_shards([shard], min_id, max_id)
+
         with self._lock:
             self._download_status = _DownloadStatus.DONE
 
-    def _download_shards_thread(self, missing_shards: List[int], shards_to_download: List[int], min_id: int,
-                                max_id: int) -> None:
-        """Download and load the given missing shards.
+    def _download_shards_via_loop(self, shards: List[int]) -> None:
+        """Sequentially ownload and load the given missing shards.
 
         This method is run in a background thread, which cannot use process pools because daemonic threads can't have
         child processes. In any case, with every worker downloading shards at once, process pool isn't necessary.
 
         Args:
-            missing_shards (List[int]): The missing shards.
-            shards_to_download (List[int]): List of shards to download by this worker.
-            min_id (int): Lowest sample ID of this partition.
-            max_id (int): Highest sample ID of this partition.
+            shards (List[int]): The missing shards.
         """
-        for shard in missing_shards:
+        world = get_world()
+        _, shards_to_download, min_id, max_id = self.index.get_partition(world, self.batch_size)
+
+        for shard in shards:
             try:
                 self._download_shard(shard, shards_to_download)
                 self._load_shards([shard], min_id, max_id)
@@ -313,82 +363,32 @@ class StreamingDataset(IterableDataset):
                     self._download_status = _DownloadStatus.FAILED
                     self._download_exception = e
                 return
+
         with self._lock:
             self._download_status = _DownloadStatus.DONE
 
-    def download(self, blocking: bool = True, num_processes: Optional[int] = None) -> bool:
-        """Download and load all shards (optionally blocking, returns whether done).
-
-        Bails out if has already been called.
+    def load(self, num_processes: Optional[int]) -> None:
+        """Load all shards, downloading if not local.
 
         Args:
-            blocking (bool, default True): If blocking, downloads/loads all shards before returning. If non-blocking,
-                loads all cached shards, starts a thread to download/load the remaining missing shards, and returns.
             num_processes (Optional[int]): Number of concurrent shard downloads (ie, size of process pool). If None,
-                uses number of CPUs. This parameter is only specified if blocking, otherwise shards are downloaded one
-                at a time.
+                uses number of CPUs.
+        """
+        shards = self._load_any_local_shards()
+        if shards:
+            self._download_shards_via_pool(shards, num_processes)
+
+    def _start_loading(self) -> bool:
+        """Start loading all shards, downloading in a background thread, returning whether done immediately.
 
         Returns:
-            bool: Whether all shards have been downloaded when it returns.
+            bool: Whether all the shards were already local (are now loaded).
         """
-        if not blocking:
-            if num_processes is not None:
-                raise ValueError('num_processes is only available if this method is called blocking')
-
-        # Create lock in download() because we are prevented from putting it in __init__ because of DataLoader
-        # num_workers and fork/spawn semantics.
-        if not hasattr(self, '_lock'):
-            self._lock = Lock()
-
-        # Bail out if has already been called.
+        shards = self._load_any_local_shards()
+        if shards:
+            Thread(target=self._download_shards_via_loop, args=(shards,), daemon=True).start()
         with self._lock:
-            if self._download_status != _DownloadStatus.NOT_STARTED:
-                return self._download_status == _DownloadStatus.DONE
-            self._download_status = _DownloadStatus.IN_PROGRESS
-
-        # We find out num workers, and therefore num partitions, when __iter__ is called.
-        # From the partition, derive our shard overlap range and exact sample range.
-        world = get_world()
-        shards, shards_to_download, min_id, max_id = self.index.get_partition(world, self.batch_size)
-
-        # Find and load cached shards given our sample range.
-        cached_shards = []
-        missing_shards = []
-        for shard in shards:
-            basename = get_shard_basename(shard, self.compression_scheme)
-            filename = os.path.join(self.local, basename)
-            if os.path.isfile(filename):
-                cached_shards.append(shard)
-            else:
-                missing_shards.append(shard)
-        self._load_shards(cached_shards, min_id, max_id)
-
-        # If there are no missing shards, we're done.
-        if not missing_shards:
-            with self._lock:
-                self._download_status = _DownloadStatus.DONE
-            return True
-
-        # Always download the first shard first, if it is missing, because other workers may be waiting on it.
-        if self.shuffle:
-            if missing_shards[0] == shards[0]:
-                nonfirst = 1
-            else:
-                nonfirst = 0
-            missing_shards = np.array(missing_shards)
-            np.random.shuffle(missing_shards[nonfirst:])
-            missing_shards = missing_shards.tolist()
-
-        # Download any missing shards, either blocking or in a background thread.
-        if blocking:
-            self._download_shards_blocking(missing_shards, shards_to_download, min_id, max_id, num_processes)
-        else:
-            Thread(target=self._download_shards_thread, args=(missing_shards, shards_to_download, min_id, max_id),
-                   daemon=True).start()
-
-        # Return whether done.
-        with self._lock:
-            return self._download_status == _DownloadStatus.DONE  # pyright: ignore
+            return self._download_status == _DownloadStatus.DONE
 
     def _iter_ids_static(self) -> Iterator[int]:
         """Get an iterator over all our sample IDs.
@@ -436,7 +436,7 @@ class StreamingDataset(IterableDataset):
         Returns:
             Iterator[int]: Each sample ID.
         """
-        if self.download(False):
+        if self._start_loading():
             yield from self._iter_ids_static()
         else:
             yield from self._iter_ids_dynamic()
@@ -466,7 +466,7 @@ class StreamingDataset(IterableDataset):
         # Load its shard if not loaded.
         if not self._has_shard[shard]:
             self._download_shard(shard, [shard])
-            self._load_shards([shard], 0, self.index.total_samples)
+            self._load_shards([shard], 0, self.index.total_samples - 1)
 
         # Read the file at the offset.
         fp = self._files[shard]
