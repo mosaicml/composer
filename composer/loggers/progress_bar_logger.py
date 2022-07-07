@@ -261,7 +261,7 @@ class ProgressBarLogger(LoggerDestination):
 
             timestamp_key = unit.name.lower()
 
-        padding = ' ' * (0 if os.isatty(self.stream.fileno()) else 80)
+        padding = '' #  ' ' * (0 if os.isatty(self.stream.fileno()) else 80)
 
         bar_format = desc + ' ' + '{l_bar}{bar:25}{r_bar}' + padding + '{bar:-1b}'
 
