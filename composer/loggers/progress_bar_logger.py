@@ -33,12 +33,11 @@ class _ProgressBar:
         metrics: Dict[str, Any],
         keys_to_log: List[str],
         timestamp_key: str,
-        unit: TimeUnit = TimeUnit.EPOCH,
+        unit: str = 'it',
     ) -> None:
         self.keys_to_log = keys_to_log
         self.metrics = metrics
         self.position = position
-        self.unit = unit
         self.timestamp_key = timestamp_key
         self.file = file
         self.pbar = tqdm.auto.tqdm(
@@ -52,7 +51,7 @@ class _ProgressBar:
             # But on k8s, we need `leave=True`, as it would otherwise overwrite the pbar in place
             leave=not os.isatty(self.file.fileno()),
             postfix=metrics,
-            unit=unit.value,
+            unit=unit,
         )
 
     def log_data(self, data: Dict[str, Any]):
@@ -89,7 +88,6 @@ class _ProgressBar:
             'metrics': self.metrics,
             'keys_to_log': self.keys_to_log,
             'n': pbar_state['n'],
-            'unit': self.unit,
             'timestamp_key': self.timestamp_key,
         }
 
@@ -227,10 +225,10 @@ class ProgressBarLogger(LoggerDestination):
         """
         # Always using position=1 to avoid jumping progress bars
         position = 1
-        label = state.dataloader_label
-        assert state.max_duration is not None, 'max_duration should be set'
+        desc = f'{state.dataloader_label:15}'
+        max_duration_unit = None if state.max_duration is None else state.max_duration.unit
 
-        if state.max_duration.unit == TimeUnit.EPOCH:
+        if max_duration_unit == TimeUnit.EPOCH or max_duration_unit is None:
             total = int(state.dataloader_len) if state.dataloader_len is not None else None
             timestamp_key = 'batch_in_epoch'
 
@@ -239,20 +237,27 @@ class ProgressBarLogger(LoggerDestination):
             if self.train_pbar is None and not is_train:
                 # epochwise eval results refer to model from previous epoch (n-1)
                 n -= 1
-            desc = f'Epoch {n:3d}'
+            desc += f'Epoch {n:3}'
             if self.train_pbar is not None:
                 # Evaluating mid-epoch
                 batch_in_epoch = int(state.timestamp.batch_in_epoch)
-                desc += f', Batch {batch_in_epoch:3d}: '
+                desc += f', Batch {batch_in_epoch:3}: '
             else:
                 desc += ': ' + ' ' * 11  # padding
         else:
-            total = state.max_duration.value
-            unit = state.max_duration.unit
-            timestamp_key = unit.name.lower()
-            desc = f'{unit.name.capitalize():<11}'
+            if is_train:
+                assert state.max_duration is not None, 'max_duration should be set if training'
+                unit = max_duration_unit
+                total = state.max_duration.value
+                desc += ' ' * 14  # padding
+            else:
+                unit = TimeUnit.BATCH
+                total = int(state.dataloader_len) if state.dataloader_len is not None else None
+                value = int(state.timestamp.get(max_duration_unit))
+                # Longest unit name is sample (6 characters)
+                desc += f'{max_duration_unit.name.capitalize():6} {value:5}: '
 
-        desc += f'{label:15s}'
+            timestamp_key = unit.name.lower()
 
         return _ProgressBar(
             file=self.stream,
@@ -260,12 +265,13 @@ class ProgressBarLogger(LoggerDestination):
             position=position,
             keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[is_train],
             bar_format=f'{desc} {{l_bar}}{{bar:25}}{{r_bar}}{{bar:-1b}}',
-            unit=unit,
+            unit=unit.value.lower(),
             metrics={},
             timestamp_key=timestamp_key,
         )
 
-    def fit_start(self, state: State, logger: Logger) -> None:
+    def init(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
         self.dummy_pbar = _ProgressBar(
             file=self.stream,
             position=0,
@@ -273,7 +279,6 @@ class ProgressBarLogger(LoggerDestination):
             metrics={},
             keys_to_log=[],
             bar_format='{bar:-1b}',
-            unit=TimeUnit.DURATION,
             timestamp_key='',
         )
         self.dummy_pbar.update(1)
@@ -303,7 +308,8 @@ class ProgressBarLogger(LoggerDestination):
             self.train_pbar.close()
             self.train_pbar = None
 
-    def fit_end(self, state: State, logger: Logger) -> None:
+    def close(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
         # Close any open progress bars
         if self.train_pbar:
             self.train_pbar.close()
