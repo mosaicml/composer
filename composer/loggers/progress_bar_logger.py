@@ -133,7 +133,6 @@ class ProgressBarLogger(LoggerDestination):
         self._show_pbar = progress_bar
         self.train_pbar: Optional[_ProgressBar] = None
         self.eval_pbar: Optional[_ProgressBar] = None
-        self.is_train: Optional[bool] = None
 
         if isinstance(console_log_level, str):
             console_log_level = LogLevel(console_log_level)
@@ -164,18 +163,9 @@ class ProgressBarLogger(LoggerDestination):
 
     @property
     def _current_pbar(self) -> Optional[_ProgressBar]:
-        if self.is_train is None:
-            return None
-        return self.train_pbar if self.is_train else self.eval_pbar
-
-    @_current_pbar.setter
-    def _current_pbar(self, pbar: Optional[_ProgressBar]):
-        assert self.is_train is not None, 'Cannot set pbar if self.is_train is not set.'
-
-        if self.is_train:
-            self.train_pbar = pbar
-        else:
-            self.eval_pbar = pbar
+        if self.eval_pbar is not None:
+            return self.eval_pbar
+        return self.train_pbar
 
     @property
     def show_pbar(self) -> bool:
@@ -230,10 +220,9 @@ class ProgressBarLogger(LoggerDestination):
             Epoch     0 train 100%|█████████████████████████| 29/29
             Epoch     1 train 100%|█████████████████████████| 29/29
         """
-        position = 0 if is_train else 1
+        position = 1 if self.train_pbar is not None else 0
         split = 'train' if is_train else 'val'
 
-        assert self.is_train is not None
         if epoch_style:
             total = int(state.dataloader_len) if state.dataloader_len is not None else None
 
@@ -259,33 +248,24 @@ class ProgressBarLogger(LoggerDestination):
             file=self.stream,
             total=total,
             position=position,
-            keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[self.is_train],
+            keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[is_train],
             bar_format=f'{desc} {{l_bar}}{{bar:25}}{{r_bar}}{{bar:-1b}}',
             unit=unit,
             metrics={},
             epoch_style=epoch_style,
         )
 
-    def _close(self):
-        if self._current_pbar:
-            self._current_pbar.close()
-            self._current_pbar = None
-            self.is_train = None
-
     def epoch_start(self, state: State, logger: Logger) -> None:
-        self.is_train = True
         assert state.max_duration is not None, 'max_duration should be set'
         epoch_style = state.max_duration.unit == TimeUnit.EPOCH
         if self.show_pbar and not self.train_pbar:
             self.train_pbar = self._build_pbar(state=state, is_train=True, epoch_style=epoch_style)
 
     def eval_start(self, state: State, logger: Logger) -> None:
-        self.is_train = False
         if self.show_pbar:
             self.eval_pbar = self._build_pbar(state, is_train=False, epoch_style=True)
 
     def batch_end(self, state: State, logger: Logger) -> None:
-        self.is_train = True
         if self.train_pbar:
             self.train_pbar.update_to_timestamp(state.timestamp)
 
@@ -295,11 +275,18 @@ class ProgressBarLogger(LoggerDestination):
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         # only close the progress bar if its epoch_style
+        # Otherwise, the same progress bar is used for all of training, so do not close it here
         if self.train_pbar and self.train_pbar.epoch_style:
-            self._close()
+            self.train_pbar.close()
+            self.train_pbar = None
+
+    def fit_end(self, state: State, logger: Logger) -> None:
+        # If the train pbar isn't closed (i.e. not epoch style), then it would still be open here
+        if self.train_pbar:
+            self.train_pbar.close()
+            self.train_pbar = None
 
     def eval_end(self, state: State, logger: Logger) -> None:
-        self.is_train = True
         if self.eval_pbar:
             self.eval_pbar.close()
             self.eval_pbar = None
@@ -308,7 +295,6 @@ class ProgressBarLogger(LoggerDestination):
         return {
             'train_pbar': self.train_pbar.state_dict() if self.train_pbar else None,
             'eval_pbar': self.eval_pbar.state_dict() if self.eval_pbar else None,
-            'is_train': self.is_train,
         }
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
@@ -320,5 +306,3 @@ class ProgressBarLogger(LoggerDestination):
             n = state['train_pbar'].pop('n')
             self.eval_pbar = _ProgressBar(file=self.stream, **state['eval_pbar'])
             self.eval_pbar.update(n=n)
-
-        self.is_train = state['is_train']
