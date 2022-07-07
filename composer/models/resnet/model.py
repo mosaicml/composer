@@ -43,7 +43,7 @@ def composer_resnet(model_name: str,
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``1000``.
         weights (str, optional): If provided, pretrained weights can be specified, such as with ``IMAGENET1K_V2``. Default: ``None``.
         pretrained (bool, optional): If True, use ImageNet pretrained weights. Default: ``False``. This parameter is deprecated and
-            will soon be removed.
+            will soon be removed in favor of ``weights``.
         groups (int, optional): Number of filter groups for the 3x3 convolution layer in bottleneck blocks. Default: ``1``.
         width_per_group (int, optional): Initial width for each convolution group. Width doubles after each stage.
             Default: ``64``.
@@ -83,11 +83,16 @@ def composer_resnet(model_name: str,
         initializers = []
 
     # Configure pretrained/weights based on torchvision version
+    if pretrained and weights:
+        raise ValueError(
+            'composer_resnet expects only one of ``pretrained`` or ``weights`` to be specified, but both were specified.'
+        )
     if pretrained:
         weights = 'IMAGENET1K_V2'
         warnings.warn(
-            'The ``pretrained`` argument for composer_resnet is deprecated and will be removed in the future. Please use ``weights`` instead.'
-        )
+            DeprecationWarning(
+                'The ``pretrained`` argument for composer_resnet is deprecated and will be removed in the future. Please use ``weights`` instead.'
+            ))
     if weights:
         pretrained = True
 
