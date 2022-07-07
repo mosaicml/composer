@@ -312,7 +312,7 @@ class ProgressBarLogger(LoggerDestination):
             try:
                 term_width = os.get_terminal_size().columns
             except OSError:
-                pass
+                term_width = 80  # best-effort guess. Just need enough whitespace to clear the last entry
             else:
                 print('\033[A' + ' ' * term_width + '\033[A', file=self.stream, flush=True)
 
