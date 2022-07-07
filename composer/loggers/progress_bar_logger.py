@@ -225,7 +225,7 @@ class ProgressBarLogger(LoggerDestination):
             Epoch     0 train 100%|█████████████████████████| 29/29
             Epoch     1 train 100%|█████████████████████████| 29/29
         """
-        position = 1 if self.train_pbar is None else 2
+        position = 0 if self.train_pbar is None else 1
         label = state.dataloader_label
         assert state.max_duration is not None, 'max_duration should be set'
 
@@ -259,15 +259,17 @@ class ProgressBarLogger(LoggerDestination):
         )
 
     def fit_start(self, state: State, logger: Logger) -> None:
+        return
         self.dummy_pbar = _ProgressBar(
             file=self.stream,
             position=0,
-            total=1,
+            total=2,
             metrics={},
             keys_to_log=[],
             bar_format=' ',
             unit=TimeUnit.DURATION,
         )
+        self.dummy_pbar.update(1)
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         assert state.max_duration is not None, 'max_duration should be set'
