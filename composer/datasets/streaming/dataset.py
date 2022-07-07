@@ -209,7 +209,7 @@ class StreamingDataset(IterableDataset):
             shard_min_id = max(min_id, shard_min_id)
             shard_max_id = self.index.shard_ends[shard] - 1
             shard_max_id = min(max_id, shard_max_id)
-            new_ids += list(range(shard_min_id, shard_max_id))
+            new_ids += list(range(shard_min_id, shard_max_id + 1))
 
         with self._lock:
             # Extend and optionally reshuffle the remaining samples of any
@@ -321,15 +321,15 @@ class StreamingDataset(IterableDataset):
         self._download_file(basename, wait)
         return shard
 
-    def _download_shards_via_pool(self, shards: List[int], num_processes: Optional[int]) -> None:
+    def _download_shards_via_pool(self, shards: List[int], num_processes: Optional[int] = None) -> None:
         """Download and load the given missing shards.
 
         This is done in the main thread using a process pool.
 
         Args:
             shards (List[int]): The missing shards.
-            num_processes (Optional[int]): Number of concurrent shard downloads (ie, size of process pool). If None,
-                uses number of CPUs.
+            num_processes (Optional[int], default None): Number of concurrent shard downloads (ie, size of process
+                pool). If None, uses number of CPUs.
         """
         world = get_world()
         _, shards_to_download, min_id, max_id = self.index.get_partition(world, self.batch_size)
@@ -367,12 +367,12 @@ class StreamingDataset(IterableDataset):
         with self._lock:
             self._download_status = _DownloadStatus.DONE
 
-    def load(self, num_processes: Optional[int]) -> None:
+    def load(self, num_processes: Optional[int] = None) -> None:
         """Load all shards, downloading if not local.
 
         Args:
-            num_processes (Optional[int]): Number of concurrent shard downloads (ie, size of process pool). If None,
-                uses number of CPUs.
+            num_processes (Optional[int], default None): Number of concurrent shard downloads (ie, size of process
+                pool). If None, uses number of CPUs.
         """
         shards = self._load_any_local_shards()
         if shards:
@@ -399,6 +399,8 @@ class StreamingDataset(IterableDataset):
         ids = list(self._downloaded_ids)
         if self.shuffle:
             np.random.shuffle(ids)
+        else:
+            ids = ids[::-1]
         yield from ids
 
     def _iter_ids_dynamic(self) -> Iterator[int]:
