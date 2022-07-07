@@ -223,9 +223,7 @@ class StreamingDataset(IterableDataset):
                     np.random.shuffle(todo_ids)
             else:
                 if self._download_status == _DownloadStatus.IN_PROGRESS:
-                    self._downloaded_ids.reverse()
                     self._downloaded_ids.extend(new_ids)
-                    self._downloaded_ids.reverse()
                 for todo_ids in self._epoch_to_todo_ids.values():
                     todo_ids.reverse()
                     todo_ids.extend(new_ids)
@@ -399,8 +397,6 @@ class StreamingDataset(IterableDataset):
         ids = list(self._downloaded_ids)
         if self.shuffle:
             np.random.shuffle(ids)
-        else:
-            ids = ids[::-1]
         yield from ids
 
     def _iter_ids_dynamic(self) -> Iterator[int]:
