@@ -237,19 +237,20 @@ class ProgressBarLogger(LoggerDestination):
             if self.train_pbar is None and not is_train:
                 # epochwise eval results refer to model from previous epoch (n-1)
                 n -= 1
-            desc += f'Epoch {n:3}'
-            if self.train_pbar is not None:
-                # Evaluating mid-epoch
-                batch_in_epoch = int(state.timestamp.batch_in_epoch)
-                desc += f', Batch {batch_in_epoch:3}: '
+            if self.train_pbar is None:
+                desc += f'Epoch {n:3}'
             else:
-                desc += ': ' + ' ' * 11  # padding
+                # For evaluation mid-epoch, show the total batch count
+                desc += f'Batch {int(state.timestamp.batch):3}'
+            desc += ': '
+
         else:
             if is_train:
                 assert state.max_duration is not None, 'max_duration should be set if training'
                 unit = max_duration_unit
                 total = state.max_duration.value
-                desc += ' ' * 14  # padding
+                # pad for the expected length of an eval pbar -- which is 14 characters (see the else logic below)
+                desc = desc.ljust(len(desc) + 14)
             else:
                 unit = TimeUnit.BATCH
                 total = int(state.dataloader_len) if state.dataloader_len is not None else None
@@ -275,13 +276,12 @@ class ProgressBarLogger(LoggerDestination):
         self.dummy_pbar = _ProgressBar(
             file=self.stream,
             position=0,
-            total=2,
+            total=1,
             metrics={},
             keys_to_log=[],
             bar_format='{bar:-1b}',
             timestamp_key='',
         )
-        self.dummy_pbar.update(1)
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         if self.show_pbar and not self.train_pbar:
@@ -311,6 +311,9 @@ class ProgressBarLogger(LoggerDestination):
     def close(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         # Close any open progress bars
+        if self.eval_pbar:
+            self.eval_pbar.close()
+            self.eval_pbar = None
         if self.train_pbar:
             self.train_pbar.close()
             self.train_pbar = None
