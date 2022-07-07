@@ -40,17 +40,18 @@ class _ProgressBar:
         self.position = position
         self.timestamp_key = timestamp_key
         self.file = file
+        is_atty = os.isatty(self.file.fileno())
         self.pbar = tqdm.auto.tqdm(
             total=total,
             position=position,
             bar_format=bar_format,
             file=file,
-            ncols=None if os.isatty(self.file.fileno()) else 120,
-            dynamic_ncols=os.isatty(self.file.fileno()),
+            ncols=None if is_atty else 120,
+            dynamic_ncols=is_atty,
             # We set `leave=False` so TQDM does not jump around, but we emulate `leave=True` behavior when closing
             # by printing a dummy newline and refreshing to force tqdm to print to a stale line
             # But on k8s, we need `leave=True`, as it would otherwise overwrite the pbar in place
-            leave=not os.isatty(self.file.fileno()),
+            leave=not is_atty,
             postfix=metrics,
             unit=unit,
         )
