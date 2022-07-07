@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from torchmetrics import MetricCollection
 from torchvision.models import _utils, resnet
 
-from composer.loss.loss import soft_cross_entropy, DiceLoss
+from composer.loss.loss import DiceLoss, soft_cross_entropy
 from composer.metrics import CrossEntropy, MIoU
 from composer.models.initializers import Initializer
 from composer.models.tasks import ComposerClassifier
@@ -192,7 +192,7 @@ def composer_deeplabv3(num_classes: int,
     val_metrics = MetricCollection([CrossEntropy(ignore_index=-1), MIoU(num_classes, ignore_index=-1)])
 
     ce_loss_fn = functools.partial(soft_cross_entropy, ignore_index=-1)
-    dice_loss_fn = DiceLoss(softmax=True, batch=True)
+    dice_loss_fn = DiceLoss(softmax=True, batch=True, ignore_absent_classes=True)
 
     def combo_loss(output, target):
         loss = []

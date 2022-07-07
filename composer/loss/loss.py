@@ -159,16 +159,48 @@ def soft_cross_entropy(input: Tensor,
 
 
 class DiceLoss(_Loss):
+    """This criterion computes the dice loss between input and target.
+
+    The implementation is derived from MONAI: <https://docs.monai.io/en/stable/losses.html#diceloss>`_.
+    For more information aboutthe dice loss see the original paper on dice loss:
+    <https://arxiv.org/abs/1606.04797>`_.
+
+    Args:
+        sigmoid (bool): If true, apply a sigmoid function to the input. Default: ``False``
+        softmax (bool): If true, apply a softmax function to the input. Default: ``False``
+        squared_pred (bool): If true, square the inputs and targets when calculating the
+            class unions. Default: ``False``
+        jaccard (bool): If true, compute the jaccard index (soft IoU) instead of dice.
+            Default: ``False``
+        batch (bool): If true, sum the intersection and union areas over the batch
+            dimension before dividing the two quantities. If false, a dice loss value is
+            computed independently for each sample in the batch before the reduction.
+        ignore_absent_classes (bool): If true, remove classes that are not present in
+            the target from the loss calculation. Classes not present in the target do
+            not contribute to the gradient, but can decrease the weight of present classes,
+            slowing optimization. This should have no effect if all classes are present in
+            each sample. Default: ``'False'``
+        reduction (str): Specifies the reduction to apply to the output: ``'none'`` |
+            ``'mean'`` | ``'sum'``. ``'none'``: no reduction will be appied, ``'mean'``:
+            the weighted mean of the output is taken, ``'sum'``: the output will be summed.
+            Default: ``'mean'``
+
+    """
 
     def __init__(self,
                  sigmoid: bool = False,
                  softmax: bool = False,
                  squared_pred: bool = False,
                  jaccard: bool = False,
-                 reduction: str = 'mean',
                  batch: bool = False,
-                 ignore_absent_classes: bool = True):
+                 ignore_absent_classes: bool = False,
+                 reduction: str = 'mean'):
         super().__init__(reduction=reduction)
+        if sigmoid and softmax:
+            raise ValueError('Both sigmoid and softmax should not be true.')
+        if not reduction in ['none', 'mean', 'sum']:
+            raise ValueError(f'reduction was {reduction}, but must be one of ["none", "mean", "sum"]')
+
         self.sigmoid = sigmoid
         self.softmax = softmax
         self.squared_pred = squared_pred
@@ -181,7 +213,7 @@ class DiceLoss(_Loss):
         target = ensure_targets_one_hot(input, target)
 
         if input.shape != target.shape:
-            raise AssertionError(f"ground truth has different shape ({target.shape}) from input ({input.shape})")
+            raise AssertionError(f'ground truth has different shape ({target.shape}) from input ({input.shape})')
 
         if self.sigmoid:
             input = torch.sigmoid(input)
@@ -189,7 +221,7 @@ class DiceLoss(_Loss):
         n_pred_ch = input.shape[1]
         if self.softmax:
             if n_pred_ch == 1:
-                warnings.warn("single channel prediction, `softmax=True` ignored.")
+                warnings.warn('single channel prediction, `softmax=True` ignored.')
             else:
                 input = torch.softmax(input, 1)
 
@@ -207,13 +239,13 @@ class DiceLoss(_Loss):
         ground_o = torch.sum(target, dim=reduce_axis)
         pred_o = torch.sum(input, dim=reduce_axis)
 
-        denominator = ground_o + pred_o
+        union = ground_o + pred_o
 
         if self.jaccard:
-            denominator = 2.0 * (denominator - intersection)
+            union = 2.0 * (union - intersection)
 
         epsilon = 1e-5
-        ious = 1.0 - (2.0 * intersection + epsilon) / (denominator + epsilon)
+        ious = 1.0 - (2.0 * intersection + epsilon) / (union + epsilon)
 
         if self.ignore_absent_classes:
             if self.batch:

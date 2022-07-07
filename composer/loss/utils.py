@@ -9,7 +9,6 @@ import warnings
 from typing import Optional
 
 import torch
-from torch.nn import functional as F
 
 __all__ = ['infer_target_type', 'ensure_targets_one_hot', 'check_for_index_targets']
 
@@ -64,7 +63,7 @@ def ensure_targets_one_hot(input: torch.Tensor,
 
             # Create one-hot labels
             input_shape = list(input.shape)
-            input_shape[class_dim] += 1 # Add additional class for negative indicies
+            input_shape[class_dim] += 1  # Add additional class for negative indicies
             one_hot_targets = torch.zeros(size=input_shape, dtype=input.dtype, device=input.device)
             one_hot_targets.scatter_(dim=1, index=targets, value=1)
 
