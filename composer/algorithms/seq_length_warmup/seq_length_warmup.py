@@ -287,13 +287,11 @@ class SeqLengthWarmup(Algorithm):
         # This loop tries to do a forward/backward pass using the current microbatch size.
         # If it hits an OOM error, it doubles `state.grad_accum` and tries again until
         # it succeeds.
-        grad_accum_successful = False
-        while not grad_accum_successful:
+        while True:
             per_gpu_batch = ceil(per_gpu_macrobatch / state.grad_accum)
             model_inputs = {k: v[:per_gpu_batch] for k, v in batch_clone.items()}
 
             should_handle_cuda_oom = 0
-            caught_timeout_error = None
             try:
                 # start by running a forward and backward pass
                 # of the maximum sequence length to allocate cache.
@@ -314,11 +312,6 @@ class SeqLengthWarmup(Algorithm):
             except RuntimeError as e:
                 if 'CUDA out of memory' in str(e):
                     should_handle_cuda_oom = 1
-                elif 'Timed out' in str(e):
-                    # Catch timeout errors and only reraise if we did not encounter OOM on other ranks. Error
-                    # is likely transient if one rank OOMed, it likely did not reach a barrier. Note that if we
-                    # catch non-transient timeout errors they will be later reraised if no rank OOMed.
-                    caught_timeout_error = e
                 else:
                     raise
 
@@ -336,14 +329,9 @@ class SeqLengthWarmup(Algorithm):
                 else:
                     state.grad_accum = min(2 * state.grad_accum, device_batch_size)
                     logger.data_batch({'trainer/grad_accum': state.grad_accum})
-            elif caught_timeout_error:
-                # If not CUDA out of memory, raise exception to user. Note that this truncates the call stack
-                # back only to this newly raised error.
-                raise caught_timeout_error
             else:
-                grad_accum_successful = True
-
-        self._activated = True
+                self._activated = True
+                return
 
     def match(self, event: Event, state: State) -> bool:
         return (event == Event.INIT and self._original_model is None) or event == Event.AFTER_DATALOADER
