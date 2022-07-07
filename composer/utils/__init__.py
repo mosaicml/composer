@@ -13,7 +13,6 @@ from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_co
 from composer.utils.object_store import LibcloudObjectStore, ObjectStore, ObjectStoreTransientError
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
-from composer.utils.tqdm_utils import monkeypatch_tqdm
 
 __all__ = [
     'ensure_tuple',
@@ -41,5 +40,4 @@ __all__ = [
     'enable_env_report',
     'print_env',
     'retry',
-    'monkeypatch_tqdm',
 ]

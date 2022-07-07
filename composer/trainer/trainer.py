@@ -45,7 +45,6 @@ from composer.utils import ObjectStore, dist, ensure_tuple, format_name_with_dis
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
-from composer.utils.tqdm_utils import monkeypatch_tqdm
 
 log = logging.getLogger(__name__)
 
@@ -742,8 +741,6 @@ class Trainer:
         # Profiling
         profiler: Optional[Profiler] = None,
     ):
-        if False:
-            monkeypatch_tqdm()
         algorithms = list(ensure_tuple(algorithms))
 
         # Determine whether DeepSpeed is enabled
