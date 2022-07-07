@@ -296,6 +296,7 @@ class ProgressBarLogger(LoggerDestination):
         # Otherwise, the same progress bar is used for all of training, so do not close it here
         if self.train_pbar and self.train_pbar.epoch_style:
             self.train_pbar.close()
+            self.log_to_console('')
             self.train_pbar = None
 
     def fit_end(self, state: State, logger: Logger) -> None:
@@ -303,6 +304,7 @@ class ProgressBarLogger(LoggerDestination):
         if self.train_pbar:
             self.train_pbar.close()
             self.train_pbar = None
+            self.log_to_console('')
         if self.dummy_pbar:
             self.dummy_pbar.close()
             self.dummy_pbar = None
@@ -317,6 +319,7 @@ class ProgressBarLogger(LoggerDestination):
     def eval_end(self, state: State, logger: Logger) -> None:
         if self.eval_pbar:
             self.eval_pbar.close()
+            self.log_to_console('')
             self.eval_pbar = None
 
     def state_dict(self) -> Dict[str, Any]:
