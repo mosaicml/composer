@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, TypeVar
+from typing import Any, Dict, Optional, TypeVar
 
 import torch
 import torch.cuda.amp
@@ -22,15 +22,20 @@ T_nnModule = TypeVar('T_nnModule', bound=torch.nn.Module)
 class DeviceGPU(Device):
     """An extension of :class:`~composer.trainer.devices.device.Device` for GPUs.
 
-    This class takes no arguments.
+    Args:
+        device_id (int, optional): Integer ID of a GPU device to train with. If not specified, the local rank
+        of the current process is used. Default: None.
     """
     dist_backend = 'nccl'
 
-    def __init__(self):
-        gpu = dist.get_local_rank()
-        self._device = torch.device(f'cuda:{gpu}')
+    def __init__(self, device_id: Optional[int] = None):
+        if not torch.cuda.is_available():
+            raise ValueError('DeviceGPU cannot be created as torch.cuda is not available.')
+        if not device_id:
+            device_id = dist.get_local_rank()
+        self._device = torch.device(f'cuda:{device_id}')
         torch.cuda.set_device(self._device)
-        assert torch.cuda.current_device() == gpu
+        assert torch.cuda.current_device() == device_id
 
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
         return module.to(self._device)

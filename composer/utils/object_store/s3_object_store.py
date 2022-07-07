@@ -15,7 +15,7 @@ from composer.utils.object_store.object_store import ObjectStore
 
 __all__ = ['S3ObjectStore']
 
-_NOT_FOUND_CODES = ('404', 'NoSuchKey')
+_NOT_FOUND_CODES = ('403', '404', 'NoSuchKey')
 
 
 def _ensure_not_found_errors_are_wrapped(uri: str, e: Exception):
@@ -85,7 +85,7 @@ class S3ObjectStore(ObjectStore):
         if client_config is None:
             client_config = {}
         config = Config(**client_config)
-        self.client = boto3.client(
+        self.client = boto3.Session().client(
             's3',
             config=config,
             region_name=region_name,

@@ -134,6 +134,8 @@ extra_deps['wandb'] = [
     'wandb>=0.12.17,<0.13',
 ]
 
+extra_deps['tensorboard'] = ['tensorboard>=2.9.1,<3.0.0']
+
 extra_deps['unet'] = [
     'monai>=0.8.0,<0.9',
     'scikit-learn>=1.0.1,<2',
@@ -188,7 +190,7 @@ if package_name != 'mosaicml':
     print(f'`Building composer as `{package_name}`)', file=sys.stderr)
 
 setup(name=package_name,
-      version='0.7.0',
+      version='0.8.0',
       author='MosaicML',
       author_email='team@mosaicml.com',
       description='Composer provides well-engineered implementations of efficient training methods to give '
