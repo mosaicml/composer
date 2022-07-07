@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-import sys
 import os
+import sys
 from typing import Any, Callable, Dict, List, Optional, TextIO, Union
 
 import tqdm.auto
@@ -76,7 +76,7 @@ class _ProgressBar:
         # Create a newline that will not be erased by leave=False. This allows for the finished pbar to be cached in the terminal
         # This emulates `leave=True` without progress bar jumping
         print('', file=self.file, flush=True)
-        
+
         self.pbar.close()
 
     def state_dict(self) -> Dict[str, Any]:
@@ -142,7 +142,7 @@ class ProgressBarLogger(LoggerDestination):
         self._show_pbar = progress_bar
         # The dummy pbar is to fix issues when streaming progress bars over k8s, where the progress bar in position 0
         # doesn't update until it is finished.
-        # Need to have a dummy progress bar in position 0, so the "real" progress bars in positions 1 and 2 won't jump around
+        # Need to have a dummy progress bar in position 0, so the "real" progress bars in position 1 doesn't jump around
         self.dummy_pbar: Optional[_ProgressBar] = None
         self.train_pbar: Optional[_ProgressBar] = None
         self.eval_pbar: Optional[_ProgressBar] = None
@@ -175,20 +175,15 @@ class ProgressBarLogger(LoggerDestination):
         self.stream = stream
 
     @property
-    def _current_pbar(self) -> Optional[_ProgressBar]:
-        if self.eval_pbar is not None:
-            return self.eval_pbar
-        return self.train_pbar
-
-    @property
     def show_pbar(self) -> bool:
         return self._show_pbar and dist.get_local_rank() == 0
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]) -> None:
         # log to progress bar
-        if self._current_pbar:
+        current_pbar = self.eval_pbar if self.eval_pbar is not None else self.train_pbar
+        if current_pbar:
             # Logging outside an epoch
-            self._current_pbar.log_data(data)
+            current_pbar.log_data(data)
 
         # log to console
         if self.should_log(state, log_level):
@@ -214,24 +209,21 @@ class ProgressBarLogger(LoggerDestination):
 
     def log_to_console(self, log_str: str):
         """Logs to the console, avoiding interleaving with a progress bar."""
-        if self._current_pbar:
+        current_pbar = self.eval_pbar if self.eval_pbar is not None else self.train_pbar
+        if current_pbar:
             # use tqdm.write to avoid interleaving
-            self._current_pbar.pbar.write(log_str)
+            current_pbar.pbar.write(log_str)
         else:
             # write directly to self.stream; no active progress bar
             print(log_str, file=self.stream, flush=True)
 
     def _build_pbar(self, state: State, is_train: bool) -> _ProgressBar:
-        """Builds a pbar that tracks in the units of max_duration.
+        """Builds a pbar.
 
-        Example:
-            Samples     train  73% ||███████████████        | 293873/400000
-
-        If epoch_style = True, then the pbar total will be the
-        numbers of batches in the epoch, regardless of the max_duration units.
-        This is often used to emit a pbar for each epoch, e.g.
-            Epoch     0 train 100%|█████████████████████████| 29/29
-            Epoch     1 train 100%|█████████████████████████| 29/29
+        *   If ``state.max_duration.unit`` is :attr:`.TimeUnit.EPOCH`, then a new progress bar will be created for each epoch.
+            Mid-epoch evaluation progress bars will be labeled with the batch and epoch number.
+        *   Otherwise, one progress bar will be used for all of training. Evaluation progress bars will be labeled
+            with the time (in units of ``max_duration.unit``) at which evaluation runs.
         """
         # Always using position=1 to avoid jumping progress bars
         position = 1
@@ -259,7 +251,7 @@ class ProgressBarLogger(LoggerDestination):
             unit = state.max_duration.unit
             timestamp_key = unit.name.lower()
             desc = f'{unit.name.capitalize():<11}'
-        
+
         desc += f'{label:15s}'
 
         return _ProgressBar(
@@ -303,15 +295,16 @@ class ProgressBarLogger(LoggerDestination):
             self.eval_pbar.update_to_timestamp(state.eval_timestamp)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
-        # only close the progress bar if its epoch_style
-        # Otherwise, the same progress bar is used for all of training, so do not close it here
+        # Only close progress bars at epoch end if the duration is in epochs, since
+        # a new pbar will be created for each epoch
+        # If the duration is in other units, then one progress bar will be used for all of training.
         assert state.max_duration is not None, 'max_duration should be set'
         if self.train_pbar and state.max_duration.unit == TimeUnit.EPOCH:
             self.train_pbar.close()
             self.train_pbar = None
 
     def fit_end(self, state: State, logger: Logger) -> None:
-        # If the train pbar isn't closed (i.e. not epoch style), then it would still be open here
+        # Close any open progress bars
         if self.train_pbar:
             self.train_pbar.close()
             self.train_pbar = None
@@ -320,9 +313,9 @@ class ProgressBarLogger(LoggerDestination):
             self.dummy_pbar = None
 
     def eval_end(self, state: State, logger: Logger) -> None:
-        assert self.eval_pbar is not None
-        self.eval_pbar.close()
-        self.eval_pbar = None
+        if self.eval_pbar:
+            self.eval_pbar.close()
+            self.eval_pbar = None
 
     def state_dict(self) -> Dict[str, Any]:
         return {
