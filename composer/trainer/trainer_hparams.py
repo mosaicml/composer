@@ -407,7 +407,8 @@ class TrainerHparams(hp.Hparams):
 
     def initialize_object(self) -> Trainer:
         self.validate()
-        monkeypatch_tqdm()
+        if False:
+            monkeypatch_tqdm()
 
         # Set the Python LogLevel for Composer
         import composer

@@ -742,7 +742,8 @@ class Trainer:
         # Profiling
         profiler: Optional[Profiler] = None,
     ):
-        monkeypatch_tqdm()
+        if False:
+            monkeypatch_tqdm()
         algorithms = list(ensure_tuple(algorithms))
 
         # Determine whether DeepSpeed is enabled
