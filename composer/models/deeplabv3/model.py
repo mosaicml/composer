@@ -145,9 +145,10 @@ def composer_deeplabv3(num_classes: int,
                        backbone_url: str = '',
                        sync_bn: bool = True,
                        use_plus: bool = True,
-                       initializers: Sequence[Initializer] = (),
+                       ignore_index: int = -1,
                        cross_entropy_weight: float = 1.0,
-                       dice_weight: float = 0.0):
+                       dice_weight: float = 0.0,
+                       initializers: Sequence[Initializer] = ()):
     """Helper function to create a :class:`.ComposerClassifier` with a DeepLabv3(+) model. Logs
         Mean Intersection over Union (MIoU) and Cross Entropy during training and validation.
 
@@ -165,8 +166,12 @@ def composer_deeplabv3(num_classes: int,
         sync_bn (bool, optional): If ``True``, replace all BatchNorm layers with SyncBatchNorm layers.
             Default: ``True``.
         use_plus (bool, optional): If ``True``, use DeepLabv3+ head instead of DeepLabv3. Default: ``True``.
+        ignore_index (int): Class label to ignore when calculating the loss and other metrics. Default: ``-1``.
+        cross_entropy_weight (float): Weight to scale the cross entropy loss. Default: ``1.0``.
+        dice_weight (float): Weight to scale the dice loss. Default: ``0.0``.
         initializers (List[Initializer], optional): Initializers for the model. ``[]`` for no initialization.
             Default: ``[]``.
+
 
     Returns:
         ComposerModel: instance of :class:`.ComposerClassifier` with a DeepLabv3(+) model.
@@ -188,10 +193,14 @@ def composer_deeplabv3(num_classes: int,
                       sync_bn=sync_bn,
                       initializers=initializers)
 
-    train_metrics = MetricCollection([CrossEntropy(ignore_index=-1), MIoU(num_classes, ignore_index=-1)])
-    val_metrics = MetricCollection([CrossEntropy(ignore_index=-1), MIoU(num_classes, ignore_index=-1)])
+    train_metrics = MetricCollection(
+        [CrossEntropy(ignore_index=ignore_index),
+         MIoU(num_classes, ignore_index=ignore_index)])
+    val_metrics = MetricCollection(
+        [CrossEntropy(ignore_index=ignore_index),
+         MIoU(num_classes, ignore_index=ignore_index)])
 
-    ce_loss_fn = functools.partial(soft_cross_entropy, ignore_index=-1)
+    ce_loss_fn = functools.partial(soft_cross_entropy, ignore_index=ignore_index)
     dice_loss_fn = DiceLoss(softmax=True, batch=True, ignore_absent_classes=True)
 
     def combo_loss(output, target):
