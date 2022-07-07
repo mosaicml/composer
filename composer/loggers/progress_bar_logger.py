@@ -49,6 +49,7 @@ class _ProgressBar:
             dynamic_ncols=True,
             # We set `leave=False` so TQDM does not jump around, but we emulate `leave=True` behavior when closing
             # by printing a dummy newline and refreshing to force tqdm to print to a stale line
+            # But on k8s, we need `leave=True`, as it would otherwise overwrite the pbar in place
             leave=not os.isatty(self.file.fileno()),
             postfix=metrics,
             unit=unit.value,
