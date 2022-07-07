@@ -26,53 +26,73 @@ Example that finetunes a pretrained BERT:
     --training_scheme finetune
     --load_path ~/checkpoints
 """
-from argparse import ArgumentParser
 import os
 import shutil
 import signal
 import subprocess
 import sys
-import time
-# import tempfile
 import warnings
 import torch
 import multiprocessing as mp
-from typing import Optional, Type
+from typing import List, Optional, Type
 import composer
-from composer.cli.launcher import _get_free_tcp_port
 
 # from composer.loggers.logger import LogLevel
 from composer.trainer.nlp_hparams import NLPTrainerHparams
+from argparse import ArgumentParser
+from tabulate import tabulate
+
+# TODO: wandb integrations, refactor everything out of local storage to object store 
+# track GLUE Metrics
+GLUE_METRICS = {}
 
 def _warning_on_one_line(message: str, category: Type[Warning], filename: str, lineno: int, file=None, line=None):
     # From https://stackoverflow.com/questions/26430861/make-pythons-warnings-warn-not-mention-itself
     return f'{category.__name__}: {message} (source: {filename}:{lineno})\n'
 
-def prepare_output(output_type: str) -> None:
-    # TODO (ishana) consolidate metrics and print to stdout depending on output_type param
-    return None
 
-def train_finetune_wrapper(finetune_tasks: list, save_ckpts: list, ckpt_load_path: str, ckpt_filename: str, save_folder: str) -> None:
+def output_metrics(output_type: str) -> None:
+    # print(tabulate(GLUE_METRICS, headers='keys'))
+    print(GLUE_METRICS)
+
+def train_finetune_wrapper(finetune_tasks: List[str], save_ckpts: List[bool], ckpt_load_path: str, ckpt_filename: str,
+                                         save_folder: str, parent_ckpt: Optional[str] = None, load_ignore_keys: Optional[List[str]] = None) -> None:
     cuda_envs = init_cuda_queue(len(finetune_tasks))
     num_tasks = len(finetune_tasks)
     
+    # callback func to store metric collection
+    def log_metrics(metric) -> None:
+        if parent_ckpt: 
+            logged_ckpt_name = parent_ckpt
+        else:
+            logged_ckpt_name = ckpt_filename
+
+        if logged_ckpt_name not in GLUE_METRICS.keys():
+                GLUE_METRICS[logged_ckpt_name] = {}
+        task = list(metric.keys())[0]
+        for m in metric[task]:
+            formatted_task = list(metric.keys())[0].split('_')[1] # remove "glue_" prefix
+            if formatted_task not in GLUE_METRICS[logged_ckpt_name].keys():
+                GLUE_METRICS[logged_ckpt_name][formatted_task] = metric[task][m].item()
+            else:
+                GLUE_METRICS[logged_ckpt_name][formatted_task] = sum([GLUE_METRICS[logged_ckpt_name][formatted_task], metric[task][m].item()]) / 2  # automatically average scores 
+        
     # finetuning from pretrained checkpoint
     print(f"FINETUNING ON {ckpt_filename}!")
     pool = mp.Pool(num_tasks, initializer=init_cuda_env, initargs=(cuda_envs,))
-    pool.starmap(train_finetune, [(finetune_tasks[i], save_ckpts[i], ckpt_load_path, save_folder, i)
-        for i in range(num_tasks)])
-    # for rank in range(num_tasks):
-    #     pool.apply(train_finetune, (finetune_tasks[rank], save_ckpts[rank], ckpt_load_path, save_folder, rank))
-    #     print('exited apply...')
-    print('exited processes...')
-    cuda_envs.close() 
-    cuda_envs.join_thread()
-    print('finished joining thread...')
+    subprocs = []
+    for rank in range(num_tasks):
+        sp = pool.apply_async(train_finetune, (finetune_tasks[rank], save_ckpts[rank], ckpt_load_path, save_folder, rank, load_ignore_keys), callback=log_metrics)
+        subprocs.append(sp)
+    for sp in subprocs:
+        sp.wait()
     pool.close()
     pool.join() # wait for join to proceed
-    print('finished joining pool...')
+   
+    cuda_envs.close() 
+    cuda_envs.join_thread()
     
-def train_finetune(task: str, save_ckpt: bool, load_path: str, save_folder: str, gpu_id: int, set_tcp_port: Optional[bool] = False):
+def train_finetune(task: str, save_ckpt: bool, load_path: str, save_folder: str, gpu_id: int, load_ignore_keys: Optional[List[str]] = None):
     # add dummy arg because arg parser removes first argument in tokenization
     sys.argv = ['dummy_arg' , '-f', f'./composer/yamls/models/glue/{task}.yaml', 
                 '--load_path', load_path,
@@ -80,8 +100,9 @@ def train_finetune(task: str, save_ckpt: bool, load_path: str, save_folder: str,
                 "--log_to_console", "True",
                 "--progress_bar", "False",
                 "--loggers", "file",
-                "--filename" , "{run_name}/logs_{rank}_" + f"{task}" + ".txt"]
-    # TODO  use args instead of manually entering these 
+                "--filename" , "{run_name}/logs_{rank}_" + f"{task}" + ".txt",
+                "--load_ignore_keys", f"{load_ignore_keys}"]
+    # TODO:  use args instead of manually entering these 
     if save_ckpt:
         sys.argv.append("--save_folder")
         task_ckpt_path = os.path.join(save_folder, f'{task}')
@@ -93,21 +114,20 @@ def train_finetune(task: str, save_ckpt: bool, load_path: str, save_folder: str,
             os.mkdir(task_ckpt_path)
     
     # set gpu
-    print(f" --------\n SPAWNING NEW TASK: {task}\n DEVICE: {torch.cuda.current_device()}\n {sys.argv}\n --------")
+    print(f" --------\n SPAWNING NEW TASK: {task}\n DEVICE: {torch.cuda.current_device()}\n --------")
 
     # last file in folder is the symlink to the latest ckpt file 
     ft_hparams = NLPTrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
     trainer = ft_hparams.initialize_object()
     trainer.fit(duration='3ep')
     print(f"\nFINISHED TRAINING TASK {task}!!\n")
-   
+    return trainer.state.current_metrics
 
 def init_cuda_queue(queue_size: int) -> mp.Queue:
     cuda_envs = mp.Queue(queue_size)
     cuda_envs_list = range(queue_size)
     for e in cuda_envs_list:
         cuda_envs.put(e)
-    time.sleep(0.1) # Just enough to let the Queue finish
 
     return cuda_envs
 
@@ -124,11 +144,14 @@ def init_cuda_env(cuda_envs) -> None:
     os.environ['LOCAL_WORLD_SIZE'] = "1"
 
 def get_args():
+    # TODO: figure out how to assume args from the trainer hparams
+    # TODO: add argument for object store instead of local saving 
     parser = ArgumentParser(description='Entrypoint for pretraining and finetuning LMs')
     parser.add_argument('-f', help='yaml file for the model to train with')
     parser.add_argument('--training_scheme', help='training scheme used (one of pretrain, finetune, or all)')
     parser.add_argument('--load_path', help='path to load checkpoint from')
     parser.add_argument('--save_folder', help='path to load checkpoint from')
+    parser.add_argument('--output_type', help='type of metrics to output at the end of training scheme')
 
     return parser.parse_args()
 
@@ -139,39 +162,14 @@ def _main() -> None:
         sys.argv = [sys.argv[0], '--help']
 
     args = get_args()
-   
-    # # if using wandb, store the config inside the wandb run
-    # try:
-    #     import wandb
-    # except ImportError:
-    #     pass
-    # else:
-    #     if wandb.run is not None:
-    #         wandb.config.update(hparams.to_dict())
 
-    # Only log the config once, since it should be the same on all ranks.
-    # if dist.get_global_rank() == 0:
-    #     with tempfile.NamedTemporaryFile(mode='x+') as f:
-    #         f.write(hparams.to_yaml())
-    #         trainer.logger.file_artifact(LogLevel.FIT,
-    #                                      artifact_name=f'{trainer.state.run_name}/nlp_hparams.yaml',
-    #                                      file_path=f.name,
-    #                                      overwrite=True)
-
-    # Print the config to the terminal and log to artifact store if on each local rank 0
-    # if dist.get_local_rank() == 0:
-    #     print('*' * 30)
-    #     print('Config:')
-    #     print(hparams.to_yaml())
-    #     print('*' * 30)
-
-    #TODO (ishana) make validate function to clean up args for conditions
+    # TODO: (ishana) make validate function to clean up args for conditions
+    # TODO: allow checkpoint from object store -> load single checkpoint or directory
     # pretrain or all --> pretraining enabled, save checkpoint to save_folder
     if args.training_scheme != 'finetune': 
         root_dir = os.path.join(os.path.dirname(composer.__file__), '..')
         training_script = os.path.join(root_dir, 'examples/run_composer_trainer.py')
-        proc = subprocess.Popen(['composer', training_script, '-f', f"{args.f}", '--save_folder', f"{args.save_folder}"], 
-                                        cwd=root_dir)
+        proc = subprocess.Popen(['composer', training_script, '-f', f"{args.f}", '--save_folder', f"{args.save_folder}"], cwd=root_dir)
         proc.wait() # block until training is complete 
        
         # rename checkpoints to avoid rewriting if saving during finetuning
@@ -183,46 +181,52 @@ def _main() -> None:
                 old_file_path = os.path.join(args.save_folder, file_name)
                 shutil.move(old_file_path, new_save_folder)
 
-        print("done pretraining...")
+        print("PRETRAINING COMPLETE")
 
     if args.training_scheme != 'pretrain':
         ckpt_folder = ''
         if args.training_scheme == 'all':
             # load checkpoints from where pretraining saved them
             ckpt_folder = os.path.join(args.save_folder, 'pretrained')
+            save_folder = os.path.join(args.save_folder)
         else:
             ckpt_folder = args.load_path
+            save_folder = os.path.join(args.load_path, '..')
 
-        # finetune on every checkpoint  
-        # TODO (check if checkpoints are always going to be direcotires/how to use with object store)
+        # finetune on every pretrained checkpoint  
         for ckpt_filename in sorted(os.listdir(ckpt_folder)):
             ckpt_load_path = os.path.join(ckpt_folder, ckpt_filename)
             # skip symlinks to existing checkpoints
             if (os.path.islink(ckpt_load_path)):
-                continue
-            # TODO (ishana) PUT SEEDS BACK IN
-            finetune_tasks = ['cola', 'sst-2', 'qqp', 'qnli']#, 'mnli']
-            save_ckpts = [0,0,0,0]#, 1]
-            train_finetune_wrapper(finetune_tasks, save_ckpts, ckpt_load_path, ckpt_filename, args.save_folder)
+                continue 
+
+            # TODO: (ishana) PUT SEEDS BACK IN
+            # finetune_tasks = ['cola', 'sst-2', 'qqp', 'qnli', 'mnli']
+            # save_ckpts = [0,0,0,0,1]
+            finetune_tasks = ['cola', 'mnli']
+            save_ckpts = [False, True]
+            # train_finetune_wrapper(finetune_tasks, save_ckpts, ckpt_load_path, ckpt_filename, save_folder)
 
             # finetune using the mnli checkpoint 
-            if args.training_scheme == 'all':
-                # load checkpoints from where pretraining saved them
-                ckpt_folder = os.path.join(args.save_folder, 'mnli') 
-            else:
-                ckpt_folder = os.path.join(args.load_path, 'mnli')
 
-            # finetune on single mnli checkpoint  
-            ckpt_filename =  os.listdir(ckpt_folder)[0]
+            # load checkpoints from where pretraining saved them
+            ckpt_folder = os.path.join(save_folder, 'mnli')  
+
+            # finetune on single mnli checkpoint 
+            parent_ckpt = ckpt_filename # necessary for logging 
+            ckpt_filename =  sorted(os.listdir(ckpt_folder))[0]
             ckpt_load_path = os.path.join(ckpt_folder, ckpt_filename)
             mnli_finetune_tasks = ['rte', 'mrpc', 'stsb']
             save_ckpts = [0, 0, 0]
-            train_finetune_wrapper(mnli_finetune_tasks, save_ckpts, ckpt_load_path, ckpt_filename, args.save_folder)
+            # delete finetuning head to reinitialize number of classes 
+            train_finetune_wrapper(mnli_finetune_tasks, save_ckpts, ckpt_load_path, ckpt_filename, args.save_folder, parent_ckpt=parent_ckpt, load_ignore_keys="state/model/model.classifier*")  # type: ignore
+            
+        print('FINETUNING COMPLETE')
 
-    if args.training_scheme == 'all':
-        # prepare_output(output_type = output_type)
+    if args.training_scheme != 'pretrain':
+        output_metrics(output_type = args.output_type)
         return
 
 if __name__ == '__main__':
-    mp.set_start_method('fork')
+    mp.set_start_method('spawn')
     _main()
