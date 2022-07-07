@@ -221,28 +221,26 @@ class ProgressBarLogger(LoggerDestination):
             Epoch     1 train 100%|█████████████████████████| 29/29
         """
         position = 1 if self.train_pbar is not None else 0
-        split = 'train' if is_train else 'val'
+        label = state.dataloader_label
+        assert state.max_duration is not None, 'max_duration should be set'
 
         if epoch_style:
             total = int(state.dataloader_len) if state.dataloader_len is not None else None
 
             # handle when # batches is less than an epoch
-            if total is not None and state.max_duration is not None \
-                and state.max_duration.unit == TimeUnit.BATCH:
+            if total is not None and state.max_duration.unit == TimeUnit.BATCH:
                 total = min(total, state.max_duration.value)
 
             unit = TimeUnit.BATCH
             n = state.timestamp.epoch.value
-            if not is_train:
-                # eval results refer to model from previous epoch (n-1)
-                n = max(0, n - 1)
-            desc = f'Epoch {n:5d} {split:5s}'
+            if self.train_pbar is None and not is_train:
+                # epochwise eval results refer to model from previous epoch (n-1)
+                n -= 1
+            desc = f'Epoch {n:5d} {label:15s}'
         else:
-            assert state.max_duration is not None, 'max_duration should be set'
-
             total = state.max_duration.value
             unit = state.max_duration.unit
-            desc = f'{unit.name.capitalize():<11} {split:5s}'
+            desc = f'{unit.name.capitalize():<11} {label:15s}'
 
         return _ProgressBar(
             file=self.stream,
