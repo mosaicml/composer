@@ -309,7 +309,12 @@ class ProgressBarLogger(LoggerDestination):
             self.dummy_pbar.close()
             self.dummy_pbar = None
             # Closing the dummy pbar duplicates the last pbar entry. Strip it from the terminal
-            print('\033[A' + ' ' * os.get_terminal_size().columns + '\033[A', file=self.stream, flush=True)
+            try:
+                term_width = os.get_terminal_size().columns
+            except OSError:
+                pass
+            else:
+                print('\033[A' + ' ' * term_width + '\033[A', file=self.stream, flush=True)
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if self.eval_pbar:
