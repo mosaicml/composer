@@ -41,8 +41,7 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
-from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, module_surgery,
-                            reproducibility)
+from composer.utils import ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, reproducibility
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -367,8 +366,9 @@ class Trainer:
             :class:`.Evaluator`. If a :class:`.DataSpec` or :class:`.DataLoader` is passed in, then all
             metrics returned by ``model.metrics()`` will be used during evaluation.
             ``None`` results in no evaluation. (default: ``None``)
-        eval_interval (int | str | Time | (State, Event) -> bool, optional): An integer, which will be
-            interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time` object, or a callable.
+        eval_interval (int | str | Time | (State, Event) -> bool, optional): Specifies how frequently to run evaluation.
+            An integer, which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time`
+            object, or a callable.
             Defaults to ``1`` (evaluate every epoch).
 
             If an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the evaluator will be run
@@ -771,7 +771,7 @@ class Trainer:
 
         _validate_precision(precision, self._device, deepspeed_enabled)
 
-        # optimizers and schedulers
+        # Optimizers and Schedulers
         if not optimizers:
             optimizers = DecoupledSGDW(list(model.parameters()), lr=0.1)
             # hard-coding the optimizer in the warning, as repr(optimizers) would print an annoying, multi-line warning
@@ -781,6 +781,14 @@ class Trainer:
         num_optimizers = len(ensure_tuple(optimizers))
         if num_optimizers != 1:
             raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
+
+        # Move the model and optimizers to the device
+        if not deepspeed_enabled:
+            model = self._device.module_to_device(model)
+            # Move any remaining optimizer parameters onto the device
+            # It is possible that optimizer initialize created some internal tensors on CPU
+            # that need to be moved onto GPU.
+            optimizers = map_collection(optimizers, self._device.optimizer_to_device)
 
         # Grad Accum
         self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
@@ -1023,23 +1031,9 @@ class Trainer:
         reproducibility.seed_all(self.state.seed)
 
         # Move the model and optimizers to the specified device
-        if not self.deepspeed_enabled:
-            host_model_params = self.state.model.parameters()
-            self.state.model = self._device.module_to_device(self.state.model)
-            device_model_params = self.state.model.parameters()
-
-            # use surgery to update the parameters of the optimizers, now that the model is on the device
-            # see https://pytorch.org/docs/stable/optim.html#constructing-it
-            module_surgery.replace_params_in_optimizer(old_params=host_model_params,
-                                                       new_params=device_model_params,
-                                                       optimizers=self.state.optimizers)
-
-            # Move any remaining optimizer parameters onto the device
-            self.state.optimizers = map_collection(self.state.optimizers, self._device.optimizer_to_device)
-
-            if dist.get_world_size() > 1:
-                # Only wrap the module if required
-                self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
+        if not self.deepspeed_enabled and dist.get_world_size() > 1:
+            # Only wrap the module if required
+            self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
     @property
     def deepspeed_enabled(self):
@@ -1432,7 +1426,7 @@ class Trainer:
         """Run training for the specified number of epochs and log results."""
         # print training start
         log.info('Using precision %s', self.state.precision)
-        self.logger.data_fit({'trainer/algorithms': [str(algo) for algo in self.state.algorithms]})
+        self.logger.data_fit({algo.__class__.__name__: 1 for algo in self.state.algorithms})
 
         assert self.state.dataloader is not None, 'dataloader is set in __init__() or fit()'
         assert self._train_data_spec is not None, 'The train data spec is set in __init__() or fit()'
@@ -1814,11 +1808,10 @@ class Trainer:
                     loss.mul_(microbatch_num_samples / current_batch_size)
                     total_loss += loss.detach().clone()
             else:
-                final_loss = 0
+                final_loss = self._device.tensor_to_device(torch.zeros(size=(1,)))
                 for loss in ensure_tuple(self.state.loss):
                     final_loss += loss
                 final_loss.backward(create_graph=self._backwards_create_graph)
-
 
             self.engine.run_event(Event.AFTER_BACKWARD)
 
@@ -1995,7 +1988,6 @@ class Trainer:
                 self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
                 metrics.update(self.state.outputs, targets)
-                self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics, log_level=log_level)
 
                 now = datetime.datetime.now()
                 batch_time = now - last_wct
