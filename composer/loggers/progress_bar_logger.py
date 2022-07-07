@@ -45,6 +45,7 @@ class _ProgressBar:
             position=position,
             bar_format=bar_format,
             file=file,
+            ncols=None if os.isatty(self.file.fileno()) else 80,
             dynamic_ncols=os.isatty(self.file.fileno()),
             # We set `leave=False` so TQDM does not jump around, but we emulate `leave=True` behavior when closing
             # by printing a dummy newline and refreshing to force tqdm to print to a stale line
@@ -260,7 +261,7 @@ class ProgressBarLogger(LoggerDestination):
 
             timestamp_key = unit.name.lower()
 
-        padding = ' ' * (0 if os.isatty(self.stream.fileno()) else 20)
+        padding = ' ' * (0 if os.isatty(self.stream.fileno()) else 80)
 
         bar_format = desc + ' ' + '{l_bar}{bar:25}{r_bar}' + padding + '{bar:-1b}'
 
