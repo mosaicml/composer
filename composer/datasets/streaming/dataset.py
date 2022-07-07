@@ -5,12 +5,13 @@
 """
 
 import enum
+from io import FileIO
 import math
 from multiprocessing import Pool
 import os
 from threading import Lock, Thread
 from time import sleep
-from typing import Any, Callable, Dict, Iterator, List, Optional
+from typing import Any, Callable, Dict, Iterator, List, Optional, Union
 
 import numpy as np
 from torch.utils.data import IterableDataset
@@ -171,6 +172,7 @@ class StreamingDataset(IterableDataset):
         # Fields, protected by the lock, relating to loading shards in the background.
         self._lock: Lock
         self._has_shard = np.zeros(self.index.num_shards, np.uint8)
+        self._files: List[Union[None, FileIO]] = [None] * self.index.num_shards
         self._next_epoch = 0
         self._epoch_to_todo_ids = {}
         self._downloaded_ids = []
@@ -467,11 +469,13 @@ class StreamingDataset(IterableDataset):
             self._load_shards([shard], 0, self.index.total_samples)
 
         # Read the file at the offset.
-        basename = get_shard_basename(shard)
-        shard_filename = os.path.join(self.local, basename)
-        with open(shard_filename, 'rb', 0) as fp:
-            fp.seek(offset)
-            data = fp.read(size)
+        fp = self._files[shard]
+        if fp is None:
+            basename = get_shard_basename(shard)
+            shard_filename = os.path.join(self.local, basename)
+            self._files[shard] = fp = open(shard_filename, 'rb', 0)
+        fp.seek(offset)
+        data = fp.read(size)
 
         # Get the raw dict from the bytes.
         raw = bytes_to_sample_dict(data, self.index.fields)
