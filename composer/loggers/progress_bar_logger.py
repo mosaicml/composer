@@ -270,7 +270,7 @@ class ProgressBarLogger(LoggerDestination):
             total=2,
             metrics={},
             keys_to_log=[],
-            bar_format='{{bar:-1b}}',
+            bar_format='{bar:-1b}',
             unit=TimeUnit.DURATION,
         )
         self.dummy_pbar.update(1)
