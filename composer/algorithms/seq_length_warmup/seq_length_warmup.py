@@ -30,7 +30,9 @@ def set_batch_sequence_length(
     """Set the sequence length of a batch.
 
     Changes the sequence length of all tensors in the provided dictionary
-    to ``curr_seq_len`` by truncating the sequence tensors.
+    to ``curr_seq_len`` by either truncating the tensors (``truncate=True``)
+    or reshaping the tensors to create new examples from the extra tokens
+    (``truncate=False``).
 
     .. note::
 
@@ -75,8 +77,6 @@ def set_batch_sequence_length(
     """
 
     assert isinstance(batch, Mapping)
-    if 'attention_mask' not in batch:
-        raise ValueError('Sequence Length Warmup requires that the batch has "attention_mask".')
 
     # This should act like a no-op if curr_seq_len isn't shorter than the batch's sequence length
     batch_seq_len = 0
@@ -156,6 +156,9 @@ class SeqLengthWarmup(Algorithm):
 
     The sequence length is then kept at ``max_seq_length``
     for the rest of training.
+
+    Tensors are either truncated (``truncate=True``) or reshaped to
+    create new examples from the extra tokens (``truncate=False``).
 
     This algorithm runs on :attr:`~composer.core.event.Event.AFTER_DATALOADER` to modify
     the sequence length of a batch of data after the model and data have been moved to
