@@ -225,10 +225,9 @@ class ProgressBarLogger(LoggerDestination):
             Epoch     0 train 100%|█████████████████████████| 29/29
             Epoch     1 train 100%|█████████████████████████| 29/29
         """
-        
         position = 1 if not self.train_pbar else 2
         if not os.isatty(self.stream.fileno()):
-            # Always using position=1, since that is what works on k8s
+            # Always using position=1 if not connected to a terminal (stderr is not atty)
             # position=0 does not update until the end, and position=2 results in progress bars overflowing the terminal.
             # This does result in the train pbar being hidden during evaluation, but that's OK.
             position = 1
@@ -313,7 +312,7 @@ class ProgressBarLogger(LoggerDestination):
             try:
                 term_width = os.get_terminal_size().columns
             except OSError:
-                term_width = 80  # best-effort guess. Just need enough whitespace to clear the last entry
+                term_width = 120  # best-effort guess. Just need enough whitespace to clear the last entry
             print('\033[A' + ' ' * term_width + '\033[A', file=self.stream, flush=True)
 
     def eval_end(self, state: State, logger: Logger) -> None:
