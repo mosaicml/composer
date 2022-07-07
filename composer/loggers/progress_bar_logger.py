@@ -276,12 +276,13 @@ class ProgressBarLogger(LoggerDestination):
         self.dummy_pbar = _ProgressBar(
             file=self.stream,
             position=0,
-            total=1,
+            total=2,
             metrics={},
             keys_to_log=[],
             bar_format='{bar:-1b}',
             timestamp_key='',
         )
+        self.dummy_pbar.update(1)
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         if self.show_pbar and not self.train_pbar:
