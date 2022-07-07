@@ -8,7 +8,7 @@ from __future__ import annotations
 import sys
 from typing import Any, Callable, Dict, List, Optional, TextIO, Union
 
-import tqdm.rich
+import tqdm.auto
 
 from composer.core.state import State
 from composer.core.time import Timestamp, TimeUnit
@@ -39,7 +39,7 @@ class _ProgressBar:
         self.position = position
         self.unit = unit
         self.epoch_style = epoch_style
-        self.pbar = tqdm.rich.tqdm(
+        self.pbar = tqdm.auto.tqdm(
             total=total,
             position=position,
             bar_format=bar_format,
