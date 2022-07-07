@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import sys
+import os
 from typing import Any, Callable, Dict, List, Optional, TextIO, Union
 
 import tqdm.auto
@@ -48,7 +49,7 @@ class _ProgressBar:
             dynamic_ncols=True,
             # We set `leave=False` so TQDM does not jump around, but we emulate `leave=True` behavior when closing
             # by printing a dummy newline and refreshing to force tqdm to print to a stale line
-            leave=False,
+            leave=not os.isatty(self.file.fileno()),
             postfix=metrics,
             unit=unit.value,
         )
@@ -70,10 +71,6 @@ class _ProgressBar:
         if self.position != 0:
             # Force a (potentially hidden) progress bar to re-render itself
             # Don't render the dummy pbar (at position 0), since that will clear a real pbar (at position 1)
-            import os
-            if not os.isatty(self.file.fileno()):
-                # Need a 2nd newline on k8s
-                print('', file=self.file, flush=True)
             self.pbar.refresh()
         # Create a newline that will not be erased by leave=False. This allows for the finished pbar to be cached in the terminal
         # This emulates `leave=True` without progress bar jumping
