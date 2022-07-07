@@ -41,7 +41,7 @@ class _ProgressBar:
         self.epoch_style = epoch_style
         self.pbar = tqdm.auto.tqdm(
             total=total,
-            position=position,
+            position=position + 1,
             bar_format=bar_format,
             file=file,
             dynamic_ncols=True,
