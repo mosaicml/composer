@@ -5,10 +5,10 @@
 from typing import Any, Callable, Tuple, Union
 
 import torch
-import wandb
 
 from composer.core import Callback, State, Time, TimeUnit
 from composer.loggers import Logger
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['ImageMonitor']
 
@@ -82,6 +82,14 @@ class ImageMonitor(Callback):
         self.input_key = input_key
         self.target_key = target_key
 
+        try:
+            import wandb
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='wandb',
+                                                conda_package='wandb',
+                                                conda_channel='conda-forge') from e
+        del wandb  # unused
+
         # Check that the output mode is valid
         if self.mode.lower() not in ['input', 'segmentation']:
             raise ValueError(f'Invalid mode: {mode}')
@@ -144,6 +152,7 @@ class ImageMonitor(Callback):
 
 
 def _make_input_images(inputs: torch.Tensor, num_images: int):
+    import wandb
     if inputs.shape[0] < num_images:
         num_images = inputs.shape[0]
     images = inputs[0:num_images].data.cpu().permute(0, 2, 3, 1).numpy()
@@ -159,6 +168,7 @@ def _make_segmentation_images(inputs: torch.Tensor,
                               outputs: torch.Tensor,
                               num_images: int,
                               shift_targets: bool = False):
+    import wandb
     if min([inputs.shape[0], targets.shape[0], outputs.shape[0]]) < num_images:
         num_images = min([inputs.shape[0], targets.shape[0], outputs.shape[0]])
     images = inputs[0:num_images].data.cpu().permute(0, 2, 3, 1).numpy()
@@ -181,4 +191,4 @@ def _make_segmentation_images(inputs: torch.Tensor,
 
 
 def _check_for_image_format(data: torch.Tensor) -> bool:
-    return data.ndim in [3, 4] and data.numel() > 1
+    return data.ndim in [3, 4] and data.numel() > data.shape[0]
