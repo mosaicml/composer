@@ -103,16 +103,22 @@ def set_batch_sequence_length(
             eos_idx_truncated = eos_idx.clamp(max=curr_seq_len - 1)
 
             for k in batch.keys():
-                if len(batch[k].shape) < 2:
-                    continue
+                if batch[k].ndim < 2:
+                    raise ValueError(
+                        f'Sequence Length Warmup requires that all tensors are sequence-shaped when ``truncate=True``. '
+                        f'Tensor "{k}" has shape {batch[k].shape}.'
+                    )
                 eos_value = batch[k][r_idx, eos_idx]
                 batch[k] = batch[k][:, :curr_seq_len].contiguous()
                 batch[k][r_idx, eos_idx_truncated] = eos_value
 
         else:
             for k in batch.keys():
-                if len(batch[k].shape) < 2:
-                    continue
+                if batch[k].ndim < 2:
+                    raise ValueError(
+                        f'Sequence Length Warmup requires that all tensors are sequence-shaped when ``truncate=True``. '
+                        f'Tensor "{k}" has shape {batch[k].shape}.'
+                    )
                 batch[k] = batch[k][:, :curr_seq_len].contiguous()
 
     else:
@@ -133,7 +139,8 @@ def set_batch_sequence_length(
                 continue
             if v.shape != input_ids_shape:
                 raise ValueError(
-                    'When using ``truncate=False``, Sequence Length Warmup only supports batches where all tensors have the same shape.'
+                    f'When using ``truncate=False``, Sequence Length Warmup only supports batches where all tensors have the same shape. '
+                    f'Tensor "{k}" has shape {v.shape} but should have shape {input_ids_shape}.'
                 )
             v = v.view(-1)
             v = v[:tensor_len]
@@ -268,8 +275,12 @@ class SeqLengthWarmup(Algorithm):
         device_batch_size = 0
         device = None
         for k, v in batch_clone.items():
-            if len(v.shape) > 1:
-                batch_clone[k] = v[:, :self.max_seq_length].contiguous()
+            if v.ndim < 2:
+                raise ValueError(
+                    f'Sequence Length Warmup requires that all tensors are sequence-shaped. '
+                    f'Tensor "{k}" has shape {v.shape}.'
+                )
+            batch_clone[k] = v[:, :self.max_seq_length].contiguous()
             device_batch_size = v.shape[0]
             device = v.device
 

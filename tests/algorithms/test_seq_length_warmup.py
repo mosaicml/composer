@@ -27,7 +27,7 @@ def check_batch_truncation(before, after, length, preserve_end_of_sequence=False
         assert before[k].shape[0] == after[k].shape[
             0], 'The batch size should not be changed during sequence truncation.'
 
-        if len(before[k].shape) >= 2:
+        if before[k].ndim >= 2:
 
             assert after[k].shape[1] == min(before[k].shape[1], length), 'Incorrect sequence length after truncation.'
 
