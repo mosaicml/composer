@@ -225,10 +225,13 @@ class ProgressBarLogger(LoggerDestination):
             Epoch     0 train 100%|█████████████████████████| 29/29
             Epoch     1 train 100%|█████████████████████████| 29/29
         """
-        # Always using position=1, since that is what works on k8s
-        # position=0 does not update until the end, and position=2 results in progress bars overflowing the terminal.
-        # This does result in the train pbar being hidden during evaluation, but that's OK.
-        position = 1
+        
+        position = 1 if not self.train_pbar else 2
+        if not os.isatty(self.stream.fileno()):
+            # Always using position=1, since that is what works on k8s
+            # position=0 does not update until the end, and position=2 results in progress bars overflowing the terminal.
+            # This does result in the train pbar being hidden during evaluation, but that's OK.
+            position = 1
         label = state.dataloader_label
         assert state.max_duration is not None, 'max_duration should be set'
 
@@ -311,8 +314,7 @@ class ProgressBarLogger(LoggerDestination):
                 term_width = os.get_terminal_size().columns
             except OSError:
                 term_width = 80  # best-effort guess. Just need enough whitespace to clear the last entry
-            else:
-                print('\033[A' + ' ' * term_width + '\033[A', file=self.stream, flush=True)
+            print('\033[A' + ' ' * term_width + '\033[A', file=self.stream, flush=True)
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if self.eval_pbar:
