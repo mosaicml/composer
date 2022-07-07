@@ -225,11 +225,10 @@ class ProgressBarLogger(LoggerDestination):
             Epoch     0 train 100%|█████████████████████████| 29/29
             Epoch     1 train 100%|█████████████████████████| 29/29
         """
-        position = 0
-        if self.dummy_pbar is not None:
-            position += 1
-        if self.train_pbar is not None:
-            position += 1
+        # Always using position=1, since that is what works on k8s
+        # position=0 does not update until the end, and position=2 results in progress bars overflowing the terminal.
+        # This does result in the train pbar being hidden during evaluation, but that's OK.
+        position = 1
         label = state.dataloader_label
         assert state.max_duration is not None, 'max_duration should be set'
 
@@ -263,7 +262,6 @@ class ProgressBarLogger(LoggerDestination):
         )
 
     def fit_start(self, state: State, logger: Logger) -> None:
-        return
         self.dummy_pbar = _ProgressBar(
             file=self.stream,
             position=0,
