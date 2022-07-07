@@ -184,7 +184,7 @@ def test_surgery_onnx(
 
     torch.testing.assert_close(
         outputs[0],
-        model(input).numpy(),
+        model(input).detach().numpy(),
         rtol=1e-4,  # lower tolerance for ONNX
         atol=1e-3,  # lower tolerance for ONNX
     )
