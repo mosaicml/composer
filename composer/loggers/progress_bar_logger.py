@@ -76,7 +76,7 @@ class _ProgressBar:
         # This emulates `leave=True` without progress bar jumping
         print('', file=self.file, flush=True)
         import os
-        if os.isatty(self.file.fileno()):
+        if not os.isatty(self.file.fileno()):
             # Need a 2nd newline on k8s
             print('', file=self.file, flush=True)
         self.pbar.close()
