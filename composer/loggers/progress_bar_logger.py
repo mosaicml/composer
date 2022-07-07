@@ -32,14 +32,14 @@ class _ProgressBar:
         file: TextIO,
         metrics: Dict[str, Any],
         keys_to_log: List[str],
+        timestamp_key: str,
         unit: TimeUnit = TimeUnit.EPOCH,
-        epoch_style: bool = False,
     ) -> None:
         self.keys_to_log = keys_to_log
         self.metrics = metrics
         self.position = position
         self.unit = unit
-        self.epoch_style = epoch_style
+        self.timestamp_key = timestamp_key
         self.pbar = tqdm.auto.tqdm(
             total=total,
             position=position,
@@ -60,11 +60,7 @@ class _ProgressBar:
         self.pbar.update(n=n)
 
     def update_to_timestamp(self, timestamp: Timestamp):
-        if self.epoch_style:
-            n = int(timestamp.batch_in_epoch)
-        else:
-            n = int(timestamp.get(self.unit))
-
+        n = int(getattr(timestamp, self.timestamp_key))
         n = n - self.pbar.n
         self.pbar.update(int(n))
 
@@ -82,7 +78,7 @@ class _ProgressBar:
             'keys_to_log': self.keys_to_log,
             'n': pbar_state['n'],
             'unit': self.unit,
-            'epoch_style': self.epoch_style
+            'timestamp_key': self.timestamp_key,
         }
 
 
@@ -213,7 +209,7 @@ class ProgressBarLogger(LoggerDestination):
             # write directly to self.stream; no active progress bar
             print(log_str, file=self.stream, flush=True)
 
-    def _build_pbar(self, state: State, is_train: bool, epoch_style: bool = False) -> _ProgressBar:
+    def _build_pbar(self, state: State, is_train: bool) -> _ProgressBar:
         """Builds a pbar that tracks in the units of max_duration.
 
         Example:
@@ -234,23 +230,29 @@ class ProgressBarLogger(LoggerDestination):
         label = state.dataloader_label
         assert state.max_duration is not None, 'max_duration should be set'
 
-        if epoch_style:
+        if state.max_duration.unit == TimeUnit.EPOCH:
             total = int(state.dataloader_len) if state.dataloader_len is not None else None
-
-            # handle when # batches is less than an epoch
-            if total is not None and state.max_duration.unit == TimeUnit.BATCH:
-                total = min(total, state.max_duration.value)
+            timestamp_key = 'batch_in_epoch'
 
             unit = TimeUnit.BATCH
             n = state.timestamp.epoch.value
             if self.train_pbar is None and not is_train:
                 # epochwise eval results refer to model from previous epoch (n-1)
                 n -= 1
-            desc = f'Epoch {n:5d} {label:15s}'
+            desc = f'Epoch {n:3d}'
+            if self.train_pbar is not None:
+                # Evaluating mid-epoch
+                batch_in_epoch = int(state.timestamp.batch_in_epoch)
+                desc += f', Batch {batch_in_epoch:3d}: '
+            else:
+                desc += ': ' + ' ' * 11  # padding
         else:
             total = state.max_duration.value
             unit = state.max_duration.unit
-            desc = f'{unit.name.capitalize():<11} {label:15s}'
+            timestamp_key = unit.name.lower()
+            desc = f'{unit.name.capitalize():<11}'
+        
+        desc += f'{label:15s}'
 
         return _ProgressBar(
             file=self.stream,
@@ -260,7 +262,7 @@ class ProgressBarLogger(LoggerDestination):
             bar_format=f'{desc} {{l_bar}}{{bar:25}}{{r_bar}}{{bar:-1b}}',
             unit=unit,
             metrics={},
-            epoch_style=epoch_style,
+            timestamp_key=timestamp_key,
         )
 
     def fit_start(self, state: State, logger: Logger) -> None:
@@ -272,18 +274,17 @@ class ProgressBarLogger(LoggerDestination):
             keys_to_log=[],
             bar_format='{bar:-1b}',
             unit=TimeUnit.DURATION,
+            timestamp_key='',
         )
         self.dummy_pbar.update(1)
 
     def epoch_start(self, state: State, logger: Logger) -> None:
-        assert state.max_duration is not None, 'max_duration should be set'
-        epoch_style = state.max_duration.unit == TimeUnit.EPOCH
         if self.show_pbar and not self.train_pbar:
-            self.train_pbar = self._build_pbar(state=state, is_train=True, epoch_style=epoch_style)
+            self.train_pbar = self._build_pbar(state=state, is_train=True)
 
     def eval_start(self, state: State, logger: Logger) -> None:
         if self.show_pbar:
-            self.eval_pbar = self._build_pbar(state, is_train=False, epoch_style=True)
+            self.eval_pbar = self._build_pbar(state, is_train=False)
 
     def batch_end(self, state: State, logger: Logger) -> None:
         if self.train_pbar:
@@ -296,7 +297,8 @@ class ProgressBarLogger(LoggerDestination):
     def epoch_end(self, state: State, logger: Logger) -> None:
         # only close the progress bar if its epoch_style
         # Otherwise, the same progress bar is used for all of training, so do not close it here
-        if self.train_pbar and self.train_pbar.epoch_style:
+        assert state.max_duration is not None, 'max_duration should be set'
+        if self.train_pbar and state.max_duration.unit == TimeUnit.EPOCH:
             self.train_pbar.close()
             self.train_pbar = None
 
@@ -316,9 +318,11 @@ class ProgressBarLogger(LoggerDestination):
             print('\033[A' + ' ' * term_width + '\033[A', file=self.stream, flush=True)
 
     def eval_end(self, state: State, logger: Logger) -> None:
-        if self.eval_pbar:
-            self.eval_pbar.close()
-            self.eval_pbar = None
+        assert self.eval_pbar is not None
+        self.eval_pbar.close()
+        self.eval_pbar = None
+        if self.train_pbar and not os.isatty(self.stream.fileno()):
+            self.log_to_console('')  # print a newline
 
     def state_dict(self) -> Dict[str, Any]:
         return {
