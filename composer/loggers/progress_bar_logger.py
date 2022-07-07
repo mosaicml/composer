@@ -67,15 +67,13 @@ class _ProgressBar:
         self.pbar.update(int(n))
 
     def close(self):
-        if self.position == 0:
-            # Create a newline that will not be erased by leave=False. This allows for the finished pbar to be cached
-            print('', file=self.file, flush=True)
+        if self.position != 0:
             # Force a (potentially hidden) progress bar to re-render itself
+            # Don't render the dummy pbar (at position 0), since that will clear a real pbar (at position 1)
             self.pbar.refresh()
-        else:
-            self.pbar.refresh()
-             # Create a newline that will not be erased by leave=False. This allows for the finished pbar to be cached
-            print('', file=self.file, flush=True)
+        # Create a newline that will not be erased by leave=False. This allows for the finished pbar to be cached in the terminal
+        # This emulates `leave=True` without progress bar jumping
+        print('', file=self.file, flush=True)
         self.pbar.close()
 
     def state_dict(self) -> Dict[str, Any]:
