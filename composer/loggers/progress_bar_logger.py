@@ -260,14 +260,16 @@ class ProgressBarLogger(LoggerDestination):
 
             timestamp_key = unit.name.lower()
 
-        right_padding = '-1b' if  os.isatty(self.stream.fileno()) else 120
+        padding = ' ' * (0 if os.isatty(self.stream.fileno()) else 120)
+
+        bar_format = desc + ' ' + '{l_bar}{bar:25}{r_bar}' + padding + '{bar:-1b}'
 
         return _ProgressBar(
             file=self.stream,
             total=total,
             position=position,
             keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[is_train],
-            bar_format=f'{desc} {{l_bar}}{{bar:25}}{{r_bar}}{{bar:{right_padding}}}',
+            bar_format=bar_format,
             unit=unit.value.lower(),
             metrics={},
             timestamp_key=timestamp_key,
