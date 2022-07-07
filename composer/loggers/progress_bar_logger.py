@@ -301,12 +301,16 @@ class ProgressBarLogger(LoggerDestination):
         if self.train_pbar and state.max_duration.unit == TimeUnit.EPOCH:
             self.train_pbar.close()
             self.train_pbar = None
+            if not os.isatty(self.stream.fileno()):
+                self.log_to_console('')  # print a newline
 
     def fit_end(self, state: State, logger: Logger) -> None:
         # If the train pbar isn't closed (i.e. not epoch style), then it would still be open here
         if self.train_pbar:
             self.train_pbar.close()
             self.train_pbar = None
+            if not os.isatty(self.stream.fileno()):
+                self.log_to_console('')  # print a newline
         if self.dummy_pbar:
             self.dummy_pbar.close()
             self.dummy_pbar = None
@@ -321,7 +325,7 @@ class ProgressBarLogger(LoggerDestination):
         assert self.eval_pbar is not None
         self.eval_pbar.close()
         self.eval_pbar = None
-        if self.train_pbar and not os.isatty(self.stream.fileno()):
+        if not os.isatty(self.stream.fileno()):
             self.log_to_console('')  # print a newline
 
     def state_dict(self) -> Dict[str, Any]:
