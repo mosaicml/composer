@@ -47,25 +47,37 @@ def ensure_targets_one_hot(input: torch.Tensor,
         num_classes (int, optional): Number of classes. If not specified, this will be inferred
             from input. Default: ``None``
     """
-    new_targets = targets
+
     if infer_target_type(input, targets) == 'indices':
         # If the number of classes isn't specified, attempt to infer it from the input
         if num_classes is None:
             num_classes = input.shape[1]
         if targets.min() < 0:
             warnings.warn('Negative label indices are being ignored in conversion to one-hot labels')
+
+            # Add new dimension for the class vectors
+            class_dim = 1
+            targets = targets.clone().unsqueeze(class_dim).long()
+
             # Map all negative indicies to a class to drop.
-            new_targets = targets.clone()
-            new_targets[targets < 0] = num_classes
-            new_targets = F.one_hot(new_targets, num_classes=num_classes + 1)
-            new_targets = torch.movedim(new_targets, -1, 1)
+            targets[targets < 0] = num_classes
+
+            # Create one-hot labels
+            input_shape = list(input.shape)
+            input_shape[class_dim] += 1 # Add additional class for negative indicies
+            one_hot_targets = torch.zeros(size=input_shape, dtype=input.dtype, device=input.device)
+            one_hot_targets.scatter_(dim=1, index=targets, value=1)
+
             # Drop any negative indices.
-            new_targets = new_targets[:, 0:-1]
+            one_hot_targets = one_hot_targets[:, 0:-1]
         else:
-            targets = F.one_hot(targets, num_classes=num_classes)
-            new_targets = torch.movedim(targets, -1, 1)
-        new_targets = new_targets.float()
-    return new_targets
+            one_hot_targets = torch.zeros_like(input)
+            one_hot_targets.scatter_(dim=1, index=targets, value=1)
+    else:
+        one_hot_targets = targets
+
+    one_hot_targets = one_hot_targets.float()
+    return one_hot_targets
 
 
 def check_for_index_targets(targets: torch.Tensor) -> bool:
