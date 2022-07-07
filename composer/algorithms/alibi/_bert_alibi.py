@@ -118,13 +118,13 @@ def forward(
         outputs = outputs + (past_key_value,)
     return outputs
 
-
+# TODO: Implement for BERT
 # def enlarge_mask(module: torch.nn.Module, max_sequence_length: int) -> torch.nn.Module:
 #     """Increases the size of the attention mask in Composer/HuggingFace GPT2 model's GPT2Attention
 #     (:func:`transformers.models.gpt2.modeling_gpt2.GPT2Attention._attn`; `GitHub link <https://\\
 #     github.com/huggingface/transformers/blob/2e11a043374a6229ec129a4765ee4ba7517832b9/src/transformers/\\
 #     models/gpt2/modeling_gpt2.py#L140>`_).
-
+# 
 #     This is necessary for evaluating on sequence lengths longer than the model was initialized to accommodate.
 #     """
 #     old_mask = module.bias

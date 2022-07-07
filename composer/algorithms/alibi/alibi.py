@@ -373,38 +373,4 @@ def _lazy_import(name: Optional[str]) -> Any[Callable, ModuleType, None]:
                       f" path you're attempting to import.")
         raise
     return mod
-
-
-# from composer.algorithms.alibi._gpt2_alibi import _attn
-# from composer.algorithms.alibi._gpt2_alibi import enlarge_mask
-# from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
-
-# from composer.algorithms.alibi._bert_alibi import forward
-# from transformers.models.bert.modeling_bert import BertSelfAttention
-
-# from composer.models import BERTModel
-# import transformers
-
-# config = transformers.BertConfig()
-# hf_model = transformers.BertLMHeadModel(config=config)
-# tokenizer = transformers.BertTokenizer.from_pretrained("bert-base-uncased")
-# model = BERTModel(module=hf_model, config=config, tokenizer=tokenizer)
-
-# model.eval()
-
-# batch = {'input_ids': torch.LongTensor([[849, 849, 849, 220, 2843, 2832, 383, 893]]), 'attention_mask': torch.Tensor([[1, 1, 1, 1, 1, 1, 1, 1]])}
-# outs_before = model.module.forward(output_attentions=True, **batch)
-
-# apply_alibi(
-#     model=model,
-#     heads_per_layer=12,
-#     max_sequence_length=128,
-#     position_embedding_attribute="module.bert.embeddings.position_embeddings",#"module.transformer.wpe",
-#     attention_module=BertSelfAttention,
-#     attr_to_replace="forward",
-#     alibi_attention=forward,
-#     causal=False,
-#     # mask_replacement_function=enlarge_mask
-# )
-# outs_after = model.module.forward(output_attentions=True, **batch)
-# foo
+    
