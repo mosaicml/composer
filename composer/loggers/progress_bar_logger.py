@@ -74,7 +74,7 @@ class _ProgressBar:
             self.pbar.refresh()
         # Create a newline that will not be erased by leave=False. This allows for the finished pbar to be cached in the terminal
         # This emulates `leave=True` without progress bar jumping
-        print('' * 120, file=self.file, flush=True)
+        print('', file=self.file, flush=True)
 
         self.pbar.close()
 
@@ -260,12 +260,14 @@ class ProgressBarLogger(LoggerDestination):
 
             timestamp_key = unit.name.lower()
 
+        right_padding = '-1b' if  os.isatty(self.stream.fileno()) else 120
+
         return _ProgressBar(
             file=self.stream,
             total=total,
             position=position,
             keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[is_train],
-            bar_format=f'{desc} {{l_bar}}{{bar:25}}{{r_bar}}{{bar:-1b}}',
+            bar_format=f'{desc} {{l_bar}}{{bar:25}}{{r_bar}}{{bar:{right_padding}}}',
             unit=unit.value.lower(),
             metrics={},
             timestamp_key=timestamp_key,
