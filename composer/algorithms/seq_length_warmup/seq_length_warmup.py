@@ -108,7 +108,7 @@ def set_batch_sequence_length(
                         f'Sequence Length Warmup requires that all tensors are sequence-shaped when ``truncate=True``. '
                         f'Tensor "{k}" has shape {batch[k].shape}.')
                 eos_value = batch[k][r_idx, eos_idx]
-                batch[k] = batch[k][:, :curr_seq_len]  #.contiguous()
+                batch[k] = batch[k][:, :curr_seq_len].contiguous()
                 batch[k][r_idx, eos_idx_truncated] = eos_value
 
         else:
@@ -117,7 +117,7 @@ def set_batch_sequence_length(
                     raise ValueError(
                         f'Sequence Length Warmup requires that all tensors are sequence-shaped when ``truncate=True``. '
                         f'Tensor "{k}" has shape {batch[k].shape}.')
-                batch[k] = batch[k][:, :curr_seq_len]  #.contiguous()
+                batch[k] = batch[k][:, :curr_seq_len].contiguous()
 
     else:
         if 'input_ids' not in batch:
