@@ -46,7 +46,7 @@ class _ProgressBar:
             bar_format=bar_format,
             file=file,
             dynamic_ncols=True,
-            leave=True,
+            leave=False,
             postfix=metrics,
             unit=unit.value,
         )
@@ -222,7 +222,7 @@ class ProgressBarLogger(LoggerDestination):
             Epoch     1 train 100%|█████████████████████████| 29/29
         """
         position = 1 if not self.train_pbar else 2
-        if not os.isatty(self.stream.fileno()):
+        if True: # not os.isatty(self.stream.fileno()):
             # Always using position=1 if not connected to a terminal (stderr is not atty)
             # position=0 does not update until the end, and position=2 results in progress bars overflowing the terminal.
             # This does result in the train pbar being hidden during evaluation, but that's OK.
@@ -299,32 +299,32 @@ class ProgressBarLogger(LoggerDestination):
         # Otherwise, the same progress bar is used for all of training, so do not close it here
         assert state.max_duration is not None, 'max_duration should be set'
         if self.train_pbar and state.max_duration.unit == TimeUnit.EPOCH:
-            if not os.isatty(self.stream.fileno()):
-                print('', file=self.stream, flush=True)  # print a newline
+            print('', file=self.stream, flush=True)
+            self.train_pbar.pbar.refresh()
             self.train_pbar.close()
             self.train_pbar = None
 
     def fit_end(self, state: State, logger: Logger) -> None:
         # If the train pbar isn't closed (i.e. not epoch style), then it would still be open here
+        import time
+        time.sleep(10)
         if self.train_pbar:
-            if not os.isatty(self.stream.fileno()):
+            self.train_pbar.pbar.refresh()
+            if True: # not os.isatty(self.stream.fileno()):
                 print('', file=self.stream, flush=True)  # print a newline
             self.train_pbar.close()
             self.train_pbar = None
         if self.dummy_pbar:
+            print('', file=self.stream, flush=True)  # print a newline
             self.dummy_pbar.close()
             self.dummy_pbar = None
-            # Closing the dummy pbar duplicates the last pbar entry. Strip it from the terminal
-            try:
-                term_width = os.get_terminal_size().columns
-            except OSError:
-                term_width = 120  # best-effort guess. Just need enough whitespace to clear the last entry
-            print('\033[A' + ' ' * term_width + '\033[A', file=self.stream, flush=True)
 
     def eval_end(self, state: State, logger: Logger) -> None:
         assert self.eval_pbar is not None
-        if not os.isatty(self.stream.fileno()):
-            print('', file=self.stream, flush=True)  # print a newline
+        self.eval_pbar.pbar.refresh()
+        if True: # not os.isatty(self.stream.fileno()):
+            # Print a newline to preserve the pbar
+            print('', file=self.stream, flush=True)
         self.eval_pbar.close()
         self.eval_pbar = None
 
