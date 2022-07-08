@@ -66,6 +66,8 @@ class DataLoaderHparams(hp.Hparams):
     timeout: float = hp.optional(
         'Timeout, in seconds, for collecting a batch from workers. Set to ``0`` for no timeout.', default=0.0)
 
+    collate_fn: str = hp.optional('mmdet or pytorch default.', default=None)
+
     def initialize_object(
         self,
         dataset: Dataset,
@@ -90,6 +92,13 @@ class DataLoaderHparams(hp.Hparams):
         Returns:
             DataLoader: The dataloader.
         """
+        if self.collate_fn == 'mmdet':
+            from mmcv.parallel import collate
+            collate_fn = collate
+        elif self.collate_fn == None:
+            collate_fn = self.collate_fn
+        else:
+            raise ValueErorr('collate_fn must be "mmdet" or `None`')
 
         return torch.utils.data.DataLoader(
             dataset,

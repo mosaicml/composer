@@ -23,6 +23,7 @@ from composer.models.gpt2 import GPT2Hparams as GPT2Hparams
 from composer.models.gpt2 import GPT2Model as GPT2Model
 from composer.models.huggingface import HuggingFaceModel as HuggingFaceModel
 from composer.models.initializers import Initializer as Initializer
+from composer.models.mmdetection import MMDetModel as MMDetModel
 from composer.models.model_hparams import ModelHparams as ModelHparams
 from composer.models.resnet import ComposerResNet as ComposerResNet
 from composer.models.resnet import ResNetHparams as ResNetHparams
@@ -39,3 +40,5 @@ from composer.models.unet import UNet as UNet
 from composer.models.unet import UnetHparams as UnetHparams
 from composer.models.vit_small_patch16 import ViTSmallPatch16 as ViTSmallPatch16
 from composer.models.vit_small_patch16 import ViTSmallPatch16Hparams as ViTSmallPatch16Hparams
+from composer.models.yolox import YoloXHparams as YoloXHparams
+from composer.models.yolox import composer_yolox as composer_yolox
