@@ -134,7 +134,7 @@ class StreamingDataset(IterableDataset):
                  decoders: Dict[str, Callable[[bytes], Any]],
                  max_retries: int = 2,
                  timeout: float = 60,
-                 min_buffer: int = 0,
+                 min_buffer: int = 1,
                  max_buffer: Optional[int] = 100_000,
                  batch_size: Optional[int] = None) -> None:
         self.remote = remote
