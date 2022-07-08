@@ -796,7 +796,7 @@ class TestTrainerEquivalence():
 
         assert model_1 is not model_2, 'Same model should not be compared.'
         for param1, param2 in zip(model_1.parameters(), model_2.parameters()):
-            torch.testing.assert_allclose(param1, param2, **threshold)
+            torch.testing.assert_close(param1, param2, **threshold)
 
     @pytest.fixture
     def config(self, device: Device, precision: Precision, world_size: int, rank_zero_seed: int):
