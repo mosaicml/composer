@@ -16,25 +16,25 @@ class ThresholdStopper(Callback):
     """Halt training when a metric value reaches a certain threshold.
 
     Example:
-    .. doctest::
+        .. doctest::
 
-        >>> from composer.callbacks.threshold_stopper import ThresholdStopper
-        >>> from torchmetrics.classification.accuracy import Accuracy
-        >>> # constructing trainer object with this callback
-        >>> threshold_stopper = ThresholdStopper("Accuracy", "my_evaluator", 0.7)
-        >>> evaluator = Evaluator(
-        ...     dataloader = eval_dataloader,
-        ...     label = 'my_evaluator',
-        ...     metrics = Accuracy()
-        ... )
-        >>> trainer = Trainer(
-        ...     model=model,
-        ...     train_dataloader=train_dataloader,
-        ...     eval_dataloader=evaluator,
-        ...     optimizers=optimizer,
-        ...     max_duration="1ep",
-        ...     callbacks=[threshold_stopper],
-        ... )
+            >>> from composer.callbacks.threshold_stopper import ThresholdStopper
+            >>> from torchmetrics.classification.accuracy import Accuracy
+            >>> # constructing trainer object with this callback
+            >>> threshold_stopper = ThresholdStopper("Accuracy", "my_evaluator", 0.7)
+            >>> evaluator = Evaluator(
+            ...     dataloader = eval_dataloader,
+            ...     label = 'my_evaluator',
+            ...     metrics = Accuracy()
+            ... )
+            >>> trainer = Trainer(
+            ...     model=model,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=evaluator,
+            ...     optimizers=optimizer,
+            ...     max_duration="1ep",
+            ...     callbacks=[threshold_stopper],
+            ... )
 
     Args:
         monitor (str): The name of the metric to monitor.
