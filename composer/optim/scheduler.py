@@ -38,10 +38,6 @@ __all__ = [
     'CosineAnnealingWithWarmupScheduler', 'PolynomialWithWarmupScheduler'
 ]
 
-warmup_warning = """    .. warning::
-        By default, initial warmup time is **not** scaled according to any provided scale schedule ratio.
-        To change this behavior, set ``scale_warmup=True``."""
-
 
 class ComposerScheduler(Protocol):
     r"""Specification for a stateless scheduler function.
@@ -540,7 +536,9 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
         All milestones should be greater than ``t_warmup``; otherwise, they will have no effect on the computed learning
         rate multiplier until the warmup has completed.
 
-    {warmup_warning}
+    .. warning::
+            By default, initial warmup time is **not** scaled according to any provided scale schedule ratio.
+            To change this behavior, set ``scale_warmup=True``.
 
     Args:
         t_warmup (str | Time): Warmup time.
@@ -597,7 +595,9 @@ class ConstantWithWarmupScheduler(ComposerScheduler):
     Where :math:`\alpha` represents the learning rate multiplier to maintain while this scheduler is active, and
     :math:`t_{max}` represents the duration of this scheduler.
 
-    {warmup_warning}
+    .. warning::
+            By default, initial warmup time is **not** scaled according to any provided scale schedule ratio.
+            To change this behavior, set ``scale_warmup=True``.
 
     Args:
         t_warmup (str | Time): Warmup time.
@@ -722,7 +722,9 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
     Where :math:`t_{warmup}` represents the warmup time, :math:`t_{max}` represents the duration of this scheduler, and
     :math:`\alpha_f` represents the learning rate multiplier to decay to.
 
-    {warmup_warning}
+    .. warning::
+            By default, initial warmup time is **not** scaled according to any provided scale schedule ratio.
+            To change this behavior, set ``scale_warmup=True``.
 
     Args:
         t_warmup (str | Time): Warmup time.
@@ -786,7 +788,9 @@ class PolynomialWithWarmupScheduler(ComposerScheduler):
     :math:`t_{warmup}` represents the warmup time, :math:`t_{max}` represents the duration of this scheduler, and
     :math:`\alpha_f` represents the learning rate multiplier to decay to.
 
-    {warmup_warning}
+    .. warning::
+            By default, initial warmup time is **not** scaled according to any provided scale schedule ratio.
+            To change this behavior, set ``scale_warmup=True``.
 
     Args:
         t_warmup (str | Time): Warmup time.
