@@ -93,13 +93,16 @@ def composer_resnet(model_name: str,
             DeprecationWarning(
                 'The ``pretrained`` argument for composer_resnet is deprecated and will be removed in the future. Please use ``weights`` instead.'
             ))
-    if weights:
-        pretrained = True
 
     # Instantiate model
     model_fn = getattr(resnet, model_name)
     model = None
     if version.parse(torchvision.__version__) < version.parse('0.13.0'):
+        if weights:
+            pretrained = True
+            warnings.warn(
+                f'The current torchvision version {torchvision.__version__} does not support the ``weights`` argument, so ``pretrained=True`` will be used instead. To enable ``weights``, please ugprade to the latest version of torchvision.'
+            )
         model = model_fn(pretrained=pretrained, num_classes=num_classes, groups=groups, width_per_group=width_per_group)
     else:
         model = model_fn(weights=weights, num_classes=num_classes, groups=groups, width_per_group=width_per_group)
