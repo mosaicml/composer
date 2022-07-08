@@ -42,7 +42,7 @@ from composer.trainer.nlp_hparams import NLPTrainerHparams
 from argparse import ArgumentParser
 from tabulate import tabulate
 
-# TODO: wandb integrations, refactor everything out of local storage to object store 
+# TODO: wandb integrations, refactor everything out of local storage to object store , reset all configs and training lengths back to default
 # track GLUE Metrics
 GLUE_METRICS = {}
 
@@ -50,10 +50,32 @@ def _warning_on_one_line(message: str, category: Type[Warning], filename: str, l
     # From https://stackoverflow.com/questions/26430861/make-pythons-warnings-warn-not-mention-itself
     return f'{category.__name__}: {message} (source: {filename}:{lineno})\n'
 
-
 def output_metrics(output_type: str) -> None:
-    # print(tabulate(GLUE_METRICS, headers='keys'))
-    print(GLUE_METRICS)
+    tasks = GLUE_METRICS[list(GLUE_METRICS.keys())[0]].keys()
+    large_tasks = ['MNLI', 'QNLI', 'QQP', 'SST-2']
+    # init table headers 
+    headers = ['Checkpoint']
+    headers.extend([f"{task.upper()}" for task in tasks])
+    headers.extend(['GLUE-Large', 'GLUE-All'])
+    tb = [headers]
+
+    # fill table 
+    for ckpt in GLUE_METRICS.keys():
+        output_line = [ckpt]
+        glue_all = 0
+        glue_large = 0
+        # Per task score
+        for task in sorted(GLUE_METRICS[ckpt].keys()):
+            output_line.append("{:.2f}".format(GLUE_METRICS[ckpt][task]))
+            glue_all += GLUE_METRICS[ckpt][task]
+            if task in large_tasks:
+                glue_large += GLUE_METRICS[ckpt][task]
+        # GLUE Large and GLUE All
+        output_line.append("{:.2f}".format(glue_large/len(large_tasks)))
+        output_line.append("{:.2f}".format(glue_all/len(tasks)))
+        tb.append(output_line)
+    
+    print(tabulate(tb, headers='firstrow'))
 
 def train_finetune_wrapper(finetune_tasks: List[str], save_ckpts: List[bool], ckpt_load_path: str, ckpt_filename: str,
                                          save_folder: str, parent_ckpt: Optional[str] = None, load_ignore_keys: Optional[List[str]] = None) -> None:
@@ -120,7 +142,7 @@ def train_finetune(task: str, save_ckpt: bool, load_path: str, save_folder: str,
     ft_hparams = NLPTrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
     trainer = ft_hparams.initialize_object()
     trainer.fit(duration='3ep')
-    print(f"\nFINISHED TRAINING TASK {task}!!\n")
+    print(f"\nFINISHED TRAINING TASK {task.upper()}\n")
     return trainer.state.current_metrics
 
 def init_cuda_queue(queue_size: int) -> mp.Queue:
@@ -220,7 +242,7 @@ def _main() -> None:
             save_ckpts = [0, 0, 0]
             # delete finetuning head to reinitialize number of classes 
             train_finetune_wrapper(mnli_finetune_tasks, save_ckpts, ckpt_load_path, ckpt_filename, args.save_folder, parent_ckpt=parent_ckpt, load_ignore_keys="state/model/model.classifier*")  # type: ignore
-            
+
         print('FINETUNING COMPLETE')
 
     if args.training_scheme != 'pretrain':
@@ -230,3 +252,4 @@ def _main() -> None:
 if __name__ == '__main__':
     mp.set_start_method('spawn')
     _main()
+
