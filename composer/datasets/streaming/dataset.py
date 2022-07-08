@@ -94,6 +94,8 @@ class StreamingDataset(IterableDataset):
         timeout (float): How long to wait for shard to download before raising an exception. Default: 60 sec.
         min_buffer (int): During the first epoch, the minimum number of samples that must be available before it
             selects one to yield, unless all samples have been loaded. Default: 0.
+        max_buffer (Optional[int]): During the first epoch, the maximum number of samples that must be available after
+            which it pauses downloading new shards. If set to ``None``, no maximum is used. Default: 100000.
         batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default:
             ``None``.
 
@@ -133,8 +135,8 @@ class StreamingDataset(IterableDataset):
                  max_retries: int = 2,
                  timeout: float = 60,
                  min_buffer: int = 0,
+                 max_buffer: Optional[int] = 100_000,
                  batch_size: Optional[int] = None) -> None:
-
         self.remote = remote
         self.local = local
         self.shuffle = shuffle
@@ -142,6 +144,7 @@ class StreamingDataset(IterableDataset):
         self.max_retries = max_retries
         self.timeout = timeout
         self.min_buffer = min_buffer
+        self.max_buffer = max_buffer
         self.batch_size = batch_size
 
         self.compression_scheme = None
@@ -344,6 +347,26 @@ class StreamingDataset(IterableDataset):
         with self._lock:
             self._download_status = _DownloadStatus.DONE
 
+    def _get_num_todo_samples(self):
+        """Get the number of available samples."""
+        min_size = None
+        with self._lock:
+            for todo_ids in self._epoch_to_todo_ids.values():
+                size = len(todo_ids)
+                if min_size is None or size < min_size:
+                    min_size = size
+        return min_size or 0
+
+    def _wait_until_few_samples(self):
+        """Block until the available samples are low enough to download another shard."""
+        if self.max_buffer is None:
+            return
+        while True:
+            if self._get_num_todo_samples() <= self.max_buffer:
+                break
+            else:
+                sleep(0.25)
+
     def _download_shards_via_loop(self, shards: List[int]) -> None:
         """Sequentially ownload and load the given missing shards.
 
@@ -357,6 +380,7 @@ class StreamingDataset(IterableDataset):
         _, shards_to_download, min_id, max_id = self.index.get_partition(world, self.batch_size)
 
         for shard in shards:
+            self._wait_until_few_samples()
             try:
                 self._download_shard(shard, shards_to_download)
                 self._load_shards([shard], min_id, max_id)
