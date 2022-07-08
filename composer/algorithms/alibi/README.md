@@ -60,6 +60,9 @@ def training_loop(model, train_loader):
 
 from composer.algorithms import Alibi
 from composer.trainer import Trainer
+from composer.models.gpt2 import create_gpt2
+
+model = create_gpt2()
 
 alibi = Alibi(
     position_embedding_attribute="module.transformer.wpe",
