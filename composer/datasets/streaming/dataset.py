@@ -357,7 +357,7 @@ class StreamingDataset(IterableDataset):
                     min_size = size
         return min_size or 0
 
-    def _wait_until_few_samples(self):
+    def _wait_until_few_todo_samples(self):
         """Block until the available samples are low enough to download another shard."""
         if self.max_buffer is None:
             return
@@ -380,7 +380,7 @@ class StreamingDataset(IterableDataset):
         _, shards_to_download, min_id, max_id = self.index.get_partition(world, self.batch_size)
 
         for shard in shards:
-            self._wait_until_few_samples()
+            self._wait_until_few_todo_samples()
             try:
                 self._download_shard(shard, shards_to_download)
                 self._load_shards([shard], min_id, max_id)
