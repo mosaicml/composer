@@ -6,7 +6,7 @@ import pytest
 import torch
 from torch.nn import functional as F
 
-from composer.loss import soft_cross_entropy
+from composer.loss import DiceLoss, soft_cross_entropy
 from composer.loss.utils import ensure_targets_one_hot, infer_target_type
 
 
@@ -81,3 +81,14 @@ class TestSoftCrossEntropy:
 
         torch.testing.assert_allclose(loss_indices, loss_onehot)
         torch.testing.assert_allclose(loss_indices, loss_reference)
+
+
+class TestDiceLoss:
+
+    def test_correct_prediction():
+        target = torch.tensor([[[-1], [0], [1], [2]]]).repeat(1, 1, 4)
+        input = torch.zeros(size=(1, 3, 4, 4))
+
+        input = target.clone()
+
+        dice_loss = DiceLoss()
