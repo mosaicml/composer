@@ -35,7 +35,7 @@ class SpeedMonitor(Callback):
             ...     train_dataloader=train_dataloader,
             ...     eval_dataloader=eval_dataloader,
             ...     optimizers=optimizer,
-            ...     max_duration="1ep",
+            ...     max_duration='1ep',
             ...     callbacks=[SpeedMonitor(window_size=100)],
             ... )
 
