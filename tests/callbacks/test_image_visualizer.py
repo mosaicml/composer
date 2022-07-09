@@ -4,7 +4,7 @@
 import pytest
 from torch.utils.data import DataLoader
 
-from composer.callbacks import ImageMonitor
+from composer.callbacks import ImageVisualizer
 from composer.core import Time
 from composer.loggers import InMemoryLogger
 from composer.trainer import Trainer
@@ -21,15 +21,15 @@ except ImportError:
 
 @pytest.mark.skipif(not _WANDB_INSTALLED, reason='Wandb is optional')
 @pytest.mark.parametrize('interval', ['9ba', '90ba'])
-def test_image_monitor(interval: str):
+def test_image_visualizer(interval: str):
     # Construct the callback
-    image_monitor = ImageMonitor(interval=interval)
+    image_visualizer = ImageVisualizer(interval=interval)
     in_memory_logger = InMemoryLogger()  # track the logged images in the in_memory_logger
 
     # Construct the trainer and train
     trainer = Trainer(
         model=SimpleConvModel(),
-        callbacks=image_monitor,
+        callbacks=image_visualizer,
         loggers=in_memory_logger,
         train_dataloader=DataLoader(RandomImageDataset()),
         eval_dataloader=DataLoader(RandomImageDataset()),
@@ -40,6 +40,6 @@ def test_image_monitor(interval: str):
     num_train_tables = len(in_memory_logger.data['Images/Train'])
     num_eval_tables = len(in_memory_logger.data['Images/Eval'])
 
-    assert isinstance(image_monitor.interval, Time)
-    assert num_train_tables == (num_train_steps - 1) // image_monitor.interval.value + 1
+    assert isinstance(image_visualizer.interval, Time)
+    assert num_train_tables == (num_train_steps - 1) // image_visualizer.interval.value + 1
     assert num_eval_tables == 1

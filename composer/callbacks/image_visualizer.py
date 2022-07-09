@@ -10,29 +10,29 @@ from composer.core import Callback, State, Time, TimeUnit
 from composer.loggers import Logger
 from composer.utils.import_helpers import MissingConditionalImportError
 
-__all__ = ['ImageMonitor']
+__all__ = ['ImageVisualizer']
 
 
-class ImageMonitor(Callback):
+class ImageVisualizer(Callback):
     """Logs image inputs and optionally outputs.
 
     This callback triggers at a user defined interval, and logs a sample of input (optionally also segmentation masks)
     images under the ``Images/Train`` and ``Image/Eval`` keys.
 
     Example:
-    .. doctest::
+        .. doctest::
 
-        >>> from composer import Trainer
-        >>> from composer.callbacks import ImageMonitor
-        >>> # constructing trainer object with this callback
-        >>> trainer = Trainer(
-        ...     model=model,
-        ...     train_dataloader=train_dataloader,
-        ...     eval_dataloader=eval_dataloader,
-        ...     optimizers=optimizer,
-        ...     max_duration="1ep",
-        ...     callbacks=[ImageMonitor()],
-        ... )
+            >>> from composer import Trainer
+            >>> from composer.callbacks import ImageVisualizer
+            >>> # constructing trainer object with this callback
+            >>> trainer = Trainer(
+            ...     model=model,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=eval_dataloader,
+            ...     optimizers=optimizer,
+            ...     max_duration="1ep",
+            ...     callbacks=[ImageVisualizer()],
+            ... )
 
     The images are logged by the :class:`.Logger` to the following key(s) as described
     below.
