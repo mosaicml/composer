@@ -210,6 +210,11 @@ class DiceLoss(_Loss):
         self.ignore_absent_classes = ignore_absent_classes
 
     def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+
+        # Get mask of pixels with negative labels
+        pos_ind_mask = target >= 0
+
+        # If target is not one-hot, convert to one-hot
         target = ensure_targets_one_hot(input, target)
 
         if input.shape != target.shape:
@@ -235,6 +240,9 @@ class DiceLoss(_Loss):
         if self.squared_pred:
             target = torch.pow(target, 2)
             input = torch.pow(input, 2)
+
+        # Remove targets with negative labels from input
+        input = pos_ind_mask.unsqueeze(1) * input
 
         ground_o = torch.sum(target, dim=reduce_axis)
         pred_o = torch.sum(input, dim=reduce_axis)
