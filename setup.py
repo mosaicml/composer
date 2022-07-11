@@ -76,8 +76,8 @@ install_requires = [
     'numpy>=1.21.5,<2',
     'psutil>=5.8.0,<6',
     'coolname>=1.1.0,<2',
-    'py-cpuinfo>=8.0.0',
-    'packaging>=21.3.0'
+    'py-cpuinfo>=8.0.0,<9',
+    'packaging>=21.3.0,<22',
 ]
 extra_deps = {}
 
