@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
 import os
 import subprocess
 import sys
@@ -17,6 +18,7 @@ from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.state import State
 from composer.loggers import Logger
+from tests.common.events import EventCounterCallback
 
 
 @pytest.fixture
@@ -272,3 +274,22 @@ def test_engine_closes_on_atexit(exception: bool):
         assert 'ImportError: sys.meta_path is None, Python is likely shutting down' not in proc.stderr
     else:
         check_output(proc)
+
+
+def test_logging(caplog: pytest.LogCaptureFixture, dummy_state: State, dummy_logger: Logger):
+    """Test that engine logs statements as expected"""
+    caplog.set_level(logging.DEBUG, logger=Engine.__module__)
+    # Include a callback, since most logging happens around callback events
+    dummy_state.callbacks = [EventCounterCallback()]
+    engine = Engine(dummy_state, dummy_logger)
+    engine.run_event('INIT')
+    engine.close()
+
+    # Validate that we have the expected log entries
+    assert caplog.record_tuples == [
+        ('composer.core.engine', 10, '[ep=0][ba=0][event=INIT]: Running event'),
+        ('composer.core.engine', 10, '[ep=0][ba=0][event=INIT]: Running callback EventCounterCallback'),
+        ('composer.core.engine', 10, 'Closing the engine'),
+        ('composer.core.engine', 10, 'Closing callback EventCounterCallback'),
+        ('composer.core.engine', 10, 'Post-closing callback EventCounterCallback'),
+    ]

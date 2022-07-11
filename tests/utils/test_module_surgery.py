@@ -96,6 +96,24 @@ def test_module_replacement(model_cls: Type[SimpleReplacementPolicy], recurse_on
     model.validate_replacements(recurse_on_replacements)
 
 
+@pytest.mark.gpu
+def test_module_replacement_gpu():
+    model = SimpleReplacementPolicy()
+    model = model.cuda()
+    module_surgery.replace_module_classes(
+        model,
+        optimizers=None,
+        policies=model.policy(),
+        recurse_on_replacements=False,
+    )
+
+    model.validate_replacements(False)
+
+    # Validate the model devices are correct
+    for p in model.parameters():
+        assert p.device.type == 'cuda'
+
+
 class _CopyLinear(torch.nn.Module):
 
     def __init__(self, in_features: int, out_features: int):
@@ -170,3 +188,27 @@ def test_optimizer_surgery_params_not_removed_still_there(optimizer_surgery_stat
     for module in orig_linear_modules:
         assert isinstance(module.bias, torch.nn.parameter.Parameter)
         assert _param_in_optimizer(module.bias, opt)
+
+
+class ParamTestModel(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+        self.fc1 = nn.Linear(8, 8)
+        self.fc2 = nn.Linear(16, 16)
+        self.fc3 = nn.Linear(32, 32)
+        self.fc4 = nn.Linear(64, 64)
+
+
+def test_update_params_in_optimizer():
+    m1 = ParamTestModel()
+    m2 = ParamTestModel()
+    optimizer = torch.optim.Adam(m1.parameters(), lr=0.01)
+    current_order = list(m2.parameters())
+    module_surgery.update_params_in_optimizer(old_params=m1.parameters(),
+                                              new_params=m2.parameters(),
+                                              optimizers=optimizer)
+    post_replacement_order = optimizer.param_groups[0]['params']
+    for idx, value in enumerate(current_order):
+        assert torch.all(value.eq(post_replacement_order[idx]))

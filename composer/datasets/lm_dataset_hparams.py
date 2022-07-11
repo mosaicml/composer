@@ -4,9 +4,7 @@
 """Generic hyperparameters for self-supervised training of autoregressive and masked language models."""
 
 import logging
-import tempfile
 from dataclasses import dataclass
-from os.path import join
 from typing import List, Optional, cast
 
 import yahp as hp
@@ -136,12 +134,6 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         # flatten merged_dataset
         merged_dataset = [item for sublist in merged_dataset for item in sublist]
         lm_datasets = datasets.concatenate_datasets(merged_dataset)  #type: ignore (thirdparty)
-
-        # generate a cache file name so the training and validation set use the same split
-        indices_cache_file_name = join(tempfile.gettempdir(), f'{self.seed}.indices')
-
-        # shuffle the dataset
-        lm_datasets = lm_datasets.shuffle(indices_cache_file_name=indices_cache_file_name, seed=self.seed)
 
         total_num_samples = len(lm_datasets)
         tokens_per_sample = len(lm_datasets[0]['input_ids'])  #type: ignore (thirdparty)

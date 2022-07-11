@@ -47,6 +47,7 @@ Attributes:
 
 from __future__ import annotations
 
+import logging
 import os
 import random
 import textwrap
@@ -68,6 +69,8 @@ __all__ = [
     'load_rng_state',
     'MAX_SEED',
 ]
+
+log = logging.getLogger(__name__)
 
 # seeds must be 32-bit unsigned integers
 MAX_SEED = 2**32 - 1
@@ -153,6 +156,7 @@ def seed_all(seed: int):
     """
     if seed < 0 or seed > MAX_SEED:
         raise ValueError(f'Seed {seed} is invalid. It must be on [0; 2^32 - 1]')
+    log.info('Setting seed to %d', seed)
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -207,6 +211,8 @@ def load_rng_state(rng_state_dicts: List[Dict[str, Any]]):
 
         is_cuda_available = torch.cuda.is_available() and torch.cuda.is_initialized()
         has_cuda_rng_state = 'cuda' in rng_state_dict
+
+        log.debug('Restoring the RNG state')
 
         if is_cuda_available and has_cuda_rng_state:
             torch.cuda.set_rng_state(rng_state_dict['cuda'])

@@ -24,6 +24,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric, MetricCollection
 
+from composer.algorithms import GradientClipping
 from composer.callbacks import CheckpointSaver
 from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp,
                            ensure_data_spec, ensure_evaluator, ensure_time)
@@ -40,9 +41,9 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
-from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, module_surgery,
-                            reproducibility)
+from composer.utils import ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, reproducibility
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
+from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
@@ -204,15 +205,13 @@ def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrateg
     return ddp_sync_strategy
 
 
-def _get_run_name(run_name: Optional[str]) -> str:
-    generated_run_name = run_name
-    if generated_run_name is None:
-        # prefixing with the time so experiments sorted alphabetically will have the latest experiment last
-        generated_run_name = str(int(time.time())) + '-' + coolname.generate_slug(2)
-        run_name_list = [generated_run_name]
-        # ensure all ranks have the same experiment name
-        dist.broadcast_object_list(run_name_list)
-        generated_run_name = run_name_list[0]
+def _generate_run_name() -> str:
+    # prefixing with the time so experiments sorted alphabetically will have the latest experiment last
+    generated_run_name = str(int(time.time())) + '-' + coolname.generate_slug(2)
+    run_name_list = [generated_run_name]
+    # ensure all ranks have the same experiment name
+    dist.broadcast_object_list(run_name_list)
+    generated_run_name = run_name_list[0]
     return generated_run_name
 
 
@@ -367,8 +366,9 @@ class Trainer:
             :class:`.Evaluator`. If a :class:`.DataSpec` or :class:`.DataLoader` is passed in, then all
             metrics returned by ``model.metrics()`` will be used during evaluation.
             ``None`` results in no evaluation. (default: ``None``)
-        eval_interval (int | str | Time | (State, Event) -> bool, optional): An integer, which will be
-            interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time` object, or a callable.
+        eval_interval (int | str | Time | (State, Event) -> bool, optional): Specifies how frequently to run evaluation.
+            An integer, which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time`
+            object, or a callable.
             Defaults to ``1`` (evaluate every epoch).
 
             If an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the evaluator will be run
@@ -613,7 +613,7 @@ class Trainer:
             .. note:: This is implemented by taking the batch yielded by the ``train_dataloader`` and splitting
                 it into ``grad_accum`` sections. Each section is of size ``train_dataloader // grad_accum``.
                 If the batch size of the dataloader is not divisible by ``grad_accum``,
-                then the last section will be of size ``batch_size % grad_accum``.
+                then the last section will be of size ``batch_size mod grad_accum``.
         seed (int, optional): The seed used in randomization. If ``None``, then a random seed
             will be created. (default: ``None``)
 
@@ -639,7 +639,10 @@ class Trainer:
             Leave unset to let the trainer auto-configure this. See :class:`.DDPSyncStrategy`
             for more details.
         grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to ``-1`` for no gradient
-            clipping. (default: ``-1``)
+            clipping. (default: ``-1``).
+
+            .. deprecated:: 0.8
+               Deprecated. Please use composer.algorithms.GradientClipping.
         profiler (Profiler, optional): The profiler, if profiling should be enabled. (default: ``None``)
 
             .. seealso::
@@ -706,8 +709,8 @@ class Trainer:
         save_folder: Optional[str] = None,
         save_filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
         save_artifact_name: str = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
-        save_latest_filename: str = 'latest-rank{rank}',
-        save_latest_artifact_name: str = '{run_name}/checkpoints/latest-rank{rank}',
+        save_latest_filename: Optional[str] = 'latest-rank{rank}',
+        save_latest_artifact_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
@@ -738,6 +741,8 @@ class Trainer:
         # Profiling
         profiler: Optional[Profiler] = None,
     ):
+        algorithms = list(ensure_tuple(algorithms))
+
         # Determine whether DeepSpeed is enabled
         deepspeed_enabled = deepspeed_config is not None
 
@@ -754,7 +759,6 @@ class Trainer:
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, self._device)
         # If hparams is used to create the Trainer this function is called twice
         # which is okay because all runs with the hparams codepath will do this
-        log.info(f'Setting seed to {seed}')
         reproducibility.seed_all(seed)
         if deterministic_mode:
             reproducibility.configure_deterministic_mode()
@@ -767,7 +771,7 @@ class Trainer:
 
         _validate_precision(precision, self._device, deepspeed_enabled)
 
-        # optimizers and schedulers
+        # Optimizers and Schedulers
         if not optimizers:
             optimizers = DecoupledSGDW(list(model.parameters()), lr=0.1)
             # hard-coding the optimizer in the warning, as repr(optimizers) would print an annoying, multi-line warning
@@ -778,12 +782,39 @@ class Trainer:
         if num_optimizers != 1:
             raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
+        # Move the model and optimizers to the device
+        if not deepspeed_enabled:
+            model = self._device.module_to_device(model)
+            # Move any remaining optimizer parameters onto the device
+            # It is possible that optimizer initialize created some internal tensors on CPU
+            # that need to be moved onto GPU.
+            optimizers = map_collection(optimizers, self._device.optimizer_to_device)
+
         # Grad Accum
         self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
         grad_accum = _get_initial_grad_accum(grad_accum)
 
+        # Grad Clip Norm
+        if grad_clip_norm > 0:
+
+            warnings.warn(
+                DeprecationWarning((f"Using the 'grad_clip_norm' field in Trainer is deprecated. Please use"
+                                    'the GradientClipping Algorithm in composer.algorithms.gradient_clipping.')))
+
+            if any(isinstance(alg, GradientClipping) for alg in algorithms):
+                warnings.warn(
+                    UserWarning(
+                        f'The GradientClipping algorithm is already specified. Ignoring grad_clip_norm={grad_clip_norm}'
+                    ))
+            else:
+                algorithms.append(GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm))
+
         # Run Name
-        run_name = _get_run_name(run_name=run_name)
+        if run_name is None:
+            if autoresume:
+                raise ValueError('When autoresume=True, the `run_name` must be specified.')
+            run_name = _generate_run_name()
+        log.info('Run name: %s', run_name)
 
         # Create the State
         self.state = State(rank_zero_seed=rank_zero_seed,
@@ -793,7 +824,8 @@ class Trainer:
                            grad_accum=grad_accum,
                            precision=precision,
                            optimizers=optimizers,
-                           run_name=run_name)
+                           run_name=run_name,
+                           deepspeed_config=deepspeed_config)
 
         # Profiler
         if profiler is not None:
@@ -901,16 +933,13 @@ class Trainer:
                 raise ValueError('Specifying `eval_interval` without an `eval_dataloader` has no effect.')
         self.state.evaluators = evaluators
 
-        # Grad Clip Norm
-        self._grad_clip_norm = grad_clip_norm
-
         # Some algorithms require specific settings
         self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, ensure_tuple(algorithms)))
         self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, ensure_tuple(algorithms)))
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
 
         # Configure Deepspeed
-        if deepspeed_config is not None:
+        if self.state.deepspeed_config is not None:
             try:
                 import deepspeed
             except ImportError as e:
@@ -919,17 +948,12 @@ class Trainer:
                     conda_package='deepspeed>=0.5.5',
                     conda_channel=None,
                 ) from e
-            deepspeed_config = _parse_deepspeed_config(
-                deepspeed_config,
-                state=self.state,
-                grad_clip_norm=self._grad_clip_norm,
-            )
+            self.state.deepspeed_config = _parse_deepspeed_config(self.state.deepspeed_config, state=self.state)
             optimizer = ensure_tuple(self.state.optimizers)[0]
-            (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
-                config=deepspeed_config,
-                model=self.state.model,
-                optimizer=optimizer,
-            )
+            log.debug('Initializing deepspeed')
+            (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(config=self.state.deepspeed_config,
+                                                                                   model=self.state.model,
+                                                                                   optimizer=optimizer)
             # Since the DeepSpeed ZeRO optimizer does not inherit torch.optim.Optimizer, the schedulers must be
             # compiled and bound BEFORE DeepSpeed initialization. However, this is OK, as the the DeepSpeed Zero
             # optimizer uses the same underlying parameter groups as the original optimizer. See
@@ -951,23 +975,40 @@ class Trainer:
         self._rng_state = None
         # If autoresume is enabled, first check for existing checkpoints to load
         if autoresume:
-            latest_checkpoint_path = self._determine_autoresume_load_path(
+            log.info('Searching for a previous checkpoint to autoresume')
+            if save_folder is None:
+                raise ValueError('The `save_folder` must be specified when autoresume is enabled.')
+            if save_overwrite:
+                raise ValueError(
+                    'The flag `save_overwrite` must be False when autoresume is enabled as autoresume always loads the '
+                    'latest existing checkpoint in `save_folder`.')
+            if save_latest_filename is None:
+                raise ValueError(
+                    'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from.')
+            if save_latest_artifact_name is None:
+                raise ValueError(
+                    'The `save_latest_artifact_name` must be specified so autoresume can load the latest checkpoint.')
+            if run_name is None:
+                raise ValueError(
+                    'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
+                )
+            autoresume_checkpoint_path = self._get_autoresume_checkpoint(
                 save_folder=save_folder,
-                save_overwrite=save_overwrite,
                 save_latest_filename=save_latest_filename,
-                run_name=run_name,
                 save_latest_artifact_name=save_latest_artifact_name,
                 loggers=loggers,
                 load_progress_bar=load_progress_bar)
             # Found latest checkpoint path, load that instead
-            if latest_checkpoint_path:
-                load_path = latest_checkpoint_path
-                # Disable object_store and load_weights_only since we're autoresuming locally
+            if autoresume_checkpoint_path:
+                load_path = autoresume_checkpoint_path
+                # Disable object_store since _get_autoresume_checkpoint will download the checkpoint
+                # To the save folder, if needed.
                 load_object_store = None
+                # Disable `load_weights_only` since this applies only to the initial training run
                 load_weights_only = False
-                log.info(
-                    f'Found latest checkpoint at {latest_checkpoint_path}, loading instead of load_path {load_path} as autoresume enabled.'
-                )
+                log.info('Autoresuming training from checkpoint')
+            else:
+                log.info('No previous autoresume checkpoint found')
         # Actually load the checkpoint from potentially updated arguments
         if load_path is not None:
             self._rng_state = load_checkpoint(
@@ -979,30 +1020,20 @@ class Trainer:
                 progress_bar=load_progress_bar,
                 ignore_keys=load_ignore_keys,
             )
-            # Always override run_name so it is consistent with what was used for Event.INIT. In the future, we'll use the loaded name
-            # and not require run_name
             self.state.run_name = run_name
-            log.info(f'Setting seed to {self.state.seed}')
-            reproducibility.seed_all(self.state.seed)
+
+        # reseed here. This helps with a couple of issues:
+        # 1. rng state may change at Event.INIT. For example, if an algorithm creates a new module and module
+        # parameters are initialized randomly, rng state will change. This reseeding nullifies such effects.
+        # 2. While resuming from a checkpoint, we want to spin dataloader and bring it back to the same state as at the time
+        # of the checkpoint. Therefore, spinning needs to start from the same rng state as in the original run.
+        log.info(f'Setting seed to {self.state.seed}')
+        reproducibility.seed_all(self.state.seed)
 
         # Move the model and optimizers to the specified device
-        if not self.deepspeed_enabled:
-            host_model_params = self.state.model.parameters()
-            self.state.model = self._device.module_to_device(self.state.model)
-            device_model_params = self.state.model.parameters()
-
-            # use surgery to update the parameters of the optimizers, now that the model is on the device
-            # see https://pytorch.org/docs/stable/optim.html#constructing-it
-            module_surgery.replace_params_in_optimizer(old_params=host_model_params,
-                                                       new_params=device_model_params,
-                                                       optimizers=self.state.optimizers)
-
-            # Move any remaining optimizer parameters onto the device
-            self.state.optimizers = map_collection(self.state.optimizers, self._device.optimizer_to_device)
-
-            if dist.get_world_size() > 1:
-                # Only wrap the module if required
-                self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
+        if not self.deepspeed_enabled and dist.get_world_size() > 1:
+            # Only wrap the module if required
+            self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
     @property
     def deepspeed_enabled(self):
@@ -1032,36 +1063,26 @@ class Trainer:
             return []
         return self._checkpoint_saver.saved_checkpoints
 
-    def _determine_autoresume_load_path(
+    def _get_autoresume_checkpoint(
         self,
-        save_folder: Optional[str],
-        save_overwrite: bool,
+        save_folder: str,
         save_latest_filename: str,
-        run_name: Optional[str],
         save_latest_artifact_name: str,
-        loggers: List[LoggerDestination],
+        loggers: Sequence[LoggerDestination],
         load_progress_bar: bool,
     ):
         """Determines the load path when using autoresume.
 
-        First, check for latest checkpoint locally. If none is found, check loggers
-        for checkpoint. If any checkpoint is found, load that instead of load_path. If none are found,
-        use the user specified load_path.
+        First, check the ``save_folder`` for the latest checkpoint.
+        If no latest checkpoint is found locally, then check each logger for the latest checkpoint, and download
+        it to the ``save_folder``.
+
+        Returns:
+            Optional[str]: The path to the latest checkpoint, if found, otherwise None.
         """
-        if save_folder is None:
-            raise ValueError('save_folder must be specified when autoresume is enabled.')
-        if save_overwrite:
-            raise ValueError(
-                'save_overwrite must be False when autoresume is enabled as autoresume always loads the latest existing checkpoint in save_folder.'
-            )
-        if save_latest_filename is None:
-            raise ValueError(
-                'save_latest_filename must be specified so autoresume knows where to load checkpoints from.')
-        if run_name is None:
-            raise ValueError('run_name must be specified so autoresume knows which run to load from.')
-        save_latest_filename = format_name_with_dist(save_latest_filename, run_name)
-        save_folder = format_name_with_dist(save_folder, run_name)
-        save_latest_artifact_name = format_name_with_dist(save_latest_artifact_name, run_name)
+        save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
+        save_folder = format_name_with_dist(save_folder, self.state.run_name)
+        save_latest_artifact_name = format_name_with_dist(save_latest_artifact_name, self.state.run_name)
         latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
         # If latest checkpoint is not saved locally, try to fetch from loggers
         if not os.path.exists(latest_checkpoint_path):
@@ -1070,9 +1091,13 @@ class Trainer:
             for logger in loggers:
                 try:
                     # Fetch from logger. If it succeeds, stop trying the rest of the loggers
-                    logger.get_file_artifact(artifact_name=save_latest_artifact_name,
-                                             destination=latest_checkpoint_path,
-                                             progress_bar=load_progress_bar)
+                    get_file(
+                        path=save_latest_artifact_name,
+                        destination=latest_checkpoint_path,
+                        object_store=logger,
+                        overwrite=True,
+                        progress_bar=load_progress_bar,
+                    )
                     break
                 except (NotImplementedError, FileNotFoundError):
                     # Ignore errors caused by no checkpoint saved with logger
@@ -1112,9 +1137,6 @@ class Trainer:
         # Numerics
         grad_accum: Optional[Union[int, str]] = None,
         precision: Optional[Union[str, Precision]] = None,
-
-        # Grad Clipping
-        grad_clip_norm: Optional[float] = None,
     ):
         """Train the model.
 
@@ -1196,7 +1218,7 @@ class Trainer:
                 If ``True``, the timestamp will be zeroed out, causing :class:`.ComposerScheduler` and
                 :class:`.Algorithm` instances to start from the beginning, as if it is a new training run. The model
                 will be trained for ``duration``, if specified, or for :attr:`.State.max_duration`, which would have
-                been provided when construting the :class:`.Trainer` or by a previous call to :meth:`.fit`.
+                been provided when constructing the :class:`.Trainer` or by a previous call to :meth:`.fit`.
 
                 .. note::
 
@@ -1224,12 +1246,6 @@ class Trainer:
             eval_interval (int | str | Time | (State, Event) -> bool, optional): See :class:`.Trainer`.
             grad_accum (int | str, optional): See :class:`.Trainer`.
             precision (Precision | str, optional): See :class:`.Trainer`.
-            grad_clip_norm (float, optional): See :class:`.Trainer`.
-
-                .. note::
-
-                    If using DeepSpeed, it is not possible to change the ``grad_clip_norm``. Instead, it must
-                    be specified when constructing the Trainer.
         """
         # Train Dataloader
         if train_dataloader is not None:
@@ -1314,12 +1330,6 @@ class Trainer:
             self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
             self.state.grad_accum = _get_initial_grad_accum(grad_accum)
 
-        # Grad Clip Norm
-        if grad_clip_norm is not None:
-            if self.deepspeed_enabled:
-                raise ValueError('Changing the grad_clip_norm when using DeepSpeed is not supported.')
-            self._grad_clip_norm = grad_clip_norm
-
         # Precision
         if precision is not None:
             if self.deepspeed_enabled:
@@ -1373,6 +1383,7 @@ class Trainer:
         """
         # spin the evaluator dataloaders once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
+        log.debug('Spinning the dataloaders')
         for evaluator in self.state.evaluators:
             dataloader = evaluator.dataloader.dataloader
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
@@ -1414,7 +1425,8 @@ class Trainer:
     def _train_loop(self) -> None:
         """Run training for the specified number of epochs and log results."""
         # print training start
-        self.logger.data_fit({'trainer/algorithms': [str(algo) for algo in self.state.algorithms]})
+        log.info('Using precision %s', self.state.precision)
+        self.logger.data_fit({algo.__class__.__name__: 1 for algo in self.state.algorithms})
 
         assert self.state.dataloader is not None, 'dataloader is set in __init__() or fit()'
         assert self._train_data_spec is not None, 'The train data spec is set in __init__() or fit()'
@@ -1647,9 +1659,8 @@ class Trainer:
                         else:
                             optimizer.step()
             except RuntimeError as e:
-                if _is_cuda_oom(e):
-                    log.debug((f"Rank {dist.get_global_rank()} OOM'd. "
-                               'grad_accum will be increased prior to reattempting training on the current batch.'))
+                if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
+                    log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     should_handle_cuda_oom = 1
                 elif 'Timed out' in str(e):
                     # Catch timeout errors and only reraise if we did not encounter OOM on other ranks. Error
@@ -1673,14 +1684,18 @@ class Trainer:
                         ('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
                          'The GPU does not have enough memory to process even 1 sample.'))
                 else:
+                    original_grad_accum = self.state.grad_accum
                     self.state.grad_accum = min(2 * self.state.grad_accum, device_batch_size)
-                    self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
+                    log.info(('CUDA out of memory detected. Gradient Accumulation '
+                              f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
+                              'and the batch will be retrained.'))
             elif caught_timeout_error:
                 # If not CUDA out of memory, raise exception to user. Note that this truncates the call stack
                 # back only to this newly raised error.
                 raise caught_timeout_error
             else:
-                # Otherwise, return calculated loss
+                # Otherwise, log grad_accum and return calculated loss
+                self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
                 return total_loss
 
     def _train_microbatches(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
@@ -1723,13 +1738,6 @@ class Trainer:
             if use_grad_scaling:
                 for optimizer in ensure_tuple(self.state.optimizers):
                     self.state.scaler.unscale_(optimizer)
-
-            # clip gradients if the magnitude is too large
-            if not self.deepspeed_enabled and self._grad_clip_norm >= 0:
-                torch.nn.utils.clip_grad_norm_(
-                    parameters=self.state.model.parameters(),
-                    max_norm=self._grad_clip_norm,
-                )
 
             self.engine.run_event(Event.AFTER_TRAIN_BATCH)
 
@@ -1800,8 +1808,10 @@ class Trainer:
                     loss.mul_(microbatch_num_samples / current_batch_size)
                     total_loss += loss.detach().clone()
             else:
+                final_loss = self._device.tensor_to_device(torch.zeros(size=(1,)))
                 for loss in ensure_tuple(self.state.loss):
-                    loss.backward(create_graph=self._backwards_create_graph)
+                    final_loss += loss
+                final_loss.backward(create_graph=self._backwards_create_graph)
 
             self.engine.run_event(Event.AFTER_BACKWARD)
 
@@ -1978,7 +1988,6 @@ class Trainer:
                 self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
                 metrics.update(self.state.outputs, targets)
-                self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics, log_level=log_level)
 
                 now = datetime.datetime.now()
                 batch_time = now - last_wct
