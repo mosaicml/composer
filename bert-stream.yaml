@@ -62,7 +62,7 @@ callbacks:
   - speed_monitor:
       window_size: 500
   - lr_monitor: {}
-max_duration: 1ep
+max_duration: 1000ba
 train_batch_size: 2000
 eval_batch_size: 1000
 seed: 3407
@@ -77,7 +77,7 @@ dataloader:
 precision: amp
 grad_clip_norm: -1.0
 eval_interval: 3500ba
-save_folder: bert_checkpoints
+#save_folder: bert_checkpoints
 save_interval: 3500ba
-save_artifact_name: "{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}-{total_wct}wct"
+#save_artifact_name: "{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}-{total_wct}wct"
 grad_accum: 1
