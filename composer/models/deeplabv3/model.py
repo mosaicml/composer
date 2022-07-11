@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from torchmetrics import MetricCollection
 from torchvision.models import _utils, resnet
 
-from composer.loss.loss import DiceLoss, soft_cross_entropy
+from composer.loss import DiceLoss, soft_cross_entropy
 from composer.metrics import CrossEntropy, MIoU
 from composer.models.initializers import Initializer
 from composer.models.tasks import ComposerClassifier
