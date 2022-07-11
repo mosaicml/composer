@@ -9,9 +9,10 @@ import os
 import shutil
 import time
 import urllib.parse
-from typing import Optional
+from typing import Optional, Union
 
 from composer.datasets.streaming.format import split_compression_suffix
+from composer.utils.object_store.object_store import ObjectStore
 # TODO: refactor to use object store for download, until then, use this private method.
 from composer.utils.object_store.s3_object_store import S3ObjectStore
 from composer.utils.object_store.sftp_object_store import SFTPObjectStore
@@ -93,7 +94,7 @@ def download_from_local(remote: str, local: str) -> None:
     os.rename(local_tmp, local)
 
 
-def dispatch_download(remote: Optional[str], local: str, timeout: float):
+def dispatch_download(remote: Optional[Union[str, ObjectStore]], local: str, timeout: float):
     """Use the correct download handler to download the file
 
     Args:
