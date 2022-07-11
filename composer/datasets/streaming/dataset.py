@@ -139,9 +139,10 @@ class StreamingDataset(IterableDataset):
         self.batch_size = batch_size
 
         self.compression_scheme = None
-        if remote is not None and dist.get_global_rank() == 0:
+        if remote is not None:
             try:
-                compression_local = self._download_file(get_compression_scheme_basename())
+                compression_local = self._download_file(get_compression_scheme_basename(),
+                                                        wait=(dist.get_local_rank() != 0))
                 with open(compression_local, 'r') as fp:
                     compression_scheme = fp.read().rstrip()
                     self.compression_scheme = compression_scheme if compression_scheme != '' else None
@@ -153,11 +154,6 @@ class StreamingDataset(IterableDataset):
 
             except FileNotFoundError:
                 pass
-
-        # Broadcast compression scheme to all ranks
-        compression_scheme_list = [self.compression_scheme]
-        dist.broadcast_object_list(compression_scheme_list)
-        self.compression_scheme = compression_scheme_list[0]
 
         # Load the index file containing the shard metadata
         # This file contains the shard and offset in bytes of each sample (for direct access).
