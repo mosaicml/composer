@@ -7,7 +7,6 @@
 import gzip as gz
 import os
 from io import BufferedWriter
-from threading import Thread
 from types import TracebackType
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 
@@ -124,18 +123,15 @@ class StreamingDatasetWriter(object):
         else:
             raise NotImplementedError('unknown compression algorithm')
 
-    def _thread_flush_shard(self, samples, filename):
-        with self._create_binary_file(filename) as out:
-            for data in samples:
-                out.write(data)
-
     def _flush_shard(self) -> None:
         """Flush cached samples to a new dataset shard."""
         shard = len(self.samples_per_shard)
         basename = get_shard_basename(shard, compression_name=self.compression_scheme)
         filename = os.path.join(self.dirname, basename)
 
-        Thread(target=self._thread_flush_shard, args=(self.new_samples, filename), daemon=False).start()
+        with self._create_binary_file(filename) as out:
+            for data in self.new_samples:
+                out.write(data)
 
         self.samples_per_shard.append(len(self.new_samples))
         self.bytes_per_shard.append(self.new_shard_size)
