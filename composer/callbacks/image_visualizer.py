@@ -5,6 +5,8 @@
 from typing import Any, Callable, Tuple, Union
 
 import torch
+from numpy import ndarray
+from PIL import Image
 
 from composer.core import Callback, State, Time, TimeUnit
 from composer.loggers import Logger
@@ -102,6 +104,10 @@ class ImageVisualizer(Callback):
 
     def _log_inputs(self, state: State, logger: Logger, key: str):
         inputs = state.batch_get_item(key=self.input_key)
+        if isinstance(inputs, ndarray):
+            raise NotImplementedError('Input numpy array not supported yet')
+        if isinstance(inputs, Image.Image):
+            raise NotImplementedError('Input PIL image not supported yet')
         if not isinstance(inputs, torch.Tensor):
             raise NotImplementedError('Multiple input tensors not supported yet')
         # Verify inputs is a valid shape for conversion to an image
@@ -113,7 +119,10 @@ class ImageVisualizer(Callback):
         inputs = state.batch_get_item(key=self.input_key)
         targets = state.batch_get_item(key=self.target_key)
         outputs = state.outputs
-
+        if isinstance(inputs, ndarray):
+            raise NotImplementedError('Input numpy array not supported yet')
+        if isinstance(inputs, Image.Image):
+            raise NotImplementedError('Input PIL image not supported yet')
         if not isinstance(inputs, torch.Tensor):
             raise NotImplementedError('Multiple input tensors not supported yet')
         if not isinstance(targets, torch.Tensor):
@@ -164,7 +173,6 @@ def _make_segmentation_images(inputs: torch.Tensor, targets: torch.Tensor, outpu
         num_images = min([inputs.shape[0], targets.shape[0], outputs.shape[0]])
     images = inputs[0:num_images].data.cpu().permute(0, 2, 3, 1).numpy()
     targets = targets[0:num_images]
-    outputs = outputs[0:num_images]
     # Convert outputs to segmentation masks. Assume channels are first dim
     outputs = outputs[0:num_images]
     num_classes = outputs.shape[1]
@@ -186,4 +194,6 @@ def _make_segmentation_images(inputs: torch.Tensor, targets: torch.Tensor, outpu
 
 
 def _check_for_image_format(data: torch.Tensor) -> bool:
+    if not isinstance(data, torch.Tensor):
+        raise NotImplementedError('Multiple tensors not supported yet')
     return data.ndim in [3, 4] and data.numel() > data.shape[0]
