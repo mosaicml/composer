@@ -61,6 +61,7 @@ class ImageVisualizer(Callback):
         num_images (int, optional): Number of images to log. Should be less than or equal to than the microbatch size.
             If there are not enough images in the microbatch, all the images in the microbatch will be logged.
             Default: ``8``.
+        channels_last (bool, optional): Whether the image channel dimension is the last dimension. Default: ``False``.
         input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first
@@ -75,10 +76,12 @@ class ImageVisualizer(Callback):
                  interval: Union[int, str, Time] = '100ba',
                  mode: str = 'input',
                  num_images: int = 8,
+                 channels_last: bool = False,
                  input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
                  target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1):
         self.mode = mode
         self.num_images = num_images
+        self.channels_last = channels_last
         self.input_key = input_key
         self.target_key = target_key
 
@@ -116,7 +119,7 @@ class ImageVisualizer(Callback):
             raise NotImplementedError('Multiple input tensors not supported yet')
         # Verify inputs is a valid shape for conversion to an image
         if _check_for_image_format(inputs):
-            table = _make_input_images(inputs, self.num_images)
+            table = _make_input_images(inputs, self.num_images, self.channels_last)
             # Only log to the wandb logger if it is available
             for destination in ensure_tuple(logger.destinations):
                 if isinstance(destination, WandBLogger) or isinstance(destination, InMemoryLogger):
@@ -137,7 +140,7 @@ class ImageVisualizer(Callback):
         if not isinstance(outputs, torch.Tensor):
             raise NotImplementedError('Multiple output tensors not supported yet')
 
-        table = _make_segmentation_images(inputs, targets, outputs, self.num_images)
+        table = _make_segmentation_images(inputs, targets, outputs, self.num_images, self.channels_last)
         # Only log to the wandb logger if it is available
         for destination in ensure_tuple(logger.destinations):
             if isinstance(destination, WandBLogger) or isinstance(destination, InMemoryLogger):
@@ -161,11 +164,14 @@ class ImageVisualizer(Callback):
             self._log_segmented_inputs(state, logger, 'Images/Eval')
 
 
-def _make_input_images(inputs: torch.Tensor, num_images: int):
+def _make_input_images(inputs: torch.Tensor, num_images: int, channels_last: bool = False):
     import wandb
     if inputs.shape[0] < num_images:
         num_images = inputs.shape[0]
-    images = inputs[0:num_images].data.cpu().permute(0, 2, 3, 1).numpy()
+    if channels_last:
+        images = inputs[0:num_images].data.cpu().numpy()
+    else:
+        images = inputs[0:num_images].data.cpu().permute(0, 2, 3, 1).numpy()
     table = wandb.Table(columns=['Image'])
     for image in images:
         img = wandb.Image(image)
@@ -173,22 +179,35 @@ def _make_input_images(inputs: torch.Tensor, num_images: int):
     return table
 
 
-def _make_segmentation_images(inputs: torch.Tensor, targets: torch.Tensor, outputs: torch.Tensor, num_images: int):
+def _make_segmentation_images(inputs: torch.Tensor,
+                              targets: torch.Tensor,
+                              outputs: torch.Tensor,
+                              num_images: int,
+                              channels_last: bool = False):
     import wandb
     if min([inputs.shape[0], targets.shape[0], outputs.shape[0]]) < num_images:
         num_images = min([inputs.shape[0], targets.shape[0], outputs.shape[0]])
-    images = inputs[0:num_images].data.cpu().permute(0, 2, 3, 1).numpy()
+    if channels_last:
+        images = inputs[0:num_images].data.cpu().numpy()
+    else:
+        images = inputs[0:num_images].data.cpu().permute(0, 2, 3, 1).numpy()
     targets = targets[0:num_images]
-    # Convert outputs to segmentation masks. Assume channels are first dim
     outputs = outputs[0:num_images]
     # Ensure the targets are in the expected format
     if infer_target_type(outputs, targets) == 'one_hot':
-        targets = targets.argmax(dim=1).data.cpu().numpy()
+        if channels_last:
+            targets = targets.argmax(dim=-1).data.cpu().numpy()
+        else:
+            targets = targets.argmax(dim=1).data.cpu().numpy()
     else:
         targets = targets.data.cpu().numpy()
     # Convert the outputs to the expected format
-    num_classes = outputs.shape[1]
-    outputs = outputs.argmax(dim=1).cpu().numpy()
+    if channels_last:
+        num_classes = outputs.shape[-1]
+        outputs = outputs.argmax(dim=-1).cpu().numpy()
+    else:
+        num_classes = outputs.shape[1]
+        outputs = outputs.argmax(dim=1).cpu().numpy()
     # Adjust targets such that negative values are mapped to one higher than the maximum class
     targets[targets < 0] = num_classes
     # Create a table of images and their corresponding segmentation masks
