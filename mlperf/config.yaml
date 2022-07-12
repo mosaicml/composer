@@ -1,4 +1,4 @@
-run_name: resnet50-methods
+#run_name: resnet50-methods
 model:
   resnet:
     model_name: resnet50
@@ -9,35 +9,25 @@ model:
       - linear_log_constant_bias
     num_classes: 1000
 algorithms:
-  - blurpool: {}
-  - channels_last: {}
-  - label_smoothing:
-      smoothing: 0.08
-  - progressive_resizing: {}
-  - ema:
-      half_life: 200ba
+  #- blurpool: {}
+  #- label_smoothing:
+  #    smoothing: 0.08
+  #- progressive_resizing: {}
+  #- ema:
+  #    half_life: 200ba
 callbacks:
   speed_monitor:
 train_dataset:
-  imagenet:
-    #datadir: /tmp/ILSVRC/Data/CLS-LOC/
-    use_synthetic: true
-    resize_size: -1
-    crop_size: 176 
-    is_train: true
+  streaming_imagenet1k: # Configuration for ImageNet training data
+    split: train
     shuffle: true
     drop_last: true
-    use_ffcv: true
 val_dataset:
-  imagenet:
-    #datadir: /tmp/ILSVRC/Data/CLS-LOC/
-    use_synthetic: true
-    resize_size: 232
-    crop_size: 224
-    is_train: false
+  streaming_imagenet1k: # Configuration for ImageNet validation data
+    split: val
+    #resize_size: 256
     shuffle: false
     drop_last: false
-    use_ffcv: true
 optimizers:
   decoupled_sgdw:
     lr: 2.048
@@ -45,11 +35,10 @@ optimizers:
     weight_decay: 5.0e-4
     dampening: 0
     nesterov: false
-scale_schedule_ratio: 0.32
 schedulers:
   - cosine_decay_with_warmup:
       t_warmup: "8ep"
-max_duration: 30ep
+max_duration: 10ep
 train_batch_size: 2048
 eval_batch_size: 2048
 eval_interval: 3
