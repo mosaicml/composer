@@ -8,6 +8,7 @@ import torch
 
 from composer.core import Callback, State, Time, TimeUnit
 from composer.loggers import Logger
+from composer.loss.utils import infer_target_type
 from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['ImageVisualizer']
@@ -54,10 +55,6 @@ class ImageVisualizer(Callback):
         num_images (int, optional): Number of images to log. Should be less than or equal to than the microbatch size.
             If there are not enough images in the microbatch, all the images in the microbatch will be logged.
             Default: ``8``.
-        shift_targets (bool): For use when ``mode="segmentation"``. Optionally shifts the target classes up by one to
-            allow for ignored/background classes with negative values. If ``shift_targets=True``, all class ids will be
-            incremented by 1, and any pixels with negative target indices will be assigned a target index of zero.
-            Default: ``False``.
         input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first
@@ -72,13 +69,11 @@ class ImageVisualizer(Callback):
                  interval: str = '100ba',
                  mode: str = 'input',
                  num_images: int = 8,
-                 shift_targets: bool = False,
                  input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
                  target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1):
         self.interval = interval
         self.mode = mode
         self.num_images = num_images
-        self.shift_targets = shift_targets
         self.input_key = input_key
         self.target_key = target_key
 
@@ -126,7 +121,7 @@ class ImageVisualizer(Callback):
         if not isinstance(outputs, torch.Tensor):
             raise NotImplementedError('Multiple output tensors not supported yet')
 
-        table = _make_segmentation_images(inputs, targets, outputs, self.num_images, self.shift_targets)
+        table = _make_segmentation_images(inputs, targets, outputs, self.num_images)
         logger.data_batch({key: table})
 
     def before_forward(self, state: State, logger: Logger):
@@ -163,25 +158,25 @@ def _make_input_images(inputs: torch.Tensor, num_images: int):
     return table
 
 
-def _make_segmentation_images(inputs: torch.Tensor,
-                              targets: torch.Tensor,
-                              outputs: torch.Tensor,
-                              num_images: int,
-                              shift_targets: bool = False):
+def _make_segmentation_images(inputs: torch.Tensor, targets: torch.Tensor, outputs: torch.Tensor, num_images: int):
     import wandb
     if min([inputs.shape[0], targets.shape[0], outputs.shape[0]]) < num_images:
         num_images = min([inputs.shape[0], targets.shape[0], outputs.shape[0]])
     images = inputs[0:num_images].data.cpu().permute(0, 2, 3, 1).numpy()
-    targets = targets[0:num_images].data.cpu().numpy()
+    targets = targets[0:num_images]
     outputs = outputs[0:num_images]
     # Convert outputs to segmentation masks. Assume channels are first dim
     outputs = outputs[0:num_images]
+    num_classes = outputs.shape[1]
     outputs = outputs.argmax(dim=1).cpu().numpy()
-    # Shift targets such that negative values are mapped to 0
-    if shift_targets:
-        targets += 1
-        targets[targets < 0] = 0
-        outputs += 1
+    # Ensure the targets are in the expected format
+    if infer_target_type(outputs, targets) == 'one_hot':
+        targets = targets.argmax(dim=1).data.cpu().numpy()
+    else:
+        targets = targets.data.cpu().numpy()
+    # Adjust targets such that negative values are mapped to one higher than the maximum class
+    targets[targets < 0] = num_classes
+    # Create a table of images and their corresponding segmentation masks
     table = wandb.Table(columns=['Image'])
     for image, target, prediction in zip(images, targets, outputs):
         mask = {'ground truth': {'mask_data': target}, 'prediction': {'mask_data': prediction}}
