@@ -88,8 +88,7 @@ class TestDiceLoss:
     @pytest.fixture()
     def target(self):
         target = torch.tensor([[[-1], [0], [1], [2]]]).repeat(1, 1, 4)
-        target = torch.cat([target, target[..., [1, 2, 3, 0]], target[..., [2, 3, 0, 1]], target[..., [3, 0, 1, 2]]],
-                           dim=0)
+        target = torch.cat([target, target[:, [1, 2, 3, 0]], target[:, [2, 3, 0, 1]], target[:, [3, 0, 1, 2]]], dim=0)
         return target
 
     @pytest.fixture()
@@ -99,6 +98,10 @@ class TestDiceLoss:
         input = F.one_hot(input)
         input = torch.movedim(input, 3, 1)
         return input
+
+    @pytest.fixture()
+    def incorrect_input(self, correct_input):
+        return correct_input[[3, 2, 1, 0]]
 
     @pytest.mark.filterwarnings('ignore::UserWarning')
     @pytest.mark.parametrize('squared_pred', [True, False])
@@ -117,5 +120,16 @@ class TestDiceLoss:
         loss = dice_loss(correct_input, target)
         assert loss == 0.0
 
-    def test_incorrect_prediction(self, target):
-        pass
+    @pytest.mark.filterwarnings('ignore::UserWarning')
+    @pytest.mark.parametrize('squared_pred', [True, False])
+    @pytest.mark.parametrize('jaccard', [True, False])
+    @pytest.mark.parametrize('batch', [True, False])
+    @pytest.mark.parametrize('ignore_absent_classes', [True, False])
+    def test_incorrect_prediction(self, incorrect_input: torch.Tensor, target: torch.Tensor, squared_pred: bool,
+                                  jaccard: bool, batch: bool, ignore_absent_classes: bool):
+        dice_loss = DiceLoss(squared_pred=squared_pred,
+                             jaccard=jaccard,
+                             batch=batch,
+                             ignore_absent_classes=ignore_absent_classes)
+        loss = dice_loss(incorrect_input, target)
+        torch.testing.assert_close(loss, torch.tensor(1.0))

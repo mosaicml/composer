@@ -162,7 +162,7 @@ class DiceLoss(_Loss):
     """This criterion computes the dice loss between input and target.
 
     The implementation is derived from MONAI: <https://docs.monai.io/en/stable/losses.html#diceloss>`_.
-    For more information aboutthe dice loss see the original paper on dice loss:
+    For more information about the dice loss see the original paper on dice loss:
     <https://arxiv.org/abs/1606.04797>`_.
 
     Args:
@@ -211,11 +211,11 @@ class DiceLoss(_Loss):
 
     def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
 
-        # Get mask of pixels with negative labels
-        pos_ind_mask = target >= 0
-
         # If target is not one-hot, convert to one-hot
         target = ensure_targets_one_hot(input, target)
+
+        # Get mask of pixels with a target
+        target_mask = target.sum(dim=1, keepdim=True) != 0
 
         if input.shape != target.shape:
             raise AssertionError(f'ground truth has different shape ({target.shape}) from input ({input.shape})')
@@ -241,8 +241,8 @@ class DiceLoss(_Loss):
             target = torch.pow(target, 2)
             input = torch.pow(input, 2)
 
-        # Remove targets with negative labels from input
-        input = pos_ind_mask.unsqueeze(1) * input
+        # Zero out pixels which do not have a target
+        input = target_mask * input
 
         ground_o = torch.sum(target, dim=reduce_axis)
         pred_o = torch.sum(input, dim=reduce_axis)
