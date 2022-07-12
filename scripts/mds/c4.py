@@ -69,6 +69,8 @@ def each(dataset: IterableDataset) -> Iterable[Dict[str, bytes]]:
     """
     num_workers = min(64, dataset.num_shards())
     batch_size = 512
+    # If using multiple workers, configure each worker to prefetch as many samples as it can, up to the aggregate device batch size
+    # If not using workers, the torch DataLoader expects the default value for prefetch_factor, which non-intuitively must be 2.
     prefetch_factor = max(1, 2 * batch_size // num_workers) if num_workers > 0 else 2
 
     loader = DataLoader(
