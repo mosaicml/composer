@@ -67,8 +67,8 @@ class TestLabelSmoothing:
         labels_indices = label_smoothing.smooth_labels(input, target_indices, smoothing)
         labels_ref = self.reference_smooth_labels(target_onehot, smoothing)
 
-        torch.testing.assert_allclose(labels_onehot, labels_ref)
-        torch.testing.assert_allclose(labels_indices, labels_ref)
+        torch.testing.assert_close(labels_onehot, labels_ref)
+        torch.testing.assert_close(labels_indices, labels_ref)
 
     @pytest.mark.parametrize('target_type', ['onehot', 'indices'])
     def test_label_smoothing_algorithm(self, tensors, smoothing, target_type, empty_logger, minimal_state):
@@ -86,10 +86,10 @@ class TestLabelSmoothing:
         smoothed_reference = self.reference_smooth_labels(target_onehot, smoothing)
 
         _, labels = state.batch
-        torch.testing.assert_allclose(labels, smoothed_reference)
+        torch.testing.assert_close(labels, smoothed_reference)
 
         # AFTER_LOSS should restore the original targets
         algorithm.apply(Event.AFTER_LOSS, state, empty_logger)
 
         _, labels = state.batch
-        torch.testing.assert_allclose(labels, target)
+        torch.testing.assert_close(labels, target)

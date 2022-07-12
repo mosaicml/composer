@@ -29,6 +29,8 @@ class DeviceGPU(Device):
     dist_backend = 'nccl'
 
     def __init__(self, device_id: Optional[int] = None):
+        if not torch.cuda.is_available():
+            raise ValueError('DeviceGPU cannot be created as torch.cuda is not available.')
         if not device_id:
             device_id = dist.get_local_rank()
         self._device = torch.device(f'cuda:{device_id}')
