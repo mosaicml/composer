@@ -194,19 +194,31 @@ def train_finetune(task: str, save_ckpt: bool, load_path: str, save_folder: str,
     print(f"\nFINISHED TRAINING TASK {task.upper()}\n")
     return trainer.state.current_metrics
 
-'''Get the run name by pre-constructing a dummy NLPTrainerHparams instance. ''' 
+'''Get the run name by pre-constructing a dummy TrainerHparams instance. ''' 
 def get_run_name():
-    hp = TrainerHparams.create()
+    hp = TrainerHparams.create(cli_args=['--file', 'composer/yamls/models/bert-base.yaml'])
     return hp.run_name
+
+def validate_args(args) -> None:
+    if args.training_scheme != 'pretrain' and args.training_scheme != 'finetune' and args.training_scheme != 'all':
+            raise ValueError('training_scheme must be one of "pretrain," "finetune," or "all"')
+
+    if args.training_scheme == 'finetune' and args.load_path is None: 
+        raise ValueError('load_path to checkpoint folder must be specified if finetuning a model')
+
+    if not args.save_locally and args.bucket is None:
+        raise ValueError('S3 bucket name must be specified if saving to cloud')
 
 ''' Get TrainerHparams arguments from CLI and add NLP entrypoint specific arguments. ''' 
 def get_args():
-    # TODO: argument validate method
     parser = hp.get_argparse(TrainerHparams)
     parser.add_argument('--training_scheme', help='training scheme used (one of "pretrain", "finetune", or "all")')
     parser.add_argument('--save_locally', action=argparse.BooleanOptionalAction, help='save to local directory or to cloud using object store if --no-save-locally is enabled')
     parser.add_argument('--bucket', help='S3 bucket name to pull from/save to if --no-save_locally is enabled')
-    return parser.parse_args()
+    
+    args = parser.parse_args()
+    validate_args(args)
+    return args
 
 def _main() -> None:
     warnings.formatwarning = _warning_on_one_line
