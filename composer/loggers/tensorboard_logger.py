@@ -55,6 +55,8 @@ class TensorboardLogger(LoggerDestination):
         self.flush_interval = flush_interval
         self.rank_zero_only = rank_zero_only
         self.writer: Optional[SummaryWriter] = None
+        self.flush_count = 0
+        self.event_file_base_file_path: Optional[str] = None
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         del log_level
@@ -89,6 +91,8 @@ class TensorboardLogger(LoggerDestination):
         flush_secs = 365 * 3600 * 24
         self.writer = SummaryWriter(log_dir=summary_writer_log_dir, flush_secs=flush_secs)
 
+        self.event_file_base_file_path = self.writer.file_writer.event_writer._file_name
+
     def batch_end(self, state: State, logger: Logger) -> None:
         if int(state.timestamp.batch) % self.flush_interval == 0:
             self._flush(logger)
@@ -120,6 +124,11 @@ class TensorboardLogger(LoggerDestination):
             # For a file to be readable by Tensorboard, it must start with
             # 'events.out.tfevents'. Child directory is named after run_name, so the logs
             # are named properly in the Tensorboard GUI.
-            artifact_name='tensorboard_logs/{run_name}/events.out.tfevents-{run_name}-{rank}',
+            artifact_name=('tensorboard_logs/{run_name}/events.out.tfevents-{run_name}-{rank}'
+                         + f'-{self.flush_count}'),
             file_path=file_path,
             overwrite=True)
+
+        self.writer.file_writer.event_writer._async_writer._writer._writer.filename = self.event_file_base_file_path + f'-{self.flush_count}'
+        self.flush_count += 1
+        
