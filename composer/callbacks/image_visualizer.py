@@ -77,7 +77,6 @@ class ImageVisualizer(Callback):
                  num_images: int = 8,
                  input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
                  target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1):
-        self.interval = interval
         self.mode = mode
         self.num_images = num_images
         self.input_key = input_key
@@ -97,10 +96,10 @@ class ImageVisualizer(Callback):
             raise ValueError(f'Invalid mode: {mode}')
 
         # Check that the interval timestring is parsable and convert into time object
-        if isinstance(self.interval, int):
-            self.interval = Time(self.interval, TimeUnit.BATCH)
-        if isinstance(self.interval, str):
-            self.interval = Time.from_timestring(self.interval)
+        if isinstance(interval, int):
+            self.interval = Time(interval, TimeUnit.BATCH)
+        if isinstance(interval, str):
+            self.interval = Time.from_timestring(interval)
 
         # Verify that the interval has supported units
         if self.interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
@@ -145,23 +144,19 @@ class ImageVisualizer(Callback):
                 destination.log_data(state, LogLevel.BATCH, {data_name: table})
 
     def before_forward(self, state: State, logger: Logger):
-        assert isinstance(self.interval, Time)
         if self.mode.lower() == 'input' and state.timestamp.get(self.interval.unit).value % self.interval.value == 0:
             self._log_inputs(state, logger, 'Images/Train')
 
     def eval_before_forward(self, state: State, logger: Logger):
-        assert isinstance(self.interval, Time)
         if self.mode.lower() == 'input' and state.eval_timestamp.get(TimeUnit.BATCH).value == 0:
             self._log_inputs(state, logger, 'Images/Eval')
 
     def before_loss(self, state: State, logger: Logger):
-        assert isinstance(self.interval, Time)
         if self.mode.lower() == 'segmentation' and state.timestamp.get(
                 self.interval.unit).value % self.interval.value == 0:
             self._log_segmented_inputs(state, logger, 'Images/Train')
 
     def eval_after_forward(self, state: State, logger: Logger):
-        assert isinstance(self.interval, Time)
         if self.mode.lower() == 'segmentation' and state.eval_timestamp.get(TimeUnit.BATCH).value == 0:
             self._log_segmented_inputs(state, logger, 'Images/Eval')
 
