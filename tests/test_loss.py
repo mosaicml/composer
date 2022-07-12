@@ -117,8 +117,7 @@ class TestDiceLoss:
                              ignore_absent_classes=ignore_absent_classes,
                              reduction=reduction)
 
-        loss = dice_loss(correct_input, target)
-        assert loss == 0.0
+        assert dice_loss(correct_input, target) == 0.0
 
     def test_incorrect_prediction(self, incorrect_input: torch.Tensor, target: torch.Tensor, squared_pred: bool,
                                   jaccard: bool, batch: bool, ignore_absent_classes: bool):
