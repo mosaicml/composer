@@ -6,7 +6,6 @@
 
 import gzip as gz
 import os
-import urllib.parse
 from io import BufferedWriter
 from types import TracebackType
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
@@ -14,11 +13,10 @@ from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 import numpy as np
 from tqdm import tqdm
 
+from composer.datasets.streaming.download import get_object_store
 from composer.datasets.streaming.format import (StreamingDatasetIndex, get_compression_scheme_basename,
                                                 get_index_basename, get_shard_basename, sample_dict_to_bytes)
 from composer.utils.object_store.object_store import ObjectStore
-from composer.utils.object_store.s3_object_store import S3ObjectStore
-from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 
 __all__ = ['StreamingDatasetWriter']
 
@@ -223,47 +221,10 @@ class StreamingDatasetWriter(object):
 
 def _parse_remote(remote: Optional[Union[ObjectStore, str]]) -> Optional[ObjectStore]:
     if isinstance(remote, str):
-        return _get_object_store(remote)
+        return get_object_store(remote)
     elif isinstance(remote, ObjectStore):
         return remote
     elif remote is None:
         return None
     else:
         raise ValueError('Bad argument for remote')
-
-
-def _get_object_store(remote: str) -> ObjectStore:
-    """Use the correct download handler to download the file
-
-    Args:
-        remote (Optional[str]): Remote path (local filesystem).
-        timeout (float): How long to wait for file to download before raising an exception.
-    """
-    if remote.startswith('s3://'):
-        return _get_s3_object_store(remote)
-    elif remote.startswith('sftp://'):
-        return _get_sftp_object_store(remote)
-    else:
-        raise ValueError('unsupported upload scheme')
-
-
-def _get_s3_object_store(remote: str) -> S3ObjectStore:
-    obj = urllib.parse.urlparse(remote)
-    if obj.scheme != 's3':
-        raise ValueError(f"Expected obj.scheme to be 's3', got {obj.scheme} for remote={remote}")
-    bucket = obj.netloc
-    object_store = S3ObjectStore(bucket=bucket)
-    return object_store
-
-
-def _get_sftp_object_store(remote: str) -> SFTPObjectStore:
-    # Get SSH key file if specified
-    key_filename = os.environ.get('COMPOSER_SFTP_KEY_FILE', None)
-    known_hosts_filename = os.environ.get('COMPOSER_SFTP_KNOWN_HOSTS_FILE', None)
-
-    object_store = SFTPObjectStore(
-        host=remote,
-        known_hosts_filename=known_hosts_filename,
-        key_filename=key_filename,
-    )
-    return object_store
