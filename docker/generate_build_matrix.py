@@ -25,16 +25,16 @@ def _get_pytorch_version(python_version: str):
     if python_version in '3.8':
         return '1.11.0'
     if python_version == '3.7':
-        return '1.10.0'
+        return '1.10.2'
     raise ValueError(f'Invalid python version: {python_version}')
 
 
 def _get_torchvision_version(pytorch_version: str):
-    if pytorch_version == '1.11.0':
-        return '0.12.0'
     if pytorch_version == '1.12.0':
         return '0.13.0'
-    if pytorch_version == '1.10.0':
+    if pytorch_version == '1.11.0':
+        return '0.12.0'
+    if pytorch_version == '1.10.2':
         return '0.11.0'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
@@ -48,9 +48,7 @@ def _get_base_image(cuda_version: str):
 def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     if not use_cuda:
         return ''
-    if pytorch_version == '1.10.0':
-        return '11.1.1'
-    if pytorch_version in ('1.11.0', '1.12.0'):
+    if pytorch_version in ('1.10.2', '1.11.0', '1.12.0'):
         return '11.3.1'
     raise ValueError(f'Invalid pytorch_version: {str}')
 

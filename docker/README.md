@@ -38,8 +38,8 @@ To install composer, once inside the image, run `pip install mosaicml`.
 | Ubuntu 20.04   | Base     | 1.12.0            | cpu            | 3.9              | `mosaicml/pytorch:latest_cpu`, `mosaicml/pytorch:1.12.0_cpu-python3.9-ubuntu20.04`               |
 | Ubuntu 20.04   | Base     | 1.11.0            | 11.3.1         | 3.8              | `mosaicml/pytorch:1.11.0_cu113-python3.8-ubuntu20.04`                                            |
 | Ubuntu 20.04   | Base     | 1.11.0            | cpu            | 3.8              | `mosaicml/pytorch:1.11.0_cpu-python3.8-ubuntu20.04`                                              |
-| Ubuntu 20.04   | Base     | 1.10.0            | 11.1.1         | 3.7              | `mosaicml/pytorch:1.10.0_cu111-python3.7-ubuntu20.04`                                            |
-| Ubuntu 20.04   | Base     | 1.10.0            | cpu            | 3.7              | `mosaicml/pytorch:1.10.0_cpu-python3.7-ubuntu20.04`                                              |
+| Ubuntu 20.04   | Base     | 1.10.2            | 11.3.1         | 3.7              | `mosaicml/pytorch:1.10.2_cu113-python3.7-ubuntu20.04`                                            |
+| Ubuntu 20.04   | Base     | 1.10.2            | cpu            | 3.7              | `mosaicml/pytorch:1.10.2_cpu-python3.7-ubuntu20.04`                                              |
 | Ubuntu 20.04   | Vision   | 1.12.0            | 11.3.1         | 3.9              | `mosaicml/pytorch_vision:latest`, `mosaicml/pytorch_vision:1.12.0_cu113-python3.9-ubuntu20.04`   |
 | Ubuntu 20.04   | Vision   | 1.12.0            | cpu            | 3.9              | `mosaicml/pytorch_vision:latest_cpu`, `mosaicml/pytorch_vision:1.12.0_cpu-python3.9-ubuntu20.04` |
 <!-- END_PYTORCH_BUILD_MATRIX -->
