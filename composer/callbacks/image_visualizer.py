@@ -9,8 +9,9 @@ from numpy import ndarray
 from PIL import Image
 
 from composer.core import Callback, State, Time, TimeUnit
-from composer.loggers import Logger
+from composer.loggers import InMemoryLogger, Logger, LogLevel, WandBLogger
 from composer.loss.utils import infer_target_type
+from composer.utils import ensure_tuple
 from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['ImageVisualizer']
@@ -48,8 +49,11 @@ class ImageVisualizer(Callback):
     | ``Images/Eval``                             |   Sampled examples of eval images     |
     +---------------------------------------------+---------------------------------------+
 
+        .. note::
+            This callback only works with wandb logging for now.
+
     Args:
-        interval (str, optional): Time string specifying how often to log train images. For example, ``interval='1ep'``
+        interval (str | Time, optional): Time string specifying how often to log train images. For example, ``interval='1ep'``
             means images are logged once every epoch, while ``interval='100ba'`` means images are logged once every 100
             batches. Eval images are logged once at the start of each eval. Default: ``"100ba"``.
         mode (str, optional): How to log the image labels. Valid values are ``"input"`` (input only)
@@ -68,7 +72,7 @@ class ImageVisualizer(Callback):
     """
 
     def __init__(self,
-                 interval: str = '100ba',
+                 interval: Union[int, str, Time] = '100ba',
                  mode: str = 'input',
                  num_images: int = 8,
                  input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
@@ -79,6 +83,7 @@ class ImageVisualizer(Callback):
         self.input_key = input_key
         self.target_key = target_key
 
+        # TODO(Evan): Generalize as part of the logger refactor
         try:
             import wandb
         except ImportError as e:
@@ -92,10 +97,10 @@ class ImageVisualizer(Callback):
             raise ValueError(f'Invalid mode: {mode}')
 
         # Check that the interval timestring is parsable and convert into time object
-        try:
-            self.interval = Time.from_timestring(interval)
-        except ValueError as error:
-            raise ValueError(f'Invalid time string for parameter interval: {self.interval}') from error
+        if isinstance(self.interval, int):
+            self.interval = Time(self.interval, TimeUnit.BATCH)
+        if isinstance(self.interval, str):
+            self.interval = Time.from_timestring(self.interval)
 
         # Verify that the interval has supported units
         if self.interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
@@ -113,7 +118,10 @@ class ImageVisualizer(Callback):
         # Verify inputs is a valid shape for conversion to an image
         if _check_for_image_format(inputs):
             table = _make_input_images(inputs, self.num_images)
-            logger.data_batch({data_name: table})
+            # Only log to the wandb logger if it is available
+            for destination in ensure_tuple(logger.destinations):
+                if isinstance(destination, WandBLogger) or isinstance(destination, InMemoryLogger):
+                    destination.log_data(state, LogLevel.BATCH, {data_name: table})
 
     def _log_segmented_inputs(self, state: State, logger: Logger, data_name: str):
         inputs = state.batch_get_item(key=self.input_key)
@@ -131,7 +139,10 @@ class ImageVisualizer(Callback):
             raise NotImplementedError('Multiple output tensors not supported yet')
 
         table = _make_segmentation_images(inputs, targets, outputs, self.num_images)
-        logger.data_batch({data_name: table})
+        # Only log to the wandb logger if it is available
+        for destination in ensure_tuple(logger.destinations):
+            if isinstance(destination, WandBLogger) or isinstance(destination, InMemoryLogger):
+                destination.log_data(state, LogLevel.BATCH, {data_name: table})
 
     def before_forward(self, state: State, logger: Logger):
         assert isinstance(self.interval, Time)
