@@ -3,9 +3,10 @@
 
 import pathlib
 import time
-from typing import Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import pytest
+from test_streaming import write_synthetic_streaming_dataset
 from torch.utils.data import DataLoader
 
 from composer.datasets.ade20k import StreamingADE20k
@@ -15,10 +16,16 @@ from composer.datasets.coco import StreamingCOCO
 from composer.datasets.imagenet import StreamingImageNet1k
 from composer.datasets.streaming import StreamingDataset
 from composer.datasets.utils import pil_image_collate
+from tests.datasets.test_streaming import get_fake_samples_decoders
 
 
-def get_dataset(name: str, local: str, split: str, shuffle: bool,
-                batch_size: Optional[int]) -> Tuple[int, StreamingDataset]:
+def get_dataset(name: str,
+                local: str,
+                split: str,
+                shuffle: bool,
+                batch_size: Optional[int],
+                other_kwargs: Optional[Dict[str, Any]] = None) -> Tuple[int, StreamingDataset]:
+    other_kwargs = {} if other_kwargs is None else other_kwargs
     dataset_map = {
         'ade20k': {
             'remote': 's3://mosaicml-internal-dataset-ade20k/mds/1/',
@@ -79,6 +86,14 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
             'class': StreamingCIFAR10,
             'kwargs': {},
         },
+        'test_streaming_upload': {
+            'remote': 's3://streaming-upload-test-bucket/',
+            'num_samples': {
+                'all': 0,
+            },
+            'class': StreamingDataset,
+            'kwargs': {},
+        }
     }
     if name not in dataset_map and split not in dataset_map[name]['num_samples'][split]:
         raise ValueError('Could not load dataset with name={name} and split={split}')
@@ -86,9 +101,30 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
     d = dataset_map[name]
     expected_samples = d['num_samples'][split]
     remote = d['remote']
-    kwargs = d['kwargs']
+    kwargs = {**d['kwargs'], **other_kwargs}
     dataset = d['class'](remote=remote, local=local, split=split, shuffle=shuffle, batch_size=batch_size, **kwargs)
     return (expected_samples, dataset)
+
+
+@pytest.mark.remote()
+def test_upload_streaming_dataset(tmp_path: pathlib.Path, download_path: pathlib.Path):
+    num_samples = 1000
+    samples, decoders = get_fake_samples_decoders(num_samples)
+    write_synthetic_streaming_dataset(tmp_path.as_posix(),
+                                      samples,
+                                      shard_size_limit=1 >> 16,
+                                      upload='s3://streaming-upload-test-bucket/')
+    dataset = get_dataset('test_streaming_upload',
+                          download_path.as_posix(),
+                          'all',
+                          False,
+                          1,
+                          other_kwargs={'decoders': decoders})
+    measured_samples = 0
+    for _ in dataset:
+        measured_samples += 1
+
+    assert dataset[0] == measured_samples and measured_samples == num_samples
 
 
 @pytest.mark.remote()

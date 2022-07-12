@@ -6,7 +6,7 @@
 
 import gzip as gz
 import os
-import urllib
+import urllib.parse
 from io import BufferedWriter
 from types import TracebackType
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
