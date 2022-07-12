@@ -181,13 +181,14 @@ def _make_segmentation_images(inputs: torch.Tensor, targets: torch.Tensor, outpu
     targets = targets[0:num_images]
     # Convert outputs to segmentation masks. Assume channels are first dim
     outputs = outputs[0:num_images]
-    num_classes = outputs.shape[1]
-    outputs = outputs.argmax(dim=1).cpu().numpy()
     # Ensure the targets are in the expected format
     if infer_target_type(outputs, targets) == 'one_hot':
         targets = targets.argmax(dim=1).data.cpu().numpy()
     else:
         targets = targets.data.cpu().numpy()
+    # Convert the outputs to the expected format
+    num_classes = outputs.shape[1]
+    outputs = outputs.argmax(dim=1).cpu().numpy()
     # Adjust targets such that negative values are mapped to one higher than the maximum class
     targets[targets < 0] = num_classes
     # Create a table of images and their corresponding segmentation masks
