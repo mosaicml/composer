@@ -49,6 +49,7 @@ components of training.
     ~lr_monitor.LRMonitor
     ~grad_monitor.GradMonitor
     ~memory_monitor.MemoryMonitor
+    ~image_visualizer.ImageVisualizer
 
 
 Custom Callbacks

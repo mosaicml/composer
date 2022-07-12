@@ -28,10 +28,10 @@ def validate_mixup_batch(x, y, indices, x_mix, y_perm, mixing):
         j = indices[i]
         # Check the input data
         x_mix_test = (1 - mixing) * x[i] + mixing * x[j]
-        torch.testing.assert_allclose(x_mix_test, x_mix[i])
+        torch.testing.assert_close(x_mix_test, x_mix[i])
         # Check the label
         perm_label = y[j]
-        torch.testing.assert_allclose(perm_label, y_perm[i])
+        torch.testing.assert_close(perm_label, y_perm[i])
 
 
 @pytest.mark.parametrize('alpha', [.2, 1])
