@@ -31,7 +31,7 @@ def infer_target_type(input: torch.Tensor, targets: torch.Tensor) -> str:
 
 def ensure_targets_one_hot(input: torch.Tensor,
                            targets: torch.Tensor,
-                           num_classes: Optional[float] = None) -> torch.Tensor:
+                           num_classes: Optional[int] = None) -> torch.Tensor:
     r"""Ensures that the targets are in a one-hot format rather than an index format.
 
     Args:
@@ -46,40 +46,56 @@ def ensure_targets_one_hot(input: torch.Tensor,
         num_classes (int, optional): Number of classes. If not specified, this will be inferred
             from input. Default: ``None``
     """
-
     if infer_target_type(input, targets) == 'indices':
         # If the number of classes isn't specified, attempt to infer it from the input
         if num_classes is None:
             num_classes = input.shape[1]
-        if targets.min() < 0:
-            warnings.warn('Negative label indices are being ignored in conversion to one-hot labels')
 
-            # Add new dimension for the class vectors
-            class_dim = 1
-            targets = targets.clone().unsqueeze(class_dim).long()
-
-            # Map all negative indicies to a class to drop.
-            targets[targets < 0] = num_classes
-
-            # Create one-hot labels
-            input_shape = list(input.shape)
-            input_shape[class_dim] += 1  # Add additional class for negative indicies
-            one_hot_targets = torch.zeros(size=input_shape, dtype=input.dtype, device=input.device)
-            one_hot_targets.scatter_(dim=1, index=targets, value=1)
-
-            # Drop any negative indices.
-            one_hot_targets = one_hot_targets[:, 0:-1]
-        else:
-            one_hot_targets = torch.zeros_like(input)
-            one_hot_targets.scatter_(dim=1, index=targets, value=1)
-    else:
-        one_hot_targets = targets
-
-    one_hot_targets = one_hot_targets.float()
-    return one_hot_targets
+        # Convert to one-hot tensor
+        targets = _one_hot(targets, num_classes=num_classes)
+    return targets.float()
 
 
 def check_for_index_targets(targets: torch.Tensor) -> bool:
     """Checks if a given set of targets are indices by looking at the type."""
     index_dtypes = [torch.uint8, torch.int8, torch.int16, torch.int32, torch.int64]
     return targets.dtype in index_dtypes
+
+
+def _one_hot(tensor: torch.Tensor, num_classes: int) -> torch.Tensor:
+    """Converts a tensor of index class labels to a tensor of one-hot class labels.
+
+    Implementation is based on MONAI one-hot conversion function:
+    `<https://github.com/Project-MONAI/MONAI/blob/b390b0956334325edc0e5000afb58e2be7cbe550/monai/networks/utils.py#L49>`_.
+
+    Args:
+        tensor (torch.Tensor): Tensor containing index class labels.
+        num_classes (int): Size of the class dimension for the output one-hot tensor.
+
+    Returns:
+        torch.Tensor: One-hot class labels i.e. the same shape as ``tensor`` except with an
+            extra dimension of size ``num_classes`` inserted after the first dimension
+    """
+    # Remove negative indices
+    neg_indices = tensor.min() < 0
+    if neg_indices:
+        warnings.warn('Negative label indices are being ignored in conversion to one-hot labels')
+        tensor = tensor.clone().long()
+        tensor[tensor < 0] = num_classes
+        num_classes += 1  # Add extra class for negative indices
+
+    # Assume class dimension is inserted after the first dimension
+    class_dim = 1
+    tensor = tensor.unsqueeze(class_dim)
+    tensor_shape = list(tensor.shape)
+    tensor_shape[class_dim] = num_classes
+
+    # Convert to one-hot
+    one_hot_tensor = torch.zeros(size=tensor_shape, dtype=tensor.dtype, device=tensor.device)
+    one_hot_tensor.scatter_(dim=1, index=tensor, value=1)
+
+    # Remove negative indices
+    if neg_indices:
+        one_hot_tensor = one_hot_tensor[:, 0:-1]
+
+    return one_hot_tensor

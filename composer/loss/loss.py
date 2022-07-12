@@ -159,11 +159,11 @@ def soft_cross_entropy(input: Tensor,
 
 
 class DiceLoss(_Loss):
-    """This criterion computes the dice loss between input and target.
+    """Criterion that computes the dice loss between input and target.
 
-    The implementation is derived from MONAI: <https://docs.monai.io/en/stable/losses.html#diceloss>`_.
+    The implementation is derived from MONAI: `<https://docs.monai.io/en/stable/losses.html#diceloss>`_.
     For more information about the dice loss see the original paper on dice loss:
-    <https://arxiv.org/abs/1606.04797>`_.
+    `<https://arxiv.org/abs/1606.04797>`_.
 
     Args:
         sigmoid (bool): If true, apply a sigmoid function to the input. Default: ``False``
