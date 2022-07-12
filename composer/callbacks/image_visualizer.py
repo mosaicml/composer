@@ -95,14 +95,14 @@ class ImageVisualizer(Callback):
         try:
             self.interval = Time.from_timestring(interval)
         except ValueError as error:
-            raise ValueError(f'Invalid time string for parameter interval') from error
+            raise ValueError(f'Invalid time string for parameter interval: {self.interval}') from error
 
-        # Verify that the interval has supported units.
+        # Verify that the interval has supported units
         if self.interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
             raise ValueError(f'Invalid time unit for parameter interval: '
                              f'{self.interval.unit}')
 
-    def _log_inputs(self, state: State, logger: Logger, key: str):
+    def _log_inputs(self, state: State, logger: Logger, data_name: str):
         inputs = state.batch_get_item(key=self.input_key)
         if isinstance(inputs, ndarray):
             raise NotImplementedError('Input numpy array not supported yet')
@@ -113,9 +113,9 @@ class ImageVisualizer(Callback):
         # Verify inputs is a valid shape for conversion to an image
         if _check_for_image_format(inputs):
             table = _make_input_images(inputs, self.num_images)
-            logger.data_batch({key: table})
+            logger.data_batch({data_name: table})
 
-    def _log_segmented_inputs(self, state: State, logger: Logger, key: str):
+    def _log_segmented_inputs(self, state: State, logger: Logger, data_name: str):
         inputs = state.batch_get_item(key=self.input_key)
         targets = state.batch_get_item(key=self.target_key)
         outputs = state.outputs
@@ -131,7 +131,7 @@ class ImageVisualizer(Callback):
             raise NotImplementedError('Multiple output tensors not supported yet')
 
         table = _make_segmentation_images(inputs, targets, outputs, self.num_images)
-        logger.data_batch({key: table})
+        logger.data_batch({data_name: table})
 
     def before_forward(self, state: State, logger: Logger):
         assert isinstance(self.interval, Time)
@@ -194,6 +194,4 @@ def _make_segmentation_images(inputs: torch.Tensor, targets: torch.Tensor, outpu
 
 
 def _check_for_image_format(data: torch.Tensor) -> bool:
-    if not isinstance(data, torch.Tensor):
-        raise NotImplementedError('Multiple tensors not supported yet')
     return data.ndim in [3, 4] and data.numel() > data.shape[0]
