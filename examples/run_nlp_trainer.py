@@ -54,6 +54,7 @@ def _warning_on_one_line(message: str, category: Type[Warning], filename: str, l
     # From https://stackoverflow.com/questions/26430861/make-pythons-warnings-warn-not-mention-itself
     return f'{category.__name__}: {message} (source: {filename}:{lineno})\n'
 
+''' Generate a multiprocessing queue to store queue_size GPU IDs. '''
 def init_cuda_queue(queue_size: int) -> mp.Queue:
     cuda_envs = mp.Queue(queue_size)
     cuda_envs_list = range(queue_size)
@@ -62,8 +63,8 @@ def init_cuda_queue(queue_size: int) -> mp.Queue:
 
     return cuda_envs
 
+''' Set up a single GPU CUDA environment on initialization of a mp process pool. '''
 def init_cuda_env(cuda_envs) -> None:
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
         env=cuda_envs.get()
         torch.cuda.set_device(env)
@@ -117,12 +118,13 @@ def output_metrics() -> None:
     
     print(tabulate(tb, headers='firstrow'))
 
-def train_finetune_wrapper(finetune_tasks: List[str], save_ckpts: List[bool], ckpt_load_path: str, ckpt_filename: str,
+''' Set up CUDA environment and process pool for given finetuning jobs. '''
+def setup_finetuning_jobs(finetune_tasks: List[str], save_ckpts: List[bool], ckpt_load_path: str, ckpt_filename: str,
                                          save_folder: str, save_locally: bool, bucket: Optional[str] = None, parent_ckpt: Optional[str] = None, load_ignore_keys: Optional[List[str]] = None) -> None:
     cuda_envs = init_cuda_queue(len(finetune_tasks))
     num_tasks = len(finetune_tasks)
     
-    # callback func to store metric collection and run name 
+    ''' Callback function for metric collection. '''
     def log_metrics(metric) -> None:
         if parent_ckpt: 
             logged_ckpt_name = parent_ckpt
@@ -154,6 +156,7 @@ def train_finetune_wrapper(finetune_tasks: List[str], save_ckpts: List[bool], ck
     cuda_envs.close() 
     cuda_envs.join_thread()
     
+'''Run single instance of a finetuning job on given task. ''' 
 def train_finetune(task: str, save_ckpt: bool, load_path: str, save_folder: str, save_locally: bool, gpu_id: int, bucket: Optional[str] = None, load_ignore_keys: Optional[List[str]] = None):
     # add dummy arg because arg parser removes first argument in tokenization
     ft_hparams = TrainerHparams.create(cli_args=['-f',  f'./composer/yamls/models/glue/{task}.yaml',
@@ -199,6 +202,7 @@ def get_run_name():
     hp = TrainerHparams.create(cli_args=['--file', 'composer/yamls/models/bert-base.yaml'])
     return hp.run_name
 
+''' Validate NLP specific entrypoint arguments. ''' 
 def validate_args(args) -> None:
     if args.training_scheme != 'pretrain' and args.training_scheme != 'finetune' and args.training_scheme != 'all':
             raise ValueError('training_scheme must be one of "pretrain," "finetune," or "all"')
@@ -220,6 +224,93 @@ def get_args():
     validate_args(args)
     return args
 
+''' Logic for handling a pretraining job spawn based on storage and training settings.'''
+def run_pretrainer(args):
+    root_dir = os.path.join(os.path.dirname(composer.__file__), '..')
+    training_script = os.path.join(root_dir, 'examples/run_composer_trainer.py')
+    if args.save_locally:
+        args.save_folder = os.path.join(args.run_name, 'checkpoints')
+        if args.training_scheme == 'all':
+            new_save_folder = os.path.join(args.save_folder, 'pretrained')
+        else: # pretrain only
+            new_save_folder = args.save_folder
+        
+        proc = subprocess.Popen(['composer', training_script, '-f', f"{args.file}", '--save_folder', f"{new_save_folder}"], cwd=root_dir)
+        
+    # saving on cloud
+    else:
+        if args.training_scheme == 'all':
+            args.save_folder = 'pretrained'
+            save_artifact_name = '{run_name}/pretrained/ep{epoch}-ba{batch}-rank{rank}-wct{total_wct}'
+            proc = subprocess.Popen(['composer', training_script, '-f', f"{args.file}" , '--save_folder', args.save_folder, '--save_artifact_name', save_artifact_name, 
+                                '--save_num_checkpoints_to_keep', '0', '--loggers' , 'object_store', '--object_store_hparams', 's3', '--bucket', args.bucket], cwd=root_dir)                
+        
+        # only pretraining, save to default artifact name 
+        else: 
+            proc = subprocess.Popen(['composer', training_script, '-f', f"{args.file}", '--save_num_checkpoints_to_keep', '0',
+                    '--loggers' , 'object_store', '--object_store_hparams', 's3', '--bucket', args.bucket], cwd=root_dir)
+    proc.wait() # block until training is complete 
+
+''' Logic for handling a finetuning job spawn based on storage and training settings.'''
+def run_finetuner(args):
+    # set automatic load and save paths 
+    if args.save_locally:
+        if args.training_scheme == 'all':
+            # load checkpoints from where pretraining saved them
+            ckpt_folder = os.path.join(args.save_folder, 'pretrained')
+            save_folder = args.save_folder
+        else: # finetune only
+            ckpt_folder = args.load_path
+            save_folder = os.path.join(args.load_path, '..')
+
+        all_ckpts_list =  sorted(os.listdir(ckpt_folder))
+            
+    else:
+        if args.training_scheme == 'all':
+            ckpt_folder = f'{args.run_name}/{args.save_folder}'
+            save_folder = args.save_folder
+        else: # finetune only
+            ckpt_folder = args.load_path # load path should be full/path/to/folder/ containing all ckpts 
+            save_folder = args.run_name 
+
+        all_ckpts_list = get_all_s3_checkpoints(args.bucket, ckpt_folder)
+
+    # finetune on every pretrained checkpoint  
+    for ckpt_filename in all_ckpts_list:
+        if args.save_locally:
+            ckpt_load_path = os.path.join(ckpt_folder, ckpt_filename)
+            save_locally = True
+            # skip symlinks to existing checkpoints
+            if (os.path.islink(ckpt_load_path)):
+                continue 
+        else:
+            ckpt_load_path = ckpt_filename
+            save_locally = False
+            
+        # TODO: PUT SEEDS BACK IN
+        finetune_tasks = ['cola', 'sst-2', 'qqp', 'qnli', 'mnli']
+        save_ckpts = [False, False, False, False, True]
+        setup_finetuning_jobs(finetune_tasks, save_ckpts, ckpt_load_path, ckpt_filename, save_folder, save_locally=save_locally, bucket=args.bucket)
+
+        # finetune on inference tasks using last mnli checkpoint 
+        parent_ckpt = ckpt_filename # necessary for logging 
+        if args.save_locally:
+            # load checkpoints from where mnli saved them
+            ft_ckpt_folder = os.path.join(save_folder, 'mnli')  
+            ckpt_filename =  sorted(os.listdir(ft_ckpt_folder))[0]
+            ckpt_load_path = os.path.join(ft_ckpt_folder, ckpt_filename)
+            save_locally = True
+        else:
+            ckpt_filename = get_all_s3_checkpoints(args.bucket, f'{args.run_name}/mnli')[-1] # get latest checkpoint
+            ckpt_load_path = ckpt_filename
+            save_locally = False
+
+        mnli_finetune_tasks = ['rte', 'mrpc', 'stsb']
+        save_ckpts = [False, False, False]
+        # delete finetuning head to reinitialize number of classes 
+        setup_finetuning_jobs(mnli_finetune_tasks, save_ckpts, ckpt_load_path, ckpt_filename, args.save_folder, args.bucket, parent_ckpt=parent_ckpt, 
+                            load_ignore_keys="state/model/model.classifier*", save_locally=save_locally)  # type: ignore
+
 def _main() -> None:
     warnings.formatwarning = _warning_on_one_line
 
@@ -227,96 +318,16 @@ def _main() -> None:
         sys.argv = [sys.argv[0], '--help']
     
     args = get_args()
-    run_name = get_run_name()
+    args.run_name = get_run_name()
 
     # Pretrain
     if args.training_scheme != 'finetune': 
-        root_dir = os.path.join(os.path.dirname(composer.__file__), '..')
-        training_script = os.path.join(root_dir, 'examples/run_composer_trainer.py')
-        if args.save_locally:
-            args.save_folder = os.path.join(run_name, 'checkpoints')
-            if args.training_scheme == 'all':
-                new_save_folder = os.path.join(args.save_folder, 'pretrained')
-            else: # pretrain only
-                new_save_folder = args.save_folder
-            
-            proc = subprocess.Popen(['composer', training_script, '-f', f"{args.file}", '--save_folder', f"{new_save_folder}"], cwd=root_dir)
-            
-        # saving on cloud
-        else:
-            if args.training_scheme == 'all':
-                args.save_folder = 'pretrained'
-                save_artifact_name = '{run_name}/pretrained/ep{epoch}-ba{batch}-rank{rank}-wct{total_wct}'
-                proc = subprocess.Popen(['composer', training_script, '-f', f"{args.file}" , '--save_folder', args.save_folder, '--save_artifact_name', save_artifact_name, 
-                                    '--save_num_checkpoints_to_keep', '0', '--loggers' , 'object_store', '--object_store_hparams', 's3', '--bucket', args.bucket], cwd=root_dir)                
-            # only pretraining, save to default artifact name 
-            else: 
-                proc = subprocess.Popen(['composer', training_script, '-f', f"{args.file}", '--save_num_checkpoints_to_keep', '0',
-                      '--loggers' , 'object_store', '--object_store_hparams', 's3', '--bucket', args.bucket], cwd=root_dir)
-                # pass
-        proc.wait() # block until training is complete 
-
+        run_pretrainer(args)
         print("PRETRAINING COMPLETE") #FIXME: LOG
 
     # Finetune 
     if args.training_scheme != 'pretrain':
-        if args.save_locally:
-            if args.training_scheme == 'all':
-                # load checkpoints from where pretraining saved them
-                ckpt_folder = os.path.join(args.save_folder, 'pretrained')
-                save_folder = args.save_folder
-            else: # finetune only
-                ckpt_folder = args.load_path
-                save_folder = os.path.join(args.load_path, '..')
-
-            all_ckpts_list =  sorted(os.listdir(ckpt_folder))
-                
-        else:
-            if args.training_scheme == 'all':
-                ckpt_folder = f'{run_name}/{args.save_folder}'
-                save_folder = args.save_folder
-            else: # finetune only
-                ckpt_folder = args.load_path # load path should be full/path/to/folder/ containing all ckpts 
-                save_folder = run_name 
-
-            all_ckpts_list = get_all_s3_checkpoints(args.bucket, ckpt_folder)
-
-        # finetune on every pretrained checkpoint  
-        for ckpt_filename in all_ckpts_list:
-            if args.save_locally:
-                ckpt_load_path = os.path.join(ckpt_folder, ckpt_filename)
-                save_locally = True
-                # skip symlinks to existing checkpoints
-                if (os.path.islink(ckpt_load_path)):
-                    continue 
-            else:
-                ckpt_load_path = ckpt_filename
-                save_locally = False
-                
-            # TODO: PUT SEEDS BACK IN
-            finetune_tasks = ['cola', 'sst-2', 'qqp', 'qnli', 'mnli']
-            save_ckpts = [False, False, False, False, True]
-            train_finetune_wrapper(finetune_tasks, save_ckpts, ckpt_load_path, ckpt_filename, save_folder, save_locally=save_locally, bucket=args.bucket)
-
-            # finetune on single mnli checkpoint 
-            parent_ckpt = ckpt_filename # necessary for logging 
-            if args.save_locally:
-                # load checkpoints from where mnli saved them
-                ft_ckpt_folder = os.path.join(save_folder, 'mnli')  
-                ckpt_filename =  sorted(os.listdir(ft_ckpt_folder))[0]
-                ckpt_load_path = os.path.join(ft_ckpt_folder, ckpt_filename)
-                save_locally = True
-            else:
-                ckpt_filename = get_all_s3_checkpoints(args.bucket, f'{run_name}/mnli')[-1] # get latest checkpoint
-                ckpt_load_path = ckpt_filename
-                save_locally = False
-
-            mnli_finetune_tasks = ['rte', 'mrpc', 'stsb']
-            save_ckpts = [False, False, False]
-            # delete finetuning head to reinitialize number of classes 
-            train_finetune_wrapper(mnli_finetune_tasks, save_ckpts, ckpt_load_path, ckpt_filename, args.save_folder, args.bucket, parent_ckpt=parent_ckpt, 
-                                load_ignore_keys="state/model/model.classifier*", save_locally=save_locally)  # type: ignore
-            
+        run_finetuner(args)
         print('FINETUNING COMPLETE')
 
     # output GLUE metrics if finetuning
