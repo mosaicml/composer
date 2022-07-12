@@ -86,7 +86,7 @@ class StreamingDatasetWriter(object):
         fields: (List[str]): The fields to save for each sample.
         shard_size_limit (int): Maximum shard size in bytes. Default: ``1 << 24``.
         compression (str, optional): Compression algorithm and optional compression level. Currently supported: 'gz', 'gz:[1-9]' or None. Defaults to ``None``.
-        remote ((ObjectStore | str), optional): Remote location to upload dataset. Can be an ObjectStore, a string, or (default) None.
+        remote (ObjectStore | str, optional): Remote location to upload dataset. Can be an ObjectStore, a string, or (default) None. If `remote` is specified, uploads will block dataset writing.
     """
 
     default_compression = None
@@ -95,7 +95,7 @@ class StreamingDatasetWriter(object):
                  dirname: str,
                  fields: List[str],
                  shard_size_limit: int = 1 << 24,
-                 compression: Optional[str] = default_compression,
+                 compression: Optional[str] = None,
                  remote: Optional[Union[ObjectStore, str]] = None) -> None:
         if len(fields) != len(set(fields)):
             raise ValueError(f'fields={fields} must be unique.')
@@ -221,7 +221,7 @@ class StreamingDatasetWriter(object):
         self.finish()
 
 
-def _parse_remote(remote: Union[ObjectStore, str, None]) -> Optional[ObjectStore]:
+def _parse_remote(remote: Optional[Union[ObjectStore, str]]) -> Optional[ObjectStore]:
     if isinstance(remote, str):
         return _get_object_store(remote)
     elif isinstance(remote, ObjectStore):
@@ -257,31 +257,12 @@ def _get_s3_object_store(remote: str) -> S3ObjectStore:
 
 
 def _get_sftp_object_store(remote: str) -> SFTPObjectStore:
-    url = urllib.parse.urlsplit(remote)
-    # Parse URL
-    if url.scheme.lower() != 'sftp':
-        raise ValueError('If specifying a URI, only the sftp scheme is supported.')
-    if not url.hostname:
-        raise ValueError('If specifying a URI, the URI must include the hostname.')
-    if url.query or url.fragment:
-        raise ValueError('Query and fragment parameters are not supported as part of a URI.')
-    hostname = url.hostname
-    port = url.port
-    username = url.username
-    password = url.password
-
     # Get SSH key file if specified
     key_filename = os.environ.get('COMPOSER_SFTP_KEY_FILE', None)
     known_hosts_filename = os.environ.get('COMPOSER_SFTP_KNOWN_HOSTS_FILE', None)
 
-    # Default port
-    port = port if port else 22
-
     object_store = SFTPObjectStore(
-        host=hostname,
-        port=port,
-        username=username,
-        password=password,
+        host=remote,
         known_hosts_filename=known_hosts_filename,
         key_filename=key_filename,
     )

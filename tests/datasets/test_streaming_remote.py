@@ -6,7 +6,6 @@ import time
 from typing import Any, Dict, Optional, Tuple
 
 import pytest
-from test_streaming import write_synthetic_streaming_dataset
 from torch.utils.data import DataLoader
 
 from composer.datasets.ade20k import StreamingADE20k
@@ -16,7 +15,7 @@ from composer.datasets.coco import StreamingCOCO
 from composer.datasets.imagenet import StreamingImageNet1k
 from composer.datasets.streaming import StreamingDataset
 from composer.datasets.utils import pil_image_collate
-from tests.datasets.test_streaming import get_fake_samples_decoders
+from tests.datasets.test_streaming import get_fake_samples_decoders, write_synthetic_streaming_dataset
 
 
 def get_dataset(name: str,
