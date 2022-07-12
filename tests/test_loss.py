@@ -83,6 +83,11 @@ class TestSoftCrossEntropy:
         torch.testing.assert_close(loss_indices, loss_reference)
 
 
+@pytest.mark.filterwarnings('ignore::UserWarning')
+@pytest.mark.parametrize('squared_pred', [True, False])
+@pytest.mark.parametrize('jaccard', [True, False])
+@pytest.mark.parametrize('batch', [True, False])
+@pytest.mark.parametrize('ignore_absent_classes', [True, False])
 class TestDiceLoss:
 
     @pytest.fixture()
@@ -103,11 +108,6 @@ class TestDiceLoss:
     def incorrect_input(self, correct_input):
         return correct_input[[3, 2, 1, 0]]
 
-    @pytest.mark.filterwarnings('ignore::UserWarning')
-    @pytest.mark.parametrize('squared_pred', [True, False])
-    @pytest.mark.parametrize('jaccard', [True, False])
-    @pytest.mark.parametrize('batch', [True, False])
-    @pytest.mark.parametrize('ignore_absent_classes', [True, False])
     @pytest.mark.parametrize('reduction', ['mean', 'sum'])
     def test_correct_prediction(self, correct_input: torch.Tensor, target: torch.Tensor, squared_pred: bool,
                                 jaccard: bool, batch: bool, ignore_absent_classes: bool, reduction: str):
@@ -120,11 +120,6 @@ class TestDiceLoss:
         loss = dice_loss(correct_input, target)
         assert loss == 0.0
 
-    @pytest.mark.filterwarnings('ignore::UserWarning')
-    @pytest.mark.parametrize('squared_pred', [True, False])
-    @pytest.mark.parametrize('jaccard', [True, False])
-    @pytest.mark.parametrize('batch', [True, False])
-    @pytest.mark.parametrize('ignore_absent_classes', [True, False])
     def test_incorrect_prediction(self, incorrect_input: torch.Tensor, target: torch.Tensor, squared_pred: bool,
                                   jaccard: bool, batch: bool, ignore_absent_classes: bool):
         dice_loss = DiceLoss(squared_pred=squared_pred,
