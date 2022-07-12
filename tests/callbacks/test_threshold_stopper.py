@@ -18,7 +18,6 @@ from tests.metrics import MetricSetterCallback
 @device('cpu', 'gpu')
 @pytest.mark.parametrize('metric_sequence', [[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8], [0.6, 0.7]])
 @pytest.mark.parametrize('unit', [TimeUnit.EPOCH, TimeUnit.BATCH])
-@pytest.mark.timeout(15)
 def test_threshold_stopper_eval(metric_sequence: List[float], unit: TimeUnit, device: str):
     metric_threshold = 0.65
 
@@ -36,15 +35,11 @@ def test_threshold_stopper_eval(metric_sequence: List[float], unit: TimeUnit, de
     test_metric_setter = MetricSetterCallback('Accuracy', dataloader_label, metric_sequence, unit, test_device)
 
     trainer = Trainer(
-        model=SimpleModel(num_features=5),
-        train_dataloader=DataLoader(
-            RandomClassificationDataset(shape=(5, 1, 1)),
-            batch_size=4,
-        ),
-        eval_dataloader=DataLoader(
-            RandomClassificationDataset(shape=(5, 1, 1)),
-            batch_size=4,
-        ),
+        model=SimpleModel(),
+        train_dataloader=DataLoader(RandomClassificationDataset()),
+        eval_dataloader=DataLoader(RandomClassificationDataset()),
+        train_subset_num_batches=1,
+        eval_subset_num_batches=1,
         device=test_device,
         max_duration='30ep',
         callbacks=[test_metric_setter, tstop],
