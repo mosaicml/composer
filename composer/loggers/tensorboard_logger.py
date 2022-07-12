@@ -43,7 +43,8 @@ class TensorboardLogger(LoggerDestination):
             Default: :attr:`True`.
     """
 
-    def __init__(self, log_dir: Optional[str] = None, flush_interval: int = 100, rank_zero_only: bool = True):
+    def __init__(self, log_dir: Optional[str] = None, flush_interval: int = 100,
+                       rank_zero_only: bool = True):
         try:
             from torch.utils.tensorboard import SummaryWriter
         except ImportError as e:
@@ -57,6 +58,7 @@ class TensorboardLogger(LoggerDestination):
         self.writer: Optional[SummaryWriter] = None
         self.flush_count = 0
         self.event_file_base_file_path: Optional[str] = None
+
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         del log_level
