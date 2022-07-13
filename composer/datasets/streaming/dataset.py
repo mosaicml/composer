@@ -141,8 +141,10 @@ class StreamingDataset(IterableDataset):
         self.compression_scheme = None
         if remote is not None:
             try:
-                compression_local = self._download_file(get_compression_scheme_basename(), download_to_tmp=True)
-                with open(compression_local, 'r') as fp:
+                compression_local = self._download_file(get_compression_scheme_basename())
+                renamed_compression = compression_local + '.old'
+                os.rename(compression_local, renamed_compression)
+                with open(renamed_compression, 'r') as fp:
                     compression_scheme = fp.read().rstrip()
                     self.compression_scheme = compression_scheme if compression_scheme != '' else None
                     if remote == local and self.compression_scheme is not None:
@@ -167,7 +169,7 @@ class StreamingDataset(IterableDataset):
         self._download_status = _DownloadStatus.NOT_STARTED
         self._download_exception: Exception
 
-    def _download_file(self, basename: str, wait: bool = False, download_to_tmp: bool = False) -> str:
+    def _download_file(self, basename: str, wait: bool = False) -> str:
         """Safely download a file from remote to local cache.
 
         Args:
@@ -177,14 +179,11 @@ class StreamingDataset(IterableDataset):
         Returns:
             str: Local cache filename.
         """
-        local_basename = basename
-        if download_to_tmp:
-            local_basename += '.tmp'
         if self.remote is None:
             remote = self.remote
         else:
             remote = os.path.join(self.remote, basename)
-        local = os.path.join(self.local, local_basename)
+        local = os.path.join(self.local, basename)
         download_or_wait(remote=remote, local=local, wait=wait, max_retries=self.max_retries, timeout=self.timeout)
         local, _ = split_compression_suffix(local)
         return local

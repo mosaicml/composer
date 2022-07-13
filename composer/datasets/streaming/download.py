@@ -152,7 +152,8 @@ def dispatch_download(remote: Optional[str], local: str, timeout: float):
         else:
             raise NotImplementedError
         os.rename(tempfile, local_decompressed)
-        os.remove(local)
+        if local != local_decompressed:
+            os.remove(local)
 
 
 def download_or_wait(remote: Optional[str],
