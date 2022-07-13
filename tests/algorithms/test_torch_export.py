@@ -84,7 +84,7 @@ def test_surgery_torchscript_train(input: Any, alg_cls: Type[Algorithm]):
     scripted_func = torch.jit.script(model)
     scripted_func.train()  # type: ignore (third-party)
     model.train()
-    torch.testing.assert_allclose(scripted_func(input), model(input))  # type: ignore (third-party)
+    torch.testing.assert_close(scripted_func(input), model(input))  # type: ignore (third-party)
 
 
 @pytest.mark.timeout(10)
@@ -105,7 +105,7 @@ def test_surgery_torchscript_eval(input: Any, alg_cls: Type[Algorithm]):
     scripted_func = torch.jit.script(model)
     scripted_func.eval()  # type: ignore (third-party)
     model.eval()
-    torch.testing.assert_allclose(scripted_func(input), model(input))  # type: ignore (third-party)
+    torch.testing.assert_close(scripted_func(input), model(input))  # type: ignore (third-party)
 
 
 # <--- torch.fx export --->
@@ -133,7 +133,7 @@ def test_surgery_torchfx_eval(
     model.eval()
 
     traced_func = torch.fx.symbolic_trace(model)
-    torch.testing.assert_allclose(traced_func(input), model(input))  # type: ignore (third-party)
+    torch.testing.assert_close(traced_func(input), model(input))  # type: ignore (third-party)
 
 
 # <--- onnx export --->
@@ -182,9 +182,9 @@ def test_surgery_onnx(
         {'input': input[0].numpy()},
     )
 
-    torch.testing.assert_allclose(
+    torch.testing.assert_close(
         outputs[0],
-        model(input),
+        model(input).detach().numpy(),
         rtol=1e-4,  # lower tolerance for ONNX
         atol=1e-3,  # lower tolerance for ONNX
     )
