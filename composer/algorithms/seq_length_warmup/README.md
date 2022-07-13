@@ -58,7 +58,7 @@ from composer.algorithms import SeqLengthWarmup
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
-                  max_duration='1ep',
+                  max_duration='250ep',
                   algorithms=[SeqLengthWarmup()])
 
 trainer.fit()
