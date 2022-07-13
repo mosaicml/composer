@@ -32,12 +32,12 @@ class TensorboardLogger(LoggerDestination):
             will be saved. This is also the value that should be specified when starting
             a tensorboard server. e.g. `tensorboard --logdir={log_dir}`. If not specified
             `./tensorboard_logs` will be used.
-        flush_secs (int, optional): How frequently in seconds to flush the log to a file.
-            For example, a flush interval of 10 means the log will be flushed to a file
-            every 10 seconds. The logs will also be automatically flushed at the start and
-            end of every evaluation phase (`EVENT.EVAL_START` and `EVENT.EVAL_END` ),
-            the end of every epoch (`EVENT.EPOCH_END`), and the end of training
-            (`EVENT.FIT_END`). Default: ``20``.
+        flush_secs (int, optional): How frequently in seconds to flush the log to a file
+            at the end of batch. Specifically, a log is flushed at the end of batch only
+            if it has been `flush_secs` since the last flush. The logs will also be 
+            automatically flushed at the end of every evaluation phase (`EVENT.EVAL_END`),
+             the end of every epoch (`EVENT.EPOCH_END`), and the end of training
+             (`EVENT.FIT_END`). Default: ``20``.
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process.
             Recommended to be true since the rank 0 will have access to most global metrics.
             A setting of `False` may lead to logging of duplicate values.
@@ -153,9 +153,10 @@ class TensorboardLogger(LoggerDestination):
             file_path=file_path,
             overwrite=True)
 
-        # Close writer and reinitialize it to ensure no strange issues with dropping
-        # of points.
+        # Close writer and reinitialize it with a new log file path. This ensures that 
+        # we have one file per flush, which means `file_artifact` is always copying 
+        # data points that have never been copied before. Also this ensures no strange 
+        # issues with dropping of points when setting a new log file path.
         self.writer.close()
-
         self.flush_count += 1
         self._initialize_summary_writer()
