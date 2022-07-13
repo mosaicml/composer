@@ -25,19 +25,19 @@ class SpeedMonitor(Callback):
     The average throughout over an epoch is logged on the :attr:`.Event.EPOCH_END` event.
 
     Example:
-    .. doctest::
+        .. doctest::
 
-        >>> from composer import Trainer
-        >>> from composer.callbacks import SpeedMonitor
-        >>> # constructing trainer object with this callback
-        >>> trainer = Trainer(
-        ...     model=model,
-        ...     train_dataloader=train_dataloader,
-        ...     eval_dataloader=eval_dataloader,
-        ...     optimizers=optimizer,
-        ...     max_duration="1ep",
-        ...     callbacks=[SpeedMonitor(window_size=100)],
-        ... )
+            >>> from composer import Trainer
+            >>> from composer.callbacks import SpeedMonitor
+            >>> # constructing trainer object with this callback
+            >>> trainer = Trainer(
+            ...     model=model,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=eval_dataloader,
+            ...     optimizers=optimizer,
+            ...     max_duration='1ep',
+            ...     callbacks=[SpeedMonitor(window_size=100)],
+            ... )
 
     The training throughput is logged by the :class:`~composer.loggers.logger.Logger` to the following keys as
     described below.
