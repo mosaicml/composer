@@ -6,6 +6,7 @@ import time
 from typing import Optional, Tuple
 
 import pytest
+import pytest_httpserver
 from torch.utils.data import DataLoader
 
 from composer.datasets.ade20k import StreamingADE20k
@@ -14,6 +15,7 @@ from composer.datasets.cifar import StreamingCIFAR10
 from composer.datasets.coco import StreamingCOCO
 from composer.datasets.imagenet import StreamingImageNet1k
 from composer.datasets.streaming import StreamingDataset
+from composer.datasets.streaming.download import download_or_wait
 from composer.datasets.utils import pil_image_collate
 
 
@@ -218,3 +220,11 @@ def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: s
 
         # Test all samples arrived
         assert rcvd_samples == expected_samples
+
+
+def test_download_from_http(httpserver: pytest_httpserver.HTTPServer, tmp_path: pathlib.Path):
+    httpserver.expect_request('/data').respond_with_data('hi')
+    local_path = str(tmp_path / 'data')
+    download_or_wait(httpserver.url_for('/data'), local_path, wait=False)
+    with open(local_path, 'r') as f:
+        assert f.read() == 'hi'
