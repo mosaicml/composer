@@ -47,12 +47,14 @@ def get_fake_samples_decoders(num_samples: int) -> Tuple[List[Dict[str, bytes]],
 def write_synthetic_streaming_dataset(dirname: str,
                                       samples: List[Dict[str, bytes]],
                                       shard_size_limit: int,
-                                      compression: Optional[str] = StreamingDatasetWriter.default_compression) -> None:
+                                      compression: Optional[str] = None,
+                                      upload: Optional[str] = None) -> None:
     first_sample_fields = list(samples[0].keys())
     with StreamingDatasetWriter(dirname=dirname,
                                 fields=first_sample_fields,
                                 shard_size_limit=shard_size_limit,
-                                compression=compression) as writer:
+                                compression=compression,
+                                remote=upload) as writer:
         writer.write_samples(samples=samples)
 
 
