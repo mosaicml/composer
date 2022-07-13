@@ -50,6 +50,7 @@ class S3ObjectStore(ObjectStore):
 
     Args:
         bucket (str): The bucket name.
+        prefix (str): A path prefix such as `folder/subfolder/` to prepend to object names. Defaults to ''.
         region_name (str, optional): The region name. Must be specified if not available in
             a config file or environment variables. Defaults to None.
         endpoint_url (str, optional): The URL to an S3-Compatible object store. Must be specified if using something
@@ -67,6 +68,7 @@ class S3ObjectStore(ObjectStore):
     def __init__(
         self,
         bucket: str,
+        prefix: str = '',
         region_name: Optional[str] = None,
         endpoint_url: Optional[str] = None,
         aws_access_key_id: Optional[str] = None,
@@ -82,6 +84,7 @@ class S3ObjectStore(ObjectStore):
         except ImportError as e:
             raise MissingConditionalImportError('s3', 'boto3') from e
         self.bucket = bucket
+        self.prefix = prefix
         if client_config is None:
             client_config = {}
         config = Config(**client_config)
@@ -99,7 +102,7 @@ class S3ObjectStore(ObjectStore):
         self.transfer_config = TransferConfig(**transfer_config)
 
     def get_uri(self, object_name: str) -> str:
-        return f's3://{self.bucket}/{object_name}'
+        return os.path.join('s3://', self.bucket, self.prefix, object_name)
 
     def get_object_size(self, object_name: str) -> int:
         try:
