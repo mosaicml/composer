@@ -12,7 +12,6 @@ from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
-import copy
 
 __all__ = ['TensorboardLogger']
 
@@ -124,17 +123,24 @@ class TensorboardLogger(LoggerDestination):
         self._flush(logger)
 
     def _flush(self, logger: Logger):
-        self.last_flush = time.time()
         # To avoid empty log artifacts for each rank.
         if self.rank_zero_only and dist.get_global_rank() != 0:
             return
 
+        assert self.writer.file_writer is not None
+        file_path = self.writer.file_writer.event_writer._file_name
+
+        # If no writes have happened since the last flush, then file_path won't exist, so
+        # we should skip doing flushing and skip filing the artifact since it will error
+        # out anyway (given that the file_path doesn't exist).
+        if not Path(file_path).exists():
+            return
+
         assert self.writer is not None
         self.writer.flush()
+        self.last_flush = time.time()
 
-        assert self.writer.file_writer is not None
-        file_path = copy.deepcopy(self.writer.file_writer.event_writer._file_name)
-
+     
         logger.file_artifact(
             LogLevel.FIT,
             # For a file to be readable by Tensorboard, it must start with
