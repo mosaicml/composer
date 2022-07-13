@@ -10,7 +10,8 @@ from composer.utils.file_helpers import (create_symlink_file, ensure_folder_has_
                                          get_file, is_tar)
 from composer.utils.import_helpers import MissingConditionalImportError, import_object
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_collection
-from composer.utils.object_store import LibcloudObjectStore, ObjectStore, ObjectStoreTransientError
+from composer.utils.object_store import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, S3ObjectStore,
+                                         SFTPObjectStore)
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
 
@@ -23,6 +24,8 @@ __all__ = [
     'ObjectStore',
     'ObjectStoreTransientError',
     'LibcloudObjectStore',
+    'S3ObjectStore',
+    'SFTPObjectStore',
     'MissingConditionalImportError',
     'import_object',
     'StringEnum',
