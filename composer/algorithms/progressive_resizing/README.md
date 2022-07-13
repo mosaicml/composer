@@ -66,9 +66,9 @@ def training_loop(model, train_loader):
 <!--
 ```python
 from torch.utils.data import DataLoader
-from tests.common import RandomImageDataset, SimpleModel
+from tests.common import RandomImageDataset, SimpleConvModel
 
-model = SimpleModel()
+model = SimpleConvModel()
 train_dataloader = DataLoader(RandomImageDataset())
 ```
 -->
