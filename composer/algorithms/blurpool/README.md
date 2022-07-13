@@ -59,7 +59,7 @@ from tests.common import RandomImageDataset
 
 from composer.models import composer_resnet
 
-model = composer_resnet('resnet18')
+model = composer_resnet('resnet50')
 
 train_dataloader = DataLoader(RandomImageDataset())
 ```

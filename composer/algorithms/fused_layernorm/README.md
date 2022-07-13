@@ -47,7 +47,6 @@ from tests.common import RandomClassificationDataset
 from composer.models import create_bert_classification
 
 model = create_bert_classification()
-print(type(model))
 train_dataloader = DataLoader(RandomClassificationDataset())
 ```
 -->
