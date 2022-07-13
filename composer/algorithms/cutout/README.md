@@ -58,7 +58,7 @@ train_dataloader = DataLoader(RandomClassificationDataset())
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
 
-from composer.algorithms import Cutout
+from composer.algorithms import CutOut
 from composer.trainer import Trainer
 
 cutout = CutOut(num_holes=1, length=0.5)
