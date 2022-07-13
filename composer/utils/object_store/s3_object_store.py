@@ -83,8 +83,13 @@ class S3ObjectStore(ObjectStore):
             from botocore.config import Config
         except ImportError as e:
             raise MissingConditionalImportError('s3', 'boto3') from e
-        self.bucket = bucket
-        self.prefix = prefix
+
+        # Format paths
+        self.bucket = bucket.strip('/')
+        self.prefix = prefix.strip('/')
+        if self.prefix:
+            self.prefix += '/'
+
         if client_config is None:
             client_config = {}
         config = Config(**client_config)
@@ -102,7 +107,7 @@ class S3ObjectStore(ObjectStore):
         self.transfer_config = TransferConfig(**transfer_config)
 
     def get_uri(self, object_name: str) -> str:
-        return os.path.join('s3://', self.bucket, self.prefix, object_name)
+        return f's3://{self.bucket}/{self.prefix}{object_name}'
 
     def get_object_size(self, object_name: str) -> int:
         try:
