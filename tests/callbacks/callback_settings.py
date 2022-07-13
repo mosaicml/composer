@@ -10,10 +10,10 @@ import composer.callbacks
 import composer.loggers
 import composer.profiler
 from composer import Callback
-from composer.callbacks import EarlyStopper, MemoryMonitor, SpeedMonitor, ThresholdStopper
+from composer.callbacks import EarlyStopper, ImageVisualizer, MemoryMonitor, SpeedMonitor, ThresholdStopper
 from composer.callbacks.callback_hparams_registry import callback_registry
 from composer.callbacks.mlperf import MLPerfCallback
-from composer.loggers import ObjectStoreLogger, TensorboardLogger, WandBLogger
+from composer.loggers import FileLogger, ObjectStoreLogger, TensorboardLogger, WandBLogger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.logger_hparams_registry import ObjectStoreLoggerHparams, logger_registry
 from composer.loggers.progress_bar_logger import ProgressBarLogger
@@ -101,6 +101,7 @@ _callback_marks: Dict[Union[Type[Callback], Type[hp.Hparams]], List[pytest.MarkD
         pytest.mark.filterwarnings(
             r'ignore:The memory monitor only works on CUDA devices, but the model is on cpu:UserWarning')
     ],
+    FileLogger: [pytest.mark.timeout(30)],  # Jenkins can have slow disks
     MLPerfCallback: [pytest.mark.skipif(not _MLPERF_INSTALLED, reason='MLPerf is optional')],
     WandBLogger: [
         pytest.mark.filterwarnings(r'ignore:unclosed file:ResourceWarning'),
@@ -116,6 +117,7 @@ _callback_marks: Dict[Union[Type[Callback], Type[hp.Hparams]], List[pytest.MarkD
             # post_close might not be called if being used outside of the trainer
             r'ignore:Implicitly cleaning up:ResourceWarning',),
     ],
+    ImageVisualizer: [pytest.mark.skipif(not _WANDB_INSTALLED, reason='Wandb is optional')],
 }
 
 
