@@ -99,7 +99,7 @@ def dispatch_download(remote: Optional[str], local: str):
         raise ValueError('In the absence of local dataset, path to remote dataset must be provided')
     elif remote.startswith('s3://') or remote.startswith('sftp://'):
         url = urllib.parse.urlsplit(remote)
-        remote_path = url.path
+        remote_path = url.path.strip('/')
         object_store = get_object_store(remote)
         object_store.download_object(remote_path, local)
     elif remote.startswith('http://'):
