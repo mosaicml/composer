@@ -7,7 +7,53 @@ import torch
 from torch.nn import functional as F
 
 from composer.loss import DiceLoss, soft_cross_entropy
-from composer.loss.utils import ensure_targets_one_hot, infer_target_type
+from composer.loss.utils import _one_hot, ensure_targets_one_hot, infer_target_type
+
+
+def generate_targets():
+    return [
+        # Binary classification
+        torch.randint(low=0, high=2, size=(8,), dtype=torch.long),
+        # Classification
+        torch.randint(low=0, high=10, size=(8,), dtype=torch.long),
+        # Segmentation
+        torch.randint(low=0, high=2, size=(8, 5, 5), dtype=torch.long),
+        torch.randint(low=0, high=10, size=(8, 5, 5), dtype=torch.long),
+        # 3D inputs
+        torch.randint(low=0, high=10, size=(8, 5, 7, 11), dtype=torch.long),
+        torch.randint(low=0, high=10, size=(8, 5, 8, 11), dtype=torch.long)
+    ]
+
+
+@pytest.mark.parametrize('targets', generate_targets())
+class TestOneHot():
+
+    def test_one_hot(self, targets):
+        composer_one_hot = _one_hot(targets)
+        pytorch_one_hot = F.one_hot(targets)
+        torch.testing.assert_close(composer_one_hot, pytorch_one_hot)
+
+    def test_one_hot_num_classes(self, targets):
+        num_classes = targets.max() + 1
+        composer_one_hot = _one_hot(targets, num_classes=num_classes)
+        pytorch_one_hot = F.one_hot(targets, num_classes=num_classes)
+        torch.testing.assert_close(composer_one_hot, pytorch_one_hot)
+
+    @pytest.mark.parametrize('dim', [1])
+    def test_one_hot_dim(self, targets, dim):
+        composer_one_hot = _one_hot(targets, dim=dim)
+        pytorch_one_hot = F.one_hot(targets)
+        # Move class dim to specified dim
+        pytorch_one_hot = torch.movedim(pytorch_one_hot, source=-1, destination=dim).contiguous()
+        torch.testing.assert_close(composer_one_hot, pytorch_one_hot)
+
+    @pytest.mark.xfail(raises=ValueError)
+    def test_one_hot_wrong_type(self, targets):
+        targets = _one_hot(targets.float())
+
+    @pytest.mark.xfail(raises=ValueError)
+    def test_one_hot_wrong_classes(self, targets):
+        targets = _one_hot(targets, num_classes=1)
 
 
 def fake_input_target_pairs(input_shape):
@@ -31,7 +77,7 @@ def xfail(val):
     return pytest.param(val, marks=pytest.mark.xfail)
 
 
-def generate_tensors():
+def generate_tensor_pairs():
     return [
         # Binary classification
         fake_input_target_pairs((64, 2)),
@@ -48,14 +94,14 @@ def generate_tensors():
 
 @pytest.mark.filterwarnings(
     r'ignore:Negative label indices are being ignored in conversion to one-hot labels:UserWarning')
-@pytest.mark.parametrize('tensors', generate_tensors())
+@pytest.mark.parametrize('tensors', generate_tensor_pairs())
 def test_ensure_targets_one_hot(tensors):
     input, targets_idx, targets_one_hot = tensors
     targets_one_hot_test = ensure_targets_one_hot(input, targets_idx)
     torch.testing.assert_close(targets_one_hot, targets_one_hot_test, check_stride=False)
 
 
-@pytest.mark.parametrize('tensors', generate_tensors())
+@pytest.mark.parametrize('tensors', generate_tensor_pairs())
 class TestSoftCrossEntropy:
 
     def test_infer_target_type(self, tensors):

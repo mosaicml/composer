@@ -52,7 +52,7 @@ def ensure_targets_one_hot(input: torch.Tensor,
             num_classes = input.shape[1]
 
         # Convert to one-hot tensor
-        targets = _one_hot(targets, num_classes=num_classes)
+        targets = _one_hot(targets, num_classes=num_classes, dim=1)
     return targets.float()
 
 
@@ -62,7 +62,7 @@ def check_for_index_targets(targets: torch.Tensor) -> bool:
     return targets.dtype in index_dtypes
 
 
-def _one_hot(tensor: torch.Tensor, num_classes: int) -> torch.Tensor:
+def _one_hot(tensor: torch.Tensor, num_classes: int = -1, dim: int = -1) -> torch.Tensor:
     """Converts a tensor of index class labels to a tensor of one-hot class labels.
 
     Implementation is based on MONAI one-hot conversion function:
@@ -70,12 +70,25 @@ def _one_hot(tensor: torch.Tensor, num_classes: int) -> torch.Tensor:
 
     Args:
         tensor (torch.Tensor): Tensor containing index class labels.
-        num_classes (int): Size of the class dimension for the output one-hot tensor.
+        num_classes (int): Size of the class dimension for the output one-hot tensor. If set to -1,
+            the number of classes will be inferred to be one greater than the largest value in ``tensor``.
+        dim (int): Location of the new class dimension of size ``num_classes``.
+
 
     Returns:
         torch.Tensor: One-hot class labels i.e. the same shape as ``tensor`` except with an
             extra dimension of size ``num_classes`` inserted after the first dimension
     """
+    if not check_for_index_targets(tensor):
+        raise ValueError(f'tensor must be integer type, current type: {tensor.dtype}')
+
+    max_index = tensor.max() + 1
+    if num_classes == -1:
+        num_classes = int(max_index)
+
+    if num_classes < max_index:
+        raise ValueError(f'num_classes must be greater than or equal to tensor.max() + 1: {num_classes} < {max_index}')
+
     # Remove negative indices
     neg_indices = tensor.min() < 0
     if neg_indices:
@@ -85,14 +98,13 @@ def _one_hot(tensor: torch.Tensor, num_classes: int) -> torch.Tensor:
         num_classes += 1  # Add extra class for negative indices
 
     # Assume class dimension is inserted after the first dimension
-    class_dim = 1
-    tensor = tensor.unsqueeze(class_dim)
+    tensor = tensor.unsqueeze(dim)
     tensor_shape = list(tensor.shape)
-    tensor_shape[class_dim] = num_classes
+    tensor_shape[dim] = num_classes
 
     # Convert to one-hot
     one_hot_tensor = torch.zeros(size=tensor_shape, dtype=tensor.dtype, device=tensor.device)
-    one_hot_tensor.scatter_(dim=1, index=tensor, value=1)
+    one_hot_tensor.scatter_(dim=dim, index=tensor, value=1)
 
     # Remove negative indices
     if neg_indices:
