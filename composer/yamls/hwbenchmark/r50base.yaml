@@ -1,4 +1,3 @@
-#run_name: resnet50-methods
 model:
   resnet:
     model_name: resnet50
@@ -8,13 +7,6 @@ model:
       - bn_uniform
       - linear_log_constant_bias
     num_classes: 1000
-algorithms:
-  #- blurpool: {}
-  #- label_smoothing:
-  #    smoothing: 0.08
-  #- progressive_resizing: {}
-  #- ema:
-  #    half_life: 200ba
 callbacks:
   speed_monitor:
 train_dataset:
@@ -25,7 +17,6 @@ train_dataset:
 val_dataset:
   streaming_imagenet1k: # Configuration for ImageNet validation data
     split: val
-    #resize_size: 256
     shuffle: false
     drop_last: false
 optimizers:
@@ -44,7 +35,7 @@ eval_batch_size: 2048
 eval_interval: 3
 seed: 17
 device:
-  gpu: {}
+  amd_gpu: {}
 dataloader:
   pin_memory: true
   timeout: 0

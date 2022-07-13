@@ -69,8 +69,8 @@ install_requires = [
     'tqdm>=4.62.3,<5',
     'torchmetrics>=0.7.0,<0.8',
     'torch_optimizer>=0.1.0,<0.2',
-    #'torchvision>=0.10.0',  # torchvision has strict pytorch requirements
-    #'torch>=1.9,<2',
+    'torchvision>=0.10.0',  # torchvision has strict pytorch requirements
+    'torch>=1.9,<2',
     'yahp>=0.1.1,<0.2',
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<2',
@@ -125,7 +125,6 @@ extra_deps['dev'] = [
     'moto[s3]>=3.1.12,<3.2',
     'mock-ssh-server==0.9.1',
     'cryptography==37.0.2',
-    'pytest-httpserver>=1.0.4,<1.1',
 ]
 
 extra_deps['deepspeed'] = [
