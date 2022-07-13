@@ -35,6 +35,8 @@ def split_compression_suffix(local_path: str) -> Tuple[str, Optional[str]]:
     decompressed_path, ext = splitext(local_path)
     if ext == '.mds' or ext == '.txt':
         return local_path, None
+    elif ext == '.tmp':
+        return split_compression_suffix(decompressed_path)
 
     return decompressed_path, ext[1:]
 
