@@ -10,9 +10,14 @@ import time
 import urllib.parse
 from typing import Optional
 
-from composer.utils import MissingConditionalImportError
+from composer.utils import MissingConditionalImportError, get_file
 
 __all__ = ['download_or_wait']
+
+
+def download_from_http(remote: str, local: str) -> None:
+    """Download a file from a http/https remote to local."""
+    get_file(path=remote, destination=local, overwrite=True)
 
 
 def download_from_s3(remote: str, local: str, timeout: float) -> None:
@@ -126,6 +131,8 @@ def dispatch_download(remote: Optional[str], local: str, timeout: float):
 
     if not remote:
         raise ValueError('In the absence of local dataset, path to remote dataset must be provided')
+    elif remote.startswith('http://') or remote.startswith('https://'):
+        download_from_http(remote, local)
     elif remote.startswith('s3://'):
         download_from_s3(remote, local, timeout)
     elif remote.startswith('sftp://'):
