@@ -53,7 +53,7 @@ model.train()
 
 for epoch in range(1):
     for X, y in train_dataloader:
-        y_hat = model(X)
+        y_hat = model([X, y])
         loss = loss_fn(y_hat, y)
         loss.backward()
         opt.step()
