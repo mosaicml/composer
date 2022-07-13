@@ -30,6 +30,7 @@ the `clipping_threshold`.
 from tests.common import SimpleModel
 
 model = SimpleModel()
+clipping_threshold = 0.1
 ```
 -->
 <!--pytest-codeblocks:cont-->
@@ -48,6 +49,7 @@ the `clipping_threshold` and $||G||$ is the total L2 norm of all gradients.
 from tests.common import SimpleModel
 
 model = SimpleModel()
+clipping_threshold = 0.1
 ```
 -->
 <!--pytest-codeblocks:cont-->
@@ -67,6 +69,7 @@ $||G||$ is the norm of the gradients and $||W||$ is the norm of the weights.
 from tests.common import SimpleModel
 
 model = SimpleModel()
+clipping_threshold = 0.1
 ```
 -->
 <!--pytest-codeblocks:cont-->
@@ -105,6 +108,8 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
+<!--pytest.mark.gpu-->
+<!--pytest.mark.timeout(15)-->
 <!--
 ```python
 from torch.utils.data import DataLoader
