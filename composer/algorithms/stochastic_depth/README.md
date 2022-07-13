@@ -36,8 +36,7 @@ cf.apply_stochastic_depth(
     target_layer_name='ResNetBottleneck',
     stochastic_method='sample',
     drop_rate=0.2,
-    drop_distribution='linear',
-    optimizers=opt
+    drop_distribution='linear'
 )
 
 loss_fn = F.cross_entropy
@@ -61,7 +60,7 @@ for epoch in range(10):
 from torch.utils.data import DataLoader
 from tests.common import RandomImageDataset
 
-train_dataloader = DataLoader(RandomImageDataset())
+train_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
 ```
 -->
 <!--pytest-codeblocks:cont-->
