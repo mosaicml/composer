@@ -24,18 +24,18 @@ class LoggerDestination(Callback, ABC):
     :attr:`~composer.core.event.Event.EPOCH_END` to perform any flushing at the end of every epoch.
 
     Example:
-    .. doctest::
+        .. doctest::
 
-        >>> from composer.loggers import LoggerDestination
-        >>> class MyLogger(LoggerDestination):
-        ...     def log_data(self, state, log_level, data):
-        ...         print(f'Batch {int(state.timestamp.batch)}: {data}')
-        >>> logger = MyLogger()
-        >>> trainer = Trainer(
-        ...     ...,
-        ...     loggers=[logger]
-        ... )
-        Batch 0: {'rank_zero_seed': ...}
+            >>> from composer.loggers import LoggerDestination
+            >>> class MyLogger(LoggerDestination):
+            ...     def log_data(self, state, log_level, data):
+            ...         print(f'Batch {int(state.timestamp.batch)}: {data}')
+            >>> logger = MyLogger()
+            >>> trainer = Trainer(
+            ...     ...,
+            ...     loggers=[logger]
+            ... )
+            Batch 0: {'rank_zero_seed': ...}
     """
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
