@@ -37,7 +37,7 @@ def training_loop(model, train_loader):
     loss_fn = F.cross_entropy
     model.train()
 
-    for epoch in range(10):
+    for epoch in range(1):
         for X, y in train_loader:
             y_hat = model(X)
             loss = loss_fn(y_hat, y)

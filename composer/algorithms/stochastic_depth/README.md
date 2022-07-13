@@ -12,6 +12,15 @@
 
 <!--pytest.mark.gpu-->
 <!--pytest.mark.timeout(15)-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomImageDataset
+
+train_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 # Run the Stochastic Depth algorithm directly on the model using the Composer functional API
 
@@ -42,8 +51,8 @@ cf.apply_stochastic_depth(
 loss_fn = F.cross_entropy
 model.train()
 
-for epoch in range(10):
-    for X, y in train_loader:
+for epoch in range(1):
+    for X, y in train_dataloader:
         y_hat = model(X)
         loss = loss_fn(y_hat, y)
         loss.backward()
@@ -87,7 +96,7 @@ stochastic_depth = StochasticDepth(
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
-    max_duration='10ep',
+    max_duration='1ep',
     algorithms=[stochastic_depth]
 )
 
