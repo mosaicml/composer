@@ -58,6 +58,7 @@ for epoch in range(1):
         loss.backward()
         opt.step()
         opt.zero_grad()
+        break
 ```
 
 ### Composer Trainer
