@@ -143,6 +143,7 @@ class TensorboardLogger(LoggerDestination):
             file_path=file_path,
             overwrite=True)
 
+        self.flush_count += 1
         # Close writer and reinitialize it to ensure no strange issues with dropping
         # of points.
         self.writer.close()
@@ -152,5 +153,3 @@ class TensorboardLogger(LoggerDestination):
         # Give event_file a unique name to avoid appending to the same file on every flush.
         self.writer.file_writer.event_writer._file_name = self.event_file_base_file_path + f'-{self.flush_count}'
         self.writer.file_writer.event_writer._async_writer._writer._writer.filename = self.event_file_base_file_path + f'-{self.flush_count}'
-
-        self.flush_count += 1
