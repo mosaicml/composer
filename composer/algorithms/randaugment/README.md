@@ -58,6 +58,16 @@ dataset = VisionDataset(data_path, transform=composed)
 
 <!--pytest.mark.gpu-->
 <!--pytest.mark.timeout(15)-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomClassificationDataset, SimpleModel
+
+model = SimpleModel()
+train_dataloader = DataLoader(RandomClassificationDataset())
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
@@ -72,10 +82,8 @@ randaugment_algorithm = RandAugment(severity=9,
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
-    eval_dataloader=eval_dataloader,
     max_duration="1ep",
-    algorithms=[randaugment_algorithm],
-    optimizers=[optimizer]
+    algorithms=[randaugment_algorithm]
 )
 
 trainer.fit()

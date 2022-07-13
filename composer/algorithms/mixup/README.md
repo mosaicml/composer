@@ -67,6 +67,16 @@ Here we run `mixup` using index labels and interpolate the loss (a trick when us
 
 <!--pytest.mark.gpu-->
 <!--pytest.mark.timeout(15)-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomClassificationDataset, SimpleModel
+
+model = SimpleModel()
+train_dataloader = DataLoader(RandomClassificationDataset())
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 from composer.algorithms import MixUp
 from composer.trainer import Trainer
@@ -88,8 +98,18 @@ trainer.fit()
 
 Here we run `mixup` using dense/one-hot labels and interpolate the labels (general case).
 
-<!-- TODO: Address timeouts -->
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.gpu-->
+<!--pytest.mark.timeout(15)-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomClassificationDataset, SimpleModel
+
+model = SimpleModel()
+train_dataloader = DataLoader(RandomClassificationDataset())
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 from composer.algorithms import MixUp
 from composer.trainer import Trainer
