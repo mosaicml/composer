@@ -193,7 +193,7 @@ class S3ObjectStoreHparams(ObjectStoreHparams):
 
     Args:
         bucket (str): See :class:`.S3ObjectStore`.
-        prefix (str, optional): See :class:`.S3ObjectStore`.
+        prefix (str): See :class:`.S3ObjectStore`.
         region_name (str, optional): See :class:`.S3ObjectStore`.
         endpoint_url (str, optional): See :class:`.S3ObjectStore`.
         client_config (dict, optional): See :class:`.S3ObjectStore`.
