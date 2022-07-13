@@ -42,13 +42,10 @@ def training_loop(model, train_loader):
 <!--pytest.mark.timeout(15)-->
 <!--
 ```python
-from torch.utils.data import DataLoader
-from tests.common import RandomClassificationDataset
+from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker
 
-from composer.models import create_bert_classification
-
-model = create_bert_classification()
-train_dataloader = DataLoader(RandomClassificationDataset())
+synthetic_config = make_dataset_configs(model_family=['bert'])[0]
+_, model, train_dataloader = synthetic_hf_state_maker(synthetic_config)
 ```
 -->
 <!--pytest-codeblocks:cont-->

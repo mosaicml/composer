@@ -53,7 +53,6 @@ model.train()
 
 for epoch in range(1):
     for X, y in train_dataloader:
-        print(X.shape, y.shape)
         y_hat = model(X)
         loss = loss_fn(y_hat, y)
         loss.backward()
