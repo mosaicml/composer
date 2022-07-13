@@ -12,11 +12,17 @@ import urllib.parse
 from typing import Optional
 
 from composer.datasets.streaming.format import split_compression_suffix
+from composer.utils import get_file
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
 from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 
 __all__ = ['download_or_wait', 'get_object_store']
+
+
+def download_from_http(remote: str, local: str) -> None:
+    """Download a file from a http/https remote to local."""
+    get_file(path=remote, destination=local, overwrite=True)
 
 
 def get_object_store(remote: str) -> ObjectStore:
@@ -96,6 +102,8 @@ def dispatch_download(remote: Optional[str], local: str):
         remote_path = url.path
         object_store = get_object_store(remote)
         object_store.download_object(remote_path, local)
+    elif remote.startswith('http://'):
+        download_from_http(remote, local)
     else:
         download_from_local(remote, local)
 
