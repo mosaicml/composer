@@ -28,7 +28,7 @@ class TensorboardLogger(LoggerDestination):
     `events.out.tfevents.*`
 
     Args:
-        log_dir (str, optional): The path to the directory where all the Tensorboard logs
+        log_dir (str, optional): The path to the directory where all the tensorboard logs
             will be saved. This is also the value that should be specified when starting
             a tensorboard server. e.g. `tensorboard --logdir={log_dir}`. If not specified
             `./tensorboard_logs` will be used.
