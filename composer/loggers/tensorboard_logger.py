@@ -129,7 +129,7 @@ class TensorboardLogger(LoggerDestination):
         self.writer.flush()
 
         assert self.writer.file_writer is not None
-        file_path = self.writer.file_writer.event_writer._file_name
+        file_path = self.event_file_base_file_path + f'-{self.flush_count}'
 
         logger.file_artifact(
             LogLevel.FIT,
