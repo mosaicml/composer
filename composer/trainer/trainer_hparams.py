@@ -94,6 +94,18 @@ def _initialize_dataloader(
     return dataloader
 
 
+def _parse_grad_accum(grad_accum: Union[int, str]) -> Union[int, str]:
+    if grad_accum == 'auto':
+        return grad_accum
+
+    try:
+        return int(grad_accum)
+    except (ValueError, TypeError):
+        pass
+
+    raise ValueError('grad_accum should be "auto" or an integer.')
+
+
 def _initialize_eval_dataloader(
     model: ComposerModel,
     eval_dataset_hparams: Optional[DatasetHparams],
@@ -400,8 +412,8 @@ class TrainerHparams(hp.Hparams):
         if self.scale_schedule_ratio <= 0:
             raise ValueError('scale_schedule_ratio must be a positive value.')
 
-        if (isinstance(self.grad_accum, str) and self.grad_accum != 'auto') or (isinstance(self.grad_accum, int) and
-                                                                                self.grad_accum < 1):
+        grad_accum = _parse_grad_accum(self.grad_accum)
+        if (isinstance(grad_accum, str) and grad_accum != 'auto') or (isinstance(grad_accum, int) and grad_accum < 1):
             raise ValueError('grad_accum must be "auto" or an int greater than or equal to 1.')
 
     def initialize_object(self) -> Trainer:
@@ -410,6 +422,9 @@ class TrainerHparams(hp.Hparams):
         # Set the Python LogLevel for Composer
         import composer
         logging.getLogger(composer.__name__).setLevel(self.python_log_level.upper())
+
+        # ensure grad_accum is 'auto' or an integer
+        grad_accum = _parse_grad_accum(self.grad_accum)
 
         # Device
         device = self.device
@@ -524,7 +539,7 @@ class TrainerHparams(hp.Hparams):
             # System/Numerics
             device=device,
             precision=self.precision,
-            grad_accum=self.grad_accum,
+            grad_accum=grad_accum,
 
             # Reproducibility
             seed=seed,
@@ -662,6 +677,8 @@ class FitHparams(hp.Hparams):
         Returns:
             FitKwargs: A kwargs dictionary that can be unpacked and passed into :meth:`.Trainer.fit`.
         """
+        grad_accum = _parse_grad_accum(self.grad_accum) if self.grad_accum else self.grad_accum
+
         # Train DataLoader
         train_dataloader = _initialize_dataloader(
             dataset_hparams=self.train_dataset,
@@ -694,7 +711,7 @@ class FitHparams(hp.Hparams):
             'eval_dataloader': eval_dataloader,
             'eval_subset_num_batches': self.eval_subset_num_batches,
             'eval_interval': self.eval_interval,
-            'grad_accum': self.grad_accum,
+            'grad_accum': grad_accum,
             'precision': self.precision,
         }
 
