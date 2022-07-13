@@ -151,6 +151,9 @@ class StreamingDataset(IterableDataset):
                         raise DatasetCompressionException('cannot decompress when remote == local')
 
             except FileNotFoundError:
+                compression_local = os.path.join(self.local, get_compression_scheme_basename() + '.old')
+                with open(compression_local, 'x') as fp:
+                    fp.write('')
                 pass
 
         # Load the index file containing the shard metadata
