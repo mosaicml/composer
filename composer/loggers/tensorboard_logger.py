@@ -12,6 +12,7 @@ from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
+import copy
 
 __all__ = ['TensorboardLogger']
 
@@ -132,7 +133,7 @@ class TensorboardLogger(LoggerDestination):
         self.writer.flush()
 
         assert self.writer.file_writer is not None
-        file_path = self.writer.file_writer.event_writer._file_name
+        file_path = copy.deepcopy(self.writer.file_writer.event_writer._file_name)
 
         logger.file_artifact(
             LogLevel.FIT,
