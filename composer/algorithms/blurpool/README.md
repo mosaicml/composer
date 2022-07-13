@@ -74,7 +74,7 @@ blurpool = BlurPool(replace_convs=True,
 
 trainer = Trainer(model=model,
                     train_dataloader=train_dataloader,
-                    max_duration='10ep',
+                    max_duration='1ep',
                     algorithms=[blurpool])
 
 trainer.fit()
@@ -126,4 +126,4 @@ BlurPool tends to compose well with other methods. We are not aware of an exampl
 
 [*Making Convolutional Networks Shift-Invariant Again*](https://proceedings.mlr.press/v97/zhang19a.html) by Richard Zhang in ICML 2019.
 
-*The Composer implementation of this method and the accompanying documentation were produced by Davis Blalock at MosaicML. We thank Richard Zhang for helpful discussion*
+*The Composer implementation of this method and the accompanying documentation were produced by Davis Blalock at MosaicML. We thank Richard Zhang for helpful discussion.*

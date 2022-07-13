@@ -18,14 +18,16 @@
 import torch
 import torch.nn.functional as F
 import composer.functional as cf
+from composer.models import composer_resnet
 
 from torchvision.models import resnet50
 
 # Training
 
 # Stochastic depth can only be run on ResNet-50/101/152
-model = resnet50()
+model = composer_resnet('resnet50')
 
+opt = torch.optim.Adam(model.parameters())
 
 # only need to pass in opt if apply_stochastic_depth is used after the optimizer
 # creation; otherwise only the model needs to be passed in
@@ -54,6 +56,15 @@ for epoch in range(10):
 
 <!--pytest.mark.gpu-->
 <!--pytest.mark.timeout(15)-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomImageDataset
+
+train_dataloader = DataLoader(RandomImageDataset())
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate point in the training loop

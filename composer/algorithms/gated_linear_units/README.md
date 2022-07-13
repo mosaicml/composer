@@ -43,9 +43,11 @@ def training_loop(model, train_loader):
 <!--
 ```python
 from torch.utils.data import DataLoader
-from tests.common import RandomClassificationDataset, SimpleModel
+from tests.common import RandomClassificationDataset
 
-model = SimpleModel()
+from composer.models import create_bert_classification
+
+model = create_bert_classification()
 train_dataloader = DataLoader(RandomClassificationDataset())
 ```
 -->
