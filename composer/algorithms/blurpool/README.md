@@ -78,7 +78,7 @@ blurpool = BlurPool(replace_convs=True,
 trainer = Trainer(model=model,
                     train_dataloader=train_dataloader,
                     max_duration='1ep',
-                    algorithms=[blurpool])
+                    algorithms=[])
 
 trainer.fit()
 ```
