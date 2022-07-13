@@ -54,15 +54,21 @@ def training_loop(model, train_loader):
 
 <!--pytest.mark.gpu-->
 <!--pytest.mark.timeout(15)-->
+<!--
+```python
+from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker
+
+synthetic_config = make_dataset_configs(model_family=['gpt2'])[0]
+_, model, train_dataloader = synthetic_hf_state_maker(synthetic_config)
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
 
 from composer.algorithms import Alibi
 from composer.trainer import Trainer
-from composer.models.gpt2 import create_gpt2
-
-model = create_gpt2()
 
 alibi = Alibi(
     position_embedding_attribute="module.transformer.wpe",
