@@ -238,6 +238,7 @@ class TrainerHparams(hp.Hparams):
 
         device (Device, optional): Hparams for constructing the device used for training.
             (default: ``None``)
+        device_id (int, optional): ID of GPU to train with. (default: ``None``)
         precision (Precision, optional): See :class:`.Trainer`.
         grad_accum (int | str, optional): See :class:`.Trainer`.
 
@@ -347,6 +348,7 @@ class TrainerHparams(hp.Hparams):
 
     # System/Numerics
     device: Optional[Device] = hp.auto(Trainer, 'device')
+    device_id: Optional[int] = hp.optional(doc='device_id of GPU to train on', default=None)
     precision: Optional[Precision] = hp.auto(Trainer, 'precision')
     grad_accum: Union[int, str] = hp.auto(Trainer, 'grad_accum')
 
@@ -414,7 +416,7 @@ class TrainerHparams(hp.Hparams):
         # Device
         device = self.device
         if device is None:
-            device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU()
+            device = DeviceGPU(self.device_id) if torch.cuda.is_available() else DeviceCPU()
 
         # Distributed
         # Initialized here so it is available within dataloaders

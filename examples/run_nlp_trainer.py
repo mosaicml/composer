@@ -5,9 +5,6 @@
 Specifically designed for the NLP use case, allowing pre-training and fine-tuning on 
 downstream tasks to be handled within one script.
 
-Adds a --datadir flag to conveniently set a common
-data directory for both train and validation datasets.
-
 Example that pretrains a BERT:
     >>> composer examples/run_nlp_trainer.py 
     -f composer/yamls/models/bert-base.yaml 
@@ -29,11 +26,12 @@ Example that finetunes a pretrained BERT:
 import argparse
 import multiprocessing as mp
 import os
-import signal
 import subprocess
 import sys
 import warnings
 from typing import List, Optional, Type
+
+from yaml import load
 
 import boto3
 import torch
@@ -42,11 +40,12 @@ from tabulate import tabulate
 
 import composer
 from composer.loggers.object_store_logger import ObjectStoreLogger
+from composer.loggers.wandb_logger import WandBLogger
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils.object_store.object_store_hparams import S3ObjectStoreHparams
 from composer.utils.object_store.s3_object_store import S3ObjectStore
 
-# TODO: wandb integrations, reset all configs and training lengths back to default
+# TODO: reset all configs and training lengths back to default
 # track GLUE Metrics
 GLUE_METRICS = {}
 
@@ -141,12 +140,17 @@ def setup_finetuning_jobs(finetune_tasks: List[str], save_ckpts: List[bool], ckp
             else:
                 GLUE_METRICS[logged_ckpt_name][formatted_task] = sum([GLUE_METRICS[logged_ckpt_name][formatted_task], metric[task][m].item()]) / 2  # automatically average scores 
         
+    if parent_ckpt: 
+        wandb_group_name = parent_ckpt
+    else:
+        wandb_group_name = ckpt_load_path
+
     # finetuning from pretrained checkpoint
     print(f"FINETUNING ON {ckpt_filename}!")
     pool = mp.Pool(num_tasks, initializer=init_cuda_env, initargs=(cuda_envs,))
     subprocs = []
     for rank in range(num_tasks):
-        sp = pool.apply_async(train_finetune, (finetune_tasks[rank], save_ckpts[rank], ckpt_load_path, save_folder, save_locally, rank, bucket, load_ignore_keys), callback=log_metrics)
+        sp = pool.apply_async(train_finetune, (finetune_tasks[rank], save_ckpts[rank], ckpt_load_path, wandb_group_name, save_folder, save_locally, rank, bucket, load_ignore_keys), callback=log_metrics)
         subprocs.append(sp)
     for sp in subprocs:
         sp.wait()
@@ -157,7 +161,7 @@ def setup_finetuning_jobs(finetune_tasks: List[str], save_ckpts: List[bool], ckp
     cuda_envs.join_thread()
     
 '''Run single instance of a finetuning job on given task. ''' 
-def train_finetune(task: str, save_ckpt: bool, load_path: str, save_folder: str, save_locally: bool, gpu_id: int, bucket: Optional[str] = None, load_ignore_keys: Optional[List[str]] = None):
+def train_finetune(task: str, save_ckpt: bool, load_path: str, wandb_group_name: str, save_folder: str, save_locally: bool, gpu_id: int, bucket: Optional[str] = None, load_ignore_keys: Optional[List[str]] = None):
     # add dummy arg because arg parser removes first argument in tokenization
     ft_hparams = TrainerHparams.create(cli_args=['-f',  f'./composer/yamls/models/glue/{task}.yaml',
                 '--load_path', load_path,
@@ -166,6 +170,8 @@ def train_finetune(task: str, save_ckpt: bool, load_path: str, save_folder: str,
                 "--progress_bar", "False",
                 "--load_ignore_keys", f"{load_ignore_keys}"])
     
+    
+    ft_hparams.loggers = [WandBLogger(group=wandb_group_name, tags=['finetune', task], rank_zero_only=True)]
     # load checkpoint to finetune on via cloud 
     if not save_locally:
         ft_hparams.load_object_store = S3ObjectStoreHparams(bucket=bucket)
@@ -181,7 +187,8 @@ def train_finetune(task: str, save_ckpt: bool, load_path: str, save_folder: str,
             if not os.path.exists(task_ckpt_path):
                 os.mkdir(task_ckpt_path)
         else:
-            ft_hparams.loggers = [ObjectStoreLogger(object_store_cls=S3ObjectStore, object_store_kwargs={'bucket': bucket}, use_procs=False)]
+            ft_hparams.loggers = [WandBLogger(group=wandb_group_name, tags=['finetune', task], rank_zero_only=True),
+                                ObjectStoreLogger(object_store_cls=S3ObjectStore, object_store_kwargs={'bucket': bucket}, use_procs=False)]
             ft_hparams.save_folder = f'{task}'
             ft_hparams.save_num_checkpoints_to_keep = 0
             save_artifact_name = f'{{run_name}}/{task}/ep{{epoch}}-ba{{batch}}-rank{{rank}}'
@@ -235,20 +242,22 @@ def run_pretrainer(args):
         else: # pretrain only
             new_save_folder = args.save_folder
         
-        proc = subprocess.Popen(['composer', training_script, '-f', f"{args.file}", '--save_folder', f"{new_save_folder}"], cwd=root_dir)
+        proc = subprocess.Popen(['composer', training_script, '-f', f"{args.file}", '--save_folder', f"{new_save_folder}", 
+                        '--loggers', 'wandb', '--tags', 'pretrain'], cwd=root_dir)
         
     # saving on cloud
     else:
         if args.training_scheme == 'all':
             args.save_folder = 'pretrained'
             save_artifact_name = '{run_name}/pretrained/ep{epoch}-ba{batch}-rank{rank}-wct{total_wct}'
-            proc = subprocess.Popen(['composer', training_script, '-f', f"{args.file}" , '--save_folder', args.save_folder, '--save_artifact_name', save_artifact_name, 
-                                '--save_num_checkpoints_to_keep', '0', '--loggers' , 'object_store', '--object_store_hparams', 's3', '--bucket', args.bucket], cwd=root_dir)                
+            proc = subprocess.Popen(['composer', training_script, '-f', f"{args.file}" , '--save_folder', args.save_folder, 
+                    '--save_artifact_name', save_artifact_name, '--save_num_checkpoints_to_keep', '0', '--loggers',
+                    'wandb', 'object_store', '--tags', 'pretrain', '--object_store_hparams', 's3', '--bucket', args.bucket], cwd=root_dir)                
         
         # only pretraining, save to default artifact name 
         else: 
             proc = subprocess.Popen(['composer', training_script, '-f', f"{args.file}", '--save_num_checkpoints_to_keep', '0',
-                    '--loggers' , 'object_store', '--object_store_hparams', 's3', '--bucket', args.bucket], cwd=root_dir)
+                    '--loggers', 'wandb', 'object_store', '--tags', 'pretrain', '--object_store_hparams', 's3', '--bucket', args.bucket], cwd=root_dir) 
     proc.wait() # block until training is complete 
 
 ''' Logic for handling a finetuning job spawn based on storage and training settings.'''
@@ -288,8 +297,8 @@ def run_finetuner(args):
             save_locally = False
             
         # TODO: PUT SEEDS BACK IN
-        finetune_tasks = ['cola', 'sst-2', 'qqp', 'qnli', 'mnli']
-        save_ckpts = [False, False, False, False, True]
+        finetune_tasks = ['cola', 'sst-2', 'qqp', 'qnli']#, 'mnli']
+        save_ckpts = [False, False, False, False]#, True]
         setup_finetuning_jobs(finetune_tasks, save_ckpts, ckpt_load_path, ckpt_filename, save_folder, save_locally=save_locally, bucket=args.bucket)
 
         # finetune on inference tasks using last mnli checkpoint 
@@ -308,8 +317,8 @@ def run_finetuner(args):
         mnli_finetune_tasks = ['rte', 'mrpc', 'stsb']
         save_ckpts = [False, False, False]
         # delete finetuning head to reinitialize number of classes 
-        setup_finetuning_jobs(mnli_finetune_tasks, save_ckpts, ckpt_load_path, ckpt_filename, args.save_folder, args.bucket, parent_ckpt=parent_ckpt, 
-                            load_ignore_keys="state/model/model.classifier*", save_locally=save_locally)  # type: ignore
+        setup_finetuning_jobs(mnli_finetune_tasks, save_ckpts, ckpt_load_path, ckpt_filename, args.save_folder, save_locally=save_locally,
+                         bucket=args.bucket, parent_ckpt=parent_ckpt, load_ignore_keys="state/model/model.classifier*", )  # type: ignore
 
 def _main() -> None:
     warnings.formatwarning = _warning_on_one_line
@@ -336,5 +345,6 @@ def _main() -> None:
 
 if __name__ == '__main__':
     mp.set_start_method('spawn')
+    os.environ['WANDB_START_METHOD'] = 'thread' # to not interfere with multiprocessing 
     _main()
 
