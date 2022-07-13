@@ -3,6 +3,7 @@
 
 """Log to `Tensorboard <https://www.tensorflow.org/tensorboard/>`_."""
 
+import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -27,24 +28,23 @@ class TensorboardLogger(LoggerDestination):
     `events.out.tfevents.*`
 
     Args:
-        log_dir (str, optional): The path to the directory where all the tensorboard logs
+        log_dir (str, optional): The path to the directory where all the Tensorboard logs
             will be saved. This is also the value that should be specified when starting
             a tensorboard server. e.g. `tensorboard --logdir={log_dir}`. If not specified
             `./tensorboard_logs` will be used.
-        flush_interval (int, optional): How frequently by batch to flush the log to a file.
+        flush_secs (int, optional): How frequently in seconds to flush the log to a file.
             For example, a flush interval of 10 means the log will be flushed to a file
-            every 10 batches. The logs will also be automatically flushed at the start and
+            every 10 seconds. The logs will also be automatically flushed at the start and
             end of every evaluation phase (`EVENT.EVAL_START` and `EVENT.EVAL_END` ),
             the end of every epoch (`EVENT.EPOCH_END`), and the end of training
-            (`EVENT.FIT_END`). Default: ``100``.
+            (`EVENT.FIT_END`). Default: ``20``.
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process.
             Recommended to be true since the rank 0 will have access to most global metrics.
             A setting of `False` may lead to logging of duplicate values.
             Default: :attr:`True`.
     """
 
-    def __init__(self, log_dir: Optional[str] = None, flush_interval: int = 100,
-                       rank_zero_only: bool = True):
+    def __init__(self, log_dir: Optional[str] = None, flush_secs: int = 20, rank_zero_only: bool = True):
         try:
             from torch.utils.tensorboard import SummaryWriter
         except ImportError as e:
@@ -53,12 +53,13 @@ class TensorboardLogger(LoggerDestination):
                                                 conda_channel='conda-forge') from e
 
         self.log_dir = log_dir
-        self.flush_interval = flush_interval
         self.rank_zero_only = rank_zero_only
         self.writer: Optional[SummaryWriter] = None
         self.flush_count = 0
         self.event_file_base_file_path: Optional[str] = None
-
+        self.flush_secs = flush_secs
+        self.last_flush = time.time()
+        self.run_name: Optional[str] = None
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         del log_level
@@ -79,24 +80,32 @@ class TensorboardLogger(LoggerDestination):
                 pass
 
     def init(self, state: State, logger: Logger) -> None:
-        from torch.utils.tensorboard import SummaryWriter
+        self.run_name = state.run_name
 
         # We set the log_dir to a constant, so all runs can be co-located together.
         if self.log_dir is None:
             self.log_dir = 'tensorboard_logs'
 
+        self._initialize_summary_writer()
+
+    def _initialize_summary_writer(self):
+        from torch.utils.tensorboard import SummaryWriter
+
+        assert self.run_name is not None
+        assert self.log_dir is not None
         # We name the child directory after the run_name to ensure the run_name shows up
         # in the Tensorboard GUI.
-        summary_writer_log_dir = Path(self.log_dir) / state.run_name
+        summary_writer_log_dir = Path(self.log_dir) / self.run_name
 
         # To disable automatic flushing we set flushing to once a year ;)
-        flush_secs = 365 * 3600 * 24
-        self.writer = SummaryWriter(log_dir=summary_writer_log_dir, flush_secs=flush_secs)
+        summary_writer_flush_secs = 365 * 3600 * 24
+        self.writer = SummaryWriter(log_dir=summary_writer_log_dir, flush_secs=summary_writer_flush_secs)
 
+        assert self.writer.file_writer is not None
         self.event_file_base_file_path = self.writer.file_writer.event_writer._file_name
 
     def batch_end(self, state: State, logger: Logger) -> None:
-        if int(state.timestamp.batch) % self.flush_interval == 0:
+        if (time.time() - self.last_flush) >= self.flush_secs:
             self._flush(logger)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
@@ -111,6 +120,7 @@ class TensorboardLogger(LoggerDestination):
         self._flush(logger)
 
     def _flush(self, logger: Logger):
+        self.last_flush = time.time()
         # To avoid empty log artifacts for each rank.
         if self.rank_zero_only and dist.get_global_rank() != 0:
             return
@@ -126,11 +136,20 @@ class TensorboardLogger(LoggerDestination):
             # For a file to be readable by Tensorboard, it must start with
             # 'events.out.tfevents'. Child directory is named after run_name, so the logs
             # are named properly in the Tensorboard GUI.
-            artifact_name=('tensorboard_logs/{run_name}/events.out.tfevents-{run_name}-{rank}'
-                         + f'-{self.flush_count}'),
+            artifact_name=(
+                'tensorboard_logs/{run_name}/events.out.tfevents-{run_name}-{rank}'
+                # Append flush_count, so artifact has unique name.
+                + f'-{self.flush_count}'),
             file_path=file_path,
             overwrite=True)
 
+        # Close writer and reinitialize it to ensure no strange issues with dropping
+        # of points.
+        self.writer.close()
+        self._initialize_summary_writer()
+
+        assert self.event_file_base_file_path is not None
+        # Give event_file a unique name to avoid appending to the same file on every flush.
         self.writer.file_writer.event_writer._async_writer._writer._writer.filename = self.event_file_base_file_path + f'-{self.flush_count}'
+
         self.flush_count += 1
-        
