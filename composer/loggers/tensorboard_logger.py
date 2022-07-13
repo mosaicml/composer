@@ -150,6 +150,7 @@ class TensorboardLogger(LoggerDestination):
 
         assert self.event_file_base_file_path is not None
         # Give event_file a unique name to avoid appending to the same file on every flush.
+        self.writer.file_writer.event_writer._file_name = self.event_file_base_file_path + f'-{self.flush_count}'
         self.writer.file_writer.event_writer._async_writer._writer._writer.filename = self.event_file_base_file_path + f'-{self.flush_count}'
 
         self.flush_count += 1
