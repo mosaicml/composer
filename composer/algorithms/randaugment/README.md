@@ -61,10 +61,10 @@ dataset = VisionDataset(data_path, transform=composed)
 <!--
 ```python
 from torch.utils.data import DataLoader
-from tests.common import RandomClassificationDataset, SimpleModel
+from tests.common import RandomImageDataset, SimpleModel
 
 model = SimpleModel()
-train_dataloader = DataLoader(RandomClassificationDataset())
+train_dataloader = DataLoader(RandomImageDataset())
 ```
 -->
 <!--pytest-codeblocks:cont-->

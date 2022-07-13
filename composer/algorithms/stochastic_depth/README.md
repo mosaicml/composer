@@ -26,7 +26,6 @@ from torchvision.models import resnet50
 # Stochastic depth can only be run on ResNet-50/101/152
 model = resnet50()
 
-opt = torch.optim.Adam(model.parameters())
 
 # only need to pass in opt if apply_stochastic_depth is used after the optimizer
 # creation; otherwise only the model needs to be passed in
@@ -60,12 +59,13 @@ for epoch in range(10):
 # The trainer will automatically run it at the appropriate point in the training loop
 
 from composer.algorithms import StochasticDepth
+from composer.models import composer_resnet
 from composer.trainer import Trainer
 
 # Train model
 
 # Stochastic depth can only be run on ResNet-50/101/152
-model = resnet50()
+model = composer_resnet('resnet50')
 
 stochastic_depth = StochasticDepth(
     target_layer_name='ResNetBottleneck',

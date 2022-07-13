@@ -41,7 +41,7 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```python
 from composer.trainer import Trainer
 from composer.algorithms import SeqLengthWarmup
