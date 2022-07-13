@@ -128,9 +128,9 @@ For the best experience and the most efficient possible training, we recommend u
 <!--pytest.mark.timeout(15)-->
 <!--
 ```python
-from composer.models import composer_resnet
+from composer.models import mnist_model
 
-model = composer_resnet('resnet18', num_classes=10)
+model = mnist_model()
 ```
 -->
 <!--pytest-codeblocks:cont-->
