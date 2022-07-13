@@ -142,7 +142,7 @@ class StreamingDataset(IterableDataset):
         if remote is not None:
             try:
                 compression_local = self._download_file(get_compression_scheme_basename(),
-                                                        wait=True,
+                                                        wait=False,
                                                         local_basename=get_compression_scheme_basename() + '.old')
                 with open(compression_local, 'r') as fp:
                     compression_scheme = fp.read().rstrip()
