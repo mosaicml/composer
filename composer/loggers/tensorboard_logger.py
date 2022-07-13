@@ -101,8 +101,13 @@ class TensorboardLogger(LoggerDestination):
         summary_writer_flush_secs = 365 * 3600 * 24
         self.writer = SummaryWriter(log_dir=summary_writer_log_dir, flush_secs=summary_writer_flush_secs)
 
-        assert self.writer.file_writer is not None
-        self.event_file_base_file_path = self.writer.file_writer.event_writer._file_name
+        if self.event_file_base_file_path is None:
+            self.event_file_base_file_path = self.writer.file_writer.event_writer._file_name
+
+        # Give event_file a unique name to avoid appending to the same file on every flush.
+        self.writer.file_writer.event_writer._file_name = self.event_file_base_file_path + f'-{self.flush_count}'
+        self.writer.file_writer.event_writer._async_writer._writer._writer.filename = self.writer.file_writer.event_writer._file_name
+
 
     def batch_end(self, state: State, logger: Logger) -> None:
         if (time.time() - self.last_flush) >= self.flush_secs:
@@ -115,8 +120,6 @@ class TensorboardLogger(LoggerDestination):
         self._flush(logger)
 
     def fit_end(self, state: State, logger: Logger) -> None:
-        # Flush the file on fit_end, in case if was not flushed on epoch_end and the trainer is re-used
-        # (which would defer when `self.close()` would be invoked)
         self._flush(logger)
 
     def _flush(self, logger: Logger):
@@ -129,7 +132,7 @@ class TensorboardLogger(LoggerDestination):
         self.writer.flush()
 
         assert self.writer.file_writer is not None
-        file_path = self.event_file_base_file_path + f'-{self.flush_count}'
+        file_path = self.writer.file_writer.event_writer._file_name
 
         logger.file_artifact(
             LogLevel.FIT,
@@ -143,13 +146,9 @@ class TensorboardLogger(LoggerDestination):
             file_path=file_path,
             overwrite=True)
 
-        self.flush_count += 1
         # Close writer and reinitialize it to ensure no strange issues with dropping
         # of points.
         self.writer.close()
-        self._initialize_summary_writer()
 
-        assert self.event_file_base_file_path is not None
-        # Give event_file a unique name to avoid appending to the same file on every flush.
-        self.writer.file_writer.event_writer._file_name = self.event_file_base_file_path + f'-{self.flush_count}'
-        self.writer.file_writer.event_writer._async_writer._writer._writer.filename = self.event_file_base_file_path + f'-{self.flush_count}'
+        self.flush_count += 1
+        self._initialize_summary_writer()
