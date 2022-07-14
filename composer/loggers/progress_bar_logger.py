@@ -337,9 +337,27 @@ class ProgressBarLogger(LoggerDestination):
     def load_state_dict(self, state: Dict[str, Any]) -> None:
         if state['train_pbar']:
             n = state['train_pbar'].pop('n')
-            self.train_pbar = _ProgressBar(file=self.stream, **state['train_pbar'])
+            train_pbar = self._ensure_backwards_compatibility(state['train_pbar'])
+            self.train_pbar = _ProgressBar(file=self.stream, **train_pbar)
             self.train_pbar.update(n=n)
         if state['eval_pbar']:
             n = state['train_pbar'].pop('n')
-            self.eval_pbar = _ProgressBar(file=self.stream, **state['eval_pbar'])
+            eval_pbar = self._ensure_backwards_compatibility(state['eval_pbar'])
+            self.eval_pbar = _ProgressBar(file=self.stream, **eval_pbar)
             self.eval_pbar.update(n=n)
+
+    def _ensure_backwards_compatibility(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        # ensure backwards compatible with mosaicml<=v0.8.0 checkpoints
+
+        state.pop('epoch_style', None)
+
+        if 'unit' in state and isinstance(state['unit'], TimeUnit):
+            unit = state['unit']
+            state['unit'] = unit.value.lower()
+
+        if 'timestamp_key' not in state:
+            if 'unit' not in state:
+                raise ValueError('Either unit or timestamp_key must be in pbar state of checkpoint.')
+            state['timestamp_key'] = state['unit'].name.lower()
+
+        return state
