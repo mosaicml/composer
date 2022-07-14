@@ -5,7 +5,6 @@
 
 from pathlib import Path
 from typing import Any, Dict, Optional
-import uuid
 
 from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel
@@ -93,7 +92,8 @@ class TensorboardLogger(LoggerDestination):
         # in the Tensorboard GUI.
         summary_writer_log_dir = Path(self.log_dir) / self.run_name
 
-        # To disable automatic flushing we set flushing to once a year ;)
+        # Disable SummaryWriter's internal flushing to avoid file corruption while
+        # file staged for upload to an ObjectStore.
         flush_secs = 365 * 3600 * 24
         self.writer = SummaryWriter(log_dir=summary_writer_log_dir, flush_secs=flush_secs)
 
