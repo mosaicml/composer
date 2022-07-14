@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from torchmetrics import MetricCollection
 from torchvision.models import _utils, resnet
 
-from composer.loss import loss_registry
+from composer.loss import DiceLoss, soft_cross_entropy
 from composer.metrics import CrossEntropy, MIoU
 from composer.models.initializers import Initializer
 from composer.models.tasks import ComposerClassifier
@@ -145,6 +145,9 @@ def composer_deeplabv3(num_classes: int,
                        backbone_url: str = '',
                        sync_bn: bool = True,
                        use_plus: bool = True,
+                       ignore_index: int = -1,
+                       cross_entropy_weight: float = 1.0,
+                       dice_weight: float = 0.0,
                        initializers: Sequence[Initializer] = ()):
     """Helper function to create a :class:`.ComposerClassifier` with a DeepLabv3(+) model. Logs
         Mean Intersection over Union (MIoU) and Cross Entropy during training and validation.
@@ -163,8 +166,12 @@ def composer_deeplabv3(num_classes: int,
         sync_bn (bool, optional): If ``True``, replace all BatchNorm layers with SyncBatchNorm layers.
             Default: ``True``.
         use_plus (bool, optional): If ``True``, use DeepLabv3+ head instead of DeepLabv3. Default: ``True``.
+        ignore_index (int): Class label to ignore when calculating the loss and other metrics. Default: ``-1``.
+        cross_entropy_weight (float): Weight to scale the cross entropy loss. Default: ``1.0``.
+        dice_weight (float): Weight to scale the dice loss. Default: ``0.0``.
         initializers (List[Initializer], optional): Initializers for the model. ``[]`` for no initialization.
             Default: ``[]``.
+
 
     Returns:
         ComposerModel: instance of :class:`.ComposerClassifier` with a DeepLabv3(+) model.
@@ -186,14 +193,28 @@ def composer_deeplabv3(num_classes: int,
                       sync_bn=sync_bn,
                       initializers=initializers)
 
-    train_metrics = MetricCollection([CrossEntropy(ignore_index=-1), MIoU(num_classes, ignore_index=-1)])
-    val_metrics = MetricCollection([CrossEntropy(ignore_index=-1), MIoU(num_classes, ignore_index=-1)])
+    train_metrics = MetricCollection(
+        [CrossEntropy(ignore_index=ignore_index),
+         MIoU(num_classes, ignore_index=ignore_index)])
+    val_metrics = MetricCollection(
+        [CrossEntropy(ignore_index=ignore_index),
+         MIoU(num_classes, ignore_index=ignore_index)])
 
-    loss_fn = loss_registry['soft_cross_entropy']
-    loss_fn = functools.partial(loss_fn, ignore_index=-1)
+    ce_loss_fn = functools.partial(soft_cross_entropy, ignore_index=ignore_index)
+    dice_loss_fn = DiceLoss(softmax=True, batch=True, ignore_absent_classes=True)
+
+    def _combo_loss(output, target):
+        loss = []
+        if cross_entropy_weight:
+            ce_loss = ce_loss_fn(output, target) * cross_entropy_weight
+            loss.append(ce_loss)
+        if dice_weight:
+            dice_loss = dice_loss_fn(output, target) * dice_weight
+            loss.append(dice_loss)
+        return loss
 
     composer_model = ComposerClassifier(module=model,
                                         train_metrics=train_metrics,
                                         val_metrics=val_metrics,
-                                        loss_fn=loss_fn)
+                                        loss_fn=_combo_loss)
     return composer_model
