@@ -43,7 +43,6 @@ class TensorboardLogger(LoggerDestination):
             A setting of `False` may lead to logging of duplicate values.
             Default: :attr:`True`.
     """
-
     def __init__(self, log_dir: Optional[str] = None, flush_interval: int = 100, rank_zero_only: bool = True):
         try:
             from torch.utils.tensorboard import SummaryWriter
@@ -124,9 +123,6 @@ class TensorboardLogger(LoggerDestination):
         # To avoid empty log artifacts for each rank.
         if self.rank_zero_only and dist.get_global_rank() != 0:
             return
-
-        assert self.writer is not None
-        self.writer.flush()
 
         assert self.writer.file_writer is not None
         file_path = self.writer.file_writer.event_writer._file_name
