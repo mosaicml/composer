@@ -35,7 +35,7 @@ def _get_torchvision_version(pytorch_version: str):
     if pytorch_version == '1.11.0':
         return '0.12.0'
     if pytorch_version == '1.10.2':
-        return '0.11.0'
+        return '0.11.3'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
