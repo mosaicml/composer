@@ -56,7 +56,7 @@ FLAGS = args_parse.parse_common_options(
 
 import os
 import pprint
-import schedulers
+#import schedulers
 import numpy as np
 import torch
 import torch.nn as nn
@@ -210,6 +210,7 @@ def train_imagenet(state_dict, *, index):
       weight_decay=1e-4)
   num_training_steps_per_epoch = train_dataset_len // (
       FLAGS['batch_size'] * xm.xrt_world_size())
+  '''
   lr_scheduler = schedulers.wrap_optimizer_with_scheduler(
       optimizer,
       scheduler_type=getattr(FLAGS, 'lr_scheduler_type', None),
@@ -218,6 +219,7 @@ def train_imagenet(state_dict, *, index):
           FLAGS, 'lr_scheduler_divide_every_n_epochs', None),
       num_steps_per_epoch=num_training_steps_per_epoch,
       summary_writer=writer)
+  '''
   loss_fn = nn.CrossEntropyLoss()
 
   def train_loop_fn(loader, epoch):

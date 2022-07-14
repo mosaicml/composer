@@ -1,17 +1,19 @@
 train_dataset:
   cifar10:
-    datadir: /mnt/gcp/datasets/CIFAR10
+    datadir: /mnt//CIFAR10
     is_train: true
     download: false
     shuffle: true
     drop_last: true
+    use_synthetic: true
 val_dataset:
   cifar10:
-    datadir: /mnt/gcp/datasets/CIFAR10
+    datadir: /mnt/CIFAR10
     is_train: false
     download: false
     shuffle: false
     drop_last: false
+    use_synthetic: true
 optimizer:
   decoupled_sgdw:
     lr: 1.2
