@@ -92,7 +92,7 @@ trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
     max_duration="1ep",
-    algorithms=[augmix_algorithm]
+    algorithms=[augmix_algorithm],
 )
 
 trainer.fit()
