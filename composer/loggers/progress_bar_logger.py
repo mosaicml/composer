@@ -351,13 +351,13 @@ class ProgressBarLogger(LoggerDestination):
 
         state.pop('epoch_style', None)
 
-        if isinstance(state['unit'], TimeUnit):
+        if 'unit' in state and isinstance(state['unit'], TimeUnit):
             unit = state['unit']
             state['unit'] = unit.value.lower()
-        else:
-            unit = TimeUnit(state['unit'])
 
         if 'timestamp_key' not in state:
-            state['timestamp_key'] = unit.name.lower()
+            if 'unit' not in state:
+                raise ValueError('Either unit or timestamp_key must be in pbar state of checkpoint.')
+            state['timestamp_key'] = state['unit'].name.lower()
 
         return state
