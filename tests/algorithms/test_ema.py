@@ -21,7 +21,7 @@ def validate_ema(model, original_model, ema_model, smoothing):
 
     for model_param, original_param, ema_param in zip(model_params, original_params, ema_params):
         new_param = original_param * smoothing + (1. - smoothing) * model_param
-        torch.testing.assert_allclose(ema_param, new_param)
+        torch.testing.assert_close(ema_param.data, new_param)
 
 
 def validate_model(model1, model2):
@@ -29,10 +29,10 @@ def validate_model(model1, model2):
     model2_params = itertools.chain(model2.parameters(), model2.buffers())
 
     for model1_param, model2_param in zip(model1_params, model2_params):
-        torch.testing.assert_allclose(model1_param, model2_param)
+        torch.testing.assert_close(model1_param.data, model2_param)
 
 
-@pytest.mark.parametrize("smoothing", [0, 0.5, 0.99, 1])
+@pytest.mark.parametrize('smoothing', [0, 0.5, 0.99, 1])
 def test_ema(smoothing):
     model = SimpleModel()
     ema_model = SimpleModel()
@@ -42,7 +42,7 @@ def test_ema(smoothing):
 
 
 # params = [(half_life, update_interval)]
-@pytest.mark.parametrize('params', [("10ba", "1ba"), ("1ep", "1ep")])
+@pytest.mark.parametrize('params', [('10ba', '1ba'), ('1ep', '1ep')])
 def test_ema_algorithm(params, minimal_state, empty_logger):
 
     # Initialize input tensor
@@ -75,7 +75,7 @@ def test_ema_algorithm(params, minimal_state, empty_logger):
         state.timestamp._epoch = update_interval
         algorithm.apply(Event.EPOCH_END, state, empty_logger)
     else:
-        raise ValueError(f"Invalid time string for parameter half_life")
+        raise ValueError(f'Invalid time string for parameter half_life')
     # Check if EMA correctly computed the average.
     validate_ema(state.model, original_model, algorithm.ema_model, algorithm.smoothing)
     # Check if the EMA model is swapped in for testing

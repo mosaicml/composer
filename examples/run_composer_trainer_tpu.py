@@ -6,8 +6,8 @@ import warnings
 from typing import Type
 
 from composer.loggers.logger import LogLevel
-from composer.loggers.logger_hparams import WandBLoggerHparams
-from composer.trainer import TrainerTPUHparams
+#from composer.loggers.logger_hparams import WandBLoggerHparams
+from composer.trainer.trainer_hparams_tpu import TrainerTPUHparams
 from composer.utils import dist
 
 
@@ -18,12 +18,16 @@ def train():
 
     hparams = TrainerTPUHparams.create(cli_args=True)  # reads cli args from sys.argv
 
-    # if using wandb, store the config inside the wandb run
-    for logger_hparams in hparams.loggers:
-        if isinstance(logger_hparams, WandBLoggerHparams):
-            logger_hparams.config = hparams.to_dict()
             
     trainer = hparams.initialize_object()
+
+    try:
+        import wandb
+    except ImportError:
+        pass
+    else:
+        if wandb.run is not None:
+            wandb.config.update(hparams.to_dict())
     
     if dist.get_global_rank() == 0:
         with tempfile.NamedTemporaryFile(mode="x+") as f:
@@ -43,4 +47,4 @@ def _mp_fn(index):
     
 if __name__ == "__main__":
     import torch_xla.distributed.xla_multiprocessing as xmp
-    xmp.spawn(_mp_fn, args=(), nprocs=8, start_method='fork')
+    xmp.spawn(_mp_fn, args=(), nprocs=1, start_method='fork')

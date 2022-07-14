@@ -6,9 +6,9 @@
 from __future__ import annotations
 
 import json
-import random
 import string
 from os.path import join
+from random import Random
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, NamedTuple, Optional
 
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from tokenizers import decoders, normalizers, pre_tokenizers
     from transformers import PreTrainedTokenizer
 
-__all__ = ["SyntheticTokenizerParams", "generate_synthetic_tokenizer", "synthetic_hf_dataset_builder"]
+__all__ = ['SyntheticTokenizerParams', 'generate_synthetic_tokenizer', 'synthetic_hf_dataset_builder']
 
 
 class SyntheticTokenizerParams(NamedTuple):
@@ -42,12 +42,12 @@ def _generate_bert_tokenizer_params(dataset) -> SyntheticTokenizerParams:
         from tokenizers import decoders, normalizers, pre_tokenizers
         from transformers import BertTokenizer
     except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
-    unk_token = "[UNK]"
-    pad_token = "[PAD]"
+    unk_token = '[UNK]'
+    pad_token = '[PAD]'
 
-    initial_alphabet = "".join([i for i in dataset])
+    initial_alphabet = ''.join([i for i in dataset])
     initial_alphabet = list(set(initial_alphabet))
 
     return SyntheticTokenizerParams(
@@ -55,8 +55,8 @@ def _generate_bert_tokenizer_params(dataset) -> SyntheticTokenizerParams:
         normalizer=normalizers.BertNormalizer(),
         pre_tokenizer=pre_tokenizers.BertPreTokenizer(),
         decoder=decoders.WordPiece(),
-        initial_alphabet=initial_alphabet,
-        special_tokens=[pad_token, unk_token, "[SEP]", "[CLS]", "[MASK]"],
+        initial_alphabet=pre_tokenizers.ByteLevel.alphabet(),
+        special_tokens=[pad_token, unk_token, '[SEP]', '[CLS]', '[MASK]'],
         pad_token=pad_token,
         trainer_cls=tokenizers_trainer.WordPieceTrainer,
         tokenizer_cls=BertTokenizer,
@@ -70,10 +70,10 @@ def _generate_gpt2_tokenizer_params() -> SyntheticTokenizerParams:
         from tokenizers import decoders, normalizers, pre_tokenizers
         from transformers import GPT2Tokenizer
     except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
     unk_token = None
-    pad_token = "<pad>"
+    pad_token = '<pad>'
 
     return SyntheticTokenizerParams(
         tokenizer_model=tokenizers_models.BPE(unk_token=unk_token),
@@ -81,7 +81,7 @@ def _generate_gpt2_tokenizer_params() -> SyntheticTokenizerParams:
         pre_tokenizer=pre_tokenizers.ByteLevel(),
         decoder=decoders.ByteLevel(),
         initial_alphabet=pre_tokenizers.ByteLevel.alphabet(),
-        special_tokens=[pad_token, "<endoftext>"],
+        special_tokens=[pad_token, '<endoftext>'],
         pad_token=pad_token,
         trainer_cls=tokenizers_trainer.BpeTrainer,
         tokenizer_cls=GPT2Tokenizer,
@@ -101,10 +101,11 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
     """
 
     try:
+        import tokenizers.models as tokenizers_models
         from tokenizers import Tokenizer
         from transformers import PreTrainedTokenizer
     except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
     # generate a synthetic dataset with reasonable defaults is none is provided
     if dataset is None:
@@ -123,15 +124,15 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
         for item in sublist:
             flattened_dataset.append(item)
 
-    if "bert" in tokenizer_family:
+    if 'bert' in tokenizer_family:
         tokenizer_params = _generate_bert_tokenizer_params(flattened_dataset)
-    elif "gpt2" in tokenizer_family:
+    elif 'gpt2' in tokenizer_family:
         tokenizer_params = _generate_gpt2_tokenizer_params()
     else:
-        raise ValueError(f"Synthetic tokenizers for tokenizer family {tokenizer_family} are currently unsupported.")
+        raise ValueError(f'Synthetic tokenizers for tokenizer family {tokenizer_family} are currently unsupported.')
 
     tokenizer = Tokenizer(tokenizer_params.tokenizer_model)
-    tokenizer.enable_padding(direction="right",
+    tokenizer.enable_padding(direction='right',
                              pad_id=0,
                              pad_type_id=0,
                              pad_token=tokenizer_params.pad_token,
@@ -146,31 +147,50 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
         initial_alphabet=tokenizer_params.initial_alphabet,
         special_tokens=tokenizer_params.special_tokens,
     )
+
     tokenizer.train_from_iterator(flattened_dataset, trainer=tokenizer_trainer)
+
+    # re-sort the tokenizer vocabulary in order to create determinism in the dataloader
+    # TODO: handle the GPT case in the future
+    if isinstance(tokenizer.model, tokenizers_models.WordPiece):
+        vocab = tokenizer.get_vocab()
+        # start by deleting the special tokens from the vocab map
+        for token in tokenizer_trainer.special_tokens:
+            del vocab[token.content]
+        # re-assign token indicies
+        for idx, vocab_item in enumerate(sorted(vocab.keys())):
+            vocab[vocab_item] = idx + len(tokenizer_trainer.special_tokens)
+        # add special tokens back in
+        for idx, token in enumerate(tokenizer_trainer.special_tokens):
+            vocab[token.content] = idx
+
+        tokenizer.model = tokenizer.model.__class__(vocab)  # type: ignore
 
     # save the tokenizer config
     with TemporaryDirectory() as tmp_path:
         tmp_tokenizer_dir = str(tmp_path)
-        tmp_tokenizer_file = join(tmp_tokenizer_dir, "tokenizer.json")
+        tmp_tokenizer_file = join(tmp_tokenizer_dir, 'tokenizer.json')
         tokenizer.save(tmp_tokenizer_file)  #type: ignore (thirdparty)
 
         # save the vocabulary and potential merges file
-        tokenizer_params.tokenizer_model.save(tmp_tokenizer_dir)  # type: ignore
+        tokenizer.model.save(tmp_tokenizer_dir)  # type: ignore
 
         # the .from_pretrained method doesn't load our padding for some reason, so we save it as a special kwarg
-        tmp_tokenizer_config = join(tmp_tokenizer_dir, "tokenizer_config.json")
-        with open(tmp_tokenizer_config, "w") as f:
-            json.dump({"pad_token": tokenizer_params.pad_token}, f)
+        tmp_tokenizer_config = join(tmp_tokenizer_dir, 'tokenizer_config.json')
+        with open(tmp_tokenizer_config, 'w') as f:
+            json.dump({'pad_token': tokenizer_params.pad_token}, f)
 
         # instantiate the new tokenizer
         if not issubclass(tokenizer_params.tokenizer_cls, PreTrainedTokenizer):
-            raise ValueError(f"{tokenizer_params.tokenizer_cls} should sub-class transformers.PreTrainedTokenizer.")
+            raise ValueError(f'{tokenizer_params.tokenizer_cls} should sub-class transformers.PreTrainedTokenizer.')
+        # print("Temporary path:", tmp_path)
+        # input("Waiting for input..")
         tokenizer = tokenizer_params.tokenizer_cls.from_pretrained(tmp_tokenizer_dir)
 
     return tokenizer
 
 
-def synthetic_hf_dataset_builder(num_samples: int, chars_per_sample: int, column_names: list):
+def synthetic_hf_dataset_builder(num_samples: int, chars_per_sample: int, column_names: list, seed=5):
     """Creates a synthetic :class:`~datasets.Dataset` and passes it to the preprocessing scripts.
 
     Args:
@@ -185,41 +205,44 @@ def synthetic_hf_dataset_builder(num_samples: int, chars_per_sample: int, column
     try:
         import datasets
     except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
     if column_names is None or len(column_names) == 0:
-        raise ValueError("There must be at least one column name provided for the final dataset.")
+        raise ValueError('There must be at least one column name provided for the final dataset.')
 
     data = {}
+    random_generator = Random(seed)
     for column_name in column_names:
-        data[column_name] = [_generate_synthetic_text_sample(chars_per_sample) for _ in range(num_samples)]
+        data[column_name] = [
+            _generate_synthetic_text_sample(chars_per_sample, random_generator) for _ in range(num_samples)
+        ]
     data['idx'] = list(range(num_samples))
 
     hf_synthetic_dataset = datasets.Dataset.from_dict(data)
     return hf_synthetic_dataset
 
 
-def _generate_synthetic_text_sample(chars_per_sample, min_word_length=3, max_word_length=10):
+def _generate_synthetic_text_sample(chars_per_sample, random_generator, min_word_length=3, max_word_length=10):
     character_set = {
-        "letters": {
-            "weight": 10,
-            "choices": string.ascii_letters
+        'letters': {
+            'weight': 10,
+            'choices': string.ascii_letters
         },
-        "digits": {
-            "weight": 5,
-            "choices": string.digits
+        'digits': {
+            'weight': 5,
+            'choices': string.digits
         },
-        "punctuation": {
-            "weight": 1,
-            "choices": string.punctuation
+        'punctuation': {
+            'weight': 1,
+            'choices': string.punctuation
         }
     }
     valid_chars = ''.join([(i['choices'] * i['weight']) for i in character_set.values()])
 
     sample = ''
     while len(sample) < chars_per_sample:
-        sample_len = random.randint(min_word_length, max_word_length)
-        sample += ''.join([random.choice(valid_chars) for _ in range(sample_len)])
+        sample_len = random_generator.randint(min_word_length, max_word_length)
+        sample += ''.join([random_generator.choice(valid_chars) for _ in range(sample_len)])
         sample += ' '
     sample = sample[:chars_per_sample]
     return sample

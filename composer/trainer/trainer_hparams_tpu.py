@@ -18,34 +18,31 @@ import yahp as hp
 from torchmetrics import Metric, MetricCollection
 
 import composer
-from composer.algorithms import AlgorithmHparams, get_algorithm_registry
-from composer.callbacks import (CallbackHparams, EarlyStopperHparams, GradMonitorHparams, LRMonitorHparams,
-                                MemoryMonitorHparams, MLPerfCallbackHparams, SpeedMonitorHparams,
-                                ThresholdStopperHparams)
+#from composer.algorithms import AlgorithmHparams, get_algorithm_registry
+from composer.algorithms.algorithm_hparams_registry import algorithm_registry
+from composer.callbacks.callback_hparams_registry import callback_registry
 from composer.core import DataSpec, Evaluator, Event, Precision, State, Time
 from composer.core.types import JSON, PyTorchScheduler
-from composer.datasets import DataLoaderHparams, DatasetHparams
-from composer.datasets.dataset_registry import get_dataset_registry
-from composer.datasets.evaluator import EvaluatorHparams
-from composer.loggers import LoggerDestinationHparams, logger_registry
-from composer.loggers.logger import LogLevel
+from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
+from composer.datasets.dataset_hparams_registry import dataset_registry
+from composer.datasets.evaluator_hparams import EvaluatorHparams
+from composer.loggers import LoggerDestination, LogLevel
+from composer.loggers.logger_hparams_registry import logger_registry
 from composer.models import (BERTForClassificationHparams, BERTHparams, DeepLabV3Hparams, EfficientNetB0Hparams,
                              GPT2Hparams, MnistClassifierHparams, ModelHparams, ResNetCIFARHparams, ResNetHparams,
                              SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
 from composer.models.base import ComposerModel
-from composer.optim import (AdamHparams, AdamWHparams, ComposerScheduler, ConstantSchedulerHparams,
-                            CosineAnnealingSchedulerHparams, CosineAnnealingWarmRestartsSchedulerHparams,
-                            CosineAnnealingWithWarmupSchedulerHparams, DecoupledAdamWHparams, DecoupledSGDWHparams,
-                            ExponentialSchedulerHparams, LinearSchedulerHparams, LinearWithWarmupSchedulerHparams,
-                            MultiStepSchedulerHparams, MultiStepWithWarmupSchedulerHparams, OptimizerHparams,
-                            PolynomialSchedulerHparams, PolynomialWithWarmupSchedulerHparams, RAdamHparams,
-                            RMSpropHparams, SchedulerHparams, SGDHparams, StepSchedulerHparams)
-from composer.profiler.profiler_hparams import ProfilerHparams
+from composer.optim import ComposerScheduler
+from composer.optim.optimizer_hparams_registry import OptimizerHparams, optimizer_registry
+from composer.optim.scheduler_hparams_registry import scheduler_registry
+from composer.profiler import Profiler
 from composer.trainer.ddp import DDPSyncStrategy
-from composer.trainer.devices import DeviceHparams, TPUDeviceHparams
+from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceTPU
+from composer.trainer.devices.device_hparams_registry import device_registry
 from composer.trainer.trainer_tpu import TrainerTPU
 from composer.utils import dist, reproducibility
-from composer.utils.object_store import ObjectStoreHparams
+
+from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
 import torch_xla.core.xla_model as xm
 
 if TYPE_CHECKING:
@@ -58,30 +55,6 @@ __all__ = ["TrainerTPUHparams"]#, "FitHparams", "EvalHparams", "ExperimentHparam
 
 Scheduler = Union[ComposerScheduler, PyTorchScheduler]
 
-optimizer_registry = {
-    "adam": AdamHparams,
-    "adamw": AdamWHparams,
-    "decoupled_adamw": DecoupledAdamWHparams,
-    "radam": RAdamHparams,
-    "sgd": SGDHparams,
-    "decoupled_sgdw": DecoupledSGDWHparams,
-    "rmsprop": RMSpropHparams,
-}
-
-scheduler_registry = {
-    "step": StepSchedulerHparams,
-    "multistep": MultiStepSchedulerHparams,
-    "exponential": ExponentialSchedulerHparams,
-    "linear_decay": LinearSchedulerHparams,
-    "cosine_decay": CosineAnnealingSchedulerHparams,
-    "cosine_warmrestart": CosineAnnealingWarmRestartsSchedulerHparams,
-    "constant": ConstantSchedulerHparams,
-    "polynomial": PolynomialSchedulerHparams,
-    "multistep_with_warmup": MultiStepWithWarmupSchedulerHparams,
-    "linear_decay_with_warmup": LinearWithWarmupSchedulerHparams,
-    "cosine_decay_with_warmup": CosineAnnealingWithWarmupSchedulerHparams,
-    "poly_decay_with_warmup": PolynomialWithWarmupSchedulerHparams,
-}
 
 model_registry = {
     "unet": UnetHparams,
@@ -96,24 +69,6 @@ model_registry = {
     "bert_classification": BERTForClassificationHparams,
     "timm": TimmHparams,
     "vit_small_patch16": ViTSmallPatch16Hparams
-}
-
-dataset_registry = get_dataset_registry()
-
-algorithms_registry = get_algorithm_registry()
-
-callback_registry = {
-    "speed_monitor": SpeedMonitorHparams,
-    "lr_monitor": LRMonitorHparams,
-    "grad_monitor": GradMonitorHparams,
-    "memory_monitor": MemoryMonitorHparams,
-    "mlperf": MLPerfCallbackHparams,
-    "early_stopper": EarlyStopperHparams,
-    "threshold_stopper": ThresholdStopperHparams,
-}
-
-device_registry = {
-    "tpu": TPUDeviceHparams,
 }
 
 evaluator_registry = {"evaluator": EvaluatorHparams}
@@ -186,17 +141,16 @@ def _initialize_eval_dataloader(
 class TrainerTPUHparams(hp.Hparams):
 
     hparams_registry = {  # type: ignore
-        "algorithms": algorithms_registry,
-        "optimizer": optimizer_registry,
-        "schedulers": scheduler_registry,
-        "loggers": logger_registry,
-        "load_logger_destination": logger_registry,
-        "model": model_registry,
-        "train_dataset": dataset_registry,
-        "val_dataset": dataset_registry,
-        "callbacks": callback_registry,
-        "device": device_registry,
-        "evaluators": evaluator_registry,
+        'algorithms': algorithm_registry,
+        'optimizers': optimizer_registry,
+        'schedulers': scheduler_registry,
+        'loggers': logger_registry,
+        'load_logger_destination': logger_registry,
+        'model': model_registry,
+        'train_dataset': dataset_registry,
+        'val_dataset': dataset_registry,
+        'callbacks': callback_registry,
+        'device': device_registry,
     }
 
     model: ModelHparams = hp.required(doc="model")
@@ -229,11 +183,11 @@ class TrainerTPUHparams(hp.Hparams):
     )
 
     # Algorithms
-    algorithms: List[AlgorithmHparams] = hp.optional(doc="Algorithms", default_factory=list)
+    #algorithms: List[AlgorithmHparams] = hp.optional(doc="Algorithms", default_factory=list)
 
     # Optimizer and Scheduler
     optimizer: Optional[OptimizerHparams] = hp.optional(doc="Optimizer to use", default=None)
-    schedulers: List[SchedulerHparams] = hp.optional(doc="Schedulers", default_factory=list)
+    #schedulers: List[SchedulerHparams] = hp.optional(doc="Schedulers", default_factory=list)
     scale_schedule_ratio: float = hp.optional(
         doc="Ratio by which to scale the training duration and learning rate schedules.",
         default=1.0,
@@ -257,10 +211,10 @@ class TrainerTPUHparams(hp.Hparams):
     )
 
     # Callbacks
-    callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
+    #callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
 
     # Logging
-    loggers: List[LoggerDestinationHparams] = hp.optional(doc="loggers to use", default_factory=list)
+    #loggers: List[LoggerDestinationHparams] = hp.optional(doc="loggers to use", default_factory=list)
     run_name: Optional[str] = hp.optional("Experiment name", default=None)
     progress_bar: bool = hp.optional("Whether to show a progress bar.", default=True)
     log_to_console: Optional[bool] = hp.optional("Whether to print log statements to the console.", default=None)
@@ -284,11 +238,7 @@ class TrainerTPUHparams(hp.Hparams):
               "connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath, "
               "leave blank. This parameter has no effect if `load_path` is not specified.")),
         default=None)
-    load_logger_destination: Optional[LoggerDestinationHparams] = hp.optional(
-        ("Alternative argument to `load_object_store` to support loading from a logger destination. This parameter "
-         "has no effect if `load_path` is not specified or `load_object_store` is specified, which will be "
-         "used instead of this."),
-        default=None)
+  
     load_weights_only: bool = hp.optional(
         doc=(("Whether to only load the weights from the model. "
               "This parameter has no effect if `load_path`is not specified.")),
@@ -345,7 +295,7 @@ class TrainerTPUHparams(hp.Hparams):
                                    default=False)
 
     # System/Numerics
-    device: Optional[DeviceHparams] = hp.optional(doc="Device Parameters", default=None)
+    #device: Optional[DeviceHparams] = hp.optional(doc="Device Parameters", default=None)
     precision: Optional[Precision] = hp.optional(doc="Precision to use for training", default=None)
     grad_accum: Union[int, str] = hp.optional(
         doc=(("Determines the number of microbatches to split a per-gpu batch into, "
@@ -371,7 +321,7 @@ class TrainerTPUHparams(hp.Hparams):
     )
 
     # Profiling
-    profiler: Optional[ProfilerHparams] = hp.optional(doc="Profiler parameters", default=None)
+    #profiler: Optional[ProfilerHparams] = hp.optional(doc="Profiler parameters", default=None)
 
     def validate(self):
         super().validate()

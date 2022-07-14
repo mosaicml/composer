@@ -12,7 +12,7 @@ from torch.nn import functional as F
 from composer.models.initializers import Initializer
 from composer.models.tasks import ComposerClassifier
 
-__all__ = ["Model", "MNIST_Classifier"]
+__all__ = ['Model', 'mnist_model']
 
 
 class Model(nn.Module):
@@ -46,31 +46,29 @@ class Model(nn.Module):
         return self.fc2(out)
 
 
-class MNIST_Classifier(ComposerClassifier):
-    """A simple convolutional neural network extending :class:`.ComposerClassifier`. This class makes :class:`.Model`
-    compatible with :class:`.Trainer`
+def mnist_model(num_classes: int = 10, initializers: Optional[List[Initializer]] = None):
+    """Helper function to create a :class:`.ComposerClassifier` with a simple convolutional neural network.
 
     Args:
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``10``
         initializers (List[Initializer], optional): list of Initializers
             for the model. ``None`` for no initialization. Default: ``None``
 
+    Returns:
+        ComposerModel: instance of :class:`.ComposerClassifier` with a simple MNIST model.
+
     Example:
 
     .. testcode::
 
-        from composer.models import MNIST_Classifier
+        from composer.models import mnist_model
 
-        model = MNIST_Classifier()
+        model = mnist_model()
     """
 
-    def __init__(
-        self,
-        num_classes: int = 10,
-        initializers: Optional[List[Initializer]] = None,
-    ) -> None:
-        if initializers is None:
-            initializers = []
+    if initializers is None:
+        initializers = []
 
-        model = Model(initializers, num_classes)
-        super().__init__(module=model)
+    model = Model(initializers, num_classes)
+    composer_model = ComposerClassifier(module=model)
+    return composer_model

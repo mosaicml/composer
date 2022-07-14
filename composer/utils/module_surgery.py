@@ -18,11 +18,9 @@ Attributes:
             module (torch.nn.Module): Source module
             module_index (int): The i-th instance of module class.
 
-        Returns:
-            Optional[torch.nn.Module]: The replacement module, or ``None`` to indicate no modification.
+        Returns: Optional[torch.nn.Module]: The replacement module, or ``None`` to indicate no modification.
 """
 import collections
-import itertools
 import logging
 import textwrap
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, OrderedDict, Sequence, Tuple, Type, Union
@@ -36,8 +34,10 @@ from composer.utils.iter_helpers import ensure_tuple
 log = logging.getLogger(__name__)
 
 __all__ = [
-    "ReplacementFunction", "replace_module_classes", "count_module_instances", "update_params_in_optimizer",
-    "replace_params_in_optimizer"
+    'ReplacementFunction',
+    'replace_module_classes',
+    'count_module_instances',
+    'update_params_in_optimizer',
 ]
 
 ReplacementFunction = Callable[[torch.nn.Module, int], Optional[torch.nn.Module]]
@@ -178,8 +178,17 @@ def replace_module_classes(
             indices[policy_class] += 1
             if replacement is not None:
                 assert child not in replaced_pairs
-                replaced_pairs[child] = replacement
 
+                # Preserve the device with surgery
+                try:
+                    p = next(child.parameters())
+                except StopIteration:
+                    # Some children don't have any parameters
+                    pass
+                else:
+                    replacement = replacement.to(p.device)
+
+                replaced_pairs[child] = replacement
                 for parent, name in parents:
                     # update each parent with the replaced child
                     setattr(parent, name, replacement)
@@ -238,8 +247,9 @@ def count_module_instances(module: torch.nn.Module, module_class: Union[Type[tor
 
 
 def _tensor_in(tensor: torch.Tensor, iterable: Iterable[torch.Tensor]):
-    """Returns whether `tensor is element` for any element in `iterable` This function is necessary because `tensor in
-    iterable` does not work reliably for `Tensor`s.
+    """Returns whether ``tensor is element`` for any element in ``iterable``.
+
+    This function is necessary because ``tensor in iterable`` does not work reliably for :class:`.Tensor` objects.
 
     See https://discuss.pytorch.org/t/how-to-judge-a-tensor-is-in-a-list/15998/4
     for further discussion.
@@ -248,7 +258,8 @@ def _tensor_in(tensor: torch.Tensor, iterable: Iterable[torch.Tensor]):
 
 
 def _find_param_in_optimizer(param: torch.nn.parameter.Parameter, optimizer: Optimizer) -> int:
-    """Returns the index of the optimizer ``param_group`` containing ``param``
+    """Returns the index of the optimizer ``param_group`` containing ``param``.
+
     Optimizers store their parameters within an iterable of ``dict``s called
     :attr:`~torch.optim.Optimizer.param_groups`.
     By default, there is only one group in :attr:`~torch.optim.Optimizer.param_groups`
@@ -275,22 +286,28 @@ def _find_param_in_optimizer(param: torch.nn.parameter.Parameter, optimizer: Opt
     return -1
 
 
+def _ordered_diff(first: List, second: List) -> List:
+    """Returns first - second while maintaining the order in first."""
+    second_list = set(second)
+    return [item for item in first if item not in second_list]
+
+
 def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
                                new_params: Iterable[torch.nn.parameter.Parameter],
                                optimizers: Union[Optimizer, Sequence[Optimizer]]) -> None:
-    """Remove ``old_params`` from the ``optimizers`` and insert ``new_params``.
+    r"""Remove ``old_params`` from the ``optimizers`` and insert ``new_params``.
 
     Newly added parameters will be added to the same :attr:`~torch.optim.Optimizer.param_group` as the removed
     parameters. A :class:`RuntimeError` will be raised if ``old_params`` is split across multiple parameter groups.
 
     This function differs from :meth:`replace_params_in_optimizer` in that ``len(old_params)`` need not equal
-    ``len(new_params)``. However, this function does not support replacing parameters accross multiple optimizer
+    ``len(new_params)``. However, this function does not support replacing parameters across multiple optimizer
     groups.
 
     .. warning::
 
         Dynamically removing parameters from a :class:`~torch.optim.Optimizer` and adding parameters
-        to an existing :attr:`~torch.optim.Optimizer.param_group`\\s are not officially supported, so this
+        to an existing :attr:`~torch.optim.Optimizer.param_group`\s are not officially supported, so this
         function may fail when PyTorch is updated. The
         `recommended practice <https://github.com/pytorch/pytorch/issues/1489#issuecomment-355301737>`_ is
         to instead recreate the optimizer when the parameter set changes
@@ -311,14 +328,16 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
             same parameter group, or if any of them are not found at all.
     """
     if len(ensure_tuple(optimizers)) > 1:
-        raise NotImplementedError("Surgery with multiple optimizers is not yet supported.")
+        raise NotImplementedError('Surgery with multiple optimizers is not yet supported.')
     opt = ensure_tuple(optimizers)[0]
 
-    # diff the two sets of parameters to find what needs to be removed or added
-    old_values = set(old_params)
-    new_values = set(new_params)
-    removed_params = old_values - new_values
-    added_params = new_values - old_values
+    # diff the two collection of parameters to find what needs to be removed or added
+    # We need to maintain the order of parameters here for training resumption
+    # with optimizers that store state so do not use set.
+    old_values = list(old_params)
+    new_values = list(new_params)
+    removed_params = _ordered_diff(old_values, new_values)
+    added_params = _ordered_diff(new_values, old_values)
 
     if len(removed_params) == 0 and len(added_params) == 0:
         return  # nothing to do
@@ -336,11 +355,11 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
         old_group_idxs = [_find_param_in_optimizer(p, opt) for p in removed_params]
 
         if len(old_group_idxs) == 0:
-            raise RuntimeError("No parameters were removed, so unable to infer the group into which to add parameters.")
+            raise RuntimeError('No parameters were removed, so unable to infer the group into which to add parameters.')
 
         missing_param_groups = [x for x in old_group_idxs if x < 0]
         if len(missing_param_groups) > 0:
-            raise RuntimeError(f"Parameter groups {missing_param_groups} are not in the optimizer")
+            raise RuntimeError(f'Parameter groups {missing_param_groups} are not in the optimizer')
 
         if min(old_group_idxs) != max(old_group_idxs) and len(added_params):
             raise RuntimeError(
@@ -354,49 +373,3 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
     new_param_list += list(added_params)
     log.info(f'adding {len(added_params)} new parameters to parameter group #{group_idx}')
     param_group['params'] = new_param_list
-
-
-def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
-                                new_params: Iterable[torch.nn.parameter.Parameter],
-                                optimizers: Union[Optimizer, Sequence[Optimizer]]) -> None:
-    """Fully replaces an optimizer's parameters.
-
-    This differs from :meth:`update_params_in_optimizer` in that this method is capable
-    of replacing parameters spanning multiple param groups. To accomplish this,
-    this function assumes that parameters in ``new_params`` should inherit the
-    param group of the corresponding parameter from ``old_params``. Thus, this
-    function also assumes that ``old_params`` and ``new_params`` have the same length.
-
-    Args:
-        old_params (Iterator[torch.nn.parameter.Parameter]): Current parameters of the optimizer.
-        new_params (Iterator[torch.nn.parameter.Parameter]): New parameters of the optimizer, given in the same order as
-            ``old_params``. Must be the same length as ``old_params``.
-        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer]): One or more :class:`torch.optim.Optimizer` objects.
-
-    Raises:
-        NotImplementedError: If ``optimizers`` contains more than one optimizer.
-        RuntimeError: If ``old_params`` and ``new_params`` have different lengths, or
-            if a param from ``old_params`` cannot be found.
-    """
-    if len(ensure_tuple(optimizers)) > 1:
-        raise NotImplementedError("Surgery with multiple optimizers is not yet supported.")
-
-    opt = ensure_tuple(optimizers)[0]
-
-    param_to_idxs_map = {}
-    for group_idx, param_group in enumerate(opt.param_groups):
-        param_list = param_group["params"]
-        for param_idx, param in enumerate(param_list):
-            param_to_idxs_map[param] = (group_idx, param_idx)
-
-    for old_param, new_param in itertools.zip_longest(old_params, new_params):
-        if old_params is None or new_params is None:
-            raise RuntimeError("old_params and new_params have different lengths.")
-        '''
-        if not old_param in param_to_idxs_map:
-            #import pdb; pdb.set_trace()
-            raise RuntimeError(f"Parameter {old_param} is missing from the optimizer.")
-
-        group_idx, param_idx = param_to_idxs_map[old_param]
-        opt.param_groups[group_idx]["params"][param_idx] = new_param
-        '''

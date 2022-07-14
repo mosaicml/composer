@@ -22,29 +22,26 @@ def test_threshold_stopper_eval(metric_sequence: List[float], unit: TimeUnit, de
     metric_threshold = 0.65
 
     if unit == TimeUnit.EPOCH:
-        dataloader_label = "eval"
+        dataloader_label = 'eval'
         stop_on_batch = False
     else:
-        dataloader_label = "train"
+        dataloader_label = 'train'
         stop_on_batch = True
 
     test_device = DeviceGPU() if device == 'gpu' else DeviceCPU()
 
-    tstop = ThresholdStopper("Accuracy", dataloader_label, metric_threshold, comp=None, stop_on_batch=stop_on_batch)
+    tstop = ThresholdStopper('Accuracy', dataloader_label, metric_threshold, comp=None, stop_on_batch=stop_on_batch)
 
-    test_metric_setter = MetricSetterCallback("Accuracy", dataloader_label, metric_sequence, unit, test_device)
+    test_metric_setter = MetricSetterCallback('Accuracy', dataloader_label, metric_sequence, unit, test_device)
 
     trainer = Trainer(
-        model=SimpleModel(num_features=5),
-        train_dataloader=DataLoader(
-            RandomClassificationDataset(shape=(5, 1, 1)),
-            batch_size=4,
-        ),
-        eval_dataloader=DataLoader(
-            RandomClassificationDataset(shape=(5, 1, 1)),
-            batch_size=4,
-        ),
-        max_duration="30ep",
+        model=SimpleModel(),
+        train_dataloader=DataLoader(RandomClassificationDataset()),
+        eval_dataloader=DataLoader(RandomClassificationDataset()),
+        train_subset_num_batches=1,
+        eval_subset_num_batches=1,
+        device=test_device,
+        max_duration='30ep',
         callbacks=[test_metric_setter, tstop],
     )
 

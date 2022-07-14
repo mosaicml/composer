@@ -15,12 +15,11 @@ from composer.models.bert.bert_hparams import BERTForClassificationHparams, BERT
 from composer.models.deeplabv3.deeplabv3_hparams import DeepLabV3Hparams
 from composer.models.gpt2.gpt2_hparams import GPT2Hparams
 from composer.models.model_hparams import ModelHparams
-from composer.models.transformer_hparams import TransformerHparams
 
-model_hparams_to_tokenizer_family: Dict[Type[TransformerHparams], str] = {
-    GPT2Hparams: "gpt2",
-    BERTForClassificationHparams: "bert",
-    BERTHparams: "bert"
+model_hparams_to_tokenizer_family: Dict[Type[ModelHparams], str] = {
+    GPT2Hparams: 'gpt2',
+    BERTForClassificationHparams: 'bert',
+    BERTHparams: 'bert'
 }
 
 
@@ -61,8 +60,8 @@ class SimpleModel(ComposerClassifier):
 
 @dataclasses.dataclass
 class SimpleModelHparams(ModelHparams):
-    num_features: int = hp.optional("number of features", default=1)
-    num_classes: int = hp.optional("number of output classes", default=2)
+    num_features: int = hp.optional('number of features', default=1)
+    num_classes: int = hp.optional('number of output classes', default=2)
 
     def initialize_object(self) -> SimpleModel:
         return SimpleModel(
@@ -84,7 +83,7 @@ class SimpleConvModel(ComposerClassifier):
         self.num_classes = num_classes
         self.num_channels = num_channels
 
-        conv_args = {"kernel_size": (3, 3), "padding": 1, "stride": 2}
+        conv_args = {'kernel_size': (3, 3), 'padding': 1, 'stride': 2}
         conv1 = torch.nn.Conv2d(in_channels=num_channels, out_channels=8, **conv_args)
         conv2 = torch.nn.Conv2d(in_channels=8, out_channels=4, **conv_args)
         pool = torch.nn.AdaptiveAvgPool2d(1)
@@ -110,8 +109,8 @@ class SimpleConvModel(ComposerClassifier):
 
 @dataclasses.dataclass
 class SimpleConvModelHparams(ModelHparams):
-    num_channels: int = hp.optional("number of channels", default=3)
-    num_classes: int = hp.optional("number of output classes", default=2)
+    num_channels: int = hp.optional('number of channels', default=3)
+    num_classes: int = hp.optional('number of output classes', default=2)
 
     def initialize_object(self) -> SimpleConvModel:
         return SimpleConvModel(
@@ -122,10 +121,8 @@ class SimpleConvModelHparams(ModelHparams):
 
 def configure_model_hparams_for_synthetic(model_hparams: ModelHparams) -> None:
     # configure Transformer-based models for synthetic testing
-    if isinstance(model_hparams, TransformerHparams):
-        if type(model_hparams) not in model_hparams_to_tokenizer_family:
-            raise ValueError(f"Model {type(model_hparams)} is currently not supported for synthetic testing!")
-
+    if type(model_hparams) in model_hparams_to_tokenizer_family.keys():
+        assert isinstance(model_hparams, (BERTHparams, GPT2Hparams, BERTForClassificationHparams))
         tokenizer_family = model_hparams_to_tokenizer_family[type(model_hparams)]
 
         # force a non-pretrained model
@@ -134,7 +131,6 @@ def configure_model_hparams_for_synthetic(model_hparams: ModelHparams) -> None:
 
         # generate tokenizers and synthetic models
         tokenizer = generate_synthetic_tokenizer(tokenizer_family=tokenizer_family)
-        model_hparams.tokenizer_name = None
         model_hparams.model_config = generate_dummy_model_config(type(model_hparams), tokenizer)
 
     # configure DeepLabV3 models for synthetic testing
@@ -146,76 +142,76 @@ def configure_model_hparams_for_synthetic(model_hparams: ModelHparams) -> None:
 def generate_dummy_model_config(cls: Type[hp.Hparams], tokenizer) -> Dict[str, Any]:
     model_to_dummy_mapping: Dict[Type[hp.Hparams], Dict[str, Any]] = {
         BERTHparams: {
-            "architectures": ["BertForMaskedLM"],
-            "attention_probs_dropout_prob": 0.1,
-            "gradient_checkpointing": False,
-            "hidden_act": "gelu",
-            "hidden_dropout_prob": 0.1,
-            "hidden_size": 64,
-            "initializer_range": 0.02,
-            "intermediate_size": 256,
-            "layer_norm_eps": 1e-12,
-            "max_position_embeddings": 512,
-            "model_type": "bert",
-            "num_attention_heads": 1,
-            "num_hidden_layers": 1,
-            "pad_token_id": tokenizer.pad_token_id,
-            "position_embedding_type": "absolute",
-            "transformers_version": "4.6.0.dev0",
-            "type_vocab_size": 2,
-            "use_cache": True,
-            "vocab_size": tokenizer.vocab_size,
+            'architectures': ['BertForMaskedLM'],
+            'attention_probs_dropout_prob': 0.1,
+            'gradient_checkpointing': False,
+            'hidden_act': 'gelu',
+            'hidden_dropout_prob': 0.1,
+            'hidden_size': 64,
+            'initializer_range': 0.02,
+            'intermediate_size': 256,
+            'layer_norm_eps': 1e-12,
+            'max_position_embeddings': 512,
+            'model_type': 'bert',
+            'num_attention_heads': 1,
+            'num_hidden_layers': 1,
+            'pad_token_id': tokenizer.pad_token_id,
+            'position_embedding_type': 'absolute',
+            'transformers_version': '4.6.0.dev0',
+            'type_vocab_size': 2,
+            'use_cache': True,
+            'vocab_size': tokenizer.vocab_size,
         },
         GPT2Hparams: {
-            "activation_function": "gelu_new",
-            "architectures": ["GPT2LMHeadModel"],
-            "attn_pdrop": 0.1,
-            "bos_token_id": tokenizer.cls_token_id,
-            "embd_pdrop": 0.1,
-            "eos_token_id": tokenizer.cls_token_id,
-            "initializer_range": 0.02,
-            "layer_norm_epsilon": 0.00001,
-            "model_type": "gpt2",
-            "n_ctx": 128,
-            "n_embd": 64,
-            "n_head": 1,
-            "n_layer": 1,
-            "n_positions": 128,
-            "resid_pdrop": 0.1,
-            "summary_activation": None,
-            "summary_first_dropout": 0.1,
-            "summary_proj_to_labels": True,
-            "summary_type": "cls_index",
-            "summary_use_proj": True,
-            "task_specific_params": {
-                "text-generation": {
-                    "do_sample": True,
-                    "max_length": 50
+            'activation_function': 'gelu_new',
+            'architectures': ['GPT2LMHeadModel'],
+            'attn_pdrop': 0.1,
+            'bos_token_id': tokenizer.cls_token_id,
+            'embd_pdrop': 0.1,
+            'eos_token_id': tokenizer.cls_token_id,
+            'initializer_range': 0.02,
+            'layer_norm_epsilon': 0.00001,
+            'model_type': 'gpt2',
+            'n_ctx': 128,
+            'n_embd': 64,
+            'n_head': 1,
+            'n_layer': 1,
+            'n_positions': 128,
+            'resid_pdrop': 0.1,
+            'summary_activation': None,
+            'summary_first_dropout': 0.1,
+            'summary_proj_to_labels': True,
+            'summary_type': 'cls_index',
+            'summary_use_proj': True,
+            'task_specific_params': {
+                'text-generation': {
+                    'do_sample': True,
+                    'max_length': 50
                 }
             },
-            "vocab_size": tokenizer.vocab_size
+            'vocab_size': tokenizer.vocab_size
         },
         BERTForClassificationHparams: {
-            "architectures": ["BertForSequenceClassification"],
-            "attention_probs_dropout_prob": 0.1,
-            "classifier_dropout": None,
-            "gradient_checkpointing": False,
-            "hidden_act": "gelu",
-            "hidden_dropout_prob": 0.1,
-            "hidden_size": 64,
-            "initializer_range": 0.02,
-            "intermediate_size": 256,
-            "layer_norm_eps": 1e-12,
-            "max_position_embeddings": 512,
-            "model_type": "bert",
-            "num_attention_heads": 1,
-            "num_hidden_layers": 1,
-            "pad_token_id": tokenizer.pad_token_id,
-            "position_embedding_type": "absolute",
-            "transformers_version": "4.16.2",
-            "type_vocab_size": 2,
-            "use_cache": True,
-            "vocab_size": tokenizer.vocab_size
+            'architectures': ['BertForSequenceClassification'],
+            'attention_probs_dropout_prob': 0.1,
+            'classifier_dropout': None,
+            'gradient_checkpointing': False,
+            'hidden_act': 'gelu',
+            'hidden_dropout_prob': 0.1,
+            'hidden_size': 64,
+            'initializer_range': 0.02,
+            'intermediate_size': 256,
+            'layer_norm_eps': 1e-12,
+            'max_position_embeddings': 512,
+            'model_type': 'bert',
+            'num_attention_heads': 1,
+            'num_hidden_layers': 1,
+            'pad_token_id': tokenizer.pad_token_id,
+            'position_embedding_type': 'absolute',
+            'transformers_version': '4.16.2',
+            'type_vocab_size': 2,
+            'use_cache': True,
+            'vocab_size': tokenizer.vocab_size
         }
     }
     return model_to_dummy_mapping[cls]

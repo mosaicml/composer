@@ -5,114 +5,209 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Union
+from typing import Optional
 
-import torch
-from torchmetrics import MeanSquaredError, Metric, MetricCollection
+from torchmetrics import MeanSquaredError
 from torchmetrics.classification.accuracy import Accuracy
 from torchmetrics.classification.matthews_corrcoef import MatthewsCorrCoef
 from torchmetrics.regression.spearman import SpearmanCorrCoef
 
 from composer.metrics.nlp import BinaryF1Score, LanguageCrossEntropy, MaskedAccuracy
-from composer.models.transformer_shared import ComposerTransformer
+from composer.models.huggingface import HuggingFaceModel
+from composer.utils.import_helpers import MissingConditionalImportError
 
-if TYPE_CHECKING:
-    import transformers
-
-    from composer.core.types import Batch
-
-__all__ = ["BERTModel"]
+__all__ = ['create_bert_mlm', 'create_bert_classification']
 
 
-class BERTModel(ComposerTransformer):
+def create_bert_mlm(use_pretrained: Optional[bool] = False,
+                    pretrained_model_name: Optional[str] = None,
+                    model_config: Optional[dict] = None,
+                    tokenizer_name: Optional[str] = None,
+                    gradient_checkpointing: Optional[bool] = False):
     """BERT model based on |:hugging_face:| Transformers.
 
     For more information, see `Transformers <https://huggingface.co/transformers/>`_.
 
     Args:
-        module (transformers.BertModel): An instance of BertModel that
-            contains the forward pass function.
-        config (transformers.BertConfig): The BertConfig object that
-            stores information about the model hyperparameters.
-        tokenizer (transformers.BertTokenizer): An instance of BertTokenizer. Necessary to process model inputs.
 
-    To create a BERT model for Language Model pretraining:
+        gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
+        use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights. Default: ``False``.
+        model_config (dict): The settings used to create a Hugging Face BertConfig. BertConfig is used to specify the
+        architecture of a Hugging Face model.
+        tokenizer_name (transformers.BertTokenizer, optional): Tokenizer name used to preprocess the dataset
+        and validate the models inputs.
+
+        .. code-block::
+
+            {
+              "_name_or_path": "bert-base-uncased",
+              "architectures": ["BertForMaskedLM"],
+              "attention_probs_dropout_prob": 0.1,
+              "classifier_dropout": null,
+              "gradient_checkpointing": false,
+              "hidden_act": "gelu",
+              "hidden_dropout_prob": 0.1,
+              "hidden_size": 768,
+              "initializer_range": 0.02,
+              "intermediate_size": 3072,
+              "layer_norm_eps": 1e-12,
+              "max_position_embeddings": 512,
+              "model_type": "bert",
+              "num_attention_heads": 12,
+              "num_hidden_layers": 12,
+              "pad_token_id": 0,
+              "position_embedding_type": "absolute",
+              "transformers_version": "4.16.0",
+              "type_vocab_size": 2,
+              "use_cache": true,
+              "vocab_size": 30522
+            }
+
+   To create a BERT model for Masked Language Model pretraining:
 
     .. testcode::
 
-        from composer.models import BERTModel
-        import transformers
+        from composer.models import create_bert_mlm
+        model = create_bert_mlm()
 
-        config = transformers.BertConfig()
-        hf_model = transformers.BertLMHeadModel(config=config)
-        tokenizer = transformers.BertTokenizer.from_pretrained("bert-base-uncased")
-        model = BERTModel(module=hf_model, config=config, tokenizer=tokenizer)
     """
+    try:
+        import transformers
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
-    def __init__(self,
-                 module: transformers.BertModel,
-                 config: transformers.BertConfig,
-                 tokenizer: Optional[transformers.BertTokenizer] = None) -> None:
+    if not model_config:
+        model_config = {}
 
-        if tokenizer is None:
-            model_inputs = {"input_ids", "attention_mask", "token_type_ids"}
-        else:
-            model_inputs = set(tokenizer.model_input_names)
+    if not pretrained_model_name:
+        pretrained_model_name = 'bert-base-uncased'
 
-        super().__init__(
-            module=module,  #type: ignore (thirdparty)
-            config=config,
-            model_inputs=model_inputs)
+    if use_pretrained:
+        assert transformers.AutoModelForMaskedLM.from_pretrained is not None, 'AutoModelForMaskedLM has from_pretrained method'
+        model = transformers.AutoModelForMaskedLM.from_pretrained(pretrained_model_name_or_path=pretrained_model_name,
+                                                                  **model_config)
+    else:
+        config = transformers.AutoConfig.from_pretrained(pretrained_model_name, **model_config)
+        assert transformers.AutoModelForMaskedLM.from_config is not None, 'AutoModelForMaskedLM has from_config method'
+        model = transformers.AutoModelForMaskedLM.from_config(config)
 
-        # we're going to remove the label from the expected inputs
-        # since we will handle metric calculation with TorchMetrics instead of HuggingFace.
-        self.model_inputs.remove("labels")
+    if gradient_checkpointing:
+        model.gradient_checkpointing_enable()  # type: ignore
 
-        # When using Evaluators, the validation metrics represent all possible
-        # validation metrics that can be used with the bert model
-        # The Evaluator class checks if it's metrics are in the models validation metrics
+    # setup the tokenizer
+    if tokenizer_name:
+        tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_name)
+    else:
+        tokenizer = None
 
-        ignore_index = -100
-        self.val_metrics = [
-            Accuracy(),
-            MeanSquaredError(),
-            SpearmanCorrCoef(),
-            BinaryF1Score(),
-            MatthewsCorrCoef(num_classes=config.num_labels),
-            LanguageCrossEntropy(ignore_index=ignore_index, vocab_size=config.num_labels),
-            MaskedAccuracy(ignore_index=ignore_index),
-        ]
-        self.train_metrics = []
+    metrics = [
+        LanguageCrossEntropy(ignore_index=-100, vocab_size=model.config.vocab_size),
+        MaskedAccuracy(ignore_index=-100)
+    ]
+    return HuggingFaceModel(model=model, tokenizer=tokenizer, use_logits=True, metrics=metrics)
 
-    def loss(self, outputs: Mapping, batch: Batch) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
-        if outputs.get('loss', None) is not None:
-            return outputs['loss']
-        else:
-            raise NotImplementedError('Calculating loss directly not supported yet.')
 
-    def validate(self, batch: Any) -> Any:
-        """Runs the validation step.
+def create_bert_classification(num_labels: Optional[int] = 2,
+                               use_pretrained: Optional[bool] = False,
+                               pretrained_model_name: Optional[str] = None,
+                               model_config: Optional[dict] = None,
+                               tokenizer_name: Optional[str] = None,
+                               gradient_checkpointing: Optional[bool] = False):
+    """BERT classification model based on |:hugging_face:| Transformers.
 
-        Args:
-            batch (Dict): a dictionary of Dict[str, Tensor] of inputs
-                that the model expects, as found in :meth:`.ComposerTransformer.get_model_inputs`.
+    For more information, see `Transformers <https://huggingface.co/transformers/>`_.
 
-        Returns:
-            tuple (Tensor, Tensor): with the output from the forward pass and the correct labels.
-                This is fed into directly into the output of :meth:`.ComposerModel.metrics`.
-        """
-        assert self.training is False, "For validation, model must be in eval mode"
+    Args:
+        num_labels (int, optional): The number of classes in the classification task. Default: ``2``.
+        gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
+        use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights. Default: ``False``.
+        model_config (dict): The settings used to create a Hugging Face BertConfig. BertConfig is used to specify the
+        architecture of a Hugging Face model.
+        tokenizer_name (str, optional): Tokenizer name used to preprocess the dataset
+        and validate the models inputs.
 
-        # temporary hack until eval on multiple datasets is finished
-        labels = batch.pop('labels')
-        output = self.forward(batch)
-        output = output['logits']
+        .. code-block::
 
-        # if we are in the single class case, then remove the classes dimension
-        if output.shape[1] == 1:
-            output = output.squeeze(dim=1)
+            {
+              "_name_or_path": "bert-base-uncased",
+              "architectures": [
+                "BertForSequenceClassification
+              ],
+              "attention_probs_dropout_prob": 0.1,
+              "classifier_dropout": null,
+              "gradient_checkpointing": false,
+              "hidden_act": "gelu",
+              "hidden_dropout_prob": 0.1,
+              "hidden_size": 768,
+              "id2label": {
+                "0": "LABEL_0",
+                "1": "LABEL_1",
+                "2": "LABEL_2"
+              },
+              "initializer_range": 0.02,
+              "intermediate_size": 3072,
+              "label2id": {
+                "LABEL_0": 0,
+                "LABEL_1": 1,
+                "LABEL_2": 2
+              },
+              "layer_norm_eps": 1e-12,
+              "max_position_embeddings": 512,
+              "model_type": "bert",
+              "num_attention_heads": 12,
+              "num_hidden_layers": 12,
+              "pad_token_id": 0,
+              "position_embedding_type": "absolute",
+              "transformers_version": "4.16.0",
+              "type_vocab_size": 2,
+              "use_cache": true,
+              "vocab_size": 30522
+            }
 
-        return output, labels
+   To create a BERT model for classification:
 
-    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
-        return MetricCollection(self.train_metrics) if train else MetricCollection(self.val_metrics)
+    .. testcode::
+
+        from composer.models import create_bert_classification
+        model = create_bert_classification(num_labels=3) # if the task has three classes.
+
+    """
+    try:
+        import transformers
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
+
+    if not model_config:
+        model_config = {}
+
+    model_config['num_labels'] = num_labels
+
+    if not pretrained_model_name:
+        pretrained_model_name = 'bert-base-uncased'
+
+    if use_pretrained:
+        assert transformers.AutoModelForSequenceClassification.from_pretrained is not None, 'AutoModelForSequenceClassification has from_pretrained method'
+        model = transformers.AutoModelForSequenceClassification.from_pretrained(
+            pretrained_model_name_or_path=pretrained_model_name, **model_config)
+    else:
+        config = transformers.AutoConfig.from_pretrained(pretrained_model_name, **model_config)
+        assert transformers.AutoModelForSequenceClassification.from_config is not None, 'AutoModelForSequenceClassification has from_config method'
+        model = transformers.AutoModelForSequenceClassification.from_config(config)
+
+    if gradient_checkpointing:
+        model.gradient_checkpointing_enable()
+
+    # setup the tokenizer
+    if tokenizer_name:
+        tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_name)
+    else:
+        tokenizer = None
+
+    metrics = [
+        Accuracy(),
+        MeanSquaredError(),
+        SpearmanCorrCoef(),
+        BinaryF1Score(),
+        MatthewsCorrCoef(num_classes=model.config.num_labels)
+    ]
+    return HuggingFaceModel(model=model, tokenizer=tokenizer, use_logits=True, metrics=metrics)

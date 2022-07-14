@@ -40,7 +40,7 @@ from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceTPU
 from composer.utils import dist, ensure_tuple, format_name_with_dist, map_collection, module_surgery, reproducibility
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
-from composer.utils.file_helpers import GetFileNotFoundException
+#from composer.utils.file_helpers import GetFileNotFoundException
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store import ObjectStore
 import torch_xla.core.xla_model as xm

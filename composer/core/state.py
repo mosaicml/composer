@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from composer.core.evaluator import Evaluator
     from composer.profiler import Profiler
 
-__all__ = ["State"]
+__all__ = ['State']
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +38,9 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
     # It also renamed _is_model_ddp_wrapped to is_model_ddp
     state = {}
     for k, v in state_dict.items():
-        if k == "_is_model_ddp_wrapped":
-            k = "is_model_ddp"
-        if k.startswith("_"):
+        if k == '_is_model_ddp_wrapped':
+            k = 'is_model_ddp'
+        if k.startswith('_'):
             k = k[1:]
         state[k] = v
     return state
@@ -49,13 +49,13 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
 _STATE_DICT_SERIALIZED_ATTRIBUTES = [
     # List of attributes that are serialized with state_dict
     # Only the attributes listed in state.serialized_attributes will actually be saved.
-    "model",
-    "optimizers",
-    "schedulers",
-    "algorithms",
-    "callbacks",
-    "scaler",
-    "timestamp",
+    'model',
+    'optimizers',
+    'schedulers',
+    'algorithms',
+    'callbacks',
+    'scaler',
+    'timestamp',
 ]
 
 
@@ -77,6 +77,7 @@ class State(Serializable):
         model (torch.nn.Module): The model, typically as a subclass of :class:`~.ComposerModel`.
         rank_zero_seed (int): The seed used on the rank zero process. It is assumed that each rank's seed is
             ``rank_zero_seed + dist.get_global_rank()``.
+        run_name (str): The name for this training run.
         grad_accum (int, optional): The number of gradient accumulation steps to use. With this argument, micro batch
             size for each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
         train_dataloader (types.DataLoader, optional): Dataloader used for training
@@ -100,13 +101,11 @@ class State(Serializable):
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
         algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms used for training.
         callbacks (Callback | Sequence[Callback], optional): The callbacks used for training.
-        profiler (Optional[Profiler]): The Composer profiler.
+        deepspeed_config (Dict[str, Any], optional): The configuration dictionary for deepspeed.
 
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
             microbatch between :attr:`.Event.BATCH_START` and :attr:`.Event.BATCH_END`.
-        batch_num_samples (int): The number of samples in the :attr:`batch`.
-        batch_num_tokens (int): The number of tokens in the :attr:`batch`.
         current_metrics (Dict[str, Dict[str, Any]]): The current computed metrics, organized by dataloader label
             and then by metric name. The train dataloader is labeled ``'train'``. If not using an :class:`.Evaluator`,
             the eval dataloader is labeled ``'eval'``. Otherwise, the evaluator label is used.
@@ -121,7 +120,7 @@ class State(Serializable):
             ... )
             >>> trainer.fit()
             >>> trainer.state.current_metrics
-            {'train': {'Accuracy': tensor(...)}, 'eval': {'Accuracy': tensor(...)}}
+            {'train': {'Accuracy': tensor(...)}, 'eval': {'CrossEntropy': tensor(...), 'Accuracy': tensor(...)}}
 
             Or, when using an :class:`.Evaluator`:
 
@@ -164,6 +163,7 @@ class State(Serializable):
             ``0``.
         profiler (Profiler): The profiler (if profiling is enabled), or ``None`` if not profiling.
         rank_zero_seed (int): The seed of the rank zero process.
+        run_name (str): The name for this training run.
         scaler (torch.cuda.amp.GradScaler): The gradient scaler if using mixed-precision training, or
             ``None`` if not using mixed-precision training.
         serialized_attributes (List[str]): The names of the attribute which are serialized in a checkpoint.
@@ -191,6 +191,8 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
             | current_metrics       | The current metrics.                                        |
             +-----------------------+-------------------------------------------------------------+
+            | run_name              | The run name for training.                                  |
+            +-----------------------+-------------------------------------------------------------+
 
         timestamp (Timestamp): The current training timestamp.
         train_dataloader (Iterable): The training dataloader. (May be ``None`` if not training.)
@@ -203,6 +205,9 @@ class State(Serializable):
 
         # determinism
         rank_zero_seed: int,
+
+        # run_name
+        run_name: str,
 
         # stopping conditions
         max_duration: Optional[Union[str, Time[int]]] = None,
@@ -232,9 +237,13 @@ class State(Serializable):
         # algorithms and callbacks
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
         callbacks: Optional[Union[Callback, Sequence[Callback]]] = None,
+
+        # deepspeed.
+        deepspeed_config: Optional[Dict[str, Any]] = None,
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
+        self.run_name = run_name
         self.grad_accum = grad_accum
         self._dataloader_len = None
         self._dataloader = None
@@ -264,10 +273,10 @@ class State(Serializable):
 
         self.profiler: Optional[Profiler] = None
 
+        self.deepspeed_config = deepspeed_config
+
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
-        self.batch_num_samples = 0
-        self.batch_num_tokens = 0
         self.loss: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
         self.outputs: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
 
@@ -277,15 +286,16 @@ class State(Serializable):
         # For example, even though the optimizers are stored on the state
         # as the "_optimizers" attribute, here we specify just "optimizers"
         self.serialized_attributes = [
-            "model",
-            "optimizers",
-            "schedulers",
-            "algorithms",
-            "callbacks",
-            "scaler",
-            "timestamp",
-            "rank_zero_seed",
-            "current_metrics",
+            'model',
+            'optimizers',
+            'schedulers',
+            'algorithms',
+            'callbacks',
+            'scaler',
+            'timestamp',
+            'rank_zero_seed',
+            'current_metrics',
+            'run_name',
         ]
 
         self.current_metrics: Dict[str, Dict[str, Any]] = {}
@@ -308,7 +318,7 @@ class State(Serializable):
         if isinstance(max_duration, str):
             max_duration = cast(Time[int], Time.from_timestring(max_duration))
         if max_duration.unit == TimeUnit.DURATION:
-            raise ValueError("TimeUnit.DURATION is not allowed as a unit for max_duration")
+            raise ValueError('TimeUnit.DURATION is not allowed as a unit for max_duration')
         self._max_duration = max_duration
 
     def get_elapsed_duration(self) -> Optional[Time[float]]:
@@ -347,7 +357,7 @@ class State(Serializable):
         See batch_get in `utils/batch_helpers.py` for examples.
 
         Args:
-            key (str, int, or Callable): A key to index into the batch or a
+            key (str | int | Tuple[Callable, Callable] | Any, optional): A key to index into the batch or a
                 user-specified function to do the extracting. A pair of callables is also
                 supported for cases where a get and set function pair are both passed
                 (like in Algorithms). The getter is assumed to be the first of the pair.
@@ -368,7 +378,7 @@ class State(Serializable):
         See batch_set in `utils/batch_helpers.py` for examples.
 
         Args:
-            key (str, int, or Callable): A key to index into the batch or a user-specified
+            key (str | int | Tuple[Callable, Callable] | Any, optional): A key to index into the batch or a user-specified
                 function to do the setting. A pair of callables is also supported for
                 cases where a get and set function pair are both passed (like in
                 Algorithms). The setter is assumed to be the second of the pair.
@@ -407,17 +417,22 @@ class State(Serializable):
     def evaluators(self, evaluators: Union[Evaluator, Sequence[Evaluator]]):
         self._evaluators[:] = list(ensure_tuple(evaluators))
 
+    @property
+    def deepspeed_enabled(self):
+        """Indicates if deepspeed is enabled."""
+        return self.deepspeed_config is not None
+
     def state_dict(self) -> Dict[str, Any]:
         state_dict = {}
 
         for attribute_name in self.serialized_attributes:
             attribute_value = getattr(self, attribute_name)
-            if attribute_name == "model":
+            if attribute_name == 'model':
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                 # If it is DDP wrapped, do not save the `module.` prefix, as that is an implmentation detail
                 model_state = attribute_value.state_dict()
                 if self.is_model_ddp:
-                    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state, "module.")
+                    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state, 'module.')
                 serialized_value = model_state
             else:
                 if attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
@@ -439,10 +454,10 @@ class State(Serializable):
             strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
                 perfectly match the keys in the model instance.
         """
-        if state_dict.get("is_model_ddp", False) and not self.is_model_ddp:
+        if state_dict.get('is_model_ddp', False) and not self.is_model_ddp:
             # This check is for backwards compatibility, as pre-v0.6.0 checkpoints serialized the state
             # with the `module.` prefix
-            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], "module.")
+            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
         missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
         if len(missing_keys) > 0:
             logger.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
@@ -457,7 +472,6 @@ class State(Serializable):
             strict (bool): whether the keys in the ``state["model"]`` should perfectly match the keys in the
                 ``self.model``. Defaults to False.
         """
-
         state = _ensure_backwards_compatible_checkpointing(state)
 
         for attribute_name, serialized_value in state.items():
@@ -465,7 +479,7 @@ class State(Serializable):
                 # it's possible some attributes we removed
                 continue
 
-            if attribute_name == "model":
+            if attribute_name == 'model':
                 self.load_model_state(state, strict=strict)
                 continue
             state_field_value = getattr(self, attribute_name)
@@ -473,7 +487,7 @@ class State(Serializable):
                 for target in ensure_tuple(state_field_value):
                     if type(target).__qualname__ not in serialized_value:
                         warnings.warn(
-                            f"{type(target).__qualname__} is not in the state_dict. Its state will not be restored.",
+                            f'{type(target).__qualname__} is not in the state_dict. Its state will not be restored.',
                             category=UserWarning)
                         continue
                     source = serialized_value[type(target).__qualname__]
@@ -524,7 +538,7 @@ class State(Serializable):
             dataloader_label = None
         else:
             if dataloader_label is None:
-                raise ValueError("If the `dataloader` is specified, then `dataloader_label` must not be None.")
+                raise ValueError('If the `dataloader` is specified, then `dataloader_label` must not be None.')
         self._dataloader = dataloader
         self._dataloader_label = dataloader_label
         if dataloader is not None:
@@ -552,7 +566,7 @@ class State(Serializable):
         if isinstance(num_batches, int):
             num_batches = Time(num_batches, TimeUnit.BATCH)
         if self._dataloader is None:
-            raise RuntimeError("`State.dataloader_len` cannot be set if the dataloader is not defined.")
+            raise RuntimeError('`State.dataloader_len` cannot be set if the dataloader is not defined.')
         try:
             if isinstance(self._dataloader, collections.abc.Sized):
                 dataloader_len = len(self._dataloader)
@@ -561,9 +575,9 @@ class State(Serializable):
         except (TypeError, NotImplementedError):
             dataloader_len = None
         if dataloader_len is not None and num_batches >= 0 and int(num_batches) > dataloader_len:
-            warnings.warn((f"DataloaderNumBatchesWarning: The dataloader_len ({int(num_batches)}) "
-                           f"is greater than the length (i.e. number of batches) of the dataloader, which is "
-                           f"{dataloader_len}. State.dataloader_len is thus being set to {dataloader_len}."))
+            warnings.warn((f'DataloaderNumBatchesWarning: The dataloader_len ({int(num_batches)}) '
+                           f'is greater than the length (i.e. number of batches) of the dataloader, which is '
+                           f'{dataloader_len}. State.dataloader_len is thus being set to {dataloader_len}.'))
             self._dataloader_len = Time(dataloader_len, TimeUnit.BATCH)
             return
         if num_batches < 0:
@@ -609,5 +623,5 @@ class State(Serializable):
     def deepspeed_model(self) -> deepspeed.DeepSpeedEngine:
         """Cast :attr:`model` to :class:`~deepspeed.DeepSpeedEngine`."""
         if self.is_model_deepspeed:
-            return cast("deepspeed.DeepSpeedEngine", self.model)
-        raise TypeError("state.model is not a DeepSpeed model")
+            return cast('deepspeed.DeepSpeedEngine', self.model)
+        raise TypeError('state.model is not a DeepSpeed model')

@@ -47,12 +47,12 @@ def generate_tensors():
 
 
 @pytest.mark.filterwarnings(
-    r"ignore:Negative label indices are being ignored in conversion to one-hot labels:UserWarning")
+    r'ignore:Negative label indices are being ignored in conversion to one-hot labels:UserWarning')
 @pytest.mark.parametrize('tensors', generate_tensors())
 def test_ensure_targets_one_hot(tensors):
     input, targets_idx, targets_one_hot = tensors
     targets_one_hot_test = ensure_targets_one_hot(input, targets_idx)
-    torch.testing.assert_allclose(targets_one_hot, targets_one_hot_test)
+    torch.testing.assert_close(targets_one_hot, targets_one_hot_test, check_stride=False)
 
 
 @pytest.mark.parametrize('tensors', generate_tensors())
@@ -66,7 +66,7 @@ class TestSoftCrossEntropy:
     @pytest.mark.parametrize('reduction', ['mean', 'sum'])
     @pytest.mark.parametrize('use_weights', [xfail(True), False])
     # TODO(Cory): Remove this filterwarning
-    @pytest.mark.filterwarnings(r"ignore:Some targets have less than 1 total probability:UserWarning")
+    @pytest.mark.filterwarnings(r'ignore:Some targets have less than 1 total probability:UserWarning')
     def test_soft_cross_entropy(self, tensors, use_weights, reduction):
         input, target_indices, target_onehot = tensors
         if use_weights:
@@ -79,5 +79,5 @@ class TestSoftCrossEntropy:
         loss_onehot = soft_cross_entropy(input, target_onehot, weight=weights, reduction=reduction)
         loss_reference = F.cross_entropy(input, target_indices, weight=weights, reduction=reduction, ignore_index=-1)
 
-        torch.testing.assert_allclose(loss_indices, loss_onehot)
-        torch.testing.assert_allclose(loss_indices, loss_reference)
+        torch.testing.assert_close(loss_indices, loss_onehot)
+        torch.testing.assert_close(loss_indices, loss_reference)

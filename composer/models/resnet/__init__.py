@@ -8,10 +8,10 @@ the ImageNet dataset.
 
 See the :doc:`Model Card </model_cards/resnet>` for more details.
 """
-from composer.models.resnet.model import ComposerResNet as ComposerResNet
+from composer.models.resnet.model import composer_resnet
 from composer.models.resnet.resnet_hparams import ResNetHparams as ResNetHparams
 
-__all__ = ["ComposerResNet", "ResNetHparams"]
+__all__ = ['ResNetHparams', 'composer_resnet']
 
 _metadata = {
     'resnet18': {

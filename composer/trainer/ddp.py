@@ -3,6 +3,7 @@
 
 """Helpers for running distributed data parallel training."""
 
+import logging
 from contextlib import contextmanager, nullcontext
 from typing import Callable, ContextManager, Union, cast
 
@@ -13,7 +14,9 @@ from composer.core.state import State
 from composer.utils import dist
 from composer.utils.string_enum import StringEnum
 
-__all__ = ["DDPSyncStrategy", "ddp_sync_context", "prepare_ddp_module"]
+__all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module']
+
+log = logging.getLogger(__name__)
 
 
 class DDPSyncStrategy(StringEnum):
@@ -40,9 +43,9 @@ class DDPSyncStrategy(StringEnum):
             a very long time to complete - if there are also a lot of microbatches per batch,
             this strategy may be optimal.
     """
-    SINGLE_AUTO_SYNC = "single_auto_sync"
-    MULTI_AUTO_SYNC = "multi_auto_sync"
-    FORCED_SYNC = "forced_sync"
+    SINGLE_AUTO_SYNC = 'single_auto_sync'
+    MULTI_AUTO_SYNC = 'multi_auto_sync'
+    FORCED_SYNC = 'forced_sync'
 
 
 @contextmanager
@@ -60,7 +63,7 @@ def ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Uni
         yield
         return
 
-    assert state.optimizers is not None, "optimizers have not been initialized"
+    assert state.optimizers is not None, 'optimizers have not been initialized'
     sync_strategy = DDPSyncStrategy(sync_strategy)
 
     no_sync_context = cast(Callable[[], ContextManager], state.model.no_sync)
@@ -83,13 +86,13 @@ def ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Uni
             if is_final_microbatch:
                 for optimizer in state.optimizers:
                     for group in optimizer.param_groups:
-                        for p in group["params"]:
+                        for p in group['params']:
                             if p.grad is not None:
                                 dist.all_reduce(p.grad)
                                 p.grad = p.grad / dist.get_world_size()
 
     else:
-        raise ValueError("Unknown sync strategy", sync_strategy)
+        raise ValueError('Unknown sync strategy', sync_strategy)
 
 
 def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) -> torch.nn.Module:
@@ -103,12 +106,13 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
     """
     if dist.is_available() and dist.is_initialized():
         if any((p.requires_grad for p in module.parameters())):
+            log.debug('Wrapping model with DistributedDataParallel')
             ddp_model = DistributedDataParallel(module, find_unused_parameters=find_unused_parameters)
             return ddp_model
         return module
     if dist.is_available():
-        raise RuntimeError("Please call dist.initialize_dist() before calling ddp.prepare_module()")
+        raise RuntimeError('Please call dist.initialize_dist() before calling ddp.prepare_module()')
 
-    raise RuntimeError("When the world size is > 1, ``torch.distributed`` must be used. However, it is "
-                       "not available in your installation of PyTorch. Please install or build PyTorch "
-                       "with distributed support.")
+    raise RuntimeError('When the world size is > 1, ``torch.distributed`` must be used. However, it is '
+                       'not available in your installation of PyTorch. Please install or build PyTorch '
+                       'with distributed support.')

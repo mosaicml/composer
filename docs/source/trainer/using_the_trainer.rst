@@ -187,10 +187,6 @@ argument.
     # points of the training loop
     trainer.fit()
 
-.. testcleanup::
-
-    trainer.engine.close()
-
 We handle inserting algorithms into the training loop and in the right order.
 
 .. seealso::
@@ -209,11 +205,11 @@ well as Composer's custom schedulers.
 .. testcode::
 
     from composer import Trainer
-    from composer.models import ComposerResNet
+    from composer.models import composer_resnet
     from torch.optim import SGD
     from torch.optim.lr_scheduler import LinearLR
 
-    model = ComposerResNet(model_name="resnet50", num_classes=1000)
+    model = composer_resnet(model_name="resnet50", num_classes=1000)
     optimizer = SGD(model.parameters(), lr=0.1)
     scheduler = LinearLR(optimizer)
 
@@ -319,7 +315,7 @@ data parallel across 8 GPUs the dataloader should set ``batch_size=256``.
 
 .. seealso::
 
-    Our :doc:`distributed_training` guide and
+    Our :doc:`/notes/distributed_training` guide and
     the :mod:`composer.utils.dist` module.
 
 
@@ -412,6 +408,10 @@ We recommend using ``amp`` on GPUs to accelerate your training.
         device='gpu',
         precision='amp'
     )
+
+.. seealso::
+
+    Our :doc:`/notes/numerics` guide.
 
 Checkpointing
 ~~~~~~~~~~~~~
