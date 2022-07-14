@@ -40,10 +40,15 @@ class SimpleReplacementPolicy(nn.Module):
             return RecursiveLinear(cast(int, module.in_features), cast(int, module.out_features))
         return None
 
+    @staticmethod
+    def replace_pool(module: torch.nn.Module, module_index: int):
+        assert isinstance(module, nn.MaxPool2d)
+        return BlurMaxPool2d.from_maxpool2d(module, module_index)
+
     def policy(self) -> Mapping[Type[torch.nn.Module], module_surgery.ReplacementFunction]:
         return {
             nn.Linear: self.maybe_replace_linear,
-            nn.MaxPool2d: BlurMaxPool2d.from_maxpool2d,
+            nn.MaxPool2d: self.replace_pool,
         }
 
     def validate_replacements(self, recurse_on_replacements: bool):
