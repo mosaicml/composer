@@ -18,4 +18,5 @@ __all__ = ['device_registry']
 device_registry: Dict[str, Union[Type[Device], Type[hp.Hparams]]] = {
     'gpu': DeviceGPU,
     'cpu': DeviceCPU,
+    'amd_gpu': DeviceGPU,
 }
