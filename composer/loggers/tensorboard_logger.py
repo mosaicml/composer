@@ -3,9 +3,9 @@
 
 """Log to `Tensorboard <https://www.tensorflow.org/tensorboard/>`_."""
 
-import time
 from pathlib import Path
 from typing import Any, Dict, Optional
+import uuid
 
 from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel
@@ -55,8 +55,6 @@ class TensorboardLogger(LoggerDestination):
         self.flush_interval = flush_interval
         self.rank_zero_only = rank_zero_only
         self.writer: Optional[SummaryWriter] = None
-        self.flush_count = 0
-        self.event_file_base_file_path: Optional[str] = None
         self.run_name: Optional[str] = None
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
@@ -80,7 +78,7 @@ class TensorboardLogger(LoggerDestination):
     def init(self, state: State, logger: Logger) -> None:
         self.run_name = state.run_name
 
-        # We set the log_dir to a constant, so all runs can be co-located together.
+        # We fix the log_dir, so all runs are co-located.
         if self.log_dir is None:
             self.log_dir = 'tensorboard_logs'
 
@@ -98,13 +96,6 @@ class TensorboardLogger(LoggerDestination):
         # To disable automatic flushing we set flushing to once a year ;)
         flush_secs = 365 * 3600 * 24
         self.writer = SummaryWriter(log_dir=summary_writer_log_dir, flush_secs=flush_secs)
-
-        if self.event_file_base_file_path is None:
-            self.event_file_base_file_path = self.writer.file_writer.event_writer._file_name
-
-        # Give event_file a unique name to avoid appending to the same file on every flush.
-        self.writer.file_writer.event_writer._file_name = self.event_file_base_file_path + f'-{self.flush_count}'
-        self.writer.file_writer.event_writer._async_writer._writer._writer.filename = self.writer.file_writer.event_writer._file_name
 
     def batch_end(self, state: State, logger: Logger) -> None:
         if int(state.timestamp.batch) % self.flush_interval == 0:
@@ -124,35 +115,22 @@ class TensorboardLogger(LoggerDestination):
         if self.rank_zero_only and dist.get_global_rank() != 0:
             return
 
+        # Skip if no writes occurred since last flush.
+        if not self.writer.file_writer:
+            return
+
+        self.writer.flush()
         assert self.writer.file_writer is not None
         file_path = self.writer.file_writer.event_writer._file_name
 
-        # If no writes have happened since the last flush, then file_path won't exist, so
-        # we should skip doing flushing and skip filing the artifact since it will error
-        # out anyway (given that the file_path doesn't exist).
-        if not Path(file_path).exists():
-            return
-
-        assert self.writer is not None
-        self.writer.flush()
-
-
         logger.file_artifact(
             LogLevel.FIT,
-            # For a file to be readable by Tensorboard, it must start with
-            # 'events.out.tfevents'. Child directory is named after run_name, so the logs
-            # are named properly in the Tensorboard GUI.
             artifact_name=(
                 'tensorboard_logs/{run_name}/events.out.tfevents-{run_name}-{rank}'
                 # Append flush_count, so artifact has unique name.
-                + f'-{self.flush_count}'),
+                + f'-{uuid.uuid4()}'),
             file_path=file_path,
             overwrite=True)
         
-        # Close writer and reinitialize it with a new log file path. This ensures that 
-        # we have one file per flush, which means `file_artifact` is always copying 
-        # data points that have never been copied before. Also this ensures no strange 
-        # issues with dropping of points when setting a new log file path.
+        # Close writer, which creates new log file.
         self.writer.close()
-        self.flush_count += 1
-        self._initialize_summary_writer()
