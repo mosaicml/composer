@@ -121,14 +121,15 @@ class TensorboardLogger(LoggerDestination):
 
         self.writer.flush()
         assert self.writer.file_writer is not None
+        
         file_path = self.writer.file_writer.event_writer._file_name
+        event_file_name = Path(file_path).stem
 
         logger.file_artifact(
             LogLevel.FIT,
             artifact_name=(
-                'tensorboard_logs/{run_name}/events.out.tfevents-{run_name}-{rank}'
-                # Append flush_count, so artifact has unique name.
-                + f'-{uuid.uuid4()}'),
+                'tensorboard_logs/{run_name}/'
+                + f'{event_file_name}-{dist.get_global_rank()}'),
             file_path=file_path,
             overwrite=True)
         
