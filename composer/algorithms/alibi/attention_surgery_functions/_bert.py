@@ -1,14 +1,52 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-# `forward` is used by the yaml codepath, even though it is private
-# pyright: reportUnusedFunction=none
-
 import math
 from typing import Optional, Tuple
+from types import MethodType
 
 import torch
 from torch import nn
+
+from composer.algorithms.alibi.attention_surgery_functions.utils import (
+    register_surgery_function_builder,
+    register_alibi,
+    zero_and_freeze_expand_position_embeddings
+)
+from transformers.models.bert.modeling_bert import BertSelfAttention, BertEmbeddings
+from transformers.models.roberta.modeling_roberta import RobertaSelfAttention, RobertaEmbeddings
+
+@register_surgery_function_builder(BertEmbeddings, RobertaEmbeddings)
+def build_bert_embedding_converter(max_sequence_length: int):
+    """Builds a function to remove positional embeddings.
+    
+    The built function also expands `position_ids` buffer to support `max_sequence_length` tokens.
+    """
+    def convert_position_embeddings_and_ids(module: torch.nn.Module, module_index: Optional[int] = None):
+        del module_index # unused
+        zero_and_freeze_expand_position_embeddings(
+            module, max_sequence_length, position_embedding_attribute='position_embeddings')
+
+        module_device = next(module.parameters()).device
+        module.register_buffer(
+            "position_ids", torch.arange(max_sequence_length).expand((1, -1)).to(module_device))
+        return module
+    return convert_position_embeddings_and_ids
+
+
+@register_surgery_function_builder(BertSelfAttention, RobertaSelfAttention)
+def build_bert_attention_converter(max_sequence_length: int):
+    """Builds a function that does model surgery to add ALiBi to Bert-style SelfAttention."""
+    def convert_attention(module: torch.nn.Module, module_index: Optional[int] = None):
+        del module_index  # unused
+        module = register_alibi(module=module,
+                                n_heads=module.num_attention_heads,
+                                max_token_length=max_sequence_length,
+                                causal=False)
+        setattr(module, 'forward', MethodType(forward, module))
+        
+        return module
+    return convert_attention
 
 
 def forward(
@@ -117,21 +155,3 @@ def forward(
     if self.is_decoder:
         outputs = outputs + (past_key_value,)
     return outputs
-
-# TODO: Implement for BERT
-# def enlarge_mask(module: torch.nn.Module, max_sequence_length: int) -> torch.nn.Module:
-#     """Increases the size of the attention mask in Composer/HuggingFace GPT2 model's GPT2Attention
-#     (:func:`transformers.models.gpt2.modeling_gpt2.GPT2Attention._attn`; `GitHub link <https://\\
-#     github.com/huggingface/transformers/blob/2e11a043374a6229ec129a4765ee4ba7517832b9/src/transformers/\\
-#     models/gpt2/modeling_gpt2.py#L140>`_).
-# 
-#     This is necessary for evaluating on sequence lengths longer than the model was initialized to accommodate.
-#     """
-#     old_mask = module.bias
-#     new_mask = torch.tril(
-#         torch.ones(
-#             (max_sequence_length, max_sequence_length),  # type: ignore
-#             dtype=torch.uint8,
-#             device=old_mask.device)).view(1, 1, max_sequence_length, max_sequence_length)  # type: ignore
-#     setattr(module, 'bias', new_mask)
-#     return module

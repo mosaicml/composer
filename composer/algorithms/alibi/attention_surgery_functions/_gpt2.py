@@ -1,11 +1,51 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-# _attn is used by the yaml codepath, even though it is private
+# `forward` is used by the yaml codepath, even though it is private
 # pyright: reportUnusedFunction=none
-from typing import Tuple
+
+from typing import Optional, Tuple
+from types import MethodType
 
 import torch
+
+from composer.algorithms.alibi.attention_surgery_functions.utils import (
+    register_surgery_function_builder,
+    register_alibi,
+    zero_and_freeze_expand_position_embeddings
+)
+from transformers.models.gpt2.modeling_gpt2 import GPT2Attention, GPT2Model
+
+
+@register_surgery_function_builder(GPT2Model)
+def build_gpt2_embedding_converter(max_sequence_length: int):
+    """Builds a function to remove positional embeddings."""
+    def convert_position_embeddings(module: GPT2Model, module_index: Optional[int] = None):
+        del module_index # unused
+
+        zero_and_freeze_expand_position_embeddings(
+            module, max_sequence_length, position_embedding_attribute='wpe')
+        return module
+        
+    return convert_position_embeddings
+
+@register_surgery_function_builder(GPT2Attention)
+def build_gpt2_attention_converter(max_sequence_length: int):
+    """Builds a function that does model surgery to add ALiBi to GPT2Attention.
+    
+    This function also replaces the attention mask to support `max_sequence_length` tokens.
+    """
+    def convert_attention(module: GPT2Attention, module_index: Optional[int] = None):
+        del module_index  # unused
+        module = register_alibi(module=module,
+                                n_heads=module.num_heads,
+                                max_token_length=max_sequence_length,
+                                causal=True)
+        setattr(module, '_attn', MethodType(_attn, module))
+        
+        module = enlarge_mask(module, max_sequence_length)
+        return module
+    return convert_attention
 
 
 def _attn(self, query, key, value, attention_mask=None, head_mask=None) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -49,7 +89,7 @@ def _attn(self, query, key, value, attention_mask=None, head_mask=None) -> Tuple
     return attn_output, attn_weights
 
 
-def enlarge_mask(module: torch.nn.Module, max_sequence_length: int) -> torch.nn.Module:
+def enlarge_mask(module: GPT2Attention, max_sequence_length: int) -> torch.nn.Module:
     """Increases the size of the attention mask in Composer/HuggingFace GPT2 model's GPT2Attention
     (:func:`transformers.models.gpt2.modeling_gpt2.GPT2Attention._attn`; `GitHub link <https://\\
     github.com/huggingface/transformers/blob/2e11a043374a6229ec129a4765ee4ba7517832b9/src/transformers/\\
