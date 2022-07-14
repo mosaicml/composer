@@ -1,9 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-# `forward` is used by the yaml codepath, even though it is private
-# pyright: reportUnusedFunction=none
-
 from typing import Optional, Tuple
 from types import MethodType
 
@@ -26,7 +23,7 @@ def build_gpt2_embedding_converter(max_sequence_length: int):
         zero_and_freeze_expand_position_embeddings(
             module, max_sequence_length, position_embedding_attribute='wpe')
         return module
-        
+
     return convert_position_embeddings
 
 @register_surgery_function_builder(GPT2Attention)

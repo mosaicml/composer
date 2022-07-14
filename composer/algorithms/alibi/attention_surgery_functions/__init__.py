@@ -3,9 +3,11 @@
 
 from composer.algorithms.alibi.attention_surgery_functions.utils import replacement_policy_mapping_builder
 
-# Import files that add to the `replacement_policy_mapping_builder`
-from composer.algorithms.alibi.attention_surgery_functions import _bert, _gpt2
-del _bert
-del _gpt2
+# Import files that add functions to the `replacement_policy_mapping_builder` registry in order to actually
+# register those functions.
+from composer.algorithms.alibi.attention_surgery_functions import ( # pyright: reportUnusedImport=none
+    _bert,
+    _gpt2,
+)
 
 __all__ = ['replacement_policy_mapping_builder']
