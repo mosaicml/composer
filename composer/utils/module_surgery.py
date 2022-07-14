@@ -21,8 +21,8 @@ Attributes:
         Returns: Optional[torch.nn.Module]: The replacement module, or ``None`` to indicate no modification.
 """
 import collections
-import logging
 import itertools
+import logging
 import textwrap
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, OrderedDict, Sequence, Tuple, Type, Union
 
@@ -196,6 +196,7 @@ def replace_module_classes(
                 for parent, name in parents:
                     # update each parent with the replaced child
                     setattr(parent, name, replacement)
+
                 # recurse on new child object
                 if recurse_on_replacements:
                     children_to_parents_and_names[replacement] = list(parents)  # copy the parents list
@@ -213,6 +214,7 @@ def replace_module_classes(
 
     return replaced_pairs
 
+
 def _infer_device(module: torch.nn.Module) -> Optional[torch.device]:
     """Attempt to infer a module's device by inspecting its parameters and buffers."""
     try:
@@ -221,6 +223,7 @@ def _infer_device(module: torch.nn.Module) -> Optional[torch.device]:
         return None
 
     return p.device
+
 
 def count_module_instances(module: torch.nn.Module, module_class: Union[Type[torch.nn.Module],
                                                                         Tuple[Type[torch.nn.Module], ...]]) -> int:
