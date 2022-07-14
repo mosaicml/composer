@@ -31,7 +31,7 @@ each commit:
 pre-commit install
 ```
 
-## Submitting a contribution
+## Submitting a Contribution
 
 To submit a contribution:
 
@@ -54,6 +54,10 @@ git checkout -b cool-new-feature
 ```
 
 4\. When you are ready, submit a pull request into the composer repository! If merged, we'll reach out to send you some free swag :)
+
+## Configuring README Code Snippets
+
+Composer uses [pytest-codeblocks](https://github.com/nschloe/pytest-codeblocks) to test all example code snippets. The pytest-codeblocks repository explains how to annotate code snippets, which supports most `pytest` configurations. For example, if a test requires model training, the GPU mark (`<!--pytest.mark.skip-->`) and timeout mark (`<!--pytest.mark.timeout(15)-->`) should be applied.
 
 ## Running Tests
 
