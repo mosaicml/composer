@@ -114,6 +114,9 @@ class ProgressBarLogger(LoggerDestination):
 
     Args:
         progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
+        dataloader_label (str, optional): The label for the dataloader that the progress bar is tracking.
+
+            If no dataloader_label is specified, then the logger will track all dataloaders.
         log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
 
             The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is
@@ -134,12 +137,14 @@ class ProgressBarLogger(LoggerDestination):
     def __init__(
         self,
         progress_bar: bool = True,
+        dataloader_label: Optional[str] = None,
         log_to_console: Optional[bool] = None,
         console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         stream: Union[str, TextIO] = sys.stderr,
     ) -> None:
 
         self._show_pbar = progress_bar
+        self.dataloader_label = dataloader_label
         # The dummy pbar is to fix issues when streaming progress bars over k8s, where the progress bar in position 0
         # doesn't update until it is finished.
         # Need to have a dummy progress bar in position 0, so the "real" progress bars in position 1 doesn't jump around
@@ -286,20 +291,25 @@ class ProgressBarLogger(LoggerDestination):
         )
 
     def epoch_start(self, state: State, logger: Logger) -> None:
-        if self.show_pbar and not self.train_pbar:
-            self.train_pbar = self._build_pbar(state=state, is_train=True)
+        # Make sure dataloader_label is the training dataloader_label
+        if self.dataloader_label is None or state.dataloader_label == self.dataloader_label:
+            if self.show_pbar and not self.train_pbar:
+                self.train_pbar = self._build_pbar(state=state, is_train=True)
 
     def eval_start(self, state: State, logger: Logger) -> None:
-        if self.show_pbar:
-            self.eval_pbar = self._build_pbar(state, is_train=False)
+        if self.dataloader_label is None or state.dataloader_label == self.dataloader_label:
+            if self.show_pbar:
+                self.eval_pbar = self._build_pbar(state, is_train=False)
 
     def batch_end(self, state: State, logger: Logger) -> None:
-        if self.train_pbar:
-            self.train_pbar.update_to_timestamp(state.timestamp)
+        if self.dataloader_label is None or state.dataloader_label == self.dataloader_label:
+            if self.train_pbar:
+                self.train_pbar.update_to_timestamp(state.timestamp)
 
     def eval_batch_end(self, state: State, logger: Logger) -> None:
-        if self.eval_pbar:
-            self.eval_pbar.update_to_timestamp(state.eval_timestamp)
+        if self.dataloader_label is None or state.dataloader_label == self.dataloader_label:
+            if self.eval_pbar:
+                self.eval_pbar.update_to_timestamp(state.eval_timestamp)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         # Only close progress bars at epoch end if the duration is in epochs, since
