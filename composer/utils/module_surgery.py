@@ -221,8 +221,8 @@ def _infer_device(module: torch.nn.Module) -> Optional[torch.device]:
         p = next(itertools.chain(module.parameters(), module.buffers()))
     except StopIteration:
         return None
-
-    return p.device
+    else:
+        return p.device
 
 
 def count_module_instances(module: torch.nn.Module, module_class: Union[Type[torch.nn.Module],
