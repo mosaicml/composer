@@ -41,8 +41,7 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
-from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, module_surgery,
-                            reproducibility)
+from composer.utils import ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, reproducibility
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -750,12 +749,11 @@ class Trainer:
         # Device
         self._device = _get_device(device)
 
-        #todo: this is temp, check with Jamie Bloxham
         # Distributed
-        # if deepspeed_enabled or dist.get_world_size() > 1:
+        if deepspeed_enabled or dist.get_world_size() > 1:
             # deepspeed requires torch.distributed to be initialized, even if the world size is 1
             # distributed is always required with multi-rank training
-        dist.initialize_dist(self._device.dist_backend, datetime.timedelta(seconds=dist_timeout))
+            dist.initialize_dist(self._device.dist_backend, datetime.timedelta(seconds=dist_timeout))
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, self._device)
@@ -773,7 +771,7 @@ class Trainer:
 
         _validate_precision(precision, self._device, deepspeed_enabled)
 
-        # optimizers and schedulers
+        # Optimizers and Schedulers
         if not optimizers:
             optimizers = DecoupledSGDW(list(model.parameters()), lr=0.1)
             # hard-coding the optimizer in the warning, as repr(optimizers) would print an annoying, multi-line warning
@@ -783,6 +781,14 @@ class Trainer:
         num_optimizers = len(ensure_tuple(optimizers))
         if num_optimizers != 1:
             raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
+
+        # Move the model and optimizers to the device
+        if not deepspeed_enabled:
+            model = self._device.module_to_device(model)
+            # Move any remaining optimizer parameters onto the device
+            # It is possible that optimizer initialize created some internal tensors on CPU
+            # that need to be moved onto GPU.
+            optimizers = map_collection(optimizers, self._device.optimizer_to_device)
 
         # Grad Accum
         self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
@@ -1025,23 +1031,9 @@ class Trainer:
         reproducibility.seed_all(self.state.seed)
 
         # Move the model and optimizers to the specified device
-        if not self.deepspeed_enabled:
-            host_model_params = self.state.model.parameters()
-            self.state.model = self._device.module_to_device(self.state.model)
-            device_model_params = self.state.model.parameters()
-
-            # use surgery to update the parameters of the optimizers, now that the model is on the device
-            # see https://pytorch.org/docs/stable/optim.html#constructing-it
-            module_surgery.replace_params_in_optimizer(old_params=host_model_params,
-                                                       new_params=device_model_params,
-                                                       optimizers=self.state.optimizers)
-
-            # Move any remaining optimizer parameters onto the device
-            self.state.optimizers = map_collection(self.state.optimizers, self._device.optimizer_to_device)
-
-            if dist.get_world_size() > 1:
-                # Only wrap the module if required
-                self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
+        if not self.deepspeed_enabled and dist.get_world_size() > 1:
+            # Only wrap the module if required
+            self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
     @property
     def deepspeed_enabled(self):
