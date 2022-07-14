@@ -9,15 +9,19 @@ from composer.loggers.logger import LogLevel
 #from composer.loggers.logger_hparams import WandBLoggerHparams
 from composer.trainer.trainer_hparams_tpu import TrainerTPUHparams
 from composer.utils import dist
-
+import os
+os.environ["TPU_CHIPS_PER_HOST_BOUNDS"] = "2,2,1"
+os.environ["TPU_HOST_BOUNDS"] = "1,1,1"
+os.environ["TPU_VISIBLE_DEVICES"] = "0,1,2,3"
 
 def train():
 
     if len(sys.argv) == 1:
         sys.argv = [sys.argv[0], "--help"]
 
+    print(TrainerTPUHparams)
     hparams = TrainerTPUHparams.create(cli_args=True)  # reads cli args from sys.argv
-
+    
             
     trainer = hparams.initialize_object()
 
@@ -47,4 +51,4 @@ def _mp_fn(index):
     
 if __name__ == "__main__":
     import torch_xla.distributed.xla_multiprocessing as xmp
-    xmp.spawn(_mp_fn, args=(), nprocs=1, start_method='fork')
+    xmp.spawn(_mp_fn, args=(), nprocs=8)

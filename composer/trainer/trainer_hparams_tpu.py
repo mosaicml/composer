@@ -186,8 +186,9 @@ class TrainerTPUHparams(hp.Hparams):
     #algorithms: List[AlgorithmHparams] = hp.optional(doc="Algorithms", default_factory=list)
 
     # Optimizer and Scheduler
-    optimizer: Optional[OptimizerHparams] = hp.optional(doc="Optimizer to use", default=None)
-    #schedulers: List[SchedulerHparams] = hp.optional(doc="Schedulers", default_factory=list)
+    optimizers: Optional[OptimizerHparams] = hp.optional(doc="Optimizer to use", default=None)
+    schedulers: Optional[List[ComposerScheduler]] = hp.optional(doc='sched', default=None)
+    
     scale_schedule_ratio: float = hp.optional(
         doc="Ratio by which to scale the training duration and learning rate schedules.",
         default=1.0,
@@ -359,9 +360,9 @@ class TrainerTPUHparams(hp.Hparams):
         import composer
         logging.getLogger(composer.__name__).setLevel(self.python_log_level)
 
-        device_hparams = TPUDeviceHparams()
+        #device_hparams = TPUDeviceHparams()
         
-        device = device_hparams.initialize_object()
+        device = DeviceTPU()#device_hparams.initialize_object()
 
         # Distributed
         # Initialized here so it is available within dataloaders
