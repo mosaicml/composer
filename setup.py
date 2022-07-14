@@ -77,6 +77,7 @@ install_requires = [
     'psutil>=5.8.0,<6',
     'coolname>=1.1.0,<2',
     'py-cpuinfo>=8.0.0',
+    'tabulate==0.8.9',  # for auto-generating tables
 ]
 extra_deps = {}
 
@@ -110,7 +111,6 @@ extra_deps['dev'] = [
     'sphinxemoji==0.2.0',
     'furo==2022.3.4',
     'sphinx-copybutton==0.5.0',
-    'tabulate==0.8.9',  # for auto-generating tables
     'testbook==0.4.2',
     'myst-parser==0.16.1',
     'sphinx_panels==0.6.0',
