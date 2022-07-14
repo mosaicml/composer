@@ -19,7 +19,8 @@ class GLUEMetricsLogger:
     task_to_avg_metric: Dict[str, Any]  
 
     def __init__(self, task_names) -> None:
-        self.tasks_to_avg_metric = {}
+        self.task_to_avg_metric = {}
+        
         for task in task_names:
             self.task_to_avg_metric[task] = None
     
