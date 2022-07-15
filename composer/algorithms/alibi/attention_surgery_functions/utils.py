@@ -59,7 +59,7 @@ def register_surgery_function_builder(*modules: torch.nn.Module) -> Callable[[Su
                 return module
             return convert_attention
 
-    In the above example, by decorating `build_gpt2_attention_converter` (which is an instances of a `SurgeryFunctionBuilder`
+    In the above example, by decorating `build_gpt2_attention_converter` (which is an instance of a `SurgeryFunctionBuilder`
     function) with `@register_surgery_function_builder(GPT2Attention)`, the ALiBi algorithm will now apply model surgery to any
     instances of `GPT2Attention` within the model, and will apply surgery on those instances using the `convert_attention` function
     returned by `build_gpt2_attention_converter`.
