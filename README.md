@@ -126,14 +126,6 @@ For the best experience and the most efficient possible training, we recommend u
 <!-- begin_example_2 --->
 <!--pytest.mark.gpu-->
 <!--pytest.mark.timeout(15)-->
-<!--
-```python
-from composer.models import mnist_model
-
-model = mnist_model()
-```
--->
-<!--pytest-codeblocks:cont-->
 ```python
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
@@ -149,7 +141,7 @@ train_dataloader = DataLoader(train_dataset, batch_size=128)
 eval_dataloader = DataLoader(eval_dataset, batch_size=128)
 
 trainer = Trainer(
-    model=model,
+    model=mnist_model(),
     train_dataloader=train_dataloader,
     eval_dataloader=eval_dataloader,
     max_duration="2ep",
