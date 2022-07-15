@@ -107,11 +107,14 @@ class S3ObjectStore(ObjectStore):
         self.transfer_config = TransferConfig(**transfer_config)
 
     def get_uri(self, object_name: str) -> str:
-        return f's3://{self.bucket}/{self.prefix}{object_name}'
+        return f's3://{self.bucket}/{self.get_key(object_name)}'
+
+    def get_key(self, object_name: str) -> str:
+        return f'{self.prefix}{object_name}'
 
     def get_object_size(self, object_name: str) -> int:
         try:
-            obj = self.client.get_object(Bucket=self.bucket, Key=object_name)
+            obj = self.client.get_object(Bucket=self.bucket, Key=self.get_key(object_name))
         except Exception as e:
             _ensure_not_found_errors_are_wrapped(self.get_uri(object_name), e)
         return obj['ContentLength']
@@ -125,7 +128,7 @@ class S3ObjectStore(ObjectStore):
         file_size = os.path.getsize(filename)
         cb_wrapper = None if callback is None else lambda bytes_transferred: callback(bytes_transferred, file_size)
         self.client.upload_file(Bucket=self.bucket,
-                                Key=object_name,
+                                Key=self.get_key(object_name),
                                 Filename=filename,
                                 Callback=cb_wrapper,
                                 Config=self.transfer_config)
@@ -149,7 +152,7 @@ class S3ObjectStore(ObjectStore):
         try:
             try:
                 self.client.download_file(Bucket=self.bucket,
-                                          Key=object_name,
+                                          Key=self.get_key(object_name),
                                           Filename=tmp_path,
                                           Callback=cb_wrapper,
                                           Config=self.transfer_config)

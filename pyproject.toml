@@ -110,6 +110,8 @@ filterwarnings = [
     'ignore:distutils Version classes are deprecated:DeprecationWarning',
     # Ignore a UserWarning from TorchMetrics about potentially large memory usage when batch sizes are extremely large
     'ignore:Metric `SpearmanCorrcoef` will save all targets and predictions in the buffer:UserWarning:torchmetrics',
+    # Ignore a UserWarning from torch 1.12 due to DeepSpeed's use of positional args
+    'ignore:Positional args are being deprecated, use kwargs instead.*:UserWarning',
 ]
 timeout_func_only = true  # exclude fixtures from the timeout
 

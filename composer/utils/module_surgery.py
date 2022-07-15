@@ -21,6 +21,7 @@ Attributes:
         Returns: Optional[torch.nn.Module]: The replacement module, or ``None`` to indicate no modification.
 """
 import collections
+import itertools
 import logging
 import textwrap
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, OrderedDict, Sequence, Tuple, Type, Union
@@ -165,6 +166,9 @@ def replace_module_classes(
                                                                            str]]] = collections.OrderedDict()
     _add_children_recursive(module, children_to_parents_and_names)
     indices = indices if indices is not None else {c: 0 for c in policies}
+
+    default_device = _infer_device(module)
+
     while len(children_to_parents_and_names) > 0:
         child, parents = children_to_parents_and_names.popitem(last=False)
         for policy_class, replacement_fn in policies.items():
@@ -179,19 +183,20 @@ def replace_module_classes(
             if replacement is not None:
                 assert child not in replaced_pairs
 
-                # Preserve the device with surgery
-                try:
-                    p = next(child.parameters())
-                except StopIteration:
-                    # Some children don't have any parameters
-                    pass
-                else:
-                    replacement = replacement.to(p.device)
+                # if no device inferred (child has no parameters, e.g. Pool2d),
+                # use the default device inferred from the entire module.
+                device = _infer_device(child)
+                if device is None:
+                    device = default_device
+
+                if device:
+                    replacement = replacement.to(device)
 
                 replaced_pairs[child] = replacement
                 for parent, name in parents:
                     # update each parent with the replaced child
                     setattr(parent, name, replacement)
+
                 # recurse on new child object
                 if recurse_on_replacements:
                     children_to_parents_and_names[replacement] = list(parents)  # copy the parents list
@@ -208,6 +213,16 @@ def replace_module_classes(
             invoking this method, or manually add new parameters to the existing optimizer."""))
 
     return replaced_pairs
+
+
+def _infer_device(module: torch.nn.Module) -> Optional[torch.device]:
+    """Attempt to infer a module's device by inspecting its parameters and buffers."""
+    try:
+        p = next(itertools.chain(module.parameters(), module.buffers()))
+    except StopIteration:
+        return None
+    else:
+        return p.device
 
 
 def count_module_instances(module: torch.nn.Module, module_class: Union[Type[torch.nn.Module],
