@@ -187,7 +187,7 @@ class BlurMaxPool2d(nn.Module):
                               filter=self.filt2d)
 
     @staticmethod
-    def from_maxpool2d(module: torch.nn.MaxPool2d, module_index: int):
+    def from_maxpool2d(module: torch.nn.MaxPool2d, module_index: int) -> 'BlurMaxPool2d':
         return BlurMaxPool2d(kernel_size=module.kernel_size,
                              stride=module.stride,
                              padding=module.padding,
