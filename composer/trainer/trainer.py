@@ -836,11 +836,14 @@ class Trainer:
         # Console Logging
         loggers = list(ensure_tuple(loggers))
         if any(isinstance(x, ProgressBarLogger) for x in loggers):
-            if progress_bar or log_to_console is not None or console_log_level != LogLevel.EPOCH or console_stream != 'strderr':
-                raise ValueError(
-                    f'Specifying arguments `progress_bar`, `log_to_cosole`, `console_log_level`, or '
-                    '`console_stream` arguments in addition to specifying the {ProgressBarLogger.__name__} via `loggers` is not allowed.'
-                )
+            if progress_bar:
+                raise ValueError("If `progress_bar` is True, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed")
+            if log_to_console is not None:
+                raise ValueError("If `log_to_console` is specified, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed")
+            if console_log_level != LogLevel.EPOCH:
+                raise ValueError("If `console_log_level` manually set, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed")
+            if console_stream != 'stderr':
+                raise ValueError("If `console_stream` manually set, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed")
             # Only one logger should create a dummy progress bar for formatting
             for logger in loggers:
                 if isinstance(logger, ProgressBarLogger):
