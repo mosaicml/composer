@@ -116,12 +116,13 @@ class TensorboardLogger(LoggerDestination):
         if self.rank_zero_only and dist.get_global_rank() != 0:
             return
 
+        assert self.writer is not None
+
         # Skip if no writes occurred since last flush.
         if not self.writer.file_writer:
             return
 
         self.writer.flush()
-        assert self.writer.file_writer is not None
 
         file_path = self.writer.file_writer.event_writer._file_name
         event_file_name = Path(file_path).stem
