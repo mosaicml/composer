@@ -76,8 +76,11 @@ save_artifact_name: '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}-wct{t
 
 loggers:
   progress_bar: {}                 # Add a TQDM progress bar
-  # Optional, some nice default parameters for object store checkpointing. Uncomment this if you want to checkpoint to cloud.
-  # object_store:
-  #  object_store_hparams:
-  #    s3:
-  #      bucket: mosaicml-internal-checkpoints-bert
+  # Optional, some nice default parameters for object store checkpointing and WandB logging. Uncomment these if you want to checkpoint to cloud and track training info.
+  object_store:
+    object_store_hparams:
+      s3:
+        bucket: mosaicml-internal-checkpoints-bert
+    use_procs: False
+  wandb:
+    tags: pretrain
