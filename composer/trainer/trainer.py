@@ -836,9 +836,6 @@ class Trainer:
         # Console Logging
         loggers = list(ensure_tuple(loggers))
         if any(isinstance(x, ProgressBarLogger) for x in loggers):
-            if progress_bar:
-                raise ValueError(
-                    'If `progress_bar` is True, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed')
             if log_to_console is not None:
                 raise ValueError(
                     'If `log_to_console` is specified, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed'
