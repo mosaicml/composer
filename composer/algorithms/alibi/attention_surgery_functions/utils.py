@@ -18,7 +18,7 @@ replacement_policy_mapping_builder: Dict[torch.nn.Module, SurgeryFunctionBuilder
 def register_surgery_function_builder(*modules: torch.nn.Module) -> Callable[[SurgeryFunctionBuilder], SurgeryFunctionBuilder]:
     """This decorator builds a registry that maps torch modules to their applicable SurgeryFunctionBuilder.
 
-    To accommodate the specifics of composer's model surgery, the register is used to create
+    To accommodate the specifics of composer's model surgery, the registry is used to create
     a `Mapping[torch.nn.Module, SurgeryFunctionBuilder]`, where :func:`SurgeryFunctionBuilder` is any function that
     takes a `max_sequence_length` argument and returns a :func:`composer.utils.model_surgery.ReplacementFunction`.
 
