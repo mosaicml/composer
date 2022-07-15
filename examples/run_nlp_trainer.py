@@ -24,6 +24,7 @@ Example that finetunes a pretrained BERT:
     --load_path ~/checkpoints
 """
 import argparse
+import dataclasses
 import multiprocessing as mp
 from multiprocessing.pool import ThreadPool
 import os
@@ -227,7 +228,7 @@ def validate_args(args) -> None:
     if args.training_scheme != 'pretrain' and args.training_scheme != 'finetune' and args.training_scheme != 'all':
             raise ValueError('training_scheme must be one of "pretrain," "finetune," or "all"')
 
-    if args.training_scheme == 'finetune' and args.load_path is None: 
+    if args.training_scheme == 'finetune' and isinstance(args.load_path, dataclasses._MISSING_TYPE): 
         raise ValueError('load_path to checkpoint folder must be specified if finetuning a model')
 
     if not args.file:
@@ -236,7 +237,7 @@ def validate_args(args) -> None:
 ''' Get TrainerHparams arguments from CLI and add NLP entrypoint specific arguments. ''' 
 def get_args():
     parser = hp.get_argparse(TrainerHparams)
-    parser.add_argument('--training_scheme', help='training scheme used (one of "pretrain", "finetune", or "all")')
+    parser.add_argument('--training_scheme', help='training scheme used (one of "pretrain", "finetune", or "all")', choices=[ 'pretrain','finetune', 'all'], required=True)
 
     args = parser.parse_args()
     validate_args(args)
