@@ -117,7 +117,6 @@ class TensorboardLogger(LoggerDestination):
             return
 
         assert self.writer is not None
-
         # Skip if no writes occurred since last flush.
         if not self.writer.file_writer:
             return
