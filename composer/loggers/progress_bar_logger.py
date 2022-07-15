@@ -134,6 +134,9 @@ class ProgressBarLogger(LoggerDestination):
             ``'stderr'``. (default: :attr:`sys.stderr`)
     """
 
+    # class variable to note whether dummy p_bar has been created. Necessary for formatting with multiple pbars
+    created_dummy = False
+
     def __init__(
         self,
         progress_bar: bool = True,
@@ -148,7 +151,7 @@ class ProgressBarLogger(LoggerDestination):
         # The dummy pbar is to fix issues when streaming progress bars over k8s, where the progress bar in position 0
         # doesn't update until it is finished.
         # Need to have a dummy progress bar in position 0, so the "real" progress bars in position 1 doesn't jump around
-        self.create_dummy = False # set by Trainer - only one of the ProgressBarLoggers needs to set a dummy pbar
+        self.mid_epoch = False
         self.dummy_pbar: Optional[_ProgressBar] = None
         self.train_pbar: Optional[_ProgressBar] = None
         self.eval_pbar: Optional[_ProgressBar] = None
@@ -242,14 +245,14 @@ class ProgressBarLogger(LoggerDestination):
 
             unit = TimeUnit.BATCH
             n = state.timestamp.epoch.value
-            if self.train_pbar is None and not is_train:
+            if not self.mid_epoch and not is_train:
                 # epochwise eval results refer to model from previous epoch (n-1)
                 n -= 1
-            if self.train_pbar is None:
-                desc += f'Epoch {n:3}'
-            else:
+            if self.mid_epoch and not is_train:
                 # For evaluation mid-epoch, show the total batch count
                 desc += f'Batch {int(state.timestamp.batch):3}'
+            else:
+                desc += f'Epoch {n:3}'
             desc += ': '
 
         else:
@@ -281,7 +284,8 @@ class ProgressBarLogger(LoggerDestination):
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        if self.create_dummy:
+        if not ProgressBarLogger.created_dummy:
+            ProgressBarLogger.created_dummy = True
             self.dummy_pbar = _ProgressBar(
                 file=self.stream,
                 position=0,
@@ -291,9 +295,14 @@ class ProgressBarLogger(LoggerDestination):
                 bar_format='{bar:-1b}',
                 timestamp_key='',
             )
+    
+    def fit_end(self, state: State, logger: Logger) -> None:
+        del state, logger # unused
+        ProgressBarLogger.created_dummy = False
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         # Make sure dataloader_label is the training dataloader_label
+        self.mid_epoch = True
         if self.dataloader_label is None or state.dataloader_label == self.dataloader_label:
             if self.show_pbar and not self.train_pbar:
                 self.train_pbar = self._build_pbar(state=state, is_train=True)
@@ -317,6 +326,7 @@ class ProgressBarLogger(LoggerDestination):
         # Only close progress bars at epoch end if the duration is in epochs, since
         # a new pbar will be created for each epoch
         # If the duration is in other units, then one progress bar will be used for all of training.
+        self.mid_epoch = False
         assert state.max_duration is not None, 'max_duration should be set'
         if self.train_pbar and state.max_duration.unit == TimeUnit.EPOCH:
             self.train_pbar.close()

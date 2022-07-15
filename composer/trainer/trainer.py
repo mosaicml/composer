@@ -841,14 +841,9 @@ class Trainer:
             if log_to_console is not None:
                 raise ValueError("If `log_to_console` is specified, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed")
             if console_log_level != LogLevel.EPOCH:
-                raise ValueError("If `console_log_level` manually set, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed")
+                raise ValueError("If `console_log_level` is manually set, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed")
             if console_stream != 'stderr':
-                raise ValueError("If `console_stream` manually set, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed")
-            # Only one logger should create a dummy progress bar for formatting
-            for logger in loggers:
-                if isinstance(logger, ProgressBarLogger):
-                    logger.create_dummy = True
-                    break
+                raise ValueError("If `console_stream` is manually set, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed")
         else:
             loggers.append(
                 ProgressBarLogger(
