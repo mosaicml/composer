@@ -64,6 +64,7 @@ from __future__ import annotations
 import atexit
 import contextlib
 import logging
+import warnings
 import weakref
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -320,11 +321,17 @@ class Engine():
         Returns:
             Sequence[Algorithm]: Modified sequence of algorithms.
         """
-        from composer.algorithms import SelectiveBackprop, StochasticDepth
+        from composer.algorithms import CutMix, MixUp, SelectiveBackprop, StochasticDepth
 
         # Move selective backprop to the beginning while maintaining order of other algorithms
         algorithms = sorted(algorithms_to_run,
                             key=lambda x: not isinstance(x, SelectiveBackprop) and not isinstance(x, StochasticDepth))
+
+        # Check for multiple algorithms that try to interpolate the loss at the same time
+        interpolation_settings = [a.interpolate_loss for a in algorithms if isinstance(a, (CutMix, MixUp))]
+        if sum(interpolation_settings) > 1:
+            warnings.warn(
+                'Multiple algorithms are trying to interpolate the loss. This can result in strange behavior.')
 
         if event.is_after_event:
             """Establish a FILO queue of algorithms ``before_`` and ``after_`` an event.

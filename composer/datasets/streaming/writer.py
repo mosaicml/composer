@@ -13,8 +13,10 @@ from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 import numpy as np
 from tqdm import tqdm
 
+from composer.datasets.streaming.download import get_object_store
 from composer.datasets.streaming.format import (StreamingDatasetIndex, get_compression_scheme_basename,
                                                 get_index_basename, get_shard_basename, sample_dict_to_bytes)
+from composer.utils.object_store.object_store import ObjectStore
 
 __all__ = ['StreamingDatasetWriter']
 
@@ -82,6 +84,7 @@ class StreamingDatasetWriter(object):
         fields: (List[str]): The fields to save for each sample.
         shard_size_limit (int): Maximum shard size in bytes. Default: ``1 << 24``.
         compression (str, optional): Compression algorithm and optional compression level. Currently supported: 'gz', 'gz:[1-9]' or None. Defaults to ``None``.
+        remote (ObjectStore | str, optional): Remote location to upload dataset. Can be an ObjectStore, a string, or (default) None. If `remote` is specified, uploads will block dataset writing.
     """
 
     default_compression = None
@@ -90,7 +93,8 @@ class StreamingDatasetWriter(object):
                  dirname: str,
                  fields: List[str],
                  shard_size_limit: int = 1 << 24,
-                 compression: Optional[str] = default_compression) -> None:
+                 compression: Optional[str] = None,
+                 remote: Optional[Union[ObjectStore, str]] = None) -> None:
         if len(fields) != len(set(fields)):
             raise ValueError(f'fields={fields} must be unique.')
         if shard_size_limit <= 0:
@@ -113,6 +117,8 @@ class StreamingDatasetWriter(object):
         # compression scheme for shards
         self.compression_scheme, self.compression_level = _parse_compression_args(compression)
 
+        self.remote = _parse_remote(remote)
+
     def _create_binary_file(self, fname: str) -> Union[BufferedWriter, gz.GzipFile]:
         """opens a (potentially compressed) file in binary mode"""
 
@@ -133,6 +139,9 @@ class StreamingDatasetWriter(object):
             for data in self.new_samples:
                 out.write(data)
 
+        if self.remote is not None:
+            self.remote.upload_object(basename, filename)
+
         self.samples_per_shard.append(len(self.new_samples))
         self.bytes_per_shard.append(self.new_shard_size)
         self.new_samples = []
@@ -143,21 +152,27 @@ class StreamingDatasetWriter(object):
         assert self.compression_scheme is not None, 'compression scheme should be set if writing this file'
         if self.new_samples:
             raise RuntimeError('Attempted to write compression metadata file while samples are still being processed.')
-        filename = os.path.join(self.dirname, get_compression_scheme_basename())
+        basename = get_compression_scheme_basename()
+        filename = os.path.join(self.dirname, basename)
         with open(filename, 'x') as out:
-            out.write(self.compression_scheme)
+            out.write(self.compression_scheme + '\n')
+        if self.remote is not None:
+            self.remote.upload_object(basename, filename)
 
     def _write_index(self) -> None:
         """Save dataset index file."""
         if self.new_samples:
             raise RuntimeError('Attempted to write index file while samples are still being processed.')
-        filename = os.path.join(self.dirname, get_index_basename(self.compression_scheme))
+        basename = get_index_basename(self.compression_scheme)
+        filename = os.path.join(self.dirname, basename)
         samples_per_shard = np.array(self.samples_per_shard, np.int64)
         bytes_per_shard = np.array(self.bytes_per_shard, np.int64)
         bytes_per_sample = np.array(self.bytes_per_sample, np.int64)
         index = StreamingDatasetIndex(samples_per_shard, bytes_per_shard, bytes_per_sample, self.fields)
         with self._create_binary_file(filename) as out:
             index.dump(out)
+        if self.remote is not None:
+            self.remote.upload_object(basename, filename)
 
     def write_sample(self, sample: Dict[str, bytes]) -> None:
         """Add a sample to the dataset.
@@ -202,3 +217,14 @@ class StreamingDatasetWriter(object):
     def __exit__(self, exc_type: Optional[Type[BaseException]], exc: Optional[BaseException],
                  traceback: Optional[TracebackType]) -> None:
         self.finish()
+
+
+def _parse_remote(remote: Optional[Union[ObjectStore, str]]) -> Optional[ObjectStore]:
+    if isinstance(remote, str):
+        return get_object_store(remote)
+    elif isinstance(remote, ObjectStore):
+        return remote
+    elif remote is None:
+        return None
+    else:
+        raise ValueError('Bad argument for remote')

@@ -1,7 +1,7 @@
 /* groovylint-disable DuplicateMapLiteral, DuplicateStringLiteral, NestedBlockDepth */
 
 // Cloud settings
-pCloud = 'colo-research-01' // name of the jenkins cloud to use
+pCloud = 'r1z3' // name of the jenkins cloud to use
 
 // Git variables. These are populated during the "Prepare" stage
 gitUrl = null
@@ -27,7 +27,7 @@ pytestTimeout = '1800' // timeout to run pytest, in seconds
 pytestCpuTestCpuLimit = '4'
 pytestCpuTestMemLimit = '20Gi' // memory limit for ram and ephemeral storage
 pytestGpuTestNumGpus = 2
-pytestGpuTestCpuLimit = '15'
+pytestGpuTestCpuLimit = '14'
 pytestGpuTestMemLimit = '30Gi' // memory limit for ram and ephemeral storage
 // Tags to run GPU image tests on when not building docker.
 // If building docker, then GPU tests will be run across the entire matrix.
@@ -364,7 +364,10 @@ stage('Build') {
                     // not 'mosaicml/composer'
                     def subJobs = [:]
                     scheduleJob(subJobs, stagingImageTag, buildArgs, originalTags)
-                    subJobs.failFast = true
+                    if (!isMergeCommit) {
+                        // Fail fast only on PR builds
+                        subJobs.failFast = true
+                    }
                     parallel(subJobs)
                 }
             }]
@@ -412,7 +415,10 @@ stage('Build') {
             }
         ]
     }
-    jobs.failFast = true
+    if (!isMergeCommit) {
+        // Fail fast only on PR builds
+        jobs.failFast = true
+    }
     try {
         parallel(jobs)
     }

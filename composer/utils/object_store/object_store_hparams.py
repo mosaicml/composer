@@ -193,6 +193,7 @@ class S3ObjectStoreHparams(ObjectStoreHparams):
 
     Args:
         bucket (str): See :class:`.S3ObjectStore`.
+        prefix (str): See :class:`.S3ObjectStore`.
         region_name (str, optional): See :class:`.S3ObjectStore`.
         endpoint_url (str, optional): See :class:`.S3ObjectStore`.
         client_config (dict, optional): See :class:`.S3ObjectStore`.
@@ -200,6 +201,7 @@ class S3ObjectStoreHparams(ObjectStoreHparams):
     """
 
     bucket: str = hp.auto(S3ObjectStore, 'bucket')
+    prefix: str = hp.auto(S3ObjectStore, 'prefix')
     region_name: Optional[str] = hp.auto(S3ObjectStore, 'region_name')
     endpoint_url: Optional[str] = hp.auto(S3ObjectStore, 'endpoint_url')
     # Not including the credentials as part of the hparams -- they should be specified through the default

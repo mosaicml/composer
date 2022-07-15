@@ -21,21 +21,21 @@ import yaml
 
 def _get_pytorch_version(python_version: str):
     if python_version == '3.9':
-        return '1.11.0'
+        return '1.12.0'
     if python_version in '3.8':
-        return '1.10.2'
+        return '1.11.0'
     if python_version == '3.7':
-        return '1.9.1'
+        return '1.10.2'
     raise ValueError(f'Invalid python version: {python_version}')
 
 
 def _get_torchvision_version(pytorch_version: str):
-    if pytorch_version == '1.10.2':
-        return '0.11.3'
+    if pytorch_version == '1.12.0':
+        return '0.13.0'
     if pytorch_version == '1.11.0':
         return '0.12.0'
-    if pytorch_version == '1.9.1':
-        return '0.10.1'
+    if pytorch_version == '1.10.2':
+        return '0.11.3'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
@@ -48,9 +48,7 @@ def _get_base_image(cuda_version: str):
 def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     if not use_cuda:
         return ''
-    if pytorch_version == '1.9.1':
-        return '11.1.1'
-    if pytorch_version in ('1.10.2', '1.11.0'):
+    if pytorch_version in ('1.10.2', '1.11.0', '1.12.0'):
         return '11.3.1'
     raise ValueError(f'Invalid pytorch_version: {str}')
 
@@ -157,7 +155,7 @@ def _main():
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
-    composer_versions = ['', '==0.7.1', 'GIT_COMMIT']  # Only build images for the latest composer version
+    composer_versions = ['', '==0.8.0', 'GIT_COMMIT']  # Only build images for the latest composer version
     composer_python_versions = ['3.9']  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):

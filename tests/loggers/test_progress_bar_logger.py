@@ -33,14 +33,17 @@ def test_progress_bar_logger(max_duration: Time[int], monkeypatch: MonkeyPatch, 
     def get_mock_tqdm(bar_format: str, *args: object, **kwargs: object):
         del args, kwargs  # unused
         mock_tqdm = MagicMock()
+        mock_tqdm.n = 0
 
         # store for testing later
         if 'train' in bar_format:
             mock_tqdms_train.append(mock_tqdm)
-        else:
+        if 'eval' in bar_format:
             mock_tqdms_eval.append(mock_tqdm)
 
         return mock_tqdm
+
+    model = SimpleModel()
 
     monkeypatch.setattr(auto, 'tqdm', get_mock_tqdm)
 
@@ -51,7 +54,7 @@ def test_progress_bar_logger(max_duration: Time[int], monkeypatch: MonkeyPatch, 
     eval_dataset = RandomClassificationDataset()
 
     trainer = Trainer(
-        model=SimpleModel(),
+        model=model,
         max_duration=max_duration,
         eval_interval=eval_interval,
         progress_bar=True,
