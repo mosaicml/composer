@@ -1,1 +1,1 @@
-composer/algorithms/swa/README.md
+../../../composer/algorithms/swa/README.md
