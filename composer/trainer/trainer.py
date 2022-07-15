@@ -837,13 +837,20 @@ class Trainer:
         loggers = list(ensure_tuple(loggers))
         if any(isinstance(x, ProgressBarLogger) for x in loggers):
             if progress_bar:
-                raise ValueError("If `progress_bar` is True, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed")
+                raise ValueError(
+                    'If `progress_bar` is True, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed')
             if log_to_console is not None:
-                raise ValueError("If `log_to_console` is specified, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed")
+                raise ValueError(
+                    'If `log_to_console` is specified, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed'
+                )
             if console_log_level != LogLevel.EPOCH:
-                raise ValueError("If `console_log_level` is manually set, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed")
+                raise ValueError(
+                    'If `console_log_level` is manually set, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed'
+                )
             if console_stream != 'stderr':
-                raise ValueError("If `console_stream` is manually set, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed")
+                raise ValueError(
+                    'If `console_stream` is manually set, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed'
+                )
         else:
             loggers.append(
                 ProgressBarLogger(

@@ -295,9 +295,9 @@ class ProgressBarLogger(LoggerDestination):
                 bar_format='{bar:-1b}',
                 timestamp_key='',
             )
-    
+
     def fit_end(self, state: State, logger: Logger) -> None:
-        del state, logger # unused
+        del state, logger  # unused
         ProgressBarLogger.created_dummy = False
 
     def epoch_start(self, state: State, logger: Logger) -> None:
