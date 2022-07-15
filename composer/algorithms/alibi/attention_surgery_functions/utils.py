@@ -13,7 +13,6 @@ from composer.utils.module_surgery import ReplacementFunction
 log = logging.getLogger(__name__)
 
 # Initialize the empty registry that will be filled by using the `register_surgery_function_builder` decorator.
-# SurgeryFunctionBuilder = TypeVar('SurgeryFunctionBuilder', bound=Callable[[int], ReplacementFunction])
 SurgeryFunctionBuilder = Callable[[int], ReplacementFunction]
 replacement_policy_mapping_builder: Dict[Type[torch.nn.Module], SurgeryFunctionBuilder] = {}
 
