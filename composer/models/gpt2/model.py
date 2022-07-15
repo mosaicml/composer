@@ -99,9 +99,10 @@ def create_gpt2(use_pretrained: Optional[bool] = False,
         model = transformers.AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=pretrained_model_name,
                                                                   **model_config)
     else:
-        config = transformers.AutoConfig.from_pretrained(pretrained_model_name, **model_config)
-        assert transformers.AutoModelForCausalLM.from_config is not None, 'AutoModelForCausalLM has from_config method'
-        model = transformers.AutoModelForCausalLM.from_config(config)
+        if len(model_config) == 0:
+            model_config = transformers.AutoConfig.from_pretrained(pretrained_model_name, **model_config)
+            assert transformers.AutoModelForCausalLM.from_config is not None, 'AutoModelForCausalLM has from_config method'
+        model = transformers.AutoModelForCausalLM.from_config(model_config)
 
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()  # type: ignore
