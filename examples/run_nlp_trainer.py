@@ -225,11 +225,11 @@ def get_training_info():
 
 ''' Validate NLP specific entrypoint arguments. ''' 
 def validate_args(args) -> None:
-    if args.training_scheme != 'pretrain' and args.training_scheme != 'finetune' and args.training_scheme != 'all':
-            raise ValueError('training_scheme must be one of "pretrain," "finetune," or "all"')
-
     if args.training_scheme == 'finetune' and isinstance(args.load_path, dataclasses._MISSING_TYPE): 
         raise ValueError('load_path to checkpoint folder must be specified if finetuning a model')
+
+    if not isinstance(args.load_path, dataclasses._MISSING_TYPE) and args.training_scheme != 'finetune':
+        raise ValueError('load_path cannot be specified unless finetuning a model')
 
     if not args.file:
         raise ValueError('must specify a top level file to store shared configs for the entrypoint. see TODO for an example.')
