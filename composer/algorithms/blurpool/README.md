@@ -61,7 +61,7 @@ from composer.models import composer_resnet
 
 model = composer_resnet('resnet50')
 
-train_dataloader = DataLoader(RandomImageDataset())
+train_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
 ```
 -->
 <!--pytest-codeblocks:cont-->
