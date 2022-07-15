@@ -2,53 +2,59 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import math
-from typing import Optional, Tuple
 from types import MethodType
+from typing import Optional, Tuple
 
 import torch
 from torch import nn
+from transformers.models.bert.modeling_bert import BertEmbeddings, BertSelfAttention
+from transformers.models.roberta.modeling_roberta import RobertaEmbeddings, RobertaSelfAttention
 
-from composer.algorithms.alibi.attention_surgery_functions.utils import (
-    register_surgery_function_builder,
-    register_alibi,
-    zero_and_freeze_expand_position_embeddings
-)
-from transformers.models.bert.modeling_bert import BertSelfAttention, BertEmbeddings
-from transformers.models.roberta.modeling_roberta import RobertaSelfAttention, RobertaEmbeddings
+from composer.algorithms.alibi.attention_surgery_functions.utils import (ReplacementFunction, register_alibi,
+                                                                         register_surgery_function_builder,
+                                                                         zero_and_freeze_expand_position_embeddings)
+
 
 @register_surgery_function_builder(BertEmbeddings, RobertaEmbeddings)
-def build_bert_embedding_converter(max_sequence_length: int):
+def build_bert_embedding_converter(max_sequence_length: int) -> ReplacementFunction:
     """Builds a function to remove positional embeddings.
-    
+
     The built function also expands `position_ids` buffer to support `max_sequence_length` tokens.
     """
+
     def convert_position_embeddings_and_ids(module: torch.nn.Module, module_index: Optional[int] = None):
-        del module_index # unused
-        zero_and_freeze_expand_position_embeddings(
-            module, max_sequence_length, position_embedding_attribute='position_embeddings')
+        assert isinstance(module, (BertEmbeddings, RobertaEmbeddings))
+        del module_index  # unused
+        zero_and_freeze_expand_position_embeddings(module,
+                                                   max_sequence_length,
+                                                   position_embedding_attribute='position_embeddings')
 
         module_device = next(module.parameters()).device
-        module.register_buffer(
-            "position_ids", torch.arange(max_sequence_length).expand((1, -1)).to(module_device))
+        module.register_buffer('position_ids', torch.arange(max_sequence_length).expand((1, -1)).to(module_device))
         return module
+
     return convert_position_embeddings_and_ids
 
 
 @register_surgery_function_builder(BertSelfAttention, RobertaSelfAttention)
-def build_bert_attention_converter(max_sequence_length: int):
+def build_bert_attention_converter(max_sequence_length: int) -> ReplacementFunction:
     """Builds a function that does model surgery to add ALiBi to Bert-style SelfAttention."""
+
     def convert_attention(module: torch.nn.Module, module_index: Optional[int] = None):
+        assert isinstance(module, (BertSelfAttention, RobertaSelfAttention))
         del module_index  # unused
         module = register_alibi(module=module,
-                                n_heads=module.num_attention_heads,
+                                n_heads=int(module.num_attention_heads),
                                 max_token_length=max_sequence_length,
                                 causal=False)
         setattr(module, 'forward', MethodType(forward, module))
-        
+
         return module
+
     return convert_attention
 
 
+# pyright: reportGeneralTypeIssues = none
 def forward(
     self,
     hidden_states: torch.Tensor,

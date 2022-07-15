@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from copy import deepcopy
+from operator import attrgetter
 
 import pytest
 import torch
-from operator import attrgetter
 
-from composer.algorithms.alibi import apply_alibi, Alibi
+from composer.algorithms.alibi import Alibi, apply_alibi
 from composer.core.event import Event
 from composer.loggers import Logger
 from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker
@@ -16,6 +16,7 @@ from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf
 def make_synthetic_state(family):
     synthetic_config = make_dataset_configs(model_family=[family])[0]
     return synthetic_hf_state_maker(synthetic_config)
+
 
 def _double_batch_sequence_length(batch):
     for k, v in batch.items():
@@ -34,17 +35,18 @@ def check_number_of_modules_replaced(family, model, replaced_pairs):
         # Should "replace" the (1) `BertEmbeddings` and (n) `BertSelfAttention` instances
         expected_pairs = 1 + attention_modules
     else:
-        raise NotImplementedError('Tests not implemented for synthetic_state_family='+family)
+        raise NotImplementedError('Tests not implemented for synthetic_state_family=' + family)
     assert len(replaced_pairs) == expected_pairs
+
 
 def check_position_embeddings(family, model, max_sequence_length):
     if family == 'gpt2':
-        position_embedding_attribute = "model.transformer.wpe"
+        position_embedding_attribute = 'model.transformer.wpe'
     elif family == 'bert':
-        position_embedding_attribute = "model.bert.embeddings.position_embeddings"
+        position_embedding_attribute = 'model.bert.embeddings.position_embeddings'
     else:
-        raise NotImplementedError('Tests not implemented for synthetic_state_family='+family)
-    
+        raise NotImplementedError('Tests not implemented for synthetic_state_family=' + family)
+
     pos_embedding_module = attrgetter(position_embedding_attribute)(model)
     pos_embedding_weight = getattr(pos_embedding_module, 'weight')
 
@@ -52,10 +54,12 @@ def check_position_embeddings(family, model, max_sequence_length):
     assert not pos_embedding_weight.requires_grad
     assert torch.max(torch.abs(pos_embedding_weight)) == 0.0
 
+
 def check_forward_backward(model, batch):
     model.zero_grad()
     output = model.forward(batch)
     output['loss'].backward()
+
 
 def check_batch_reshaping(before, after, length):
     # Make sure all the batch tensors have the same shape
@@ -81,7 +85,6 @@ def check_batch_reshaping(before, after, length):
         assert k in before, 'No keys should be added during sequence reshaping.'
 
 
-
 @pytest.mark.parametrize('synthetic_state_family', ['bert', 'gpt2'])
 @pytest.mark.parametrize('double_sequence_length', [False, True])
 class TestAlibi:
@@ -90,12 +93,10 @@ class TestAlibi:
         state, _, dataloader = make_synthetic_state(synthetic_state_family)
         if synthetic_state_family == 'gpt2':
             max_sequence_length = state.model.config.n_positions
-            # position_embedding_attribute = "model.transformer.wpe"
         elif synthetic_state_family == 'bert':
             max_sequence_length = state.model.config.max_position_embeddings
-            # position_embedding_attribute = "model.bert.embeddings.position_embeddings"
         else:
-            raise NotImplementedError('Tests not implemented for synthetic_state_family='+synthetic_state_family)
+            raise NotImplementedError('Tests not implemented for synthetic_state_family=' + synthetic_state_family)
 
         if double_sequence_length:
             max_sequence_length = 2 * max_sequence_length
@@ -103,7 +104,6 @@ class TestAlibi:
         # Apply ALiBi using the functional
         replaced_pairs = apply_alibi(
             model=state.model,
-            # position_embedding_attribute=position_embedding_attribute,
             max_sequence_length=max_sequence_length,
             output_replaced_pairs=True,
         )
@@ -113,7 +113,7 @@ class TestAlibi:
 
         # Ensure that the position embeddings are properly shaped and zeroed
         check_position_embeddings(synthetic_state_family, state.model, max_sequence_length)
-        
+
         # Try a forward/backward at the max sequence length
         batch = next(iter(dataloader))
         if double_sequence_length:
@@ -123,18 +123,16 @@ class TestAlibi:
         check_forward_backward(state.model, batch)
 
     @pytest.mark.parametrize('train_sequence_length_scaling', [0.25, 1.0])
-    def test_algorithm(self, synthetic_state_family: str, empty_logger: Logger, 
-                       double_sequence_length: bool, train_sequence_length_scaling: float):
+    def test_algorithm(self, synthetic_state_family: str, empty_logger: Logger, double_sequence_length: bool,
+                       train_sequence_length_scaling: float):
         state, _, dataloader = make_synthetic_state(synthetic_state_family)
 
         if synthetic_state_family == 'gpt2':
             max_sequence_length = state.model.config.n_positions
-            # position_embedding_attribute = "model.transformer.wpe"
         elif synthetic_state_family == 'bert':
             max_sequence_length = state.model.config.max_position_embeddings
-            # position_embedding_attribute = "model.bert.embeddings.position_embeddings"
         else:
-            raise NotImplementedError('Tests not implemented for synthetic_state_family='+synthetic_state_family)
+            raise NotImplementedError('Tests not implemented for synthetic_state_family=' + synthetic_state_family)
 
         if double_sequence_length:
             max_sequence_length = 2 * max_sequence_length
@@ -143,7 +141,6 @@ class TestAlibi:
         alibi = Alibi(
             max_sequence_length=max_sequence_length,
             train_sequence_length_scaling=train_sequence_length_scaling,
-            # position_embedding_attribute=position_embedding_attribute,
         )
         # Apply ALiBi to the model
         alibi.apply(Event.INIT, state, empty_logger)
@@ -157,7 +154,7 @@ class TestAlibi:
         alibi.apply(Event.AFTER_DATALOADER, state, empty_logger)
 
         # Ensure proper batch reshaping
-        check_batch_reshaping(batch_before, state.batch, int(train_sequence_length_scaling*max_sequence_length))
-        
+        check_batch_reshaping(batch_before, state.batch, int(train_sequence_length_scaling * max_sequence_length))
+
         # Ensure that the model runs forwards/backwards
         check_forward_backward(state.model, state.batch)

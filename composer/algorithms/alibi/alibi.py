@@ -6,15 +6,15 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Sequence, Union, Mapping
+from typing import Mapping, Optional, Sequence, Union
 
 import torch
 from torch.optim import Optimizer
 
+from composer.algorithms.alibi.attention_surgery_functions import replacement_policy_mapping_builder
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
 from composer.utils import module_surgery
-from composer.algorithms.alibi.attention_surgery_functions import replacement_policy_mapping_builder
 
 log = logging.getLogger(__name__)
 
@@ -23,9 +23,9 @@ __all__ = ['Alibi', 'apply_alibi']
 
 def apply_alibi(
     model: torch.nn.Module,
-    max_sequence_length: Optional[int] = 8192,
+    max_sequence_length: int = 8192,
     optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
-    output_replaced_pairs: Optional[bool] = False,
+    output_replaced_pairs: bool = False,
 ) -> Union[Mapping[torch.nn.Module, torch.nn.Module], None]:
     """Removes position embeddings and replaces the attention function and attention mask
     as per :class:`.Alibi`. Note that the majority of the training speed-up from using ALiBi
@@ -60,7 +60,7 @@ def apply_alibi(
             If the optimizer(s) are constructed *after* calling this function,
             then it is safe to omit this parameter. These optimizers will see the correct
             model parameters.
-        output_replaced_pairs (bool, optional): Whether to output the module pairs returned by 
+        output_replaced_pairs (bool, optional): Whether to output the module pairs returned by
             model surgery. This can be useful for confirming expected changes.
             Default: `False`.
 
@@ -82,13 +82,11 @@ def apply_alibi(
         # Each `replacement_function_builder` returns a ReplacementFunction
         policies[module_class] = replacement_function_builder(max_sequence_length)
 
-    # Note: `policies` defines replacements for _all_ the modules registered in `replacement_policy_mapping_builder`, 
+    # Note: `policies` defines replacements for _all_ the modules registered in `replacement_policy_mapping_builder`,
     # meaning that some replacements may be irrelevant for `model`.
     # Conversely, attention modules within `model` may be ignored if they are not registered by the
     # implementations within `./attention_surgery_functions/`.
-    replaced_pairs = module_surgery.replace_module_classes(model,
-                                                           optimizers=optimizers,
-                                                           policies=policies)
+    replaced_pairs = module_surgery.replace_module_classes(model, optimizers=optimizers, policies=policies)
 
     count = len(replaced_pairs)
     log.info(f' {count} instances of ALiBi added')
@@ -145,9 +143,7 @@ class Alibi(Algorithm):
             \\frac{batch}{train\\_sequence\\_length\\_scaling})`. Default: ``0.25``.
     """
 
-    def __init__(self,
-                 max_sequence_length: int = 8192,
-                 train_sequence_length_scaling: float = 0.25) -> None:
+    def __init__(self, max_sequence_length: int = 8192, train_sequence_length_scaling: float = 0.25) -> None:
 
         # self.position_embedding_attribute = position_embedding_attribute
         self.max_sequence_length = max_sequence_length
