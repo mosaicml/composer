@@ -148,6 +148,7 @@ class ProgressBarLogger(LoggerDestination):
         # The dummy pbar is to fix issues when streaming progress bars over k8s, where the progress bar in position 0
         # doesn't update until it is finished.
         # Need to have a dummy progress bar in position 0, so the "real" progress bars in position 1 doesn't jump around
+        self.create_dummy = False # set by Trainer - only one of the ProgressBarLoggers needs to set a dummy pbar
         self.dummy_pbar: Optional[_ProgressBar] = None
         self.train_pbar: Optional[_ProgressBar] = None
         self.eval_pbar: Optional[_ProgressBar] = None
@@ -280,15 +281,16 @@ class ProgressBarLogger(LoggerDestination):
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        self.dummy_pbar = _ProgressBar(
-            file=self.stream,
-            position=0,
-            total=1,
-            metrics={},
-            keys_to_log=[],
-            bar_format='{bar:-1b}',
-            timestamp_key='',
-        )
+        if self.create_dummy:
+            self.dummy_pbar = _ProgressBar(
+                file=self.stream,
+                position=0,
+                total=1,
+                metrics={},
+                keys_to_log=[],
+                bar_format='{bar:-1b}',
+                timestamp_key='',
+            )
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         # Make sure dataloader_label is the training dataloader_label

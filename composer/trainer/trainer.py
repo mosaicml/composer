@@ -841,6 +841,11 @@ class Trainer:
                     f'Specifying arguments `progress_bar`, `log_to_cosole`, `console_log_level`, or '
                     '`console_stream` arguments in addition to specifying the {ProgressBarLogger.__name__} via `loggers` is not allowed.'
                 )
+            # Only one logger should create a dummy progress bar for formatting
+            for logger in loggers:
+                if isinstance(logger, ProgressBarLogger):
+                    logger.create_dummy = True
+                    break
         else:
             loggers.append(
                 ProgressBarLogger(
