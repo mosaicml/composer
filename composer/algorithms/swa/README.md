@@ -52,7 +52,7 @@ frequently (e.g. ≤ every ten batches).
 
 ## Suggested Hyperparameters
 
-- `swa_start`: proportion of training completed before SWA is applied. The 
+- `swa_start`: proportion of training completed before SWA is applied. The
 default value is `'0.7dur'` (0.7 of the duration of training).
 - `swa_end`: proportion of training completed before SWA ends. It's important to have at
   least one epoch of training after the baseline model is replaced by the SWA model so
