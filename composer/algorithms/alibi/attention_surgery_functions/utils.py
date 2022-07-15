@@ -22,7 +22,7 @@ def register_surgery_function_builder(
         *modules: Type[torch.nn.Module]) -> Callable[[SurgeryFunctionBuilder], SurgeryFunctionBuilder]:
     """This decorator builds a registry that maps torch module types to their applicable SurgeryFunctionBuilder.
 
-    To accommodate the specifics of composer's model surgery, the register is used to create
+    To accommodate the specifics of composer's model surgery, the registry is used to create
     a `Mapping[torch.nn.Module, SurgeryFunctionBuilder]`, where :func:`SurgeryFunctionBuilder` is any function that
     takes a `max_sequence_length` argument and returns a :func:`composer.utils.model_surgery.ReplacementFunction`.
 
@@ -63,7 +63,7 @@ def register_surgery_function_builder(
                 return module
             return convert_attention
 
-    In the above example, by decorating `build_gpt2_attention_converter` (which is an instances of a `SurgeryFunctionBuilder`
+    In the above example, by decorating `build_gpt2_attention_converter` (which is an instance of a `SurgeryFunctionBuilder`
     function) with `@register_surgery_function_builder(GPT2Attention)`, the ALiBi algorithm will now apply model surgery to any
     instances of `GPT2Attention` within the model, and will apply surgery on those instances using the `convert_attention` function
     returned by `build_gpt2_attention_converter`.
