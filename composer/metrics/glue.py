@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""A collecion of classes to store GLUE metrics during finetuning using the NLP entrypoint. """
+"""A collection of classes to store GLUE metrics during finetuning using the NLP entrypoint. """
 
 from dataclasses import dataclass
 from typing import Any, Dict, List
