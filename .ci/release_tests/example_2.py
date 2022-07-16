@@ -1,5 +1,9 @@
+import torch
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
+
+# adaptive_avg_pool2d_backward_cuda in mnist_classifier is not deterministic
+torch.use_deterministic_algorithms(False)
 
 from composer import Trainer
 from composer.algorithms import ChannelsLast, CutMix, LabelSmoothing
