@@ -65,8 +65,18 @@ def training_loop(model, train_loader):
 
 Here we run `mixup` using index labels and interpolate the loss (a trick when using cross entropy)
 
-<!-- TODO: Address timeouts -->
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.gpu-->
+<!--pytest.mark.timeout(15)-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomClassificationDataset, SimpleModel
+
+model = SimpleModel()
+train_dataloader = DataLoader(RandomClassificationDataset())
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 from composer.algorithms import MixUp
 from composer.trainer import Trainer
@@ -88,8 +98,19 @@ trainer.fit()
 
 Here we run `mixup` using dense/one-hot labels and interpolate the labels (general case).
 
-<!-- TODO: Address timeouts -->
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.gpu-->
+<!--pytest.mark.timeout(15)-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomClassificationDataset, SimpleModel
+
+model = SimpleModel()
+train_dataloader = DataLoader(RandomClassificationDataset())
+eval_dataloader = DataLoader(RandomClassificationDataset())
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 from composer.algorithms import MixUp
 from composer.trainer import Trainer
@@ -102,6 +123,7 @@ mixup = MixUp(
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
     max_duration='1ep',
     algorithms=[mixup]
 )
