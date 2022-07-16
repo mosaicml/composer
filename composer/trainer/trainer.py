@@ -1668,8 +1668,8 @@ class Trainer:
             # Use monitored barrier to error on deadlock. If one rank OOMs and another doesn't and gets stuck
             # on a dist reduction in gradient syncronization, the monitored barrier will fail after the timeout.
             try:
-                group_gloo = dist.new_group(backend='gloo')
-                dist.monitored_barrier(group=group_gloo, timeout=datetime.timedelta(seconds=300))
+                group_gloo = torch.distributed.new_group(backend='gloo')
+                torch.distributed.monitored_barrier(group=group_gloo, timeout=datetime.timedelta(seconds=300))
             except:
                 log.error('A deadlock was encountered in the train loop, likely because a strict subset of ranks '
                           'encountered CUDA OOM. If `grad_accum=auto`, try manually setting `grad_accum` instead. '
