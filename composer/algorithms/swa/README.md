@@ -16,7 +16,7 @@ Stochastic Weight Averaging (SWA) maintains a running average of the weights tow
 ### Composer Trainer
 
 <!--pytest.mark.gpu-->
-<!--pytest.mark.timeout(15)-->
+<!--pytest.mark.timeout(20)-->
 <!--
 ```python
 from torch.utils.data import DataLoader
@@ -35,15 +35,15 @@ from composer.algorithms import SWA
 from composer.trainer import Trainer
 
 swa_algorithm = SWA(
-    swa_start="2ep",
-    swa_end="3ep",
+    swa_start="1ep",
+    swa_end="2ep",
     update_interval='5ba',
 )
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
     eval_dataloader=eval_dataloader,
-    max_duration="4ep",
+    max_duration="3ep",
     algorithms=[swa_algorithm]
 )
 
