@@ -290,6 +290,20 @@ stage('Prepare') {
         if (env.CHANGE_ID) {
             // Use the origin/pr/PR_NUMBER/merge to support commits in external repos
             gitCommit = "origin/pr/${pullRequest.number}/merge"
+
+            // Require that all pullRequests link to a JIRA story
+            // Why? Makes it much easier to find which commits to cherry-pick into any given release, based
+            // off of the "fix version" field in JIRA
+
+            if (!pullRequest.body.contains('https://mosaicml.atlassian.net/browse/CO-')) {
+                pullRequest.createStatus(
+                    status: 'error',
+                    context: 'ci/jenkins/pr-merge/has-jira-link',
+                    description: 'The PR description must contain a link to the corresponding JIRA bug or story',
+                    targetUrl: "${env.JOB_URL}/testResults",
+                )
+            }
+
         }
 
         echo "gitUrl: $gitUrl"
