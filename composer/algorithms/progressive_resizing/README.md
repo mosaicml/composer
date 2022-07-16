@@ -70,6 +70,7 @@ from tests.common import RandomImageDataset, SimpleConvModel
 
 model = SimpleConvModel()
 train_dataloader = DataLoader(RandomImageDataset())
+eval_dataloader = DataLoader(RandomImageDataset())
 ```
 -->
 <!--pytest-codeblocks:cont-->
@@ -92,6 +93,7 @@ progressive_resizing_algorithm = ProgressiveResizing(
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
     max_duration='1ep',
     algorithms=[progressive_resizing_algorithm]
 )

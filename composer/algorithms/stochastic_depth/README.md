@@ -71,6 +71,7 @@ from torch.utils.data import DataLoader
 from tests.common import RandomImageDataset
 
 train_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
+eval_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
 ```
 -->
 <!--pytest-codeblocks:cont-->
@@ -97,6 +98,7 @@ stochastic_depth = StochasticDepth(
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
     max_duration='1ep',
     algorithms=[stochastic_depth]
 )

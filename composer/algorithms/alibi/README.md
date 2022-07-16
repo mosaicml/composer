@@ -60,6 +60,7 @@ from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf
 
 synthetic_config = make_dataset_configs(model_family=['gpt2'])[0]
 _, model, train_dataloader = synthetic_hf_state_maker(synthetic_config)
+_, _, eval_dataloader = synthetic_hf_state_maker(synthetic_config)
 ```
 -->
 <!--pytest-codeblocks:cont-->
@@ -81,6 +82,7 @@ alibi = Alibi(
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
     max_duration='1ep',
     algorithms=[alibi]
 )

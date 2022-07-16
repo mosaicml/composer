@@ -62,6 +62,7 @@ from composer.models import composer_resnet
 model = composer_resnet('resnet50')
 
 train_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
+eval_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
 ```
 -->
 <!--pytest-codeblocks:cont-->
@@ -77,6 +78,7 @@ blurpool = BlurPool(replace_convs=True,
 
 trainer = Trainer(model=model,
                     train_dataloader=train_dataloader,
+                    eval_dataloader=eval_dataloader,
                     max_duration='1ep',
                     algorithms=[blurpool])
 

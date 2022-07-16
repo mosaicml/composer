@@ -65,6 +65,7 @@ from tests.common import RandomImageDataset, SimpleConvModel
 
 model = SimpleConvModel()
 train_dataloader = DataLoader(RandomImageDataset())
+eval_dataloader = DataLoader(RandomImageDataset())
 ```
 -->
 <!--pytest-codeblocks:cont-->
@@ -82,6 +83,7 @@ randaugment_algorithm = RandAugment(severity=9,
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
     max_duration="1ep",
     algorithms=[randaugment_algorithm]
 )

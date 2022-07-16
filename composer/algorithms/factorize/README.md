@@ -62,6 +62,7 @@ from tests.common import RandomClassificationDataset, SimpleModel
 
 model = SimpleModel()
 train_dataloader = DataLoader(RandomClassificationDataset())
+eval_dataloader = DataLoader(RandomClassificationDataset())
 ```
 -->
 <!--pytest-codeblocks:cont-->
@@ -84,6 +85,7 @@ factorize = Factorize(
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
     max_duration='10ep',
     algorithms=[factorize]
 )

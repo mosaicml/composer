@@ -57,6 +57,7 @@ from tests.common import RandomClassificationDataset, SimpleModel
 
 model = SimpleModel()
 train_dataloader = DataLoader(RandomClassificationDataset())
+eval_dataloader = DataLoader(RandomClassificationDataset())
 ```
 -->
 <!--pytest-codeblocks:cont-->
@@ -72,6 +73,7 @@ layer_freezing_algorithm = LayerFreezing(freeze_start=0.0, freeze_level=1.0)
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
     max_duration='1ep',
     algorithms=[layer_freezing_algorithm]
 )

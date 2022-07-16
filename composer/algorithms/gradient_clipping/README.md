@@ -117,6 +117,7 @@ from tests.common import RandomClassificationDataset, SimpleModel
 
 model = SimpleModel()
 train_dataloader = DataLoader(RandomClassificationDataset())
+eval_dataloader = DataLoader(RandomClassificationDataset())
 ```
 -->
 <!--pytest-codeblocks:cont-->
@@ -133,6 +134,7 @@ gc = GradientClipping(clipping_type=clipping_type, clipping_threshold=0.1)
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
     max_duration='1ep',
     algorithms=[gc]
 )
