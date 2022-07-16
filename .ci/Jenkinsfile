@@ -296,12 +296,7 @@ stage('Prepare') {
             // off of the "fix version" field in JIRA
 
             if (!pullRequest.body.contains('https://mosaicml.atlassian.net/browse/CO-')) {
-                pullRequest.createStatus(
-                    status: 'error',
-                    context: 'ci/jenkins/pr-merge/has-jira-link',
-                    description: 'The PR description must contain a link to the corresponding JIRA bug or story',
-                    targetUrl: "${env.JOB_URL}/testResults",
-                )
+                pullRequest.comment('The PR description must contain a link to the corresponding JIRA bug or story')
             }
 
         }
@@ -447,6 +442,10 @@ stage('Build') {
                         fingerprintArtifacts: true,
                         optional: true,
                     )
+                }
+
+                if (env.CHANGE_ID && !pullRequest.body.contains('https://mosaicml.atlassian.net/browse/CO-')) {
+                    error('The PR description must contain a link to the corresponding JIRA bug or story')
                 }
 
                 sh "mkdir -p $buildOutputFolder"
