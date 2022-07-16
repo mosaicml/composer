@@ -1662,14 +1662,20 @@ class Trainer:
                 if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     should_handle_cuda_oom = 1
-                elif 'Timed out' in str(e):
-                    # Catch timeout errors and only reraise if we did not encounter OOM on other ranks. Error
-                    # is likely transient if one rank OOMed, it likely did not reach a barrier. Note that if we
-                    # catch non-transient timeout errors they will be later reraised if no rank OOMed.
-                    caught_timeout_error = e
                 else:
                     raise
 
+            # Use monitored barrier to error on deadlock. If one rank OOMs and another doesn't and gets stuck
+            # on a dist reduction in gradient syncronization, the monitored barrier will fail after the timeout.
+            try:
+                group_gloo = dist.new_group(backend='gloo')
+                dist.monitored_barrier(group=group_gloo, timeout=datetime.timedelta(seconds=300))
+            except:
+                log.error('A deadlock was encountered in the train loop, likely because a strict subset of ranks '
+                          'encountered CUDA OOM. If `grad_accum=auto`, try manually setting `grad_accum` instead. '
+                          'If `grad_accum` is not set to `auto`, try increasing `grad_accum` as at least one rank '
+                          'encountered a CUDA OOM error.')
+                raise
             # Propagate across all ranks if any rank hit CUDA OOM
             should_handle_cuda_oom = self._device.tensor_to_device(
                 torch.tensor([should_handle_cuda_oom], dtype=torch.uint8))
