@@ -92,7 +92,7 @@ augmix_algorithm = AugMix(severity=3,
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
-    train_dataloader=eval_dataloader,
+    eval_dataloader=eval_dataloader,
     max_duration="1ep",
     algorithms=[augmix_algorithm],
 )
