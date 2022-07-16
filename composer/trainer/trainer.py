@@ -750,7 +750,7 @@ class Trainer:
         self._device = _get_device(device)
 
         # Distributed
-        self.use_dist = self.deepspeed_enabled or dist.get_world_size() > 1
+        self.use_dist = deepspeed_enabled or dist.get_world_size() > 1
         if self.use_dist:
             # deepspeed requires torch.distributed to be initialized, even if the world size is 1
             # distributed is always required with multi-rank training
