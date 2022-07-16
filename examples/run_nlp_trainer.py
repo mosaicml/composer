@@ -33,6 +33,7 @@ import sys
 import warnings
 from concurrent.futures import Future
 from concurrent.futures import ProcessPoolExecutor as Pool
+from functools import partial
 from multiprocessing.pool import ThreadPool
 from typing import List, Optional, Union
 
@@ -115,32 +116,33 @@ def output_metrics(glue_metrics: GlueState) -> None:
     
     print(tabulate(tb, headers='firstrow'))
 
+''' Callback function for metric collection. '''
+def log_metrics(parent_ckpt: Optional[str], ckpt_filename: str, glue_metrics: GlueState, f_metric: Future) -> None:
+    metric = f_metric.result()
+    if parent_ckpt: 
+        logged_ckpt_name = parent_ckpt
+    else:
+        logged_ckpt_name = ckpt_filename
+
+    if logged_ckpt_name not in glue_metrics.get_logged_ckpts():
+        glue_metrics.init_ckpt_dict(logged_ckpt_name)
+            
+    task = list(metric.keys())[0]
+    formatted_task = task.split('_')[1] # remove "glue_" prefix
+    for key in metric.keys(): # handle case where mnli has glue_mnli and glue_mnli_mismatched
+        for m in metric[key]:
+            if not glue_metrics.get_task_metric(logged_ckpt_name, formatted_task):
+                glue_metrics.set_task_metric(logged_ckpt_name, formatted_task, metric[key][m].item())
+            else:
+                old_val = glue_metrics.get_task_metric(logged_ckpt_name, formatted_task)
+                glue_metrics.set_task_metric(logged_ckpt_name, formatted_task, sum([old_val, metric[key][m].item()]) / 2) # automatically average scores 
+    
 ''' Set up CUDA environment and process pool for given finetuning jobs. '''
 def setup_finetuning_jobs(finetune_tasks: List[str], save_ckpts: List[bool], ckpt_load_path: str, ckpt_filename: str, save_folder: str, glue_metrics: GlueState,
          wandb_logger: Union[WandBLogger, None], save_locally: bool, bucket: Optional[str] = None, parent_ckpt: Optional[str] = None, load_ignore_keys: Optional[List[str]] = None) -> None:
     cuda_envs = init_cuda_queue(torch.cuda.device_count())
     num_tasks = len(finetune_tasks)
     
-    ''' Callback function for metric collection. '''
-    def log_metrics(f_metric: Future) -> None:
-        metric = f_metric.result()
-        if parent_ckpt: 
-            logged_ckpt_name = parent_ckpt
-        else:
-            logged_ckpt_name = ckpt_filename
-
-        if logged_ckpt_name not in glue_metrics.get_logged_ckpts():
-            glue_metrics.init_ckpt_dict(logged_ckpt_name)
-                
-        task = list(metric.keys())[0]
-        formatted_task = task.split('_')[1] # remove "glue_" prefix
-        for key in metric.keys(): # handle case where mnli has glue_mnli and glue_mnli_mismatched
-            for m in metric[key]:
-                if not glue_metrics.get_task_metric(logged_ckpt_name, formatted_task):
-                    glue_metrics.set_task_metric(logged_ckpt_name, formatted_task, metric[key][m].item())
-                else:
-                    old_val = glue_metrics.get_task_metric(logged_ckpt_name, formatted_task)
-                    glue_metrics.set_task_metric(logged_ckpt_name, formatted_task, sum([old_val, metric[key][m].item()]) / 2) # automatically average scores 
     if parent_ckpt: 
         wandb_group_name = parent_ckpt
     else:
@@ -149,10 +151,12 @@ def setup_finetuning_jobs(finetune_tasks: List[str], save_ckpts: List[bool], ckp
     # finetuning from pretrained checkpoint
     print(f"FINETUNING ON {ckpt_filename}!")
     futures = []
+    log_metrics_partial = partial(log_metrics, parent_ckpt, ckpt_filename, glue_metrics)
     executor = Pool(max_workers=torch.cuda.device_count(), initializer=init_cuda_env, initargs=(cuda_envs, ))
     for rank in range(num_tasks):
         future = executor.submit(train_finetune, finetune_tasks[rank], save_ckpts[rank], ckpt_load_path, wandb_group_name, save_folder, save_locally, wandb_logger, bucket, load_ignore_keys)
-        future.add_done_callback(log_metrics)
+        future.add_done_callback(log_metrics_partial)
+        # future.add_done_callback(log_metrics)
         futures.append(future)
 
     executor.shutdown(wait=True) # wait for processes and callbacks to complete 
@@ -207,7 +211,7 @@ def train_finetune(task: str, save_ckpt: bool, load_path: str, wandb_group_name:
     print(f"\n --------\n SPAWNING TASK {task.upper()}\n DEVICE: {torch.cuda.current_device()}\n --------")
 
     trainer = ft_hparams.initialize_object()
-    trainer.fit(duration='3ep')
+    trainer.fit()
     print(f"\nFINISHED TRAINING TASK {task.upper()}\n")
     return trainer.state.current_metrics
 
@@ -310,10 +314,9 @@ def run_finetuner(args, glue_metrics: GlueState) -> None:
             save_locally = False
 
             # skip symlinks to existing checkpoints
-            # if ('symlink' in ckpt_filename):
-            #     continue
+            if ('symlink' in ckpt_filename):
+                continue
             
-        # TODO: PUT SEEDS BACK IN
         finetune_tasks = ['cola', 'sst-2', 'qqp', 'qnli', 'mnli']
         save_ckpts = [False, False, False, False, True]
         setup_finetuning_jobs(finetune_tasks, save_ckpts, ckpt_load_path, ckpt_filename, save_folder, glue_metrics, wandb_logger=args.wandb_logger, 
