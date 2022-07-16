@@ -15,8 +15,18 @@ Stochastic Weight Averaging (SWA) maintains a running average of the weights tow
 
 ### Composer Trainer
 
-<!-- TODO: Address timeouts -->
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.gpu-->
+<!--pytest.mark.timeout(15)-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomClassificationDataset, SimpleModel
+model = SimpleModel()
+train_dataloader = DataLoader(RandomClassificationDataset())
+eval_dataloader = DataLoader(RandomClassificationDataset())
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
@@ -25,17 +35,16 @@ from composer.algorithms import SWA
 from composer.trainer import Trainer
 
 swa_algorithm = SWA(
-    swa_start="6ep", # start on the sixth epoch
-    swa_end="8ep", # end on the eight epoch
-    update_interval='100ba', # update the SWA model every 100 batches
+    swa_start="2ep",
+    swa_end="3ep",
+    update_interval='5ba',
 )
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
     eval_dataloader=eval_dataloader,
-    max_duration="10ep",
-    algorithms=[swa_algorithm],
-    optimizers=[optimizer]
+    max_duration="4ep",
+    algorithms=[swa_algorithm]
 )
 
 trainer.fit()
