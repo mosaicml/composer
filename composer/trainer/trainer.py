@@ -1638,7 +1638,6 @@ class Trainer:
             total_loss = None
             # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
             should_handle_cuda_oom = 0
-            caught_timeout_error = None
             try:
                 assert self.state.scaler is not None
                 microbatches = self._train_data_spec.split_batch(device_batch, self.state.grad_accum)
@@ -1674,9 +1673,9 @@ class Trainer:
                     torch.distributed.monitored_barrier(group=group_gloo, timeout=datetime.timedelta(seconds=300))
                 except:
                     log.error('A deadlock was encountered in the train loop, likely because a strict subset of '
-                             'ranks encountered CUDA OOM. If `grad_accum=auto`, try manually setting `grad_accum` '
-                             'instead. If `grad_accum` is not set to `auto`, try increasing `grad_accum` as at '
-                             'least one rank encountered a CUDA OOM error.')
+                              'ranks encountered CUDA OOM. If `grad_accum=auto`, try manually setting `grad_accum` '
+                              'instead. If `grad_accum` is not set to `auto`, try increasing `grad_accum` as at '
+                              'least one rank encountered a CUDA OOM error.')
                     raise
             # Propagate across all ranks if any rank hit CUDA OOM
             should_handle_cuda_oom = self._device.tensor_to_device(
@@ -1697,10 +1696,6 @@ class Trainer:
                     log.info(('CUDA out of memory detected. Gradient Accumulation '
                               f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
                               'and the batch will be retrained.'))
-            elif caught_timeout_error:
-                # If not CUDA out of memory, raise exception to user. Note that this truncates the call stack
-                # back only to this newly raised error.
-                raise caught_timeout_error
             else:
                 # Otherwise, log grad_accum and return calculated loss
                 self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
