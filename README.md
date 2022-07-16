@@ -127,13 +127,19 @@ For the best experience and the most efficient possible training, we recommend u
 <!--pytest.mark.gpu-->
 <!--pytest.mark.timeout(30)-->
 <!--pytest.mark.filterwarnings(r'ignore:Some targets have less than 1 total probability:UserWarning')-->
+<!--
 ```python
 import torch
-from torch.utils.data import DataLoader
-from torchvision import datasets, transforms
 
 # adaptive_avg_pool2d_backward_cuda in mnist_classifier is not deterministic
 torch.use_deterministic_algorithms(False)
+
+```
+-->
+<!--pytest-codeblocks:cont-->
+```python
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
 
 from composer import Trainer
 from composer.algorithms import ChannelsLast, CutMix, LabelSmoothing
