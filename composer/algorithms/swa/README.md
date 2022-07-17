@@ -48,7 +48,6 @@ trainer = Trainer(
 )
 
 trainer.fit()
-
 ```
 
 ## Implementation Details
