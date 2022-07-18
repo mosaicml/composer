@@ -1,11 +1,11 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""A wrapper class that converts 🤗 Transformers models to composer models"""
+"""A wrapper class that converts mmdet detection models to composer models"""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Optional
 
 from torchmetrics import Metric
 from torchmetrics.collections import MetricCollection
@@ -61,11 +61,11 @@ class MMDetModel(ComposerModel):
             self.valid_metrics = metric_collection.clone(prefix='val_')
 
     def forward(self, batch):
-        return None
+        return self.model(
+            **batch)  # this will return a dictionary of 3 losses in train mode and model outputs in test mode
 
     def loss(self, outputs, batch, **kwargs):
-        losses = self.model(**batch)
-        return losses  # TODO this is a dict of 3 losses, alter trainer to log them better
+        return outputs
 
     def validate(self, batch):
         # TODO model.forward can only take one image at a time in test mode...
