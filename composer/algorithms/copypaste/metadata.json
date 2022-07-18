@@ -1,0 +1,15 @@
+{
+    "copypaste": {
+        "name": "CopyPaste",
+        "class_name": "CopyPaste",
+        "functional": "copypaste_batch",
+        "tldr": "Randomly pastes objects onto an image",
+        "attribution": "(Ghiasi et al, 2021)",
+        "link": "https://openaccess.thecvf.com/content/CVPR2021/papers/Ghiasi_Simple_Copy-Paste_Is_a_Strong_Data_Augmentation_Method_for_Instance_CVPR_2021_paper.pdf",
+        "domains": [
+            "cv"
+        ],
+        "summary": "Randomly pastes objects onto an image.",
+        "use": "Semantic segmentation, object detection"
+    }
+}

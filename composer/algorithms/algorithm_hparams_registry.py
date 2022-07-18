@@ -10,6 +10,7 @@ from composer.algorithms.augmix import AugMix
 from composer.algorithms.blurpool import BlurPool
 from composer.algorithms.channels_last import ChannelsLast
 from composer.algorithms.colout import ColOut
+from composer.algorithms.copypaste import CopyPaste
 from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
 from composer.algorithms.ema import EMA
@@ -36,6 +37,7 @@ algorithm_registry: Dict[str, Union[Type[Algorithm], Type[hp.Hparams]]] = {
     'blurpool': BlurPool,
     'channels_last': ChannelsLast,
     'seq_length_warmup': SeqLengthWarmup,
+    'copypaste': CopyPaste,
     'cutmix': CutMix,
     'cutout': CutOut,
     'ema': EMA,

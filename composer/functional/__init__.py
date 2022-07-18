@@ -20,6 +20,7 @@ from composer.algorithms.augmix import augmix_image
 from composer.algorithms.blurpool import apply_blurpool
 from composer.algorithms.channels_last import apply_channels_last
 from composer.algorithms.colout import colout_batch
+from composer.algorithms.copypaste import copypaste_batch
 from composer.algorithms.cutmix import cutmix_batch
 from composer.algorithms.cutout import cutout_batch
 from composer.algorithms.ema import compute_ema
@@ -45,6 +46,7 @@ __all__ = [
     'apply_blurpool',
     'apply_channels_last',
     'colout_batch',
+    'copypaste_batch',
     'compute_ema',
     'cutmix_batch',
     'cutout_batch',

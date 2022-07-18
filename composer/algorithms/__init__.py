@@ -43,6 +43,7 @@ from composer.algorithms.augmix import AugmentAndMixTransform, AugMix
 from composer.algorithms.blurpool import BlurPool
 from composer.algorithms.channels_last import ChannelsLast
 from composer.algorithms.colout import ColOut, ColOutTransform
+from composer.algorithms.copypaste import CopyPaste
 from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
 from composer.algorithms.ema import EMA
@@ -71,6 +72,7 @@ __all__ = [
     'BlurPool',
     'ChannelsLast',
     'ColOut',
+    'CopyPaste',
     'ColOutTransform',
     'CutMix',
     'CutOut',
