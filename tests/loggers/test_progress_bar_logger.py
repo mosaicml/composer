@@ -16,6 +16,18 @@ from composer.trainer.trainer import Trainer
 from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
 
+def get_mock_tqdm(bar_format: str, *args: object, **kwargs: object):
+    del args, kwargs  # unused
+    mock_tqdm = MagicMock()
+    mock_tqdm.n = 0
+
+    # store for testing later
+    if 'train' in bar_format:
+        mock_tqdms_train.append(mock_tqdm)
+    if 'eval' in bar_format:
+        mock_tqdms_eval.append(mock_tqdm)
+
+    return mock_tqdm
 
 @pytest.mark.parametrize('world_size', [
     pytest.param(1),
@@ -32,19 +44,6 @@ def test_progress_bar_logger(max_duration: Time[int], monkeypatch: MonkeyPatch, 
 
     mock_tqdms_train = []
     mock_tqdms_eval = []
-
-    def get_mock_tqdm(bar_format: str, *args: object, **kwargs: object):
-        del args, kwargs  # unused
-        mock_tqdm = MagicMock()
-        mock_tqdm.n = 0
-
-        # store for testing later
-        if 'train' in bar_format:
-            mock_tqdms_train.append(mock_tqdm)
-        if 'eval' in bar_format:
-            mock_tqdms_eval.append(mock_tqdm)
-
-        return mock_tqdm
 
     model = SimpleModel()
 
@@ -105,19 +104,6 @@ def test_progress_bar_dataloader_label(max_duration: Time[int], monkeypatch: Mon
     mock_tqdms_train = []
     mock_tqdms_eval = []
 
-    def get_mock_tqdm(bar_format: str, *args: object, **kwargs: object):
-        del args, kwargs  # unused
-        mock_tqdm = MagicMock()
-        mock_tqdm.n = 0
-
-        # store for testing later
-        if 'train' in bar_format:
-            mock_tqdms_train.append(mock_tqdm)
-        if 'eval' in bar_format:
-            mock_tqdms_eval.append(mock_tqdm)
-
-        return mock_tqdm
-
     model = SimpleModel()
 
     monkeypatch.setattr(auto, 'tqdm', get_mock_tqdm)
@@ -156,12 +142,6 @@ def test_progress_bar_dataloader_label(max_duration: Time[int], monkeypatch: Mon
 
     if dist.get_local_rank() != 0:
         return
-
-    # either have #epoch pbars, or only have 1 train pbar
-    if max_duration.unit == TimeUnit.EPOCH:
-        assert len(mock_tqdms_train) == max_duration.value
-    else:
-        assert len(mock_tqdms_train) == 1
 
     # test train pbar
     if max_duration.unit == TimeUnit.EPOCH:

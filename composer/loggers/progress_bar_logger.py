@@ -116,7 +116,7 @@ class ProgressBarLogger(LoggerDestination):
         progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
         dataloader_label (str, optional): The label for the dataloader that the progress bar is tracking.
 
-            If no dataloader_label is specified, then the logger will track all dataloaders.
+            If no ``dataloader_label`` is specified, then the logger will track all dataloaders.
         log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
 
             The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is
@@ -135,7 +135,7 @@ class ProgressBarLogger(LoggerDestination):
     """
 
     # class variable to note whether dummy p_bar has been created. Necessary for formatting with multiple pbars
-    created_dummy = False
+    dummy_pbar: Optional[_ProgressBar] = None
 
     def __init__(
         self,
@@ -151,8 +151,6 @@ class ProgressBarLogger(LoggerDestination):
         # The dummy pbar is to fix issues when streaming progress bars over k8s, where the progress bar in position 0
         # doesn't update until it is finished.
         # Need to have a dummy progress bar in position 0, so the "real" progress bars in position 1 doesn't jump around
-        self.mid_epoch = False
-        self.dummy_pbar: Optional[_ProgressBar] = None
         self.train_pbar: Optional[_ProgressBar] = None
         self.eval_pbar: Optional[_ProgressBar] = None
 
@@ -245,10 +243,10 @@ class ProgressBarLogger(LoggerDestination):
 
             unit = TimeUnit.BATCH
             n = state.timestamp.epoch.value
-            if not self.mid_epoch and not is_train:
+            if self.batch_in_epoch == 0 and not is_train:
                 # epochwise eval results refer to model from previous epoch (n-1)
                 n -= 1
-            if self.mid_epoch and not is_train:
+            if self.batch_in_epoch != 0 and not is_train:
                 # For evaluation mid-epoch, show the total batch count
                 desc += f'Batch {int(state.timestamp.batch):3}'
             else:
@@ -284,9 +282,8 @@ class ProgressBarLogger(LoggerDestination):
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        if not ProgressBarLogger.created_dummy:
-            ProgressBarLogger.created_dummy = True
-            self.dummy_pbar = _ProgressBar(
+        if not ProgressBarLogger.dummy_pbar:
+            ProgressBarLogger.dummy_pbar = _ProgressBar(
                 file=self.stream,
                 position=0,
                 total=1,
@@ -302,7 +299,6 @@ class ProgressBarLogger(LoggerDestination):
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         # Make sure dataloader_label is the training dataloader_label
-        self.mid_epoch = True
         if self.dataloader_label is None or state.dataloader_label == self.dataloader_label:
             if self.show_pbar and not self.train_pbar:
                 self.train_pbar = self._build_pbar(state=state, is_train=True)
@@ -313,20 +309,17 @@ class ProgressBarLogger(LoggerDestination):
                 self.eval_pbar = self._build_pbar(state, is_train=False)
 
     def batch_end(self, state: State, logger: Logger) -> None:
-        if self.dataloader_label is None or state.dataloader_label == self.dataloader_label:
-            if self.train_pbar:
-                self.train_pbar.update_to_timestamp(state.timestamp)
+        if self.train_pbar:
+            self.train_pbar.update_to_timestamp(state.timestamp)
 
     def eval_batch_end(self, state: State, logger: Logger) -> None:
-        if self.dataloader_label is None or state.dataloader_label == self.dataloader_label:
-            if self.eval_pbar:
-                self.eval_pbar.update_to_timestamp(state.eval_timestamp)
+        if self.eval_pbar:
+            self.eval_pbar.update_to_timestamp(state.eval_timestamp)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         # Only close progress bars at epoch end if the duration is in epochs, since
         # a new pbar will be created for each epoch
         # If the duration is in other units, then one progress bar will be used for all of training.
-        self.mid_epoch = False
         assert state.max_duration is not None, 'max_duration should be set'
         if self.train_pbar and state.max_duration.unit == TimeUnit.EPOCH:
             self.train_pbar.close()
@@ -341,9 +334,11 @@ class ProgressBarLogger(LoggerDestination):
         if self.train_pbar:
             self.train_pbar.close()
             self.train_pbar = None
-        if self.dummy_pbar:
-            self.dummy_pbar.close()
-            self.dummy_pbar = None
+    
+    def fit_end(self, state: State, logger: Logger) -> None:
+        if ProgressBarLogger.dummy_pbar:
+            ProgressBarLogger.dummy_pbar.close()
+            ProgressBarLogger.dummy_pbar = None
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if self.eval_pbar:
