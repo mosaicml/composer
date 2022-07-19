@@ -30,7 +30,7 @@ def register_surgery_function_builder(
     `ReplacementFunction` it returns, then using the resulting `policies` mapping to perform
     model surgery:
 
-    .. code-block:: python
+    .. testcode::
 
         from composer.algorithms.alibi.attention_surgery_functions import replacement_policy_mapping_builder
         from composer.utils import module_surgery
@@ -47,7 +47,7 @@ def register_surgery_function_builder(
     registry by defining instances of `SurgeryFunctionBuilder` functions and decorating them with
     :func:`register_surgery_function_builder`. For example:
 
-    .. code-block:: python
+    .. testcode::
         from composer.algorithms.alibi.attention_surgery_functions.utils import register_surgery_function_builder
         from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
 
@@ -59,7 +59,7 @@ def register_surgery_function_builder(
                 # Do surgery (change `module` or generate a new `module` instance to return)
                 # Note that this function can (and often should for ALiBi) depend on `max_sequence_length`
 
-                # <YOUR CODE HERE> #
+                # YOUR CODE HERE
 
                 return module
             return convert_attention
