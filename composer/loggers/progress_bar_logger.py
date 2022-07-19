@@ -151,6 +151,7 @@ class ProgressBarLogger(LoggerDestination):
         # The dummy pbar is to fix issues when streaming progress bars over k8s, where the progress bar in position 0
         # doesn't update until it is finished.
         # Need to have a dummy progress bar in position 0, so the "real" progress bars in position 1 doesn't jump around
+        self.dummy_pbar: Optional[_ProgressBar] = None
         self.train_pbar: Optional[_ProgressBar] = None
         self.eval_pbar: Optional[_ProgressBar] = None
 
@@ -243,10 +244,10 @@ class ProgressBarLogger(LoggerDestination):
 
             unit = TimeUnit.BATCH
             n = state.timestamp.epoch.value
-            if self.batch_in_epoch == 0 and not is_train:
+            if state.timestamp.batch_in_epoch == 0 and not is_train:
                 # epochwise eval results refer to model from previous epoch (n-1)
                 n -= 1
-            if self.batch_in_epoch != 0 and not is_train:
+            if state.timestamp.batch_in_epoch != 0 and not is_train:
                 # For evaluation mid-epoch, show the total batch count
                 desc += f'Batch {int(state.timestamp.batch):3}'
             else:
@@ -282,20 +283,26 @@ class ProgressBarLogger(LoggerDestination):
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        if not ProgressBarLogger.dummy_pbar:
-            ProgressBarLogger.dummy_pbar = _ProgressBar(
-                file=self.stream,
-                position=0,
-                total=1,
-                metrics={},
-                keys_to_log=[],
-                bar_format='{bar:-1b}',
-                timestamp_key='',
-            )
-
-    def fit_end(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
-        ProgressBarLogger.created_dummy = False
+        self.dummy_pbar = _ProgressBar(
+            file=self.stream,
+            position=0,
+            total=1,
+            metrics={},
+            keys_to_log=[],
+            bar_format='{bar:-1b}',
+            timestamp_key='',
+        )
+        # if dist.get_local_rank() == 0 and not ProgressBarLogger.dummy_pbar:
+        #     return
+        #     ProgressBarLogger.dummy_pbar = _ProgressBar(
+        #         file=self.stream,
+        #         position=0,
+        #         total=1,
+        #         metrics={},
+        #         keys_to_log=[],
+        #         bar_format='{bar:-1b}',
+        #         timestamp_key='',
+        #     )
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         # Make sure dataloader_label is the training dataloader_label
@@ -334,11 +341,14 @@ class ProgressBarLogger(LoggerDestination):
         if self.train_pbar:
             self.train_pbar.close()
             self.train_pbar = None
-    
-    def fit_end(self, state: State, logger: Logger) -> None:
-        if ProgressBarLogger.dummy_pbar:
-            ProgressBarLogger.dummy_pbar.close()
-            ProgressBarLogger.dummy_pbar = None
+        if self.dummy_pbar:
+            self.dummy_pbar.close()
+            self.dummy_pbar = None
+
+    # def fit_end(self, state: State, logger: Logger) -> None:
+    #     if ProgressBarLogger.dummy_pbar:
+    #         ProgressBarLogger.dummy_pbar.close()
+    #         ProgressBarLogger.dummy_pbar = None
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if self.eval_pbar:

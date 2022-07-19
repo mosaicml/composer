@@ -16,18 +16,30 @@ from composer.trainer.trainer import Trainer
 from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
 
-def get_mock_tqdm(bar_format: str, *args: object, **kwargs: object):
-    del args, kwargs  # unused
-    mock_tqdm = MagicMock()
-    mock_tqdm.n = 0
 
-    # store for testing later
-    if 'train' in bar_format:
-        mock_tqdms_train.append(mock_tqdm)
-    if 'eval' in bar_format:
-        mock_tqdms_eval.append(mock_tqdm)
+def run_trainer_with_mock_pbar(monkeypatch: MonkeyPatch, trainer: Trainer):
+    mock_tqdms_train = []
+    mock_tqdms_eval = []
 
-    return mock_tqdm
+    def get_mock_tqdm(bar_format: str, *args: object, **kwargs: object):
+        del args, kwargs  # unused
+        mock_tqdm = MagicMock()
+        mock_tqdm.n = 0
+
+        # store for testing later
+        if 'train' in bar_format:
+            mock_tqdms_train.append(mock_tqdm)
+        if 'eval' in bar_format:
+            mock_tqdms_eval.append(mock_tqdm)
+
+        return mock_tqdm
+
+    monkeypatch.setattr(auto, 'tqdm', get_mock_tqdm)
+
+    trainer.fit()
+
+    return mock_tqdms_train, mock_tqdms_eval
+
 
 @pytest.mark.parametrize('world_size', [
     pytest.param(1),
@@ -42,18 +54,12 @@ def get_mock_tqdm(bar_format: str, *args: object, **kwargs: object):
 @pytest.mark.timeout(10)
 def test_progress_bar_logger(max_duration: Time[int], monkeypatch: MonkeyPatch, world_size: int):
 
-    mock_tqdms_train = []
-    mock_tqdms_eval = []
-
-    model = SimpleModel()
-
-    monkeypatch.setattr(auto, 'tqdm', get_mock_tqdm)
-
     eval_interval = 1
     eval_subset_num_batches = 2
     batch_size = 10
     train_dataset = RandomClassificationDataset()
     eval_dataset = RandomClassificationDataset()
+    model = SimpleModel()
 
     trainer = Trainer(
         model=model,
@@ -66,10 +72,10 @@ def test_progress_bar_logger(max_duration: Time[int], monkeypatch: MonkeyPatch, 
         eval_subset_num_batches=eval_subset_num_batches,
     )
 
-    trainer.fit()
-
     if dist.get_local_rank() != 0:
         return
+
+    mock_tqdms_train, mock_tqdms_eval = run_trainer_with_mock_pbar(monkeypatch, trainer)
 
     # test train pbar
     if max_duration.unit == TimeUnit.EPOCH:
@@ -100,13 +106,7 @@ def test_progress_bar_logger(max_duration: Time[int], monkeypatch: MonkeyPatch, 
 )
 @pytest.mark.timeout(10)
 def test_progress_bar_dataloader_label(max_duration: Time[int], monkeypatch: MonkeyPatch, world_size: int):
-
-    mock_tqdms_train = []
-    mock_tqdms_eval = []
-
     model = SimpleModel()
-
-    monkeypatch.setattr(auto, 'tqdm', get_mock_tqdm)
 
     eval_interval = 1
     eval_subset_num_batches = 2
@@ -138,10 +138,10 @@ def test_progress_bar_dataloader_label(max_duration: Time[int], monkeypatch: Mon
         loggers=[ProgressBarLogger(True, dataloader_label='eval2'),
                  ProgressBarLogger(True, dataloader_label='train')])
 
-    trainer.fit()
-
     if dist.get_local_rank() != 0:
         return
+
+    mock_tqdms_train, mock_tqdms_eval = run_trainer_with_mock_pbar(monkeypatch, trainer)
 
     # test train pbar
     if max_duration.unit == TimeUnit.EPOCH:
