@@ -33,7 +33,7 @@ def register_surgery_function_builder(
     .. code-block:: python
 
         from composer.algorithms.alibi.attention_surgery_functions import replacement_policy_mapping_builder
-        from composer.utils import model_surgery
+        from composer.utils import module_surgery
 
         policies = {
             module: surgery_function_builder(max_sequence_length)
@@ -55,10 +55,12 @@ def register_surgery_function_builder(
         def build_gpt2_attention_converter(max_sequence_length: int):
             # Builds a function (`convert_attention`) that does model surgery any GPT2Attention modules in the model.
 
-            def convert_attention(module: GPT2Attention, module_index: Optional[int] = None):
+            def convert_attention(module: torch.nn.Module, module_index: Optional[int] = None):
                 # Do surgery (change `module` or generate a new `module` instance to return)
                 # Note that this function can (and often should for ALiBi) depend on `max_sequence_length`
-                ...
+                
+                # <YOUR CODE HERE> #
+
                 return module
             return convert_attention
 
