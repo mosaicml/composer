@@ -58,7 +58,7 @@ def register_surgery_function_builder(
             def convert_attention(module: torch.nn.Module, module_index: Optional[int] = None):
                 # Do surgery (change `module` or generate a new `module` instance to return)
                 # Note that this function can (and often should for ALiBi) depend on `max_sequence_length`
-                
+
                 # <YOUR CODE HERE> #
 
                 return module
