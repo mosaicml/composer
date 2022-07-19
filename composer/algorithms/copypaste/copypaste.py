@@ -29,17 +29,6 @@ log = logging.getLogger(__name__)
 __all__ = ['CopyPaste', 'copypaste_batch']
 
 
-def _imshow(img):
-    plt.figure()
-    npimg = img.numpy()
-    plt.imshow(np.transpose(npimg, (1, 2, 0)))
-
-def _imshow_single_ch(img):
-    plt.figure()
-    npimg = img.numpy()
-    plt.imshow(npimg, cmap="gray")
-    plt.show()
-
 
 def copypaste_batch(input_dict, convert_to_binary_mask=True, max_copied_instances=None):
     """
@@ -74,11 +63,6 @@ def copypaste_batch(input_dict, convert_to_binary_mask=True, max_copied_instance
         output_dict["images"].append(trg_image)
         output_dict["masks"].append(trg_masks)
 
-    
-    # fig_name = "SRC-"+input_dict["sample_names"][i]+"-TRG-"+input_dict["sample_names"][j]
-    # _visualize_output_dict(output_dict, input_dict, batch_size, fig_name)
-
-
     return output_dict
 
 def _copypaste_instance(input_dict, trg_image, trg_masks, i, j, src_instance_id, convert_to_binary_mask):
@@ -105,9 +89,6 @@ def _copypaste_instance(input_dict, trg_image, trg_masks, i, j, src_instance_id,
 
     trg_masks = torch.cat((trg_masks, new_trg_mask), dim=0)
 
-    # fig_name = "SRC-"+input_dict["sample_names"][i]+"-id-"+str(src_instance_id)+"-TRG-"+input_dict["sample_names"][j]
-    # _visualize_copypaste(src_image, src_instance, input_dict["images"][j], trg_image, fig_name)
-
     return trg_image, trg_masks
 
 
@@ -132,70 +113,6 @@ def _jitter_instance(image, mask):
 
     return jittered_image, jittered_mask
 
-def _visualize_output_dict(output_dict, input_dict, batch_size, fig_name):
-    dpi = 150
-
-    fig, axarr = plt.subplots(2, batch_size, figsize=(18, 7), dpi=dpi)
-
-    for col, image in enumerate(output_dict["images"]):
-
-        ax = axarr[1, col]
-        ax.imshow(np.transpose(image.numpy(), (1, 2, 0)))
-        _clean_axes(ax)
-
-    for col, image in enumerate(input_dict["images"]):
-        ax = axarr[0, col]
-        ax.imshow(np.transpose(image.numpy(), (1, 2, 0)))
-        _clean_axes(ax)
-        
-
-    plt.suptitle("CopyPaste Augmentation", fontweight="bold")
-
-    fig_out_path = os.path.join(".", "forks", "composer", "composer", "algorithms", "copypaste", "files", "out", "no_jittering", fig_name)
-    plt.savefig(fig_out_path + ".png", dpi=dpi)
-
-
-def _visualize_copypaste(src_image, src_instance, trg_image_before, trg_image_after, fig_name):
-    
-    dpi = 100
-    img_1 = np.transpose(src_image.numpy(), (1, 2, 0))
-    img_2 = np.transpose(src_instance.numpy(), (1, 2, 0))
-    img_3 = np.transpose(trg_image_before.numpy(), (1, 2, 0))
-    img_4 = np.transpose(trg_image_after.numpy(), (1, 2, 0))
-
-    fig, axarr = plt.subplots(2, 2, figsize=(6, 6), dpi=dpi)
-    
-    ax = axarr[0, 0]
-    ax.imshow(img_1)
-    _clean_axes(ax)
-    ax.set_title("Source Image")
-    ax = axarr[0, 1]
-    ax.imshow(img_2)
-    _clean_axes(ax)
-    ax.set_title("Source Instance")
-    ax = axarr[1, 0]
-    ax.imshow(img_3)
-    _clean_axes(ax)
-    ax.set_title("Target Image")
-    ax = axarr[1, 1]
-    ax.imshow(img_4)
-    _clean_axes(ax)
-    ax.set_title("Augmented Image")
-
-    plt.suptitle("CopyPaste Augmentation", fontweight="bold")
-
-    fig_out_path = os.path.join(".", "forks", "composer", "composer", "algorithms", "copypaste", "files", "out", "no_jittering", fig_name)
-    plt.savefig(fig_out_path + ".png", dpi=dpi)
-
-def _clean_axes(ax):
-    ax.spines["right"].set_visible(False)
-    ax.spines["top"].set_visible(False)
-    ax.spines["left"].set_visible(False)
-    ax.spines["bottom"].set_visible(False)
-    ax.axes.yaxis.set_visible(False)
-    ax.axes.xaxis.set_visible(False)
-    ax.axis(('tight'))
-    ax.set_aspect(aspect=1)
 
 
 class CopyPaste(Algorithm):
