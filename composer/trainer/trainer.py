@@ -1668,7 +1668,7 @@ class Trainer:
             # on a dist reduction in gradient syncronization, the monitored barrier will fail after the timeout.
             try:
                 dist.monitored_barrier(timeout=datetime.timedelta(seconds=300))
-            except Exception as e:
+            except RuntimeError as e:
                 raise RuntimeError(
                     'A deadlock was encountered in the train loop, likely because a strict subset of '
                     'ranks encountered CUDA OOM. If `grad_accum=auto`, try manually setting `grad_accum` '
