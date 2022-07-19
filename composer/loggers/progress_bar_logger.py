@@ -120,7 +120,7 @@ class ProgressBarLogger(LoggerDestination):
         log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
 
             The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is
-            ``False``.
+            ``False`` and ``dataloader_label`` is not specified.
         console_log_level (LogLevel | str | (State, LogLevel) -> bool, optional): The maximum log level for which statements
             should be printed. (default: :attr:`.LogLevel.EPOCH`)
 
@@ -134,7 +134,9 @@ class ProgressBarLogger(LoggerDestination):
             ``'stderr'``. (default: :attr:`sys.stderr`)
     """
 
-    # class variable to note whether dummy p_bar has been created. Necessary for formatting with multiple pbars
+    # The dummy pbar is to fix issues when streaming progress bars over k8s, where the progress bar in position 0
+    # doesn't update until it is finished.
+    # class variable because one dummy pbar per ProgressBarLogger adds multiple lines to the pbar output
     dummy_pbar: Optional[_ProgressBar] = None
 
     def __init__(
@@ -148,10 +150,7 @@ class ProgressBarLogger(LoggerDestination):
 
         self._show_pbar = progress_bar
         self.dataloader_label = dataloader_label
-        # The dummy pbar is to fix issues when streaming progress bars over k8s, where the progress bar in position 0
-        # doesn't update until it is finished.
         # Need to have a dummy progress bar in position 0, so the "real" progress bars in position 1 doesn't jump around
-        self.dummy_pbar: Optional[_ProgressBar] = None
         self.train_pbar: Optional[_ProgressBar] = None
         self.eval_pbar: Optional[_ProgressBar] = None
 
@@ -159,7 +158,10 @@ class ProgressBarLogger(LoggerDestination):
             console_log_level = LogLevel(console_log_level)
 
         if log_to_console is None:
-            log_to_console = not progress_bar
+            log_to_console = not progress_bar and dataloader_label is None
+
+        if dataloader_label is not None:
+            log_to_console = False
 
         if not log_to_console:
             # never log to console
@@ -283,26 +285,16 @@ class ProgressBarLogger(LoggerDestination):
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        self.dummy_pbar = _ProgressBar(
-            file=self.stream,
-            position=0,
-            total=1,
-            metrics={},
-            keys_to_log=[],
-            bar_format='{bar:-1b}',
-            timestamp_key='',
-        )
-        # if dist.get_local_rank() == 0 and not ProgressBarLogger.dummy_pbar:
-        #     return
-        #     ProgressBarLogger.dummy_pbar = _ProgressBar(
-        #         file=self.stream,
-        #         position=0,
-        #         total=1,
-        #         metrics={},
-        #         keys_to_log=[],
-        #         bar_format='{bar:-1b}',
-        #         timestamp_key='',
-        #     )
+        if ProgressBarLogger.dummy_pbar is None:
+            ProgressBarLogger.dummy_pbar = _ProgressBar(
+                file=self.stream,
+                position=0,
+                total=1,
+                metrics={},
+                keys_to_log=[],
+                bar_format='{bar:-1b}',
+                timestamp_key='',
+            )
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         # Make sure dataloader_label is the training dataloader_label
@@ -341,14 +333,11 @@ class ProgressBarLogger(LoggerDestination):
         if self.train_pbar:
             self.train_pbar.close()
             self.train_pbar = None
-        if self.dummy_pbar:
-            self.dummy_pbar.close()
-            self.dummy_pbar = None
 
-    # def fit_end(self, state: State, logger: Logger) -> None:
-    #     if ProgressBarLogger.dummy_pbar:
-    #         ProgressBarLogger.dummy_pbar.close()
-    #         ProgressBarLogger.dummy_pbar = None
+    def fit_end(self, state: State, logger: Logger) -> None:
+        if ProgressBarLogger.dummy_pbar:
+            ProgressBarLogger.dummy_pbar.close()
+            ProgressBarLogger.dummy_pbar = None
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if self.eval_pbar:
