@@ -750,8 +750,7 @@ class Trainer:
         self._device = _get_device(device)
 
         # Distributed
-        self.use_dist = deepspeed_enabled or dist.get_world_size() > 1
-        if self.use_dist:
+        if deepspeed_enabled or dist.get_world_size() > 1:
             # deepspeed requires torch.distributed to be initialized, even if the world size is 1
             # distributed is always required with multi-rank training
             dist.initialize_dist(self._device.dist_backend, datetime.timedelta(seconds=dist_timeout))
@@ -1667,16 +1666,14 @@ class Trainer:
 
             # Use monitored barrier to error on deadlock. If one rank OOMs and another doesn't and gets stuck
             # on a dist reduction in gradient syncronization, the monitored barrier will fail after the timeout.
-            if self.use_dist:
-                try:
-                    group_gloo = torch.distributed.new_group(backend='gloo')
-                    torch.distributed.monitored_barrier(group=group_gloo, timeout=datetime.timedelta(seconds=300))
-                except:
-                    log.error('A deadlock was encountered in the train loop, likely because a strict subset of '
-                              'ranks encountered CUDA OOM. If `grad_accum=auto`, try manually setting `grad_accum` '
-                              'instead. If `grad_accum` is not set to `auto`, try increasing `grad_accum` as at '
-                              'least one rank encountered a CUDA OOM error.')
-                    raise
+            try:
+                dist.monitored_barrier(timeout=datetime.timedelta(seconds=300))
+            except Exception as e:
+                raise RuntimeError(
+                    'A deadlock was encountered in the train loop, likely because a strict subset of '
+                    'ranks encountered CUDA OOM. If `grad_accum=auto`, try manually setting `grad_accum` '
+                    'instead. If `grad_accum` is not set to `auto`, try increasing `grad_accum` as at '
+                    'least one rank encountered a CUDA OOM error.') from e
             # Propagate across all ranks if any rank hit CUDA OOM
             should_handle_cuda_oom = self._device.tensor_to_device(
                 torch.tensor([should_handle_cuda_oom], dtype=torch.uint8))
