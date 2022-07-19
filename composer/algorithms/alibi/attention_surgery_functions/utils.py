@@ -30,13 +30,16 @@ def register_surgery_function_builder(
     `ReplacementFunction` it returns, then using the resulting `policies` mapping to perform
     model surgery:
 
+    .. testsetup::
+        from composer.utils import module_surgery
+        max_sequence_length = 128
+
     .. testcode::
 
         from composer.algorithms.alibi.attention_surgery_functions import replacement_policy_mapping_builder
-        from composer.utils import module_surgery
 
         policies = {
-            module: surgery_function_builder(max_sequence_length)
+            module: surgery_function_builder(max_sequence_length=128)
             for module, surgery_function_builder in replacement_policy_mapping_builder.items()
         }
 
@@ -47,7 +50,6 @@ def register_surgery_function_builder(
     registry by defining instances of `SurgeryFunctionBuilder` functions and decorating them with
     :func:`register_surgery_function_builder`. For example:
 
-    .. testcode::
         from composer.algorithms.alibi.attention_surgery_functions.utils import register_surgery_function_builder
         from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
 
