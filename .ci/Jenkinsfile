@@ -290,15 +290,6 @@ stage('Prepare') {
         if (env.CHANGE_ID) {
             // Use the origin/pr/PR_NUMBER/merge to support commits in external repos
             gitCommit = "origin/pr/${pullRequest.number}/merge"
-
-            // Require that all pullRequests link to a JIRA story
-            // Why? Makes it much easier to find which commits to cherry-pick into any given release, based
-            // off of the "fix version" field in JIRA
-
-            if (!pullRequest.body.contains('https://mosaicml.atlassian.net/browse/CO-')) {
-                pullRequest.comment('The PR description must contain a link to the corresponding JIRA bug or story')
-            }
-
         }
 
         echo "gitUrl: $gitUrl"
@@ -430,6 +421,16 @@ stage('Build') {
     }
     try {
         parallel(jobs)
+
+        if (env.CHANGE_ID && !pullRequest.body.contains('https://mosaicml.atlassian.net/browse/CO-')) {
+            error(
+                'The PR built successfully, but the PR description is missing a link to the corresponding ' +
+                'JIRA issue. All PRs require a JIRA issue link to simplify release management. ' +
+                'If you are a MosaicML employee, please add a link of the form ' +
+                'https://mosaicml.atlassian.net/browse/CO-XXX into the PR description, where XXX is the issue ' +
+                'number. If you are an external contributor, we will add this link for you into the PR description.'
+            )
+        }
     }
     finally {
         stage('Merge Artifacts') {
@@ -444,9 +445,7 @@ stage('Build') {
                     )
                 }
 
-                if (env.CHANGE_ID && !pullRequest.body.contains('https://mosaicml.atlassian.net/browse/CO-')) {
-                    error('The PR description must contain a link to the corresponding JIRA bug or story')
-                }
+
 
                 sh "mkdir -p $buildOutputFolder"
 
