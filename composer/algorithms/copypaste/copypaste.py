@@ -8,26 +8,19 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Optional, Tuple, Union
 
-import os
-from cv2 import resize
 from numpy.random import default_rng
 import numpy as np
-import matplotlib.pyplot as plt
 import random
 import torch
-from torch import Tensor
-from torch.nn import functional as F
 import torchvision.transforms as T
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
-from composer.loss.utils import check_for_index_targets
 
 
 log = logging.getLogger(__name__)
 
 __all__ = ['CopyPaste', 'copypaste_batch']
-
 
 
 def copypaste_batch(input_dict, convert_to_binary_mask=True, max_copied_instances=None):
@@ -65,7 +58,40 @@ def copypaste_batch(input_dict, convert_to_binary_mask=True, max_copied_instance
 
     return output_dict
 
+
+class CopyPaste(Algorithm):
+    """
+    Randomly pastes objects onto an image.
+    """
+
+    def __init__(
+        self,
+        input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
+        target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
+    ):
+        self.input_key = input_key
+        self.target_key = target_key
+
+    def match(self, event: Event, state: State) -> bool:
+        return event == Event.AFTER_DATALOADER
+
+    def apply(self, event: Event, state: State, logger: Logger) -> None:
+        input_dict = {
+            "images": [],
+            "masks": []
+        }
+
+        input_dict["images"] = state.batch_get_item(key=self.input_key)
+        input_dict["masks"] = state.batch_get_item(key=self.target_key)
+
+        augmented_dict = copypaste_batch(input_dict)  
+
+        state.batch_set_item(key=self.input_key, value=augmented_dict["images"])
+        state.batch_set_item(key=self.target_key, value=augmented_dict["masks"])
+
+
 def _copypaste_instance(input_dict, trg_image, trg_masks, i, j, src_instance_id, convert_to_binary_mask):
+    # TODO: implement LSJ & SSJ here depending on the hyperparam
     src_masks = input_dict["masks"][i]
     src_instance_mask = src_masks[src_instance_id]
     src_image = input_dict["images"][i]
@@ -79,7 +105,6 @@ def _copypaste_instance(input_dict, trg_image, trg_masks, i, j, src_instance_id,
 
     trg_image = torch.where(src_instance_mask==0, trg_image, 0)
     trg_image = torch.clamp(trg_image + src_instance, min=0, max=1)
-
 
     for idx, trg_mask in enumerate(trg_masks):
         # TODO: here check if mask area is smaller than a threshold, disregard the mask
@@ -112,34 +137,3 @@ def _jitter_instance(image, mask):
     jittered_mask = trns(mask) 
 
     return jittered_image, jittered_mask
-
-
-
-class CopyPaste(Algorithm):
-    """
-    Randomly pastes objects onto an image.
-    """
-
-    def __init__(
-        self,
-        input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
-        target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
-    ):
-        self.input_key, self.target_key = input_key, target_key
-
-    def match(self, event: Event, state: State) -> bool:
-        return event == Event.AFTER_DATALOADER
-
-    def apply(self, event: Event, state: State, logger: Logger) -> None:
-        input_dict = {
-            "images": [],
-            "masks": []
-        }
-
-        input_dict["images"] = state.batch_get_item(key=self.input_key)
-        input_dict["masks"] = state.batch_get_item(key=self.target_key)
-
-        augmented_dict = copypaste_batch(input_dict)  
-
-        state.batch_set_item(key=self.input_key, value=augmented_dict)
-        state.batch_set_item(key=self.target_key, value=augmented_dict)
