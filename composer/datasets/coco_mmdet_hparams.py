@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import yahp as hp
 
-from composer.datasets.coco_mmdet import coco_mmdet
+from composer.datasets.coco_mmdet import coco_mmdet, mmdet_collate
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams, DataSpec
 
 
@@ -18,10 +18,8 @@ class COCOMMDetHparams(DatasetHparams):
 
     def initialize_object(self, batch_size:int, dataloader_hparams:DataLoaderHparams) -> DataSpec:
         dataset = coco_mmdet(self.path, self.split)
-
-        from mmcv.parallel import collate
         return dataloader_hparams.initialize_object(dataset,
                                                 batch_size=batch_size,
                                                 sampler=None,
                                                 drop_last=self.drop_last
-                                                collate_fn=collate)
+                                                collate_fn=mmdet_collate)
