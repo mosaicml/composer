@@ -68,9 +68,11 @@ def apply_alibi(
         replaced_pairs (dict[torch.nn.Module, torch.nn.Module]): Returned if `output_replaced_pairs`
             is `True`, otherwise returns None.
     """
+    # Validate that `replacement_policy_mapping_builder` was populated successfully
+    _check_builder_mapping(replacement_policy_mapping_builder)
 
     # To use model surgery utilities, we need to define a policy of type
-    # Mapping[torch.nn.Module, ReplacementFunction], where ReplacementFunction is
+    # Mapping[Type[torch.nn.Module], ReplacementFunction], where ReplacementFunction is
     # Callable[[torch.nn.Module, Optional[int]], Optional[torch.nn.Module]].
     #
     # This mapping is built by the source code in `./attention_surgery_functions/` but
@@ -93,6 +95,26 @@ def apply_alibi(
 
     if output_replaced_pairs:
         return replaced_pairs
+
+
+def _check_builder_mapping(builder_mapping: dict):
+    # This should be populated, and we can return without raising errors if it is
+    if len(builder_mapping) > 0:
+        return
+
+    # If it wasn't populated, first check to see if `transformers` package is missing
+    else:
+        from composer.utils import MissingConditionalImportError
+
+        # pyright: reportUnusedImport=none
+        try:
+            import transformers
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
+
+    # If we're here, there was an unknown error when importing the registry
+    raise ImportError('Failed to populate the module surgery registry when '
+                      ' importing from composer.algorithms.alibi.attention_surgery_function.')
 
 
 class Alibi(Algorithm):
