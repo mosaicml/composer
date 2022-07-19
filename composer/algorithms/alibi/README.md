@@ -21,20 +21,10 @@ ALiBi (Attention with Linear Biases) dispenses with position embeddings for toke
 import torch
 import composer.functional as cf
 
-from composer.algorithms.alibi._gpt2_alibi import _attn
-from composer.algorithms.alibi._gpt2_alibi import enlarge_mask
-from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
-
 def training_loop(model, train_loader):
     cf.apply_alibi(
         model=model,
-        heads_per_layer=12,
         max_sequence_length=8192,
-        position_embedding_attribute="module.transformer.wpe",
-        attention_module=GPT2Attention,
-        attr_to_replace="_attn",
-        alibi_attention=_attn,
-        mask_replacement_function=enlarge_mask
     )
 
     opt = torch.optim.Adam(model.parameters())
@@ -62,11 +52,8 @@ from composer.algorithms import Alibi
 from composer.trainer import Trainer
 
 alibi = Alibi(
-    position_embedding_attribute="module.transformer.wpe",
-    attention_module_name="transformers.models.gpt2.modeling_gpt2.GPT2Attention",
-    attr_to_replace="_attn",
-    alibi_attention="composer.algorithms.alibi._gpt2_alibi._attn",
-    mask_replacement_function="composer.algorithms.alibi._gpt2_alibi.enlarge_mask"
+    max_sequence_length=8192,
+    train_sequence_length_scaling=0.25,
 )
 
 trainer = Trainer(
@@ -83,7 +70,7 @@ trainer.fit()
 
 ALiBi is implemented as follows. On `Event.INIT`:
 1. The model's position embeddings are expanded to accommodate sequences of up to length `max_sequence_length` and then "bypassed" by setting them to zero and freezing them.
-2. The attribute that computes the self-attention (`attr_to_replace`) in the model's self-attention modules (`attention_module_name`) is replaced with an ALiBi-enabled self-attention method (`alibi_attention`) using graph surgery.
+2. The attribute that computes the self-attention in the model's self-attention modules is replaced with an ALiBi-enabled self-attention method using graph surgery. Our implementation builds a registry that maps module types to their graph surgery functions. **Note:** you may need to add to the registry if your model's self-attention and embedding modules are not included in the registry.
 3. On `Event.AFTER_DATALOADER`, the length of training data sequences in a batch are scaled by `train_sequence_length_scaling` by reshaping the data tensors.
 
 
@@ -125,4 +112,4 @@ We conducted experiments on the GPT-2 model family trained on OpenWebText on 8x 
 
 [*Train Short, Test Long: Attention with Linear Biases Enables Input Length Extrapolation*](https://openreview.net/forum?id=R8sQPpGCv0) by Ofir Press, Noah A. Smith, and Mike Lewis. Published in ICLR 2022.
 
-*The Composer implementation of this method and the accompanying documentation were produced by Matthew Leavitt at MosaicML.*
+*The Composer implementation of this method and the accompanying documentation were produced by Matthew Leavitt and Alex Trott at MosaicML.*
