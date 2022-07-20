@@ -73,16 +73,25 @@ class _ProgressBar:
                 formatted_data['loss/train'] = format_log_data_value(state.loss)
             self.pbar.set_postfix(formatted_data)
         else:
-            class LookupFormatter(string.Formatter):
-                def get_value(self, key, args, kwds):
-                    if isinstance(key, str):
-                        return format_log_data_value(kwds.get(key, '{' + key + '}'))
-                    else:
-                        return string.Formatter.get_value(key, args, kwds)
-            fmt = LookupFormatter()
+            class format_dict(dict):
+                def __missing__(self, key):
+                    return '{' + str(key) + '}'
+                
+                def __getitem__(self, __k):
+                    return format_log_data_value(super().__getitem__(__k)).replace('"', '')
+                
+                # def __getitem__(self, key):
+                #     return super().__getitem__(key)
+            
+            # class LookupFormatter(string.Formatter):
+            #     def get_value(self, key, args, kwds):
+            #         if isinstance(key, str):
+            #             return format_log_data_value(kwds.get(key, '{' + key + '}'))
+            #         else:
+            #             return string.Formatter.get_value(key, args, kwds)
             current_metrics = state.current_metrics.get(dataloader_label, {})
-            metric_string = fmt.format(self.metric_string, current_metrics)
-            metric_string = fmt.format(metric_string, state.__dict__)
+            metric_string = self.metric_string.format_map(format_dict(current_metrics))
+            metric_string = metric_string.format_map(format_dict(state.__dict__))
             self.pbar.set_postfix_str(metric_string)
 
     def update(self, n=1):
