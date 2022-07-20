@@ -38,6 +38,9 @@ def run_trainer_with_mock_pbar(monkeypatch: MonkeyPatch, trainer: Trainer):
 
     trainer.fit()
 
+    if dist.get_local_rank() != 0:
+        return
+
     return mock_tqdms_train, mock_tqdms_eval
 
 
@@ -72,10 +75,10 @@ def test_progress_bar_logger(max_duration: Time[int], monkeypatch: MonkeyPatch, 
         eval_subset_num_batches=eval_subset_num_batches,
     )
 
+    mock_tqdms_train, mock_tqdms_eval = run_trainer_with_mock_pbar(monkeypatch, trainer)
+
     if dist.get_local_rank() != 0:
         return
-
-    mock_tqdms_train, mock_tqdms_eval = run_trainer_with_mock_pbar(monkeypatch, trainer)
 
     # test train pbar
     if max_duration.unit == TimeUnit.EPOCH:
@@ -138,10 +141,10 @@ def test_progress_bar_dataloader_label(max_duration: Time[int], monkeypatch: Mon
         loggers=[ProgressBarLogger(True, dataloader_label='eval2'),
                  ProgressBarLogger(True, dataloader_label='train')])
 
+    mock_tqdms_train, mock_tqdms_eval = run_trainer_with_mock_pbar(monkeypatch, trainer)
+
     if dist.get_local_rank() != 0:
         return
-
-    mock_tqdms_train, mock_tqdms_eval = run_trainer_with_mock_pbar(monkeypatch, trainer)
 
     # test train pbar
     if max_duration.unit == TimeUnit.EPOCH:
