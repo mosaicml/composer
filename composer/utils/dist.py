@@ -66,7 +66,7 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 # monitored_barrier requires gloo backend, which is initialized as a global variable
-gloo_group = None
+group_gloo = None
 
 
 def _get_distributed_config_var(
