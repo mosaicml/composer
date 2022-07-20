@@ -38,9 +38,6 @@ def run_trainer_with_mock_pbar(monkeypatch: MonkeyPatch, trainer: Trainer):
 
     trainer.fit()
 
-    if dist.get_local_rank() != 0:
-        return
-
     return mock_tqdms_train, mock_tqdms_eval
 
 
