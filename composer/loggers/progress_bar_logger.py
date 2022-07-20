@@ -6,9 +6,8 @@
 from __future__ import annotations
 
 import os
-import string
 import sys
-from typing import Any, Callable, Dict, List, Optional, TextIO, Union
+from typing import Any, Callable, Dict, Optional, TextIO, Union
 
 import tqdm.auto
 
@@ -20,9 +19,6 @@ from composer.utils import dist
 
 __all__ = ['ProgressBarLogger']
 
-#_IS_TRAIN_TO_KEYS_TO_LOG = {True: ['loss/train'], False: ['metrics/eval/Accuracy']}
-
-
 class _ProgressBar:
 
     def __init__(
@@ -32,13 +28,11 @@ class _ProgressBar:
         bar_format: str,
         file: TextIO,
         metrics: Dict[str, Any],
-        #keys_to_log: List[str],
         timestamp_key: str,
         is_train: bool,
         metric_string: Optional[str] = None,
         unit: str = 'it',
     ) -> None:
-        #self.keys_to_log = keys_to_log
         self.metrics = metrics
         self.metric_string = metric_string
         self.position = position
@@ -64,7 +58,6 @@ class _ProgressBar:
     def log_data(self, state: State):
         dataloader_label = state.dataloader_label
         if self.metric_string is None:
-            #formatted_data = {k: format_log_data_value(v) for (k, v) in data.items() if k in self.keys_to_log}
             formatted_data = {}
             current_metrics = state.current_metrics.get(dataloader_label, {})
             for current_metric, v in current_metrics.items():
@@ -79,16 +72,6 @@ class _ProgressBar:
                 
                 def __getitem__(self, __k):
                     return format_log_data_value(super().__getitem__(__k)).replace('"', '')
-                
-                # def __getitem__(self, key):
-                #     return super().__getitem__(key)
-            
-            # class LookupFormatter(string.Formatter):
-            #     def get_value(self, key, args, kwds):
-            #         if isinstance(key, str):
-            #             return format_log_data_value(kwds.get(key, '{' + key + '}'))
-            #         else:
-            #             return string.Formatter.get_value(key, args, kwds)
             current_metrics = state.current_metrics.get(dataloader_label, {})
             metric_string = self.metric_string.format_map(format_dict(current_metrics))
             metric_string = metric_string.format_map(format_dict(state.__dict__))
@@ -121,7 +104,6 @@ class _ProgressBar:
             'position': self.position,
             'bar_format': pbar_state['bar_format'],
             'metrics': self.metrics,
-            # 'keys_to_log': self.keys_to_log,
             'n': pbar_state['n'],
             'timestamp_key': self.timestamp_key,
         }
@@ -200,7 +182,6 @@ class ProgressBarLogger(LoggerDestination):
 
         self._show_pbar = progress_bar
         self.dataloader_label = dataloader_label
-        # Need to have a dummy progress bar in position 0, so the "real" progress bars in position 1 doesn't jump around
         self.bar_format = bar_format
         self.unit = unit
         self.metrics = metrics
@@ -346,7 +327,6 @@ class ProgressBarLogger(LoggerDestination):
                 total=1,
                 metrics={},
                 is_train=False,
-                # keys_to_log=[],
                 bar_format='{bar:-1b}',
                 timestamp_key='',
             )
