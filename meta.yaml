@@ -1,8 +1,10 @@
 # Build configuration for anaconda
 
+# {% set data = load_setup_py_data() %}
+
 package:
   name: mosaicml
-  version: "0.8.0"
+  version: "{{ data.get('version') }}"
 
 source:
   git_url: ./
