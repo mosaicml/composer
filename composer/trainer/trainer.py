@@ -793,6 +793,8 @@ class Trainer:
         # Grad Accum
         self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
         grad_accum = _get_initial_grad_accum(grad_accum)
+        # Dynamic time estimate for forward and backward pass. Used for monitored_barrier to avoid deadlocks
+        self.batch_compute_time = 300
 
         # Grad Clip Norm
         if grad_clip_norm > 0:
@@ -1634,6 +1636,7 @@ class Trainer:
 
         # Retry until we successfully complete training and return loss
         while True:
+            start_time = time.time()
             total_loss = None
             # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
             should_handle_cuda_oom = 0
@@ -1663,17 +1666,23 @@ class Trainer:
                     should_handle_cuda_oom = 1
                 else:
                     raise
+            end_time = time.time()
 
             # Use monitored barrier to error on deadlock. If one rank OOMs and another doesn't and gets stuck
             # on a dist reduction in gradient syncronization, the monitored barrier will fail after the timeout.
             try:
-                dist.monitored_barrier(timeout=datetime.timedelta(seconds=300))
+                dist.monitored_barrier(timeout=datetime.timedelta(seconds=max(10, 0.5 * self.batch_compute_time)))
             except RuntimeError as e:
                 raise RuntimeError(
                     'A deadlock was encountered in the train loop, likely because a strict subset of '
                     'ranks encountered CUDA OOM. If `grad_accum=auto`, try manually setting `grad_accum` '
                     'instead. If `grad_accum` is not set to `auto`, try increasing `grad_accum` as at '
                     'least one rank encountered a CUDA OOM error.') from e
+            # Synchronize new batch compute time
+            batch_compute_time = end_time - start_time
+            batch_compute_time = self._device.tensor_to_device(torch.tensor([batch_compute_time], dtype=torch.uint8))
+            dist.all_reduce(batch_compute_time, reduce_operation='MAX')
+            self.batch_compute_time = batch_compute_time.item()
             # Propagate across all ranks if any rank hit CUDA OOM
             should_handle_cuda_oom = self._device.tensor_to_device(
                 torch.tensor([should_handle_cuda_oom], dtype=torch.uint8))

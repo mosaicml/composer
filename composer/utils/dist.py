@@ -65,6 +65,9 @@ __all__ = [
 
 log = logging.getLogger(__name__)
 
+# monitored_barrier requires gloo backend, which is initialized as a global variable
+gloo_group = None
+
 
 def _get_distributed_config_var(
     env_var: str,
@@ -174,8 +177,8 @@ def monitored_barrier(timeout: Optional[datetime.timedelta] = None) -> None:
     .. seealso:: :func:`torch.distributed.barrier`
     """
     if dist.is_available() and dist.is_initialized():
-        # monitored_barrier requires gloo backend
-        group_gloo = dist.new_group(backend='gloo')
+        # monitored_barrier requires gloo backend, which is initialized as a global variable
+        global group_gloo
         dist.monitored_barrier(group=group_gloo, timeout=datetime.timedelta(seconds=300))
         return
     world_size = get_world_size()
@@ -427,6 +430,10 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
         return
 
     dist.init_process_group(backend, timeout=timeout)
+
+    # monitored_barrier requires gloo backend, which is initialized as a global variable
+    global group_gloo
+    group_gloo = dist.new_group(backend='gloo')
 
 
 def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool, shuffle: bool):
