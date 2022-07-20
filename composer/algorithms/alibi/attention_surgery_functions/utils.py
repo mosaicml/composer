@@ -30,23 +30,20 @@ def register_surgery_function_builder(
     `ReplacementFunction` it returns, then using the resulting `policies` mapping to perform
     model surgery:
 
-    .. testsetup::
-        from composer.utils import module_surgery
-        max_sequence_length = 128
-
-    .. testcode::
+    .. code-block::
 
         from composer.algorithms.alibi.attention_surgery_functions import replacement_policy_mapping_builder
+        from composer.utils import module_surgery
 
         policies = {
-            module: surgery_function_builder(max_sequence_length=128)
+            module: surgery_function_builder(max_sequence_length)
             for module, surgery_function_builder in replacement_policy_mapping_builder.items()
         }
 
         module_surgery.replace_module_classes(model, policies=policies)
 
 
-    Implementation files (e.g., `../attention_surgery_functions/_gpt2.py`) populate the `replacement_policy_mapping_builder`
+    Implementation files (e.g., `_gpt2.py`) populate the `replacement_policy_mapping_builder`
     registry by defining instances of `SurgeryFunctionBuilder` functions and decorating them with
     :func:`register_surgery_function_builder`. For example:
 
