@@ -172,5 +172,5 @@ def _jitter_instance(arrs, configs):
 
 def _ignore_mask(occluded_mask, threshold):
     # TODO: here check if mask area is smaller than a threshold, disregard the mask
-
+    # TODO: check if the mask is too big, ignore them (this relates to the abnormal masks in ADE20K)
     return False
