@@ -7,9 +7,6 @@ TODO: complete the documenetation.
 Notes:
 - add thresholding for small masks
 - mention how you define masks (0 & 1)
--
-
-
 """
 
 from __future__ import annotations
@@ -37,7 +34,6 @@ def copypaste_batch(input_dict, configs):
     Randomly pastes objects onto an image.
     """
 
-
     output_dict = {
      "masks": [],
      "images": []
@@ -52,7 +48,6 @@ def copypaste_batch(input_dict, configs):
         num_copied_instances = random.randint(0, num_instances)
         if configs["max_copied_instances"] is not None:
             num_copied_instances = min(num_copied_instances, configs["max_copied_instances"])
-
 
         rng = default_rng()
         src_instance_ids = rng.choice(num_instances, size=num_copied_instances, replace=False)
@@ -77,11 +72,29 @@ class CopyPaste(Algorithm):
 
     def __init__(
         self,
+        p=1.0,
+        convert_to_binary_mask=True,
+        max_copied_instances=None,
+        area_threshold=100,
+        padding_factor=0.5,
+        jitter_scale=(0.01, 0.99),
+        jitter_ratio=(1.0, 1.0),
+        p_flip=1.0,
         input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
         target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
     ):
         self.input_key = input_key
         self.target_key = target_key
+        self.configs = {
+            "p": p,
+            "convert_to_binary_mask": convert_to_binary_mask,
+            "max_copied_instances": max_copied_instances,
+            "area_threshold": area_threshold,
+            "padding_factor": padding_factor,
+            "jitter_scale": jitter_scale,
+            "jitter_ratio": jitter_ratio,
+            "p_flip": p_flip
+        }
 
     def match(self, event: Event, state: State) -> bool:
         return event == Event.AFTER_DATALOADER
@@ -95,7 +108,7 @@ class CopyPaste(Algorithm):
         input_dict["images"] = state.batch_get_item(key=self.input_key)
         input_dict["masks"] = state.batch_get_item(key=self.target_key)
 
-        augmented_dict = copypaste_batch(input_dict, configs)  
+        augmented_dict = copypaste_batch(input_dict, self.configs)  
 
         state.batch_set_item(key=self.input_key, value=augmented_dict["images"])
         state.batch_set_item(key=self.target_key, value=augmented_dict["masks"])
@@ -112,7 +125,7 @@ def _copypaste_instance(input_dict, trg_image, trg_masks, i, src_instance_id, co
 
     src_instance = torch.mul(src_image, src_instance_mask)
 
-    src_instance, src_instance_mask = _jitter_instance(src_instance, src_instance_mask, configs)
+    [src_instance, src_instance_mask] = _jitter_instance([src_instance, src_instance_mask], configs)
 
     trg_image = torch.where(src_instance_mask==0, trg_image, 0)
     trg_image = torch.clamp(trg_image + src_instance, min=0, max=1)
@@ -136,23 +149,25 @@ def _get_occluded_mask(src_instance_mask, trg_mask, configs):
         return occluded_mask
 
 
-def _jitter_instance(image, mask, configs):    
+def _jitter_instance(arrs, configs):    
+    out = []
     jitter_seed = random.randint(0, MAX_TORCH_SEED)
-    torch.random.manual_seed(jitter_seed)
-    random.seed(jitter_seed)
+    
+    padding_size = (int(configs["padding_factor"] * arrs[0].size(dim=1)), int(configs["padding_factor"] * arrs[0].size(dim=2)))
+    crop_size = (arrs[0].size(dim=1), arrs[0].size(dim=2))
 
     trns = T.Compose([
-        T.Pad(padding=(int(configs["padding_factor"] * image.size(dim=1)), int(configs["padding_factor"] * image.size(dim=2))), fill=0, padding_mode="constant"),
-        T.RandomResizedCrop(size=(image.size(dim=1), image.size(dim=2)), scale=configs["jitter_scale"], ratio=configs["jitter_ratio"]), 
+        T.Pad(padding=padding_size, fill=0, padding_mode="constant"),
+        T.RandomResizedCrop(size=crop_size, scale=configs["jitter_scale"], ratio=configs["jitter_ratio"]), 
         T.RandomHorizontalFlip(p=configs["p_flip"])
         ])
 
-    jittered_image = trns(image) 
-    torch.random.manual_seed(jitter_seed)
-    random.seed(jitter_seed)
-    jittered_mask = trns(mask) 
+    for arr in arrs:
+        torch.random.manual_seed(jitter_seed)
+        random.seed(jitter_seed)
+        out.append(trns(arr))
 
-    return jittered_image, jittered_mask
+    return out
 
 
 def _ignore_mask(occluded_mask, threshold):
