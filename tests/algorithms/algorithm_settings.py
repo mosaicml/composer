@@ -214,6 +214,9 @@ def get_algs_with_marks():
         if alg_cls in (Alibi, GatedLinearUnits, SeqLengthWarmup):
             pytest.importorskip('transformers')
 
+        if _settings[alg_cls] is simple_bert_settings:
+            marks.append(pytest.mark.timeout(15))  # bert settings require the model to be downloaded from the HF hub
+
         if alg_cls == SWA:
             # TODO(matthew): Fix
             marks.append(
