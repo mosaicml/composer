@@ -28,7 +28,6 @@ log = logging.getLogger(__name__)
 
 __all__ = ['CopyPaste', 'copypaste_batch']
 
-
 def copypaste_batch(input_dict, configs):
     """
     Randomly pastes objects onto an image.
@@ -174,3 +173,4 @@ def _ignore_mask(occluded_mask, threshold):
     # TODO: here check if mask area is smaller than a threshold, disregard the mask
     # TODO: check if the mask is too big, ignore them (this relates to the abnormal masks in ADE20K)
     return False
+
