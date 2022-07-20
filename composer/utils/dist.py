@@ -420,6 +420,10 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
         get_node_rank(),
     )
 
+    # monitored_barrier requires gloo backend, which is initialized as a global variable
+    global group_gloo
+    group_gloo = dist.new_group(backend='gloo')
+
     dist_env_vars_match_defaults = all(os.environ.get(k, v) == v for (k, v) in dist_env_var_defaults.items())
 
     if dist_env_vars_match_defaults:
@@ -429,10 +433,6 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
         return
 
     dist.init_process_group(backend, timeout=timeout)
-
-    # monitored_barrier requires gloo backend, which is initialized as a global variable
-    global group_gloo
-    group_gloo = dist.new_group(backend='gloo')
 
 
 def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool, shuffle: bool):
