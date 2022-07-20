@@ -388,7 +388,6 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
         raise RuntimeError('When the world size is > 1, ``torch.distributed`` must be used. However, it is '
                            'not available in your installation of PyTorch. Please install or build PyTorch '
                            'with distributed support.')
-        return
 
     if dist.is_initialized():
         if dist.get_backend() != backend.lower():
