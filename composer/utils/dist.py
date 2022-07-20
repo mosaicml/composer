@@ -60,9 +60,13 @@ __all__ = [
     'initialize_dist',
     'is_available',
     'is_initialized',
+    'monitored_barrier',
 ]
 
 log = logging.getLogger(__name__)
+
+# monitored_barrier requires gloo backend, which is initialized as a global variable
+group_gloo = None
 
 
 def _get_distributed_config_var(
@@ -154,6 +158,28 @@ def barrier() -> None:
     """
     if dist.is_available() and dist.is_initialized():
         dist.barrier()
+        return
+    world_size = get_world_size()
+    if world_size == 1:
+        return
+    raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
+                       'available or has not been initialized. Please check you have initialized '
+                       'the distributed runtime and that PyTorch has been built with distributed '
+                       'support.')
+
+
+def monitored_barrier(timeout: Optional[datetime.timedelta] = None) -> None:
+    """Synchronizes all processes.
+
+    This function blocks until all processes reach this function. Unlike `barrier`, `monitored_barrier`
+    times out and raises an error if not all ranks reach this function by `timeout`.
+
+    .. seealso:: :func:`torch.distributed.barrier`
+    """
+    if dist.is_available() and dist.is_initialized():
+        # monitored_barrier requires gloo backend, which is initialized as a global variable
+        global group_gloo
+        dist.monitored_barrier(group=group_gloo, timeout=datetime.timedelta(seconds=300))
         return
     world_size = get_world_size()
     if world_size == 1:
@@ -362,7 +388,6 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
         raise RuntimeError('When the world size is > 1, ``torch.distributed`` must be used. However, it is '
                            'not available in your installation of PyTorch. Please install or build PyTorch '
                            'with distributed support.')
-        return
 
     if dist.is_initialized():
         if dist.get_backend() != backend.lower():
@@ -401,9 +426,12 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
         # Fill in the remaining single-rank variables
         os.environ.update(dist_env_var_defaults)
         dist.init_process_group(backend, store=dist.HashStore(), world_size=1, rank=0)
-        return
+    else:
+        dist.init_process_group(backend, timeout=timeout)
 
-    dist.init_process_group(backend, timeout=timeout)
+    # monitored_barrier requires gloo backend, which is initialized as a global variable
+    global group_gloo
+    group_gloo = dist.new_group(backend='gloo')
 
 
 def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool, shuffle: bool):
