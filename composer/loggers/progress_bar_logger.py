@@ -24,7 +24,7 @@ class FormatDict(dict):
         return '{' + str(key) + '}'
     
     def __getitem__(self, __k):
-        return format_log_data_value(super().__getitem__(__k)).replace('"', '')
+        return format_log_data_value(super().__getitem__(__k)).replace('\"', '')
 
 class _ProgressBar:
 
@@ -62,13 +62,14 @@ class _ProgressBar:
             unit=unit,
         )
 
-    def log_data(self, state: State, dataloader_label: str):
+    def log_data(self, state: State):
+        dataloader_label = state.dataloader_label
         if self.metric_string is None:
             formatted_data = {}
-            current_metrics = state.current_metrics.get(dataloader_label, {})
-            for current_metric, v in current_metrics.items():
+            curr_metrics = state.current_metrics.get(dataloader_label, {})
+            for current_metric, v in curr_metrics.items():
                 formatted_data[current_metric] = format_log_data_value(v)
-            if self.is_train:
+            if self.is_train and state.timestamp.batch_in_epoch != 0:
                 formatted_data['loss/train'] = format_log_data_value(state.loss)
             self.pbar.set_postfix(formatted_data)
         else:
@@ -173,7 +174,6 @@ class ProgressBarLogger(LoggerDestination):
         bar_format: str = '{l_bar}{bar:25}{r_bar}{bar:-1b}',
         dataloader_label: Optional[str] = None,
         log_to_console: Optional[bool] = None,
-        unit: TimeUnit = TimeUnit.BATCH,
         metrics: Optional[str] = None,
         console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         stream: Union[str, TextIO] = sys.stderr,
@@ -182,7 +182,6 @@ class ProgressBarLogger(LoggerDestination):
         self._show_pbar = progress_bar
         self.dataloader_label = dataloader_label
         self.bar_format = bar_format
-        self.unit = unit
         self.metrics = metrics
         self.train_pbar: Optional[_ProgressBar] = None
         self.eval_pbar: Optional[_ProgressBar] = None
@@ -226,7 +225,7 @@ class ProgressBarLogger(LoggerDestination):
         current_pbar = self.eval_pbar if self.eval_pbar is not None else self.train_pbar
         if current_pbar:
             # Logging outside an epoch
-            current_pbar.log_data(state, self.dataloader_label)
+            current_pbar.log_data(state)
 
         # log to console
         if self.should_log(state, log_level):
