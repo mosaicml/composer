@@ -107,7 +107,8 @@ def get_dataset(name: str,
     return (expected_samples, dataset)
 
 
-@pytest.mark.remote()
+@pytest.mark.remote
+@pytest.mark.xfail(reason='Test is broken. See https://mosaicml.atlassian.net/browse/CO-762')
 def test_upload_streaming_dataset(tmp_path: pathlib.Path, s3_bucket: str):
     num_samples = 1000
     original_path = str(tmp_path / 'original')
@@ -133,6 +134,7 @@ def test_upload_streaming_dataset(tmp_path: pathlib.Path, s3_bucket: str):
     'cifar10',
 ])
 @pytest.mark.parametrize('split', ['val'])
+@pytest.mark.xfail(reason='Test is broken. See https://mosaicml.atlassian.net/browse/CO-762')
 def test_streaming_remote_dataset(tmp_path: pathlib.Path, name: str, split: str) -> None:
 
     # Build StreamingDataset
