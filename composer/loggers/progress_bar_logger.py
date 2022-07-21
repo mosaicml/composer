@@ -37,9 +37,9 @@ class _ProgressBar:
         position: int,
         bar_format: str,
         file: TextIO,
-        dataloader_label_to_metrics: Dict[str, Any],
         timestamp_key: str,
-        is_train: bool,
+        dataloader_label_to_metrics: Optional[Dict[str, Union[str, bool]]] = None,
+        is_train: bool = False,
         unit: str = 'it',
     ) -> None:
         self.position = position
@@ -67,13 +67,16 @@ class _ProgressBar:
         dataloader_label = state.dataloader_label
         if not self.dataloader_label_to_metrics or not self.dataloader_label_to_metrics.get(dataloader_label):
             metrics_dict = state.current_metrics.get(dataloader_label, {})
-            formatted_data = {k: format_log_data_value(v) for (k, v) in metrics_dict}
+            formatted_data = {k: format_log_data_value(v) for (k, v) in metrics_dict.items()}
+            if self.is_train:
+                formatted_data['loss/train'] = format_log_data_value(state.loss)
             self.pbar.set_postfix(formatted_data)
         else:
             metric_string = self.dataloader_label_to_metrics.get(dataloader_label)
             if isinstance(metric_string, str):
                 current_metrics = state.current_metrics.get(dataloader_label, {})
                 metric_string = metric_string.format_map(FormatDict(current_metrics))
+                metric_string = metric_string.format_map(FormatDict(state.__dict__))
                 self.pbar.set_postfix_str(metric_string)
 
     def update(self, n=1):
@@ -208,7 +211,7 @@ class ProgressBarLogger(LoggerDestination):
         current_pbar = self.eval_pbar if self.eval_pbar is not None else self.train_pbar
         if current_pbar:
             # Logging outside an epoch
-            current_pbar.log_data(state)
+            current_pbar.update_metrics(state)
 
         # log to console
         if self.should_log(state, log_level):
@@ -291,6 +294,7 @@ class ProgressBarLogger(LoggerDestination):
             file=self.stream,
             total=total,
             position=position,
+            dataloader_label_to_metrics=self.dataloader_label_to_metrics,
             is_train=is_train,
             bar_format=desc + ' ' + self.bar_format,
             unit=unit.value.lower(),
@@ -303,8 +307,6 @@ class ProgressBarLogger(LoggerDestination):
             file=self.stream,
             position=0,
             total=1,
-            metrics={},
-            keys_to_log=[],
             bar_format='{bar:-1b}',
             timestamp_key='',
         )
@@ -352,7 +354,7 @@ class ProgressBarLogger(LoggerDestination):
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if self.eval_pbar:
-            self.eval_pbar.log_data(state)
+            self.eval_pbar.update_metrics(state)
             self.eval_pbar.close()
             self.eval_pbar = None
 
