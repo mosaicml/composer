@@ -1,21 +1,15 @@
+#callbacks:
+#  speed_monitor:
 train_dataset:
-  imagenet:
-    resize_size: -1
-    crop_size: 224
-    is_train: true
-    datadir: /mnt/gcp/datasets/ImageNet
+  streaming_imagenet1k: # Configuration for ImageNet training data
+    split: train
     shuffle: true
     drop_last: true
-    use_synthetic: true
 val_dataset:
-  imagenet:
-    resize_size: 256
-    crop_size: 224
-    is_train: false
-    datadir: /mnt/gcp/datasets/ImageNet
+  streaming_imagenet1k: # Configuration for ImageNet validation data
+    split: val
     shuffle: false
     drop_last: false
-    use_synthetic: true
 optimizers:
   decoupled_sgdw:
     lr: 2.048
@@ -23,9 +17,9 @@ optimizers:
     weight_decay: 5.0e-4
     dampening: 0
     nesterov: false
-schedulers:
-  - cosine_decay_with_warmup:
-      t_warmup: "8ep"
+schedulers: {}
+  #- cosine_decay_with_warmup:
+  #    t_warmup: "8ep"
 model:
   resnet:
     model_name: resnet50
@@ -38,8 +32,6 @@ eval_interval: 91ep
 train_batch_size: 512
 eval_batch_size: 256
 seed: 17
-device:
-  tpu: {}
 dataloader:
   num_workers: 8
 grad_accum: 1
