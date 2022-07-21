@@ -37,17 +37,15 @@ class _ProgressBar:
         position: int,
         bar_format: str,
         file: TextIO,
-        metrics: Dict[str, Any],
+        dataloader_label_to_metrics: Dict[str, Any],
         timestamp_key: str,
         is_train: bool,
-        metric_string: Optional[str] = None,
         unit: str = 'it',
     ) -> None:
-        self.metrics = metrics
-        self.metric_string = metric_string
         self.position = position
         self.timestamp_key = timestamp_key
         self.file = file
+        self.dataloader_label_to_metrics = dataloader_label_to_metrics
         is_atty = os.isatty(self.file.fileno())
         self.is_train = is_train
         self.pbar = tqdm.auto.tqdm(
@@ -61,25 +59,22 @@ class _ProgressBar:
             # by printing a dummy newline and refreshing to force tqdm to print to a stale line
             # But on k8s, we need `leave=True`, as it would otherwise overwrite the pbar in place
             leave=not is_atty,
-            postfix=metrics,
+            postfix={},
             unit=unit,
         )
 
-    def log_data(self, state: State):
+    def update_metrics(self, state: State):
         dataloader_label = state.dataloader_label
-        if self.metric_string is None:
-            formatted_data = {}
-            curr_metrics = state.current_metrics.get(dataloader_label, {})
-            for current_metric, v in curr_metrics.items():
-                formatted_data[current_metric] = format_log_data_value(v)
-            if self.is_train and state.timestamp.batch_in_epoch != 0:
-                formatted_data['loss/train'] = format_log_data_value(state.loss)
+        if not self.dataloader_label_to_metrics or not self.dataloader_label_to_metrics.get(dataloader_label):
+            metrics_dict = state.current_metrics.get(dataloader_label, {})
+            formatted_data = {k: format_log_data_value(v) for (k, v) in metrics_dict}
             self.pbar.set_postfix(formatted_data)
         else:
-            current_metrics = state.current_metrics.get(dataloader_label, {})
-            metric_string = self.metric_string.format_map(FormatDict(current_metrics))
-            metric_string = metric_string.format_map(FormatDict(state.__dict__))
-            self.pbar.set_postfix_str(metric_string)
+            metric_string = self.dataloader_label_to_metrics.get(dataloader_label)
+            if isinstance(metric_string, str):
+                current_metrics = state.current_metrics.get(dataloader_label, {})
+                metric_string = metric_string.format_map(FormatDict(current_metrics))
+                self.pbar.set_postfix_str(metric_string)
 
     def update(self, n=1):
         self.pbar.update(n=n)
@@ -107,7 +102,6 @@ class _ProgressBar:
             'total': pbar_state['total'],
             'position': self.position,
             'bar_format': pbar_state['bar_format'],
-            'metrics': self.metrics,
             'n': pbar_state['n'],
             'timestamp_key': self.timestamp_key,
         }
@@ -135,24 +129,16 @@ class ProgressBarLogger(LoggerDestination):
         progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
         bar_format (str, optional): The format string passed into `tqdm <https://tqdm.github.io/docs/tqdm/#__init__>`_.
             (default: ``'{l_bar}{bar:25}{r_bar}{bar:-1b}'``)
-        dataloader_label (str, optional): The label for the dataloader that the progress bar is tracking.
+        dataloader_label_to_metrics (Dict[str, Union[bool, str]], optional): A dictionary specifying which metrics to 
+            log in the progress bar.
 
-            If no ``dataloader_label`` is specified, then the logger will track all dataloaders.
+            If this parameter is ``None``, then the progress bar will print all metrics on all progress bars. If
+            ``dataloader_label_to_metrics[dl_label]`` is ``True``, print all metrics for that dataloader. Otherwise,
+            print all the metrics listed in the string ``dataloader_label_to_metrics[dl_label]`` e.g. ``'accuracy={accuracy}'``
         log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
 
             The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is
-            ``False`` and ``dataloader_label`` is not specified.
-        metrics (optional, str): A format string of metrics to include.
-
-			All elements in ``state.metrics[state.dataloader_label]``, in addition
-			to the ``state``, are passed as format variables to the metrics.
-
-			This allows arbitrary elements of the state to be logged -- e.g::
-
-			    metrics="loss={state.loss}, lr={state.optimizers[0].lr}, accuracy={accuracy}"
-
-            By default, all elements of ``state.metrics[state.dataloader_label]``
-	        are logged. If training, the training loss is also logged.
+            ``False``.
         console_log_level (LogLevel | str | (State, LogLevel) -> bool, optional): The maximum log level for which statements
             should be printed. (default: :attr:`.LogLevel.EPOCH`)
 
@@ -166,26 +152,23 @@ class ProgressBarLogger(LoggerDestination):
             ``'stderr'``. (default: :attr:`sys.stderr`)
     """
 
-    # The dummy pbar is to fix issues when streaming progress bars over k8s, where the progress bar in position 0
-    # doesn't update until it is finished.
-    # class variable because one dummy pbar per ProgressBarLogger adds multiple lines to the pbar output
-    dummy_pbar: Optional[_ProgressBar] = None
-
     def __init__(
         self,
         progress_bar: bool = True,
         bar_format: str = '{l_bar}{bar:25}{r_bar}{bar:-1b}',
-        dataloader_label: Optional[str] = None,
+        dataloader_label_to_metrics: Optional[Dict[str, Union[bool, str]]] = None,
         log_to_console: Optional[bool] = None,
-        metrics: Optional[str] = None,
         console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         stream: Union[str, TextIO] = sys.stderr,
     ) -> None:
 
         self._show_pbar = progress_bar
-        self.dataloader_label = dataloader_label
+        # The dummy pbar is to fix issues when streaming progress bars over k8s, where the progress bar in position 0
+        # doesn't update until it is finished.
+        # Need to have a dummy progress bar in position 0, so the "real" progress bars in position 1 doesn't jump around
+        self.dummy_pbar: Optional[_ProgressBar] = None
+        self.dataloader_label_to_metrics = dataloader_label_to_metrics
         self.bar_format = bar_format
-        self.metrics = metrics
         self.train_pbar: Optional[_ProgressBar] = None
         self.eval_pbar: Optional[_ProgressBar] = None
 
@@ -193,10 +176,7 @@ class ProgressBarLogger(LoggerDestination):
             console_log_level = LogLevel(console_log_level)
 
         if log_to_console is None:
-            log_to_console = not progress_bar and dataloader_label is None
-
-        if dataloader_label is not None:
-            log_to_console = False
+            log_to_console = not progress_bar
 
         if not log_to_console:
             # never log to console
@@ -314,41 +294,37 @@ class ProgressBarLogger(LoggerDestination):
             is_train=is_train,
             bar_format=desc + ' ' + self.bar_format,
             unit=unit.value.lower(),
-            metrics={},
-            metric_string=self.metrics,
             timestamp_key=timestamp_key,
         )
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        if ProgressBarLogger.dummy_pbar is None:
-            ProgressBarLogger.dummy_pbar = _ProgressBar(
-                file=self.stream,
-                position=0,
-                total=1,
-                metrics={},
-                is_train=False,
-                bar_format='{bar:-1b}',
-                timestamp_key='',
-            )
+        self.dummy_pbar = _ProgressBar(
+            file=self.stream,
+            position=0,
+            total=1,
+            metrics={},
+            keys_to_log=[],
+            bar_format='{bar:-1b}',
+            timestamp_key='',
+        )
 
     def epoch_start(self, state: State, logger: Logger) -> None:
-        # Make sure dataloader_label is the training dataloader_label
-        if self.dataloader_label is None or state.dataloader_label == self.dataloader_label:
-            if self.show_pbar and not self.train_pbar:
-                self.train_pbar = self._build_pbar(state=state, is_train=True)
+        if self.show_pbar and not self.train_pbar:
+            self.train_pbar = self._build_pbar(state=state, is_train=True)
 
     def eval_start(self, state: State, logger: Logger) -> None:
-        if self.dataloader_label is None or state.dataloader_label == self.dataloader_label:
-            if self.show_pbar:
-                self.eval_pbar = self._build_pbar(state, is_train=False)
+        if self.show_pbar:
+            self.eval_pbar = self._build_pbar(state, is_train=False)
 
     def batch_end(self, state: State, logger: Logger) -> None:
         if self.train_pbar:
+            self.train_pbar.update_metrics(state)
             self.train_pbar.update_to_timestamp(state.timestamp)
 
     def eval_batch_end(self, state: State, logger: Logger) -> None:
         if self.eval_pbar:
+            self.eval_pbar.update_metrics(state)
             self.eval_pbar.update_to_timestamp(state.eval_timestamp)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
@@ -357,7 +333,7 @@ class ProgressBarLogger(LoggerDestination):
         # If the duration is in other units, then one progress bar will be used for all of training.
         assert state.max_duration is not None, 'max_duration should be set'
         if self.train_pbar and state.max_duration.unit == TimeUnit.EPOCH:
-            self.train_pbar.log_data(state)
+            self.train_pbar.update_metrics(state)
             self.train_pbar.close()
             self.train_pbar = None
 
@@ -370,11 +346,9 @@ class ProgressBarLogger(LoggerDestination):
         if self.train_pbar:
             self.train_pbar.close()
             self.train_pbar = None
-
-    def fit_end(self, state: State, logger: Logger) -> None:
-        if ProgressBarLogger.dummy_pbar:
-            ProgressBarLogger.dummy_pbar.close()
-            ProgressBarLogger.dummy_pbar = None
+        if self.dummy_pbar:
+            self.dummy_pbar.close()
+            self.dummy_pbar = None
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if self.eval_pbar:
