@@ -24,7 +24,7 @@ import composer.functional as cf
 def training_loop(model, train_loader):
     cf.apply_alibi(
         model=model,
-        max_sequence_length=8192,
+        max_sequence_length=1024,
     )
 
     opt = torch.optim.Adam(model.parameters())
@@ -62,7 +62,7 @@ from composer.algorithms import Alibi
 from composer.trainer import Trainer
 
 alibi = Alibi(
-    max_sequence_length=8192,
+    max_sequence_length=1024,
     train_sequence_length_scaling=0.25,
 )
 

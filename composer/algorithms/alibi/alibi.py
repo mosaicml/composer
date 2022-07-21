@@ -23,7 +23,7 @@ __all__ = ['Alibi', 'apply_alibi']
 
 def apply_alibi(
     model: torch.nn.Module,
-    max_sequence_length: int = 8192,
+    max_sequence_length: int,
     optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
     output_replaced_pairs: bool = False,
 ) -> Union[Mapping[torch.nn.Module, torch.nn.Module], None]:
@@ -43,15 +43,24 @@ def apply_alibi(
 
         cf.apply_alibi(
             model=model,
-            max_sequence_length=8192,
+            max_sequence_length=512
         )
 
     Args:
         model (torch.nn.Module): Model to transform.
-        max_sequence_length (int, optional): Maximum sequence length that the
-            model will be able to accept. This is sometimes necessary for evaluating
-            on sequence lengths longer than the model was initialized to
-            accommodate. Default: ``8192``.
+        max_sequence_length (int): Maximum sequence length that the
+            model will be able to accept. Internally, the transformations applied by alibi
+            change sequence-shaped tensors to handle sequences up to ``max_sequence_length``.
+            Depending on ``max_sequence_length`` and ``model`` these changes could increase
+            or decrease the model's maximum sequence length.
+
+            At minimum, ``max_sequence_length`` should be set to the sequence length used
+            during training. However, if evaluating on sequence lengths longer than those
+            used in training, ``max_sequence_length`` should be set accordingly.
+
+            Note that larger ``max_sequence_length`` means a larger memory footprint of
+            the model. So, it is best to set this parameter equal the longest
+            sequence length that will be seen during training and/or evaluation.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
             Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
             constructed with ``model.parameters()`` must be specified here so
@@ -142,7 +151,7 @@ class Alibi(Algorithm):
         from composer.trainer import Trainer
 
         alibi = Alibi(
-            max_sequence_length=8192,
+            max_sequence_length=512,
             train_sequence_length_scaling=0.25,
         )
 
@@ -157,7 +166,7 @@ class Alibi(Algorithm):
         max_sequence_length (int): Maximum sequence length that the
             model will be able to accept. This is sometimes necessary for evaluating
             on sequence lengths longer than the model was initialized to
-            accommodate. Default: ``8192``.
+            accommodate.
         train_sequence_length_scaling (float, optional): Amount by which to scale
             training sequence length. One batch of training data will be
             reshaped from shape :math:`(sequence\\_length, batch)` to
@@ -165,7 +174,7 @@ class Alibi(Algorithm):
             \\frac{batch}{train\\_sequence\\_length\\_scaling})`. Default: ``0.25``.
     """
 
-    def __init__(self, max_sequence_length: int = 8192, train_sequence_length_scaling: float = 0.25) -> None:
+    def __init__(self, max_sequence_length: int, train_sequence_length_scaling: float = 0.25) -> None:
 
         # self.position_embedding_attribute = position_embedding_attribute
         self.max_sequence_length = max_sequence_length
