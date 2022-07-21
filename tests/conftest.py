@@ -4,7 +4,7 @@
 import logging
 import os
 import pathlib
-from typing import Any, List, Optional
+from typing import List, Optional
 
 import pytest
 import torch
@@ -51,7 +51,7 @@ if torch.cuda.is_available():
 def _add_option(parser: pytest.Parser,
                 name: str,
                 help: str,
-                default: Optional[Any] = None,
+                default: Optional[str] = None,
                 choices: Optional[List[str]] = None):
     parser.addoption(
         f'--{name}',
@@ -68,7 +68,7 @@ def _add_option(parser: pytest.Parser,
     )
 
 
-def _get_option(config: pytest.Config, name: str, skip: bool = False) -> str:
+def _get_option(config: pytest.Config, name: str, skip: bool = False) -> Optional[str]:
     val = config.getoption(name)
     if val is not None:
         assert isinstance(val, str)
@@ -76,14 +76,14 @@ def _get_option(config: pytest.Config, name: str, skip: bool = False) -> str:
     val = config.getini(name)
     if val is None and skip:
         pytest.skip(f'Config option {name} is not specified; skipping test')
-    assert isinstance(val, str)
+    assert val is None or isinstance(val, str)
     return val
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     _add_option(parser,
                 'seed',
-                default=0,
+                default='0',
                 help="""\
         Rank zero seed to use. `reproducibility.seed_all(seed + dist.get_global_rank())` will be invoked
         before each test.""")
@@ -160,8 +160,8 @@ def set_loglevels():
 def rank_zero_seed(pytestconfig: pytest.Config) -> int:
     """Read the rank_zero_seed from the CLI option."""
     seed = _get_option(pytestconfig, 'seed')
-    assert isinstance(seed, int)
-    return seed
+    assert seed is not None
+    return int(seed)
 
 
 @pytest.fixture(autouse=True)
