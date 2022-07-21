@@ -1,8 +1,9 @@
+run_name: test
 train_dataset:
   cifar10:
     datadir: /mnt//CIFAR10
     is_train: true
-    download: false
+    download: true
     shuffle: true
     drop_last: true
     use_synthetic: true
@@ -10,22 +11,16 @@ val_dataset:
   cifar10:
     datadir: /mnt/CIFAR10
     is_train: false
-    download: false
+    download: true
     shuffle: false
     drop_last: false
     use_synthetic: true
-optimizer:
+optimizers:
   decoupled_sgdw:
     lr: 1.2
     momentum: 0.9
     weight_decay: 2.0e-3
-schedulers:
-  - multistep_with_warmup:
-      t_warmup: "5ep"
-      milestones:
-        - "80ep"
-        - "120ep"
-      gamma: 0.1
+schedulers: {}
 model:
   resnet_cifar:
     model_name: resnet_56
@@ -37,8 +32,6 @@ train_batch_size: 128
 eval_batch_size: 128
 seed: 17
 grad_accum: 1
-device:
-  tpu: {}
 dataloader:
   num_workers: 8
 precision: fp16

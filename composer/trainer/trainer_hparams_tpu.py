@@ -21,7 +21,7 @@ import composer
 #from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.algorithms.algorithm_hparams_registry import algorithm_registry
 from composer.callbacks.callback_hparams_registry import callback_registry
-from composer.core import DataSpec, Evaluator, Event, Precision, State, Time
+from composer.core import Algorithm, Callback, DataSpec, Evaluator, Event, Precision, State, Time
 from composer.core.types import JSON, PyTorchScheduler
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_hparams_registry import dataset_registry
@@ -183,7 +183,7 @@ class TrainerTPUHparams(hp.Hparams):
     )
 
     # Algorithms
-    #algorithms: List[AlgorithmHparams] = hp.optional(doc="Algorithms", default_factory=list)
+    algorithms: List[Algorithm] = hp.optional(doc="Algorithms", default_factory=list)
 
     # Optimizer and Scheduler
     optimizers: Optional[OptimizerHparams] = hp.optional(doc="Optimizer to use", default=None)
@@ -212,7 +212,7 @@ class TrainerTPUHparams(hp.Hparams):
     )
 
     # Callbacks
-    #callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
+    callbacks: List[Callback] = hp.optional(doc="Callback hparams", default_factory=list)
 
     # Logging
     #loggers: List[LoggerDestinationHparams] = hp.optional(doc="loggers to use", default_factory=list)
@@ -322,7 +322,7 @@ class TrainerTPUHparams(hp.Hparams):
     )
 
     # Profiling
-    #profiler: Optional[ProfilerHparams] = hp.optional(doc="Profiler parameters", default=None)
+    profiler: Optional[Profiler] = hp.optional(doc="Profiler parameters", default=None)
 
     def validate(self):
         super().validate()
@@ -378,7 +378,7 @@ class TrainerTPUHparams(hp.Hparams):
         model = self.model.initialize_object()
 
         # Loggers, Callbacks, and Algorithms
-        loggers = [x.initialize_object() for x in self.loggers]
+        #loggers = [x.initialize_object() for x in self.loggers]
         callbacks = [x.initialize_object() for x in self.callbacks]
         algorithms = [x.initialize_object() for x in self.algorithms]
 
@@ -397,7 +397,7 @@ class TrainerTPUHparams(hp.Hparams):
         )
 
         # Optimizers and Schedulers
-        optimizer = self.optimizer.initialize_object(model.parameters()) if self.optimizer is not None else None
+        optimizer = self.optimizers.initialize_object(model.parameters()) if self.optimizers is not None else None
         schedulers = [scheduler.initialize_object() for scheduler in self.schedulers]
 
         load_object_store = None
@@ -405,11 +405,7 @@ class TrainerTPUHparams(hp.Hparams):
             raise ValueError(
                 "load_object_store and load_logger_destination cannot both be non-None. Please provide only one location to load from."
             )
-        elif self.load_object_store is not None:
-            load_object_store = self.load_object_store.initialize_object()
-        elif self.load_logger_destination is not None:
-            load_object_store = self.load_logger_destination.initialize_object()
-
+        
         trainer = TrainerTPU(
             # Model
             model=model,
@@ -441,7 +437,7 @@ class TrainerTPUHparams(hp.Hparams):
             callbacks=callbacks,
 
             # Logging
-            loggers=loggers,
+            #loggers=loggers,
             run_name=self.run_name,
             progress_bar=self.progress_bar,
             log_to_console=self.log_to_console,

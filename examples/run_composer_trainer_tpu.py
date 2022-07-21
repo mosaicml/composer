@@ -37,7 +37,7 @@ def train():
         with tempfile.NamedTemporaryFile(mode="x+") as f:
             f.write(hparams.to_yaml())
             trainer.logger.file_artifact(LogLevel.FIT,
-                                         artifact_name=f"{trainer.logger.run_name}/hparams.yaml",
+                                         artifact_name='bla',
                                          file_path=f.name,
                                          overwrite=True)
     import torch_xla.core.xla_model as xm
