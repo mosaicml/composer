@@ -149,7 +149,7 @@ class ProgressBarLogger(LoggerDestination):
             ``dataloader_label_to_metrics[dl_label]`` is ``True``, it prints all metrics for that dataloader. Otherwise,
             print all the metrics listed in the string ``dataloader_label_to_metrics[dl_label]``
 
-            If ``dataloader_label_to_metrics[dl_label]`` is a string, the progress bar can access state variables and 
+            If ``dataloader_label_to_metrics[dl_label]`` is a string, the progress bar can access state variables and
             metrics for the relevant dataloader. Example: `'loss={state.loss}, accuracy={Accuracy}'`
         log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
 
