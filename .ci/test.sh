@@ -52,4 +52,4 @@ make test-dist \
     WORLD_SIZE=2 \
     EXTRA_LAUNCHER_ARGS="--stdout ${BUILD_DIR}/build${BUILD_NUMBER}_nproc2_rank{rank}.stdout.txt \
         --stderr ${BUILD_DIR}/build${BUILD_NUMBER}_nproc2_rank{rank}.stderr.txt" \
-    EXTRA_ARGS="--junitxml ${BUILD_DIR}/build${BUILD_NUMBER}_rank${RANK_ARG}_nproc2.junit.xml -$COMMON_ARGS"
+    EXTRA_ARGS="--junitxml ${BUILD_DIR}/build${BUILD_NUMBER}_rank${RANK_ARG}_nproc2.junit.xml $COMMON_ARGS"
