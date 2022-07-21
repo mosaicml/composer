@@ -51,4 +51,4 @@ def _mp_fn(index):
     
 if __name__ == "__main__":
     import torch_xla.distributed.xla_multiprocessing as xmp
-    xmp.spawn(_mp_fn, args=(), nprocs=8)
+    xmp.spawn(_mp_fn, args=(), nprocs=8, start_method='fork')

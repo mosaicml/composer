@@ -1,5 +1,5 @@
-#callbacks:
-#  speed_monitor:
+callbacks:
+  speed_monitor:
 train_dataset:
   streaming_imagenet1k: # Configuration for ImageNet training data
     split: train
@@ -27,7 +27,7 @@ model:
       - kaiming_normal
       - bn_uniform
     num_classes: 1000
-max_duration: 90ep
+max_duration: 10ep
 eval_interval: 91ep
 train_batch_size: 512
 eval_batch_size: 256

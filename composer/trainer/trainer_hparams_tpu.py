@@ -215,7 +215,7 @@ class TrainerTPUHparams(hp.Hparams):
     callbacks: List[Callback] = hp.optional(doc="Callback hparams", default_factory=list)
 
     # Logging
-    #loggers: List[LoggerDestinationHparams] = hp.optional(doc="loggers to use", default_factory=list)
+    loggers: List[LoggerDestination] = hp.optional(doc="loggers to use", default_factory=list)
     run_name: Optional[str] = hp.optional("Experiment name", default=None)
     progress_bar: bool = hp.optional("Whether to show a progress bar.", default=True)
     log_to_console: Optional[bool] = hp.optional("Whether to print log statements to the console.", default=None)
@@ -379,7 +379,7 @@ class TrainerTPUHparams(hp.Hparams):
 
         # Loggers, Callbacks, and Algorithms
         #loggers = [x.initialize_object() for x in self.loggers]
-        callbacks = [x.initialize_object() for x in self.callbacks]
+        #callbacks = [x.initialize_object() for x in self.callbacks]
         algorithms = [x.initialize_object() for x in self.algorithms]
 
         # Train dataloader
@@ -434,10 +434,10 @@ class TrainerTPUHparams(hp.Hparams):
             eval_subset_num_batches=self.eval_subset_num_batches,
 
             # Callbacks
-            callbacks=callbacks,
+            callbacks=self.callbacks,
 
             # Logging
-            #loggers=loggers,
+            loggers=self.loggers,
             run_name=self.run_name,
             progress_bar=self.progress_bar,
             log_to_console=self.log_to_console,
