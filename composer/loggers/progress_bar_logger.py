@@ -140,8 +140,8 @@ class ProgressBarLogger(LoggerDestination):
 
     Args:
         progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
-        bar_format (str, optional): The format string passed into `tqdm <https://tqdm.github.io/docs/tqdm/#__init__>`_.
-            (default: ``'{l_bar}{bar:25}{r_bar}{bar:-1b}'``)
+        bar_format (str, optional): The format string passed into the tqdm progress bar. More info
+            `here <https://tqdm.github.io/docs/tqdm/#__init__>`_. (default: ``'{l_bar}{bar:25}{r_bar}{bar:-1b}'``)
         dataloader_label_to_metrics (Dict[str, Union[bool, str]], optional): A dictionary specifying which metrics to
             log in the progress bar.
 
