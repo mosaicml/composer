@@ -85,11 +85,11 @@ def check_batch_reshaping(before, after, length):
         assert k in before, 'No keys should be added during sequence reshaping.'
 
 
+@pytest.mark.timeout(15)
 @pytest.mark.parametrize('synthetic_state_family', ['bert', 'gpt2'])
-@pytest.mark.parametrize('double_sequence_length', [False, True])
 class TestAlibi:
 
-    def test_functional(self, synthetic_state_family: str, double_sequence_length: bool):
+    def test_functional(self, synthetic_state_family: str):
         state, _, dataloader = make_synthetic_state(synthetic_state_family)
         if synthetic_state_family == 'gpt2':
             max_sequence_length = state.model.config.n_positions
@@ -98,8 +98,7 @@ class TestAlibi:
         else:
             raise NotImplementedError('Tests not implemented for synthetic_state_family=' + synthetic_state_family)
 
-        if double_sequence_length:
-            max_sequence_length = 2 * max_sequence_length
+        #### With default sequence length ####
 
         # Apply ALiBi using the functional
         replaced_pairs = apply_alibi(
@@ -116,15 +115,34 @@ class TestAlibi:
 
         # Try a forward/backward at the max sequence length
         batch = next(iter(dataloader))
-        if double_sequence_length:
-            batch = _double_batch_sequence_length(batch)
         assert batch['input_ids'].shape[1] == max_sequence_length
 
         check_forward_backward(state.model, batch)
 
+        #### With double sequence length ####
+
+        # Apply ALiBi using the functional
+        replaced_pairs = apply_alibi(
+            model=state.model,
+            max_sequence_length=2 * max_sequence_length,
+            output_replaced_pairs=True,
+        )
+
+        # Ensure that the expected number of modules were affected
+        check_number_of_modules_replaced(synthetic_state_family, state.model, replaced_pairs)
+
+        # Ensure that the position embeddings are properly shaped and zeroed
+        check_position_embeddings(synthetic_state_family, state.model, 2 * max_sequence_length)
+
+        # Try a forward/backward at the max sequence length
+        batch = next(iter(dataloader))
+        batch = _double_batch_sequence_length(batch)
+        assert batch['input_ids'].shape[1] == 2 * max_sequence_length
+
+        check_forward_backward(state.model, batch)
+
     @pytest.mark.parametrize('train_sequence_length_scaling', [0.25, 1.0])
-    def test_algorithm(self, synthetic_state_family: str, empty_logger: Logger, double_sequence_length: bool,
-                       train_sequence_length_scaling: float):
+    def test_algorithm(self, synthetic_state_family: str, empty_logger: Logger, train_sequence_length_scaling: float):
         state, _, dataloader = make_synthetic_state(synthetic_state_family)
 
         if synthetic_state_family == 'gpt2':
@@ -133,9 +151,6 @@ class TestAlibi:
             max_sequence_length = state.model.config.max_position_embeddings
         else:
             raise NotImplementedError('Tests not implemented for synthetic_state_family=' + synthetic_state_family)
-
-        if double_sequence_length:
-            max_sequence_length = 2 * max_sequence_length
 
         # Synthetic dataset has a size of 2 batches per epoch (max duration = 1ep)
         alibi = Alibi(
@@ -146,8 +161,6 @@ class TestAlibi:
         alibi.apply(Event.INIT, state, empty_logger)
 
         batch_before = next(iter(dataloader))
-        if double_sequence_length:
-            batch_before = _double_batch_sequence_length(batch_before)
         state.batch = deepcopy(batch_before)
 
         # Apply any batch reshaping
