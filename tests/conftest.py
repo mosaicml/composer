@@ -95,7 +95,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
                              Tests are short if their timeout < 2 seconds
                              (configurable threshold). Default: all.""")
     _add_option(parser, 'sftp_uri', help='SFTP URI for integration tests.')
-    _add_option(parser, 's3_uri', help='S3 URI for integration tests')
+    _add_option(parser, 's3_bucket', help='S3 Bucket for integration tests')
 
 
 def _get_timeout(item: pytest.Item, default: float):
@@ -202,5 +202,5 @@ def sftp_uri(pytestconfig: pytest.Config):
 
 
 @pytest.fixture
-def s3_uri(pytestconfig: pytest.Config):
-    return _get_option(pytestconfig, 's3_uri', skip=True)
+def s3_bucket(pytestconfig: pytest.Config):
+    return _get_option(pytestconfig, 's3_bucket', skip=True)

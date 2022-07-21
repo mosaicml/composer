@@ -11,8 +11,8 @@ MARKERS="$2"
 # Integration test settings
 export WANDB_ENTITY='mosaicml-public-integration-tests'
 export WANDB_PROJECT='integration-tests'
-S3_URI = 's3://mosaicml-internal-integration-testing/integration-tests'
-SFTP_URI = 'ftp://mosaicml-integration-testing@s-c07c6cb0dd1441dbb.server.transfer.us-west-2.amazonaws.com:mosaicml-internal-integration-testing'
+S3_BUCKET = 'mosaicml-internal-integration-testing'
+SFTP_URI = 'sftp://mosaicml-integration-testing@s-c07c6cb0dd1441dbb.server.transfer.us-west-2.amazonaws.com:mosaicml-internal-integration-testing'
 
 
 # Install dependencies
@@ -36,7 +36,7 @@ function cleanup()
 
 trap cleanup EXIT
 
-COMMON_ARGS="-v -m '$MARKERS' --s3_uri '$S3_URI' --sftp_uri '$SFTP_URI'"
+COMMON_ARGS="-v -m '$MARKERS' --s3_bucket '$S3_BUCKET' --sftp_uri '$SFTP_URI'"
 
 # Set the run directory to build/output, which will be caputred by Jenkins
 # Run pytest with coverage, and store the junit output
