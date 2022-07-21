@@ -32,7 +32,7 @@ log = logging.getLogger(__name__)
 def _get_parser():
     parser = ArgumentParser(description='Utility for launching distributed machine learning jobs.')
 
-    parser.add_argument('--version', action='version', version=f'composer {composer.__version__}')
+    parser.add_argument('--version', action='version', version=f'MosaicML Composer {composer.__version__}')
 
     required_args = parser.add_argument_group('required arguments')
 
