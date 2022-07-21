@@ -146,8 +146,11 @@ class ProgressBarLogger(LoggerDestination):
             log in the progress bar.
 
             If this parameter is ``None``, then the progress bar will print all metrics on all progress bars. If
-            ``dataloader_label_to_metrics[dl_label]`` is ``True``, print all metrics for that dataloader. Otherwise,
-            print all the metrics listed in the string ``dataloader_label_to_metrics[dl_label]`` e.g. ``'accuracy={accuracy}'``
+            ``dataloader_label_to_metrics[dl_label]`` is ``True``, it prints all metrics for that dataloader. Otherwise,
+            print all the metrics listed in the string ``dataloader_label_to_metrics[dl_label]``
+
+            If ``dataloader_label_to_metrics[dl_label]`` is a string, the progress bar can access state variables and 
+            metrics for the relevant dataloader. Example: `'loss={state.loss}, accuracy={Accuracy}'`
         log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
 
             The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is
