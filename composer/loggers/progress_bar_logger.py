@@ -70,6 +70,7 @@ class _ProgressBar:
 
     def update_metrics(self, state: State):
         dataloader_label = state.dataloader_label
+        assert dataloader_label is not None
         if self.dataloader_label_to_metrics is not None and dataloader_label in self.dataloader_label_to_metrics:
             entry = self.dataloader_label_to_metrics[dataloader_label]
             if isinstance(entry, str):
