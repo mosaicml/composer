@@ -357,6 +357,7 @@ class ProgressBarLogger(LoggerDestination):
         # If the duration is in other units, then one progress bar will be used for all of training.
         assert state.max_duration is not None, 'max_duration should be set'
         if self.train_pbar and state.max_duration.unit == TimeUnit.EPOCH:
+            self.train_pbar.log_data(state)
             self.train_pbar.close()
             self.train_pbar = None
 
@@ -377,6 +378,7 @@ class ProgressBarLogger(LoggerDestination):
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if self.eval_pbar:
+            self.eval_pbar.log_data(state)
             self.eval_pbar.close()
             self.eval_pbar = None
 
