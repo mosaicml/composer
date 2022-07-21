@@ -11,8 +11,8 @@ MARKERS="$2"
 # Integration test settings
 export WANDB_ENTITY='mosaicml-public-integration-tests'
 export WANDB_PROJECT='integration-tests'
-S3_BUCKET = 'mosaicml-internal-integration-testing'
-SFTP_URI = 'sftp://mosaicml-integration-testing@s-c07c6cb0dd1441dbb.server.transfer.us-west-2.amazonaws.com:mosaicml-internal-integration-testing'
+S3_BUCKET='mosaicml-internal-integration-testing'
+SFTP_URI='sftp://mosaicml-integration-testing@s-c07c6cb0dd1441dbb.server.transfer.us-west-2.amazonaws.com:mosaicml-internal-integration-testing'
 
 
 # Install dependencies
