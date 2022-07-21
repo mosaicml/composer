@@ -19,6 +19,13 @@ from composer.utils import dist
 
 __all__ = ['ProgressBarLogger']
 
+class FormatDict(dict):
+    def __missing__(self, key):
+        return '{' + str(key) + '}'
+    
+    def __getitem__(self, __k):
+        return format_log_data_value(super().__getitem__(__k)).replace('"', '')
+
 class _ProgressBar:
 
     def __init__(
@@ -55,8 +62,7 @@ class _ProgressBar:
             unit=unit,
         )
 
-    def log_data(self, state: State):
-        dataloader_label = state.dataloader_label
+    def log_data(self, state: State, dataloader_label: str):
         if self.metric_string is None:
             formatted_data = {}
             current_metrics = state.current_metrics.get(dataloader_label, {})
@@ -66,15 +72,9 @@ class _ProgressBar:
                 formatted_data['loss/train'] = format_log_data_value(state.loss)
             self.pbar.set_postfix(formatted_data)
         else:
-            class format_dict(dict):
-                def __missing__(self, key):
-                    return '{' + str(key) + '}'
-                
-                def __getitem__(self, __k):
-                    return format_log_data_value(super().__getitem__(__k)).replace('"', '')
             current_metrics = state.current_metrics.get(dataloader_label, {})
-            metric_string = self.metric_string.format_map(format_dict(current_metrics))
-            metric_string = metric_string.format_map(format_dict(state.__dict__))
+            metric_string = self.metric_string.format_map(FormatDict(current_metrics))
+            metric_string = metric_string.format_map(FormatDict(state.__dict__))
             self.pbar.set_postfix_str(metric_string)
 
     def update(self, n=1):
@@ -138,7 +138,7 @@ class ProgressBarLogger(LoggerDestination):
 
             The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is
             ``False`` and ``dataloader_label`` is not specified.
-        unit (str | TimeUnit, optional): The unit to measure progress in. Can be batches (default), tokens, or samples.
+        unit (TimeUnit, optional): The unit to measure progress in. Can be batches (default), tokens, or samples.
         metrics (optional, str): A format string of metrics to include.
 				
 			All elements in ``state.metrics[state.dataloader_label]``, in addition
@@ -174,7 +174,7 @@ class ProgressBarLogger(LoggerDestination):
         bar_format: str = '{l_bar}{bar:25}{r_bar}{bar:-1b}',
         dataloader_label: Optional[str] = None,
         log_to_console: Optional[bool] = None,
-        unit: Union[str, TimeUnit] = TimeUnit.BATCH,
+        unit: TimeUnit = TimeUnit.BATCH,
         metrics: Optional[str] = None,
         console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         stream: Union[str, TextIO] = sys.stderr,
@@ -227,7 +227,7 @@ class ProgressBarLogger(LoggerDestination):
         current_pbar = self.eval_pbar if self.eval_pbar is not None else self.train_pbar
         if current_pbar:
             # Logging outside an epoch
-            current_pbar.log_data(state)
+            current_pbar.log_data(state, self.dataloader_label)
 
         # log to console
         if self.should_log(state, log_level):
@@ -275,6 +275,15 @@ class ProgressBarLogger(LoggerDestination):
         max_duration_unit = None if state.max_duration is None else state.max_duration.unit
 
         if max_duration_unit == TimeUnit.EPOCH or max_duration_unit is None:
+            if self.unit == TimeUnit.SAMPLE:
+                total = int(state.dataloader_len) if state.dataloader_len is not None else None
+                timestamp_key = 'sample_in_epoch'
+                
+            elif self.unit == TimeUnit.TOKEN:
+                timestamp_key = 'token_in_epoch'
+            else:
+                self.unit = TimeUnit.BATCH
+
             total = int(state.dataloader_len) if state.dataloader_len is not None else None
             timestamp_key = 'batch_in_epoch'
 
