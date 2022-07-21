@@ -10,7 +10,7 @@ Our codebase builds off of the Hugging Face *[Transformers](https://huggingface.
 ## Example
 
 <!-- TODO: Address timeouts -->
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```python
 import transformers
 from composer.models import GPT2Model
