@@ -138,7 +138,6 @@ class ProgressBarLogger(LoggerDestination):
 
             The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is
             ``False`` and ``dataloader_label`` is not specified.
-        unit (TimeUnit, optional): The unit to measure progress in. Can be batches (default), tokens, or samples.
         metrics (optional, str): A format string of metrics to include.
 				
 			All elements in ``state.metrics[state.dataloader_label]``, in addition
@@ -275,15 +274,6 @@ class ProgressBarLogger(LoggerDestination):
         max_duration_unit = None if state.max_duration is None else state.max_duration.unit
 
         if max_duration_unit == TimeUnit.EPOCH or max_duration_unit is None:
-            if self.unit == TimeUnit.SAMPLE:
-                total = int(state.dataloader_len) if state.dataloader_len is not None else None
-                timestamp_key = 'sample_in_epoch'
-                
-            elif self.unit == TimeUnit.TOKEN:
-                timestamp_key = 'token_in_epoch'
-            else:
-                self.unit = TimeUnit.BATCH
-
             total = int(state.dataloader_len) if state.dataloader_len is not None else None
             timestamp_key = 'batch_in_epoch'
 
