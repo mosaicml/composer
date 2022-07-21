@@ -6,8 +6,9 @@
 from __future__ import annotations
 
 import os
+import string
 import sys
-from typing import Any, Callable, Dict, Optional, TextIO, Union
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence, TextIO, Union
 
 import tqdm.auto
 
@@ -20,13 +21,17 @@ from composer.utils import dist
 __all__ = ['ProgressBarLogger']
 
 
-class FormatDict(dict):
+class MetricFormatter(string.Formatter):
 
-    def __missing__(self, key):
-        return '{' + str(key) + '}'
+    def get_field(self, field_name: str, args: Sequence[Any], kwargs: Mapping[str, Any]) -> Any:
+        try:
+            obj, arg_used = super().get_field(field_name, args, kwargs)
+            return format_log_data_value(obj), arg_used
+        except (AttributeError, KeyError):
+            return '{' + str(field_name) + '}', None
 
-    def __getitem__(self, __k):
-        return format_log_data_value(super().__getitem__(__k)).replace('\"', '')
+    def format_field(self, value: Any, format_spec: str) -> Any:
+        return super().format_field(value, format_spec)
 
 
 class _ProgressBar:
@@ -65,19 +70,23 @@ class _ProgressBar:
 
     def update_metrics(self, state: State):
         dataloader_label = state.dataloader_label
-        if not self.dataloader_label_to_metrics or not self.dataloader_label_to_metrics.get(dataloader_label):
-            metrics_dict = state.current_metrics.get(dataloader_label, {})
-            formatted_data = {k: format_log_data_value(v) for (k, v) in metrics_dict.items()}
-            if self.is_train:
-                formatted_data['loss/train'] = format_log_data_value(state.loss)
-            self.pbar.set_postfix(formatted_data)
-        else:
-            metric_string = self.dataloader_label_to_metrics.get(dataloader_label)
-            if isinstance(metric_string, str):
-                current_metrics = state.current_metrics.get(dataloader_label, {})
-                metric_string = metric_string.format_map(FormatDict(current_metrics))
-                metric_string = metric_string.format_map(FormatDict(state.__dict__))
+        if self.dataloader_label_to_metrics is not None and dataloader_label in self.dataloader_label_to_metrics:
+            entry = self.dataloader_label_to_metrics[dataloader_label]
+            if isinstance(entry, str):
+                metric_string = entry
+                metrics = state.current_metrics.get(dataloader_label, {})
+                ft = MetricFormatter()
+                metric_string = ft.format(metric_string, state=state)
+                metric_string = ft.format(metric_string, **metrics)
                 self.pbar.set_postfix_str(metric_string)
+                return
+            elif not entry:
+                return
+        metrics_dict = state.current_metrics.get(dataloader_label, {})
+        formatted_data = {k: format_log_data_value(v) for (k, v) in metrics_dict.items()}
+        if self.is_train:
+            formatted_data['loss/train'] = format_log_data_value(state.loss)
+        self.pbar.set_postfix(formatted_data)
 
     def update(self, n=1):
         self.pbar.update(n=n)
@@ -132,7 +141,7 @@ class ProgressBarLogger(LoggerDestination):
         progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
         bar_format (str, optional): The format string passed into `tqdm <https://tqdm.github.io/docs/tqdm/#__init__>`_.
             (default: ``'{l_bar}{bar:25}{r_bar}{bar:-1b}'``)
-        dataloader_label_to_metrics (Dict[str, Union[bool, str]], optional): A dictionary specifying which metrics to 
+        dataloader_label_to_metrics (Dict[str, Union[bool, str]], optional): A dictionary specifying which metrics to
             log in the progress bar.
 
             If this parameter is ``None``, then the progress bar will print all metrics on all progress bars. If
