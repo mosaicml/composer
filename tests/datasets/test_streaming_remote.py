@@ -108,19 +108,13 @@ def get_dataset(name: str,
 
 
 @pytest.mark.remote()
-def test_upload_streaming_dataset(tmp_path: pathlib.Path, download_path: pathlib.Path):
+def test_upload_streaming_dataset(tmp_path: pathlib.Path, s3_bucket: str):
     num_samples = 1000
+    original_path = str(tmp_path / 'original')
+    download_path = str(tmp_path / 'downloaded')
     samples, decoders = get_fake_samples_decoders(num_samples)
-    write_synthetic_streaming_dataset(tmp_path.as_posix(),
-                                      samples,
-                                      shard_size_limit=1 >> 16,
-                                      upload='s3://streaming-upload-test-bucket/')
-    dataset = get_dataset('test_streaming_upload',
-                          download_path.as_posix(),
-                          'all',
-                          False,
-                          1,
-                          other_kwargs={'decoders': decoders})
+    write_synthetic_streaming_dataset(original_path, samples, shard_size_limit=1 >> 16, upload=f's3://{s3_bucket}/')
+    dataset = get_dataset('test_streaming_upload', download_path, 'all', False, 1, other_kwargs={'decoders': decoders})
     measured_samples = 0
     for _ in dataset:
         measured_samples += 1
