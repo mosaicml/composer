@@ -6,6 +6,7 @@ train_dataset:
     datadir: /mnt/gcp/datasets/ImageNet
     shuffle: true
     drop_last: true
+    use_synthetic: true
 val_dataset:
   imagenet:
     resize_size: 256
@@ -14,7 +15,8 @@ val_dataset:
     datadir: /mnt/gcp/datasets/ImageNet
     shuffle: false
     drop_last: false
-optimizer:
+    use_synthetic: true
+optimizers:
   decoupled_sgdw:
     lr: 2.048
     momentum: 0.875
