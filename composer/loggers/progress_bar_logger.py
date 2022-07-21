@@ -19,12 +19,15 @@ from composer.utils import dist
 
 __all__ = ['ProgressBarLogger']
 
+
 class FormatDict(dict):
+
     def __missing__(self, key):
         return '{' + str(key) + '}'
-    
+
     def __getitem__(self, __k):
         return format_log_data_value(super().__getitem__(__k)).replace('\"', '')
+
 
 class _ProgressBar:
 
@@ -140,14 +143,14 @@ class ProgressBarLogger(LoggerDestination):
             The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is
             ``False`` and ``dataloader_label`` is not specified.
         metrics (optional, str): A format string of metrics to include.
-				
+
 			All elements in ``state.metrics[state.dataloader_label]``, in addition
 			to the ``state``, are passed as format variables to the metrics.
 
 			This allows arbitrary elements of the state to be logged -- e.g::
 
 			    metrics="loss={state.loss}, lr={state.optimizers[0].lr}, accuracy={accuracy}"
-            
+
             By default, all elements of ``state.metrics[state.dataloader_label]``
 	        are logged. If training, the training loss is also logged.
         console_log_level (LogLevel | str | (State, LogLevel) -> bool, optional): The maximum log level for which statements

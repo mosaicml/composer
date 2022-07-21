@@ -192,17 +192,19 @@ def test_progress_bar_dataloader_label(max_duration: Time[int], monkeypatch: Mon
                            eval_interval=eval_interval,
                            subset_num_batches=eval_subset_num_batches)
 
-    trainer = Trainer(
-        model=model,
-        max_duration=max_duration,
-        eval_interval=eval_interval,
-        progress_bar=False,
-        eval_dataloader=[evaluator1, evaluator2],
-        compute_training_metrics=True,
-        train_dataloader=torch.utils.data.DataLoader(RandomClassificationDataset(), batch_size=batch_size),
-        eval_subset_num_batches=eval_subset_num_batches,
-        loggers=[ProgressBarLogger(True, dataloader_label='eval2', metrics='accuracy={Accuracy}'),
-                 ProgressBarLogger(True, dataloader_label='train', metrics ='loss={loss}')])
+    trainer = Trainer(model=model,
+                      max_duration=max_duration,
+                      eval_interval=eval_interval,
+                      progress_bar=False,
+                      eval_dataloader=[evaluator1, evaluator2],
+                      compute_training_metrics=True,
+                      train_dataloader=torch.utils.data.DataLoader(RandomClassificationDataset(),
+                                                                   batch_size=batch_size),
+                      eval_subset_num_batches=eval_subset_num_batches,
+                      loggers=[
+                          ProgressBarLogger(True, dataloader_label='eval2', metrics='accuracy={Accuracy}'),
+                          ProgressBarLogger(True, dataloader_label='train', metrics='loss={loss}')
+                      ])
 
     if dist.get_local_rank() != 0:
         return
