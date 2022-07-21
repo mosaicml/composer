@@ -13,7 +13,7 @@ from setuptools import setup
 from setuptools.command.develop import develop as develop_orig
 
 # Read the composer version
-# Cannot import from `composer.version` since that will not be available when building or installing the package
+# Cannot import from `composer.__version__` since that will not be available when building or installing the package
 with open(os.path.join(os.path.dirname(__file__), 'composer', '_version.py')) as f:
     version_globals = {}
     version_locals = {}
