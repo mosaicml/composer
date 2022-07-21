@@ -21,47 +21,52 @@ def register_surgery_function_builder(
         *modules: Type[torch.nn.Module]) -> Callable[[SurgeryFunctionBuilder], SurgeryFunctionBuilder]:
     """This decorator builds a registry that maps torch module types to their applicable SurgeryFunctionBuilder.
 
-    To accommodate the specifics of composer's model surgery, the registry is used to create
+    To accommodate the specifics of composer's model surgery, our ALiBi implementation uses a registry to create
     a `Mapping[torch.nn.Module, SurgeryFunctionBuilder]`, where :func:`SurgeryFunctionBuilder` is any function that
     takes a `max_sequence_length` argument and returns a :func:`composer.utils.model_surgery.ReplacementFunction`.
 
-    At runtime (see `../alibi.py`), ALiBi gets the model surgery policy mapping
+    At runtime (see `../alibi.py`), ALiBi finalizes the model surgery policy mapping
     `Mapping[torch.nn.Module, ReplacementFunction]` by replacing each `SurgeryFunctionBuilder` with the
     `ReplacementFunction` it returns, then using the resulting `policies` mapping to perform
-    model surgery:
+    model surgery.
 
-    .. code-block::
+    Example:
 
-        from composer.algorithms.alibi.attention_surgery_functions import replacement_policy_mapping_builder
-        from composer.utils import module_surgery
+        .. code-block::
 
-        policies = {
-            module: surgery_function_builder(max_sequence_length)
-            for module, surgery_function_builder in replacement_policy_mapping_builder.items()
-        }
+            from composer.algorithms.alibi.attention_surgery_functions import replacement_policy_mapping_builder
+            from composer.utils import module_surgery
 
-        module_surgery.replace_module_classes(model, policies=policies)
+            policies = {}
+            for module_class, replacement_function_builder in replacement_policy_mapping_builder.items():
+                # Each `replacement_function_builder` returns a replacement function
+                policies[module_class] = replacement_function_builder(max_sequence_length)
 
+            module_surgery.replace_module_classes(model, policies=policies)
 
     Implementation files (e.g., `_gpt2.py`) populate the `replacement_policy_mapping_builder`
     registry by defining instances of `SurgeryFunctionBuilder` functions and decorating them with
-    :func:`register_surgery_function_builder`. For example:
+    :func:`register_surgery_function_builder`.
 
-        from composer.algorithms.alibi.attention_surgery_functions.utils import register_surgery_function_builder
-        from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
+    Example:
 
-        @register_surgery_function_builder(GPT2Attention)
-        def build_gpt2_attention_converter(max_sequence_length):
-            # Builds a function (`convert_attention`) that does model surgery any GPT2Attention modules in the model.
+        .. code-block::
 
-            def convert_attention(module, module_index):
-                # Do surgery (change `module` or generate a new `module` instance to return)
-                # Note that this function can (and often should for ALiBi) depend on `max_sequence_length`
+            from composer.algorithms.alibi.attention_surgery_functions.utils import register_surgery_function_builder
+            from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
 
-                # YOUR CODE HERE
+            @register_surgery_function_builder(GPT2Attention)
+            def build_gpt2_attention_converter(max_sequence_length):
+                # Builds a function (`convert_attention`) that does model surgery any GPT2Attention modules in the model.
 
-                return module
-            return convert_attention
+                def convert_attention(module, module_index):
+                    # Do surgery (change `module` or generate a new `module` instance to return)
+                    # Note that this function can (and often should for ALiBi) depend on `max_sequence_length`
+
+                    # YOUR CODE HERE
+
+                    return module
+                return convert_attention
 
     In the above example, by decorating `build_gpt2_attention_converter` (which is an instance of a `SurgeryFunctionBuilder`
     function) with `@register_surgery_function_builder(GPT2Attention)`, the ALiBi algorithm will now apply model surgery to any
