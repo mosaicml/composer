@@ -321,7 +321,7 @@ class Engine():
         Returns:
             Sequence[Algorithm]: Modified sequence of algorithms.
         """
-        from composer.algorithms import CutMix, MixUp, SelectiveBackprop, StochasticDepth, FusedLayerNorm
+        from composer.algorithms import CutMix, FusedLayerNorm, MixUp, SelectiveBackprop, StochasticDepth
 
         # Move selective backprop to the beginning while maintaining order of other algorithms
         algorithms = sorted(algorithms_to_run,
