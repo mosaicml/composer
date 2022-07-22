@@ -1836,6 +1836,54 @@ class Trainer:
     ):
         """Output model prediction on the provided data.
 
+        There are two ways to access the prediction outputs.
+
+        1.  With ``return_outputs`` set to True, the batch predictions will be collected into a list and returned.
+        2.  Via a custom callback, which can be used with ``return_outputs`` set to False.
+
+            This technique can be useful if collecting all the outputs from the dataloader would exceed available memory,
+            and you want to write outputs directly to files. For example:
+
+            .. testsetup::
+
+                predict_dl = train_dataloader
+
+            .. testcode::
+
+                import os
+                import torch
+
+                from torch.utils.data import DataLoader
+
+                from composer import Trainer, Callback
+                from composer.loggers import Logger, LogLevel
+
+                class PredictionSaver(Callback):
+                    def __init__(self, folder: str):
+                        self.folder = folder
+                        os.makedirs(self.folder, exist_ok=True)
+
+                    def predict_batch_end(self, state: State, logger: Logger) -> None:
+                        name = f'batch_{int(state.predict_timestamp.batch)}.pt'
+                        filepath = os.path.join(self.folder, name)
+                        torch.save(state.outputs, filepath)
+
+                        # Also log the outputs as an artifact
+                        logger.file_artifact(LogLevel.BATCH, artifact_name=name, file_path=filepath)
+
+                trainer = Trainer(
+                    ...,
+                    callbacks=PredictionSaver('./predict_outputs'),
+                )
+
+                trainer.predict(predict_dl, return_outputs=False)
+
+                print(sorted(os.listdir('./predict_outputs')))
+
+            .. testoutput::
+
+                ['batch_1.pt', ...]
+
         Args:
             dataloader (DataLoader | DataSpec): The :class:`.DataLoader` or
                 :class:`.DataSpec` for the prediction data.
@@ -1845,52 +1893,6 @@ class Trainer:
             return_outputs (bool, optional): If True (the default), then prediction outputs will be (recursively)
                 moved to cpu and accumulated into a list. Otherwise, prediction outputs are discarded after each
                 batch.
-
-                .. note::
-
-                    If collecting all outputs from the dataloader would exceed available memory, we recommend
-                    to set `return_outputs` to False and use your own callback to write the outputs from each
-                    prediction batch to a file. For example:
-
-                    .. testsetup::
-
-                        predict_dl = train_dataloader
-
-                    .. testcode::
-
-                        import os
-                        import torch
-
-                        from torch.utils.data import DataLoader
-
-                        from composer import Trainer, Callback
-                        from composer.loggers import Logger, LogLevel
-
-                        class PredictionSaver(Callback):
-                            def __init__(self, folder: str):
-                                self.folder = folder
-                                os.makedirs(self.folder, exist_ok=True)
-
-                            def predict_batch_end(self, state: State, logger: Logger) -> None:
-                                name = f'batch_{int(state.predict_timestamp.batch)}.pt'
-                                filepath = os.path.join(self.folder, name)
-                                torch.save(state.outputs, filepath)
-
-                                # Also log the outputs as an artifact
-                                logger.file_artifact(LogLevel.BATCH, artifact_name=name, file_path=filepath)
-
-                        trainer = Trainer(
-                            ...,
-                            callbacks=PredictionSaver('./predict_outputs'),
-                        )
-
-                        trainer.predict(predict_dl, return_outputs=False)
-
-                        print(sorted(os.listdir('./predict_outputs')))
-
-                    .. testoutput::
-
-                        ['batch_1.pt', ...]
 
         Returns:
             List: A list of batch outputs, if ``return_outputs`` is True. Otherwise, an empty list.
