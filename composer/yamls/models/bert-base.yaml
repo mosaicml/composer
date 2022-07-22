@@ -4,7 +4,6 @@ model:
     use_pretrained: false
     tokenizer_name: bert-base-uncased
     pretrained_model_name: bert-base-uncased
-
 # Train the model on the English C4 corpus
 train_dataset:
   streaming_c4:
@@ -17,14 +16,12 @@ train_dataset:
     group_method: truncate
     mlm: true
     mlm_probability: 0.15
-
 dataloader:
   pin_memory: true
   timeout: 0
   prefetch_factor: 2
   persistent_workers: true
   num_workers: 8
-
 # Periodically evaluate the LanguageCrossEntropy and Masked Accuracy
 # on the validation split of the dataset.
 evaluators:
@@ -44,10 +41,8 @@ evaluators:
     metric_names:
       - LanguageCrossEntropy
       - MaskedAccuracy
-
 # Run evaluation after every 1000 training steps
 eval_interval: 1000ba
-
 # Use the decoupled AdamW optimizer with learning rate warmup
 optimizers:
   decoupled_adamw:
@@ -61,26 +56,20 @@ schedulers:
   linear_decay_with_warmup:
     t_warmup: 0.06dur              # Point when peak learning rate is reached
     alpha_f: 0.02
-
 max_duration: 275184000sp          # Subsample the training data for 275M samples
 train_batch_size: 4000             # Number of training examples to use per update
 eval_batch_size: 2000
-
 precision: amp                     # Use mixed-precision training
 grad_clip_norm: -1.0               # Turn off gradient clipping
 grad_accum: 'auto'                 # Use automatic gradient accumulation to avoid OOMs
 
-save_folder: checkpoints          # The directory to save checkpoints to
+save_folder: bert_checkpoints      # The directory to save checkpoints to
 save_interval: 3500ba              # Save checkpoints every 3500 batches
-save_artifact_name: '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}-wct{total_wct}' # uncomment if you want to checkpoint to cloud 
 
 loggers:
   progress_bar: {}                 # Add a TQDM progress bar
-  # Optional, some nice default parameters for object store checkpointing and WandB logging. Uncomment these if you want to checkpoint to cloud and track training info.
-  object_store:
-    object_store_hparams:
-      s3:
-        bucket: mosaicml-internal-checkpoints-bert
-    use_procs: False
-  wandb:
-    tags: pretrain
+  # Optional, some nice default parameters for object store checkpointing. Uncomment this if you want to checkpoint to cloud.
+  # object_store:
+  #  object_store_hparams:
+  #    s3:
+  #      bucket: mosaicml-internal-checkpoints-bert
