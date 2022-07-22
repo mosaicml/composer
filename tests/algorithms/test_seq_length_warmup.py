@@ -77,6 +77,7 @@ def check_forward_backward(model, batch):
     output['loss'].backward()
 
 
+@pytest.mark.timeout(15)
 @pytest.mark.parametrize('synthetic_state_family', ['bert', 'gpt2'])
 @pytest.mark.parametrize('truncate,preserve_end_of_sequence', [(True, True), (True, False), (False, False)])
 class TestSeqLengthWarmup:
