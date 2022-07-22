@@ -12,6 +12,14 @@ import setuptools
 from setuptools import setup
 from setuptools.command.develop import develop as develop_orig
 
+# Read the composer version
+# Cannot import from `composer.__version__` since that will not be available when building or installing the package
+with open(os.path.join(os.path.dirname(__file__), 'composer', '_version.py')) as f:
+    version_globals = {}
+    version_locals = {}
+    exec(f.read(), version_globals, version_locals)
+    composer_version = version_locals['__version__']
+
 _IS_ROOT = os.getuid() == 0
 _IS_USER = '--user' in sys.argv[1:]
 _IS_VIRTUALENV = 'VIRTUAL_ENV' in os.environ
@@ -78,6 +86,7 @@ install_requires = [
     'coolname>=1.1.0,<2',
     'py-cpuinfo>=8.0.0,<9',
     'packaging>=21.3.0,<22',
+    'importlib-metadata>=4.11.0,<5',
 ]
 extra_deps = {}
 
@@ -192,7 +201,7 @@ if package_name != 'mosaicml':
     print(f'`Building composer as `{package_name}`)', file=sys.stderr)
 
 setup(name=package_name,
-      version='0.8.0',
+      version=composer_version,
       author='MosaicML',
       author_email='team@mosaicml.com',
       description='Composer provides well-engineered implementations of efficient training methods to give '

@@ -2,7 +2,7 @@
 
 package:
   name: mosaicml
-  version: "0.8.0"
+  version: "{{ load_setup_py_data().get('version') }}"
 
 source:
   git_url: ./
@@ -34,6 +34,7 @@ requirements:
     - coolname >=1.1.0,<2
     - py-cpuinfo>=8.0.0,<9
     - packaging >=21.3.0,<22
+    - importlib-metadata >=4.11.0,<5
   run_constrained:
     - wandb >=0.12.17,<0.13
     - monai >=0.8.0,<0.9
@@ -58,11 +59,10 @@ test:
     - pytest-timeout >=2.1.0,<3
     - testbook >=0.4.2,<0.5
     # Including all run_constrained requirements in the test requirements, so those tests will not be import-skipped
-    - pip # Since deepspeed and timm are not available on anaconda, they are installed via pip.
+    - pip # Required for dependencies not available on conda
     - wandb >=0.12.17,<0.13
     - monai >=0.8.0,<0.9
     - scikit-learn >=1.0.1,<2
-    # - timm >=0.5.4 # This timm version is not available on conda; installing via pip
     - transformers >=4.11,<5
     - datasets >=1.14,<2
     - pycocotools >=2.0.4,<3
@@ -73,7 +73,6 @@ test:
     - moto >=3.1.12,<3.2
     - cryptography >=37.0.2,<38
     - tensorboard>=2.9.1,<3.0.0
-    # - mock-ssh-server >=0.9.1,<1 # mock-ssh-server is not available on conda; installing with pip\
     - pytest-httpserver>=1.0.4,<1.1
   files:
     - "**/composer/**"
