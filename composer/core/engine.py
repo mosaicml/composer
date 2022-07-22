@@ -328,7 +328,7 @@ class Engine():
                             key=lambda x: not isinstance(x, SelectiveBackprop) and not isinstance(x, StochasticDepth))
 
         # Move fused layernorm to the end while maintaining order of other algorithms (FLN only does surgery on leaf modules)
-        algorithms = sorted(algorithms_to_run, key=lambda x: isinstance(x, FusedLayerNorm))
+        algorithms = sorted(algorithms, key=lambda x: isinstance(x, FusedLayerNorm))
 
         # Check for multiple algorithms that try to interpolate the loss at the same time
         interpolation_settings = [a.interpolate_loss for a in algorithms if isinstance(a, (CutMix, MixUp))]
