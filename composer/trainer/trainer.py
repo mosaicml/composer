@@ -41,7 +41,8 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
-from composer.utils import ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, reproducibility
+from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed, map_collection,
+                            reproducibility)
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -1043,7 +1044,7 @@ class Trainer:
 
         .. seealso:: `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_
         """
-        return self.state.is_model_deepspeed
+        return is_model_deepspeed(self.state.model)
 
     @property
     def saved_checkpoints(self) -> List[Tuple[Timestamp, List[pathlib.Path]]]:
