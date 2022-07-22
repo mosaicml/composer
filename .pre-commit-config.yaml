@@ -102,6 +102,6 @@ repos:
             metadata.colab metadata.interpreter metadata.accelerator
             metadata.kernelspec metadata.language_info.version
             cell.metadata.heading_collapsed metadata.name metadata.nbconvert_exporter
-            metadata.version
+            metadata.version metadata.vscode
 
 exclude: .ci\/release_tests\/.*
