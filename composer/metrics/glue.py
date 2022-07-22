@@ -8,7 +8,6 @@ from typing import Any, Dict, List
 
 __all__ = ['GlueState', 'GLUEMetricsLogger']
 
-@dataclass
 class GLUEMetricsLogger:
     """ Class mapping all GLUE tasks to their respective average metric values. 
 
@@ -36,10 +35,6 @@ class GlueState:
     """
     task_names: List[str]
     ckpt_to_tasks: Dict[str, GLUEMetricsLogger]
-        
-    def __init__(self, task_names, ckpt_to_tasks) -> None:
-        self.task_names = task_names
-        self.ckpt_to_tasks = ckpt_to_tasks
 
     def init_ckpt_dict(self, ckpt_name: str):
         """ Create an empty GLUEMetricsLogger instance with all the tasks for a new checkpoint. """

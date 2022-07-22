@@ -20,10 +20,10 @@ from typing import Type
 from composer.loggers import LogLevel
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist
-from composer.utils.entrypoint import _warning_on_one_line
+from composer.utils.warning_helpers import warning_on_one_line
 
 def _main():
-    warnings.formatwarning = _warning_on_one_line
+    warnings.formatwarning = warning_on_one_line
 
     global_rank = dist.get_global_rank()
 
