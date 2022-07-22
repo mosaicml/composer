@@ -1681,7 +1681,7 @@ class Trainer:
                     'least one rank encountered a CUDA OOM error.') from e
             # Synchronize new batch compute time
             batch_compute_time = end_time - start_time
-            batch_compute_time = self._device.tensor_to_device(torch.tensor([batch_compute_time], dtype=torch.uint8))
+            batch_compute_time = self._device.tensor_to_device(torch.tensor([batch_compute_time], dtype=torch.float))
             dist.all_reduce(batch_compute_time, reduce_operation='MAX')
             self.batch_compute_time = batch_compute_time.item()
             # Propagate across all ranks if any rank hit CUDA OOM
@@ -1828,8 +1828,62 @@ class Trainer:
         if self.deepspeed_enabled:
             self.state.deepspeed_model.step()
 
-    def predict(self, dataloader: Union[DataLoader, DataSpec], subset_num_batches: int = -1):
+    def predict(
+        self,
+        dataloader: Union[DataLoader, DataSpec],
+        subset_num_batches: int = -1,
+        *,
+        return_outputs: bool = True,
+    ):
         """Output model prediction on the provided data.
+
+        There are two ways to access the prediction outputs.
+
+        1.  With ``return_outputs`` set to True, the batch predictions will be collected into a list and returned.
+        2.  Via a custom callback, which can be used with ``return_outputs`` set to False.
+
+            This technique can be useful if collecting all the outputs from the dataloader would exceed available memory,
+            and you want to write outputs directly to files. For example:
+
+            .. testsetup::
+
+                predict_dl = train_dataloader
+
+            .. testcode::
+
+                import os
+                import torch
+
+                from torch.utils.data import DataLoader
+
+                from composer import Trainer, Callback
+                from composer.loggers import Logger, LogLevel
+
+                class PredictionSaver(Callback):
+                    def __init__(self, folder: str):
+                        self.folder = folder
+                        os.makedirs(self.folder, exist_ok=True)
+
+                    def predict_batch_end(self, state: State, logger: Logger) -> None:
+                        name = f'batch_{int(state.predict_timestamp.batch)}.pt'
+                        filepath = os.path.join(self.folder, name)
+                        torch.save(state.outputs, filepath)
+
+                        # Also log the outputs as an artifact
+                        logger.file_artifact(LogLevel.BATCH, artifact_name=name, file_path=filepath)
+
+                trainer = Trainer(
+                    ...,
+                    callbacks=PredictionSaver('./predict_outputs'),
+                )
+
+                trainer.predict(predict_dl, return_outputs=False)
+
+                print(sorted(os.listdir('./predict_outputs')))
+
+            .. testoutput::
+
+                ['batch_1.pt', ...]
 
         Args:
             dataloader (DataLoader | DataSpec): The :class:`.DataLoader` or
@@ -1837,6 +1891,13 @@ class Trainer:
             subset_num_batches (int, optional): If specified, only perform model prediction
                 on this many batches. This parameter has no effect if it is greater than ``len(dataloader)``.
                 If ``-1``, then the entire loader will be iterated over. (default: ``-1``)
+            return_outputs (bool, optional): If True (the default), then prediction outputs will be (recursively)
+                moved to cpu and accumulated into a list. Otherwise, prediction outputs are discarded after each
+                batch.
+
+        Returns:
+            List: A list of batch outputs, if ``return_outputs`` is True. Otherwise, an empty list.
+
         """
         if isinstance(dataloader, DataSpec):
             data_spec = dataloader
@@ -1858,6 +1919,9 @@ class Trainer:
         self.state.predict_timestamp = Timestamp()
 
         last_wct = datetime.datetime.now()
+
+        outputs = []
+        cpu_device = DeviceCPU()
 
         with torch.no_grad():
 
@@ -1885,6 +1949,9 @@ class Trainer:
                 self.state.outputs = self.state.model(self.state.batch)
                 self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
 
+                if return_outputs:
+                    outputs.append(cpu_device.batch_to_device(self.state.outputs))
+
                 now = datetime.datetime.now()
                 batch_time = now - last_wct
 
@@ -1903,6 +1970,8 @@ class Trainer:
                 self.engine.run_event(Event.PREDICT_BATCH_END)
 
             self.engine.run_event(Event.PREDICT_END)
+
+            return outputs
 
         # Restore training mode
         if restore_model_train:
