@@ -86,6 +86,7 @@ install_requires = [
     'coolname>=1.1.0,<2',
     'py-cpuinfo>=8.0.0,<9',
     'packaging>=21.3.0,<22',
+    'importlib-metadata>=4.11.0,<5',
 ]
 extra_deps = {}
 

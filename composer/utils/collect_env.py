@@ -40,13 +40,13 @@ To disable automatic environment report generation, use the :func:`disable_env_r
 function.  Report generation can be re-enabled by using the :func:`enable_env_report` function.
 """
 
-import importlib.metadata
 import json
 import sys
 import time
 from typing import NamedTuple, Optional, TextIO
 
 import cpuinfo
+import importlib_metadata
 import psutil
 
 __all__ = ['configure_excepthook', 'disable_env_report', 'enable_env_report', 'print_env']
@@ -101,10 +101,10 @@ class ComposerEnv(NamedTuple):
     cuda_device_count: int
 
 
-def get_commit_hash() -> Optional[str]:
+def get_composer_commit_hash() -> Optional[str]:
     # Use PEP-610 to get the commit hash
     # See https://packaging.python.org/en/latest/specifications/direct-url/
-    files = importlib.metadata.files('mosaicml')
+    files = importlib_metadata.files('mosaicml')
     if files is None:
         return
     files = [f for f in files if str(f).endswith('direct_url.json')]
@@ -289,7 +289,7 @@ def get_composer_env() -> str:
     """Query Composer pertinent system information."""
     mutable_dict = ComposerEnv(
         composer_version=get_composer_version(),
-        composer_commit_hash=get_commit_hash(),
+        composer_commit_hash=get_composer_commit_hash(),
         host_processor_model_name=get_host_processor_name(),
         host_processor_core_count=get_host_processor_cores(),
         node_world_size=get_node_world_size(),
