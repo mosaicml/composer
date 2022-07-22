@@ -21,17 +21,13 @@ def _worker(bucket: str, tmp_path: pathlib.Path, tid: int):
 # This test requires properly configured aws credentials; otherwise the s3 client would hit a NoCredentialsError
 # when constructing the Session, which occurs before the bug this test checks
 @pytest.mark.remote
-def test_s3_object_store_multi_threads(tmp_path: pathlib.Path):
+def test_s3_object_store_multi_threads(tmp_path: pathlib.Path, s3_bucket: str):
     """Test to verify that we do not hit https://github.com/boto/boto3/issues/1592."""
     pytest.importorskip('boto3')
-    # TODO(Bandish) -- once we have integration tests configured, change the bucket below
-    # to an integration test bucket
-    bucket = 'allenai-c4'
-
     threads = []
     # Manually tried fewer threads; it seems that 100 is needed to reliably re-produce the bug
     for i in range(100):
-        t = threading.Thread(target=_worker, kwargs={'bucket': bucket, 'tid': i, 'tmp_path': tmp_path})
+        t = threading.Thread(target=_worker, kwargs={'bucket': s3_bucket, 'tid': i, 'tmp_path': tmp_path})
         t.start()
         threads.append(t)
     for t in threads:
