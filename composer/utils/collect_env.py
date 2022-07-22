@@ -369,8 +369,8 @@ def print_env(file: Optional[TextIO] = None) -> None:
 
         Composer information
         --------------------
-        Composer version: 0.4.2
-        Composer commit hash: adc206a6e989a141396d65992e9c4de7dbea3a8b
+        Composer version: 0.8.1
+        Composer commit hash: 8418a674248d39c28403156a0559c77d1f3642f9
         Host processor model name: AMD EPYC 7502 32-Core Processor
         Host processor core count: 64
         Number of nodes: 1
