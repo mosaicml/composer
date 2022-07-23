@@ -144,7 +144,8 @@ def rank_sync_wrapper(
             # monitored_barrier was tripped
             if 'Timed out' in str(e):
 
-                def raise_timeout_error():
+                def raise_timeout_error(fut):
+                    del fut
                     raise e
 
                 # Use a no-op hook and return the same gradients already on the device. If we don't
@@ -152,7 +153,7 @@ def rank_sync_wrapper(
                 # as the previous reduction hasn't been completed. After completing the no-op
                 # reduction, re-raise the timeout error.
                 fut = torch.futures.Future()
-                fut.set_result(bucket.getGradients())
+                fut.set_result(bucket.gradients())
                 return fut.then(raise_timeout_error)
             else:
                 raise
