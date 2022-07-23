@@ -95,6 +95,10 @@ class WandBLogger(LoggerDestination):
         self._init_kwargs = init_kwargs
         self._is_in_atexit = False
 
+        # These variables are set from global rank 0 to all ranks
+        self.entity = None
+        self.project = None
+
     def _set_is_in_atexit(self):
         self._is_in_atexit = True
 
@@ -136,7 +140,16 @@ class WandBLogger(LoggerDestination):
             self._init_kwargs['group'] = self._init_kwargs['group'] if 'group' in self._init_kwargs else name
         if self._enabled:
             wandb.init(**self._init_kwargs)
+            assert wandb.run is not None, 'The wandb run is set after init'
+            entity_and_project = [str(wandb.run.entity), str(wandb.run.project)]
             atexit.register(self._set_is_in_atexit)
+        else:
+            entity_and_project = [None, None]
+        # Share the entity and project across all ranks, so they are available on ranks that did not initialize wandb
+        dist.broadcast_object_list(entity_and_project)
+        self.entity, self.project = entity_and_project
+        assert self.entity is not None, 'entity should be defined'
+        assert self.project is not None, 'project should be defined'
 
     def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
                           overwrite: bool):
@@ -180,11 +193,32 @@ class WandBLogger(LoggerDestination):
         overwrite: bool = False,
         progress_bar: bool = True,
     ):
-        # Note: Wandb doesn't support progress bars for downloading
+        # Note: WandB doesn't support progress bars for downloading
         del progress_bar
         import wandb
+        import wandb.errors
 
-        artifact = wandb.use_artifact(artifact_name)
+        # using the wandb.Api() to support retrieving artifacts on ranks where
+        # artifacts are not initialized
+        api = wandb.Api()
+        if not self.entity or not self.project:
+            raise RuntimeError('get_file_artifact can only be called after running init()')
+
+        # replace all unsupported characters with periods
+        # Only alpha-numeric, periods, hyphens, and underscores are supported by wandb.
+        new_artifact_name = re.sub(r'[^a-zA-Z0-9-_\.]', '.', artifact_name)
+        if new_artifact_name != artifact_name:
+            warnings.warn(('WandB permits only alpha-numeric, periods, hyphens, and underscores in artifact names. '
+                           f"The artifact with name '{artifact_name}' will be stored as '{new_artifact_name}'."))
+
+        if ':' not in new_artifact_name:
+            new_artifact_name += ':latest'
+        try:
+            artifact = api.artifact('/'.join([self.entity, self.project, new_artifact_name]))
+        except wandb.errors.CommError as e:
+            if 'does not contain artifact' in str(e):
+                raise FileNotFoundError(f'Artifact {new_artifact_name} not found') from e
+            raise e
         with tempfile.TemporaryDirectory() as tmpdir:
             artifact_folder = os.path.join(tmpdir, 'artifact_folder')
             artifact.download(root=artifact_folder)

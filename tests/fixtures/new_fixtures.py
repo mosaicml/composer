@@ -3,6 +3,7 @@
 
 """These fixtures are shared globally across the test suite."""
 import datetime
+import os
 import shutil
 
 import pytest
@@ -37,8 +38,13 @@ def empty_logger(minimal_state: State) -> Logger:
 
 
 @pytest.fixture(autouse=True)
-def disable_wandb(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv('WANDB_MODE', 'disabled')
+def disable_wandb(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest):
+    monkeypatch.setenv('WANDB_START_METHOD', 'thread')
+    if request.node.get_closest_marker('remote') is None:
+        monkeypatch.setenv('WANDB_MODE', 'disabled')
+    else:
+        if not os.environ.get('WANDB_PROJECT'):
+            monkeypatch.setenv('WANDB_PROJECT', 'pytest')
 
 
 @pytest.fixture(autouse=True)
