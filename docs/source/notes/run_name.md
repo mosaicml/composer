@@ -27,7 +27,7 @@ trainer = Trainer(
     model=mnist_model(num_classes=10),
     train_dataloader=train_dataloader,
     max_duration="2ep",
-        run_name=run_name,
+    run_name=run_name,
 )
 trainer.fit()
 ```
