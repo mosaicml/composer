@@ -839,12 +839,18 @@ class Trainer:
         # Console Logging
         loggers = list(ensure_tuple(loggers))
         if any(isinstance(x, ProgressBarLogger) for x in loggers):
-            warnings.warn(
-                DeprecationWarning(
-                    (f'Specifying the {ProgressBarLogger.__name__} via `loggers` is deprecated. Instead, '
-                     'please specify `progress_bar`, `log_to_console`, `log_level`, and `stream` arguments when '
-                     'constructing the trainer. If specified, these arguments will be ignored, as the '
-                     f'{ProgressBarLogger.__name__} was already created.')))
+            if log_to_console is not None:
+                raise ValueError(
+                    'If `log_to_console` is specified, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed'
+                )
+            if console_log_level != LogLevel.EPOCH:
+                raise ValueError(
+                    'If `console_log_level` is manually set, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed'
+                )
+            if console_stream != 'stderr':
+                raise ValueError(
+                    'If `console_stream` is manually set, specifying {ProgressBarLogger.__name__} via `loggers` is not allowed'
+                )
         else:
             loggers.append(
                 ProgressBarLogger(
