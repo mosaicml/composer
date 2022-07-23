@@ -28,7 +28,7 @@ trainer = Trainer(
     model=mnist_model(num_classes=10),
     train_dataloader=train_dataloader,
     max_duration="2ep",
-        run_name=run_name,
+    run_name=run_name,
 )
 trainer.fit()
 ```
@@ -40,7 +40,7 @@ You can instead let the trainer create a `run_name` for you. The one created for
 
 This run_name will be added as an attribute to {class}`~.State` and it is used by various other pieces of the composer infrastructure as described below.
 
-The run_name is often used  in the Composer as placeholder in a format string. This means that if a string is specified to name a file, like `'{run_name}-foo-bar'` for example, then that placeholder will get filled in by the actual `run_name` at runtime, so the file will actually be named `‘1657932618-infrared-ferret-foo-bar’`.
+The `run_name` is often used in the Composer as placeholder in a format string. This means that if a string is specified to name a file, like `'{run_name}-foo-bar'` for example, then that placeholder will get filled in by the actual `run_name` at runtime, so the file will actually be named `‘1657932618-infrared-ferret-foo-bar’`.
 
 ### Run Names in Checkpoint Saving
 
