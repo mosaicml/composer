@@ -138,7 +138,24 @@ def rank_sync_wrapper(
     """
 
     def rank_sync_wrapper_hook(hook_state, bucket: torch_dist.GradBucket) -> torch.futures.Future[torch.Tensor]:
-        dist.monitored_barrier(timeout=datetime.timedelta(seconds=30))
+        try:
+            dist.monitored_barrier(timeout=datetime.timedelta(seconds=30))
+        except RuntimeError as e:
+            # monitored_barrier was tripped
+            if 'Timed out' in str(e):
+
+                def raise_timeout_error():
+                    raise e
+
+                # Use a no-op hook and return the same gradients already on the device. If we don't
+                # do the reduction, PyTorch will raise an internal error on the next backward pass
+                # as the previous reduction hasn't been completed. After completing the no-op
+                # reduction, re-raise the timeout error.
+                fut = torch.futures.Future()
+                fut.set_result(bucket.get_tensors())
+                return fut.then(raise_timeout_error)
+            else:
+                raise
         return hook(hook_state, bucket)
 
     return rank_sync_wrapper_hook
