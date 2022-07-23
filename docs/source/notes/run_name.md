@@ -1,6 +1,8 @@
 # 🏃‍♀️ Run Name
 
-The `run_name` is a string used to name a specific training run. Naming your training run has many benefits and your `run_name` will show up in many places as you utilize Composer.
+The `run_name` is a string used to name a specific training run. Naming your training run has many benefits.
+Namely, you can more easily group and keep track of metrics, checkpoints, and other training artifacts. 
+In addition, your `run_name` will show up in many places as you utilize Composer.
 
 ## Run Name Creation
 
@@ -46,23 +48,7 @@ The `run_name` is often used in the Composer as placeholder in a format string. 
 
 In checkpoint saving you can use the `run_name` as a placeholder in a format string to name the folders and checkpoints locally and in the cloud if you are uploading your checkpoints using Weights and Biases or an ObjectStoreLogger.
 
-You can specify the following arguments for files and folder names when creating a {class}`~.Trainer` object:
-   
-- `save_folder`
-    - This the local folder where checkpoints are stored
-    - default: None
-    - setting this argument triggers checkpoint saving.
-    - example:
-        - `'{run_name}/checkpoints’`
-
-- `save_filename`
-    - A format string describing how to name checkpoints.
-    - default: `"ep{epoch}-ba{batch}-rank{rank}"`
-- `save_artifact_name`
-    - A format string describing how to name checkpoints when they are logged to the cloud (e.g. S3 or WandB)
-    - default: `’{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}'`
-- `save_latest_artifact_name`
-    - default: `'{run_name}/checkpoints/latest-rank{rank}'`
+See {class}`~.CheckpointSaver` for more information on specifying the arguments for files and folder names with the `run_name` when creating a {class}`~.Trainer` object.
 
 ### Run Names in Logging
 
