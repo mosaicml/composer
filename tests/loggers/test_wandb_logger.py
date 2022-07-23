@@ -57,6 +57,7 @@ def test_logged_data_is_json_serializable(callback_cls: Type[Callback]):
 @pytest.mark.timeout(60)
 def test_wandb_artifacts(rank_zero_only: bool, tmp_path: pathlib.Path, dummy_state: State):
     """Test that artifacts logged on rank zero are accessible by all ranks."""
+    pytest.importorskip('wandb', reason='wandb is optional')
     # Create the logger
     ctx = pytest.warns(
         UserWarning, match='`rank_zero_only` should be set to False.') if rank_zero_only else contextlib.nullcontext()
