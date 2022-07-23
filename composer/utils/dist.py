@@ -183,7 +183,7 @@ def monitored_barrier(timeout: Optional[datetime.timedelta] = None) -> None:
         # monitored_barrier requires gloo backend, which is initialized as a global variable
         global group_gloo
         if group_gloo:
-            dist.monitored_barrier(group=group_gloo, timeout=datetime.timedelta(seconds=300))
+            dist.monitored_barrier(group=group_gloo, timeout=timeout)
         return
     world_size = get_world_size()
     if world_size == 1:

@@ -138,7 +138,7 @@ def rank_sync_wrapper(
     """
 
     def rank_sync_wrapper_hook(hook_state, bucket: torch_dist.GradBucket) -> torch.futures.Future[torch.Tensor]:
-        dist.monitored_barrier(timeout=datetime.timedelta(30))
+        dist.monitored_barrier(timeout=datetime.timedelta(seconds=30))
         return hook(hook_state, bucket)
 
     return rank_sync_wrapper_hook
