@@ -438,6 +438,16 @@ stage('Build') {
     }
     try {
         parallel(jobs)
+
+        if (env.CHANGE_ID && !pullRequest.body.contains('https://mosaicml.atlassian.net/browse/CO-')) {
+            error(
+                'The PR built successfully, but the PR description is missing a link to the corresponding ' +
+                'JIRA issue. All PRs require a JIRA issue link to simplify release management. ' +
+                'If you are a MosaicML employee, please add a link of the form ' +
+                'https://mosaicml.atlassian.net/browse/CO-XXX into the PR description, where XXX is the issue ' +
+                'number. If you are an external contributor, we will add this link for you into the PR description.'
+            )
+        }
     }
     finally {
         stage('Merge Artifacts') {

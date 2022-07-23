@@ -126,7 +126,7 @@ class TestTrainerInitOrFit:
     def max_duration(self):
         return Time(1, TimeUnit.EPOCH)
 
-    @pytest.mark.parametrize('train_subset_num_batches', [-1, 1])
+    @pytest.mark.parametrize('train_subset_num_batches', [pytest.param(-1, marks=pytest.mark.timeout(5)), 1])
     @pytest.mark.parametrize('compute_training_metrics', [True, False])
     def test_train_dataloader(
         self,
