@@ -152,7 +152,7 @@ def rank_sync_wrapper(
                 # as the previous reduction hasn't been completed. After completing the no-op
                 # reduction, re-raise the timeout error.
                 fut = torch.futures.Future()
-                fut.set_result(bucket.get_tensors())
+                fut.set_result(bucket.getGradients())
                 return fut.then(raise_timeout_error)
             else:
                 raise
