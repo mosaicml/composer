@@ -1,5 +1,5 @@
 🏃‍♀️ Run Name
-===========
+================
 
 The ``run_name`` is a string used to name a specific training run.
 Naming your training run has many benefits. Namely, you can more easily
