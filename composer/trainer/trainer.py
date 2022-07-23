@@ -754,7 +754,7 @@ class Trainer:
         if deepspeed_enabled or dist.get_world_size() > 1:
             # deepspeed requires torch.distributed to be initialized, even if the world size is 1
             # distributed is always required with multi-rank training
-            dist.initialize_dist(self._device.dist_backend, datetime.timedelta(seconds=dist_timeout))
+            dist.initialize_dist(self._device, datetime.timedelta(seconds=dist_timeout))
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, self._device)
@@ -1669,6 +1669,16 @@ class Trainer:
                     raise
             end_time = time.time()
 
+            # Use monitored barrier to error on deadlock. If one rank OOMs and another doesn't and gets stuck
+            # on a dist reduction in gradient syncronization, the monitored barrier will fail after the timeout.
+            try:
+                dist.monitored_barrier(timeout=datetime.timedelta(seconds=max(10, 0.5 * self.batch_compute_time)))
+            except RuntimeError as e:
+                raise RuntimeError(
+                    'A deadlock was encountered in the train loop, likely because a strict subset of '
+                    'ranks encountered CUDA OOM. If `grad_accum=auto`, try manually setting `grad_accum` '
+                    'instead. If `grad_accum` is not set to `auto`, try increasing `grad_accum` as at '
+                    'least one rank encountered a CUDA OOM error.') from e
             # Synchronize new batch compute time
             batch_compute_time = end_time - start_time
             batch_compute_time = self._device.tensor_to_device(torch.tensor([batch_compute_time], dtype=torch.float))
