@@ -87,9 +87,10 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
         model = transformers.AutoModelForMaskedLM.from_pretrained(pretrained_model_name_or_path=pretrained_model_name,
                                                                   **model_config)
     else:
-        config = transformers.AutoConfig.from_pretrained(pretrained_model_name, **model_config)
-        assert transformers.AutoModelForMaskedLM.from_config is not None, 'AutoModelForMaskedLM has from_config method'
-        model = transformers.AutoModelForMaskedLM.from_config(config)
+        if len(model_config) == 0:
+            model_config = transformers.AutoConfig.from_pretrained(pretrained_model_name, **model_config)
+            assert transformers.AutoModelForMaskedLM.from_config is not None, 'AutoModelForMaskedLM has from_config method'
+        model = transformers.AutoModelForMaskedLM.from_config(model_config)
 
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()  # type: ignore
@@ -190,8 +191,9 @@ def create_bert_classification(num_labels: Optional[int] = 2,
         model = transformers.AutoModelForSequenceClassification.from_pretrained(
             pretrained_model_name_or_path=pretrained_model_name, **model_config)
     else:
-        config = transformers.AutoConfig.from_pretrained(pretrained_model_name, **model_config)
-        assert transformers.AutoModelForSequenceClassification.from_config is not None, 'AutoModelForSequenceClassification has from_config method'
+        if len(model_config) == 1:
+            config = transformers.AutoConfig.from_pretrained(pretrained_model_name, **model_config)
+            assert transformers.AutoModelForSequenceClassification.from_config is not None, 'AutoModelForSequenceClassification has from_config method'
         model = transformers.AutoModelForSequenceClassification.from_config(config)
 
     if gradient_checkpointing:
