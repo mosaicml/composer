@@ -22,13 +22,13 @@ from composer.utils.object_store.object_store_hparams import ObjectStoreHparams,
 
 __all__ = ['NLPTrainerHparams', 'GLUETrainerHparams']
 
+
 @dataclasses.dataclass
 class GLUETrainerHparams(hp.Hparams):
-    """
-    Finetuning Hparams class.
+    """Finetuning Hparams class.
 
     Specifies arguments that should be broadcasted as overrides to all GLUE finetuning tasks when using examples/run_nlp_trainer.py.
-    
+
     Args:
        ...
     """
@@ -38,19 +38,20 @@ class GLUETrainerHparams(hp.Hparams):
     load_object_store: Optional[ObjectStoreHparams] = hp.auto(Trainer, 'load_object_store')
     loggers: Optional[List[LoggerDestination]] = hp.auto(Trainer, 'loggers')
     save_folder: Optional[str] = hp.auto(Trainer, 'save_folder')
-    
+
     hparams_registry = {
         'algorithms': algorithm_registry,
         'load_object_store': object_store_registry,
         'loggers': logger_registry,
     }
 
-    def initialize_object(self) -> Tuple: 
+    def initialize_object(self) -> Tuple:
         load_object_store = None
         if self.load_object_store:
             load_object_store = self.load_object_store.initialize_object()
 
-        return (self.algorithms, self.load_ignore_keys, self.load_path, load_object_store, self.loggers, self.save_folder)
+        return (self.algorithms, self.load_ignore_keys, self.load_path, load_object_store, self.loggers,
+                self.save_folder)
 
 
 @dataclasses.dataclass
@@ -65,19 +66,19 @@ class NLPTrainerHparams(hp.Hparams):
     """
 
     # GLUE Specific Overrides test
-    pretrain_hparams: TrainerHparams = hp.optional(doc='Pretraining hyperparameters', default=None)
+    pretrain_hparams: TrainerHparams = hp.required(doc='Pretraining hyperparameters')
     finetune_hparams: Optional[GLUETrainerHparams] = hp.optional(doc='GLUE Finetuning hyperparameters', default=None)
 
     def validate(self):
         self.pretrain_hparams.validate()
-       
+
     def initialize_object(self) -> Trainer:
         self.validate()
 
         # Glue Params
         if self.finetune_hparams:
             self.finetune_hparams = self.finetune_hparams.initialize_object()
-        
+
         return self.pretrain_hparams.initialize_object()
 
     @classmethod
@@ -91,5 +92,6 @@ class NLPTrainerHparams(hp.Hparams):
         trainer_hparams = NLPTrainerHparams.create(model_hparams_file, cli_args=False)
         assert isinstance(trainer_hparams, NLPTrainerHparams), 'trainer hparams should return an instance of self'
         return trainer_hparams
+
 
 load = NLPTrainerHparams.load

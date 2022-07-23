@@ -15,12 +15,12 @@ import logging
 import sys
 import tempfile
 import warnings
-from typing import Type
 
 from composer.loggers import LogLevel
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist
 from composer.utils.warning_helpers import warning_on_one_line
+
 
 def _main():
     warnings.formatwarning = warning_on_one_line
