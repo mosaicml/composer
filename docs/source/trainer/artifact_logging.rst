@@ -55,9 +55,42 @@ Using the ObjectStoreLogger
 There are two key arguments you need to specify to create an :class:`~.ObjectStoreLogger`:
 
 * `object_store_cls`
+
+Which cloud storage you are using. (e.g. S3, GCP, etc.)
+The choices we provide are:
+:class:`~.S3ObjectStore` for S3 storage.
+:class:`SFTPObjectStore` for storage in a server you upload to via SFTP.
+:class:`~.LibcloudObjectStore`, a general purpose class for specifying whatever cloud
+storage you are using.
+
+
 * `object_store_kwargs`
 
+`object_store_kwargs` are any arguments to the `object_store_cls` that you want to set. See
+the links to the classes' API docs for more information.
 
-Putting it All Together: Saving Checkpoints, Logging Metrics, and Uploading them to S3.
------------
-Here is 
+
+For example if you want to create an :class:`~.ObjectStoreLogger` for logging to S3,
+you could do something like this:
+
+:class:`~.ObjectStoreLogger`
+
+.. code:: python
+    from composer.loggers import ObjectStoreLogger
+    from composer.utils import LibcloudObjectStore
+
+    object_store_logger = ObjectStoreLogger(
+        object_store_cls=LibcloudObjectStore,
+        object_store_kwargs={
+            "provider": "s3",  # The Apache Libcloud provider name
+            "container": "my_bucket",  # The name of the cloud container (i.e. bucket) to use.
+            "provider_kwargs": {  # The Apache Libcloud provider driver initialization arguments
+                'key': 'provider_key',  # The cloud provider key.
+                'secret': '*******',  # The cloud provider secret.
+                # Any additional arguments required for the cloud provider.
+            },
+        },
+    )
+
+As you can see `object_store_kwargs` are arguments to :class:`~.LibcloudObjectStore` if we were to
+instantiate our own :class:`~.LibcloudObjectStore` object.
