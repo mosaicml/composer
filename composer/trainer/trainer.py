@@ -1036,7 +1036,8 @@ class Trainer:
         # Move the model and optimizers to the specified device
         if not self.deepspeed_enabled and dist.get_world_size() > 1:
             # Only wrap the module if required
-            self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
+            self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters,
+                                                  self.adaptive_gradient_accumulation)
 
     @property
     def deepspeed_enabled(self):
@@ -1641,6 +1642,7 @@ class Trainer:
             total_loss = None
             # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
             should_handle_cuda_oom = 0
+            caught_timeout_error = None
             try:
                 assert self.state.scaler is not None
                 microbatches = self._train_data_spec.split_batch(device_batch, self.state.grad_accum)
@@ -1665,21 +1667,16 @@ class Trainer:
                 if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     should_handle_cuda_oom = 1
+                elif self.adaptive_gradient_accumulation and 'Timed out' in str(e):
+                    # Catch timeout errors and only reraise if we did not encounter OOM on other ranks.
+                    # Error indicates a subset of ranks OOMed and a monitored_barrier was tripped to
+                    # avoid deadlock. Note that if we catch non-transient timeout errors they will be
+                    # later reraised if no rank OOMed.
+                    caught_timeout_error = e
                 else:
                     raise
             end_time = time.time()
 
-            # Use monitored barrier to error on deadlock. If one rank OOMs and another doesn't and gets stuck
-            # on a dist reduction in gradient syncronization, the monitored barrier will fail after the timeout.
-            # If `adaptive_gradient_accumulation=False`, the OOMing rank will instead crash, avoiding deadlock risk.
-            if self.adaptive_gradient_accumulation:
-                try:
-                    dist.monitored_barrier(timeout=datetime.timedelta(seconds=max(10, 0.5 * self.batch_compute_time)))
-                except RuntimeError as e:
-                    raise RuntimeError(
-                        'A deadlock was encountered in the train loop, likely because a strict subset of '
-                        'ranks encountered CUDA OOM when `grad_accum=auto`. Try manually setting `grad_accum` '
-                        'instead.') from e
             # Synchronize new batch compute time
             batch_compute_time = end_time - start_time
             batch_compute_time = self._device.tensor_to_device(torch.tensor([batch_compute_time], dtype=torch.float))
@@ -1704,6 +1701,10 @@ class Trainer:
                     log.info(('CUDA out of memory detected. Gradient Accumulation '
                               f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
                               'and the batch will be retrained.'))
+            elif caught_timeout_error:
+                # If not CUDA out of memory, raise exception to user. Note that this truncates the call stack
+                # back only to this newly raised error.
+                raise caught_timeout_error
             else:
                 # Otherwise, log grad_accum and return calculated loss
                 self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})

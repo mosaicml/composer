@@ -64,7 +64,7 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[List[Opt
     )
 
     batches = [[(1, Tensor([1])), (1, Tensor([2]))], [(2, Tensor([1])), (2, Tensor([2]))]]
-    state.model = prepare_ddp_module(state.model, find_unused_parameters=True)
+    state.model = prepare_ddp_module(state.model, find_unused_parameters=True, adaptive_gradient_accumulation=False)
     optimizer.zero_grad()
 
     for microbatch_idx in range(2):
