@@ -7,22 +7,21 @@ downstream tasks to be handled within one script.
 
 Example that pretrains a BERT:
     >>> composer examples/run_nlp_trainer.py 
-    -f composer/yamls/models/bert-base.yaml 
+    -f composer/yamls/models/glue/glue_example.yaml 
     --training_scheme pretrain 
 
 Example that pretrains and finetunes a BERT:
     >>> composer examples/run_nlp_trainer.py 
-    -f composer/yamls/models/bert-base.yaml 
+    -f composer/yamls/models/glue/glue_example.yaml 
     --training_scheme all 
-    --save_folder ~/checkpoints
 
 Example that finetunes a pretrained BERT:
 
     >>> composer examples/run_nlp_trainer.py
-    -f composer/yamls/models/bert_base.yaml
+    -f composer/yamls/models/glue/glue_example.yaml
     --training_scheme finetune
-    --load_path ~/checkpoints
 """
+import argparse
 import multiprocessing as mp
 import os
 import subprocess
@@ -31,7 +30,8 @@ import tempfile
 import warnings
 from concurrent.futures import Future
 from concurrent.futures import ProcessPoolExecutor as Pool
-from typing import Dict, List, Optional, Union
+from dataclasses import fields
+from typing import List, Optional, Union
 
 import boto3
 import torch
@@ -50,7 +50,10 @@ from composer.utils.warning_helpers import warning_on_one_line
 # TODO: reset all configs and training lengths back to default
 
 def init_cuda_queue(queue_size: int) -> mp.Queue:
-    ''' Generate a multiprocessing queue to store queue_size GPU IDs. TODO: ADD JUSTIFICATION INTO DOCS '''
+    ''' 
+    Generate a multiprocessing queue to store queue_size GPU IDs. The multiprocessing package has no way of extracting the worker 
+    name from the worker, therefore a queue is used to map pool workers to GPUs to spawn finetune jobs one. 
+    '''
     cuda_envs = mp.Queue(queue_size)
     cuda_envs_list = range(queue_size)
     for e in cuda_envs_list:
@@ -128,15 +131,13 @@ def log_metrics(ckpt_filename: str, glue_metrics: GlueState, f_metric: Future) -
                 old_val = glue_metrics.get_task_metric(ckpt_filename, formatted_task)
                 glue_metrics.set_task_metric(ckpt_filename, formatted_task, sum([old_val, metric[key][m].item()]) / 2) # automatically average scores 
     
-def merge_yaml_hparams(hparams: TrainerHparams, override_hparams: TrainerHparams) -> TrainerHparams:
+def merge_hparams(hparams: TrainerHparams, override_hparams: GLUETrainerHparams) -> TrainerHparams:
     ''' Overrides the atttributes of the hparams instance with those of the provided override_hparams. '''
-    
-    override_values = {}
-    if override_hparams:
-        override_values = override_hparams.to_dict() 
 
-    for arg in override_values.keys():
-        hparams.__setattr__(arg, override_values[arg])
+    if override_hparams:
+        for field in fields(override_hparams):
+            if getattr(override_hparams, field.name):
+                setattr(hparams, field.name, getattr(override_hparams, field.name))
 
     return hparams 
 
@@ -172,28 +173,33 @@ def train_finetune(base_yaml_file: str, task: str, save_ckpt: bool, load_path: s
     finetune_hparams = NLPTrainerHparams.create(cli_args=False, f=base_yaml_file).finetune_hparams
     task_hparams = TrainerHparams.create(cli_args=False, f=f'./composer/yamls/models/glue/{task}.yaml') 
 
-    ft_hparams = merge_yaml_hparams(task_hparams, finetune_hparams)
+    ft_hparams = merge_hparams(task_hparams, finetune_hparams)
 
     ft_hparams.load_path = load_path
     ft_hparams.device = DeviceGPU(torch.cuda.current_device())
-    
+    ft_hparams.log_to_console = False
+    ft_hparams.progress_bar = False
+
     if ft_hparams.load_ignore_keys:
         ft_hparams.load_ignore_keys.extend(load_ignore_keys)
     else:
         ft_hparams.load_ignore_keys = load_ignore_keys
     
-    # add finetune-specific tags to the logger 
-    if ft_hparams.loggers['wandb']:
-        if not ft_hparams.loggers['wandb']['tags']:
-            ft_hparams.loggers['wandb']['tags'] = []
-        ft_hparams.loggers['wandb']['tags'].append(task)
-        ft_hparams.loggers['wandb']['group'] = wandb_group_name
-        ft_hparams.loggers['wandb']['_rank_zero_only'] = True
+    # add finetune-specific tags to wandb if logger exists
+    if ft_hparams.loggers:
+        for logger in ft_hparams.loggers:
+            if isinstance(logger, WandBLogger):
+                if not logger._init_kwargs['tags']:
+                    logger._init_kwargs['tags'] = []
+                logger._init_kwargs['tags'].append(task)
+                logger._init_kwargs['group'] = wandb_group_name
+                logger._rank_zero_only = True
        
     # saving single checkpoint at the end of training the task 
     if save_ckpt:
+        # add task specific artifact logging informatino
         if save_locally:
-            task_ckpt_path = os.path.join(save_folder, f'{task}')
+            task_ckpt_path = os.path.join(save_folder, task)
             ft_hparams.save_folder = task_ckpt_path
             ft_hparams.save_num_checkpoints_to_keep = 1
             ft_hparams.save_overwrite = True
@@ -201,10 +207,9 @@ def train_finetune(base_yaml_file: str, task: str, save_ckpt: bool, load_path: s
             if not os.path.exists(task_ckpt_path):
                 os.mkdir(task_ckpt_path)
         else:
-            # add task specific artifact logging informatino
-            ft_hparams.save_folder = f'{task}'
-            save_artifact_name = f'{{run_name}}/{task}/ep{{epoch}}-ba{{batch}}-rank{{rank}}'
-            save_latest_artifact_name = f'{{run_name}}/{task}/latest-rank{{rank}}'
+            ft_hparams.save_folder = task
+            save_artifact_name = f'{save_folder}/{task}/ep{{epoch}}-ba{{batch}}-rank{{rank}}'
+            save_latest_artifact_name = f'{save_folder}/{task}/latest-rank{{rank}}'
             ft_hparams.save_artifact_name = save_artifact_name
             ft_hparams.save_latest_artifact_name = save_latest_artifact_name
             ft_hparams.save_overwrite = True
@@ -217,8 +222,8 @@ def train_finetune(base_yaml_file: str, task: str, save_ckpt: bool, load_path: s
     return trainer.state.current_metrics
 
 
-def get_args():
-    ''' Get NLPTrainerHparams arguments from CLI and add NLP entrypoint specific arguments. ''' 
+def get_args() -> argparse.Namespace:
+    ''' Get NLPTrainerHparams arguments from CLI. ''' 
     parser = hp.get_argparse(NLPTrainerHparams)
     parser.add_argument('--training_scheme', help='training scheme used (one of "pretrain", "finetune", or "all")', choices=[ 'pretrain','finetune', 'all'], required=True)
 
@@ -226,9 +231,10 @@ def get_args():
 
     return args
 
-def validate_args(args, hp: NLPTrainerHparams) -> None:
+def validate_args(args: argparse.Namespace, hp: NLPTrainerHparams) -> None:
+    ''' Validate CLI args as well as finetune-specific parameters. '''
     if not args.file:
-        raise ValueError('must specify a top level file to store shared configs for the entrypoint. see TODO for an example.')
+        raise ValueError('must specify a top level file to store shared configs for the entrypoint. see composer/yamls/models/glue/glue_example.yaml for an example.')
 
     if args.training_scheme == 'finetune' and (not hp.finetune_hparams) or (hp.finetune_hparams and not hp.finetune_hparams.load_path): 
        raise ValueError('load_path to checkpoint folder must be specified if finetuning a model')
@@ -243,20 +249,23 @@ def validate_args(args, hp: NLPTrainerHparams) -> None:
     elif args.training_scheme == 'all' and hp.finetune_hparams and hp.finetune_hparams.load_path:
         warnings.warn('load_path specified in finetune_hparams. This value will be overriden during finetuning.')
 
-def get_finetune_hparams(args):
+def get_finetune_hparams(args: argparse.Namespace) -> Union[NLPTrainerHparams, None]:
+    ''' Extract finetune-specific hparams from the provided file and add entrypoint specific args to it. ''' 
     hp = NLPTrainerHparams.create(cli_args=False, f=args.file)
     validate_args(args, hp)
 
     hparams = None
     if args.training_scheme != 'pretrain':
         hparams = hp.finetune_hparams
-        args.run_name = hp.pretrain_hparams.run_name
         args.save_locally = True
         if hparams.loggers:
             for l in hparams.loggers:
                 if isinstance(l, ObjectStoreLogger):
                     args.save_locally = False
                     args.bucket = l.object_store.bucket
+        
+        if args.training_scheme == 'all': 
+            hparams.save_folder = hp.pretrain_hparams.save_folder
 
     return hparams
 
@@ -280,26 +289,33 @@ def run_pretrainer(args) -> None:
             elif copy:
                 outfile.write(line)
 
-    proc = subprocess.Popen(['composer', training_script, '-f', tmp_file])
-    infile.close()
-    outfile.close()
-    proc.wait() # block until training is complete 
+    if args.training_scheme == 'all': # extract run_name from trainer args for finetuning
+        hp = TrainerHparams.create(cli_args=False, f=tmp_file)
+        args.run_name = hp.run_name 
+        if args.save_locally:
+            args.save_folder = hp.save_folder
+        else:
+            args.save_folder = os.path.join(args.run_name, hp.save_folder) 
+        
+    proc = subprocess.Popen(['composer', training_script, '-f', tmp_file, '--save_folder', args.save_folder])
+    proc.communicate() # block until training is complete, doesn't interfere with open file streaming
 
-def run_finetuner(args, finetune_hparams, glue_metrics: GlueState) -> None:
+def run_finetuner(args: argparse.Namespace, finetune_hparams, glue_metrics: GlueState) -> None:
     ''' Logic for handling a finetuning job spawn based on storage and training settings.'''
     # set automatic load and save paths 
     if args.training_scheme == 'all': # load checkpoints from where pretraining saved them
-        ckpt_folder = finetune_hparams.save_folder
+        ckpt_folder = args.save_folder
     else: # finetune only
         ckpt_folder = finetune_hparams.load_path
   
     if args.save_locally:
-        all_ckpts_list =  os.listdir(ckpt_folder)
+        all_ckpts_list =  [f for f in os.listdir(ckpt_folder) if not os.path.isdir(os.path.join(ckpt_folder, f))]
     else:
         all_ckpts_list = get_all_s3_checkpoints(args.bucket, ckpt_folder)
 
     # finetune on every pretrained checkpoint  
     for ckpt_filename in all_ckpts_list:
+        parent_ckpt = ckpt_filename # necessary for logging 
         if args.save_locally:
             ckpt_load_path = os.path.join(ckpt_folder, ckpt_filename)
             save_locally = True
@@ -318,10 +334,9 @@ def run_finetuner(args, finetune_hparams, glue_metrics: GlueState) -> None:
         finetune_tasks = ['cola', 'sst-2', 'qqp', 'qnli', 'mnli']
         save_ckpts = [False, False, False, False, True]
         setup_finetuning_jobs(finetune_tasks, save_ckpts, ckpt_load_path, ckpt_filename, ckpt_folder, glue_metrics, args.file, 
-                        save_locally=save_locally, load_ignore_keys=["state/model/model.classifier*"])
+                        save_locally=save_locally, parent_ckpt=parent_ckpt, load_ignore_keys=["state/model/model.classifier*"])
 
         # finetune on inference tasks using last mnli checkpoint 
-        parent_ckpt = ckpt_filename # necessary for logging 
         if args.save_locally:
             # load checkpoints from where mnli saved them
             ft_ckpt_folder = os.path.join(ckpt_folder, 'mnli')  
@@ -329,7 +344,7 @@ def run_finetuner(args, finetune_hparams, glue_metrics: GlueState) -> None:
             ckpt_load_path = os.path.join(ft_ckpt_folder, ckpt_filename)
             save_locally = True
         else:
-            ckpt_filename = get_all_s3_checkpoints(args.bucket, f'{args.run_name}/mnli')[-1] # get latest checkpoint
+            ckpt_filename = get_all_s3_checkpoints(args.bucket, f'{ckpt_folder}/mnli')[-1] # get last checkpoint
             ckpt_load_path = ckpt_filename
             save_locally = False
 

@@ -6,10 +6,12 @@
 from __future__ import annotations
 
 import dataclasses
+import os
 from typing import List, Optional, Tuple
 
 import yahp as hp
 
+import composer
 from composer.algorithms.algorithm_hparams_registry import algorithm_registry
 from composer.core.algorithm import Algorithm
 from composer.loggers.logger_destination import LoggerDestination
@@ -35,8 +37,6 @@ class GLUETrainerHparams(hp.Hparams):
     load_path: Optional[str] = hp.auto(Trainer, 'load_path')
     load_object_store: Optional[ObjectStoreHparams] = hp.auto(Trainer, 'load_object_store')
     loggers: Optional[List[LoggerDestination]] = hp.auto(Trainer, 'loggers')
-    progress_bar: bool = hp.auto(Trainer, 'progress_bar')
-    log_to_console: Optional[bool] = hp.auto(Trainer, 'log_to_console')
     save_folder: Optional[str] = hp.auto(Trainer, 'save_folder')
     
     hparams_registry = {
@@ -50,7 +50,7 @@ class GLUETrainerHparams(hp.Hparams):
         if self.load_object_store:
             load_object_store = self.load_object_store.initialize_object()
 
-        return (self.algorithms, self.load_ignore_keys, self.load_path, load_object_store, self.loggers, self.progress_bar, self.log_to_console, self.save_folder)
+        return (self.algorithms, self.load_ignore_keys, self.load_path, load_object_store, self.loggers, self.save_folder)
 
 
 @dataclasses.dataclass
@@ -82,6 +82,14 @@ class NLPTrainerHparams(hp.Hparams):
 
     @classmethod
     def load(cls, model: str) -> NLPTrainerHparams:
-        return TrainerHparams.load(model)
+        model_hparams_file = os.path.join(
+            os.path.dirname(composer.__file__),
+            'yamls',
+            'models',
+            f'{model}.yaml',
+        )
+        trainer_hparams = NLPTrainerHparams.create(model_hparams_file, cli_args=False)
+        assert isinstance(trainer_hparams, NLPTrainerHparams), 'trainer hparams should return an instance of self'
+        return trainer_hparams
 
 load = NLPTrainerHparams.load
