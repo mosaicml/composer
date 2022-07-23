@@ -6,7 +6,7 @@ In addition, your `run_name` will show up in many places as you utilize Composer
 
 ## Run Name Creation
 
-The `run_name` argument is an optional argument to the  {class}`~.Trainer`. 
+The `run_name` argument is an optional argument to the  {class}`~.Trainer`.
 
 There are two ways to get a `run_name`.
 
