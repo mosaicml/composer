@@ -1,7 +1,7 @@
 # 🏃‍♀️ Run Name
 
 The `run_name` is a string used to name a specific training run. Naming your training run has many benefits.
-Namely, you can more easily group and keep track of metrics, checkpoints, and other training artifacts. 
+Namely, you can more easily group and keep track of metrics, checkpoints, and other training artifacts.
 In addition, your `run_name` will show up in many places as you utilize Composer.
 
 ## Run Name Creation
@@ -11,7 +11,7 @@ The `run_name` argument is an optional argument to the  {class}`~.Trainer`.
 There are two ways to get a `run_name`.
 
 You create your own `run_name` and pass it to the trainer, like so:
- 
+
 <!--pytest-codeblocks:skip-->
 ```python
 from torchvision import datasets, transforms
@@ -33,7 +33,7 @@ trainer = Trainer(
 )
 trainer.fit()
 ```
-        
+
 You can instead let the trainer create a `run_name` for you. The one created for you is the timestamp followed by a [coolname](https://github.com/alexanderlukanin13/coolname); e.g. `‘1657932618-infrared-ferret’`
 
 
