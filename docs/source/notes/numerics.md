@@ -14,7 +14,19 @@ accelerator:
 When using the {class}`~.Trainer`, the number format can be selected by specifying the `precision` argument during
 initialization. In the example below, we are training on a `gpu` device using [Automatic Mixed Precision](amp) (`amp`):
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.gpu-->
+<!--pytest.mark.timeout(15)-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomClassificationDataset, SimpleModel
+
+model = SimpleModel()
+train_dataloader = DataLoader(RandomClassificationDataset())
+eval_dataloader = DataLoader(RandomClassificationDataset())
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 from composer import Trainer
 

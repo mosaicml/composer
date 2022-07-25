@@ -21,7 +21,7 @@ def validate_ema(model, original_model, ema_model, smoothing):
 
     for model_param, original_param, ema_param in zip(model_params, original_params, ema_params):
         new_param = original_param * smoothing + (1. - smoothing) * model_param
-        torch.testing.assert_allclose(ema_param, new_param)
+        torch.testing.assert_close(ema_param.data, new_param)
 
 
 def validate_model(model1, model2):
@@ -29,7 +29,7 @@ def validate_model(model1, model2):
     model2_params = itertools.chain(model2.parameters(), model2.buffers())
 
     for model1_param, model2_param in zip(model1_params, model2_params):
-        torch.testing.assert_allclose(model1_param, model2_param)
+        torch.testing.assert_close(model1_param.data, model2_param)
 
 
 @pytest.mark.parametrize('smoothing', [0, 0.5, 0.99, 1])

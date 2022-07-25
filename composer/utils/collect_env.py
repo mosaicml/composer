@@ -40,11 +40,13 @@ To disable automatic environment report generation, use the :func:`disable_env_r
 function.  Report generation can be re-enabled by using the :func:`enable_env_report` function.
 """
 
+import json
 import sys
 import time
 from typing import NamedTuple, Optional, TextIO
 
 import cpuinfo
+import importlib_metadata
 import psutil
 
 __all__ = ['configure_excepthook', 'disable_env_report', 'enable_env_report', 'print_env']
@@ -90,12 +92,29 @@ _ENV_EXCEPTION_REPORT = True
 # Same convention as Torch collect_env, create a namedtuple to track collected fields
 class ComposerEnv(NamedTuple):
     composer_version: str
+    composer_commit_hash: Optional[str]
     node_world_size: int
     host_processor_model_name: str
     host_processor_core_count: int
     local_world_size: int
     accelerator_model_name: str
     cuda_device_count: int
+
+
+def get_composer_commit_hash() -> Optional[str]:
+    # Use PEP-610 to get the commit hash
+    # See https://packaging.python.org/en/latest/specifications/direct-url/
+    files = importlib_metadata.files('mosaicml')
+    if files is None:
+        return
+    files = [f for f in files if str(f).endswith('direct_url.json')]
+    if len(files) == 0:
+        return
+    f = files[0]
+    direct_url = json.loads(f.read_text())
+    vcs_info = direct_url.get('vcs_info', {})
+    commit_id = vcs_info.get('commit_id')
+    return commit_id
 
 
 # Helper functions to get Composer environment information
@@ -255,6 +274,7 @@ def get_torch_env() -> str:
 # Composer environment information string output format
 _COMPOSER_ENV_INFO_FORMAT = """
 Composer version: {composer_version}
+Composer commit hash: {composer_commit_hash}
 Host processor model name: {host_processor_model_name}
 Host processor core count: {host_processor_core_count}
 Number of nodes: {node_world_size}
@@ -269,6 +289,7 @@ def get_composer_env() -> str:
     """Query Composer pertinent system information."""
     mutable_dict = ComposerEnv(
         composer_version=get_composer_version(),
+        composer_commit_hash=get_composer_commit_hash(),
         host_processor_model_name=get_host_processor_name(),
         host_processor_core_count=get_host_processor_cores(),
         node_world_size=get_node_world_size(),
@@ -348,7 +369,8 @@ def print_env(file: Optional[TextIO] = None) -> None:
 
         Composer information
         --------------------
-        Composer version: 0.8.0
+        Composer version: 0.8.1
+        Composer commit hash: 8418a674248d39c28403156a0559c77d1f3642f9
         Host processor model name: AMD EPYC 7502 32-Core Processor
         Host processor core count: 64
         Number of nodes: 1

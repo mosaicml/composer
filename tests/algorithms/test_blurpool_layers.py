@@ -64,7 +64,7 @@ def test_default_2d_filter():
         filt = torch.Tensor(filt)
         return filt.view(1, 1, *filt.shape)
 
-    torch.testing.assert_allclose(
+    torch.testing.assert_close(
         blurpool.blurpool_layers._default_2d_filter(),  # type: ignore
         reference_filter(),
     )
@@ -82,8 +82,8 @@ def test_blur2d_std(pool_args):
 def test_blurpool_blurconv2d_params_match_original_params():
     conv2d = torch.nn.Conv2d(16, 32, 3, stride=1, bias=True)
     blurconv = blurpool.BlurConv2d.from_conv2d(conv2d)
-    torch.testing.assert_allclose(blurconv.conv.weight, conv2d.weight)
-    torch.testing.assert_allclose(blurconv.conv.bias, conv2d.bias)
+    torch.testing.assert_close(blurconv.conv.weight, conv2d.weight)
+    torch.testing.assert_close(blurconv.conv.bias, conv2d.bias)
     assert blurconv.conv.weight.requires_grad
     assert blurconv.conv.bias is not None
     assert blurconv.conv.bias.requires_grad

@@ -17,7 +17,7 @@ from composer.core.callback import Callback
 from composer.core.time import Time, Timestamp, TimeUnit
 from composer.loggers import Logger
 from composer.loggers.logger import LogLevel
-from composer.utils import checkpoint, dist
+from composer.utils import checkpoint, dist, is_model_deepspeed
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
                                          create_symlink_file, ensure_folder_has_no_conflicting_files,
                                          format_name_with_dist, format_name_with_dist_and_time, is_tar)
@@ -329,7 +329,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             ensure_folder_has_no_conflicting_files(folder, self.filename, state.timestamp)
         # Ensure no rank proceeds (and potentially attempts to write to the folder), until all ranks have validated that the folder is safe.
         dist.barrier()
-        if state.is_model_deepspeed:
+        if is_model_deepspeed(state.model):
             if self.weights_only:
                 NotImplementedError(
                     ('Saving checkpoints with `weights_only=True` is not currently supported when using DeepSpeed. '
@@ -360,7 +360,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             if self.artifact_name is not None:
                 artifact_name = format_name_with_dist_and_time(self.artifact_name, state.run_name,
                                                                state.timestamp).lstrip('/')
-                if state.is_model_deepspeed and not is_tar(artifact_name):
+                if is_model_deepspeed(state.model) and not is_tar(artifact_name):
                     # Deepspeed requires tarballs; appending `.tar`
                     artifact_name += '.tar'
                 logger.file_artifact(log_level=log_level,
@@ -378,7 +378,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                         state.timestamp,
                     ).lstrip('/'),
                 )
-                if state.is_model_deepspeed and not is_tar(symlink_name):
+                if is_model_deepspeed(state.model) and not is_tar(symlink_name):
                     # Deepspeed requires tarballs; appending `.tar`
                     symlink_name += '.tar'
                 symlink_dirname = os.path.dirname(symlink_name)

@@ -99,6 +99,9 @@ A few tips and tricks for using our Trainer:
    centralized into one variable: :class:`.State`.
 -  We have an abstraction for tracking :class:`.Time`, see the
    :doc:`Time<time>` guide.
+-  By default, the Trainer will pick a run name for you, but if you want to name your run,
+   you can using the optional ``run_name`` argument to :class:`.Trainer`. See :doc:`/notes/run_name`
+   for more information.
 
 For a full list of Trainer options, see :class:`.Trainer`. Below, we
 illustrate some example use cases.

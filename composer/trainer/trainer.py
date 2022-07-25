@@ -41,7 +41,8 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
-from composer.utils import ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, reproducibility
+from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed, map_collection,
+                            reproducibility)
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -753,7 +754,7 @@ class Trainer:
         if deepspeed_enabled or dist.get_world_size() > 1:
             # deepspeed requires torch.distributed to be initialized, even if the world size is 1
             # distributed is always required with multi-rank training
-            dist.initialize_dist(self._device.dist_backend, datetime.timedelta(seconds=dist_timeout))
+            dist.initialize_dist(self._device, datetime.timedelta(seconds=dist_timeout))
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, self._device)
@@ -793,6 +794,8 @@ class Trainer:
         # Grad Accum
         self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
         grad_accum = _get_initial_grad_accum(grad_accum)
+        # Dynamic time estimate for forward and backward pass. Used for monitored_barrier to avoid deadlocks
+        self.batch_compute_time = 300
 
         # Grad Clip Norm
         if grad_clip_norm > 0:
@@ -1041,7 +1044,7 @@ class Trainer:
 
         .. seealso:: `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_
         """
-        return self.state.is_model_deepspeed
+        return is_model_deepspeed(self.state.model)
 
     @property
     def saved_checkpoints(self) -> List[Tuple[Timestamp, List[pathlib.Path]]]:
@@ -1634,10 +1637,10 @@ class Trainer:
 
         # Retry until we successfully complete training and return loss
         while True:
+            start_time = time.time()
             total_loss = None
             # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
             should_handle_cuda_oom = 0
-            caught_timeout_error = None
             try:
                 assert self.state.scaler is not None
                 microbatches = self._train_data_spec.split_batch(device_batch, self.state.grad_accum)
@@ -1662,14 +1665,26 @@ class Trainer:
                 if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     should_handle_cuda_oom = 1
-                elif 'Timed out' in str(e):
-                    # Catch timeout errors and only reraise if we did not encounter OOM on other ranks. Error
-                    # is likely transient if one rank OOMed, it likely did not reach a barrier. Note that if we
-                    # catch non-transient timeout errors they will be later reraised if no rank OOMed.
-                    caught_timeout_error = e
                 else:
                     raise
+            end_time = time.time()
 
+            # Use monitored barrier to error on deadlock. If one rank OOMs and another doesn't and gets stuck
+            # on a dist reduction in gradient syncronization, the monitored barrier will fail after the timeout.
+            # If `adaptive_gradient_accumulation=False`, the OOMing rank will instead crash, avoiding deadlock risk.
+            if self.adaptive_gradient_accumulation:
+                try:
+                    dist.monitored_barrier(timeout=datetime.timedelta(seconds=max(10, 0.5 * self.batch_compute_time)))
+                except RuntimeError as e:
+                    raise RuntimeError(
+                        'A deadlock was encountered in the train loop, likely because a strict subset of '
+                        'ranks encountered CUDA OOM when `grad_accum=auto`. Try manually setting `grad_accum` '
+                        'instead.') from e
+            # Synchronize new batch compute time
+            batch_compute_time = end_time - start_time
+            batch_compute_time = self._device.tensor_to_device(torch.tensor([batch_compute_time], dtype=torch.float))
+            dist.all_reduce(batch_compute_time, reduce_operation='MAX')
+            self.batch_compute_time = batch_compute_time.item()
             # Propagate across all ranks if any rank hit CUDA OOM
             should_handle_cuda_oom = self._device.tensor_to_device(
                 torch.tensor([should_handle_cuda_oom], dtype=torch.uint8))
@@ -1689,10 +1704,6 @@ class Trainer:
                     log.info(('CUDA out of memory detected. Gradient Accumulation '
                               f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
                               'and the batch will be retrained.'))
-            elif caught_timeout_error:
-                # If not CUDA out of memory, raise exception to user. Note that this truncates the call stack
-                # back only to this newly raised error.
-                raise caught_timeout_error
             else:
                 # Otherwise, log grad_accum and return calculated loss
                 self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
@@ -1818,8 +1829,62 @@ class Trainer:
         if self.deepspeed_enabled:
             self.state.deepspeed_model.step()
 
-    def predict(self, dataloader: Union[DataLoader, DataSpec], subset_num_batches: int = -1):
+    def predict(
+        self,
+        dataloader: Union[DataLoader, DataSpec],
+        subset_num_batches: int = -1,
+        *,
+        return_outputs: bool = True,
+    ):
         """Output model prediction on the provided data.
+
+        There are two ways to access the prediction outputs.
+
+        1.  With ``return_outputs`` set to True, the batch predictions will be collected into a list and returned.
+        2.  Via a custom callback, which can be used with ``return_outputs`` set to False.
+
+            This technique can be useful if collecting all the outputs from the dataloader would exceed available memory,
+            and you want to write outputs directly to files. For example:
+
+            .. testsetup::
+
+                predict_dl = train_dataloader
+
+            .. testcode::
+
+                import os
+                import torch
+
+                from torch.utils.data import DataLoader
+
+                from composer import Trainer, Callback
+                from composer.loggers import Logger, LogLevel
+
+                class PredictionSaver(Callback):
+                    def __init__(self, folder: str):
+                        self.folder = folder
+                        os.makedirs(self.folder, exist_ok=True)
+
+                    def predict_batch_end(self, state: State, logger: Logger) -> None:
+                        name = f'batch_{int(state.predict_timestamp.batch)}.pt'
+                        filepath = os.path.join(self.folder, name)
+                        torch.save(state.outputs, filepath)
+
+                        # Also log the outputs as an artifact
+                        logger.file_artifact(LogLevel.BATCH, artifact_name=name, file_path=filepath)
+
+                trainer = Trainer(
+                    ...,
+                    callbacks=PredictionSaver('./predict_outputs'),
+                )
+
+                trainer.predict(predict_dl, return_outputs=False)
+
+                print(sorted(os.listdir('./predict_outputs')))
+
+            .. testoutput::
+
+                ['batch_1.pt', ...]
 
         Args:
             dataloader (DataLoader | DataSpec): The :class:`.DataLoader` or
@@ -1827,6 +1892,13 @@ class Trainer:
             subset_num_batches (int, optional): If specified, only perform model prediction
                 on this many batches. This parameter has no effect if it is greater than ``len(dataloader)``.
                 If ``-1``, then the entire loader will be iterated over. (default: ``-1``)
+            return_outputs (bool, optional): If True (the default), then prediction outputs will be (recursively)
+                moved to cpu and accumulated into a list. Otherwise, prediction outputs are discarded after each
+                batch.
+
+        Returns:
+            List: A list of batch outputs, if ``return_outputs`` is True. Otherwise, an empty list.
+
         """
         if isinstance(dataloader, DataSpec):
             data_spec = dataloader
@@ -1848,6 +1920,9 @@ class Trainer:
         self.state.predict_timestamp = Timestamp()
 
         last_wct = datetime.datetime.now()
+
+        outputs = []
+        cpu_device = DeviceCPU()
 
         with torch.no_grad():
 
@@ -1875,6 +1950,9 @@ class Trainer:
                 self.state.outputs = self.state.model(self.state.batch)
                 self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
 
+                if return_outputs:
+                    outputs.append(cpu_device.batch_to_device(self.state.outputs))
+
                 now = datetime.datetime.now()
                 batch_time = now - last_wct
 
@@ -1893,6 +1971,8 @@ class Trainer:
                 self.engine.run_event(Event.PREDICT_BATCH_END)
 
             self.engine.run_event(Event.PREDICT_END)
+
+            return outputs
 
         # Restore training mode
         if restore_model_train:

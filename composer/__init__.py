@@ -3,6 +3,7 @@
 
 """Composer."""
 
+from composer._version import __version__
 from composer.core import Algorithm, Callback, DataSpec, Engine, Evaluator, Event, State, Time, Timestamp, TimeUnit
 from composer.loggers import Logger
 from composer.models import ComposerModel
@@ -23,5 +24,3 @@ __all__ = [
     'ComposerModel',
     'Trainer',
 ]
-
-__version__ = '0.8.0'
