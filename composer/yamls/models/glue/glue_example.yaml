@@ -29,7 +29,7 @@ pretrain_hparams:
   # Periodically evaluate the LanguageCrossEntropy and Masked Accuracy
   # on the validation split of the dataset.
   evaluators:
-    evaluator: 
+    evaluator:
         label: bert_pre_training
         eval_dataset:
           streaming_c4:
@@ -73,7 +73,7 @@ pretrain_hparams:
 
   save_folder: checkpoints          # The directory to save checkpoints to
   save_interval: 3500ba              # Save checkpoints every 3500 batches
-  save_artifact_name: '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}-wct{total_wct}' # uncomment if you want to checkpoint to cloud 
+  save_artifact_name: '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}-wct{total_wct}' # comment if you do not want to checkpoint to cloud
   save_overwrite: True
 
   loggers:
@@ -83,19 +83,19 @@ pretrain_hparams:
           bucket: ishana-bert-checkpoints
       use_procs: False
     wandb:
-      tags: 
+      tags:
         - pretrain
-    
+
 finetune_hparams:
   # defaults
-  loggers: 
+  loggers:
     object_store:
       object_store_hparams:
         s3:
           bucket: ishana-bert-checkpoints
       use_procs: False
     wandb:
-      tags: 
+      tags:
         - finetune
   load_object_store:
     s3:

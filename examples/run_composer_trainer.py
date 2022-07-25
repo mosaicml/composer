@@ -20,7 +20,7 @@ import warnings
 from composer.loggers import LogLevel
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist
-from composer.utils.warning_helpers import warning_on_one_line
+from composer.utils.misc import warning_on_one_line
 
 
 def _main():

@@ -67,10 +67,8 @@ class NLPTrainerHparams(hp.Hparams):
 
     # GLUE Specific Overrides test
     pretrain_hparams: TrainerHparams = hp.required(doc='Pretraining hyperparameters')
+    training_scheme: str = hp.required(doc='training scheme used (one of "pretrain", "finetune", or "all")')
     finetune_hparams: Optional[GLUETrainerHparams] = hp.optional(doc='GLUE Finetuning hyperparameters', default=None)
-
-    def validate(self):
-        self.pretrain_hparams.validate()
 
     def initialize_object(self) -> Trainer:
         self.validate()
@@ -92,6 +90,3 @@ class NLPTrainerHparams(hp.Hparams):
         trainer_hparams = NLPTrainerHparams.create(model_hparams_file, cli_args=False)
         assert isinstance(trainer_hparams, NLPTrainerHparams), 'trainer hparams should return an instance of self'
         return trainer_hparams
-
-
-load = NLPTrainerHparams.load

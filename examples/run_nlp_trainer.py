@@ -6,17 +6,17 @@
 Specifically designed for the NLP use case, allowing pre-training and fine-tuning on
 downstream tasks to be handled within one script.
 
-Example that pretrains a BERT:
+Example that pretrains a BERT::
     >>> composer examples/run_nlp_trainer.py
     -f composer/yamls/models/glue/glue_example.yaml
     --training_scheme pretrain
 
-Example that pretrains and finetunes a BERT:
+Example that pretrains and finetunes a BERT::
     >>> composer examples/run_nlp_trainer.py
     -f composer/yamls/models/glue/glue_example.yaml
     --training_scheme all
 
-Example that finetunes a pretrained BERT:
+Example that finetunes a pretrained BERT::
 
     >>> composer examples/run_nlp_trainer.py
     -f composer/yamls/models/glue/glue_example.yaml
@@ -29,10 +29,9 @@ import subprocess
 import sys
 import tempfile
 import warnings
-from concurrent.futures import Future
 from concurrent.futures import ProcessPoolExecutor as Pool
-from dataclasses import fields
-from typing import List, Optional, Union
+from dataclasses import dataclass, fields
+from typing import Dict, List, Optional, Union
 
 import boto3
 import torch
@@ -42,15 +41,39 @@ from tabulate import tabulate
 import composer
 from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.wandb_logger import WandBLogger
-from composer.metrics.glue import GLUEMetricsLogger, GlueState
 from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.nlp_trainer_hparams import GLUETrainerHparams, NLPTrainerHparams
 from composer.trainer.trainer_hparams import TrainerHparams
-from composer.utils.warning_helpers import warning_on_one_line
+from composer.utils.misc import warning_on_one_line
+
+
+class GLUEMetricsState:
+    """Class mapping all GLUE tasks to their respective average metric values."""
+
+    def __init__(self, task_names: List[str]) -> None:
+        self.task_to_avg_metric = {}
+
+        for task in task_names:
+            self.task_to_avg_metric[task] = None
+
+
+@dataclass
+class GlueState:
+    """Class storing all GLUE metrics per checkpoint collected during a finetuning job spawned by the NLP entrypoint.
+
+    This class maps checkpoint names to GLUEMetricsState instances which map tasks to their respective average
+    metric values.
+
+    Args:
+        task_names list(str): the names of the GLUE tasks stored in the data struct
+        ckpt_to_tasks dict(str, GLUEMetricsState): dictionary mapping checkpoint names to GLUEMetricsState instances
+    """
+    task_names: List[str]
+    ckpt_to_tasks: Dict[str, GLUEMetricsState]
 
 
 def init_cuda_queue(queue_size: int) -> mp.Queue:
-    """Generate a multiprocessing queue to store queue_size GPU IDs. The multiprocessing package has no way of extracting the worker name from the worker, therefore a queue is used to map pool workers to GPUs to spawn finetune jobs one."""
+    """Generate a multiprocessing queue to store queue_size GPU IDs. The multiprocessing package has no way of extracting the worker ID from the worker name; therefore, a queue is used to map pool workers to GPUs to spawn finetune jobs one."""
     cuda_envs = mp.Queue(queue_size)
     cuda_envs_list = range(queue_size)
     for e in cuda_envs_list:
@@ -85,7 +108,7 @@ def get_all_s3_checkpoints(bucket_name: str, folder_name: str) -> List[str]:
     return ckpt_names
 
 
-def output_metrics(glue_metrics: GlueState) -> None:
+def print_metrics(glue_metrics: GlueState) -> None:
     """Consolidate and prettify metrics."""
     tasks = glue_metrics.task_names
     large_tasks = ['mnli', 'qnli', 'qqp', 'sst2']
@@ -102,12 +125,14 @@ def output_metrics(glue_metrics: GlueState) -> None:
         glue_large = 0
         # Per task score
         for task in sorted(glue_metrics.task_names):
-            task_metric = 0 if not glue_metrics.ckpt_to_tasks[ckpt].task_to_avg_metric[
-                task] else glue_metrics.ckpt_to_tasks[ckpt].task_to_avg_metric[task]
-            output_line.append('{:.4f}'.format(task_metric))
-            glue_all += task_metric
+            task_metric = glue_metrics.ckpt_to_tasks[ckpt].task_to_avg_metric[task]
+            logged_metric = 0
+            if task_metric:
+                logged_metric = sum(task_metric) / len(task_metric)  # average all metrics
+            output_line.append('{:.4f}'.format(logged_metric))
+            glue_all += logged_metric
             if task in large_tasks:
-                glue_large += task_metric
+                glue_large += logged_metric
         # GLUE Large and GLUE All
         output_line.append('{:.4f}'.format(glue_large / len(large_tasks)))
         output_line.append('{:.4f}'.format(glue_all / len(tasks)))
@@ -116,27 +141,21 @@ def output_metrics(glue_metrics: GlueState) -> None:
     print(tabulate(tb, headers='firstrow'))
 
 
-def log_metrics(ckpt_filename: str, glue_metrics: GlueState, f_metric: Future) -> None:
+def log_metrics(metric: Dict, ckpt_filename: str, glue_metrics: GlueState) -> None:
     """Callback function for metric collection."""
-    metric = f_metric.result()
-
     if ckpt_filename not in glue_metrics.ckpt_to_tasks.keys():
-        glue_metrics.ckpt_to_tasks[ckpt_filename] = GLUEMetricsLogger(glue_metrics.task_names)
+        glue_metrics.ckpt_to_tasks[ckpt_filename] = GLUEMetricsState(glue_metrics.task_names)
 
     task = list(metric.keys())[0]
     formatted_task = task.split('_')[1]  # remove "glue_" prefix
-    for key in metric.keys():  # handle case where mnli has glue_mnli and glue_mnli_mismatched
-        for m in metric[key]:
-            if not glue_metrics.ckpt_to_tasks[ckpt_filename].task_to_avg_metric[formatted_task]:
-                glue_metrics.ckpt_to_tasks[ckpt_filename].task_to_avg_metric[formatted_task] = metric[key][m].item()
-
-            else:
-                old_val = glue_metrics.ckpt_to_tasks[ckpt_filename].task_to_avg_metric[formatted_task]
-                glue_metrics.ckpt_to_tasks[ckpt_filename].task_to_avg_metric[formatted_task] = sum(
-                    [old_val, metric[key][m].item()]) / 2  # automatically average scores
+    for metric_val in metric.values():  # handle case where mnli has glue_mnli and glue_mnli_mismatched
+        task_metric = glue_metrics.ckpt_to_tasks[ckpt_filename].task_to_avg_metric[formatted_task]
+        if not task_metric:
+            task_metric = []
+        task_metric.append(metric_val.item())
 
 
-def merge_hparams(hparams: TrainerHparams, override_hparams: Union[GLUETrainerHparams, None]) -> TrainerHparams:
+def merge_hparams(hparams: TrainerHparams, override_hparams: Optional[GLUETrainerHparams]) -> TrainerHparams:
     """Overrides the atttributes of the hparams instance with those of the provided override_hparams."""
     if override_hparams:
         for field in fields(override_hparams):
@@ -147,8 +166,7 @@ def merge_hparams(hparams: TrainerHparams, override_hparams: Union[GLUETrainerHp
 
 
 def setup_finetuning_jobs(
-    finetune_tasks: List[str],
-    save_ckpts: List[bool],
+    task_to_save_ckpt: Dict[str, bool],
     ckpt_load_path: str,
     ckpt_filename: str,
     ckpt_save_folder: str,
@@ -160,6 +178,7 @@ def setup_finetuning_jobs(
 ) -> None:
     """Set up CUDA environment and process pool for given finetuning jobs."""
     cuda_envs = init_cuda_queue(torch.cuda.device_count())
+    finetune_tasks = list(task_to_save_ckpt.keys())
     num_tasks = len(finetune_tasks)
 
     if parent_ckpt:
@@ -171,12 +190,14 @@ def setup_finetuning_jobs(
 
     # finetuning from pretrained checkpoint
     print(f'FINETUNING ON {ckpt_filename}!')
-    log_metrics_lambda = lambda x: log_metrics(f_metric=x, ckpt_filename=logged_ckpt_name, glue_metrics=glue_metrics)
+    done_callback = lambda future: log_metrics(
+        metric=future.result(), ckpt_filename=logged_ckpt_name, glue_metrics=glue_metrics)
     executor = Pool(max_workers=torch.cuda.device_count(), initializer=init_cuda_env, initargs=(cuda_envs,))
     for rank in range(num_tasks):
-        future = executor.submit(train_finetune, base_yaml_file, finetune_tasks[rank], save_ckpts[rank], ckpt_load_path,
+        task = finetune_tasks[rank]
+        future = executor.submit(train_finetune, base_yaml_file, task, task_to_save_ckpt[task], ckpt_load_path,
                                  wandb_group_name, ckpt_save_folder, save_locally, load_ignore_keys)
-        future.add_done_callback(log_metrics_lambda)
+        future.add_done_callback(done_callback)
 
     executor.shutdown(wait=True)  # wait for processes and callbacks to complete
 
@@ -222,7 +243,7 @@ def train_finetune(
 
     # saving single checkpoint at the end of training the task
     if save_ckpt:
-        # add task specific artifact logging informatino
+        # add task specific artifact logging information
         if save_locally:
             task_ckpt_path = os.path.join(save_folder, task)
             ft_hparams.save_folder = task_ckpt_path
@@ -250,11 +271,6 @@ def train_finetune(
 def get_args() -> argparse.Namespace:
     """Get NLPTrainerHparams arguments from CLI."""
     parser = hp.get_argparse(NLPTrainerHparams)
-    parser.add_argument('--training_scheme',
-                        help='training scheme used (one of "pretrain", "finetune", or "all")',
-                        choices=['pretrain', 'finetune', 'all'],
-                        required=True)
-
     args = parser.parse_args()
 
     return args
@@ -262,18 +278,12 @@ def get_args() -> argparse.Namespace:
 
 def validate_args(args: argparse.Namespace, hp: NLPTrainerHparams) -> None:
     """Validate CLI args as well as finetune-specific parameters."""
-    if not args.file:
-        raise ValueError(
-            'must specify a top level file to store shared configs for the entrypoint. see composer/yamls/models/glue/glue_example.yaml for an example.'
-        )
-
-    if args.training_scheme == 'finetune' and (not hp.finetune_hparams) or (hp.finetune_hparams and
-                                                                            not hp.finetune_hparams.load_path):
+    if args.training_scheme == 'finetune' and ((not hp.finetune_hparams) or
+                                               (hp.finetune_hparams and not hp.finetune_hparams.load_path)):
         raise ValueError('load_path to checkpoint folder must be specified if finetuning a model')
 
     elif args.training_scheme == 'all' and hp.finetune_hparams is None:
         warnings.warn('No shared finetune_hparams specified. All finetune tasks will use their default configurations.')
-        hp.finetune_hparams = GLUETrainerHparams()
 
     elif args.training_scheme == 'pretrain' and hp.finetune_hparams:
         warnings.warn('finetune_hparams specified. These values will be ignored during pretraining.')
@@ -284,13 +294,16 @@ def validate_args(args: argparse.Namespace, hp: NLPTrainerHparams) -> None:
 
 def get_finetune_hparams(args: argparse.Namespace) -> Union[GLUETrainerHparams, None]:
     """Extract finetune-specific hparams from the provided file and add entrypoint specific args to it."""
-    hp = NLPTrainerHparams.create(cli_args=False, f=args.file)
+    hp = NLPTrainerHparams.create()
     validate_args(args, hp)
 
+    hparams = None
     if args.training_scheme != 'pretrain':
         hparams = hp.finetune_hparams
         args.save_locally = True
-        if hparams and hparams.loggers:
+        if not hparams:
+            hparams = GLUETrainerHparams()
+        if hparams.loggers:
             for l in hparams.loggers:
                 if isinstance(l, ObjectStoreLogger):
                     args.save_locally = False
@@ -365,10 +378,8 @@ def run_finetuner(args: argparse.Namespace, finetune_hparams, glue_metrics: Glue
             if ('symlink' in ckpt_filename):
                 continue
 
-        finetune_tasks = ['cola', 'sst-2', 'qqp', 'qnli', 'mnli']
-        save_ckpts = [False, False, False, False, True]
-        setup_finetuning_jobs(finetune_tasks,
-                              save_ckpts,
+        task_to_save_ckpt = {'cola': False, 'sst-2': False, 'qqp': False, 'qnli': False, 'mnli': True}
+        setup_finetuning_jobs(task_to_save_ckpt,
                               ckpt_load_path,
                               ckpt_filename,
                               ckpt_folder,
@@ -390,12 +401,10 @@ def run_finetuner(args: argparse.Namespace, finetune_hparams, glue_metrics: Glue
             ckpt_load_path = ckpt_filename
             save_locally = False
 
-        mnli_finetune_tasks = ['rte', 'mrpc', 'stsb']
-        save_ckpts = [False, False, False]
+        mnli_task_to_save_ckpt = {'rte': False, 'mrpc': False, 'stsb': False}
         # delete finetuning head to reinitialize number of classes
         setup_finetuning_jobs(
-            mnli_finetune_tasks,
-            save_ckpts,
+            mnli_task_to_save_ckpt,
             ckpt_load_path,
             ckpt_filename,
             finetune_hparams.save_folder,
@@ -404,7 +413,7 @@ def run_finetuner(args: argparse.Namespace, finetune_hparams, glue_metrics: Glue
             save_locally=save_locally,
             parent_ckpt=parent_ckpt,
             load_ignore_keys=['state/model/model.classifier*'],
-        )  # type: ignore
+        )
 
 
 def _main() -> None:
@@ -419,7 +428,7 @@ def _main() -> None:
     # Pretrain
     if args.training_scheme != 'finetune':
         run_pretrainer(args)
-        print('PRETRAINING COMPLETE')  #FIXME: LOG
+        print('PRETRAINING COMPLETE')
 
     # Finetune
     glue_task_names = ['cola', 'sst2', 'qqp', 'qnli', 'mnli', 'rte', 'mrpc', 'stsb']
@@ -428,12 +437,10 @@ def _main() -> None:
         run_finetuner(args, finetune_hparams, glue_metrics)
         print('FINETUNING COMPLETE')
 
-    # output GLUE metrics if finetuning
-    if args.training_scheme != 'pretrain':
-        output_metrics(glue_metrics)
+        # output GLUE metrics
+        print_metrics(glue_metrics)
 
 
 if __name__ == '__main__':
     mp.set_start_method('spawn')
-    os.environ['WANDB_START_METHOD'] = 'thread'  # to not interfere with multiprocessing
     _main()

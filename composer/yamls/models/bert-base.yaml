@@ -4,6 +4,7 @@ model:
     use_pretrained: false
     tokenizer_name: bert-base-uncased
     pretrained_model_name: bert-base-uncased
+
 # Train the model on the English C4 corpus
 train_dataset:
   streaming_c4:
@@ -16,12 +17,14 @@ train_dataset:
     group_method: truncate
     mlm: true
     mlm_probability: 0.15
+
 dataloader:
   pin_memory: true
   timeout: 0
   prefetch_factor: 2
   persistent_workers: true
   num_workers: 8
+
 # Periodically evaluate the LanguageCrossEntropy and Masked Accuracy
 # on the validation split of the dataset.
 evaluators:
@@ -41,8 +44,10 @@ evaluators:
     metric_names:
       - LanguageCrossEntropy
       - MaskedAccuracy
+
 # Run evaluation after every 1000 training steps
 eval_interval: 1000ba
+
 # Use the decoupled AdamW optimizer with learning rate warmup
 optimizers:
   decoupled_adamw:
