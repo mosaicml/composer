@@ -23,7 +23,10 @@ __all__ = [
 
 @dataclasses.dataclass
 class ObjectStoreHparams(hp.Hparams, abc.ABC):
-    """Base class for :class:`.ObjectStore` hyperparameters."""
+    """Base class for :class:`.ObjectStore` hyperparameters.
+
+    .. jsonschema:: ../../json_schemas/objectstore_hparams.json
+    """
 
     @abc.abstractmethod
     def get_object_store_cls(self) -> Type[ObjectStore]:
@@ -141,6 +144,7 @@ class LibcloudObjectStoreHparams(ObjectStoreHparams):
 
             .. seealso:: :class:`libcloud.storage.base.StorageDriver`
 
+    .. jsonschema:: ../../json_schemas/libcloudobjectstore_hparams.json
     """
 
     provider: str = hp.auto(LibcloudObjectStore, 'provider')
@@ -198,6 +202,8 @@ class S3ObjectStoreHparams(ObjectStoreHparams):
         endpoint_url (str, optional): See :class:`.S3ObjectStore`.
         client_config (dict, optional): See :class:`.S3ObjectStore`.
         transfer_config (dict, optional): See :class:`.S3ObjectStore`.
+
+    .. jsonschema:: ../../json_schemas/s3objectstore_hparams.json
     """
 
     bucket: str = hp.auto(S3ObjectStore, 'bucket')
@@ -235,6 +241,8 @@ class SFTPObjectStoreHparams(ObjectStoreHparams):
         key_filename (str, optional): See :class:`.SFTPObjectStore`.
         cwd (str, optional): See :class:`.SFTPObjectStore`.
         connect_kwargs (Dict[str, Any], optional): See :class:`.SFTPObjectStore`.
+
+    .. jsonschema:: ../../json_schemas/sftpobjectstore_hparams.json
     """
 
     host: str = hp.auto(SFTPObjectStore, 'host')

@@ -1,0 +1,74 @@
+{
+    "type": "object",
+    "properties": {
+        "use_synthetic": {
+            "type": "boolean",
+            "description": "Whether to use synthetic data. Defaults to False."
+        },
+        "synthetic_num_unique_samples": {
+            "type": "integer",
+            "description": "The number of unique samples to allocate memory for."
+        },
+        "synthetic_device": {
+            "type": "string",
+            "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`."
+        },
+        "synthetic_memory_format": {
+            "enum": [
+                "contiguous_format",
+                "channels_last",
+                "channels_last_3d",
+                "preserve_format",
+                "CONTIGUOUS_FORMAT",
+                "CHANNELS_LAST",
+                "CHANNELS_LAST_3D",
+                "PRESERVE_FORMAT"
+            ],
+            "description": "Memory format. Defaults to contiguous format."
+        },
+        "drop_last": {
+            "type": "boolean",
+            "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros."
+        },
+        "shuffle": {
+            "type": "boolean",
+            "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
+        },
+        "download": {
+            "type": "boolean",
+            "description": "whether to download the dataset, if needed"
+        },
+        "use_ffcv": {
+            "type": "boolean",
+            "description": "whether to use ffcv for faster dataloading"
+        },
+        "ffcv_dir": {
+            "type": "string",
+            "description": "A directory containing train/val <file>.ffcv files. If these files don't exist and ffcv_write_dataset is true, train/val <file>.ffcv files will be created in this dir."
+        },
+        "ffcv_dest": {
+            "type": "string",
+            "description": "<file>.ffcv file that has dataset samples"
+        },
+        "ffcv_write_dataset": {
+            "type": "boolean",
+            "description": "Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist"
+        },
+        "is_train": {
+            "type": "boolean",
+            "description": "Whether to load the training data (the default) or validation data."
+        },
+        "datadir": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "string"
+                }
+            ],
+            "description": "The path to the data directory"
+        }
+    },
+    "additionalProperties": false
+}

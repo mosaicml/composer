@@ -1,0 +1,54 @@
+{
+    "type": "object",
+    "properties": {
+        "drop_last": {
+            "type": "boolean",
+            "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros."
+        },
+        "shuffle": {
+            "type": "boolean",
+            "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
+        },
+        "remote": {
+            "type": "string",
+            "description": "Remote directory (S3 or local filesystem) where dataset is stored"
+        },
+        "local": {
+            "type": "string",
+            "description": "Local filesystem directory where dataset is cached during operation"
+        },
+        "split": {
+            "type": "string",
+            "description": "What split of the dataset to use. Either `train` or `val`."
+        },
+        "tokenizer_name": {
+            "type": "string",
+            "description": "The name of the HuggingFace tokenizer to preprocess text with."
+        },
+        "max_seq_len": {
+            "type": "integer",
+            "description": "The max sequence length of each token sample."
+        },
+        "group_method": {
+            "type": "string",
+            "description": "How to group text samples into token samples. Currently only `truncate` is supported."
+        },
+        "mlm": {
+            "type": "boolean",
+            "description": "Whether or not to use masked language modeling."
+        },
+        "mlm_probability": {
+            "type": "number",
+            "description": "If `mlm==True`, the probability that tokens are masked."
+        },
+        "max_retries": {
+            "type": "integer",
+            "description": "Number of download re-attempts before giving up."
+        },
+        "timeout": {
+            "type": "number",
+            "description": "How long to wait for shard to download before raising an exception."
+        }
+    },
+    "additionalProperties": false
+}

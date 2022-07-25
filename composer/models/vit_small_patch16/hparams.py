@@ -24,6 +24,8 @@ class ViTSmallPatch16Hparams(ModelHparams):
         channels (int, optional): number of  image channels. Default: ``3``.
         dropout (float, optional): 0.0 - 1.0 dropout rate. Default: ``0``.
         embedding_dropout (float, optional): 0.0 - 1.0 embedding dropout rate. Default: ``0``.
+
+    .. jsonschema:: ../../json_schemas/vitsmallpatch16_hparams.json
     """
     num_classes: int = hp.optional('number of classes.  Needed for classification tasks', default=1000)
     image_size: int = hp.optional(

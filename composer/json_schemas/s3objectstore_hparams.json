@@ -1,0 +1,61 @@
+{
+    "type": "object",
+    "properties": {
+        "bucket": {
+            "type": "string",
+            "description": "The bucket name."
+        },
+        "prefix": {
+            "type": "string",
+            "description": "A path prefix such as `folder/subfolder/` to prepend to object names. Defaults to ''."
+        },
+        "region_name": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "string"
+                }
+            ],
+            "description": "The region name. Must be specified if not available in\na config file or environment variables. Defaults to None."
+        },
+        "endpoint_url": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "string"
+                }
+            ],
+            "description": "The URL to an S3-Compatible object store. Must be specified if using something\nother than Amazon S3, like Google Cloud Storage. Defaults to None."
+        },
+        "client_config": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
+            "description": "Kwargs dictionary for :class:`botocore.config.Config`. Defaults to None."
+        },
+        "transfer_config": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
+            "description": "Kwargs dictionary for :class:`boto3.s3.transfer.TransferConfig`. Defaults to None."
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "bucket"
+    ]
+}

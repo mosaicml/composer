@@ -30,6 +30,8 @@ class DeepLabV3Hparams(ModelHparams):
             Default: ``True``.
         initializers (List[Initializer], optional): Initializers for the model. ``[]`` for no initialization.
             Default: ``[]``.
+
+    .. jsonschema:: ../../json_schemas/deeplabv3_hparams.json
     """
 
     backbone_arch: str = hp.optional("The backbone architecture to use. Must be either ['resnet50', resnet101'].",

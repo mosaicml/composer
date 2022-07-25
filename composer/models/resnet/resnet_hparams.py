@@ -30,6 +30,8 @@ class ResNetHparams(ModelHparams):
             Default: ``64``.
         initializers (List[Initializer], optional): Initializers for the model. ``None`` for no initialization.
             Default: ``None``.
+
+    .. jsonschema:: ../../json_schemas/resnet_hparams.json
     """
 
     model_name: str = hp.optional(

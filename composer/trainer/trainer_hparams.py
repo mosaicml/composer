@@ -262,6 +262,8 @@ class TrainerHparams(hp.Hparams):
         grad_clip_norm (float, optional): See :class:`.Trainer`.
 
         profiler (ProfilerHparams, optional): Profiler hyperparameters.
+
+    .. jsonschema:: ../json_schemas/trainer_hparams.json
     """
 
     hparams_registry = {  # type: ignore
@@ -628,6 +630,8 @@ class FitHparams(hp.Hparams):
         eval_subset_num_batches (int, optional): See :meth:`.Trainer.fit`.
         precision (Precision, optional): See :meth:`.Trainer.fit`.
         grad_accum (int, optional): See :meth:`.Trainer.fit`.
+
+    .. jsonschema:: ../json_schemas/fit_hparams.json
     """
 
     hparams_registry = {
@@ -744,6 +748,8 @@ class EvalHparams(hp.Hparams):
             Can be a :mod:`torchmetrics` metric name or the class name of a metric returned by
             :meth:`.ComposerModel.metrics`.
             If None (the default), uses all metrics in the model.
+
+    .. jsonschema:: ../json_schemas/eval_hparams.json
     """
 
     hparams_registry = {
@@ -881,6 +887,8 @@ class ExperimentHparams(hp.Hparams):
         trainer (TrainerHparams): The trainer hparams.
         fits (List[FitHparams]): The hparams for calls to :meth:`.Trainer.fit`.
         evals (List[EvalHparams]): The hparams for calls to :meth:`.Trainer.eval`.
+
+    .. jsonschema:: ../json_schemas/experiment_hparamsg.json
     """
     trainer: TrainerHparams = hp.required('Trainer hparams')
     fits: List[FitHparams] = hp.optional('Fit hparams', default_factory=list)

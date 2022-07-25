@@ -1,0 +1,29 @@
+{
+    "type": "object",
+    "properties": {
+        "lr": {
+            "type": "number",
+            "description": "Learning rate. Default: ``1e-3``."
+        },
+        "betas": {
+            "type": "array",
+            "items": {
+                "type": "number"
+            },
+            "description": "Coefficients used for computing running averages of gradient and its square\nDefault: ``(0.9, 0.999)``."
+        },
+        "eps": {
+            "type": "number",
+            "description": "Term added to the denominator to improve numerical stability. Default: ``1e-8``."
+        },
+        "weight_decay": {
+            "type": "number",
+            "description": "Decoupled weight decay factor. Default: ``1e-2``."
+        },
+        "amsgrad": {
+            "type": "boolean",
+            "description": "Enables the amsgrad variant of Adam. Default: ``False``."
+        }
+    },
+    "additionalProperties": false
+}

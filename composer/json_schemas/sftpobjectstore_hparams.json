@@ -1,0 +1,77 @@
+{
+    "type": "object",
+    "properties": {
+        "host": {
+            "type": "string",
+            "description": "The server to connect to.\nAlso accepts a URI string in the form ``'sftp://username@host:port/./relative/path'``.\nFor an absolute path, use a double `//` -- e.g. ``'sftp://username@host:port//absolute/path'``."
+        },
+        "port": {
+            "type": "integer",
+            "description": "The server port to connect to."
+        },
+        "username": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "string"
+                }
+            ],
+            "description": "The username (if not specified in the SSH config) needed to authenticate.\nDefaults to None."
+        },
+        "known_hosts_filename": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "string"
+                }
+            ],
+            "description": "The filename of the known hosts file. If not specified,\nthe default SSH known hosts will be used."
+        },
+        "known_hosts_filename_environ": {
+            "type": "string",
+            "description": "The name of an environment variable containing the path to a SSH known hosts file. Note that `known_hosts_filename` takes precedence over this variable."
+        },
+        "key_filename": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "string"
+                }
+            ],
+            "description": "The filepath to the a private key (if required) needed to\nauthenticate. Defaults to None. Any keys specified here will be tried *in addition* to any keys\nspecified in ``~/.ssh/`` or via a SSH agent."
+        },
+        "key_filename_environ": {
+            "type": "string",
+            "description": "The name of an environment variable containing the path to a SSH keyfile. Note that `key_filename` takes precedence over this variable."
+        },
+        "missing_host_key_policy": {
+            "type": "string",
+            "description": "The class name or instance of\n:class:`paramiko.client.MissingHostKeyPolicy` to use for a missing host key. Defaults to ``'RejectPolicy'``.\n\nBuilt-in options:\n*   ``'RejectPolicy'`` (the default), which will reject any host key not authorized in the ``known_hosts_filename``.\n*   ``'AutoAddPolicy'``, which will add any unknown host key.\n*   ``'WarningPolicy'``, which will warn on an unknown host key.\n\nFor custom logic, subclass :class:`paramiko.client.MissingHostKeyPolicy`, and provide an instance of this class."
+        },
+        "cwd": {
+            "type": "string",
+            "description": "The directory to navigate to upon creating the SSH connection. If not present\nit will be created."
+        },
+        "connect_kwargs": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
+            "description": "Any additional kwargs to pass through to :meth:`.SSHClient.connect`."
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "host"
+    ]
+}

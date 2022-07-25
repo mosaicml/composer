@@ -1,0 +1,48 @@
+{
+    "type": "object",
+    "properties": {
+        "initializers": {
+            "type": "array",
+            "items": {
+                "enum": [
+                    "kaiming_normal",
+                    "kaiming_uniform",
+                    "bn_uniform",
+                    "bn_ones",
+                    "xavier_uniform",
+                    "xavier_normal",
+                    "linear_log_constant_bias",
+                    "KAIMING_NORMAL",
+                    "KAIMING_UNIFORM",
+                    "BN_UNIFORM",
+                    "BN_ONES",
+                    "XAVIER_UNIFORM",
+                    "XAVIER_NORMAL",
+                    "LINEAR_LOG_CONSTANT_BIAS"
+                ]
+            },
+            "description": "The initialization strategy for the model"
+        },
+        "num_classes": {
+            "type": "integer",
+            "description": "number of classes.  Needed for classification tasks"
+        },
+        "image_size": {
+            "type": "integer",
+            "description": "input image size. If you have rectangular images, make sure your image size is the maximum of the width and height"
+        },
+        "channels": {
+            "type": "integer",
+            "description": "number of  image channels"
+        },
+        "dropout": {
+            "type": "number",
+            "description": "dropout rate"
+        },
+        "embedding_dropout": {
+            "type": "number",
+            "description": "embedding dropout rate"
+        }
+    },
+    "additionalProperties": false
+}

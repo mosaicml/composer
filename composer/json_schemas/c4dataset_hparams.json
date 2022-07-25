@@ -1,0 +1,85 @@
+{
+    "type": "object",
+    "properties": {
+        "drop_last": {
+            "type": "boolean",
+            "description": "Whether to drop the last samples for the last batch."
+        },
+        "shuffle": {
+            "type": "boolean",
+            "description": "Whether to shuffle the samples in the dataset. Currently, shards are assigned and consumed with deterministic per-device shard order, but shuffling affects the order of samples via (per-device) shuffle buffers."
+        },
+        "split": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "string"
+                }
+            ],
+            "description": "What split of the dataset to use. Either `train` or `validation`."
+        },
+        "num_samples": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "integer"
+                }
+            ],
+            "description": "The number of post-processed token samples, used to set epoch size of the IterableDataset."
+        },
+        "tokenizer_name": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "string"
+                }
+            ],
+            "description": "The name of the HuggingFace tokenizer to preprocess text with."
+        },
+        "max_seq_len": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "integer"
+                }
+            ],
+            "description": "The max sequence length of each token sample."
+        },
+        "group_method": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "string"
+                }
+            ],
+            "description": "How to group text samples into token samples. Either `truncate` or `concat`."
+        },
+        "mlm": {
+            "type": "boolean",
+            "description": "Whether or not to use masked language modeling."
+        },
+        "mlm_probability": {
+            "type": "number",
+            "description": "If `mlm==True`, the probability that tokens are masked."
+        },
+        "shuffle_buffer_size": {
+            "type": "integer",
+            "description": "If `shuffle=True`, samples are read into a buffer of this size (per-device), and randomly sampled from there to produce shuffled samples."
+        },
+        "seed": {
+            "type": "integer",
+            "description": "If `shuffle=True`, what seed to use for shuffling operations."
+        }
+    },
+    "additionalProperties": false
+}

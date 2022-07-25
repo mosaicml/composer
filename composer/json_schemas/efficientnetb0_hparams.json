@@ -1,0 +1,43 @@
+{
+    "type": "object",
+    "properties": {
+        "initializers": {
+            "type": "array",
+            "items": {
+                "enum": [
+                    "kaiming_normal",
+                    "kaiming_uniform",
+                    "bn_uniform",
+                    "bn_ones",
+                    "xavier_uniform",
+                    "xavier_normal",
+                    "linear_log_constant_bias",
+                    "KAIMING_NORMAL",
+                    "KAIMING_UNIFORM",
+                    "BN_UNIFORM",
+                    "BN_ONES",
+                    "XAVIER_UNIFORM",
+                    "XAVIER_NORMAL",
+                    "LINEAR_LOG_CONSTANT_BIAS"
+                ]
+            },
+            "description": "The initialization strategy for the model"
+        },
+        "num_classes": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "integer"
+                }
+            ],
+            "description": "The number of classes.  Needed for classification tasks"
+        },
+        "drop_connect_rate": {
+            "type": "number",
+            "description": "Probability of dropping a sample within a block before identity connection."
+        }
+    },
+    "additionalProperties": false
+}

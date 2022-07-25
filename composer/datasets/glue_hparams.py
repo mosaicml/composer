@@ -62,6 +62,8 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
 
     Returns:
         DataLoader: A PyTorch :class:`~torch.utils.data.DataLoader` object.
+
+    .. jsonschema:: ../json_schemas/glue_hparams.json
     """
 
     task: Optional[str] = hp.optional(

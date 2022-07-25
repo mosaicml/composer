@@ -34,6 +34,8 @@ class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
         synthetic_memory_format: The :class:`~.core.types.MemoryFormat` to use.
             Ignored if :attr:`use_synthetic` is ``False``. Default:
             ``'CONTIGUOUS_FORMAT'``.
+
+    .. jsonschema:: ../json_schemas/syntheticmixin_hparams.json
     """
 
     use_synthetic: bool = hp.optional('Whether to use synthetic data. Defaults to False.', default=False)

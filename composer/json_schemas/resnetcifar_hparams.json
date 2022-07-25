@@ -1,0 +1,43 @@
+{
+    "type": "object",
+    "properties": {
+        "initializers": {
+            "type": "array",
+            "items": {
+                "enum": [
+                    "kaiming_normal",
+                    "kaiming_uniform",
+                    "bn_uniform",
+                    "bn_ones",
+                    "xavier_uniform",
+                    "xavier_normal",
+                    "linear_log_constant_bias",
+                    "KAIMING_NORMAL",
+                    "KAIMING_UNIFORM",
+                    "BN_UNIFORM",
+                    "BN_ONES",
+                    "XAVIER_UNIFORM",
+                    "XAVIER_NORMAL",
+                    "LINEAR_LOG_CONSTANT_BIAS"
+                ]
+            },
+            "description": "The initialization strategy for the model"
+        },
+        "num_classes": {
+            "type": "integer",
+            "description": "The number of classes.  Needed for classification tasks"
+        },
+        "model_name": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "string"
+                }
+            ],
+            "description": "\"cifar_resnet_9\", \"cifar_resnet_20\" or \"cifar_resnet_56\""
+        }
+    },
+    "additionalProperties": false
+}

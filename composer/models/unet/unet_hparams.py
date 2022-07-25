@@ -18,6 +18,8 @@ class UnetHparams(ModelHparams):
 
     Args:
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``3``.
+
+    .. jsonschema:: ../../json_schemas/unet_hparams.json
     """
 
     def initialize_object(self):

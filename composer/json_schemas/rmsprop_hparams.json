@@ -1,0 +1,30 @@
+{
+    "type": "object",
+    "properties": {
+        "lr": {
+            "type": "number",
+            "description": "learning rate (default: 1e-2)"
+        },
+        "alpha": {
+            "type": "number",
+            "description": "smoothing constant (default: 0.99)"
+        },
+        "eps": {
+            "type": "number",
+            "description": "term added to the denominator to improve\nnumerical stability (default: 1e-8)"
+        },
+        "momentum": {
+            "type": "number",
+            "description": "momentum factor (default: 0)"
+        },
+        "weight_decay": {
+            "type": "number",
+            "description": "weight decay (L2 penalty) (default: 0)"
+        },
+        "centered": {
+            "type": "number",
+            "description": "if ``True``, compute the centered RMSProp,\nthe gradient is normalized by an estimation of its variance"
+        }
+    },
+    "additionalProperties": false
+}

@@ -25,6 +25,8 @@ class GPT2Hparams(ModelHparams):
         tokenizer_name (str, optional): The tokenizer used for this model,
             necessary to assert required model inputs. Default ``None``.
         gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
+
+    .. jsonschema:: ../../json_schemas/gpt2_hparams.json
     """
     model_config: Optional[Dict[str,
                                 JSON]] = hp.optional(doc='A dictionary providing a HuggingFace model configuration.',

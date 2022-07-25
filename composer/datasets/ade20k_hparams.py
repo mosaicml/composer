@@ -41,6 +41,8 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         ignore_background (bool): if true, ignore the background class when calculating the training loss.
             Default: ``true``.
         datadir (str): The path to the data directory.
+
+    .. jsonschema:: ../json_schemas/ade20kdataset_hparams.json
     """
 
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')
@@ -159,6 +161,8 @@ class StreamingADE20kHparams(DatasetHparams):
         final_size (int): the final size of the image and target. Default: ``512``.
         ignore_background (bool): if true, ignore the background class when calculating the training loss.
             Default: ``true``.
+
+    .. jsonschema:: ../json_schemas/streamingade20k_hparams.json
     """
 
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',

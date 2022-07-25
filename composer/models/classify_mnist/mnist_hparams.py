@@ -17,6 +17,8 @@ class MnistClassifierHparams(ModelHparams):
     Args:
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 10.
         initializers (List[Initializer], optional): Initializers for the model. ``None`` for no initialization. Default: ``None``.
+
+    .. jsonschema:: ../../json_schemas/mnistclassifier_hparams.json
     """
 
     def initialize_object(self):

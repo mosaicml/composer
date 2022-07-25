@@ -1,0 +1,285 @@
+{
+    "type": "object",
+    "properties": {
+        "object_store_hparams": {
+            "anyOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "libcloud": {
+                            "type": "object",
+                            "properties": {
+                                "provider": {
+                                    "type": "string",
+                                    "description": "Cloud provider to use. Valid options are:\n* :mod:`~libcloud.storage.drivers.atmos`\n* :mod:`~libcloud.storage.drivers.auroraobjects`\n* :mod:`~libcloud.storage.drivers.azure_blobs`\n* :mod:`~libcloud.storage.drivers.backblaze_b2`\n* :mod:`~libcloud.storage.drivers.cloudfiles`\n* :mod:`~libcloud.storage.drivers.digitalocean_spaces`\n* :mod:`~libcloud.storage.drivers.google_storage`\n* :mod:`~libcloud.storage.drivers.ktucloud`\n* :mod:`~libcloud.storage.drivers.local`\n* :mod:`~libcloud.storage.drivers.minio`\n* :mod:`~libcloud.storage.drivers.nimbus`\n* :mod:`~libcloud.storage.drivers.ninefold`\n* :mod:`~libcloud.storage.drivers.oss`\n* :mod:`~libcloud.storage.drivers.rgw`\n* :mod:`~libcloud.storage.drivers.s3`\n\n.. seealso:: :doc:`Full list of libcloud providers <libcloud:storage/supported_providers>`"
+                                },
+                                "container": {
+                                    "type": "string",
+                                    "description": "The name of the container (i.e. bucket) to use."
+                                },
+                                "key_environ": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "The name of an environment variable containing an API key or username to use to connect to the provider."
+                                },
+                                "secret_environ": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "The name of an environment variable containing an API secret or password to use to connect to the provider."
+                                },
+                                "region": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "Cloud region to use"
+                                },
+                                "host": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "Override hostname for connections"
+                                },
+                                "port": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "integer"
+                                        }
+                                    ],
+                                    "description": "Override port for connections"
+                                },
+                                "extra_init_kwargs": {
+                                    "type": "object",
+                                    "description": "Extra keyword arguments to pass into the constructor for the specified provider."
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "provider",
+                                "container"
+                            ]
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "s3": {
+                            "type": "object",
+                            "properties": {
+                                "bucket": {
+                                    "type": "string",
+                                    "description": "The bucket name."
+                                },
+                                "prefix": {
+                                    "type": "string",
+                                    "description": "A path prefix such as `folder/subfolder/` to prepend to object names. Defaults to ''."
+                                },
+                                "region_name": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "The region name. Must be specified if not available in\na config file or environment variables. Defaults to None."
+                                },
+                                "endpoint_url": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "The URL to an S3-Compatible object store. Must be specified if using something\nother than Amazon S3, like Google Cloud Storage. Defaults to None."
+                                },
+                                "client_config": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "object"
+                                        }
+                                    ],
+                                    "description": "Kwargs dictionary for :class:`botocore.config.Config`. Defaults to None."
+                                },
+                                "transfer_config": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "object"
+                                        }
+                                    ],
+                                    "description": "Kwargs dictionary for :class:`boto3.s3.transfer.TransferConfig`. Defaults to None."
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "bucket"
+                            ]
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "sftp": {
+                            "type": "object",
+                            "properties": {
+                                "host": {
+                                    "type": "string",
+                                    "description": "The server to connect to.\nAlso accepts a URI string in the form ``'sftp://username@host:port/./relative/path'``.\nFor an absolute path, use a double `//` -- e.g. ``'sftp://username@host:port//absolute/path'``."
+                                },
+                                "port": {
+                                    "type": "integer",
+                                    "description": "The server port to connect to."
+                                },
+                                "username": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "The username (if not specified in the SSH config) needed to authenticate.\nDefaults to None."
+                                },
+                                "known_hosts_filename": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "The filename of the known hosts file. If not specified,\nthe default SSH known hosts will be used."
+                                },
+                                "known_hosts_filename_environ": {
+                                    "type": "string",
+                                    "description": "The name of an environment variable containing the path to a SSH known hosts file. Note that `known_hosts_filename` takes precedence over this variable."
+                                },
+                                "key_filename": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "The filepath to the a private key (if required) needed to\nauthenticate. Defaults to None. Any keys specified here will be tried *in addition* to any keys\nspecified in ``~/.ssh/`` or via a SSH agent."
+                                },
+                                "key_filename_environ": {
+                                    "type": "string",
+                                    "description": "The name of an environment variable containing the path to a SSH keyfile. Note that `key_filename` takes precedence over this variable."
+                                },
+                                "missing_host_key_policy": {
+                                    "type": "string",
+                                    "description": "The class name or instance of\n:class:`paramiko.client.MissingHostKeyPolicy` to use for a missing host key. Defaults to ``'RejectPolicy'``.\n\nBuilt-in options:\n*   ``'RejectPolicy'`` (the default), which will reject any host key not authorized in the ``known_hosts_filename``.\n*   ``'AutoAddPolicy'``, which will add any unknown host key.\n*   ``'WarningPolicy'``, which will warn on an unknown host key.\n\nFor custom logic, subclass :class:`paramiko.client.MissingHostKeyPolicy`, and provide an instance of this class."
+                                },
+                                "cwd": {
+                                    "type": "string",
+                                    "description": "The directory to navigate to upon creating the SSH connection. If not present\nit will be created."
+                                },
+                                "connect_kwargs": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "object"
+                                        }
+                                    ],
+                                    "description": "Any additional kwargs to pass through to :meth:`.SSHClient.connect`."
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "host"
+                            ]
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            ],
+            "description": "Object store provider hparams."
+        },
+        "should_log_artifact": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "string"
+                }
+            ],
+            "description": "Path to a filter function which returns whether an artifact should be logged."
+        },
+        "object_name": {
+            "type": "string",
+            "description": "A format string used to determine the object name.\nThe following format variables are available:\n\n+------------------------+-------------------------------------------------------+\n| Variable               | Description                                           |\n+========================+=======================================================+\n| ``{artifact_name}``    | The name of the artifact being logged.                |\n+------------------------+-------------------------------------------------------+\n| ``{run_name}``         | The name of the training run. See                     |\n|                        | :attr:`.State.run_name`.                              |\n+------------------------+-------------------------------------------------------+\n| ``{rank}``             | The global rank, as returned by                       |\n|                        | :func:`~composer.utils.dist.get_global_rank`.         |\n+------------------------+-------------------------------------------------------+\n| ``{local_rank}``       | The local rank of the process, as returned by         |\n|                        | :func:`~composer.utils.dist.get_local_rank`.          |\n+------------------------+-------------------------------------------------------+\n| ``{world_size}``       | The world size, as returned by                        |\n|                        | :func:`~composer.utils.dist.get_world_size`.          |\n+------------------------+-------------------------------------------------------+\n| ``{local_world_size}`` | The local world size, as returned by                  |\n|                        | :func:`~composer.utils.dist.get_local_world_size`.    |\n+------------------------+-------------------------------------------------------+\n| ``{node_rank}``        | The node rank, as returned by                         |\n|                        | :func:`~composer.utils.dist.get_node_rank`.           |\n+------------------------+-------------------------------------------------------+\n\nLeading slashes (``'/'``) will be stripped.\n\nConsider the following example, which subfolders the artifacts by their rank:\n\n.. testsetup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name\n\n    import os\n\n    os.makedirs('path/to', exist_ok=True)\n\n    with open('path/to/file.txt', 'w+') as f:\n        f.write('hi')\n\n.. doctest:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name\n\n    >>> object_store_logger = ObjectStoreLogger(..., object_name='rank_{rank}/{artifact_name}')\n    >>> trainer = Trainer(..., run_name='foo', loggers=[object_store_logger])\n    >>> trainer.logger.file_artifact(\n    ...     log_level=LogLevel.EPOCH,\n    ...     artifact_name='bar.txt',\n    ...     file_path='path/to/file.txt',\n    ... )\n\n.. testcleanup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name\n\n    # Shut down the uploader\n    object_store_logger._check_workers()\n    object_store_logger.post_close()\n\nAssuming that the process's rank is ``0``, the object store would store the contents of\n``'path/to/file.txt'`` in an object named ``'rank0/bar.txt'``.\n\nDefault: ``'{artifact_name}'``"
+        },
+        "num_concurrent_uploads": {
+            "type": "integer",
+            "description": "Maximum number of concurrent uploads. Defaults to 4."
+        },
+        "use_procs": {
+            "type": "boolean",
+            "description": "Whether to perform file uploads in background processes (as opposed to threads).\nDefaults to True."
+        },
+        "upload_staging_folder": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "string"
+                }
+            ],
+            "description": "A folder to use for staging uploads.\nIf not specified, defaults to using a :func:`~tempfile.TemporaryDirectory`."
+        },
+        "num_attempts": {
+            "type": "integer",
+            "description": "For operations that fail with a transient error, the number of attempts to make.\nDefaults to 3."
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "object_store_hparams"
+    ]
+}

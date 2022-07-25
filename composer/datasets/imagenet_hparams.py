@@ -51,6 +51,8 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         datadir (str): The path to the data directory.
         is_train (bool): Whether to load the training data or validation data. Default:
             ``True``.
+
+    .. jsonschema:: ../json_schemas/imagenetdataset_hparams.json
     """
     resize_size: int = hp.optional('resize size. Set to -1 to not resize', default=-1)
     crop_size: int = hp.optional('crop size', default=224)
@@ -218,6 +220,8 @@ class StreamingImageNet1kHparams(DatasetHparams):
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
         resize_size (int, optional): The resize size to use. Use -1 to not resize. Default: ``-1``.
         crop size (int): The crop size to use. Default: ``224``.
+
+    .. jsonschema:: ../json_schemas/streamingimagenet1k_hparams.json
     """
 
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',

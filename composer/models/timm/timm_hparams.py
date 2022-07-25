@@ -31,6 +31,8 @@ class TimmHparams(ModelHparams):
         global_pool (str, optional): Global pool type, one of (``"fast"``, ``"avg"``, ``"max"``, ``"avgmax"``, ``"avgmaxc"``). Model default if ``None``. Default: ``None``.
         bn_momentum (float, optional): BatchNorm momentum override (model default if not None). Default: ``None``.
         bn_eps (float, optional): BatchNorm epsilon override (model default if ``None``). Default: ``None``.
+
+    .. jsonschema:: ../../json_schemas/timm_hparams.json
     """
 
     model_name: Optional[str] = hp.optional(

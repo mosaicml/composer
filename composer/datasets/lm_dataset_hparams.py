@@ -46,6 +46,8 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             Default: ``1024``.
         val_sequence_length (int, optional): Sequence length for validation dataset.
             Default: ``1024``.
+
+    .. jsonschema:: ../json_schemas/lmdataset_hparams.json
     """
 
     # TODO(moin): Switch datadir to be a string, rather than a list of strings, to be similar to the

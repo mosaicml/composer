@@ -46,6 +46,8 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         datadir (str): The path to the data directory.
         is_train (bool): Whether to load the training data or validation data. Default:
             ``True``.
+
+    .. jsonschema:: ../json_schemas/cifar10dataset_hparams.json
     """
     download: bool = hp.optional('whether to download the dataset, if needed', default=True)
     use_ffcv: bool = hp.optional('whether to use ffcv for faster dataloading', default=False)
@@ -188,6 +190,8 @@ class StreamingCIFAR10Hparams(DatasetHparams):
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-cifar10/'``
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train'``.
+
+    .. jsonschema:: ../json_schemas/streamingcifar10_hparams.json
     """
 
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',

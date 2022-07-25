@@ -1,0 +1,71 @@
+{
+    "type": "object",
+    "properties": {
+        "initializers": {
+            "type": "array",
+            "items": {
+                "enum": [
+                    "kaiming_normal",
+                    "kaiming_uniform",
+                    "bn_uniform",
+                    "bn_ones",
+                    "xavier_uniform",
+                    "xavier_normal",
+                    "linear_log_constant_bias",
+                    "KAIMING_NORMAL",
+                    "KAIMING_UNIFORM",
+                    "BN_UNIFORM",
+                    "BN_ONES",
+                    "XAVIER_UNIFORM",
+                    "XAVIER_NORMAL",
+                    "LINEAR_LOG_CONSTANT_BIAS"
+                ]
+            },
+            "description": "The initialization strategy for the model"
+        },
+        "num_classes": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "integer"
+                }
+            ],
+            "description": "The number of classes.  Needed for classification tasks"
+        },
+        "backbone_arch": {
+            "type": "string",
+            "description": "The backbone architecture to use. Must be either ['resnet50', resnet101']."
+        },
+        "is_backbone_pretrained": {
+            "type": "boolean",
+            "description": "If true, use pre-trained weights for backbone."
+        },
+        "backbone_url": {
+            "type": "string",
+            "description": "Url to download model weights from. If blank (default), will download from PyTorch's url."
+        },
+        "use_plus": {
+            "type": "boolean",
+            "description": "If true (default), use DeepLabv3+ head instead of DeepLabv3."
+        },
+        "sync_bn": {
+            "type": "boolean",
+            "description": "If true, use SyncBatchNorm to sync batch norm statistics across GPUs."
+        },
+        "ignore_index": {
+            "type": "integer",
+            "description": "Class label to ignore when calculating the loss and other metrics."
+        },
+        "cross_entropy_weight": {
+            "type": "number",
+            "description": "Weight to scale the cross entropy loss."
+        },
+        "dice_weight": {
+            "type": "number",
+            "description": "Weight to scale the dice loss."
+        }
+    },
+    "additionalProperties": false
+}

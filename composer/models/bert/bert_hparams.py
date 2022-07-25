@@ -26,6 +26,8 @@ class BERTHparams(ModelHparams):
         tokenizer_name (str, optional): The tokenizer used for this model,
             necessary to assert required model inputs. Default ``None``.
         gradient_checkpointing (bool, optional): Use gradient checkpointing. default: False.
+
+    .. jsonschema:: ../../json_schemas/bert_hparams.json
     """
     model_config: Optional[Dict[str,
                                 JSON]] = hp.optional(doc='A dictionary providing a HuggingFace model configuration.',
@@ -69,6 +71,8 @@ class BERTForClassificationHparams(ModelHparams):
         tokenizer_name (Optional[str]): The tokenizer used for this model,
             necessary to assert required model inputs. Default ``None``.
         gradient_checkpointing (bool, optional): Use gradient checkpointing. default: False.
+
+    .. jsonschema:: ../../json_schemas/bertforclassification_hparams.json
     """
     num_labels: Optional[int] = hp.optional(doc='The number of possible labels for the task.', default=2)
     pretrained_model_name: Optional[str] = hp.optional(doc='Pretrained model name to pull from Hugging Face Model Hub.',

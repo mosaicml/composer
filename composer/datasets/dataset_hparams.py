@@ -43,6 +43,8 @@ class DataLoaderHparams(hp.Hparams):
             If ``num_workers = 0``, then the ``pin_memory`` must be ``False``. Default: ``True``.
         timeout (float): Timeout, in seconds, for collecting a batch from workers. Set to ``0`` for no timeout.
             Default: ``0``.
+
+    .. jsonschema:: ../json_schemas/dataloader_hparams.json
     """
 
     num_workers: int = hp.optional(textwrap.dedent("""\
@@ -115,6 +117,8 @@ class DatasetHparams(hp.Hparams, abc.ABC):
             whether to drop the last batch or pad the last batch with zeros. Default:
             ``True``.
         shuffle (bool): Whether to shuffle the dataset. Default: ``True``.
+
+    .. jsonschema:: ../json_schemas/dataset_hparams.json
     """
 
     drop_last: bool = hp.optional(textwrap.dedent("""\

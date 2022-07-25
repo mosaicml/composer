@@ -1,0 +1,106 @@
+{
+    "type": "object",
+    "properties": {
+        "initializers": {
+            "type": "array",
+            "items": {
+                "enum": [
+                    "kaiming_normal",
+                    "kaiming_uniform",
+                    "bn_uniform",
+                    "bn_ones",
+                    "xavier_uniform",
+                    "xavier_normal",
+                    "linear_log_constant_bias",
+                    "KAIMING_NORMAL",
+                    "KAIMING_UNIFORM",
+                    "BN_UNIFORM",
+                    "BN_ONES",
+                    "XAVIER_UNIFORM",
+                    "XAVIER_NORMAL",
+                    "LINEAR_LOG_CONSTANT_BIAS"
+                ]
+            },
+            "description": "The initialization strategy for the model"
+        },
+        "num_classes": {
+            "type": "integer",
+            "description": "The number of classes.  Needed for classification tasks"
+        },
+        "model_name": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "string"
+                }
+            ],
+            "description": "timm model name e.g: 'resnet50', list of models can be found at\nhttps://github.com/rwightman/pytorch-image-models"
+        },
+        "pretrained": {
+            "type": "boolean",
+            "description": "imagenet pretrained"
+        },
+        "drop_rate": {
+            "type": "number",
+            "description": "dropout rate"
+        },
+        "drop_path_rate": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "number"
+                }
+            ],
+            "description": "drop path rate (model default if None)"
+        },
+        "drop_block_rate": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "number"
+                }
+            ],
+            "description": "drop block rate (model default if None)"
+        },
+        "global_pool": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "string"
+                }
+            ],
+            "description": "Global pool type, one of (fast, avg, max, avgmax, avgmaxc). Model default if None."
+        },
+        "bn_momentum": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "number"
+                }
+            ],
+            "description": "BatchNorm momentum override (model default if not None)"
+        },
+        "bn_eps": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "number"
+                }
+            ],
+            "description": "BatchNorm epsilon override (model default if not None)"
+        }
+    },
+    "additionalProperties": false
+}

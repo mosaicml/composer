@@ -22,6 +22,8 @@ class SSDHparams(ModelHparams):
         overlap_threshold (float, optional): Minimum IOU threshold for NMS. Default: ``0.5``.
         nms_max_detections (int, optional): Max number of boxes after NMS. Default: ``200``.
         data (str, optional): path to coco dataset. Default: ``"/localdisk/coco"``.
+
+    .. jsonschema:: ../../json_schemas/ssd_hparams.json
     """
 
     input_size: int = hp.optional(

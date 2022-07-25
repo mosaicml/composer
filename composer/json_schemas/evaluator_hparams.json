@@ -1,0 +1,932 @@
+{
+    "type": "object",
+    "properties": {
+        "label": {
+            "type": "string",
+            "description": "Name of the Evaluator."
+        },
+        "eval_dataset": {
+            "anyOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "ade20k": {
+                            "type": "object",
+                            "properties": {
+                                "use_synthetic": {
+                                    "type": "boolean",
+                                    "description": "Whether to use synthetic data. Defaults to False."
+                                },
+                                "synthetic_num_unique_samples": {
+                                    "type": "integer",
+                                    "description": "The number of unique samples to allocate memory for."
+                                },
+                                "synthetic_device": {
+                                    "type": "string",
+                                    "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`."
+                                },
+                                "synthetic_memory_format": {
+                                    "enum": [
+                                        "contiguous_format",
+                                        "channels_last",
+                                        "channels_last_3d",
+                                        "preserve_format",
+                                        "CONTIGUOUS_FORMAT",
+                                        "CHANNELS_LAST",
+                                        "CHANNELS_LAST_3D",
+                                        "PRESERVE_FORMAT"
+                                    ],
+                                    "description": "Memory format. Defaults to contiguous format."
+                                },
+                                "drop_last": {
+                                    "type": "boolean",
+                                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros."
+                                },
+                                "shuffle": {
+                                    "type": "boolean",
+                                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
+                                },
+                                "split": {
+                                    "type": "string",
+                                    "description": "Which split of the dataset to use. Either ['train', 'val', 'test']"
+                                },
+                                "base_size": {
+                                    "type": "integer",
+                                    "description": "Initial size of the image and target before other augmentations"
+                                },
+                                "min_resize_scale": {
+                                    "type": "number",
+                                    "description": "Minimum value that the image and target can be scaled"
+                                },
+                                "max_resize_scale": {
+                                    "type": "number",
+                                    "description": "Maximum value that the image and target can be scaled"
+                                },
+                                "final_size": {
+                                    "type": "integer",
+                                    "description": "Final size of the image and target"
+                                },
+                                "ignore_background": {
+                                    "type": "boolean",
+                                    "description": "If true, ignore the background class in training loss"
+                                },
+                                "datadir": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "The path to the data directory"
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "streaming_ade20k": {
+                            "type": "object",
+                            "properties": {
+                                "drop_last": {
+                                    "type": "boolean",
+                                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros."
+                                },
+                                "shuffle": {
+                                    "type": "boolean",
+                                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
+                                },
+                                "remote": {
+                                    "type": "string",
+                                    "description": "Remote directory (S3 or local filesystem) where dataset is stored"
+                                },
+                                "local": {
+                                    "type": "string",
+                                    "description": "Local filesystem directory where dataset is cached during operation"
+                                },
+                                "split": {
+                                    "type": "string",
+                                    "description": "Which split of the dataset to use. Either ['train', 'val']"
+                                },
+                                "base_size": {
+                                    "type": "integer",
+                                    "description": "Initial size of the image and target before other augmentations"
+                                },
+                                "min_resize_scale": {
+                                    "type": "number",
+                                    "description": "Minimum value that the image and target can be scaled"
+                                },
+                                "max_resize_scale": {
+                                    "type": "number",
+                                    "description": "Maximum value that the image and target can be scaled"
+                                },
+                                "final_size": {
+                                    "type": "integer",
+                                    "description": "Final size of the image and target"
+                                },
+                                "ignore_background": {
+                                    "type": "boolean",
+                                    "description": "If true, ignore the background class in training loss"
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "brats": {
+                            "type": "object",
+                            "properties": {
+                                "drop_last": {
+                                    "type": "boolean",
+                                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros."
+                                },
+                                "shuffle": {
+                                    "type": "boolean",
+                                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
+                                },
+                                "oversampling": {
+                                    "type": "number",
+                                    "description": "oversampling"
+                                },
+                                "is_train": {
+                                    "type": "boolean",
+                                    "description": "Whether to load the training data (the default) or validation data."
+                                },
+                                "datadir": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "The path to the data directory"
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "imagenet": {
+                            "type": "object",
+                            "properties": {
+                                "use_synthetic": {
+                                    "type": "boolean",
+                                    "description": "Whether to use synthetic data. Defaults to False."
+                                },
+                                "synthetic_num_unique_samples": {
+                                    "type": "integer",
+                                    "description": "The number of unique samples to allocate memory for."
+                                },
+                                "synthetic_device": {
+                                    "type": "string",
+                                    "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`."
+                                },
+                                "synthetic_memory_format": {
+                                    "enum": [
+                                        "contiguous_format",
+                                        "channels_last",
+                                        "channels_last_3d",
+                                        "preserve_format",
+                                        "CONTIGUOUS_FORMAT",
+                                        "CHANNELS_LAST",
+                                        "CHANNELS_LAST_3D",
+                                        "PRESERVE_FORMAT"
+                                    ],
+                                    "description": "Memory format. Defaults to contiguous format."
+                                },
+                                "drop_last": {
+                                    "type": "boolean",
+                                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros."
+                                },
+                                "shuffle": {
+                                    "type": "boolean",
+                                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
+                                },
+                                "resize_size": {
+                                    "type": "integer",
+                                    "description": "resize size. Set to -1 to not resize"
+                                },
+                                "crop_size": {
+                                    "type": "integer",
+                                    "description": "crop size"
+                                },
+                                "use_ffcv": {
+                                    "type": "boolean",
+                                    "description": "whether to use ffcv for faster dataloading"
+                                },
+                                "ffcv_cpu_only": {
+                                    "type": "boolean",
+                                    "description": "Use cpu for all transformations."
+                                },
+                                "ffcv_dir": {
+                                    "type": "string",
+                                    "description": "A directory containing train/val <file>.ffcv files. If these files don't exist and ffcv_write_dataset is true, train/val <file>.ffcv files will be created in this dir."
+                                },
+                                "ffcv_dest": {
+                                    "type": "string",
+                                    "description": "<file>.ffcv file that has dataset samples"
+                                },
+                                "ffcv_write_dataset": {
+                                    "type": "boolean",
+                                    "description": "Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist"
+                                },
+                                "is_train": {
+                                    "type": "boolean",
+                                    "description": "Whether to load the training data (the default) or validation data."
+                                },
+                                "datadir": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "The path to the data directory"
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "streaming_imagenet1k": {
+                            "type": "object",
+                            "properties": {
+                                "drop_last": {
+                                    "type": "boolean",
+                                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros."
+                                },
+                                "shuffle": {
+                                    "type": "boolean",
+                                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
+                                },
+                                "remote": {
+                                    "type": "string",
+                                    "description": "Remote directory (S3 or local filesystem) where dataset is stored"
+                                },
+                                "local": {
+                                    "type": "string",
+                                    "description": "Local filesystem directory where dataset is cached during operation"
+                                },
+                                "split": {
+                                    "type": "string",
+                                    "description": "Which split of the dataset to use. Either ['train', 'val']"
+                                },
+                                "resize_size": {
+                                    "type": "integer",
+                                    "description": "Resize size. Set to -1 to not resize"
+                                },
+                                "crop_size": {
+                                    "type": "integer",
+                                    "description": "Crop size"
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "cifar10": {
+                            "type": "object",
+                            "properties": {
+                                "use_synthetic": {
+                                    "type": "boolean",
+                                    "description": "Whether to use synthetic data. Defaults to False."
+                                },
+                                "synthetic_num_unique_samples": {
+                                    "type": "integer",
+                                    "description": "The number of unique samples to allocate memory for."
+                                },
+                                "synthetic_device": {
+                                    "type": "string",
+                                    "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`."
+                                },
+                                "synthetic_memory_format": {
+                                    "enum": [
+                                        "contiguous_format",
+                                        "channels_last",
+                                        "channels_last_3d",
+                                        "preserve_format",
+                                        "CONTIGUOUS_FORMAT",
+                                        "CHANNELS_LAST",
+                                        "CHANNELS_LAST_3D",
+                                        "PRESERVE_FORMAT"
+                                    ],
+                                    "description": "Memory format. Defaults to contiguous format."
+                                },
+                                "drop_last": {
+                                    "type": "boolean",
+                                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros."
+                                },
+                                "shuffle": {
+                                    "type": "boolean",
+                                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
+                                },
+                                "download": {
+                                    "type": "boolean",
+                                    "description": "whether to download the dataset, if needed"
+                                },
+                                "use_ffcv": {
+                                    "type": "boolean",
+                                    "description": "whether to use ffcv for faster dataloading"
+                                },
+                                "ffcv_dir": {
+                                    "type": "string",
+                                    "description": "A directory containing train/val <file>.ffcv files. If these files don't exist and ffcv_write_dataset is true, train/val <file>.ffcv files will be created in this dir."
+                                },
+                                "ffcv_dest": {
+                                    "type": "string",
+                                    "description": "<file>.ffcv file that has dataset samples"
+                                },
+                                "ffcv_write_dataset": {
+                                    "type": "boolean",
+                                    "description": "Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist"
+                                },
+                                "is_train": {
+                                    "type": "boolean",
+                                    "description": "Whether to load the training data (the default) or validation data."
+                                },
+                                "datadir": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "The path to the data directory"
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "streaming_cifar10": {
+                            "type": "object",
+                            "properties": {
+                                "drop_last": {
+                                    "type": "boolean",
+                                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros."
+                                },
+                                "shuffle": {
+                                    "type": "boolean",
+                                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
+                                },
+                                "remote": {
+                                    "type": "string",
+                                    "description": "Remote directory (S3 or local filesystem) where dataset is stored"
+                                },
+                                "local": {
+                                    "type": "string",
+                                    "description": "Local filesystem directory where dataset is cached during operation"
+                                },
+                                "split": {
+                                    "type": "string",
+                                    "description": "Which split of the dataset to use. Either ['train', 'val']"
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "mnist": {
+                            "type": "object",
+                            "properties": {
+                                "use_synthetic": {
+                                    "type": "boolean",
+                                    "description": "Whether to use synthetic data. Defaults to False."
+                                },
+                                "synthetic_num_unique_samples": {
+                                    "type": "integer",
+                                    "description": "The number of unique samples to allocate memory for."
+                                },
+                                "synthetic_device": {
+                                    "type": "string",
+                                    "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`."
+                                },
+                                "synthetic_memory_format": {
+                                    "enum": [
+                                        "contiguous_format",
+                                        "channels_last",
+                                        "channels_last_3d",
+                                        "preserve_format",
+                                        "CONTIGUOUS_FORMAT",
+                                        "CHANNELS_LAST",
+                                        "CHANNELS_LAST_3D",
+                                        "PRESERVE_FORMAT"
+                                    ],
+                                    "description": "Memory format. Defaults to contiguous format."
+                                },
+                                "drop_last": {
+                                    "type": "boolean",
+                                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros."
+                                },
+                                "shuffle": {
+                                    "type": "boolean",
+                                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
+                                },
+                                "download": {
+                                    "type": "boolean",
+                                    "description": "whether to download the dataset, if needed"
+                                },
+                                "is_train": {
+                                    "type": "boolean",
+                                    "description": "Whether to load the training data (the default) or validation data."
+                                },
+                                "datadir": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "The path to the data directory"
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "lm": {
+                            "type": "object",
+                            "properties": {
+                                "use_synthetic": {
+                                    "type": "boolean",
+                                    "description": "Whether to use synthetic data. Defaults to False."
+                                },
+                                "synthetic_num_unique_samples": {
+                                    "type": "integer",
+                                    "description": "The number of unique samples to allocate memory for."
+                                },
+                                "synthetic_device": {
+                                    "type": "string",
+                                    "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`."
+                                },
+                                "synthetic_memory_format": {
+                                    "enum": [
+                                        "contiguous_format",
+                                        "channels_last",
+                                        "channels_last_3d",
+                                        "preserve_format",
+                                        "CONTIGUOUS_FORMAT",
+                                        "CHANNELS_LAST",
+                                        "CHANNELS_LAST_3D",
+                                        "PRESERVE_FORMAT"
+                                    ],
+                                    "description": "Memory format. Defaults to contiguous format."
+                                },
+                                "drop_last": {
+                                    "type": "boolean",
+                                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros."
+                                },
+                                "shuffle": {
+                                    "type": "boolean",
+                                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
+                                },
+                                "datadir": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "description": "Path to the Huggingface Datasets directory."
+                                },
+                                "split": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "Whether to use 'train', 'validation' or 'test' split."
+                                },
+                                "tokenizer_name": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "The name of the tokenizer to preprocess text with."
+                                },
+                                "use_masked_lm": {
+                                    "type": "boolean",
+                                    "description": "Whether the dataset should be encoded with masked language modeling or not."
+                                },
+                                "num_tokens": {
+                                    "type": "integer",
+                                    "description": "If desired, the number of tokens to truncate the dataset to."
+                                },
+                                "mlm_probability": {
+                                    "type": "number",
+                                    "description": "If using masked language modeling, the probability to mask tokens with."
+                                },
+                                "seed": {
+                                    "type": "integer",
+                                    "description": "Which seed to use to generate train and validation splits."
+                                },
+                                "subsample_ratio": {
+                                    "type": "number",
+                                    "description": "If desired, the percentage of the dataset to use."
+                                },
+                                "max_seq_length": {
+                                    "type": "integer",
+                                    "description": "Optionally, the ability to set a custom sequence length for the training dataset."
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "glue": {
+                            "type": "object",
+                            "properties": {
+                                "use_synthetic": {
+                                    "type": "boolean",
+                                    "description": "Whether to use synthetic data. Defaults to False."
+                                },
+                                "synthetic_num_unique_samples": {
+                                    "type": "integer",
+                                    "description": "The number of unique samples to allocate memory for."
+                                },
+                                "synthetic_device": {
+                                    "type": "string",
+                                    "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`."
+                                },
+                                "synthetic_memory_format": {
+                                    "enum": [
+                                        "contiguous_format",
+                                        "channels_last",
+                                        "channels_last_3d",
+                                        "preserve_format",
+                                        "CONTIGUOUS_FORMAT",
+                                        "CHANNELS_LAST",
+                                        "CHANNELS_LAST_3D",
+                                        "PRESERVE_FORMAT"
+                                    ],
+                                    "description": "Memory format. Defaults to contiguous format."
+                                },
+                                "drop_last": {
+                                    "type": "boolean",
+                                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros."
+                                },
+                                "shuffle": {
+                                    "type": "boolean",
+                                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
+                                },
+                                "task": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "The GLUE task to train on, choose one from: CoLA, MNLI, MRPC, QNLI, QQP, RTE, SST-2, and STS-B."
+                                },
+                                "tokenizer_name": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "The name of the HuggingFace tokenizer to preprocess text with."
+                                },
+                                "split": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "Whether to use 'train', 'validation' or 'test' split."
+                                },
+                                "max_seq_length": {
+                                    "type": "integer",
+                                    "description": "Optionally, the ability to set a custom sequence length for the training dataset."
+                                },
+                                "max_network_retries": {
+                                    "type": "integer",
+                                    "description": "Optionally, the number of times to retry HTTP requests if they fail."
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "coco": {
+                            "type": "object",
+                            "properties": {
+                                "drop_last": {
+                                    "type": "boolean",
+                                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros."
+                                },
+                                "shuffle": {
+                                    "type": "boolean",
+                                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
+                                },
+                                "is_train": {
+                                    "type": "boolean",
+                                    "description": "Whether to load the training data (the default) or validation data."
+                                },
+                                "datadir": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "The path to the data directory"
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "streaming_coco": {
+                            "type": "object",
+                            "properties": {
+                                "drop_last": {
+                                    "type": "boolean",
+                                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros."
+                                },
+                                "shuffle": {
+                                    "type": "boolean",
+                                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
+                                },
+                                "remote": {
+                                    "type": "string",
+                                    "description": "Remote directory (S3 or local filesystem) where dataset is stored"
+                                },
+                                "local": {
+                                    "type": "string",
+                                    "description": "Local filesystem directory where dataset is cached during operation"
+                                },
+                                "split": {
+                                    "type": "string",
+                                    "description": "Which split of the dataset to use. Either ['train', 'val']"
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "c4": {
+                            "type": "object",
+                            "properties": {
+                                "drop_last": {
+                                    "type": "boolean",
+                                    "description": "Whether to drop the last samples for the last batch."
+                                },
+                                "shuffle": {
+                                    "type": "boolean",
+                                    "description": "Whether to shuffle the samples in the dataset. Currently, shards are assigned and consumed with deterministic per-device shard order, but shuffling affects the order of samples via (per-device) shuffle buffers."
+                                },
+                                "split": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "What split of the dataset to use. Either `train` or `validation`."
+                                },
+                                "num_samples": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "integer"
+                                        }
+                                    ],
+                                    "description": "The number of post-processed token samples, used to set epoch size of the IterableDataset."
+                                },
+                                "tokenizer_name": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "The name of the HuggingFace tokenizer to preprocess text with."
+                                },
+                                "max_seq_len": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "integer"
+                                        }
+                                    ],
+                                    "description": "The max sequence length of each token sample."
+                                },
+                                "group_method": {
+                                    "oneOf": [
+                                        {
+                                            "type": "null"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ],
+                                    "description": "How to group text samples into token samples. Either `truncate` or `concat`."
+                                },
+                                "mlm": {
+                                    "type": "boolean",
+                                    "description": "Whether or not to use masked language modeling."
+                                },
+                                "mlm_probability": {
+                                    "type": "number",
+                                    "description": "If `mlm==True`, the probability that tokens are masked."
+                                },
+                                "shuffle_buffer_size": {
+                                    "type": "integer",
+                                    "description": "If `shuffle=True`, samples are read into a buffer of this size (per-device), and randomly sampled from there to produce shuffled samples."
+                                },
+                                "seed": {
+                                    "type": "integer",
+                                    "description": "If `shuffle=True`, what seed to use for shuffling operations."
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "streaming_c4": {
+                            "type": "object",
+                            "properties": {
+                                "drop_last": {
+                                    "type": "boolean",
+                                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros."
+                                },
+                                "shuffle": {
+                                    "type": "boolean",
+                                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
+                                },
+                                "remote": {
+                                    "type": "string",
+                                    "description": "Remote directory (S3 or local filesystem) where dataset is stored"
+                                },
+                                "local": {
+                                    "type": "string",
+                                    "description": "Local filesystem directory where dataset is cached during operation"
+                                },
+                                "split": {
+                                    "type": "string",
+                                    "description": "What split of the dataset to use. Either `train` or `val`."
+                                },
+                                "tokenizer_name": {
+                                    "type": "string",
+                                    "description": "The name of the HuggingFace tokenizer to preprocess text with."
+                                },
+                                "max_seq_len": {
+                                    "type": "integer",
+                                    "description": "The max sequence length of each token sample."
+                                },
+                                "group_method": {
+                                    "type": "string",
+                                    "description": "How to group text samples into token samples. Currently only `truncate` is supported."
+                                },
+                                "mlm": {
+                                    "type": "boolean",
+                                    "description": "Whether or not to use masked language modeling."
+                                },
+                                "mlm_probability": {
+                                    "type": "number",
+                                    "description": "If `mlm==True`, the probability that tokens are masked."
+                                },
+                                "max_retries": {
+                                    "type": "integer",
+                                    "description": "Number of download re-attempts before giving up."
+                                },
+                                "timeout": {
+                                    "type": "number",
+                                    "description": "How long to wait for shard to download before raising an exception."
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            ],
+            "description": "Evaluator dataset for the Evaluator"
+        },
+        "eval_interval": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "string"
+                }
+            ],
+            "description": "An integer,\nwhich will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time` object, or a callable.\nDefaults to ``None``, which means that the ``eval_interval`` parameter from the :class:`.Trainer` will be used.\n\nIf an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the evaluator will be run\nwith this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of\n:attr:`.TimeUnit.BATCH` or :attr:`.TimeUnit.EPOCH`.\n\nSet to ``0`` to disable evaluation.\n\nIf a callable, it should take two arguments (:class:`.State`, :class:`.Event`) and return a bool\nrepresenting whether the evaluator should be invoked. The event will be either :attr:`.Event.BATCH_END`\nor :attr:`.Event.EPOCH_END`.\n\nWhen specifying ``eval_interval``, the evaluator(s) are also run at the ``Event.FIT_END`` if it doesn't\nevenly divide the training duration."
+        },
+        "subset_num_batches": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "integer"
+                }
+            ],
+            "description": "The maximum number of batches to use for each evaluation. Defaults to ``None``,\nwhich means that the ``eval_subset_num_batches`` parameter from the :class:`.Trainer` will be used.\nSet to ``-1`` to evaluate the entire ``dataloader``"
+        },
+        "metric_names": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            ],
+            "description": "Name of the metrics for the evaluator. Can be a torchmetrics metric name or the\n        class name of a metric returned by model.metrics(). If None (the default), uses all metrics in the model"
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "label",
+        "eval_dataset"
+    ]
+}

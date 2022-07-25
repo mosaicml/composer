@@ -1,0 +1,26 @@
+{
+    "type": "object",
+    "properties": {
+        "lr": {
+            "type": "number",
+            "description": "learning rate"
+        },
+        "momentum": {
+            "type": "number",
+            "description": "momentum factor (default: 0)"
+        },
+        "weight_decay": {
+            "type": "number",
+            "description": "weight decay (L2 penalty) (default: 0)"
+        },
+        "dampening": {
+            "type": "number",
+            "description": "dampening for momentum (default: 0)"
+        },
+        "nesterov": {
+            "type": "boolean",
+            "description": "enables Nesterov momentum (default: False)"
+        }
+    },
+    "additionalProperties": false
+}

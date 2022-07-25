@@ -20,6 +20,8 @@ class EfficientNetB0Hparams(ModelHparams):
     Args:
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``1000``.
         drop_connect_rate (float, optional): Probability of dropping a sample within a block before identity connection. Default: ``0.2``.
+
+    .. jsonschema:: ../../json_schemas/efficientnetb0_hparams.json
     """
     drop_connect_rate: float = hp.optional(
         doc='Probability of dropping a sample within a block before identity connection.',

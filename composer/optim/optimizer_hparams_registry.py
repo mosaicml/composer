@@ -34,6 +34,8 @@ class OptimizerHparams(hp.Hparams, ABC):
 
     Optimizer parameters that are added to :class:`~composer.trainer.trainer_hparams.TrainerHparams` (e.g. via YAML or
     the CLI) are initialized in the training loop.
+
+    .. jsonschema:: ../json_schemas/optimizer_hparams.json
     """
 
     optimizer_cls = None  # type: Optional[Type[Optimizer]]
@@ -65,6 +67,8 @@ class AdamHparams(OptimizerHparams):
         eps (float, optional): See :class:`~torch.optim.Adam`.
         weight_decay (float, optional): See :class:`~torch.optim.Adam`.
         amsgrad (bool, optional): See :class:`~torch.optim.Adam`.
+
+    .. jsonschema:: ../json_schemas/adam_hparams.json
     """
 
     optimizer_cls = torch.optim.Adam
@@ -87,6 +91,8 @@ class RAdamHparams(OptimizerHparams):
         betas (float, optional): See :class:`~torch_optimizer.RAdam`.
         eps (float, optional): See :class:`~torch_optimizer.RAdam`.
         weight_decay (float, optional): See :class:`~torch_optimizer.RAdam`.
+
+    .. jsonschema:: ../json_schemas/radam_hparams.json
     """
 
     optimizer_cls = torch_optimizer.RAdam
@@ -109,6 +115,8 @@ class AdamWHparams(OptimizerHparams):
         eps (float, optional): See :class:`~torch.optim.AdamW`.
         weight_decay (float, optional): See :class:`~torch.optim.AdamW`.
         amsgrad (bool, optional): See :class:`~torch.optim.AdamW`.
+
+    .. jsonschema:: ../json_schemas/adamw_hparams.json
     """
 
     optimizer_cls = torch.optim.AdamW
@@ -132,6 +140,8 @@ class DecoupledAdamWHparams(OptimizerHparams):
         eps (float, optional): See :class:`~.DecoupledAdamW`.
         weight_decay (float, optional): See :class:`~.DecoupledAdamW`.
         amsgrad (bool, optional): See :class:`~.DecoupledAdamW`.
+
+    .. jsonschema:: ../json_schemas/decoupledadam_hparams.json
     """
 
     optimizer_cls = DecoupledAdamW
@@ -155,6 +165,8 @@ class SGDHparams(OptimizerHparams):
         weight_decay (float, optional): See :class:`~torch.optim.SGD`.
         dampening (float, optional): See :class:`~torch.optim.SGD`.
         nesterov (bool, optional): See :class:`~torch.optim.SGD`.
+
+    .. jsonschema:: ../json_schemas/sgd_hparams.json
     """
 
     optimizer_cls = torch.optim.SGD
@@ -178,6 +190,8 @@ class DecoupledSGDWHparams(OptimizerHparams):
         weight_decay (float, optional): See :class:`~.DecoupledSGDW`.
         dampening (float, optional): See :class:`~.DecoupledSGDW`.
         nesterov (bool, optional): See :class:`~.DecoupledSGDW`.
+
+    .. jsonschema:: ../json_schemas/decoupledsgdw_hparams.json
     """
 
     optimizer_cls = DecoupledSGDW
@@ -202,6 +216,8 @@ class RMSpropHparams(OptimizerHparams):
         momentum (float, optional): See :class:`~torch.optim.RMSprop`.
         weight_decay (float, optional): See :class:`~torch.optim.RMSprop`.
         centered (bool, optional): See :class:`~torch.optim.RMSprop`.
+
+    .. jsonschema:: ../json_schemas/rmsprop_hparams.json
     """
 
     optimizer_cls = torch.optim.RMSprop

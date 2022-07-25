@@ -36,6 +36,8 @@ class StreamingC4Hparams(DatasetHparams):
         mlm_probability (float): If ``mlm==True``, the probability that tokens are masked. Default: ``0.15``.
         max_retries (int): Number of download re-attempts before giving up. Default: 2.
         timeout (float): How long to wait for shard to download before raising an exception. Default: 120 sec.
+
+    .. jsonschema:: ../json_schemas/streamingc4_hparams.json
     """
 
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
@@ -121,6 +123,8 @@ class C4DatasetHparams(DatasetHparams):
         drop_last (bool): Whether to drop the last samples for the last batch. Default: ``True``.
     Returns:
         DataLoader: A PyTorch :class:`~torch.utils.data.DataLoader` object.
+
+    .. jsonschema:: ../json_schemas/c4dataset_hparams.json
     """
 
     split: Optional[str] = hp.optional('What split of the dataset to use. Either `train` or `validation`.',

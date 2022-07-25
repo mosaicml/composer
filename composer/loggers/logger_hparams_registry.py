@@ -50,6 +50,8 @@ class ObjectStoreLoggerHparams(hp.Hparams):
         num_concurrent_uploads (int, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
         upload_staging_folder (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
         use_procs (bool, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
+
+    .. jsonschema:: ../json_schemas/objectstorelogger_hparams.json
     """
 
     hparams_registry = {

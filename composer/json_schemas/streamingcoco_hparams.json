@@ -1,0 +1,26 @@
+{
+    "type": "object",
+    "properties": {
+        "drop_last": {
+            "type": "boolean",
+            "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros."
+        },
+        "shuffle": {
+            "type": "boolean",
+            "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
+        },
+        "remote": {
+            "type": "string",
+            "description": "Remote directory (S3 or local filesystem) where dataset is stored"
+        },
+        "local": {
+            "type": "string",
+            "description": "Local filesystem directory where dataset is cached during operation"
+        },
+        "split": {
+            "type": "string",
+            "description": "Which split of the dataset to use. Either ['train', 'val']"
+        }
+    },
+    "additionalProperties": false
+}

@@ -28,6 +28,8 @@ class BratsDatasetHparams(DatasetHparams):
 
     Args:
         oversampling (float): The oversampling ratio to use. Default: ``0.33``.
+
+    .. jsonschema:: ../json_schemas/bratsdataset_hparams.json
     """
 
     oversampling: float = hp.optional('oversampling', default=0.33)

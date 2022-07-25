@@ -25,6 +25,8 @@ class COCODatasetHparams(DatasetHparams):
         datadir (str): The path to the data directory.
         is_train (bool): Whether to load the training data or validation data. Default:
             ``True``.
+
+    .. jsonschema:: ../json_schemas/cocodataset_hparams.json
     """
 
     is_train: bool = hp.optional('Whether to load the training data (the default) or validation data.', default=True)
@@ -79,6 +81,8 @@ class StreamingCOCOHparams(DatasetHparams):
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-coco/```
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
+
+    .. jsonschema:: ../json_schemas/streamingcoco_hparams.json
     """
 
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
