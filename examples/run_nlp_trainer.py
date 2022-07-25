@@ -48,9 +48,6 @@ from composer.trainer.nlp_trainer_hparams import GLUETrainerHparams, NLPTrainerH
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils.warning_helpers import warning_on_one_line
 
-# TODO: reset all configs and training lengths back to default
-
-
 def init_cuda_queue(queue_size: int) -> mp.Queue:
     """Generate a multiprocessing queue to store queue_size GPU IDs. The multiprocessing package has no way of extracting the worker name from the worker, therefore a queue is used to map pool workers to GPUs to spawn finetune jobs one."""
     cuda_envs = mp.Queue(queue_size)

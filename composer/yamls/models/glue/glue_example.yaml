@@ -63,16 +63,16 @@ pretrain_hparams:
       t_warmup: 0.06dur              # Point when peak learning rate is reached
       alpha_f: 0.02
 
-  max_duration: 1ep          # Subsample the training data for 275M samples
-  train_batch_size: 4            # Number of training examples to use per update
-  eval_batch_size: 4
+  max_duration: 275184000sp          # Subsample the training data for 275M samples
+  train_batch_size: 4000             # Number of training examples to use per update
+  eval_batch_size: 2000
 
   precision: amp                     # Use mixed-precision training
   grad_clip_norm: -1.0               # Turn off gradient clipping
   grad_accum: 'auto'                 # Use automatic gradient accumulation to avoid OOMs
 
   save_folder: checkpoints          # The directory to save checkpoints to
-  save_interval: 10ba              # Save checkpoints every 3500 batches
+  save_interval: 3500ba              # Save checkpoints every 3500 batches
   save_artifact_name: '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}-wct{total_wct}' # uncomment if you want to checkpoint to cloud 
   save_overwrite: True
 
@@ -86,9 +86,6 @@ pretrain_hparams:
       tags: 
         - pretrain
     
-  train_subset_num_batches: 10
-  eval_subset_num_batches: 10
-  
 finetune_hparams:
   # defaults
   loggers: 
