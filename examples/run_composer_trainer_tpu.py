@@ -6,15 +6,9 @@ import warnings
 from typing import Type
 
 from composer.loggers.logger import LogLevel
-#from composer.loggers.logger_hparams import WandBLoggerHparams
-#from composer.trainer.trainer_hparams_tpu import TrainerTPUHparams
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist
 import os
-os.environ["TPU_CHIPS_PER_HOST_BOUNDS"] = "2,2,1"
-os.environ["TPU_HOST_BOUNDS"] = "1,1,1"
-os.environ["TPU_VISIBLE_DEVICES"] = "0,1,2,3"
-
 def train():
 
     if len(sys.argv) == 1:

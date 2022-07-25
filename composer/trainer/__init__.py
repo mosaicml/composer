@@ -5,7 +5,5 @@
 
 from composer.trainer import devices as devices
 from composer.trainer.trainer import Trainer
-from composer.trainer.trainer_tpu import TrainerTPU
 
-__all__ = ['Trainer', 'TrainerTPU']
-
+__all__ = ['Trainer']
