@@ -7,7 +7,8 @@ from typing import Type
 
 from composer.loggers.logger import LogLevel
 #from composer.loggers.logger_hparams import WandBLoggerHparams
-from composer.trainer.trainer_hparams_tpu import TrainerTPUHparams
+#from composer.trainer.trainer_hparams_tpu import TrainerTPUHparams
+from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist
 import os
 os.environ["TPU_CHIPS_PER_HOST_BOUNDS"] = "2,2,1"
@@ -19,9 +20,8 @@ def train():
     if len(sys.argv) == 1:
         sys.argv = [sys.argv[0], "--help"]
 
-    print(TrainerTPUHparams)
-    hparams = TrainerTPUHparams.create(cli_args=True)  # reads cli args from sys.argv
-    
+    #print(TrainerTPUHparams)
+    hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
             
     trainer = hparams.initialize_object()
 

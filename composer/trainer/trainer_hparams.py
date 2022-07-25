@@ -74,6 +74,7 @@ model_registry = {
 def _initialize_dataloader(
     dataset_hparams: Optional[DatasetHparams],
     dataloader_label: str,
+    device: Optional[DeviceHparams],
     batch_size: Optional[int],
     subset_num_batches: Optional[int],
     dataloader_hparams: DataLoaderHparams,
@@ -86,7 +87,7 @@ def _initialize_dataloader(
                 f'The batch size for {dataloader_label} must be specified if the {dataloader_label} dataset is specified'
             )
 
-        if self._device == 'tpu':
+        if device == 'tpu':
             train_device_batch_size = batch_size // xm.xrt_world_size()
         else:
             train_device_batch_size = batch_size // dist.get_world_size()
@@ -119,6 +120,7 @@ def _initialize_eval_dataloader(
     eval_batch_size: Optional[int],
     eval_subset_num_batches: Optional[int],
     dataloader_hparams: DataLoaderHparams,
+    device: DeviceHparams,
 ):
     """Helper method to evaluation arguments and initialize the eval_dataloader."""
     eval_dataloader = None
@@ -128,6 +130,7 @@ def _initialize_eval_dataloader(
     if eval_dataset_hparams is not None:
         eval_dataloader = _initialize_dataloader(
             eval_dataset_hparams,
+            device,
             'eval',
             eval_batch_size,
             eval_subset_num_batches,
@@ -285,7 +288,7 @@ class TrainerHparams(hp.Hparams):
     }
 
     model: ModelHparams = hp.auto(Trainer, 'model')
-
+    device: DeviceHparams = hp.auto(Trainer, 'device')
     # Shared data
     dataloader: DataLoaderHparams = hp.optional(doc='dataloader hparams', default=DataLoaderHparams())
 
@@ -396,7 +399,7 @@ class TrainerHparams(hp.Hparams):
             if self.deterministic_mode and zero_stage > 0:
                 raise ValueError('Deepspeed with zero stage > 0 is not compatible with deterministic mode')
 
-        if self._device == 'tpu':
+        if self.device == 'tpu':
             world_size = xm.xrt_world_size()
         else:
             world_size = dist.get_world_size()
@@ -465,7 +468,7 @@ class TrainerHparams(hp.Hparams):
         model = self.model.initialize_object()
 
         # Train dataloader
-        train_dataloader = _initialize_dataloader(self.train_dataset, self.train_dataloader_label,
+        train_dataloader = _initialize_dataloader(self.train_dataset, self.device, self.train_dataloader_label,
                                                   self.train_batch_size, self.train_subset_num_batches, self.dataloader)
 
         # Evaluation
@@ -476,6 +479,7 @@ class TrainerHparams(hp.Hparams):
             self.eval_batch_size,
             self.eval_subset_num_batches,
             self.dataloader,
+            self.device
         )
 
         # Optimizers

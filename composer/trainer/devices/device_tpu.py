@@ -23,8 +23,9 @@ T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
 
 class DeviceTPU(Device):
     """An extension of :class:`~composer.trainer.devices.device.Device` for TPUs
-
-    This class takes no arguments.
+    
+    When running on TPUVMs, you need to `export PJRT_DEVICE=TPU`.
+    More details.
     """
     dist_backend = "xla-tpu"
     def __init__(self):
@@ -34,8 +35,6 @@ class DeviceTPU(Device):
 
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
         import torch_xla.distributed.xla_multiprocessing as xmp
-        
-        #return module.to(self._device)
         
         wrapped_model = xmp.MpModelWrapper(module)
         return wrapped_model.to(self._device)

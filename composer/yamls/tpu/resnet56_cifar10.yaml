@@ -34,4 +34,6 @@ seed: 17
 grad_accum: 1
 dataloader:
   num_workers: 8
-precision: fp16
+precision: fp32
+device:
+  tpu: {}

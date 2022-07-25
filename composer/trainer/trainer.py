@@ -1,4 +1,4 @@
-# Copyright 20OA22 MosaicML Composer authors
+# Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
 """Train models."""
@@ -1433,14 +1433,14 @@ class Trainer:
         # Samples and tokens should be summed
         # Batch time should be the value from rank 0
         sample_token_tensor = self._device.tensor_to_device(torch.tensor([num_samples, num_tokens], dtype=torch.int))
-        if device == 'tpu':
+        if self._device == 'tpu':
             xm.all_reduce("sum", tensor, scale=1.0 / xm.xrt_world_size())
         else:
             dist.all_reduce(sample_token_tensor, reduce_operation='SUM')
 
         batch_time_tensor = self._device.tensor_to_device(
             torch.tensor([batch_time.total_seconds()], dtype=torch.float64))
-        if device is not 'tpu':
+        if self._device is not 'tpu':
             dist.broadcast(batch_time_tensor, src=0)
 
         batch_time = datetime.timedelta(seconds=batch_time_tensor[0].cpu().item())
