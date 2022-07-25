@@ -42,11 +42,12 @@ from tabulate import tabulate
 import composer
 from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.wandb_logger import WandBLogger
-from composer.metrics.glue import GlueState
+from composer.metrics.glue import GLUEMetricsLogger, GlueState
 from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.nlp_trainer_hparams import GLUETrainerHparams, NLPTrainerHparams
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils.warning_helpers import warning_on_one_line
+
 
 def init_cuda_queue(queue_size: int) -> mp.Queue:
     """Generate a multiprocessing queue to store queue_size GPU IDs. The multiprocessing package has no way of extracting the worker name from the worker, therefore a queue is used to map pool workers to GPUs to spawn finetune jobs one."""
@@ -95,14 +96,14 @@ def output_metrics(glue_metrics: GlueState) -> None:
     tb = [headers]
 
     # fill table
-    for ckpt in glue_metrics.get_logged_ckpts():
+    for ckpt in glue_metrics.ckpt_to_tasks.keys():
         output_line = [ckpt]
         glue_all = 0
         glue_large = 0
         # Per task score
         for task in sorted(glue_metrics.task_names):
-            task_metric = 0 if not glue_metrics.get_task_metric(ckpt, task) else glue_metrics.get_task_metric(
-                ckpt, task)
+            task_metric = 0 if not glue_metrics.ckpt_to_tasks[ckpt].task_to_avg_metric[
+                task] else glue_metrics.ckpt_to_tasks[ckpt].task_to_avg_metric[task]
             output_line.append('{:.4f}'.format(task_metric))
             glue_all += task_metric
             if task in large_tasks:
@@ -119,19 +120,20 @@ def log_metrics(ckpt_filename: str, glue_metrics: GlueState, f_metric: Future) -
     """Callback function for metric collection."""
     metric = f_metric.result()
 
-    if ckpt_filename not in glue_metrics.get_logged_ckpts():
-        glue_metrics.init_ckpt_dict(ckpt_filename)
+    if ckpt_filename not in glue_metrics.ckpt_to_tasks.keys():
+        glue_metrics.ckpt_to_tasks[ckpt_filename] = GLUEMetricsLogger(glue_metrics.task_names)
 
     task = list(metric.keys())[0]
     formatted_task = task.split('_')[1]  # remove "glue_" prefix
     for key in metric.keys():  # handle case where mnli has glue_mnli and glue_mnli_mismatched
         for m in metric[key]:
-            if not glue_metrics.get_task_metric(ckpt_filename, formatted_task):
-                glue_metrics.set_task_metric(ckpt_filename, formatted_task, metric[key][m].item())
+            if not glue_metrics.ckpt_to_tasks[ckpt_filename].task_to_avg_metric[formatted_task]:
+                glue_metrics.ckpt_to_tasks[ckpt_filename].task_to_avg_metric[formatted_task] = metric[key][m].item()
+
             else:
-                old_val = glue_metrics.get_task_metric(ckpt_filename, formatted_task)
-                glue_metrics.set_task_metric(ckpt_filename, formatted_task,
-                                             sum([old_val, metric[key][m].item()]) / 2)  # automatically average scores
+                old_val = glue_metrics.ckpt_to_tasks[ckpt_filename].task_to_avg_metric[formatted_task]
+                glue_metrics.ckpt_to_tasks[ckpt_filename].task_to_avg_metric[formatted_task] = sum(
+                    [old_val, metric[key][m].item()]) / 2  # automatically average scores
 
 
 def merge_hparams(hparams: TrainerHparams, override_hparams: Union[GLUETrainerHparams, None]) -> TrainerHparams:
@@ -144,16 +146,18 @@ def merge_hparams(hparams: TrainerHparams, override_hparams: Union[GLUETrainerHp
     return hparams
 
 
-def setup_finetuning_jobs(finetune_tasks: List[str],
-                          save_ckpts: List[bool],
-                          ckpt_load_path: str,
-                          ckpt_filename: str,
-                          ckpt_save_folder: str,
-                          glue_metrics: GlueState,
-                          base_yaml_file: str,
-                          save_locally: bool,
-                          parent_ckpt: Optional[str] = None,
-                          load_ignore_keys: Optional[List[str]] = None) -> None:
+def setup_finetuning_jobs(
+    finetune_tasks: List[str],
+    save_ckpts: List[bool],
+    ckpt_load_path: str,
+    ckpt_filename: str,
+    ckpt_save_folder: str,
+    glue_metrics: GlueState,
+    base_yaml_file: str,
+    save_locally: bool,
+    parent_ckpt: Optional[str] = None,
+    load_ignore_keys: Optional[List[str]] = None,
+) -> None:
     """Set up CUDA environment and process pool for given finetuning jobs."""
     cuda_envs = init_cuda_queue(torch.cuda.device_count())
     num_tasks = len(finetune_tasks)
@@ -180,14 +184,16 @@ def setup_finetuning_jobs(finetune_tasks: List[str],
     cuda_envs.join_thread()
 
 
-def train_finetune(base_yaml_file: str,
-                   task: str,
-                   save_ckpt: bool,
-                   load_path: str,
-                   wandb_group_name: str,
-                   save_folder: str,
-                   save_locally: bool,
-                   load_ignore_keys: Optional[List[str]] = None):
+def train_finetune(
+    base_yaml_file: str,
+    task: str,
+    save_ckpt: bool,
+    load_path: str,
+    wandb_group_name: str,
+    save_folder: str,
+    save_locally: bool,
+    load_ignore_keys: Optional[List[str]] = None,
+):
     """Run single instance of a finetuning job on given task."""
     finetune_hparams = NLPTrainerHparams.create(cli_args=False, f=base_yaml_file).finetune_hparams
     task_hparams = TrainerHparams.create(cli_args=False, f=f'./composer/yamls/models/glue/{task}.yaml')
@@ -281,11 +287,10 @@ def get_finetune_hparams(args: argparse.Namespace) -> Union[GLUETrainerHparams, 
     hp = NLPTrainerHparams.create(cli_args=False, f=args.file)
     validate_args(args, hp)
 
-    hparams = None
     if args.training_scheme != 'pretrain':
         hparams = hp.finetune_hparams
         args.save_locally = True
-        if hparams.loggers:
+        if hparams and hparams.loggers:
             for l in hparams.loggers:
                 if isinstance(l, ObjectStoreLogger):
                     args.save_locally = False
