@@ -432,31 +432,6 @@ def initialize_dist(device: Device, timeout: datetime.timedelta):
     else:
         dist.init_process_group(device.dist_backend, timeout=timeout)
 
-    # Initialize group_gloo for monitored barriers, which are used to raise errors in case of deadlock. If
-    # we fail to initialize group_gloo because of incorrect network devices, issue a warning and skip
-    # monitored_barriers.
-    # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
-    gloo_initialization_failure = 0
-    try:
-        # monitored_barrier requires gloo backend, which is initialized as a global variable
-        global group_gloo
-        group_gloo = dist.new_group(backend='gloo')
-    except RuntimeError as e:
-        # Suppress setup issues related to incorrect network device and instead issue warning
-        if 'Connection refused' in str(e):
-            gloo_initialization_failure = 1
-        else:
-            raise
-    # Propagate across all ranks to check for any gloo initialization failures
-    gloo_initialization_failure = device.tensor_to_device(torch.tensor([gloo_initialization_failure],
-                                                                       dtype=torch.uint8))
-    all_reduce(gloo_initialization_failure, reduce_operation='MAX')
-    if int(gloo_initialization_failure.item()) == 1:
-        group_gloo = None
-        log.warning(
-            'Gloo group failed to initialize, likely because it defaulted to the wrong network device. monitored_barriers will be skipped, which may result in deadlocks which fail to produce an error.'
-        )
-
 
 def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool, shuffle: bool):
     """Constructs a :class:`~torch.utils.data.distributed.DistributedSampler` for a dataset.
