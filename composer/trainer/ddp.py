@@ -117,7 +117,7 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool,
             ddp_model = DistributedDataParallel(module, find_unused_parameters=find_unused_parameters)
             if adaptive_gradient_accumulation:
                 # Wrap the default reduce hook with a barrier
-                ddp_model.register_comm_hook(torch_dist.get_backend(), rank_sync_wrapper(allreduce_hook))
+                ddp_model.register_comm_hook(None, rank_sync_wrapper(allreduce_hook))
             return ddp_model
         return module
     if dist.is_available():
@@ -139,7 +139,9 @@ def rank_sync_wrapper(
 
     def rank_sync_wrapper_hook(hook_state, bucket: torch_dist.GradBucket) -> torch.futures.Future[torch.Tensor]:
         try:
-            dist.monitored_barrier(timeout=datetime.timedelta(seconds=30))
+            # Only put barrier in front of first bucket
+            if bucket.index() == 0:
+                dist.monitored_barrier(timeout=datetime.timedelta(seconds=30))
         except RuntimeError as e:
             # monitored_barrier was tripped
             if 'Timed out' in str(e):
