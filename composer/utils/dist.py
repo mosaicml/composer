@@ -385,7 +385,7 @@ def initialize_dist(device: Device, timeout: datetime.timedelta):
     .. seealso:: :func:`torch.distributed.init_process_group`
 
     Args:
-        device (str): The device from which the distributed backend is interpreted.
+        device (Device): The device from which the distributed backend is interpreted.
         timeout (datetime.timedelta): The timeout for operations executed against the process group.
     """
     if get_world_size() > 1 and not dist.is_available():

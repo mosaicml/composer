@@ -100,8 +100,8 @@ def ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Uni
         raise ValueError('Unknown sync strategy', sync_strategy)
 
 
-def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool,
-                       adaptive_gradient_accumulation: bool, ddp_callback_obj: JSON) -> torch.nn.Module:
+def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool, adaptive_gradient_accumulation: bool,
+                       ddp_callback_obj: JSON) -> torch.nn.Module:
     """Wraps the module in a :class:`torch.nn.parallel.DistributedDataParallel` object if running distributed training.
 
     Args:

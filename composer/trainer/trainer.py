@@ -1033,7 +1033,7 @@ class Trainer:
         log.info(f'Setting seed to {self.state.seed}')
         reproducibility.seed_all(self.state.seed)
 
-        self.ddp_callback_obj = { 'nested_state': None, 'group': None }
+        self.ddp_callback_obj = {'nested_state': None, 'group': None}
         # Move the model and optimizers to the specified device
         if not self.deepspeed_enabled and dist.get_world_size() > 1:
             # Only wrap the module if required
