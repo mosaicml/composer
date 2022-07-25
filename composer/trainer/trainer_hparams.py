@@ -429,7 +429,7 @@ class TrainerHparams(hp.Hparams):
         # Device
         device = self.device
         if device is None:
-            device = DeviceGPU(dist.get_local_rank()) if torch.cuda.is_available() else DeviceCPU()
+            device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU()
 
         # Distributed
         # Initialized here so it is available within dataloaders
