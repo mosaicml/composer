@@ -171,7 +171,7 @@ def barrier() -> None:
                        'support.')
 
 
-def monitored_barrier(timeout: Optional[datetime.timedelta] = None) -> None:
+def monitored_barrier(group, timeout: Optional[datetime.timedelta] = None) -> None:
     """Synchronizes all processes.
 
     This function blocks until all processes reach this function. Unlike `barrier`, `monitored_barrier`
@@ -182,8 +182,9 @@ def monitored_barrier(timeout: Optional[datetime.timedelta] = None) -> None:
     if dist.is_available() and dist.is_initialized():
         # monitored_barrier requires gloo backend, which is initialized as a global variable
         global group_gloo
-        if group_gloo:
-            dist.monitored_barrier(group=group_gloo, timeout=timeout)
+        barrier_group = group if group else group_gloo
+        if barrier_group:
+            dist.monitored_barrier(group=barrier_group, timeout=timeout)
         return
     world_size = get_world_size()
     if world_size == 1:

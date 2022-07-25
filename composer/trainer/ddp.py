@@ -15,6 +15,7 @@ from torch.distributed.algorithms.ddp_comm_hooks.default_hooks import allreduce_
 from torch.nn.parallel import DistributedDataParallel
 
 from composer.core.state import State
+from composer.core.types import JSON
 from composer.utils import dist
 from composer.utils.string_enum import StringEnum
 
@@ -100,7 +101,7 @@ def ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Uni
 
 
 def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool,
-                       adaptive_gradient_accumulation: bool) -> torch.nn.Module:
+                       adaptive_gradient_accumulation: bool, ddp_callback_obj: JSON) -> torch.nn.Module:
     """Wraps the module in a :class:`torch.nn.parallel.DistributedDataParallel` object if running distributed training.
 
     Args:
@@ -117,7 +118,7 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool,
             ddp_model = DistributedDataParallel(module, find_unused_parameters=find_unused_parameters)
             if adaptive_gradient_accumulation:
                 # Wrap the default reduce hook with a barrier
-                ddp_model.register_comm_hook(None, rank_sync_wrapper(allreduce_hook))
+                ddp_model.register_comm_hook(ddp_callback_obj, rank_sync_wrapper(allreduce_hook))
             return ddp_model
         return module
     if dist.is_available():
@@ -141,7 +142,7 @@ def rank_sync_wrapper(
         try:
             # Only put barrier in front of first bucket
             if bucket.index() == 0:
-                dist.monitored_barrier(timeout=datetime.timedelta(seconds=30))
+                dist.monitored_barrier(group=hook_state['group'], timeout=datetime.timedelta(seconds=30))
         except RuntimeError as e:
             # monitored_barrier was tripped
             if 'Timed out' in str(e):
@@ -159,6 +160,6 @@ def rank_sync_wrapper(
                 return fut.then(raise_timeout_error)
             else:
                 raise
-        return hook(hook_state, bucket)
+        return hook(hook_state['nested_state'], bucket)
 
     return rank_sync_wrapper_hook

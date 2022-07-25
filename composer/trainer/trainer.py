@@ -1033,11 +1033,12 @@ class Trainer:
         log.info(f'Setting seed to {self.state.seed}')
         reproducibility.seed_all(self.state.seed)
 
+        self.ddp_callback_obj = { 'nested_state': None, 'group': None }
         # Move the model and optimizers to the specified device
         if not self.deepspeed_enabled and dist.get_world_size() > 1:
             # Only wrap the module if required
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters,
-                                                  self.adaptive_gradient_accumulation)
+                                                  self.adaptive_gradient_accumulation, self.ddp_callback_obj)
 
     @property
     def deepspeed_enabled(self):
@@ -1635,6 +1636,7 @@ class Trainer:
         # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
         # TODO: fix this name collision!
         device_batch = self.state.batch
+        self.ddp_callback_obj['group'] = torch.distributed.new_group(backend='gloo')
 
         # Retry until we successfully complete training and return loss
         while True:
