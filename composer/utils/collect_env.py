@@ -49,6 +49,8 @@ import cpuinfo
 import importlib_metadata
 import psutil
 
+from composer.utils.misc import is_notebook
+
 __all__ = ['configure_excepthook', 'disable_env_report', 'enable_env_report', 'print_env']
 
 # Check if PyTorch is installed
@@ -70,14 +72,11 @@ except (ImportError,):
     COMPOSER_AVAILABLE = False
 
 # Check if we're running in a notebook
-try:
-    __IPYTHON__  #type: ignore
+IPYTHON_AVAILABLE = is_notebook()
+if IPYTHON_AVAILABLE:
     from composer.utils.import_helpers import import_object
     get_ipython = import_object('IPython:get_ipython')
     nb = get_ipython()
-    IPYTHON_AVAILABLE = True
-except (NameError,):
-    IPYTHON_AVAILABLE = False
 
 # Place to keep track of the original excepthook
 _orig_excepthook = None
