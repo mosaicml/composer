@@ -31,7 +31,6 @@ class DeviceTPU(Device):
     dist_backend = "xla-tpu"
     def __init__(self):
         import torch_xla.core.xla_model as xm
-
         self._device = xm.xla_device()
 
     def module_to_device(self, module: T_nnModule) -> T_nnModule:

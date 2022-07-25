@@ -40,7 +40,6 @@ from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceTPU
 from composer.trainer.devices.device_hparams_registry import device_registry
 from composer.trainer.trainer import Trainer
-from composer.trainer.trainer_tpu import TrainerTPU
 from composer.utils import dist, reproducibility
 from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
 

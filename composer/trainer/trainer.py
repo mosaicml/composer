@@ -165,6 +165,7 @@ def _is_cuda_oom(e: RuntimeError):
 
 
 def _get_device(device: Optional[Union[str, Device]]):
+
     if not device:
         device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU()
     elif isinstance(device, str):
@@ -173,9 +174,13 @@ def _get_device(device: Optional[Union[str, Device]]):
         elif device.lower() == 'gpu':
             device = DeviceGPU()
         elif device.lower() == 'tpu':
+            exit
             device = DeviceTPU()
         else:
             raise ValueError(f'device ({device}) must be one of (cpu, gpu, tpu).')
+
+    #import pdb; pdb.set_trace()
+    
     return device
 
 
@@ -1264,6 +1269,8 @@ class Trainer:
         if train_dataloader is not None:
             self._train_data_spec = ensure_data_spec(train_dataloader)
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label)
+            import pdb; pdb.set_trace()
+            
             if device == 'tpu':
                 import torch_xla.distributed.parallel_loader as pl
                 device = xm.xla_device()
