@@ -1,4 +1,4 @@
-# Copyright 2022 MosaicML Composer authors
+# Copyright 20OA22 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
 """Train models."""
@@ -23,6 +23,8 @@ from torch.cuda.amp.grad_scaler import GradScaler
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric, MetricCollection
+import torch_xla.distributed.parallel_loader as pl
+import torch_xla.core.xla_model as xm
 
 from composer.algorithms import GradientClipping
 from composer.callbacks import CheckpointSaver
@@ -41,7 +43,8 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
-from composer.utils import ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, reproducibility
+from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed, map_collection,
+                            reproducibility)
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -169,8 +172,10 @@ def _get_device(device: Optional[Union[str, Device]]):
             device = DeviceCPU()
         elif device.lower() == 'gpu':
             device = DeviceGPU()
+        elif device.lower() == 'tpu':
+            device = DeviceTPU()
         else:
-            raise ValueError(f'device ({device}) must be one of (cpu, gpu).')
+            raise ValueError(f'device ({device}) must be one of (cpu, gpu, tpu).')
     return device
 
 
@@ -753,9 +758,11 @@ class Trainer:
         if deepspeed_enabled or dist.get_world_size() > 1:
             # deepspeed requires torch.distributed to be initialized, even if the world size is 1
             # distributed is always required with multi-rank training
-            dist.initialize_dist(self._device.dist_backend, datetime.timedelta(seconds=dist_timeout))
+            # might need tpu
+            dist.initialize_dist(self._device, datetime.timedelta(seconds=dist_timeout))
 
         # Reproducibility
+        # might need tpu
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, self._device)
         # If hparams is used to create the Trainer this function is called twice
         # which is okay because all runs with the hparams codepath will do this
@@ -819,7 +826,7 @@ class Trainer:
         log.info('Run name: %s', run_name)
 
         # Create the State
-        self.state = State(rank_zero_seed=rank_zero_seed,
+        self.state = State(rank_zero_seed=rank_zero_seed, #might need tpu
                            algorithms=algorithms,
                            model=model,
                            callbacks=callbacks,
@@ -899,6 +906,7 @@ class Trainer:
         if max_duration is not None:
             self.state.max_duration = ensure_time(max_duration, TimeUnit.EPOCH)
 
+        # tpu
         self.logger.data_fit({'rank_zero_seed': rank_zero_seed})
 
         assert isinstance(self.state.model, ComposerModel)
@@ -1043,7 +1051,7 @@ class Trainer:
 
         .. seealso:: `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_
         """
-        return self.state.is_model_deepspeed
+        return is_model_deepspeed(self.state.model)
 
     @property
     def saved_checkpoints(self) -> List[Tuple[Timestamp, List[pathlib.Path]]]:
@@ -1249,11 +1257,20 @@ class Trainer:
             grad_accum (int | str, optional): See :class:`.Trainer`.
             precision (Precision | str, optional): See :class:`.Trainer`.
         """
+        if xm.is_master_ordinal():
+            xm.rendezvous('once')
+            
         # Train Dataloader
         if train_dataloader is not None:
             self._train_data_spec = ensure_data_spec(train_dataloader)
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label)
-            self.state.train_dataloader = self.state.dataloader
+            if device == 'tpu':
+                import torch_xla.distributed.parallel_loader as pl
+                device = xm.xla_device()
+                self.state.train_dataloader = pl.MpDeviceLoader(self.state.train_dataloader, device)
+            else:
+                self.state.train_dataloader = self.state.dataloader
+                
         if self._train_data_spec is None:
             _raise_missing_argument_exception('train_dataloader')
         if train_subset_num_batches is not None:
@@ -1337,6 +1354,7 @@ class Trainer:
             if self.deepspeed_enabled:
                 raise ValueError('Changing the precision when using DeepSpeed is not supported')
             precision = Precision(precision)
+            # might need tpu
             _validate_precision(precision, self._device, self.deepspeed_enabled)
             self.state.precision = precision
 
@@ -1415,13 +1433,19 @@ class Trainer:
         # Samples and tokens should be summed
         # Batch time should be the value from rank 0
         sample_token_tensor = self._device.tensor_to_device(torch.tensor([num_samples, num_tokens], dtype=torch.int))
-        dist.all_reduce(sample_token_tensor, reduce_operation='SUM')
+        if device == 'tpu':
+            xm.all_reduce("sum", tensor, scale=1.0 / xm.xrt_world_size())
+        else:
+            dist.all_reduce(sample_token_tensor, reduce_operation='SUM')
 
         batch_time_tensor = self._device.tensor_to_device(
             torch.tensor([batch_time.total_seconds()], dtype=torch.float64))
-        dist.broadcast(batch_time_tensor, src=0)
+        if device is not 'tpu':
+            dist.broadcast(batch_time_tensor, src=0)
+
         batch_time = datetime.timedelta(seconds=batch_time_tensor[0].cpu().item())
 
+        # check if need .cpu
         return int(sample_token_tensor[0].cpu().item()), int(sample_token_tensor[1].cpu().item()), batch_time
 
     def _train_loop(self) -> None:
@@ -1530,6 +1554,7 @@ class Trainer:
 
                     batch_time = now - last_wct
 
+                    # check for tpu
                     total_num_samples, total_num_tokens, batch_time = self._accumulate_time_across_ranks(
                         rank_num_samples,
                         rank_num_tokens,
@@ -1651,15 +1676,21 @@ class Trainer:
                             total_loss = self.state.scaler.step(
                                 optimizer, closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
                         else:
-                            total_loss = optimizer.step(
-                                closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs).item())
+                            if self._device == 'tpu':
+                                total_loss = xm.optimizer_step(optimizer)
+                            else:
+                                total_loss = optimizer.step(
+                                    closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs).item())
                 else:
                     total_loss = self._train_microbatches(microbatches)
                     for optimizer in self.state.optimizers:
-                        if use_grad_scaling:
-                            self.state.scaler.step(optimizer)
+                        if self._device == 'tpu':
+                            xm.optimizer_step(optimizer)
                         else:
-                            optimizer.step()
+                            if use_grad_scaling:
+                                self.state.scaler.step(optimizer)                          
+                            else:
+                                optimizer.step()
             except RuntimeError as e:
                 if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
@@ -1670,23 +1701,25 @@ class Trainer:
 
             # Use monitored barrier to error on deadlock. If one rank OOMs and another doesn't and gets stuck
             # on a dist reduction in gradient syncronization, the monitored barrier will fail after the timeout.
-            try:
-                dist.monitored_barrier(timeout=datetime.timedelta(seconds=max(10, 0.5 * self.batch_compute_time)))
-            except RuntimeError as e:
-                raise RuntimeError(
-                    'A deadlock was encountered in the train loop, likely because a strict subset of '
-                    'ranks encountered CUDA OOM. If `grad_accum=auto`, try manually setting `grad_accum` '
-                    'instead. If `grad_accum` is not set to `auto`, try increasing `grad_accum` as at '
-                    'least one rank encountered a CUDA OOM error.') from e
+            # If `adaptive_gradient_accumulation=False`, the OOMing rank will instead crash, avoiding deadlock risk.
+            if self.adaptive_gradient_accumulation:
+                try:
+                    dist.monitored_barrier(timeout=datetime.timedelta(seconds=max(10, 0.5 * self.batch_compute_time)))
+                except RuntimeError as e:
+                    raise RuntimeError(
+                        'A deadlock was encountered in the train loop, likely because a strict subset of '
+                        'ranks encountered CUDA OOM when `grad_accum=auto`. Try manually setting `grad_accum` '
+                        'instead.') from e
             # Synchronize new batch compute time
             batch_compute_time = end_time - start_time
-            batch_compute_time = self._device.tensor_to_device(torch.tensor([batch_compute_time], dtype=torch.uint8))
+            batch_compute_time = self._device.tensor_to_device(torch.tensor([batch_compute_time], dtype=torch.float))
             dist.all_reduce(batch_compute_time, reduce_operation='MAX')
             self.batch_compute_time = batch_compute_time.item()
             # Propagate across all ranks if any rank hit CUDA OOM
             should_handle_cuda_oom = self._device.tensor_to_device(
                 torch.tensor([should_handle_cuda_oom], dtype=torch.uint8))
-            dist.all_reduce(should_handle_cuda_oom, reduce_operation='MAX')
+            if self._device is not 'tpu':
+                dist.all_reduce(should_handle_cuda_oom, reduce_operation='MAX')
             if int(should_handle_cuda_oom.item()) == 1:
                 # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_timeout_error since
                 # it is likely transient, e.g. timeout because certain ranks OOMed and didn't reach barrier.
@@ -1827,8 +1860,62 @@ class Trainer:
         if self.deepspeed_enabled:
             self.state.deepspeed_model.step()
 
-    def predict(self, dataloader: Union[DataLoader, DataSpec], subset_num_batches: int = -1):
+    def predict(
+        self,
+        dataloader: Union[DataLoader, DataSpec],
+        subset_num_batches: int = -1,
+        *,
+        return_outputs: bool = True,
+    ):
         """Output model prediction on the provided data.
+
+        There are two ways to access the prediction outputs.
+
+        1.  With ``return_outputs`` set to True, the batch predictions will be collected into a list and returned.
+        2.  Via a custom callback, which can be used with ``return_outputs`` set to False.
+
+            This technique can be useful if collecting all the outputs from the dataloader would exceed available memory,
+            and you want to write outputs directly to files. For example:
+
+            .. testsetup::
+
+                predict_dl = train_dataloader
+
+            .. testcode::
+
+                import os
+                import torch
+
+                from torch.utils.data import DataLoader
+
+                from composer import Trainer, Callback
+                from composer.loggers import Logger, LogLevel
+
+                class PredictionSaver(Callback):
+                    def __init__(self, folder: str):
+                        self.folder = folder
+                        os.makedirs(self.folder, exist_ok=True)
+
+                    def predict_batch_end(self, state: State, logger: Logger) -> None:
+                        name = f'batch_{int(state.predict_timestamp.batch)}.pt'
+                        filepath = os.path.join(self.folder, name)
+                        torch.save(state.outputs, filepath)
+
+                        # Also log the outputs as an artifact
+                        logger.file_artifact(LogLevel.BATCH, artifact_name=name, file_path=filepath)
+
+                trainer = Trainer(
+                    ...,
+                    callbacks=PredictionSaver('./predict_outputs'),
+                )
+
+                trainer.predict(predict_dl, return_outputs=False)
+
+                print(sorted(os.listdir('./predict_outputs')))
+
+            .. testoutput::
+
+                ['batch_1.pt', ...]
 
         Args:
             dataloader (DataLoader | DataSpec): The :class:`.DataLoader` or
@@ -1836,6 +1923,13 @@ class Trainer:
             subset_num_batches (int, optional): If specified, only perform model prediction
                 on this many batches. This parameter has no effect if it is greater than ``len(dataloader)``.
                 If ``-1``, then the entire loader will be iterated over. (default: ``-1``)
+            return_outputs (bool, optional): If True (the default), then prediction outputs will be (recursively)
+                moved to cpu and accumulated into a list. Otherwise, prediction outputs are discarded after each
+                batch.
+
+        Returns:
+            List: A list of batch outputs, if ``return_outputs`` is True. Otherwise, an empty list.
+
         """
         if isinstance(dataloader, DataSpec):
             data_spec = dataloader
@@ -1857,6 +1951,9 @@ class Trainer:
         self.state.predict_timestamp = Timestamp()
 
         last_wct = datetime.datetime.now()
+
+        outputs = []
+        cpu_device = DeviceCPU()
 
         with torch.no_grad():
 
@@ -1884,6 +1981,9 @@ class Trainer:
                 self.state.outputs = self.state.model(self.state.batch)
                 self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
 
+                if return_outputs:
+                    outputs.append(cpu_device.batch_to_device(self.state.outputs))
+
                 now = datetime.datetime.now()
                 batch_time = now - last_wct
 
@@ -1902,6 +2002,8 @@ class Trainer:
                 self.engine.run_event(Event.PREDICT_BATCH_END)
 
             self.engine.run_event(Event.PREDICT_END)
+
+            return outputs
 
         # Restore training mode
         if restore_model_train:

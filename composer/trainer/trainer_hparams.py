@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional,
 import torch
 import yahp as hp
 from torchmetrics import Metric, MetricCollection
+import torch_xla.core.xla_model as xm
 
 import composer
 from composer.algorithms.algorithm_hparams_registry import algorithm_registry
@@ -85,7 +86,11 @@ def _initialize_dataloader(
                 f'The batch size for {dataloader_label} must be specified if the {dataloader_label} dataset is specified'
             )
 
-        train_device_batch_size = batch_size // dist.get_world_size()
+        if self._device == 'tpu':
+            train_device_batch_size = batch_size // xm.xrt_world_size()
+        else:
+            train_device_batch_size = batch_size // dist.get_world_size()
+            
         if dataset_hparams.shuffle and subset_num_batches is not None:
             warnings.warn(
                 (f'SubsetNumBatchesWarning: When specifying `subset_num_batches` for the {dataloader_label} dataset, '
@@ -391,7 +396,10 @@ class TrainerHparams(hp.Hparams):
             if self.deterministic_mode and zero_stage > 0:
                 raise ValueError('Deepspeed with zero stage > 0 is not compatible with deterministic mode')
 
-        world_size = dist.get_world_size()
+        if self._device == 'tpu':
+            world_size = xm.xrt_world_size()
+        else:
+            world_size = dist.get_world_size()
 
         if self.train_batch_size is not None and self.train_batch_size % world_size != 0:
             raise ValueError(
@@ -437,8 +445,13 @@ class TrainerHparams(hp.Hparams):
 
         # Distributed
         # Initialized here so it is available within dataloaders
-        if False:#dist.get_world_size() > 1:# and device is not "tpu":
-            dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=self.dist_timeout))
+
+#        if False:#dist.get_world_size() > 1:# and device is not "tpu":
+#            dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=self.dist_timeout))
+#=======
+        if dist.get_world_size() > 1:
+            dist.initialize_dist(device, datetime.timedelta(seconds=self.dist_timeout))
+#>>>>>>> 3087ba6431d599370e1ddaf7e5b69446272dca3e
 
         # Reproducibility
         seed = self.seed if self.seed else reproducibility.get_random_seed()
@@ -530,6 +543,7 @@ class TrainerHparams(hp.Hparams):
             save_filename=self.save_filename,
             save_latest_filename=self.save_latest_filename,
             save_artifact_name=self.save_artifact_name,
+            save_latest_artifact_name=self.save_latest_artifact_name,
             save_interval=self.save_interval,
             save_weights_only=self.save_weights_only,
             save_num_checkpoints_to_keep=self.save_num_checkpoints_to_keep,

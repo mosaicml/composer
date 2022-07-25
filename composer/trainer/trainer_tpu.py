@@ -443,7 +443,7 @@ class TrainerTPU:
 
             ########### TPU
             import torch_xla.distributed.parallel_loader as pl
-            #device = xm.xla_device()
+            device = xm.xla_device()
             self.state.train_dataloader = pl.MpDeviceLoader(self.state.train_dataloader, self._device)
             
         if self._train_data_spec is None:

@@ -54,6 +54,9 @@ condaTimeout = '7200' // timeout for conda builds, in seconds
 numDaysOfBuildsToKeep = '7' // number of days to keep builds (so Jenkins doesn't crash)
 jenkinsShellJobName = 'scratch/command2' // The jenkins job name used to spawn sub-jobs
 gitCredentialsId = '9cf9add1-2cdd-414b-8160-94bd4ac4a13d' // Jenkins credential ID to use for git clones
+wandbCredentialsId = 'e6fbcd33-e739-483f-a4a9-9b6815572c8b'
+awsCredentialsId = 'd931e1a8-f356-42f4-bc4d-bc8582c3bf9e'
+sshCredentialsId = 'f71fda19-c867-4e7b-b6e8-3894e8288076'
 
 // Artifact setting
 buildOutputFolder = 'build/output' // Folder where build artifacts are stored
@@ -164,6 +167,7 @@ void runLint(String pDockerImage) {
             string(name: 'P_GIT_REPO', value: gitUrl),
             string(name: 'P_GIT_COMMIT', value: gitCommit),
             string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: lintMemLimit),
+            booleanParam(name: 'P_USE_TMP_RAMDISK', value: true),
             string(name: 'P_DOCKER_IMAGE', value: pDockerImage),
             string(name: 'P_TIMEOUT', value: pLintTimeout),
             string(name: 'P_CPU_LIMIT', value: lintCpuLimit),
@@ -181,7 +185,7 @@ void scheduleJob(jobs, String image, buildArgs, originalTags) {
     // buildArgs: The build args matrix
     // originalTags: The original tags
 
-    String markers = 'not daily and not remote'
+    String markers = 'not daily'
     Boolean isLintImage = false
     Boolean isVisionImage = false
     Boolean isDevTestInstallImage = false
@@ -260,7 +264,20 @@ void runPytest(String pDockerImage, String markers, String extraDeps, Boolean is
             string(name: 'P_TIMEOUT', value: pytestTimeout),
             string(name: 'P_N_GPUS', value: nGpus),
             string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: memLimit),
+            booleanParam(name: 'P_USE_TMP_RAMDISK', value: true),
             text(name: 'P_COMMAND', value: "./.ci/test.sh '$extraDeps' '$markers'"),
+            string(
+                name: 'P_JENKINS_USERNAME_PASSWORD_CREDENTIALS',
+                value: "IGNORED_WANDB_USERNAME,WANDB_API_KEY=$wandbCredentialsId",
+            ),
+            string(
+                name: 'P_JENKINS_AWS_CREDENTIALS',
+                value: awsCredentialsId,
+            ),
+            string(
+                name: 'P_JENKINS_SSH_CREDENTIALS',
+                value: sshCredentialsId,
+            ),
             string(name: 'P_ARTIFACTS_GLOB', value: artifactsGlob),
             string(name: 'P_JUNIT_GLOB', value: junitGlob),
             string(name: 'P_COVERAGE_GLOB', value: coverageGlob),
