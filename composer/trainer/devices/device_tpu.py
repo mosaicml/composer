@@ -21,7 +21,6 @@ __all__ = ["DeviceTPU"]
 
 T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
 
-
 class DeviceTPU(Device):
     """An extension of :class:`~composer.trainer.devices.device.Device` for TPUs
     
@@ -35,7 +34,6 @@ class DeviceTPU(Device):
 
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
         return module.to(self._device)
-
 
     def tensor_to_device(self, tensor: torch.Tensor) -> torch.Tensor:
         return tensor.to(self._device)

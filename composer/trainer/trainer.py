@@ -167,7 +167,6 @@ es if error is CUDA Out of Memory and if adaptive_grad_accum is enabled."""
 
 
 def _get_device(device: Optional[Union[str, Device]]):
-
     if not device:
         device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU()
     elif isinstance(device, str):
@@ -2147,7 +2146,6 @@ class Trainer:
         if use_grad_scaling and (scaler is None or not scaler.is_enabled()):
             raise RuntimeError(f'Attempting to use grad scaling with {precision}, but scaler is not enabled.'
                                f'Potentially your hardware does not support Precision {precision}.')
-        
         return use_grad_scaling
 
     def _iter_dataloader(self):
