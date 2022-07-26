@@ -38,23 +38,19 @@ class LoggerDestination(Callback, ABC):
             Batch 0: {'rank_zero_seed': ...}
     """
 
-
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         """Log hyperparameters, configurations, and settings.
 
         Logs any parameter/configuration/setting that doesn't vary during the run.
 
          Args:
-            hyperparameters (Dict[str, Any]): A dictionary mapping hyperparameter names 
+            hyperparameters (Dict[str, Any]): A dictionary mapping hyperparameter names
                 (strings) to their values (Any).
         """
-        del hyperparameters # unused
+        del hyperparameters  # unused
         pass
 
-    def log_metrics(self,
-                    metrics: Dict[str, float],
-                    step: Optional[int] = None,
-                    epoch: Optional[int] = None) -> None:
+    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None, epoch: Optional[int] = None) -> None:
         """Log metrics or parameters that vary during training.
 
         Args:
@@ -65,9 +61,9 @@ class LoggerDestination(Callback, ABC):
                 LoggerDestination implementation will choose a step (usually a running
                 counter).
             epoch (Optional[int], optional): The current epoch at the time of logging.
-                Defaults to None. 
+                Defaults to None.
         """
-        del metrics, step, epoch # unused
+        del metrics, step, epoch  # unused
         pass
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
