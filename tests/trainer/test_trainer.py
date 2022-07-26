@@ -378,9 +378,6 @@ class TestTrainerInitOrFit:
         max_duration: Time[int],
         train_dataloader: DataLoader,
     ):
-        if precision == Precision.BF16:
-            pytest.importorskip('torch', minversion='1.10', reason='BF16 precision requires PyTorch 1.10+')
-
         trainer = Trainer(
             model=model,
             precision=precision,
@@ -445,9 +442,6 @@ class TestTrainerInitOrFit:
     ):
         # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
         copied_model = copy.deepcopy(model)
-
-        if precision == Precision.BF16:
-            pytest.importorskip('torch', minversion='1.10', reason='BF16 precision requires PyTorch 1.10+')
 
         should_error = False
         ctx = contextlib.nullcontext()
