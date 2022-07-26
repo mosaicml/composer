@@ -10,5 +10,6 @@
             "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
         }
     },
-    "additionalProperties": false
+    "additionalProperties": false,
+    "referenced": false
 }

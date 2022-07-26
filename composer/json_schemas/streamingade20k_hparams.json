@@ -20,6 +20,26 @@
         "split": {
             "type": "string",
             "description": "Which split of the dataset to use. Either ['train', 'val']"
+        },
+        "base_size": {
+            "type": "integer",
+            "description": "Initial size of the image and target before other augmentations"
+        },
+        "min_resize_scale": {
+            "type": "number",
+            "description": "Minimum value that the image and target can be scaled"
+        },
+        "max_resize_scale": {
+            "type": "number",
+            "description": "Maximum value that the image and target can be scaled"
+        },
+        "final_size": {
+            "type": "integer",
+            "description": "Final size of the image and target"
+        },
+        "ignore_background": {
+            "type": "boolean",
+            "description": "If true, ignore the background class in training loss"
         }
     },
     "additionalProperties": false,

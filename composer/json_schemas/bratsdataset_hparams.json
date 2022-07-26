@@ -20,14 +20,15 @@
         "datadir": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "The path to the data directory"
         }
     },
-    "additionalProperties": false
+    "additionalProperties": false,
+    "referenced": false
 }

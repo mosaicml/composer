@@ -9,8 +9,8 @@
             "anyOf": [
                 {
                     "type": "object",
-                    "properties": {
-                        "ade20k": {
+                    "patternProperties": {
+                        "^ade20k($|\\+)": {
                             "type": "object",
                             "properties": {
                                 "use_synthetic": {
@@ -27,14 +27,14 @@
                                 },
                                 "synthetic_memory_format": {
                                     "enum": [
-                                        "contiguous_format",
-                                        "channels_last",
-                                        "channels_last_3d",
-                                        "preserve_format",
                                         "CONTIGUOUS_FORMAT",
-                                        "CHANNELS_LAST",
                                         "CHANNELS_LAST_3D",
-                                        "PRESERVE_FORMAT"
+                                        "preserve_format",
+                                        "contiguous_format",
+                                        "PRESERVE_FORMAT",
+                                        "channels_last",
+                                        "CHANNELS_LAST",
+                                        "channels_last_3d"
                                     ],
                                     "description": "Memory format. Defaults to contiguous format."
                                 },
@@ -73,24 +73,25 @@
                                 "datadir": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "The path to the data directory"
                                 }
                             },
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "referenced": false
                         }
                     },
                     "additionalProperties": false
                 },
                 {
                     "type": "object",
-                    "properties": {
-                        "streaming_ade20k": {
+                    "patternProperties": {
+                        "^streaming_ade20k($|\\+)": {
                             "type": "object",
                             "properties": {
                                 "drop_last": {
@@ -134,15 +135,16 @@
                                     "description": "If true, ignore the background class in training loss"
                                 }
                             },
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "referenced": false
                         }
                     },
                     "additionalProperties": false
                 },
                 {
                     "type": "object",
-                    "properties": {
-                        "brats": {
+                    "patternProperties": {
+                        "^brats($|\\+)": {
                             "type": "object",
                             "properties": {
                                 "drop_last": {
@@ -164,24 +166,25 @@
                                 "datadir": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "The path to the data directory"
                                 }
                             },
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "referenced": false
                         }
                     },
                     "additionalProperties": false
                 },
                 {
                     "type": "object",
-                    "properties": {
-                        "imagenet": {
+                    "patternProperties": {
+                        "^imagenet($|\\+)": {
                             "type": "object",
                             "properties": {
                                 "use_synthetic": {
@@ -198,14 +201,14 @@
                                 },
                                 "synthetic_memory_format": {
                                     "enum": [
-                                        "contiguous_format",
-                                        "channels_last",
-                                        "channels_last_3d",
-                                        "preserve_format",
                                         "CONTIGUOUS_FORMAT",
-                                        "CHANNELS_LAST",
                                         "CHANNELS_LAST_3D",
-                                        "PRESERVE_FORMAT"
+                                        "preserve_format",
+                                        "contiguous_format",
+                                        "PRESERVE_FORMAT",
+                                        "channels_last",
+                                        "CHANNELS_LAST",
+                                        "channels_last_3d"
                                     ],
                                     "description": "Memory format. Defaults to contiguous format."
                                 },
@@ -252,24 +255,25 @@
                                 "datadir": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "The path to the data directory"
                                 }
                             },
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "referenced": false
                         }
                     },
                     "additionalProperties": false
                 },
                 {
                     "type": "object",
-                    "properties": {
-                        "streaming_imagenet1k": {
+                    "patternProperties": {
+                        "^streaming_imagenet1k($|\\+)": {
                             "type": "object",
                             "properties": {
                                 "drop_last": {
@@ -301,15 +305,16 @@
                                     "description": "Crop size"
                                 }
                             },
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "referenced": false
                         }
                     },
                     "additionalProperties": false
                 },
                 {
                     "type": "object",
-                    "properties": {
-                        "cifar10": {
+                    "patternProperties": {
+                        "^cifar10($|\\+)": {
                             "type": "object",
                             "properties": {
                                 "use_synthetic": {
@@ -326,14 +331,14 @@
                                 },
                                 "synthetic_memory_format": {
                                     "enum": [
-                                        "contiguous_format",
-                                        "channels_last",
-                                        "channels_last_3d",
-                                        "preserve_format",
                                         "CONTIGUOUS_FORMAT",
-                                        "CHANNELS_LAST",
                                         "CHANNELS_LAST_3D",
-                                        "PRESERVE_FORMAT"
+                                        "preserve_format",
+                                        "contiguous_format",
+                                        "PRESERVE_FORMAT",
+                                        "channels_last",
+                                        "CHANNELS_LAST",
+                                        "channels_last_3d"
                                     ],
                                     "description": "Memory format. Defaults to contiguous format."
                                 },
@@ -372,24 +377,25 @@
                                 "datadir": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "The path to the data directory"
                                 }
                             },
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "referenced": false
                         }
                     },
                     "additionalProperties": false
                 },
                 {
                     "type": "object",
-                    "properties": {
-                        "streaming_cifar10": {
+                    "patternProperties": {
+                        "^streaming_cifar10($|\\+)": {
                             "type": "object",
                             "properties": {
                                 "drop_last": {
@@ -413,15 +419,16 @@
                                     "description": "Which split of the dataset to use. Either ['train', 'val']"
                                 }
                             },
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "referenced": false
                         }
                     },
                     "additionalProperties": false
                 },
                 {
                     "type": "object",
-                    "properties": {
-                        "mnist": {
+                    "patternProperties": {
+                        "^mnist($|\\+)": {
                             "type": "object",
                             "properties": {
                                 "use_synthetic": {
@@ -438,14 +445,14 @@
                                 },
                                 "synthetic_memory_format": {
                                     "enum": [
-                                        "contiguous_format",
-                                        "channels_last",
-                                        "channels_last_3d",
-                                        "preserve_format",
                                         "CONTIGUOUS_FORMAT",
-                                        "CHANNELS_LAST",
                                         "CHANNELS_LAST_3D",
-                                        "PRESERVE_FORMAT"
+                                        "preserve_format",
+                                        "contiguous_format",
+                                        "PRESERVE_FORMAT",
+                                        "channels_last",
+                                        "CHANNELS_LAST",
+                                        "channels_last_3d"
                                     ],
                                     "description": "Memory format. Defaults to contiguous format."
                                 },
@@ -468,24 +475,25 @@
                                 "datadir": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "The path to the data directory"
                                 }
                             },
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "referenced": false
                         }
                     },
                     "additionalProperties": false
                 },
                 {
                     "type": "object",
-                    "properties": {
-                        "lm": {
+                    "patternProperties": {
+                        "^lm($|\\+)": {
                             "type": "object",
                             "properties": {
                                 "use_synthetic": {
@@ -502,14 +510,14 @@
                                 },
                                 "synthetic_memory_format": {
                                     "enum": [
-                                        "contiguous_format",
-                                        "channels_last",
-                                        "channels_last_3d",
-                                        "preserve_format",
                                         "CONTIGUOUS_FORMAT",
-                                        "CHANNELS_LAST",
                                         "CHANNELS_LAST_3D",
-                                        "PRESERVE_FORMAT"
+                                        "preserve_format",
+                                        "contiguous_format",
+                                        "PRESERVE_FORMAT",
+                                        "channels_last",
+                                        "CHANNELS_LAST",
+                                        "channels_last_3d"
                                     ],
                                     "description": "Memory format. Defaults to contiguous format."
                                 },
@@ -522,19 +530,26 @@
                                     "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
                                 },
                                 "datadir": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "string"
-                                    },
+                                    "oneOf": [
+                                        {
+                                            "$ref": "#/$defs/0_list"
+                                        },
+                                        {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/$defs/0_list"
+                                            }
+                                        }
+                                    ],
                                     "description": "Path to the Huggingface Datasets directory."
                                 },
                                 "split": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "Whether to use 'train', 'validation' or 'test' split."
@@ -542,10 +557,10 @@
                                 "tokenizer_name": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "The name of the tokenizer to preprocess text with."
@@ -575,15 +590,16 @@
                                     "description": "Optionally, the ability to set a custom sequence length for the training dataset."
                                 }
                             },
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "referenced": false
                         }
                     },
                     "additionalProperties": false
                 },
                 {
                     "type": "object",
-                    "properties": {
-                        "glue": {
+                    "patternProperties": {
+                        "^glue($|\\+)": {
                             "type": "object",
                             "properties": {
                                 "use_synthetic": {
@@ -600,14 +616,14 @@
                                 },
                                 "synthetic_memory_format": {
                                     "enum": [
-                                        "contiguous_format",
-                                        "channels_last",
-                                        "channels_last_3d",
-                                        "preserve_format",
                                         "CONTIGUOUS_FORMAT",
-                                        "CHANNELS_LAST",
                                         "CHANNELS_LAST_3D",
-                                        "PRESERVE_FORMAT"
+                                        "preserve_format",
+                                        "contiguous_format",
+                                        "PRESERVE_FORMAT",
+                                        "channels_last",
+                                        "CHANNELS_LAST",
+                                        "channels_last_3d"
                                     ],
                                     "description": "Memory format. Defaults to contiguous format."
                                 },
@@ -622,10 +638,10 @@
                                 "task": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "The GLUE task to train on, choose one from: CoLA, MNLI, MRPC, QNLI, QQP, RTE, SST-2, and STS-B."
@@ -633,10 +649,10 @@
                                 "tokenizer_name": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "The name of the HuggingFace tokenizer to preprocess text with."
@@ -644,10 +660,10 @@
                                 "split": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "Whether to use 'train', 'validation' or 'test' split."
@@ -661,15 +677,16 @@
                                     "description": "Optionally, the number of times to retry HTTP requests if they fail."
                                 }
                             },
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "referenced": false
                         }
                     },
                     "additionalProperties": false
                 },
                 {
                     "type": "object",
-                    "properties": {
-                        "coco": {
+                    "patternProperties": {
+                        "^coco($|\\+)": {
                             "type": "object",
                             "properties": {
                                 "drop_last": {
@@ -687,24 +704,25 @@
                                 "datadir": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "The path to the data directory"
                                 }
                             },
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "referenced": false
                         }
                     },
                     "additionalProperties": false
                 },
                 {
                     "type": "object",
-                    "properties": {
-                        "streaming_coco": {
+                    "patternProperties": {
+                        "^streaming_coco($|\\+)": {
                             "type": "object",
                             "properties": {
                                 "drop_last": {
@@ -728,15 +746,16 @@
                                     "description": "Which split of the dataset to use. Either ['train', 'val']"
                                 }
                             },
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "referenced": false
                         }
                     },
                     "additionalProperties": false
                 },
                 {
                     "type": "object",
-                    "properties": {
-                        "c4": {
+                    "patternProperties": {
+                        "^c4($|\\+)": {
                             "type": "object",
                             "properties": {
                                 "drop_last": {
@@ -750,10 +769,10 @@
                                 "split": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "What split of the dataset to use. Either `train` or `validation`."
@@ -761,10 +780,10 @@
                                 "num_samples": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "integer"
                                         },
                                         {
-                                            "type": "integer"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "The number of post-processed token samples, used to set epoch size of the IterableDataset."
@@ -772,10 +791,10 @@
                                 "tokenizer_name": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "The name of the HuggingFace tokenizer to preprocess text with."
@@ -783,10 +802,10 @@
                                 "max_seq_len": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "integer"
                                         },
                                         {
-                                            "type": "integer"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "The max sequence length of each token sample."
@@ -794,10 +813,10 @@
                                 "group_method": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "How to group text samples into token samples. Either `truncate` or `concat`."
@@ -819,15 +838,16 @@
                                     "description": "If `shuffle=True`, what seed to use for shuffling operations."
                                 }
                             },
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "referenced": false
                         }
                     },
                     "additionalProperties": false
                 },
                 {
                     "type": "object",
-                    "properties": {
-                        "streaming_c4": {
+                    "patternProperties": {
+                        "^streaming_c4($|\\+)": {
                             "type": "object",
                             "properties": {
                                 "drop_last": {
@@ -879,7 +899,8 @@
                                     "description": "How long to wait for shard to download before raising an exception."
                                 }
                             },
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "referenced": false
                         }
                     },
                     "additionalProperties": false
@@ -890,10 +911,10 @@
         "eval_interval": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "An integer,\nwhich will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time` object, or a callable.\nDefaults to ``None``, which means that the ``eval_interval`` parameter from the :class:`.Trainer` will be used.\n\nIf an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the evaluator will be run\nwith this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of\n:attr:`.TimeUnit.BATCH` or :attr:`.TimeUnit.EPOCH`.\n\nSet to ``0`` to disable evaluation.\n\nIf a callable, it should take two arguments (:class:`.State`, :class:`.Event`) and return a bool\nrepresenting whether the evaluator should be invoked. The event will be either :attr:`.Event.BATCH_END`\nor :attr:`.Event.EPOCH_END`.\n\nWhen specifying ``eval_interval``, the evaluator(s) are also run at the ``Event.FIT_END`` if it doesn't\nevenly divide the training duration."
@@ -901,10 +922,10 @@
         "subset_num_batches": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "integer"
                 },
                 {
-                    "type": "integer"
+                    "type": "null"
                 }
             ],
             "description": "The maximum number of batches to use for each evaluation. Defaults to ``None``,\nwhich means that the ``eval_subset_num_batches`` parameter from the :class:`.Trainer` will be used.\nSet to ``-1`` to evaluate the entire ``dataloader``"
@@ -912,13 +933,16 @@
         "metric_names": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "$ref": "#/$defs/1_list"
                 },
                 {
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/$defs/1_list"
                     }
+                },
+                {
+                    "type": "null"
                 }
             ],
             "description": "Name of the metrics for the evaluator. Can be a torchmetrics metric name or the\n        class name of a metric returned by model.metrics(). If None (the default), uses all metrics in the model"
@@ -928,5 +952,14 @@
     "required": [
         "label",
         "eval_dataset"
-    ]
+    ],
+    "referenced": false,
+    "$defs": {
+        "0_list": {
+            "type": "string"
+        },
+        "1_list": {
+            "type": "string"
+        }
+    }
 }

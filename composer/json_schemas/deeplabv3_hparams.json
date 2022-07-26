@@ -2,34 +2,26 @@
     "type": "object",
     "properties": {
         "initializers": {
-            "type": "array",
-            "items": {
-                "enum": [
-                    "kaiming_normal",
-                    "kaiming_uniform",
-                    "bn_uniform",
-                    "bn_ones",
-                    "xavier_uniform",
-                    "xavier_normal",
-                    "linear_log_constant_bias",
-                    "KAIMING_NORMAL",
-                    "KAIMING_UNIFORM",
-                    "BN_UNIFORM",
-                    "BN_ONES",
-                    "XAVIER_UNIFORM",
-                    "XAVIER_NORMAL",
-                    "LINEAR_LOG_CONSTANT_BIAS"
-                ]
-            },
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/0_list"
+                },
+                {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/0_list"
+                    }
+                }
+            ],
             "description": "The initialization strategy for the model"
         },
         "num_classes": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "integer"
                 },
                 {
-                    "type": "integer"
+                    "type": "null"
                 }
             ],
             "description": "The number of classes.  Needed for classification tasks"
@@ -67,5 +59,26 @@
             "description": "Weight to scale the dice loss."
         }
     },
-    "additionalProperties": false
+    "additionalProperties": false,
+    "referenced": false,
+    "$defs": {
+        "0_list": {
+            "enum": [
+                "LINEAR_LOG_CONSTANT_BIAS",
+                "BN_UNIFORM",
+                "kaiming_normal",
+                "bn_uniform",
+                "XAVIER_UNIFORM",
+                "xavier_uniform",
+                "xavier_normal",
+                "KAIMING_UNIFORM",
+                "kaiming_uniform",
+                "XAVIER_NORMAL",
+                "BN_ONES",
+                "KAIMING_NORMAL",
+                "linear_log_constant_bias",
+                "bn_ones"
+            ]
+        }
+    }
 }

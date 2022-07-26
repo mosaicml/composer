@@ -6,10 +6,17 @@
             "description": "Learning rate. Default: ``1e-3``."
         },
         "betas": {
-            "type": "array",
-            "items": {
-                "type": "number"
-            },
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/0_list"
+                },
+                {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/0_list"
+                    }
+                }
+            ],
             "description": "Coefficients used for computing running averages of gradient and its square\nDefault: ``(0.9, 0.999)``."
         },
         "eps": {
@@ -25,5 +32,11 @@
             "description": "Enables the amsgrad variant of Adam. Default: ``False``."
         }
     },
-    "additionalProperties": false
+    "additionalProperties": false,
+    "referenced": false,
+    "$defs": {
+        "0_list": {
+            "type": "number"
+        }
+    }
 }

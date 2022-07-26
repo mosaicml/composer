@@ -2,34 +2,26 @@
     "type": "object",
     "properties": {
         "initializers": {
-            "type": "array",
-            "items": {
-                "enum": [
-                    "kaiming_normal",
-                    "kaiming_uniform",
-                    "bn_uniform",
-                    "bn_ones",
-                    "xavier_uniform",
-                    "xavier_normal",
-                    "linear_log_constant_bias",
-                    "KAIMING_NORMAL",
-                    "KAIMING_UNIFORM",
-                    "BN_UNIFORM",
-                    "BN_ONES",
-                    "XAVIER_UNIFORM",
-                    "XAVIER_NORMAL",
-                    "LINEAR_LOG_CONSTANT_BIAS"
-                ]
-            },
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/0_list"
+                },
+                {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/0_list"
+                    }
+                }
+            ],
             "description": "The initialization strategy for the model"
         },
         "num_classes": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "integer"
                 },
                 {
-                    "type": "integer"
+                    "type": "null"
                 }
             ],
             "description": "The number of classes.  Needed for classification tasks"
@@ -41,10 +33,10 @@
         "weights": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "If provided, pretrained weights can be specified, such as with ``IMAGENET1K_V2``. (default: ``None``)"
@@ -66,5 +58,26 @@
             "description": "Name of loss function. E.g. 'soft_cross_entropy' or 'binary_cross_entropy_with_logits'. (default: ``soft_cross_entropy``)"
         }
     },
-    "additionalProperties": false
+    "additionalProperties": false,
+    "referenced": false,
+    "$defs": {
+        "0_list": {
+            "enum": [
+                "LINEAR_LOG_CONSTANT_BIAS",
+                "BN_UNIFORM",
+                "kaiming_normal",
+                "bn_uniform",
+                "XAVIER_UNIFORM",
+                "xavier_uniform",
+                "xavier_normal",
+                "KAIMING_UNIFORM",
+                "kaiming_uniform",
+                "XAVIER_NORMAL",
+                "BN_ONES",
+                "KAIMING_NORMAL",
+                "linear_log_constant_bias",
+                "bn_ones"
+            ]
+        }
+    }
 }

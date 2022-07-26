@@ -22,5 +22,6 @@
             "description": "Timeout, in seconds, for collecting a batch from workers. Set to ``0`` for no timeout."
         }
     },
-    "additionalProperties": false
+    "additionalProperties": false,
+    "referenced": false
 }

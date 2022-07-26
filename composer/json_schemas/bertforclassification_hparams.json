@@ -2,34 +2,26 @@
     "type": "object",
     "properties": {
         "initializers": {
-            "type": "array",
-            "items": {
-                "enum": [
-                    "kaiming_normal",
-                    "kaiming_uniform",
-                    "bn_uniform",
-                    "bn_ones",
-                    "xavier_uniform",
-                    "xavier_normal",
-                    "linear_log_constant_bias",
-                    "KAIMING_NORMAL",
-                    "KAIMING_UNIFORM",
-                    "BN_UNIFORM",
-                    "BN_ONES",
-                    "XAVIER_UNIFORM",
-                    "XAVIER_NORMAL",
-                    "LINEAR_LOG_CONSTANT_BIAS"
-                ]
-            },
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/0_list"
+                },
+                {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/0_list"
+                    }
+                }
+            ],
             "description": "The initialization strategy for the model"
         },
         "num_classes": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "integer"
                 },
                 {
-                    "type": "integer"
+                    "type": "null"
                 }
             ],
             "description": "The number of classes.  Needed for classification tasks"
@@ -37,10 +29,10 @@
         "num_labels": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "integer"
                 },
                 {
-                    "type": "integer"
+                    "type": "null"
                 }
             ],
             "description": "The number of possible labels for the task."
@@ -48,10 +40,10 @@
         "pretrained_model_name": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "Pretrained model name to pull from Hugging Face Model Hub."
@@ -59,10 +51,10 @@
         "model_config": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "object"
                 },
                 {
-                    "type": "object"
+                    "type": "null"
                 }
             ],
             "description": "A dictionary providing a HuggingFace model configuration."
@@ -70,10 +62,10 @@
         "use_pretrained": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "boolean"
                 },
                 {
-                    "type": "boolean"
+                    "type": "null"
                 }
             ],
             "description": "Whether to initialize the model with the pretrained weights."
@@ -81,10 +73,10 @@
         "tokenizer_name": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "The tokenizer used for this model, necessary to assert required model inputs."
@@ -92,14 +84,35 @@
         "gradient_checkpointing": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "boolean"
                 },
                 {
-                    "type": "boolean"
+                    "type": "null"
                 }
             ],
             "description": "Whether to enable gradient checkpointing."
         }
     },
-    "additionalProperties": false
+    "additionalProperties": false,
+    "referenced": false,
+    "$defs": {
+        "0_list": {
+            "enum": [
+                "LINEAR_LOG_CONSTANT_BIAS",
+                "BN_UNIFORM",
+                "kaiming_normal",
+                "bn_uniform",
+                "XAVIER_UNIFORM",
+                "xavier_uniform",
+                "xavier_normal",
+                "KAIMING_UNIFORM",
+                "kaiming_uniform",
+                "XAVIER_NORMAL",
+                "BN_ONES",
+                "KAIMING_NORMAL",
+                "linear_log_constant_bias",
+                "bn_ones"
+            ]
+        }
+    }
 }

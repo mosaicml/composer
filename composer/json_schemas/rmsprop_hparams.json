@@ -26,5 +26,6 @@
             "description": "if ``True``, compute the centered RMSProp,\nthe gradient is normalized by an estimation of its variance"
         }
     },
-    "additionalProperties": false
+    "additionalProperties": false,
+    "referenced": false
 }

@@ -12,10 +12,10 @@
         "key_environ": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "The name of an environment variable containing an API key or username to use to connect to the provider."
@@ -23,10 +23,10 @@
         "secret_environ": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "The name of an environment variable containing an API secret or password to use to connect to the provider."
@@ -34,10 +34,10 @@
         "region": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "Cloud region to use"
@@ -45,10 +45,10 @@
         "host": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "Override hostname for connections"
@@ -56,10 +56,10 @@
         "port": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "integer"
                 },
                 {
-                    "type": "integer"
+                    "type": "null"
                 }
             ],
             "description": "Override port for connections"
@@ -73,5 +73,6 @@
     "required": [
         "provider",
         "container"
-    ]
+    ],
+    "referenced": false
 }

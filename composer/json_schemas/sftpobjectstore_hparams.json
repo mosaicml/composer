@@ -12,10 +12,10 @@
         "username": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "The username (if not specified in the SSH config) needed to authenticate.\nDefaults to None."
@@ -23,10 +23,10 @@
         "known_hosts_filename": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "The filename of the known hosts file. If not specified,\nthe default SSH known hosts will be used."
@@ -38,10 +38,10 @@
         "key_filename": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "The filepath to the a private key (if required) needed to\nauthenticate. Defaults to None. Any keys specified here will be tried *in addition* to any keys\nspecified in ``~/.ssh/`` or via a SSH agent."
@@ -61,10 +61,10 @@
         "connect_kwargs": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "object"
                 },
                 {
-                    "type": "object"
+                    "type": "null"
                 }
             ],
             "description": "Any additional kwargs to pass through to :meth:`.SSHClient.connect`."
@@ -73,5 +73,6 @@
     "additionalProperties": false,
     "required": [
         "host"
-    ]
+    ],
+    "referenced": false
 }

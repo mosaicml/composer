@@ -30,5 +30,6 @@
             "description": "Crop size"
         }
     },
-    "additionalProperties": false
+    "additionalProperties": false,
+    "referenced": false
 }

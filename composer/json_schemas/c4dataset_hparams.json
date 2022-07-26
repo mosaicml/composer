@@ -12,10 +12,10 @@
         "split": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "What split of the dataset to use. Either `train` or `validation`."
@@ -23,10 +23,10 @@
         "num_samples": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "integer"
                 },
                 {
-                    "type": "integer"
+                    "type": "null"
                 }
             ],
             "description": "The number of post-processed token samples, used to set epoch size of the IterableDataset."
@@ -34,10 +34,10 @@
         "tokenizer_name": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "The name of the HuggingFace tokenizer to preprocess text with."
@@ -45,10 +45,10 @@
         "max_seq_len": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "integer"
                 },
                 {
-                    "type": "integer"
+                    "type": "null"
                 }
             ],
             "description": "The max sequence length of each token sample."
@@ -56,10 +56,10 @@
         "group_method": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "How to group text samples into token samples. Either `truncate` or `concat`."
@@ -81,5 +81,6 @@
             "description": "If `shuffle=True`, what seed to use for shuffling operations."
         }
     },
-    "additionalProperties": false
+    "additionalProperties": false,
+    "referenced": false
 }

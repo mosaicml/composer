@@ -22,5 +22,6 @@
             "description": "enables Nesterov momentum (default: False)"
         }
     },
-    "additionalProperties": false
+    "additionalProperties": false,
+    "referenced": false
 }

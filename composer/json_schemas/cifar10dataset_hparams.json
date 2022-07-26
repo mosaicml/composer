@@ -15,14 +15,14 @@
         },
         "synthetic_memory_format": {
             "enum": [
-                "contiguous_format",
-                "channels_last",
-                "channels_last_3d",
-                "preserve_format",
                 "CONTIGUOUS_FORMAT",
-                "CHANNELS_LAST",
                 "CHANNELS_LAST_3D",
-                "PRESERVE_FORMAT"
+                "preserve_format",
+                "contiguous_format",
+                "PRESERVE_FORMAT",
+                "channels_last",
+                "CHANNELS_LAST",
+                "channels_last_3d"
             ],
             "description": "Memory format. Defaults to contiguous format."
         },
@@ -61,14 +61,15 @@
         "datadir": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "The path to the data directory"
         }
     },
-    "additionalProperties": false
+    "additionalProperties": false,
+    "referenced": false
 }

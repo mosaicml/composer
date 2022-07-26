@@ -15,14 +15,14 @@
         },
         "synthetic_memory_format": {
             "enum": [
-                "contiguous_format",
-                "channels_last",
-                "channels_last_3d",
-                "preserve_format",
                 "CONTIGUOUS_FORMAT",
-                "CHANNELS_LAST",
                 "CHANNELS_LAST_3D",
-                "PRESERVE_FORMAT"
+                "preserve_format",
+                "contiguous_format",
+                "PRESERVE_FORMAT",
+                "channels_last",
+                "CHANNELS_LAST",
+                "channels_last_3d"
             ],
             "description": "Memory format. Defaults to contiguous format."
         },
@@ -37,10 +37,10 @@
         "task": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "The GLUE task to train on, choose one from: CoLA, MNLI, MRPC, QNLI, QQP, RTE, SST-2, and STS-B."
@@ -48,10 +48,10 @@
         "tokenizer_name": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "The name of the HuggingFace tokenizer to preprocess text with."
@@ -59,10 +59,10 @@
         "split": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "Whether to use 'train', 'validation' or 'test' split."
@@ -76,5 +76,6 @@
             "description": "Optionally, the number of times to retry HTTP requests if they fail."
         }
     },
-    "additionalProperties": false
+    "additionalProperties": false,
+    "referenced": false
 }

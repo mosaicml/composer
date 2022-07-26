@@ -50,5 +50,6 @@
             "description": "How long to wait for shard to download before raising an exception."
         }
     },
-    "additionalProperties": false
+    "additionalProperties": false,
+    "referenced": false
 }

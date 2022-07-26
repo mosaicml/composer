@@ -5,8 +5,8 @@
             "anyOf": [
                 {
                     "type": "object",
-                    "properties": {
-                        "libcloud": {
+                    "patternProperties": {
+                        "^libcloud($|\\+)": {
                             "type": "object",
                             "properties": {
                                 "provider": {
@@ -20,10 +20,10 @@
                                 "key_environ": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "The name of an environment variable containing an API key or username to use to connect to the provider."
@@ -31,10 +31,10 @@
                                 "secret_environ": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "The name of an environment variable containing an API secret or password to use to connect to the provider."
@@ -42,10 +42,10 @@
                                 "region": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "Cloud region to use"
@@ -53,10 +53,10 @@
                                 "host": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "Override hostname for connections"
@@ -64,10 +64,10 @@
                                 "port": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "integer"
                                         },
                                         {
-                                            "type": "integer"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "Override port for connections"
@@ -81,15 +81,16 @@
                             "required": [
                                 "provider",
                                 "container"
-                            ]
+                            ],
+                            "referenced": false
                         }
                     },
                     "additionalProperties": false
                 },
                 {
                     "type": "object",
-                    "properties": {
-                        "s3": {
+                    "patternProperties": {
+                        "^s3($|\\+)": {
                             "type": "object",
                             "properties": {
                                 "bucket": {
@@ -103,10 +104,10 @@
                                 "region_name": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "The region name. Must be specified if not available in\na config file or environment variables. Defaults to None."
@@ -114,10 +115,10 @@
                                 "endpoint_url": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "The URL to an S3-Compatible object store. Must be specified if using something\nother than Amazon S3, like Google Cloud Storage. Defaults to None."
@@ -125,10 +126,10 @@
                                 "client_config": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "object"
                                         },
                                         {
-                                            "type": "object"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "Kwargs dictionary for :class:`botocore.config.Config`. Defaults to None."
@@ -136,10 +137,10 @@
                                 "transfer_config": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "object"
                                         },
                                         {
-                                            "type": "object"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "Kwargs dictionary for :class:`boto3.s3.transfer.TransferConfig`. Defaults to None."
@@ -148,15 +149,16 @@
                             "additionalProperties": false,
                             "required": [
                                 "bucket"
-                            ]
+                            ],
+                            "referenced": false
                         }
                     },
                     "additionalProperties": false
                 },
                 {
                     "type": "object",
-                    "properties": {
-                        "sftp": {
+                    "patternProperties": {
+                        "^sftp($|\\+)": {
                             "type": "object",
                             "properties": {
                                 "host": {
@@ -170,10 +172,10 @@
                                 "username": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "The username (if not specified in the SSH config) needed to authenticate.\nDefaults to None."
@@ -181,10 +183,10 @@
                                 "known_hosts_filename": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "The filename of the known hosts file. If not specified,\nthe default SSH known hosts will be used."
@@ -196,10 +198,10 @@
                                 "key_filename": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "string"
                                         },
                                         {
-                                            "type": "string"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "The filepath to the a private key (if required) needed to\nauthenticate. Defaults to None. Any keys specified here will be tried *in addition* to any keys\nspecified in ``~/.ssh/`` or via a SSH agent."
@@ -219,10 +221,10 @@
                                 "connect_kwargs": {
                                     "oneOf": [
                                         {
-                                            "type": "null"
+                                            "type": "object"
                                         },
                                         {
-                                            "type": "object"
+                                            "type": "null"
                                         }
                                     ],
                                     "description": "Any additional kwargs to pass through to :meth:`.SSHClient.connect`."
@@ -231,7 +233,8 @@
                             "additionalProperties": false,
                             "required": [
                                 "host"
-                            ]
+                            ],
+                            "referenced": false
                         }
                     },
                     "additionalProperties": false
@@ -242,10 +245,10 @@
         "should_log_artifact": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "Path to a filter function which returns whether an artifact should be logged."
@@ -265,10 +268,10 @@
         "upload_staging_folder": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "A folder to use for staging uploads.\nIf not specified, defaults to using a :func:`~tempfile.TemporaryDirectory`."
@@ -281,5 +284,6 @@
     "additionalProperties": false,
     "required": [
         "object_store_hparams"
-    ]
+    ],
+    "referenced": false
 }

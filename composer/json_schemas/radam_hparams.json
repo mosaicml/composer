@@ -26,10 +26,6 @@
         "weight_decay": {
             "type": "number",
             "description": "weight decay (L2 penalty) (default: 0)"
-        },
-        "amsgrad": {
-            "type": "boolean",
-            "description": "whether to use the AMSGrad variant of this\nalgorithm from the paper `On the Convergence of Adam and Beyond`_\n(default: False)"
         }
     },
     "additionalProperties": false,

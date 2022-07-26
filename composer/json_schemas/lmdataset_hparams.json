@@ -15,14 +15,14 @@
         },
         "synthetic_memory_format": {
             "enum": [
-                "contiguous_format",
-                "channels_last",
-                "channels_last_3d",
-                "preserve_format",
                 "CONTIGUOUS_FORMAT",
-                "CHANNELS_LAST",
                 "CHANNELS_LAST_3D",
-                "PRESERVE_FORMAT"
+                "preserve_format",
+                "contiguous_format",
+                "PRESERVE_FORMAT",
+                "channels_last",
+                "CHANNELS_LAST",
+                "channels_last_3d"
             ],
             "description": "Memory format. Defaults to contiguous format."
         },
@@ -35,19 +35,26 @@
             "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
         },
         "datadir": {
-            "type": "array",
-            "items": {
-                "type": "string"
-            },
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/0_list"
+                },
+                {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/0_list"
+                    }
+                }
+            ],
             "description": "Path to the Huggingface Datasets directory."
         },
         "split": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "Whether to use 'train', 'validation' or 'test' split."
@@ -55,10 +62,10 @@
         "tokenizer_name": {
             "oneOf": [
                 {
-                    "type": "null"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "null"
                 }
             ],
             "description": "The name of the tokenizer to preprocess text with."
@@ -88,5 +95,11 @@
             "description": "Optionally, the ability to set a custom sequence length for the training dataset."
         }
     },
-    "additionalProperties": false
+    "additionalProperties": false,
+    "referenced": false,
+    "$defs": {
+        "0_list": {
+            "type": "string"
+        }
+    }
 }

@@ -22,5 +22,6 @@
             "description": "Which split of the dataset to use. Either ['train', 'val']"
         }
     },
-    "additionalProperties": false
+    "additionalProperties": false,
+    "referenced": false
 }
