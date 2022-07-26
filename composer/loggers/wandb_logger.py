@@ -98,6 +98,16 @@ class WandBLogger(LoggerDestination):
     def _set_is_in_atexit(self):
         self._is_in_atexit = True
 
+    def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
+        import wandb
+        wandb.config.update(hyperparameters)
+
+    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None, epoch: Optional[int] = None) -> None:
+        del epoch # unused.
+        import wandb
+        metrics = {metric_name: metric_value for metric_name, metric_value in metrics.items()}
+        wandb.log(metrics, step=step)
+
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         import wandb
         del log_level  # unused
