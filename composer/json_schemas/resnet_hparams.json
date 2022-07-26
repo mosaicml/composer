@@ -78,6 +78,5 @@
             "type": "integer"
         }
     },
-    "referenced": false,
     "type": "object"
 }

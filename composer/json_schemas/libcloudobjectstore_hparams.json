@@ -69,7 +69,6 @@
             ]
         }
     },
-    "referenced": false,
     "required": [
         "container",
         "provider"

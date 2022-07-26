@@ -70,7 +70,6 @@
             ]
         }
     },
-    "referenced": false,
     "required": [
         "host"
     ],

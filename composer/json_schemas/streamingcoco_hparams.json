@@ -22,6 +22,5 @@
             "type": "string"
         }
     },
-    "referenced": false,
     "type": "object"
 }

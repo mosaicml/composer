@@ -94,7 +94,6 @@
                                     "type": "boolean"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -134,7 +133,6 @@
                                     "type": "boolean"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -226,7 +224,6 @@
                                     ]
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -307,7 +304,6 @@
                                     "type": "boolean"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -343,7 +339,6 @@
                                     "type": "boolean"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -430,7 +425,6 @@
                                     "type": "boolean"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -519,7 +513,6 @@
                                     "type": "boolean"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -625,7 +618,6 @@
                                     "type": "boolean"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -690,7 +682,6 @@
                                     "type": "boolean"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -743,7 +734,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -804,7 +794,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -837,7 +826,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -870,7 +858,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -911,7 +898,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -956,7 +942,6 @@
             "type": "integer"
         }
     },
-    "referenced": false,
     "required": [
         "batch_size",
         "dataset"

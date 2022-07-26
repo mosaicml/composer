@@ -86,7 +86,6 @@
                                     "type": "boolean"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -126,7 +125,6 @@
                                     "type": "boolean"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -218,7 +216,6 @@
                                     ]
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -299,7 +296,6 @@
                                     "type": "boolean"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -335,7 +331,6 @@
                                     "type": "boolean"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -422,7 +417,6 @@
                                     "type": "boolean"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -511,7 +505,6 @@
                                     "type": "boolean"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -617,7 +610,6 @@
                                     "type": "boolean"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -682,7 +674,6 @@
                                     "type": "boolean"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -735,7 +726,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -796,7 +786,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -829,7 +818,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -862,7 +850,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -903,7 +890,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -956,7 +942,6 @@
             ]
         }
     },
-    "referenced": false,
     "required": [
         "eval_dataset",
         "label"

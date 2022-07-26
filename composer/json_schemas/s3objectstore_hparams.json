@@ -54,7 +54,6 @@
             ]
         }
     },
-    "referenced": false,
     "required": [
         "bucket"
     ],

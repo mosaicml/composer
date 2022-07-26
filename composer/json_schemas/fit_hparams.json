@@ -89,7 +89,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -129,7 +128,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -221,7 +219,6 @@
                                             ]
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -302,7 +299,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -338,7 +334,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -425,7 +420,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -514,7 +508,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -620,7 +613,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -685,7 +677,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -738,7 +729,6 @@
                                             "type": "string"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -799,7 +789,6 @@
                                             "type": "string"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -832,7 +821,6 @@
                                             "type": "string"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -865,7 +853,6 @@
                                             "type": "string"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -906,7 +893,6 @@
                                             "type": "string"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -988,7 +974,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -1017,7 +1002,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "required": [
                                 "t_warmup"
                             ],
@@ -1041,7 +1025,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -1070,7 +1053,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "required": [
                                 "t_warmup"
                             ],
@@ -1098,7 +1080,6 @@
                                     "type": "number"
                                 }
                             },
-                            "referenced": false,
                             "required": [
                                 "t_0"
                             ],
@@ -1122,7 +1103,6 @@
                                     "type": "number"
                                 }
                             },
-                            "referenced": false,
                             "required": [
                                 "gamma"
                             ],
@@ -1150,7 +1130,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "type": "object"
                         }
                     },
@@ -1183,7 +1162,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "required": [
                                 "t_warmup"
                             ],
@@ -1217,7 +1195,6 @@
                                     ]
                                 }
                             },
-                            "referenced": false,
                             "required": [
                                 "milestones"
                             ],
@@ -1259,7 +1236,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "required": [
                                 "milestones",
                                 "t_warmup"
@@ -1288,7 +1264,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "required": [
                                 "power"
                             ],
@@ -1324,7 +1299,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "required": [
                                 "t_warmup"
                             ],
@@ -1348,7 +1322,6 @@
                                     "type": "string"
                                 }
                             },
-                            "referenced": false,
                             "required": [
                                 "step_size"
                             ],
@@ -1485,7 +1458,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -1525,7 +1497,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -1617,7 +1588,6 @@
                                             ]
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -1698,7 +1668,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -1734,7 +1703,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -1821,7 +1789,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -1910,7 +1877,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -2016,7 +1982,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -2081,7 +2046,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -2134,7 +2098,6 @@
                                             "type": "string"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -2195,7 +2158,6 @@
                                             "type": "string"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -2228,7 +2190,6 @@
                                             "type": "string"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -2261,7 +2222,6 @@
                                             "type": "string"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -2302,7 +2262,6 @@
                                             "type": "string"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -2516,7 +2475,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -2556,7 +2514,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -2648,7 +2605,6 @@
                                             ]
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -2729,7 +2685,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -2765,7 +2720,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -2852,7 +2806,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -2941,7 +2894,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -3047,7 +2999,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -3112,7 +3063,6 @@
                                             "type": "boolean"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -3165,7 +3115,6 @@
                                             "type": "string"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -3226,7 +3175,6 @@
                                             "type": "string"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -3259,7 +3207,6 @@
                                             "type": "string"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -3292,7 +3239,6 @@
                                             "type": "string"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -3333,7 +3279,6 @@
                                             "type": "string"
                                         }
                                     },
-                                    "referenced": false,
                                     "type": "object"
                                 }
                             },
@@ -3358,7 +3303,6 @@
             ]
         }
     },
-    "referenced": false,
     "required": [
         "train_dataset"
     ],

@@ -89,7 +89,6 @@
                                     ]
                                 }
                             },
-                            "referenced": false,
                             "required": [
                                 "container",
                                 "provider"
@@ -158,7 +157,6 @@
                                     ]
                                 }
                             },
-                            "referenced": false,
                             "required": [
                                 "bucket"
                             ],
@@ -242,7 +240,6 @@
                                     ]
                                 }
                             },
-                            "referenced": false,
                             "required": [
                                 "host"
                             ],
@@ -281,7 +278,6 @@
             "type": "boolean"
         }
     },
-    "referenced": false,
     "required": [
         "object_store_hparams"
     ],

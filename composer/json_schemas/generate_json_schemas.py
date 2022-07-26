@@ -59,3 +59,5 @@ for hparam_class in hparam_classes:
     file_name = hparam_class.__name__.lower().replace('hparams', '')
     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), f'{file_name}_hparams.json'), 'w') as f:
         hparam_class.dump_jsonschema(f=f, sort_keys=True, indent=4)
+        # Lint requires ending in an empty line
+        f.write('\n')
