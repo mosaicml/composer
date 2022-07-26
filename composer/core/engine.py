@@ -64,12 +64,12 @@ from __future__ import annotations
 import atexit
 import contextlib
 import logging
-import warnings
 import weakref
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import ContextManager, Dict, Optional, Sequence, Union, cast
+from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence, Type, TypeVar, Union, cast
 
+from composer.algorithms import passes
 from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.event import Event
@@ -80,6 +80,8 @@ from composer.profiler import ProfilerAction
 log = logging.getLogger(__name__)
 
 __all__ = ['Trace', 'Engine', 'Traces']
+
+T = TypeVar('T')
 
 #: The default traces of an entire run is an OrderedDict.
 #: The keys are of format ``<algorithm_name>/<event>`` (e.g.,  ``Blurpool/INIT``) and values are an instance of
@@ -169,6 +171,13 @@ class Engine():
             specific metrics.
     """
 
+    algorithm_passes: List[Callable[[Sequence[Algorithm], Event], Sequence[Algorithm]]] = [
+        passes.sort_selective_backprop_first,
+        passes.sort_fused_layernorm_last,
+        passes.set_filo_order,
+        passes.warn_if_multiple_loss_interpolation,
+    ]
+
     def __init__(self, state: State, logger: Logger):
         self.logger = logger
         self.state = state
@@ -233,11 +242,7 @@ class Engine():
         if event.is_after_event and duration_marker is not None:
             duration_marker.finish()
 
-        if event in _EVENTS_WHERE_DATALOADER_IS_SET:
-            assert self.state.dataloader is not None, f'The trainer should have set state.dataloader for event {event}.'
-
-        if event in _EVENTS_WHERE_MAX_DURATION_IS_SET:
-            assert self.state.max_duration is not None, f'The trainer should have set state.max_duration for event {event}.'
+        self._assert_dataloader_and_duration_set(self.state, event)
 
         if event == Event.INIT:
             # For the INIT event, run the callbacks first to initialize the loggers
@@ -253,6 +258,16 @@ class Engine():
             duration_marker.start()
 
         return traces
+
+    @staticmethod
+    def _assert_dataloader_and_duration_set(state, event):
+        # dataloader and max duration need to be set for certain events
+
+        if event in _EVENTS_WHERE_DATALOADER_IS_SET:
+            assert state.dataloader is not None, f'The trainer should have set state.dataloader for event {event}.'
+
+        if event in _EVENTS_WHERE_MAX_DURATION_IS_SET:
+            assert state.max_duration is not None, f'The trainer should have set state.max_duration for event {event}.'
 
     def _run_algorithms(
         self,
@@ -321,30 +336,12 @@ class Engine():
         Returns:
             Sequence[Algorithm]: Modified sequence of algorithms.
         """
-        from composer.algorithms import CutMix, FusedLayerNorm, MixUp, SelectiveBackprop, StochasticDepth
 
-        # Move selective backprop to the beginning while maintaining order of other algorithms
-        algorithms = sorted(algorithms_to_run,
-                            key=lambda x: not isinstance(x, SelectiveBackprop) and not isinstance(x, StochasticDepth))
+        # run reordering passes on the algorithms
+        for passes in self.algorithm_passes:
+            algorithms_to_run = passes(algorithms_to_run, event)
 
-        # Move fused layernorm to the end while maintaining order of other algorithms (FLN only does surgery on leaf modules)
-        algorithms = sorted(algorithms, key=lambda x: isinstance(x, FusedLayerNorm))
-
-        # Check for multiple algorithms that try to interpolate the loss at the same time
-        interpolation_settings = [a.interpolate_loss for a in algorithms if isinstance(a, (CutMix, MixUp))]
-        if sum(interpolation_settings) > 1:
-            warnings.warn(
-                'Multiple algorithms are trying to interpolate the loss. This can result in strange behavior.')
-
-        if event.is_after_event:
-            """Establish a FILO queue of algorithms ``before_`` and ``after_`` an event.
-
-            before_loss: A, B, C, D
-            after_loss: D, C, B, A
-            """
-            algorithms = list(reversed(algorithms))
-
-        return algorithms
+        return algorithms_to_run
 
     def _run_callbacks(
         self,
@@ -392,32 +389,18 @@ class Engine():
 
     def _debug_log(self, event: Event, msg: str):
         """Helper to include timestamp and event info in log messages."""
-        if event in _EVAL_EVENTS:
-            log.debug(
-                '[ep=%i][ba=%i][eval_ba=%i][event=%s]: %s',
-                int(self.state.timestamp.epoch),
-                int(self.state.timestamp.batch),
-                int(self.state.eval_timestamp.batch),
-                event.name,
-                msg,
-            )
-        elif event in _PREDICT_EVENTS:
-            log.debug(
-                '[ep=%i][ba=%i][predict_ba=%i][event=%s]: %s',
-                int(self.state.timestamp.epoch),
-                int(self.state.timestamp.batch),
-                int(self.state.predict_timestamp.batch),
-                event.name,
-                msg,
-            )
-        else:
-            log.debug(
-                '[ep=%i][ba=%i][event=%s]: %s',
-                int(self.state.timestamp.epoch),
-                int(self.state.timestamp.batch),
-                event.name,
-                msg,
-            )
+
+        timestamp = f'[ep={int(self.state.timestamp.epoch)}][ba={int(self.state.timestamp.batch)}]'
+
+        # for eval or pr
+        if event.name.startswith('EVAL_'):
+            timestamp += f'[eval_ba={int(self.state.eval_timestamp.batch)}]'
+        if event.name.startswith('PREDICT_'):
+            timestamp += f'[predict_ba={int(self.state.predict_timestamp.batch)}]'
+
+        timestamp += f'[event={event.name}]'
+
+        log.debug(f'{timestamp}: {msg}')
 
     def close(self) -> None:
         """Shutdown the engine.
