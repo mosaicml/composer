@@ -135,7 +135,7 @@ class DecoupledAdamWHparams(OptimizerHparams):
         weight_decay (float, optional): See :class:`~.DecoupledAdamW`.
         amsgrad (bool, optional): See :class:`~.DecoupledAdamW`.
 
-    .. jsonschema:: ../json_schemas/decoupledadam_hparams.json
+    .. jsonschema:: ../json_schemas/decoupledadamw_hparams.json
     """
 
     optimizer_cls = DecoupledAdamW
