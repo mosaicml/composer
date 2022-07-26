@@ -1,13 +1,13 @@
 callbacks:
   speed_monitor:
 train_dataset:
-  streaming_imagenet1k: # Configuration for ImageNet training data
-    split: train
+  imagenet:
+    use_synthetic: true
     shuffle: true
     drop_last: true
 val_dataset:
-  streaming_imagenet1k: # Configuration for ImageNet validation data
-    split: val
+  imagenet:
+    use_synthetic: true
     shuffle: false
     drop_last: false
 optimizers:
@@ -29,10 +29,10 @@ model:
     num_classes: 1000
 max_duration: 10ep
 eval_interval: 91ep
-train_batch_size: 512
-eval_batch_size: 256
+train_batch_size: 128
+eval_batch_size: 64
 seed: 17
 dataloader:
   num_workers: 8
 grad_accum: 1
-precision: fp16
+precision: amp

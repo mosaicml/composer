@@ -25,6 +25,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric, MetricCollection
 import torch_xla.distributed.parallel_loader as pl
 import torch_xla.core.xla_model as xm
+from torch_xla.amp import autocast, GradScaler
 
 from composer.algorithms import GradientClipping
 from composer.callbacks import CheckpointSaver
@@ -174,12 +175,9 @@ def _get_device(device: Optional[Union[str, Device]]):
         elif device.lower() == 'gpu':
             device = DeviceGPU()
         elif device.lower() == 'tpu':
-            exit
             device = DeviceTPU()
         else:
             raise ValueError(f'device ({device}) must be one of (cpu, gpu, tpu).')
-
-    #import pdb; pdb.set_trace()
     
     return device
 
@@ -781,7 +779,7 @@ class Trainer:
         if isinstance(precision, str):
             precision = Precision(precision)
 
-        _validate_precision(precision, self._device, deepspeed_enabled)
+        #_validate_precision(precision, self._device, deepspeed_enabled)
 
         # Optimizers and Schedulers
         if not optimizers:
@@ -1262,21 +1260,11 @@ class Trainer:
             grad_accum (int | str, optional): See :class:`.Trainer`.
             precision (Precision | str, optional): See :class:`.Trainer`.
         """
-        if xm.is_master_ordinal():
-            xm.rendezvous('once')
-            
         # Train Dataloader
         if train_dataloader is not None:
             self._train_data_spec = ensure_data_spec(train_dataloader)
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label)
-            import pdb; pdb.set_trace()
-            
-            if device == 'tpu':
-                import torch_xla.distributed.parallel_loader as pl
-                device = xm.xla_device()
-                self.state.train_dataloader = pl.MpDeviceLoader(self.state.train_dataloader, device)
-            else:
-                self.state.train_dataloader = self.state.dataloader
+            self.state.train_dataloader = self.state.dataloader
                 
         if self._train_data_spec is None:
             _raise_missing_argument_exception('train_dataloader')
@@ -1440,15 +1428,12 @@ class Trainer:
         # Samples and tokens should be summed
         # Batch time should be the value from rank 0
         sample_token_tensor = self._device.tensor_to_device(torch.tensor([num_samples, num_tokens], dtype=torch.int))
-        if self._device == 'tpu':
-            xm.all_reduce("sum", tensor, scale=1.0 / xm.xrt_world_size())
-        else:
-            dist.all_reduce(sample_token_tensor, reduce_operation='SUM')
+        dist.all_reduce(sample_token_tensor, reduce_operation='SUM')
 
         batch_time_tensor = self._device.tensor_to_device(
             torch.tensor([batch_time.total_seconds()], dtype=torch.float64))
-        if self._device is not 'tpu':
-            dist.broadcast(batch_time_tensor, src=0)
+
+        dist.broadcast(batch_time_tensor, src=0)
 
         batch_time = datetime.timedelta(seconds=batch_time_tensor[0].cpu().item())
 
@@ -1679,19 +1664,24 @@ class Trainer:
                     total_loss = self._train_microbatches(microbatches)
                 elif self._use_closures():
                     for optimizer in self.state.optimizers:
+                        #scaler = GradScaler(use_zero_grad=FLAGS.use_zero_grad)
+                        
+
                         if use_grad_scaling:
                             total_loss = self.state.scaler.step(
                                 optimizer, closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
                         else:
-                            if self._device == 'tpu':
+                            if True:#self._device == 'tpu':
                                 total_loss = xm.optimizer_step(optimizer)
                             else:
                                 total_loss = optimizer.step(
                                     closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs).item())
+
+                    
                 else:
                     total_loss = self._train_microbatches(microbatches)
                     for optimizer in self.state.optimizers:
-                        if self._device == 'tpu':
+                        if True:#self._device == 'tpu':
                             xm.optimizer_step(optimizer)
                         else:
                             if use_grad_scaling:
@@ -1725,7 +1715,7 @@ class Trainer:
             # Propagate across all ranks if any rank hit CUDA OOM
             should_handle_cuda_oom = self._device.tensor_to_device(
                 torch.tensor([should_handle_cuda_oom], dtype=torch.uint8))
-            if self._device is not 'tpu':
+            if self._device != 'tpu':
                 dist.all_reduce(should_handle_cuda_oom, reduce_operation='MAX')
             if int(should_handle_cuda_oom.item()) == 1:
                 # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_timeout_error since

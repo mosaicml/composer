@@ -8,13 +8,13 @@ from typing import Type
 from composer.loggers.logger import LogLevel
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist
-import os
+import torch
+
 def train():
 
     if len(sys.argv) == 1:
         sys.argv = [sys.argv[0], "--help"]
 
-    #print(TrainerTPUHparams)
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
             
     trainer = hparams.initialize_object()
@@ -34,15 +34,14 @@ def train():
                                          artifact_name='bla',
                                          file_path=f.name,
                                          overwrite=True)
-    import torch_xla.core.xla_model as xm
-    xm.rendezvous('once')
-            
+    
     trainer.fit()
 
     
 def _mp_fn(index):
+    torch.set_default_tensor_type('torch.FloatTensor')
     train()
     
 if __name__ == "__main__":
     import torch_xla.distributed.xla_multiprocessing as xmp
-    xmp.spawn(_mp_fn, args=(), nprocs=1, start_method='fork')
+    xmp.spawn(_mp_fn, args=(), nprocs=8)
