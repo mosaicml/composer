@@ -166,7 +166,6 @@ def _is_cuda_oom(e: RuntimeError):
 
 
 def _get_device(device: Optional[Union[str, Device]]):
-
     if not device:
         device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU()
     elif isinstance(device, str):
@@ -761,11 +760,9 @@ class Trainer:
         if deepspeed_enabled or dist.get_world_size() > 1:
             # deepspeed requires torch.distributed to be initialized, even if the world size is 1
             # distributed is always required with multi-rank training
-            # might need tpu
             dist.initialize_dist(self._device, datetime.timedelta(seconds=dist_timeout))
 
         # Reproducibility
-        # might need tpu
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, self._device)
         # If hparams is used to create the Trainer this function is called twice
         # which is okay because all runs with the hparams codepath will do this
@@ -829,7 +826,7 @@ class Trainer:
         log.info('Run name: %s', run_name)
 
         # Create the State
-        self.state = State(rank_zero_seed=rank_zero_seed, #might need tpu
+        self.state = State(rank_zero_seed=rank_zero_seed,
                            algorithms=algorithms,
                            model=model,
                            callbacks=callbacks,
@@ -909,7 +906,6 @@ class Trainer:
         if max_duration is not None:
             self.state.max_duration = ensure_time(max_duration, TimeUnit.EPOCH)
 
-        # tpu
         self.logger.data_fit({'rank_zero_seed': rank_zero_seed})
 
         assert isinstance(self.state.model, ComposerModel)
@@ -1265,7 +1261,6 @@ class Trainer:
             self._train_data_spec = ensure_data_spec(train_dataloader)
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label)
             self.state.train_dataloader = self.state.dataloader
-                
         if self._train_data_spec is None:
             _raise_missing_argument_exception('train_dataloader')
         if train_subset_num_batches is not None:
@@ -1349,7 +1344,6 @@ class Trainer:
             if self.deepspeed_enabled:
                 raise ValueError('Changing the precision when using DeepSpeed is not supported')
             precision = Precision(precision)
-            # might need tpu
             _validate_precision(precision, self._device, self.deepspeed_enabled)
             self.state.precision = precision
 
@@ -1432,12 +1426,9 @@ class Trainer:
 
         batch_time_tensor = self._device.tensor_to_device(
             torch.tensor([batch_time.total_seconds()], dtype=torch.float64))
-
         dist.broadcast(batch_time_tensor, src=0)
-
         batch_time = datetime.timedelta(seconds=batch_time_tensor[0].cpu().item())
 
-        # check if need .cpu
         return int(sample_token_tensor[0].cpu().item()), int(sample_token_tensor[1].cpu().item()), batch_time
 
     def _train_loop(self) -> None:
@@ -1550,7 +1541,6 @@ class Trainer:
 
                     batch_time = now - last_wct
 
-                    # check for tpu
                     total_num_samples, total_num_tokens, batch_time = self._accumulate_time_across_ranks(
                         rank_num_samples,
                         rank_num_tokens,
@@ -1668,7 +1658,6 @@ class Trainer:
                     total_loss = self._train_microbatches(microbatches)
                 elif self._use_closures():
                     for optimizer in self.state.optimizers:
- 
                         if use_grad_scaling:
                             total_loss = self.state.scaler.step(
                                 optimizer, closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
@@ -1678,8 +1667,6 @@ class Trainer:
                             else:
                                 total_loss = optimizer.step(
                                     closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs).item())
-                        
-                    
                 else:
                     total_loss = self._train_microbatches(microbatches)
                     for optimizer in self.state.optimizers:
