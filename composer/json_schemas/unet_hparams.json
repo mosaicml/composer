@@ -17,16 +17,6 @@
                 "xavier_normal",
                 "xavier_uniform"
             ]
-        },
-        "int_optional": {
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ]
         }
     },
     "additionalProperties": false,
@@ -46,8 +36,15 @@
             ]
         },
         "num_classes": {
-            "$ref": "#/$defs/int_optional",
-            "description": "The number of classes.  Needed for classification tasks"
+            "description": "The number of classes.  Needed for classification tasks",
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         }
     },
     "type": "object"

@@ -17,8 +17,12 @@
                 "xavier_normal",
                 "xavier_uniform"
             ]
-        },
-        "float_optional": {
+        }
+    },
+    "additionalProperties": false,
+    "properties": {
+        "bn_eps": {
+            "description": "BatchNorm epsilon override (model default if not None)",
             "oneOf": [
                 {
                     "type": "number"
@@ -28,7 +32,45 @@
                 }
             ]
         },
-        "str_optional": {
+        "bn_momentum": {
+            "description": "BatchNorm momentum override (model default if not None)",
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "drop_block_rate": {
+            "description": "drop block rate (model default if None)",
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "drop_path_rate": {
+            "description": "drop path rate (model default if None)",
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "drop_rate": {
+            "description": "dropout rate",
+            "type": "number"
+        },
+        "global_pool": {
+            "description": "Global pool type, one of (fast, avg, max, avgmax, avgmaxc). Model default if None.",
             "oneOf": [
                 {
                     "type": "string"
@@ -37,33 +79,6 @@
                     "type": "null"
                 }
             ]
-        }
-    },
-    "additionalProperties": false,
-    "properties": {
-        "bn_eps": {
-            "$ref": "#/$defs/float_optional",
-            "description": "BatchNorm epsilon override (model default if not None)"
-        },
-        "bn_momentum": {
-            "$ref": "#/$defs/float_optional",
-            "description": "BatchNorm momentum override (model default if not None)"
-        },
-        "drop_block_rate": {
-            "$ref": "#/$defs/float_optional",
-            "description": "drop block rate (model default if None)"
-        },
-        "drop_path_rate": {
-            "$ref": "#/$defs/float_optional",
-            "description": "drop path rate (model default if None)"
-        },
-        "drop_rate": {
-            "description": "dropout rate",
-            "type": "number"
-        },
-        "global_pool": {
-            "$ref": "#/$defs/str_optional",
-            "description": "Global pool type, one of (fast, avg, max, avgmax, avgmaxc). Model default if None."
         },
         "initializers": {
             "description": "The initialization strategy for the model",
@@ -80,8 +95,15 @@
             ]
         },
         "model_name": {
-            "$ref": "#/$defs/str_optional",
-            "description": "timm model name e.g: 'resnet50', list of models can be found at\nhttps://github.com/rwightman/pytorch-image-models"
+            "description": "timm model name e.g: 'resnet50', list of models can be found at\nhttps://github.com/rwightman/pytorch-image-models",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "num_classes": {
             "description": "The number of classes.  Needed for classification tasks",

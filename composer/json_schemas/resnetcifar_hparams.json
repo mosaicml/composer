@@ -17,16 +17,6 @@
                 "xavier_normal",
                 "xavier_uniform"
             ]
-        },
-        "str_optional": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
         }
     },
     "additionalProperties": false,
@@ -46,8 +36,15 @@
             ]
         },
         "model_name": {
-            "$ref": "#/$defs/str_optional",
-            "description": "\"cifar_resnet_9\", \"cifar_resnet_20\" or \"cifar_resnet_56\""
+            "description": "\"cifar_resnet_9\", \"cifar_resnet_20\" or \"cifar_resnet_56\"",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "num_classes": {
             "description": "The number of classes.  Needed for classification tasks",

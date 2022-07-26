@@ -11,8 +11,12 @@
                 "contiguous_format",
                 "preserve_format"
             ]
-        },
-        "str_list": {
+        }
+    },
+    "additionalProperties": false,
+    "properties": {
+        "datadir": {
+            "description": "Path to the Huggingface Datasets directory.",
             "oneOf": [
                 {
                     "type": "string"
@@ -24,23 +28,6 @@
                     "type": "array"
                 }
             ]
-        },
-        "str_optional": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        }
-    },
-    "additionalProperties": false,
-    "properties": {
-        "datadir": {
-            "$ref": "#/$defs/str_list",
-            "description": "Path to the Huggingface Datasets directory."
         },
         "drop_last": {
             "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
@@ -67,8 +54,15 @@
             "type": "boolean"
         },
         "split": {
-            "$ref": "#/$defs/str_optional",
-            "description": "Whether to use 'train', 'validation' or 'test' split."
+            "description": "Whether to use 'train', 'validation' or 'test' split.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "subsample_ratio": {
             "description": "If desired, the percentage of the dataset to use.",
@@ -87,8 +81,15 @@
             "type": "integer"
         },
         "tokenizer_name": {
-            "$ref": "#/$defs/str_optional",
-            "description": "The name of the tokenizer to preprocess text with."
+            "description": "The name of the tokenizer to preprocess text with.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "use_masked_lm": {
             "description": "Whether the dataset should be encoded with masked language modeling or not.",

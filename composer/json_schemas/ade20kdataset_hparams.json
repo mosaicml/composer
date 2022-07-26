@@ -11,16 +11,6 @@
                 "contiguous_format",
                 "preserve_format"
             ]
-        },
-        "str_optional": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
         }
     },
     "additionalProperties": false,
@@ -30,8 +20,15 @@
             "type": "integer"
         },
         "datadir": {
-            "$ref": "#/$defs/str_optional",
-            "description": "The path to the data directory"
+            "description": "The path to the data directory",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "drop_last": {
             "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",

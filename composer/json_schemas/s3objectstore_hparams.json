@@ -1,16 +1,4 @@
 {
-    "$defs": {
-        "str_optional": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        }
-    },
     "additionalProperties": false,
     "properties": {
         "bucket": {
@@ -29,16 +17,30 @@
             ]
         },
         "endpoint_url": {
-            "$ref": "#/$defs/str_optional",
-            "description": "The URL to an S3-Compatible object store. Must be specified if using something\nother than Amazon S3, like Google Cloud Storage. Defaults to None."
+            "description": "The URL to an S3-Compatible object store. Must be specified if using something\nother than Amazon S3, like Google Cloud Storage. Defaults to None.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "prefix": {
             "description": "A path prefix such as `folder/subfolder/` to prepend to object names. Defaults to ''.",
             "type": "string"
         },
         "region_name": {
-            "$ref": "#/$defs/str_optional",
-            "description": "The region name. Must be specified if not available in\na config file or environment variables. Defaults to None."
+            "description": "The region name. Must be specified if not available in\na config file or environment variables. Defaults to None.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "transfer_config": {
             "description": "Kwargs dictionary for :class:`boto3.s3.transfer.TransferConfig`. Defaults to None.",

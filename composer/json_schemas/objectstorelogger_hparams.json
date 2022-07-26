@@ -12,28 +12,63 @@
                     "type": "object"
                 },
                 "host": {
-                    "$ref": "#/$defs/str_optional",
-                    "description": "Override hostname for connections"
+                    "description": "Override hostname for connections",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
                 },
                 "key_environ": {
-                    "$ref": "#/$defs/str_optional",
-                    "description": "The name of an environment variable containing an API key or username to use to connect to the provider."
+                    "description": "The name of an environment variable containing an API key or username to use to connect to the provider.",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
                 },
                 "port": {
-                    "$ref": "#/$defs/int_optional",
-                    "description": "Override port for connections"
+                    "description": "Override port for connections",
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
                 },
                 "provider": {
                     "description": "Cloud provider to use. Valid options are:\n* :mod:`~libcloud.storage.drivers.atmos`\n* :mod:`~libcloud.storage.drivers.auroraobjects`\n* :mod:`~libcloud.storage.drivers.azure_blobs`\n* :mod:`~libcloud.storage.drivers.backblaze_b2`\n* :mod:`~libcloud.storage.drivers.cloudfiles`\n* :mod:`~libcloud.storage.drivers.digitalocean_spaces`\n* :mod:`~libcloud.storage.drivers.google_storage`\n* :mod:`~libcloud.storage.drivers.ktucloud`\n* :mod:`~libcloud.storage.drivers.local`\n* :mod:`~libcloud.storage.drivers.minio`\n* :mod:`~libcloud.storage.drivers.nimbus`\n* :mod:`~libcloud.storage.drivers.ninefold`\n* :mod:`~libcloud.storage.drivers.oss`\n* :mod:`~libcloud.storage.drivers.rgw`\n* :mod:`~libcloud.storage.drivers.s3`\n\n.. seealso:: :doc:`Full list of libcloud providers <libcloud:storage/supported_providers>`",
                     "type": "string"
                 },
                 "region": {
-                    "$ref": "#/$defs/str_optional",
-                    "description": "Cloud region to use"
+                    "description": "Cloud region to use",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
                 },
                 "secret_environ": {
-                    "$ref": "#/$defs/str_optional",
-                    "description": "The name of an environment variable containing an API secret or password to use to connect to the provider."
+                    "description": "The name of an environment variable containing an API secret or password to use to connect to the provider.",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
                 }
             },
             "required": [
@@ -61,16 +96,30 @@
                     ]
                 },
                 "endpoint_url": {
-                    "$ref": "#/$defs/str_optional",
-                    "description": "The URL to an S3-Compatible object store. Must be specified if using something\nother than Amazon S3, like Google Cloud Storage. Defaults to None."
+                    "description": "The URL to an S3-Compatible object store. Must be specified if using something\nother than Amazon S3, like Google Cloud Storage. Defaults to None.",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
                 },
                 "prefix": {
                     "description": "A path prefix such as `folder/subfolder/` to prepend to object names. Defaults to ''.",
                     "type": "string"
                 },
                 "region_name": {
-                    "$ref": "#/$defs/str_optional",
-                    "description": "The region name. Must be specified if not available in\na config file or environment variables. Defaults to None."
+                    "description": "The region name. Must be specified if not available in\na config file or environment variables. Defaults to None.",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
                 },
                 "transfer_config": {
                     "description": "Kwargs dictionary for :class:`boto3.s3.transfer.TransferConfig`. Defaults to None.",
@@ -112,16 +161,30 @@
                     "type": "string"
                 },
                 "key_filename": {
-                    "$ref": "#/$defs/str_optional",
-                    "description": "The filepath to the a private key (if required) needed to\nauthenticate. Defaults to None. Any keys specified here will be tried *in addition* to any keys\nspecified in ``~/.ssh/`` or via a SSH agent."
+                    "description": "The filepath to the a private key (if required) needed to\nauthenticate. Defaults to None. Any keys specified here will be tried *in addition* to any keys\nspecified in ``~/.ssh/`` or via a SSH agent.",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
                 },
                 "key_filename_environ": {
                     "description": "The name of an environment variable containing the path to a SSH keyfile. Note that `key_filename` takes precedence over this variable.",
                     "type": "string"
                 },
                 "known_hosts_filename": {
-                    "$ref": "#/$defs/str_optional",
-                    "description": "The filename of the known hosts file. If not specified,\nthe default SSH known hosts will be used."
+                    "description": "The filename of the known hosts file. If not specified,\nthe default SSH known hosts will be used.",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
                 },
                 "known_hosts_filename_environ": {
                     "description": "The name of an environment variable containing the path to a SSH known hosts file. Note that `known_hosts_filename` takes precedence over this variable.",
@@ -136,34 +199,21 @@
                     "type": "integer"
                 },
                 "username": {
-                    "$ref": "#/$defs/str_optional",
-                    "description": "The username (if not specified in the SSH config) needed to authenticate.\nDefaults to None."
+                    "description": "The username (if not specified in the SSH config) needed to authenticate.\nDefaults to None.",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
                 }
             },
             "required": [
                 "host"
             ],
             "type": "object"
-        },
-        "int_optional": {
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "str_optional": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
         }
     },
     "additionalProperties": false,
@@ -184,8 +234,8 @@
             "anyOf": [
                 {
                     "additionalProperties": false,
-                    "patternProperties": {
-                        "^libcloud($|\\+)": {
+                    "properties": {
+                        "libcloud": {
                             "$ref": "#/$defs/LibcloudObjectStoreHparams"
                         }
                     },
@@ -194,7 +244,16 @@
                 {
                     "additionalProperties": false,
                     "patternProperties": {
-                        "^s3($|\\+)": {
+                        "^libcloud\\+": {
+                            "$ref": "#/$defs/LibcloudObjectStoreHparams"
+                        }
+                    },
+                    "type": "object"
+                },
+                {
+                    "additionalProperties": false,
+                    "properties": {
+                        "s3": {
                             "$ref": "#/$defs/S3ObjectStoreHparams"
                         }
                     },
@@ -203,7 +262,25 @@
                 {
                     "additionalProperties": false,
                     "patternProperties": {
-                        "^sftp($|\\+)": {
+                        "^s3\\+": {
+                            "$ref": "#/$defs/S3ObjectStoreHparams"
+                        }
+                    },
+                    "type": "object"
+                },
+                {
+                    "additionalProperties": false,
+                    "properties": {
+                        "sftp": {
+                            "$ref": "#/$defs/SFTPObjectStoreHparams"
+                        }
+                    },
+                    "type": "object"
+                },
+                {
+                    "additionalProperties": false,
+                    "patternProperties": {
+                        "^sftp\\+": {
                             "$ref": "#/$defs/SFTPObjectStoreHparams"
                         }
                     },
@@ -213,12 +290,26 @@
             "description": "Object store provider hparams."
         },
         "should_log_artifact": {
-            "$ref": "#/$defs/str_optional",
-            "description": "Path to a filter function which returns whether an artifact should be logged."
+            "description": "Path to a filter function which returns whether an artifact should be logged.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "upload_staging_folder": {
-            "$ref": "#/$defs/str_optional",
-            "description": "A folder to use for staging uploads.\nIf not specified, defaults to using a :func:`~tempfile.TemporaryDirectory`."
+            "description": "A folder to use for staging uploads.\nIf not specified, defaults to using a :func:`~tempfile.TemporaryDirectory`.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "use_procs": {
             "description": "Whether to perform file uploads in background processes (as opposed to threads).\nDefaults to True.",

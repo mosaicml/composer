@@ -1,26 +1,4 @@
 {
-    "$defs": {
-        "int_optional": {
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "str_optional": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        }
-    },
     "additionalProperties": false,
     "properties": {
         "container": {
@@ -32,28 +10,63 @@
             "type": "object"
         },
         "host": {
-            "$ref": "#/$defs/str_optional",
-            "description": "Override hostname for connections"
+            "description": "Override hostname for connections",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "key_environ": {
-            "$ref": "#/$defs/str_optional",
-            "description": "The name of an environment variable containing an API key or username to use to connect to the provider."
+            "description": "The name of an environment variable containing an API key or username to use to connect to the provider.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "port": {
-            "$ref": "#/$defs/int_optional",
-            "description": "Override port for connections"
+            "description": "Override port for connections",
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "provider": {
             "description": "Cloud provider to use. Valid options are:\n* :mod:`~libcloud.storage.drivers.atmos`\n* :mod:`~libcloud.storage.drivers.auroraobjects`\n* :mod:`~libcloud.storage.drivers.azure_blobs`\n* :mod:`~libcloud.storage.drivers.backblaze_b2`\n* :mod:`~libcloud.storage.drivers.cloudfiles`\n* :mod:`~libcloud.storage.drivers.digitalocean_spaces`\n* :mod:`~libcloud.storage.drivers.google_storage`\n* :mod:`~libcloud.storage.drivers.ktucloud`\n* :mod:`~libcloud.storage.drivers.local`\n* :mod:`~libcloud.storage.drivers.minio`\n* :mod:`~libcloud.storage.drivers.nimbus`\n* :mod:`~libcloud.storage.drivers.ninefold`\n* :mod:`~libcloud.storage.drivers.oss`\n* :mod:`~libcloud.storage.drivers.rgw`\n* :mod:`~libcloud.storage.drivers.s3`\n\n.. seealso:: :doc:`Full list of libcloud providers <libcloud:storage/supported_providers>`",
             "type": "string"
         },
         "region": {
-            "$ref": "#/$defs/str_optional",
-            "description": "Cloud region to use"
+            "description": "Cloud region to use",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "secret_environ": {
-            "$ref": "#/$defs/str_optional",
-            "description": "The name of an environment variable containing an API secret or password to use to connect to the provider."
+            "description": "The name of an environment variable containing an API secret or password to use to connect to the provider.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         }
     },
     "required": [

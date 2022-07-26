@@ -1,16 +1,4 @@
 {
-    "$defs": {
-        "str_optional": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        }
-    },
     "additionalProperties": false,
     "properties": {
         "connect_kwargs": {
@@ -33,16 +21,30 @@
             "type": "string"
         },
         "key_filename": {
-            "$ref": "#/$defs/str_optional",
-            "description": "The filepath to the a private key (if required) needed to\nauthenticate. Defaults to None. Any keys specified here will be tried *in addition* to any keys\nspecified in ``~/.ssh/`` or via a SSH agent."
+            "description": "The filepath to the a private key (if required) needed to\nauthenticate. Defaults to None. Any keys specified here will be tried *in addition* to any keys\nspecified in ``~/.ssh/`` or via a SSH agent.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "key_filename_environ": {
             "description": "The name of an environment variable containing the path to a SSH keyfile. Note that `key_filename` takes precedence over this variable.",
             "type": "string"
         },
         "known_hosts_filename": {
-            "$ref": "#/$defs/str_optional",
-            "description": "The filename of the known hosts file. If not specified,\nthe default SSH known hosts will be used."
+            "description": "The filename of the known hosts file. If not specified,\nthe default SSH known hosts will be used.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "known_hosts_filename_environ": {
             "description": "The name of an environment variable containing the path to a SSH known hosts file. Note that `known_hosts_filename` takes precedence over this variable.",
@@ -57,8 +59,15 @@
             "type": "integer"
         },
         "username": {
-            "$ref": "#/$defs/str_optional",
-            "description": "The username (if not specified in the SSH config) needed to authenticate.\nDefaults to None."
+            "description": "The username (if not specified in the SSH config) needed to authenticate.\nDefaults to None.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         }
     },
     "required": [

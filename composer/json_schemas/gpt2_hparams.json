@@ -17,8 +17,12 @@
                 "xavier_normal",
                 "xavier_uniform"
             ]
-        },
-        "bool_optional": {
+        }
+    },
+    "additionalProperties": false,
+    "properties": {
+        "gradient_checkpointing": {
+            "description": "Whether to enable gradient checkpointing.",
             "oneOf": [
                 {
                     "type": "boolean"
@@ -27,33 +31,6 @@
                     "type": "null"
                 }
             ]
-        },
-        "int_optional": {
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "str_optional": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        }
-    },
-    "additionalProperties": false,
-    "properties": {
-        "gradient_checkpointing": {
-            "$ref": "#/$defs/bool_optional",
-            "description": "Whether to enable gradient checkpointing."
         },
         "initializers": {
             "description": "The initialization strategy for the model",
@@ -81,20 +58,48 @@
             ]
         },
         "num_classes": {
-            "$ref": "#/$defs/int_optional",
-            "description": "The number of classes.  Needed for classification tasks"
+            "description": "The number of classes.  Needed for classification tasks",
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "pretrained_model_name": {
-            "$ref": "#/$defs/str_optional",
-            "description": "Pretrained model name to pull from Hugging Face Model Hub."
+            "description": "Pretrained model name to pull from Hugging Face Model Hub.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "tokenizer_name": {
-            "$ref": "#/$defs/str_optional",
-            "description": "The tokenizer used for this model, necessary to assert required model inputs."
+            "description": "The tokenizer used for this model, necessary to assert required model inputs.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "use_pretrained": {
-            "$ref": "#/$defs/bool_optional",
-            "description": "Whether to initialize the model with the pretrained weights."
+            "description": "Whether to initialize the model with the pretrained weights.",
+            "oneOf": [
+                {
+                    "type": "boolean"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         }
     },
     "type": "object"

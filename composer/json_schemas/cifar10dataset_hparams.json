@@ -11,8 +11,12 @@
                 "contiguous_format",
                 "preserve_format"
             ]
-        },
-        "str_optional": {
+        }
+    },
+    "additionalProperties": false,
+    "properties": {
+        "datadir": {
+            "description": "The path to the data directory",
             "oneOf": [
                 {
                     "type": "string"
@@ -21,13 +25,6 @@
                     "type": "null"
                 }
             ]
-        }
-    },
-    "additionalProperties": false,
-    "properties": {
-        "datadir": {
-            "$ref": "#/$defs/str_optional",
-            "description": "The path to the data directory"
         },
         "download": {
             "description": "whether to download the dataset, if needed",

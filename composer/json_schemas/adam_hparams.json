@@ -1,6 +1,12 @@
 {
-    "$defs": {
-        "float_list": {
+    "additionalProperties": false,
+    "properties": {
+        "amsgrad": {
+            "description": "whether to use the AMSGrad variant of this\nalgorithm from the paper `On the Convergence of Adam and Beyond`_\n(default: False)",
+            "type": "boolean"
+        },
+        "betas": {
+            "description": "coefficients used for computing\nrunning averages of gradient and its square (default: (0.9, 0.999))",
             "oneOf": [
                 {
                     "type": "number"
@@ -12,17 +18,6 @@
                     "type": "array"
                 }
             ]
-        }
-    },
-    "additionalProperties": false,
-    "properties": {
-        "amsgrad": {
-            "description": "whether to use the AMSGrad variant of this\nalgorithm from the paper `On the Convergence of Adam and Beyond`_\n(default: False)",
-            "type": "boolean"
-        },
-        "betas": {
-            "$ref": "#/$defs/float_list",
-            "description": "coefficients used for computing\nrunning averages of gradient and its square (default: (0.9, 0.999))"
         },
         "eps": {
             "description": "term added to the denominator to improve\nnumerical stability (default: 1e-8)",

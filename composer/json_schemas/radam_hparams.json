@@ -1,6 +1,8 @@
 {
-    "$defs": {
-        "float_list": {
+    "additionalProperties": false,
+    "properties": {
+        "betas": {
+            "description": "coefficients used for computing\nrunning averages of gradient and its square (default: (0.9, 0.999))",
             "oneOf": [
                 {
                     "type": "number"
@@ -12,13 +14,6 @@
                     "type": "array"
                 }
             ]
-        }
-    },
-    "additionalProperties": false,
-    "properties": {
-        "betas": {
-            "$ref": "#/$defs/float_list",
-            "description": "coefficients used for computing\nrunning averages of gradient and its square (default: (0.9, 0.999))"
         },
         "eps": {
             "description": "term added to the denominator to improve\nnumerical stability (default: 1e-8)",

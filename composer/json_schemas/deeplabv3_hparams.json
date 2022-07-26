@@ -17,16 +17,6 @@
                 "xavier_normal",
                 "xavier_uniform"
             ]
-        },
-        "int_optional": {
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ]
         }
     },
     "additionalProperties": false,
@@ -70,8 +60,15 @@
             "type": "boolean"
         },
         "num_classes": {
-            "$ref": "#/$defs/int_optional",
-            "description": "The number of classes.  Needed for classification tasks"
+            "description": "The number of classes.  Needed for classification tasks",
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "sync_bn": {
             "description": "If true, use SyncBatchNorm to sync batch norm statistics across GPUs.",

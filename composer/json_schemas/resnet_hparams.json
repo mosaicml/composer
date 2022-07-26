@@ -17,26 +17,6 @@
                 "xavier_normal",
                 "xavier_uniform"
             ]
-        },
-        "int_optional": {
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "str_optional": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
         }
     },
     "additionalProperties": false,
@@ -68,16 +48,30 @@
             "type": "string"
         },
         "num_classes": {
-            "$ref": "#/$defs/int_optional",
-            "description": "The number of classes.  Needed for classification tasks"
+            "description": "The number of classes.  Needed for classification tasks",
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "pretrained": {
             "description": "If True, use ImageNet pretrained weights. Default: ``False``. This parameter is deprecated and will soon be removed.",
             "type": "boolean"
         },
         "weights": {
-            "$ref": "#/$defs/str_optional",
-            "description": "If provided, pretrained weights can be specified, such as with ``IMAGENET1K_V2``. (default: ``None``)"
+            "description": "If provided, pretrained weights can be specified, such as with ``IMAGENET1K_V2``. (default: ``None``)",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "width_per_group": {
             "description": "Initial width for each convolution group. Width doubles after each stage. (default: ``64``)",

@@ -1,6 +1,12 @@
 {
-    "$defs": {
-        "float_list": {
+    "additionalProperties": false,
+    "properties": {
+        "amsgrad": {
+            "description": "Enables the amsgrad variant of Adam. Default: ``False``.",
+            "type": "boolean"
+        },
+        "betas": {
+            "description": "Coefficients used for computing running averages of gradient and its square\nDefault: ``(0.9, 0.999)``.",
             "oneOf": [
                 {
                     "type": "number"
@@ -12,17 +18,6 @@
                     "type": "array"
                 }
             ]
-        }
-    },
-    "additionalProperties": false,
-    "properties": {
-        "amsgrad": {
-            "description": "Enables the amsgrad variant of Adam. Default: ``False``.",
-            "type": "boolean"
-        },
-        "betas": {
-            "$ref": "#/$defs/float_list",
-            "description": "Coefficients used for computing running averages of gradient and its square\nDefault: ``(0.9, 0.999)``."
         },
         "eps": {
             "description": "Term added to the denominator to improve numerical stability. Default: ``1e-8``.",
