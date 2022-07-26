@@ -71,8 +71,8 @@
     },
     "referenced": false,
     "required": [
-        "provider",
-        "container"
+        "container",
+        "provider"
     ],
     "type": "object"
 }

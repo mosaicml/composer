@@ -51,14 +51,14 @@
         "synthetic_memory_format": {
             "description": "Memory format. Defaults to contiguous format.",
             "enum": [
-                "channels_last_3d",
-                "channels_last",
-                "preserve_format",
-                "CONTIGUOUS_FORMAT",
-                "contiguous_format",
                 "CHANNELS_LAST",
+                "CHANNELS_LAST_3D",
+                "CONTIGUOUS_FORMAT",
                 "PRESERVE_FORMAT",
-                "CHANNELS_LAST_3D"
+                "channels_last",
+                "channels_last_3d",
+                "contiguous_format",
+                "preserve_format"
             ]
         },
         "synthetic_num_unique_samples": {
