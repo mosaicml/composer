@@ -1447,7 +1447,7 @@ class Trainer:
         # surpressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
-        if self._device == 'tpu':
+        if type(self._device) == DeviceTPU:
             import torch_xla
             self.state.scaler = torch_xla.amp.GradScaler
         else:
@@ -1646,7 +1646,7 @@ class Trainer:
         # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
         # TODO: fix this name collision!
         device_batch = self.state.batch
-        import pdb; pdb.set_trace()
+
         # Retry until we successfully complete training and return loss
         while True:
             start_time = time.time()
@@ -1664,8 +1664,7 @@ class Trainer:
                             total_loss = self.state.scaler.step(
                                 optimizer, closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
                         else:
-                            if True:#self._device == 'tpu':
-                                import pdb; pdb.set_trace()
+                            if type(self._device) == DeviceTPU:
                                 total_loss = xm.optimizer_step(optimizer)
                             else:
                                 total_loss = optimizer.step(
@@ -1673,7 +1672,7 @@ class Trainer:
                 else:
                     total_loss = self._train_microbatches(microbatches)
                     for optimizer in self.state.optimizers:
-                        if self._device == 'tpu':
+                        if type(self._device) == DeviceTPU:
                             xm.optimizer_step(optimizer)
                         else:
                             if use_grad_scaling:
@@ -1707,7 +1706,7 @@ class Trainer:
             # Propagate across all ranks if any rank hit CUDA OOM
             should_handle_cuda_oom = self._device.tensor_to_device(
                 torch.tensor([should_handle_cuda_oom], dtype=torch.uint8))
-            if self._device != 'tpu':
+            if type(self._device) != DeviceTPU:
                 dist.all_reduce(should_handle_cuda_oom, reduce_operation='MAX')
             if int(should_handle_cuda_oom.item()) == 1:
                 # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_timeout_error since

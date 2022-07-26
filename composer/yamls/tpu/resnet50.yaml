@@ -27,8 +27,8 @@ model:
       - kaiming_normal
       - bn_uniform
     num_classes: 1000
-max_duration: 10ep
-eval_interval: 91ep
+max_duration: 5ep
+eval_interval: 1ep
 train_batch_size: 128
 eval_batch_size: 64
 seed: 17

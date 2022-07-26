@@ -86,10 +86,7 @@ def _initialize_dataloader(
                 f'The batch size for {dataloader_label} must be specified if the {dataloader_label} dataset is specified'
             )
 
-        if device == 'tpu':
-            train_device_batch_size = batch_size // xm.xrt_world_size()
-        else:
-            train_device_batch_size = batch_size // dist.get_world_size()
+        train_device_batch_size = batch_size // dist.get_world_size()
             
         if dataset_hparams.shuffle and subset_num_batches is not None:
             warnings.warn(
@@ -398,10 +395,7 @@ class TrainerHparams(hp.Hparams):
             if self.deterministic_mode and zero_stage > 0:
                 raise ValueError('Deepspeed with zero stage > 0 is not compatible with deterministic mode')
 
-        if self.device == 'tpu':
-            world_size = xm.xrt_world_size()
-        else:
-            world_size = dist.get_world_size()
+        world_size = dist.get_world_size()
 
         if self.train_batch_size is not None and self.train_batch_size % world_size != 0:
             raise ValueError(
