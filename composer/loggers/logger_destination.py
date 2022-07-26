@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pathlib
 from abc import ABC
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from composer.core.callback import Callback
 from composer.core.state import State
@@ -37,6 +37,38 @@ class LoggerDestination(Callback, ABC):
             ... )
             Batch 0: {'rank_zero_seed': ...}
     """
+
+
+    def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
+        """Log hyperparameters, configurations, and settings.
+
+        Logs any parameter/configuration/setting that doesn't vary during the run.
+
+         Args:
+            hyperparameters (Dict[str, Any]): A dictionary mapping hyperparameter names 
+                (strings) to their values (Any).
+        """
+        del hyperparameters # unused
+        pass
+
+    def log_metrics(self,
+                    metrics: Dict[str, float],
+                    step: Optional[int] = None,
+                    epoch: Optional[int] = None) -> None:
+        """Log metrics or parameters that vary during training.
+
+        Args:
+            metrics (Dict[str, float]): Dictionary mapping metric name (str) to metric
+                scalar value (float)
+            step (Optional[int], optional): The current step or batch of training at the
+                time of logging. Defaults to None. If not specified the specific
+                LoggerDestination implementation will choose a step (usually a running
+                counter).
+            epoch (Optional[int], optional): The current epoch at the time of logging.
+                Defaults to None. 
+        """
+        del metrics, step, epoch # unused
+        pass
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         """Log data.
