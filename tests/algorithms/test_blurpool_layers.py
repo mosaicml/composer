@@ -19,7 +19,6 @@ def generate_pool_args():
 
 
 @pytest.mark.parametrize('pool_args', generate_pool_args())
-@pytest.mark.timeout(5)
 def test_blurmaxpool_shapes(pool_args):
     n, c, sz, stride, kernel_size = pool_args
 

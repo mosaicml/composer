@@ -125,7 +125,6 @@ For the best experience and the most efficient possible training, we recommend u
 
 <!-- begin_example_2 --->
 <!--pytest.mark.gpu-->
-<!--pytest.mark.timeout(30)-->
 <!--pytest.mark.filterwarnings(r'ignore:Some targets have less than 1 total probability:UserWarning')-->
 <!--
 ```python

@@ -15,7 +15,6 @@ from composer.models import composer_resnet
 from composer.utils import export_for_inference
 
 
-@pytest.mark.timeout(10)
 @pytest.mark.parametrize(
     'model_cls, sample_input',
     [
@@ -41,7 +40,6 @@ def test_export_for_inference_torchscript(model_cls, sample_input):
             loaded_model_out), f'mismatch in the original and exported for inference model outputs with {target_format}'
 
 
-@pytest.mark.timeout(10)
 @pytest.mark.parametrize(
     'model_cls, sample_input',
     [

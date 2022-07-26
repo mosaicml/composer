@@ -66,7 +66,6 @@ def training_loop(model, train_loader):
 Here we run `mixup` using index labels and interpolate the loss (a trick when using cross entropy)
 
 <!--pytest.mark.gpu-->
-<!--pytest.mark.timeout(15)-->
 <!--
 ```python
 from torch.utils.data import DataLoader
@@ -99,7 +98,6 @@ trainer.fit()
 Here we run `mixup` using dense/one-hot labels and interpolate the labels (general case).
 
 <!--pytest.mark.gpu-->
-<!--pytest.mark.timeout(15)-->
 <!--
 ```python
 from torch.utils.data import DataLoader
