@@ -43,7 +43,7 @@ from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _par
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
-from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
+from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceTPU
 from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed, map_collection,
                             reproducibility)
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
@@ -161,11 +161,13 @@ def _get_initial_grad_accum(grad_accum: Union[int, str]):
 
 
 def _is_cuda_oom(e: RuntimeError):
-    """Determines if error is CUDA Out of Memory and if adaptive_grad_accum is enabled."""
+    """Determin
+es if error is CUDA Out of Memory and if adaptive_grad_accum is enabled."""
     return 'CUDA out of memory' in str(e)
 
 
 def _get_device(device: Optional[Union[str, Device]]):
+
     if not device:
         device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU()
     elif isinstance(device, str):
@@ -1644,7 +1646,7 @@ class Trainer:
         # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
         # TODO: fix this name collision!
         device_batch = self.state.batch
-
+        import pdb; pdb.set_trace()
         # Retry until we successfully complete training and return loss
         while True:
             start_time = time.time()
@@ -1662,7 +1664,8 @@ class Trainer:
                             total_loss = self.state.scaler.step(
                                 optimizer, closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
                         else:
-                            if self.device == 'tpu':
+                            if True:#self._device == 'tpu':
+                                import pdb; pdb.set_trace()
                                 total_loss = xm.optimizer_step(optimizer)
                             else:
                                 total_loss = optimizer.step(

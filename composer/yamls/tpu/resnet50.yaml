@@ -32,6 +32,8 @@ eval_interval: 91ep
 train_batch_size: 128
 eval_batch_size: 64
 seed: 17
+device:
+  tpu: {}
 dataloader:
   num_workers: 8
 grad_accum: 1
