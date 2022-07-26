@@ -1,6 +1,19 @@
 {
     "$defs": {
         "0_list": {
+            "$ref": "#/$defs/Initializer"
+        },
+        "<class 'str'>_False_True": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "Initializer": {
             "enum": [
                 "BN_ONES",
                 "BN_UNIFORM",
@@ -36,15 +49,8 @@
             ]
         },
         "model_name": {
-            "description": "\"cifar_resnet_9\", \"cifar_resnet_20\" or \"cifar_resnet_56\"",
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
+            "$ref": "#/$defs/<class 'str'>_False_True",
+            "description": "\"cifar_resnet_9\", \"cifar_resnet_20\" or \"cifar_resnet_56\""
         },
         "num_classes": {
             "description": "The number of classes.  Needed for classification tasks",

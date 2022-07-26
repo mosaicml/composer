@@ -1,23 +1,6 @@
 {
-    "additionalProperties": false,
-    "properties": {
-        "drop_last": {
-            "description": "Whether to drop the last samples for the last batch.",
-            "type": "boolean"
-        },
-        "group_method": {
-            "description": "How to group text samples into token samples. Either `truncate` or `concat`.",
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "max_seq_len": {
-            "description": "The max sequence length of each token sample.",
+    "$defs": {
+        "<class 'int'>_False_True": {
             "oneOf": [
                 {
                     "type": "integer"
@@ -26,6 +9,31 @@
                     "type": "null"
                 }
             ]
+        },
+        "<class 'str'>_False_True": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        }
+    },
+    "additionalProperties": false,
+    "properties": {
+        "drop_last": {
+            "description": "Whether to drop the last samples for the last batch.",
+            "type": "boolean"
+        },
+        "group_method": {
+            "$ref": "#/$defs/<class 'str'>_False_True",
+            "description": "How to group text samples into token samples. Either `truncate` or `concat`."
+        },
+        "max_seq_len": {
+            "$ref": "#/$defs/<class 'int'>_False_True",
+            "description": "The max sequence length of each token sample."
         },
         "mlm": {
             "description": "Whether or not to use masked language modeling.",
@@ -36,15 +44,8 @@
             "type": "number"
         },
         "num_samples": {
-            "description": "The number of post-processed token samples, used to set epoch size of the IterableDataset.",
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ]
+            "$ref": "#/$defs/<class 'int'>_False_True",
+            "description": "The number of post-processed token samples, used to set epoch size of the IterableDataset."
         },
         "seed": {
             "description": "If `shuffle=True`, what seed to use for shuffling operations.",
@@ -59,26 +60,12 @@
             "type": "integer"
         },
         "split": {
-            "description": "What split of the dataset to use. Either `train` or `validation`.",
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
+            "$ref": "#/$defs/<class 'str'>_False_True",
+            "description": "What split of the dataset to use. Either `train` or `validation`."
         },
         "tokenizer_name": {
-            "description": "The name of the HuggingFace tokenizer to preprocess text with.",
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
+            "$ref": "#/$defs/<class 'str'>_False_True",
+            "description": "The name of the HuggingFace tokenizer to preprocess text with."
         }
     },
     "type": "object"

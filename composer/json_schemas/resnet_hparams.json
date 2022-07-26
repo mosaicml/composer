@@ -1,6 +1,29 @@
 {
     "$defs": {
         "0_list": {
+            "$ref": "#/$defs/Initializer"
+        },
+        "<class 'int'>_False_True": {
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "<class 'str'>_False_True": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "Initializer": {
             "enum": [
                 "BN_ONES",
                 "BN_UNIFORM",
@@ -48,30 +71,16 @@
             "type": "string"
         },
         "num_classes": {
-            "description": "The number of classes.  Needed for classification tasks",
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ]
+            "$ref": "#/$defs/<class 'int'>_False_True",
+            "description": "The number of classes.  Needed for classification tasks"
         },
         "pretrained": {
             "description": "If True, use ImageNet pretrained weights. Default: ``False``. This parameter is deprecated and will soon be removed.",
             "type": "boolean"
         },
         "weights": {
-            "description": "If provided, pretrained weights can be specified, such as with ``IMAGENET1K_V2``. (default: ``None``)",
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
+            "$ref": "#/$defs/<class 'str'>_False_True",
+            "description": "If provided, pretrained weights can be specified, such as with ``IMAGENET1K_V2``. (default: ``None``)"
         },
         "width_per_group": {
             "description": "Initial width for each convolution group. Width doubles after each stage. (default: ``64``)",

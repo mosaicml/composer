@@ -1,8 +1,6 @@
 {
-    "additionalProperties": false,
-    "properties": {
-        "datadir": {
-            "description": "The path to the data directory",
+    "$defs": {
+        "<class 'str'>_False_True": {
             "oneOf": [
                 {
                     "type": "string"
@@ -11,6 +9,25 @@
                     "type": "null"
                 }
             ]
+        },
+        "MemoryFormat": {
+            "enum": [
+                "CHANNELS_LAST",
+                "CHANNELS_LAST_3D",
+                "CONTIGUOUS_FORMAT",
+                "PRESERVE_FORMAT",
+                "channels_last",
+                "channels_last_3d",
+                "contiguous_format",
+                "preserve_format"
+            ]
+        }
+    },
+    "additionalProperties": false,
+    "properties": {
+        "datadir": {
+            "$ref": "#/$defs/<class 'str'>_False_True",
+            "description": "The path to the data directory"
         },
         "download": {
             "description": "whether to download the dataset, if needed",
@@ -45,17 +62,8 @@
             "type": "string"
         },
         "synthetic_memory_format": {
-            "description": "Memory format. Defaults to contiguous format.",
-            "enum": [
-                "CHANNELS_LAST",
-                "CHANNELS_LAST_3D",
-                "CONTIGUOUS_FORMAT",
-                "PRESERVE_FORMAT",
-                "channels_last",
-                "channels_last_3d",
-                "contiguous_format",
-                "preserve_format"
-            ]
+            "$ref": "#/$defs/MemoryFormat",
+            "description": "Memory format. Defaults to contiguous format."
         },
         "synthetic_num_unique_samples": {
             "description": "The number of unique samples to allocate memory for.",

@@ -1,12 +1,6 @@
 {
-    "additionalProperties": false,
-    "properties": {
-        "base_size": {
-            "description": "Initial size of the image and target before other augmentations",
-            "type": "integer"
-        },
-        "datadir": {
-            "description": "The path to the data directory",
+    "$defs": {
+        "<class 'str'>_False_True": {
             "oneOf": [
                 {
                     "type": "string"
@@ -15,6 +9,29 @@
                     "type": "null"
                 }
             ]
+        },
+        "MemoryFormat": {
+            "enum": [
+                "CHANNELS_LAST",
+                "CHANNELS_LAST_3D",
+                "CONTIGUOUS_FORMAT",
+                "PRESERVE_FORMAT",
+                "channels_last",
+                "channels_last_3d",
+                "contiguous_format",
+                "preserve_format"
+            ]
+        }
+    },
+    "additionalProperties": false,
+    "properties": {
+        "base_size": {
+            "description": "Initial size of the image and target before other augmentations",
+            "type": "integer"
+        },
+        "datadir": {
+            "$ref": "#/$defs/<class 'str'>_False_True",
+            "description": "The path to the data directory"
         },
         "drop_last": {
             "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
@@ -49,17 +66,8 @@
             "type": "string"
         },
         "synthetic_memory_format": {
-            "description": "Memory format. Defaults to contiguous format.",
-            "enum": [
-                "CHANNELS_LAST",
-                "CHANNELS_LAST_3D",
-                "CONTIGUOUS_FORMAT",
-                "PRESERVE_FORMAT",
-                "channels_last",
-                "channels_last_3d",
-                "contiguous_format",
-                "preserve_format"
-            ]
+            "$ref": "#/$defs/MemoryFormat",
+            "description": "Memory format. Defaults to contiguous format."
         },
         "synthetic_num_unique_samples": {
             "description": "The number of unique samples to allocate memory for.",

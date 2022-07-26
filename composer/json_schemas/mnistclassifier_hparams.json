@@ -1,6 +1,19 @@
 {
     "$defs": {
         "0_list": {
+            "$ref": "#/$defs/Initializer"
+        },
+        "<class 'int'>_False_True": {
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "Initializer": {
             "enum": [
                 "BN_ONES",
                 "BN_UNIFORM",
@@ -36,15 +49,8 @@
             ]
         },
         "num_classes": {
-            "description": "The number of classes.  Needed for classification tasks",
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ]
+            "$ref": "#/$defs/<class 'int'>_False_True",
+            "description": "The number of classes.  Needed for classification tasks"
         }
     },
     "type": "object"

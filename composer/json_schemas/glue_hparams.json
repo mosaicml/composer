@@ -1,4 +1,28 @@
 {
+    "$defs": {
+        "<class 'str'>_False_True": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "MemoryFormat": {
+            "enum": [
+                "CHANNELS_LAST",
+                "CHANNELS_LAST_3D",
+                "CONTIGUOUS_FORMAT",
+                "PRESERVE_FORMAT",
+                "channels_last",
+                "channels_last_3d",
+                "contiguous_format",
+                "preserve_format"
+            ]
+        }
+    },
     "additionalProperties": false,
     "properties": {
         "drop_last": {
@@ -18,58 +42,28 @@
             "type": "boolean"
         },
         "split": {
-            "description": "Whether to use 'train', 'validation' or 'test' split.",
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
+            "$ref": "#/$defs/<class 'str'>_False_True",
+            "description": "Whether to use 'train', 'validation' or 'test' split."
         },
         "synthetic_device": {
             "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`.",
             "type": "string"
         },
         "synthetic_memory_format": {
-            "description": "Memory format. Defaults to contiguous format.",
-            "enum": [
-                "CHANNELS_LAST",
-                "CHANNELS_LAST_3D",
-                "CONTIGUOUS_FORMAT",
-                "PRESERVE_FORMAT",
-                "channels_last",
-                "channels_last_3d",
-                "contiguous_format",
-                "preserve_format"
-            ]
+            "$ref": "#/$defs/MemoryFormat",
+            "description": "Memory format. Defaults to contiguous format."
         },
         "synthetic_num_unique_samples": {
             "description": "The number of unique samples to allocate memory for.",
             "type": "integer"
         },
         "task": {
-            "description": "The GLUE task to train on, choose one from: CoLA, MNLI, MRPC, QNLI, QQP, RTE, SST-2, and STS-B.",
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
+            "$ref": "#/$defs/<class 'str'>_False_True",
+            "description": "The GLUE task to train on, choose one from: CoLA, MNLI, MRPC, QNLI, QQP, RTE, SST-2, and STS-B."
         },
         "tokenizer_name": {
-            "description": "The name of the HuggingFace tokenizer to preprocess text with.",
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
+            "$ref": "#/$defs/<class 'str'>_False_True",
+            "description": "The name of the HuggingFace tokenizer to preprocess text with."
         },
         "use_synthetic": {
             "description": "Whether to use synthetic data. Defaults to False.",

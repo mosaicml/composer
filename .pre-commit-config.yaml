@@ -65,7 +65,6 @@ repos:
           - --autofix
           - --no-sort-keys
           - --indent=4
-        exclude: ^composer/json_schemas
       - id: check-merge-conflict
       - id: check-symlinks
       - id: check-toml

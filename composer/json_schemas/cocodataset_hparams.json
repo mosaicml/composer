@@ -1,8 +1,6 @@
 {
-    "additionalProperties": false,
-    "properties": {
-        "datadir": {
-            "description": "The path to the data directory",
+    "$defs": {
+        "<class 'str'>_False_True": {
             "oneOf": [
                 {
                     "type": "string"
@@ -11,6 +9,13 @@
                     "type": "null"
                 }
             ]
+        }
+    },
+    "additionalProperties": false,
+    "properties": {
+        "datadir": {
+            "$ref": "#/$defs/<class 'str'>_False_True",
+            "description": "The path to the data directory"
         },
         "drop_last": {
             "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",

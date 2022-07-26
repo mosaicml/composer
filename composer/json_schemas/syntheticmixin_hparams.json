@@ -1,12 +1,6 @@
 {
-    "additionalProperties": false,
-    "properties": {
-        "synthetic_device": {
-            "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`.",
-            "type": "string"
-        },
-        "synthetic_memory_format": {
-            "description": "Memory format. Defaults to contiguous format.",
+    "$defs": {
+        "MemoryFormat": {
             "enum": [
                 "CHANNELS_LAST",
                 "CHANNELS_LAST_3D",
@@ -17,6 +11,17 @@
                 "contiguous_format",
                 "preserve_format"
             ]
+        }
+    },
+    "additionalProperties": false,
+    "properties": {
+        "synthetic_device": {
+            "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`.",
+            "type": "string"
+        },
+        "synthetic_memory_format": {
+            "$ref": "#/$defs/MemoryFormat",
+            "description": "Memory format. Defaults to contiguous format."
         },
         "synthetic_num_unique_samples": {
             "description": "The number of unique samples to allocate memory for.",

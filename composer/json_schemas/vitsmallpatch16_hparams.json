@@ -1,6 +1,9 @@
 {
     "$defs": {
         "0_list": {
+            "$ref": "#/$defs/Initializer"
+        },
+        "Initializer": {
             "enum": [
                 "BN_ONES",
                 "BN_UNIFORM",

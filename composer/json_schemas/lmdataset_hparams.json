@@ -1,24 +1,46 @@
 {
     "$defs": {
-        "0_list": {
-            "type": "string"
+        "<class 'str'>_False_True": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "<class 'str'>_True_False": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            ]
+        },
+        "MemoryFormat": {
+            "enum": [
+                "CHANNELS_LAST",
+                "CHANNELS_LAST_3D",
+                "CONTIGUOUS_FORMAT",
+                "PRESERVE_FORMAT",
+                "channels_last",
+                "channels_last_3d",
+                "contiguous_format",
+                "preserve_format"
+            ]
         }
     },
     "additionalProperties": false,
     "properties": {
         "datadir": {
-            "description": "Path to the Huggingface Datasets directory.",
-            "oneOf": [
-                {
-                    "$ref": "#/$defs/0_list"
-                },
-                {
-                    "items": {
-                        "$ref": "#/$defs/0_list"
-                    },
-                    "type": "array"
-                }
-            ]
+            "$ref": "#/$defs/<class 'str'>_True_False",
+            "description": "Path to the Huggingface Datasets directory."
         },
         "drop_last": {
             "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
@@ -45,15 +67,8 @@
             "type": "boolean"
         },
         "split": {
-            "description": "Whether to use 'train', 'validation' or 'test' split.",
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
+            "$ref": "#/$defs/<class 'str'>_False_True",
+            "description": "Whether to use 'train', 'validation' or 'test' split."
         },
         "subsample_ratio": {
             "description": "If desired, the percentage of the dataset to use.",
@@ -64,32 +79,16 @@
             "type": "string"
         },
         "synthetic_memory_format": {
-            "description": "Memory format. Defaults to contiguous format.",
-            "enum": [
-                "CHANNELS_LAST",
-                "CHANNELS_LAST_3D",
-                "CONTIGUOUS_FORMAT",
-                "PRESERVE_FORMAT",
-                "channels_last",
-                "channels_last_3d",
-                "contiguous_format",
-                "preserve_format"
-            ]
+            "$ref": "#/$defs/MemoryFormat",
+            "description": "Memory format. Defaults to contiguous format."
         },
         "synthetic_num_unique_samples": {
             "description": "The number of unique samples to allocate memory for.",
             "type": "integer"
         },
         "tokenizer_name": {
-            "description": "The name of the tokenizer to preprocess text with.",
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
+            "$ref": "#/$defs/<class 'str'>_False_True",
+            "description": "The name of the tokenizer to preprocess text with."
         },
         "use_masked_lm": {
             "description": "Whether the dataset should be encoded with masked language modeling or not.",

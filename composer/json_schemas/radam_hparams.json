@@ -1,24 +1,24 @@
 {
     "$defs": {
-        "0_list": {
-            "type": "number"
+        "<class 'float'>_True_False": {
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "items": {
+                        "type": "number"
+                    },
+                    "type": "array"
+                }
+            ]
         }
     },
     "additionalProperties": false,
     "properties": {
         "betas": {
-            "description": "coefficients used for computing\nrunning averages of gradient and its square (default: (0.9, 0.999))",
-            "oneOf": [
-                {
-                    "$ref": "#/$defs/0_list"
-                },
-                {
-                    "items": {
-                        "$ref": "#/$defs/0_list"
-                    },
-                    "type": "array"
-                }
-            ]
+            "$ref": "#/$defs/<class 'float'>_True_False",
+            "description": "coefficients used for computing\nrunning averages of gradient and its square (default: (0.9, 0.999))"
         },
         "eps": {
             "description": "term added to the denominator to improve\nnumerical stability (default: 1e-8)",
