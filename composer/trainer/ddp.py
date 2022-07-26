@@ -143,9 +143,14 @@ def rank_sync_wrapper(
             # Only put barrier in front of first bucket
             if bucket.index() == 0:
                 dist.monitored_barrier(group=hook_state['group'], timeout=datetime.timedelta(seconds=30))
+            # Raise error because monitored barrier in first bucket failed
+            elif hook['hook_error']:
+                raise RuntimeError('Timed out')
         except RuntimeError as e:
             # monitored_barrier was tripped
             if 'Timed out' in str(e):
+                if bucket.index() == 0:
+                    hook_state['hook_error'] = True
 
                 def raise_timeout_error(fut):
                     del fut

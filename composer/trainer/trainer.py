@@ -1637,6 +1637,7 @@ class Trainer:
         # TODO: fix this name collision!
         device_batch = self.state.batch
         self.ddp_callback_obj['group'] = torch.distributed.new_group(backend='gloo')
+        self.ddp_callback_obj['hook_error'] = False
 
         # Retry until we successfully complete training and return loss
         while True:
