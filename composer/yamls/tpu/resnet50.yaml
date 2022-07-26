@@ -35,4 +35,4 @@ seed: 17
 dataloader:
   num_workers: 8
 grad_accum: 1
-precision: amp
+precision: fp16

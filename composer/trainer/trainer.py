@@ -1454,7 +1454,11 @@ class Trainer:
         # surpressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
-        self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
+        if self._device == 'tpu':
+            import torch_xla
+            self.state.scaler = torch_xla.amp.GradScaler
+        else:
+            self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
         use_grad_scaling = self._use_grad_scaling(self.state.precision, self.state.scaler)
 
         self._spin_dataloaders()
@@ -1664,28 +1668,26 @@ class Trainer:
                     total_loss = self._train_microbatches(microbatches)
                 elif self._use_closures():
                     for optimizer in self.state.optimizers:
-                        #scaler = GradScaler(use_zero_grad=FLAGS.use_zero_grad)
-                        
-
+ 
                         if use_grad_scaling:
                             total_loss = self.state.scaler.step(
                                 optimizer, closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
                         else:
-                            if True:#self._device == 'tpu':
+                            if self.device == 'tpu':
                                 total_loss = xm.optimizer_step(optimizer)
                             else:
                                 total_loss = optimizer.step(
                                     closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs).item())
-
+                        
                     
                 else:
                     total_loss = self._train_microbatches(microbatches)
                     for optimizer in self.state.optimizers:
-                        if True:#self._device == 'tpu':
+                        if self._device == 'tpu':
                             xm.optimizer_step(optimizer)
                         else:
                             if use_grad_scaling:
-                                self.state.scaler.step(optimizer)                          
+                                self.state.scaler.step(optimizer)             
                             else:
                                 optimizer.step()
             except RuntimeError as e:
@@ -2152,9 +2154,11 @@ class Trainer:
         precision = Precision(precision)
         use_grad_scaling = precision == Precision.AMP
 
+        # will need fix for tpu
         if use_grad_scaling and (scaler is None or not scaler.is_enabled()):
             raise RuntimeError(f'Attempting to use grad scaling with {precision}, but scaler is not enabled.'
                                f'Potentially your hardware does not support Precision {precision}.')
+        
         return use_grad_scaling
 
     def _iter_dataloader(self):
