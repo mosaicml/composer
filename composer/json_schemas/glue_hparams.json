@@ -1,15 +1,5 @@
 {
     "$defs": {
-        "<class 'str'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
         "MemoryFormat": {
             "enum": [
                 "CHANNELS_LAST",
@@ -20,6 +10,16 @@
                 "channels_last_3d",
                 "contiguous_format",
                 "preserve_format"
+            ]
+        },
+        "str_optional": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
             ]
         }
     },
@@ -42,7 +42,7 @@
             "type": "boolean"
         },
         "split": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "Whether to use 'train', 'validation' or 'test' split."
         },
         "synthetic_device": {
@@ -58,11 +58,11 @@
             "type": "integer"
         },
         "task": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "The GLUE task to train on, choose one from: CoLA, MNLI, MRPC, QNLI, QQP, RTE, SST-2, and STS-B."
         },
         "tokenizer_name": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "The name of the HuggingFace tokenizer to preprocess text with."
         },
         "use_synthetic": {

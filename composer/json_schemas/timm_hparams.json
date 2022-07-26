@@ -3,26 +3,6 @@
         "0_list": {
             "$ref": "#/$defs/Initializer"
         },
-        "<class 'float'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "number"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "<class 'str'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
         "Initializer": {
             "enum": [
                 "BN_ONES",
@@ -40,24 +20,44 @@
                 "xavier_normal",
                 "xavier_uniform"
             ]
+        },
+        "float_optional": {
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "str_optional": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         }
     },
     "additionalProperties": false,
     "properties": {
         "bn_eps": {
-            "$ref": "#/$defs/<class 'float'>_False_True",
+            "$ref": "#/$defs/float_optional",
             "description": "BatchNorm epsilon override (model default if not None)"
         },
         "bn_momentum": {
-            "$ref": "#/$defs/<class 'float'>_False_True",
+            "$ref": "#/$defs/float_optional",
             "description": "BatchNorm momentum override (model default if not None)"
         },
         "drop_block_rate": {
-            "$ref": "#/$defs/<class 'float'>_False_True",
+            "$ref": "#/$defs/float_optional",
             "description": "drop block rate (model default if None)"
         },
         "drop_path_rate": {
-            "$ref": "#/$defs/<class 'float'>_False_True",
+            "$ref": "#/$defs/float_optional",
             "description": "drop path rate (model default if None)"
         },
         "drop_rate": {
@@ -65,7 +65,7 @@
             "type": "number"
         },
         "global_pool": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "Global pool type, one of (fast, avg, max, avgmax, avgmaxc). Model default if None."
         },
         "initializers": {
@@ -83,7 +83,7 @@
             ]
         },
         "model_name": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "timm model name e.g: 'resnet50', list of models can be found at\nhttps://github.com/rwightman/pytorch-image-models"
         },
         "num_classes": {

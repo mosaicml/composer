@@ -1,6 +1,6 @@
 {
     "$defs": {
-        "<class 'float'>_True_False": {
+        "float_list": {
             "oneOf": [
                 {
                     "type": "number"
@@ -17,7 +17,7 @@
     "additionalProperties": false,
     "properties": {
         "betas": {
-            "$ref": "#/$defs/<class 'float'>_True_False",
+            "$ref": "#/$defs/float_list",
             "description": "coefficients used for computing\nrunning averages of gradient and its square (default: (0.9, 0.999))"
         },
         "eps": {

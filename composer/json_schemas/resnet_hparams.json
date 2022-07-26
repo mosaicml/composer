@@ -3,26 +3,6 @@
         "0_list": {
             "$ref": "#/$defs/Initializer"
         },
-        "<class 'int'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "<class 'str'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
         "Initializer": {
             "enum": [
                 "BN_ONES",
@@ -39,6 +19,26 @@
                 "linear_log_constant_bias",
                 "xavier_normal",
                 "xavier_uniform"
+            ]
+        },
+        "int_optional": {
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "str_optional": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
             ]
         }
     },
@@ -71,7 +71,7 @@
             "type": "string"
         },
         "num_classes": {
-            "$ref": "#/$defs/<class 'int'>_False_True",
+            "$ref": "#/$defs/int_optional",
             "description": "The number of classes.  Needed for classification tasks"
         },
         "pretrained": {
@@ -79,7 +79,7 @@
             "type": "boolean"
         },
         "weights": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "If provided, pretrained weights can be specified, such as with ``IMAGENET1K_V2``. (default: ``None``)"
         },
         "width_per_group": {

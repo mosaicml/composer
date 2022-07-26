@@ -1,15 +1,5 @@
 {
     "$defs": {
-        "<class 'str'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
         "MemoryFormat": {
             "enum": [
                 "CHANNELS_LAST",
@@ -21,12 +11,22 @@
                 "contiguous_format",
                 "preserve_format"
             ]
+        },
+        "str_optional": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         }
     },
     "additionalProperties": false,
     "properties": {
         "datadir": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "The path to the data directory"
         },
         "download": {

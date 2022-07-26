@@ -3,36 +3,6 @@
         "0_list": {
             "$ref": "#/$defs/Initializer"
         },
-        "<class 'bool'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "boolean"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "<class 'int'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "<class 'str'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
         "Initializer": {
             "enum": [
                 "BN_ONES",
@@ -50,12 +20,42 @@
                 "xavier_normal",
                 "xavier_uniform"
             ]
+        },
+        "bool_optional": {
+            "oneOf": [
+                {
+                    "type": "boolean"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "int_optional": {
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "str_optional": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         }
     },
     "additionalProperties": false,
     "properties": {
         "gradient_checkpointing": {
-            "$ref": "#/$defs/<class 'bool'>_False_True",
+            "$ref": "#/$defs/bool_optional",
             "description": "Whether to enable gradient checkpointing."
         },
         "initializers": {
@@ -84,23 +84,23 @@
             ]
         },
         "num_classes": {
-            "$ref": "#/$defs/<class 'int'>_False_True",
+            "$ref": "#/$defs/int_optional",
             "description": "The number of classes.  Needed for classification tasks"
         },
         "num_labels": {
-            "$ref": "#/$defs/<class 'int'>_False_True",
+            "$ref": "#/$defs/int_optional",
             "description": "The number of possible labels for the task."
         },
         "pretrained_model_name": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "Pretrained model name to pull from Hugging Face Model Hub."
         },
         "tokenizer_name": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "The tokenizer used for this model, necessary to assert required model inputs."
         },
         "use_pretrained": {
-            "$ref": "#/$defs/<class 'bool'>_False_True",
+            "$ref": "#/$defs/bool_optional",
             "description": "Whether to initialize the model with the pretrained weights."
         }
     },

@@ -1,6 +1,6 @@
 {
     "$defs": {
-        "<class 'int'>_False_True": {
+        "int_optional": {
             "oneOf": [
                 {
                     "type": "integer"
@@ -10,7 +10,7 @@
                 }
             ]
         },
-        "<class 'str'>_False_True": {
+        "str_optional": {
             "oneOf": [
                 {
                     "type": "string"
@@ -32,15 +32,15 @@
             "type": "object"
         },
         "host": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "Override hostname for connections"
         },
         "key_environ": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "The name of an environment variable containing an API key or username to use to connect to the provider."
         },
         "port": {
-            "$ref": "#/$defs/<class 'int'>_False_True",
+            "$ref": "#/$defs/int_optional",
             "description": "Override port for connections"
         },
         "provider": {
@@ -48,11 +48,11 @@
             "type": "string"
         },
         "region": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "Cloud region to use"
         },
         "secret_environ": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "The name of an environment variable containing an API secret or password to use to connect to the provider."
         }
     },

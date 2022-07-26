@@ -124,65 +124,6 @@
                 }
             ]
         },
-        "<class 'bool'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "boolean"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "<class 'int'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "<class 'str'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "<class 'str'>_True_False": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array"
-                }
-            ]
-        },
-        "<class 'str'>_True_True": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
         "ADE20kDatasetHparams": {
             "additionalProperties": false,
             "properties": {
@@ -191,7 +132,7 @@
                     "type": "integer"
                 },
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The path to the data directory"
                 },
                 "drop_last": {
@@ -245,7 +186,7 @@
             "additionalProperties": false,
             "properties": {
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The path to the data directory"
                 },
                 "drop_last": {
@@ -275,11 +216,11 @@
                     "type": "boolean"
                 },
                 "group_method": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "How to group text samples into token samples. Either `truncate` or `concat`."
                 },
                 "max_seq_len": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "The max sequence length of each token sample."
                 },
                 "mlm": {
@@ -291,7 +232,7 @@
                     "type": "number"
                 },
                 "num_samples": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "The number of post-processed token samples, used to set epoch size of the IterableDataset."
                 },
                 "seed": {
@@ -307,11 +248,11 @@
                     "type": "integer"
                 },
                 "split": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "What split of the dataset to use. Either `train` or `validation`."
                 },
                 "tokenizer_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The name of the HuggingFace tokenizer to preprocess text with."
                 }
             },
@@ -321,7 +262,7 @@
             "additionalProperties": false,
             "properties": {
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The path to the data directory"
                 },
                 "download": {
@@ -379,7 +320,7 @@
             "additionalProperties": false,
             "properties": {
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The path to the data directory"
                 },
                 "drop_last": {
@@ -631,7 +572,7 @@
                     "description": "Evaluator dataset for the Evaluator"
                 },
                 "eval_interval": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "An integer,\nwhich will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time` object, or a callable.\nDefaults to ``None``, which means that the ``eval_interval`` parameter from the :class:`.Trainer` will be used.\n\nIf an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the evaluator will be run\nwith this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of\n:attr:`.TimeUnit.BATCH` or :attr:`.TimeUnit.EPOCH`.\n\nSet to ``0`` to disable evaluation.\n\nIf a callable, it should take two arguments (:class:`.State`, :class:`.Event`) and return a bool\nrepresenting whether the evaluator should be invoked. The event will be either :attr:`.Event.BATCH_END`\nor :attr:`.Event.EPOCH_END`.\n\nWhen specifying ``eval_interval``, the evaluator(s) are also run at the ``Event.FIT_END`` if it doesn't\nevenly divide the training duration."
                 },
                 "label": {
@@ -639,11 +580,11 @@
                     "type": "string"
                 },
                 "metric_names": {
-                    "$ref": "#/$defs/<class 'str'>_True_True",
+                    "$ref": "#/$defs/str_list_optional",
                     "description": "Name of the metrics for the evaluator. Can be a torchmetrics metric name or the\n        class name of a metric returned by model.metrics(). If None (the default), uses all metrics in the model"
                 },
                 "subset_num_batches": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "The maximum number of batches to use for each evaluation. Defaults to ``None``,\nwhich means that the ``eval_subset_num_batches`` parameter from the :class:`.Trainer` will be used.\nSet to ``-1`` to evaluate the entire ``dataloader``"
                 }
             },
@@ -690,7 +631,7 @@
                     "type": "boolean"
                 },
                 "split": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Whether to use 'train', 'validation' or 'test' split."
                 },
                 "synthetic_device": {
@@ -706,11 +647,11 @@
                     "type": "integer"
                 },
                 "task": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The GLUE task to train on, choose one from: CoLA, MNLI, MRPC, QNLI, QQP, RTE, SST-2, and STS-B."
                 },
                 "tokenizer_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The name of the HuggingFace tokenizer to preprocess text with."
                 },
                 "use_synthetic": {
@@ -728,7 +669,7 @@
                     "type": "integer"
                 },
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The path to the data directory"
                 },
                 "drop_last": {
@@ -790,7 +731,7 @@
             "additionalProperties": false,
             "properties": {
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_True_False",
+                    "$ref": "#/$defs/str_list",
                     "description": "Path to the Huggingface Datasets directory."
                 },
                 "drop_last": {
@@ -818,7 +759,7 @@
                     "type": "boolean"
                 },
                 "split": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Whether to use 'train', 'validation' or 'test' split."
                 },
                 "subsample_ratio": {
@@ -838,7 +779,7 @@
                     "type": "integer"
                 },
                 "tokenizer_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The name of the tokenizer to preprocess text with."
                 },
                 "use_masked_lm": {
@@ -903,7 +844,7 @@
             "additionalProperties": false,
             "properties": {
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The path to the data directory"
                 },
                 "download": {
@@ -961,7 +902,7 @@
                     "type": "number"
                 },
                 "milestones": {
-                    "$ref": "#/$defs/<class 'str'>_True_False",
+                    "$ref": "#/$defs/str_list",
                     "description": "Times at which the learning rate should change."
                 }
             },
@@ -978,7 +919,7 @@
                     "type": "number"
                 },
                 "milestones": {
-                    "$ref": "#/$defs/<class 'str'>_True_False",
+                    "$ref": "#/$defs/str_list",
                     "description": "Times at which the learning rate should change."
                 },
                 "scale_warmup": {
@@ -1260,12 +1201,71 @@
                 }
             },
             "type": "object"
+        },
+        "bool_optional": {
+            "oneOf": [
+                {
+                    "type": "boolean"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "int_optional": {
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "str_list": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            ]
+        },
+        "str_list_optional": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "str_optional": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         }
     },
     "additionalProperties": false,
     "properties": {
         "compute_training_metrics": {
-            "$ref": "#/$defs/<class 'bool'>_False_True",
+            "$ref": "#/$defs/bool_optional",
             "description": "See :class:`.Trainer`."
         },
         "duration": {
@@ -1287,7 +1287,7 @@
             ]
         },
         "eval_batch_size": {
-            "$ref": "#/$defs/<class 'int'>_False_True",
+            "$ref": "#/$defs/int_optional",
             "description": "batch size to use for each evaluation step"
         },
         "eval_dataset": {
@@ -1515,11 +1515,11 @@
             ]
         },
         "step_schedulers_every_batch": {
-            "$ref": "#/$defs/<class 'bool'>_False_True",
+            "$ref": "#/$defs/bool_optional",
             "description": "See :class:`.Trainer`."
         },
         "train_batch_size": {
-            "$ref": "#/$defs/<class 'int'>_False_True",
+            "$ref": "#/$defs/int_optional",
             "description": "batch size for each optimization step, across all devices and gradient accumulations."
         },
         "train_dataloader_label": {
@@ -1665,7 +1665,7 @@
             ]
         },
         "train_subset_num_batches": {
-            "$ref": "#/$defs/<class 'int'>_False_True",
+            "$ref": "#/$defs/int_optional",
             "description": "See :class:`.Trainer`."
         }
     },

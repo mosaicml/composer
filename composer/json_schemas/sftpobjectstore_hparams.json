@@ -1,6 +1,6 @@
 {
     "$defs": {
-        "<class 'str'>_False_True": {
+        "str_optional": {
             "oneOf": [
                 {
                     "type": "string"
@@ -33,7 +33,7 @@
             "type": "string"
         },
         "key_filename": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "The filepath to the a private key (if required) needed to\nauthenticate. Defaults to None. Any keys specified here will be tried *in addition* to any keys\nspecified in ``~/.ssh/`` or via a SSH agent."
         },
         "key_filename_environ": {
@@ -41,7 +41,7 @@
             "type": "string"
         },
         "known_hosts_filename": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "The filename of the known hosts file. If not specified,\nthe default SSH known hosts will be used."
         },
         "known_hosts_filename_environ": {
@@ -57,7 +57,7 @@
             "type": "integer"
         },
         "username": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "The username (if not specified in the SSH config) needed to authenticate.\nDefaults to None."
         }
     },

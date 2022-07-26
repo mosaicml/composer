@@ -545,88 +545,6 @@
         "9_list": {
             "$ref": "#/$defs/Initializer"
         },
-        "<class 'bool'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "boolean"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "<class 'float'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "number"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "<class 'float'>_True_False": {
-            "oneOf": [
-                {
-                    "type": "number"
-                },
-                {
-                    "items": {
-                        "type": "number"
-                    },
-                    "type": "array"
-                }
-            ]
-        },
-        "<class 'int'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "<class 'str'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "<class 'str'>_True_False": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array"
-                }
-            ]
-        },
-        "<class 'str'>_True_True": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
         "ADE20kDatasetHparams": {
             "additionalProperties": false,
             "properties": {
@@ -635,7 +553,7 @@
                     "type": "integer"
                 },
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The path to the data directory"
                 },
                 "drop_last": {
@@ -693,7 +611,7 @@
                     "type": "boolean"
                 },
                 "betas": {
-                    "$ref": "#/$defs/<class 'float'>_True_False",
+                    "$ref": "#/$defs/float_list",
                     "description": "coefficients used for computing\nrunning averages of gradient and its square (default: (0.9, 0.999))"
                 },
                 "eps": {
@@ -719,7 +637,7 @@
                     "type": "boolean"
                 },
                 "betas": {
-                    "$ref": "#/$defs/<class 'float'>_True_False",
+                    "$ref": "#/$defs/float_list",
                     "description": "coefficients used for computing\nrunning averages of gradient and its square (default: (0.9, 0.999))"
                 },
                 "eps": {
@@ -753,11 +671,11 @@
                     "type": "string"
                 },
                 "heads_per_layer": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "Number of attention heads per layer."
                 },
                 "mask_replacement_function": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Path to function to replace model's\nattention mask. This can be necessary if evaluating\non sequence lengths longer than the model was initialized to\naccommodate. Takes positional arguments ``module`` and\n``max_sequence_length``. For example,\n``'composer.algorithms.alibi._gpt2_alibi.enlarge_mask'``. Default = ``None``,\nwhich means no modification of the model's default attention mask."
                 },
                 "max_sequence_length": {
@@ -811,7 +729,7 @@
             "additionalProperties": false,
             "properties": {
                 "gradient_checkpointing": {
-                    "$ref": "#/$defs/<class 'bool'>_False_True",
+                    "$ref": "#/$defs/bool_optional",
                     "description": "Whether to enable gradient checkpointing."
                 },
                 "initializers": {
@@ -840,23 +758,23 @@
                     ]
                 },
                 "num_classes": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "The number of classes.  Needed for classification tasks"
                 },
                 "num_labels": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "The number of possible labels for the task."
                 },
                 "pretrained_model_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Pretrained model name to pull from Hugging Face Model Hub."
                 },
                 "tokenizer_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The tokenizer used for this model, necessary to assert required model inputs."
                 },
                 "use_pretrained": {
-                    "$ref": "#/$defs/<class 'bool'>_False_True",
+                    "$ref": "#/$defs/bool_optional",
                     "description": "Whether to initialize the model with the pretrained weights."
                 }
             },
@@ -866,7 +784,7 @@
             "additionalProperties": false,
             "properties": {
                 "gradient_checkpointing": {
-                    "$ref": "#/$defs/<class 'bool'>_False_True",
+                    "$ref": "#/$defs/bool_optional",
                     "description": "Whether to enable gradient checkpointing."
                 },
                 "initializers": {
@@ -895,19 +813,19 @@
                     ]
                 },
                 "num_classes": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "The number of classes.  Needed for classification tasks"
                 },
                 "pretrained_model_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Pretrained model name to pull from Hugging Face Model Hub."
                 },
                 "tokenizer_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The tokenizer used for this model, necessary to assert required model inputs."
                 },
                 "use_pretrained": {
-                    "$ref": "#/$defs/<class 'bool'>_False_True",
+                    "$ref": "#/$defs/bool_optional",
                     "description": "Whether to initialize the model with the pretrained weights."
                 }
             },
@@ -939,7 +857,7 @@
             "additionalProperties": false,
             "properties": {
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The path to the data directory"
                 },
                 "drop_last": {
@@ -969,11 +887,11 @@
                     "type": "boolean"
                 },
                 "group_method": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "How to group text samples into token samples. Either `truncate` or `concat`."
                 },
                 "max_seq_len": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "The max sequence length of each token sample."
                 },
                 "mlm": {
@@ -985,7 +903,7 @@
                     "type": "number"
                 },
                 "num_samples": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "The number of post-processed token samples, used to set epoch size of the IterableDataset."
                 },
                 "seed": {
@@ -1001,11 +919,11 @@
                     "type": "integer"
                 },
                 "split": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "What split of the dataset to use. Either `train` or `validation`."
                 },
                 "tokenizer_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The name of the HuggingFace tokenizer to preprocess text with."
                 }
             },
@@ -1015,7 +933,7 @@
             "additionalProperties": false,
             "properties": {
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The path to the data directory"
                 },
                 "download": {
@@ -1073,7 +991,7 @@
             "additionalProperties": false,
             "properties": {
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The path to the data directory"
                 },
                 "drop_last": {
@@ -1100,7 +1018,7 @@
             "additionalProperties": false,
             "properties": {
                 "artifact_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Format string for the checkpoint's artifact name.\nDefault: ``\"{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}\"``.\n\nAfter the checkpoint is saved, it will be periodically logged as a file artifact.\nThe artifact name will be determined by this format string.\n\n.. seealso:: :meth:`.Logger.log_file_artifact` for file artifact logging.\n\nThe same format variables for ``filename`` are available.\n\nLeading slashes (``'/'``) will be stripped.\n\nTo disable logging trace files as file artifacts, set this parameter to ``None``."
                 },
                 "filename": {
@@ -1112,11 +1030,11 @@
                     "type": "string"
                 },
                 "latest_artifact_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Format string for the checkpoint's latest symlink artifact name.\nDefault: ``'{run_name}/checkpoints/latest-rank{rank}\"``.\n\nWhenever a new checkpoint is saved, a symlink artifact is created or updated to point to the latest checkpoint's ``artifact_name``.\nThe artifact name will be determined by this format string. This parameter has no effect if ``latest_filename`` or ``artifact_name`` is ``None``.\n\n.. seealso:: :func:`.write_symlink` for symlink artifact logging.\n\nThe same format variables for ``filename`` are available.\n\nLeading slashes (``'/'``) will be stripped.\n\nTo disable symlinks in logger, set this parameter to ``None``."
                 },
                 "latest_filename": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "A format string for a symlink which points to the last saved checkpoint.\nDefault: ``'latest-rank{rank}'``.\n\nSymlinks will be created approximately at ``{folder}/{latest_filename.format(...)}``.\n\nThe same format variables as for ``name`` are available.\n\nTo disable symlinks, set this parameter to ``None``.\n\nConsider the following scenario, where:\n\n*   The :attr:`~.State.run_name` is 'awesome-training-run'\n*   The default ``folder='{run_name}/checkpoints'`` is used.\n*   The default ``name='ep{epoch}-ba{batch}-rank{rank}'`` is used.\n*   The default ``latest_filename='latest-rank{rank}'`` is used.\n*   The current epoch count is ``1``.\n*   The current batch count is ``42``.\n\nWhen DeepSpeed is not being used, the rank zero process will save the checkpoint to\n``'awesome-training-run/checkpoints/ep1-ba42-rank0'``,\nand a symlink will be created at\n``'awesome-training-run/checkpoints/latest-rank0' -> 'awesome-training-run/checkpoints/ep1-ba42-rank0'``\n\nWhen DeepSpeed is being used, each rank (process) will save checkpoints to::\n\n    awesome-training-run/checkpoints/ep1-ba42-rank0.tar\n    awesome-training-run/checkpoints/ep1-ba42-rank1.tar\n    awesome-training-run/checkpoints/ep1-ba42-rank2.tar\n    ...\n\nCorresponding symlinks will be created at::\n\n    awesome-training-run/checkpoints/latest-rank0.tar -> awesome-training-run/checkpoints/ep1-ba42-rank0.tar\n    awesome-training-run/checkpoints/latest-rank1.tar -> awesome-training-run/checkpoints/ep1-ba42-rank1.tar\n    awesome-training-run/checkpoints/latest-rank2.tar -> awesome-training-run/checkpoints/ep1-ba42-rank2.tar\n    ..."
                 },
                 "num_checkpoints_to_keep": {
@@ -1438,7 +1356,7 @@
                     "type": "boolean"
                 },
                 "betas": {
-                    "$ref": "#/$defs/<class 'float'>_True_False",
+                    "$ref": "#/$defs/float_list",
                     "description": "Coefficients used for computing running averages of gradient and its square\nDefault: ``(0.9, 0.999)``."
                 },
                 "eps": {
@@ -1524,7 +1442,7 @@
                     "type": "boolean"
                 },
                 "num_classes": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "The number of classes.  Needed for classification tasks"
                 },
                 "sync_bn": {
@@ -1551,7 +1469,7 @@
                     "type": "boolean"
                 },
                 "device_id": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "Integer ID of a GPU device to train with. If not specified, the local rank\nof the current process is used. Default: None."
                 }
             },
@@ -1569,7 +1487,7 @@
                     "type": "boolean"
                 },
                 "update_interval": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The time string specifying the period at which updates are done. For example,\nan ``update_interval='1ep'`` means updates are done every epoch, while ``update_interval='10ba'`` means\nupdates are done once every ten batches. Units must match the units used to specify ``half_life``. If not\nspecified, ``update_interval`` will default to ``1`` in the units of ``half_life``. Value must be an\ninteger. Default: ``None``."
                 }
             },
@@ -1582,7 +1500,7 @@
             "additionalProperties": false,
             "properties": {
                 "comp": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "A comparison operator to measure change of the monitored metric.\nThe comparison operator will be called ``comp(current_value, prev_best)``. For metrics where the optimal value is low\n(error, loss, perplexity), use a less than operator, and for metrics like accuracy where the optimal value\nis higher, use a greater than operator. Defaults to :func:`torch.less` if loss, error, or perplexity are substrings\nof the monitored metric, otherwise defaults to :func:`torch.greater`."
                 },
                 "dataloader_label": {
@@ -1637,7 +1555,7 @@
                     ]
                 },
                 "num_classes": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "The number of classes.  Needed for classification tasks"
                 }
             },
@@ -1778,7 +1696,7 @@
                     "description": "Evaluator dataset for the Evaluator"
                 },
                 "eval_interval": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "An integer,\nwhich will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time` object, or a callable.\nDefaults to ``None``, which means that the ``eval_interval`` parameter from the :class:`.Trainer` will be used.\n\nIf an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the evaluator will be run\nwith this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of\n:attr:`.TimeUnit.BATCH` or :attr:`.TimeUnit.EPOCH`.\n\nSet to ``0`` to disable evaluation.\n\nIf a callable, it should take two arguments (:class:`.State`, :class:`.Event`) and return a bool\nrepresenting whether the evaluator should be invoked. The event will be either :attr:`.Event.BATCH_END`\nor :attr:`.Event.EPOCH_END`.\n\nWhen specifying ``eval_interval``, the evaluator(s) are also run at the ``Event.FIT_END`` if it doesn't\nevenly divide the training duration."
                 },
                 "label": {
@@ -1786,11 +1704,11 @@
                     "type": "string"
                 },
                 "metric_names": {
-                    "$ref": "#/$defs/<class 'str'>_True_True",
+                    "$ref": "#/$defs/str_list_optional",
                     "description": "Name of the metrics for the evaluator. Can be a torchmetrics metric name or the\n        class name of a metric returned by model.metrics(). If None (the default), uses all metrics in the model"
                 },
                 "subset_num_batches": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "The maximum number of batches to use for each evaluation. Defaults to ``None``,\nwhich means that the ``eval_subset_num_batches`` parameter from the :class:`.Trainer` will be used.\nSet to ``-1`` to evaluate the entire ``dataloader``"
                 }
             },
@@ -1865,7 +1783,7 @@
             "additionalProperties": false,
             "properties": {
                 "artifact_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Format string for the logfile's artifact name.\nThe logfile will be periodically logged (according to the ``flush_interval``) as a file artifact.\nThe artifact name will be determined by this format string.\n\n.. seealso:: :meth:`~composer.loggers.logger.Logger.log_file_artifact` for file artifact logging.\n\nThe same format variables for ``filename`` are available. Setting this parameter to ``None``\n(the default) will use the same format string as ``filename``. It is sometimes helpful to deviate\nfrom this default. For example, when ``filename`` contains an absolute path, it is recommended to\nset this parameter explicitely, so the absolute path does not appear in any artifact stores.\n\nLeading slashes (``'/'``) will be stripped.\n\nDefault: ``None`` (which uses the same format string as ``filename``)"
                 },
                 "buffer_size": {
@@ -1928,7 +1846,7 @@
                     "type": "boolean"
                 },
                 "split": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Whether to use 'train', 'validation' or 'test' split."
                 },
                 "synthetic_device": {
@@ -1944,11 +1862,11 @@
                     "type": "integer"
                 },
                 "task": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The GLUE task to train on, choose one from: CoLA, MNLI, MRPC, QNLI, QQP, RTE, SST-2, and STS-B."
                 },
                 "tokenizer_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The name of the HuggingFace tokenizer to preprocess text with."
                 },
                 "use_synthetic": {
@@ -1962,7 +1880,7 @@
             "additionalProperties": false,
             "properties": {
                 "gradient_checkpointing": {
-                    "$ref": "#/$defs/<class 'bool'>_False_True",
+                    "$ref": "#/$defs/bool_optional",
                     "description": "Whether to enable gradient checkpointing."
                 },
                 "initializers": {
@@ -1991,19 +1909,19 @@
                     ]
                 },
                 "num_classes": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "The number of classes.  Needed for classification tasks"
                 },
                 "pretrained_model_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Pretrained model name to pull from Hugging Face Model Hub."
                 },
                 "tokenizer_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The tokenizer used for this model, necessary to assert required model inputs."
                 },
                 "use_pretrained": {
-                    "$ref": "#/$defs/<class 'bool'>_False_True",
+                    "$ref": "#/$defs/bool_optional",
                     "description": "Whether to initialize the model with the pretrained weights."
                 }
             },
@@ -2143,7 +2061,7 @@
                     "type": "integer"
                 },
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The path to the data directory"
                 },
                 "drop_last": {
@@ -2233,7 +2151,7 @@
             "additionalProperties": false,
             "properties": {
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_True_False",
+                    "$ref": "#/$defs/str_list",
                     "description": "Path to the Huggingface Datasets directory."
                 },
                 "drop_last": {
@@ -2261,7 +2179,7 @@
                     "type": "boolean"
                 },
                 "split": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Whether to use 'train', 'validation' or 'test' split."
                 },
                 "subsample_ratio": {
@@ -2281,7 +2199,7 @@
                     "type": "integer"
                 },
                 "tokenizer_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The name of the tokenizer to preprocess text with."
                 },
                 "use_masked_lm": {
@@ -2353,15 +2271,15 @@
                     "type": "object"
                 },
                 "host": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Override hostname for connections"
                 },
                 "key_environ": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The name of an environment variable containing an API key or username to use to connect to the provider."
                 },
                 "port": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "Override port for connections"
                 },
                 "provider": {
@@ -2369,11 +2287,11 @@
                     "type": "string"
                 },
                 "region": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Cloud region to use"
                 },
                 "secret_environ": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The name of an environment variable containing an API secret or password to use to connect to the provider."
                 }
             },
@@ -2451,7 +2369,7 @@
                     "type": "string"
                 },
                 "cache_clear_cmd": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Command to invoke during the cache clear. This callback\nwill call ``os.system(cache_clear_cmd)``. Default is disabled (None)"
                 },
                 "division": {
@@ -2459,7 +2377,7 @@
                     "type": "string"
                 },
                 "host_processors_per_node": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "Total number of host processors per node.  Default: ``None``."
                 },
                 "index": {
@@ -2487,7 +2405,7 @@
                     "type": "string"
                 },
                 "system_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Name of the system (e.g. 8xA100_composer). If\nnot provided, system name will default to ``[world_size]x[device_name]_composer``,\ne.g. ``8xNVIDIA_A100_80GB_composer``."
                 },
                 "target": {
@@ -2505,7 +2423,7 @@
             "additionalProperties": false,
             "properties": {
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The path to the data directory"
                 },
                 "download": {
@@ -2626,7 +2544,7 @@
                     ]
                 },
                 "num_classes": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "The number of classes.  Needed for classification tasks"
                 }
             },
@@ -2640,7 +2558,7 @@
                     "type": "number"
                 },
                 "milestones": {
-                    "$ref": "#/$defs/<class 'str'>_True_False",
+                    "$ref": "#/$defs/str_list",
                     "description": "Times at which the learning rate should change."
                 }
             },
@@ -2657,7 +2575,7 @@
                     "type": "number"
                 },
                 "milestones": {
-                    "$ref": "#/$defs/<class 'str'>_True_False",
+                    "$ref": "#/$defs/str_list",
                     "description": "Times at which the learning rate should change."
                 },
                 "scale_warmup": {
@@ -2728,11 +2646,11 @@
                     "description": "Object store provider hparams."
                 },
                 "should_log_artifact": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Path to a filter function which returns whether an artifact should be logged."
                 },
                 "upload_staging_folder": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "A folder to use for staging uploads.\nIf not specified, defaults to using a :func:`~tempfile.TemporaryDirectory`."
                 },
                 "use_procs": {
@@ -2913,7 +2831,7 @@
                     "description": "The maximum log level for which statements\nshould be printed. (default: :attr:`.LogLevel.EPOCH`)\n\nIt can either be :class:`.LogLevel`, a string corresponding to a :class:`.LogLevel`, or a callable that\ntakes the training :class:`.State` and the :class:`.LogLevel` and returns a boolean of whether this\nstatement should be printed.\n\nThis parameter has no effect if ``log_to_console`` is ``False`` or is unspecified when ``progress_bar`` is\n``True``."
                 },
                 "log_to_console": {
-                    "$ref": "#/$defs/<class 'bool'>_False_True",
+                    "$ref": "#/$defs/bool_optional",
                     "description": "Whether to print logging statements to the console. (default: ``None``)\nThe default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is\n``False``."
                 },
                 "progress_bar": {
@@ -2995,7 +2913,7 @@
             "additionalProperties": false,
             "properties": {
                 "betas": {
-                    "$ref": "#/$defs/<class 'float'>_True_False",
+                    "$ref": "#/$defs/float_list",
                     "description": "coefficients used for computing\nrunning averages of gradient and its square (default: (0.9, 0.999))"
                 },
                 "eps": {
@@ -3079,7 +2997,7 @@
                     ]
                 },
                 "model_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "\"cifar_resnet_9\", \"cifar_resnet_20\" or \"cifar_resnet_56\""
                 },
                 "num_classes": {
@@ -3119,7 +3037,7 @@
                     "type": "string"
                 },
                 "num_classes": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "The number of classes.  Needed for classification tasks"
                 },
                 "pretrained": {
@@ -3127,7 +3045,7 @@
                     "type": "boolean"
                 },
                 "weights": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "If provided, pretrained weights can be specified, such as with ``IMAGENET1K_V2``. (default: ``None``)"
                 },
                 "width_per_group": {
@@ -3156,7 +3074,7 @@
                     ]
                 },
                 "endpoint_url": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The URL to an S3-Compatible object store. Must be specified if using something\nother than Amazon S3, like Google Cloud Storage. Defaults to None."
                 },
                 "prefix": {
@@ -3164,7 +3082,7 @@
                     "type": "string"
                 },
                 "region_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The region name. Must be specified if not available in\na config file or environment variables. Defaults to None."
                 },
                 "transfer_config": {
@@ -3225,7 +3143,7 @@
                     "type": "string"
                 },
                 "key_filename": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The filepath to the a private key (if required) needed to\nauthenticate. Defaults to None. Any keys specified here will be tried *in addition* to any keys\nspecified in ``~/.ssh/`` or via a SSH agent."
                 },
                 "key_filename_environ": {
@@ -3233,7 +3151,7 @@
                     "type": "string"
                 },
                 "known_hosts_filename": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The filename of the known hosts file. If not specified,\nthe default SSH known hosts will be used."
                 },
                 "known_hosts_filename_environ": {
@@ -3249,7 +3167,7 @@
                     "type": "integer"
                 },
                 "username": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The username (if not specified in the SSH config) needed to authenticate.\nDefaults to None."
                 }
             },
@@ -3344,7 +3262,7 @@
                     "type": "string"
                 },
                 "swa_lr": {
-                    "$ref": "#/$defs/<class 'float'>_False_True",
+                    "$ref": "#/$defs/float_optional",
                     "description": "The final learning rate to anneal towards with the SWA\nLR scheduler. Set to ``None`` for no annealing. Default: ``None``."
                 },
                 "swa_start": {
@@ -3719,7 +3637,7 @@
                     "type": "integer"
                 },
                 "log_dir": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The path to the directory where all the tensorboard logs\nwill be saved. This is also the value that should be specified when starting\na tensorboard server. e.g. `tensorboard --logdir={log_dir}`. If not specified\n`./tensorboard_logs` will be used."
                 },
                 "rank_zero_only": {
@@ -3733,7 +3651,7 @@
             "additionalProperties": false,
             "properties": {
                 "comp": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "A comparison operator to measure change of the monitored metric. The comparison\noperator will be called ``comp(current_value, prev_best)``. For metrics where the optimal value is low\n(error, loss, perplexity), use a less than operator and for metrics like accuracy where the optimal value\nis higher, use a greater than operator. Defaults to :func:`torch.less` if loss, error, or perplexity are substrings\nof the monitored metric, otherwise defaults to :func:`torch.greater`"
                 },
                 "dataloader_label": {
@@ -3764,19 +3682,19 @@
             "additionalProperties": false,
             "properties": {
                 "bn_eps": {
-                    "$ref": "#/$defs/<class 'float'>_False_True",
+                    "$ref": "#/$defs/float_optional",
                     "description": "BatchNorm epsilon override (model default if not None)"
                 },
                 "bn_momentum": {
-                    "$ref": "#/$defs/<class 'float'>_False_True",
+                    "$ref": "#/$defs/float_optional",
                     "description": "BatchNorm momentum override (model default if not None)"
                 },
                 "drop_block_rate": {
-                    "$ref": "#/$defs/<class 'float'>_False_True",
+                    "$ref": "#/$defs/float_optional",
                     "description": "drop block rate (model default if None)"
                 },
                 "drop_path_rate": {
-                    "$ref": "#/$defs/<class 'float'>_False_True",
+                    "$ref": "#/$defs/float_optional",
                     "description": "drop path rate (model default if None)"
                 },
                 "drop_rate": {
@@ -3784,7 +3702,7 @@
                     "type": "number"
                 },
                 "global_pool": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Global pool type, one of (fast, avg, max, avgmax, avgmaxc). Model default if None."
                 },
                 "initializers": {
@@ -3802,7 +3720,7 @@
                     ]
                 },
                 "model_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "timm model name e.g: 'resnet50', list of models can be found at\nhttps://github.com/rwightman/pytorch-image-models"
                 },
                 "num_classes": {
@@ -3834,7 +3752,7 @@
                     ]
                 },
                 "num_classes": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "The number of classes.  Needed for classification tasks"
                 }
             },
@@ -3884,11 +3802,11 @@
             "additionalProperties": false,
             "properties": {
                 "entity": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "WandB entity name."
                 },
                 "group": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "WandB group name."
                 },
                 "init_kwargs": {
@@ -3907,11 +3825,11 @@
                     "type": "boolean"
                 },
                 "name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "WandB run name.\nIf not specified, the :attr:`.State.run_name` will be used."
                 },
                 "project": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "WandB project name."
                 },
                 "rank_zero_only": {
@@ -3919,11 +3837,93 @@
                     "type": "boolean"
                 },
                 "tags": {
-                    "$ref": "#/$defs/<class 'str'>_True_True",
+                    "$ref": "#/$defs/str_list_optional",
                     "description": "WandB tags."
                 }
             },
             "type": "object"
+        },
+        "bool_optional": {
+            "oneOf": [
+                {
+                    "type": "boolean"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "float_list": {
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "items": {
+                        "type": "number"
+                    },
+                    "type": "array"
+                }
+            ]
+        },
+        "float_optional": {
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "int_optional": {
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "str_list": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            ]
+        },
+        "str_list_optional": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "str_optional": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         }
     },
     "additionalProperties": false,
@@ -4043,7 +4043,7 @@
             "type": "number"
         },
         "eval_batch_size": {
-            "$ref": "#/$defs/<class 'int'>_False_True",
+            "$ref": "#/$defs/int_optional",
             "description": "batch size to use for each evaluation step"
         },
         "eval_interval": {
@@ -4094,7 +4094,7 @@
             "type": "number"
         },
         "load_ignore_keys": {
-            "$ref": "#/$defs/<class 'str'>_True_True",
+            "$ref": "#/$defs/str_list_optional",
             "description": "A list of paths for the ``state_dict`` of the checkpoint,\nwhich, when provided, will be ignored from the state_dict before a checkpoint is loaded. Each path is a list\nof strings specifying the keys to index into ``state_dict`` joined together with `/` as a seperator (as PyTorch\nuses `.` in parameter names). If a prefix is provided, all children are also ignored (see Example 2).\nSee :mod:`composer.core.state` for the structure of state_dict.\n\nExample 1: ``load_ignore_keys = [\"state/model/layer1.weights\", \"state/model/layer1.bias\"]`` would ignore\nlayer 1 weights and bias.\n\nExample 2: ``load_ignore_keys = [\"state/model/*\"]`` would ignore the entire model, which would have the same\neffect as the previous example if there was only 1 layer.\n\nExample 3: ``load_ignore_keys = [\"state/model/layer*.weights\"]`` would ignore all weights in the model.\n\nExample 4: ``load_ignore_keys = [\"state/rank_zero_seed\", \"rng\"]`` would reset all randomness when\nloading the checkpoint.\n\nIf a callable, it should take one argument which is the state_dict. The callable is free to arbitrarily modify\nthe state_dict before it is loaded.\n\n(default: ``None``)"
         },
         "load_logger_destination": {
@@ -4203,7 +4203,7 @@
             ]
         },
         "load_path": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": " The path format string to an existing checkpoint file.\nIt can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name\nfor a checkpoint in a cloud bucket.\n\nWhen using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, checkpoints are shareded by rank.\nInstead of hard-coding the rank in the ``path``, use the following format variables:\n\n+------------------------+-------------------------------------------------------+\n| Variable               | Description                                           |\n+========================+=======================================================+\n| ``{rank}``             | The global rank, as returned by                       |\n|                        | :func:`~.dist.get_global_rank`.                       |\n+------------------------+-------------------------------------------------------+\n| ``{local_rank}``       | The local rank of the process, as returned by         |\n|                        | :func:`~.dist.get_local_rank`.                        |\n+------------------------+-------------------------------------------------------+\n| ``{node_rank}``        | The node rank, as returned by                         |\n|                        | :func:`~.dist.get_node_rank`.                         |\n+------------------------+-------------------------------------------------------+\n\nFor example, suppose that checkpoints are stored in the following structure:\n\n.. code-block::\n\n    my_model/ep1-rank0.tar\n    my_model/ep1-rank1.tar\n    my_model/ep1-rank2.tar\n    ...\n\nThen, ``load_path`` should be set to ``my_model/ep1-rank{rank}.tar``, and all ranks will load the\ncorrect state.\n\nIf ``None`` then no checkpoint will be loaded. (default: ``None``)"
         },
         "load_progress_bar": {
@@ -4219,7 +4219,7 @@
             "type": "boolean"
         },
         "log_to_console": {
-            "$ref": "#/$defs/<class 'bool'>_False_True",
+            "$ref": "#/$defs/bool_optional",
             "description": "Whether to print logging statements to the console. (default: ``None``)\nThe default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is ``False``."
         },
         "loggers": {
@@ -4476,7 +4476,7 @@
             "type": "string"
         },
         "run_name": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "A name for this training run. If not specified, the timestamp will be combined with a\n:doc:`coolname <coolname:index>`, e.g. ``1654298855-electric-zebra``."
         },
         "save_artifact_name": {
@@ -4488,7 +4488,7 @@
             "type": "string"
         },
         "save_folder": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "Format string for the folder where checkpoints are saved.\nIf ``None``, checkpoints will not be saved. (default: ``None``)\n\n.. seealso:: :class:`~.CheckpointSaver`\n\n.. note::\n\n    For fine-grained control on checkpoint saving (e.g. to save different types of checkpoints\n    at different intervals), leave this parameter as ``None``, and instead pass\n    instance(s) of :class:`~.CheckpointSaver` directly as ``callbacks``."
         },
         "save_interval": {
@@ -4537,15 +4537,15 @@
             ]
         },
         "seed": {
-            "$ref": "#/$defs/<class 'int'>_False_True",
+            "$ref": "#/$defs/int_optional",
             "description": "The seed used in randomization. If ``None``, then a random seed\nwill be created. (default: ``None``)\n\n.. note:: In order to get reproducible results, call the\n    :func:`.seed_all` function at the start of your script with the seed\n    passed to the trainer. This will ensure any initialization done before the trainer init\n    (ex. model weight initialization) also uses the provided seed.\n\n.. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility."
         },
         "step_schedulers_every_batch": {
-            "$ref": "#/$defs/<class 'bool'>_False_True",
+            "$ref": "#/$defs/bool_optional",
             "description": "By default, native\n`PyTorch schedulers <https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate>`_\nare updated every epoch, while :doc:`Composer Schedulers</trainer/schedulers>` are updated every step.\nSetting this to ``True`` will force schedulers to be stepped every batch,\nwhile ``False`` means schedulers stepped every epoch. ``None`` indicates the default behavior.\n(default: ``None``)"
         },
         "train_batch_size": {
-            "$ref": "#/$defs/<class 'int'>_False_True",
+            "$ref": "#/$defs/int_optional",
             "description": "batch size for each optimization step, across all devices and gradient accumulations."
         },
         "train_dataloader_label": {

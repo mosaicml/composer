@@ -1,54 +1,5 @@
 {
     "$defs": {
-        "<class 'int'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "<class 'str'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "<class 'str'>_True_False": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array"
-                }
-            ]
-        },
-        "<class 'str'>_True_True": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
         "ADE20kDatasetHparams": {
             "additionalProperties": false,
             "properties": {
@@ -57,7 +8,7 @@
                     "type": "integer"
                 },
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The path to the data directory"
                 },
                 "drop_last": {
@@ -111,7 +62,7 @@
             "additionalProperties": false,
             "properties": {
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The path to the data directory"
                 },
                 "drop_last": {
@@ -141,11 +92,11 @@
                     "type": "boolean"
                 },
                 "group_method": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "How to group text samples into token samples. Either `truncate` or `concat`."
                 },
                 "max_seq_len": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "The max sequence length of each token sample."
                 },
                 "mlm": {
@@ -157,7 +108,7 @@
                     "type": "number"
                 },
                 "num_samples": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "The number of post-processed token samples, used to set epoch size of the IterableDataset."
                 },
                 "seed": {
@@ -173,11 +124,11 @@
                     "type": "integer"
                 },
                 "split": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "What split of the dataset to use. Either `train` or `validation`."
                 },
                 "tokenizer_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The name of the HuggingFace tokenizer to preprocess text with."
                 }
             },
@@ -187,7 +138,7 @@
             "additionalProperties": false,
             "properties": {
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The path to the data directory"
                 },
                 "download": {
@@ -245,7 +196,7 @@
             "additionalProperties": false,
             "properties": {
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The path to the data directory"
                 },
                 "drop_last": {
@@ -283,7 +234,7 @@
                     "type": "boolean"
                 },
                 "split": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Whether to use 'train', 'validation' or 'test' split."
                 },
                 "synthetic_device": {
@@ -299,11 +250,11 @@
                     "type": "integer"
                 },
                 "task": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The GLUE task to train on, choose one from: CoLA, MNLI, MRPC, QNLI, QQP, RTE, SST-2, and STS-B."
                 },
                 "tokenizer_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The name of the HuggingFace tokenizer to preprocess text with."
                 },
                 "use_synthetic": {
@@ -321,7 +272,7 @@
                     "type": "integer"
                 },
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The path to the data directory"
                 },
                 "drop_last": {
@@ -383,7 +334,7 @@
             "additionalProperties": false,
             "properties": {
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_True_False",
+                    "$ref": "#/$defs/str_list",
                     "description": "Path to the Huggingface Datasets directory."
                 },
                 "drop_last": {
@@ -411,7 +362,7 @@
                     "type": "boolean"
                 },
                 "split": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Whether to use 'train', 'validation' or 'test' split."
                 },
                 "subsample_ratio": {
@@ -431,7 +382,7 @@
                     "type": "integer"
                 },
                 "tokenizer_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The name of the tokenizer to preprocess text with."
                 },
                 "use_masked_lm": {
@@ -462,7 +413,7 @@
             "additionalProperties": false,
             "properties": {
                 "datadir": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The path to the data directory"
                 },
                 "download": {
@@ -697,6 +648,55 @@
                 }
             },
             "type": "object"
+        },
+        "int_optional": {
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "str_list": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            ]
+        },
+        "str_list_optional": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "str_optional": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         }
     },
     "additionalProperties": false,
@@ -845,7 +845,7 @@
             "description": "The log level to use when logging metrics. Defaults to\n:attr:`~.LogLevel.FIT`."
         },
         "metric_names": {
-            "$ref": "#/$defs/<class 'str'>_True_True",
+            "$ref": "#/$defs/str_list_optional",
             "description": "Name of the metrics for the evaluator. Can be a torchmetrics metric name or the class name of a metric returned by model.metrics(). If None (the default), uses all metrics in the model"
         },
         "subset_num_batches": {

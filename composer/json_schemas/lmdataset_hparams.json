@@ -1,16 +1,18 @@
 {
     "$defs": {
-        "<class 'str'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
+        "MemoryFormat": {
+            "enum": [
+                "CHANNELS_LAST",
+                "CHANNELS_LAST_3D",
+                "CONTIGUOUS_FORMAT",
+                "PRESERVE_FORMAT",
+                "channels_last",
+                "channels_last_3d",
+                "contiguous_format",
+                "preserve_format"
             ]
         },
-        "<class 'str'>_True_False": {
+        "str_list": {
             "oneOf": [
                 {
                     "type": "string"
@@ -23,23 +25,21 @@
                 }
             ]
         },
-        "MemoryFormat": {
-            "enum": [
-                "CHANNELS_LAST",
-                "CHANNELS_LAST_3D",
-                "CONTIGUOUS_FORMAT",
-                "PRESERVE_FORMAT",
-                "channels_last",
-                "channels_last_3d",
-                "contiguous_format",
-                "preserve_format"
+        "str_optional": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
             ]
         }
     },
     "additionalProperties": false,
     "properties": {
         "datadir": {
-            "$ref": "#/$defs/<class 'str'>_True_False",
+            "$ref": "#/$defs/str_list",
             "description": "Path to the Huggingface Datasets directory."
         },
         "drop_last": {
@@ -67,7 +67,7 @@
             "type": "boolean"
         },
         "split": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "Whether to use 'train', 'validation' or 'test' split."
         },
         "subsample_ratio": {
@@ -87,7 +87,7 @@
             "type": "integer"
         },
         "tokenizer_name": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "The name of the tokenizer to preprocess text with."
         },
         "use_masked_lm": {

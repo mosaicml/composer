@@ -1,6 +1,6 @@
 {
     "$defs": {
-        "<class 'str'>_False_True": {
+        "str_optional": {
             "oneOf": [
                 {
                     "type": "string"
@@ -29,7 +29,7 @@
             ]
         },
         "endpoint_url": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "The URL to an S3-Compatible object store. Must be specified if using something\nother than Amazon S3, like Google Cloud Storage. Defaults to None."
         },
         "prefix": {
@@ -37,7 +37,7 @@
             "type": "string"
         },
         "region_name": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "The region name. Must be specified if not available in\na config file or environment variables. Defaults to None."
         },
         "transfer_config": {

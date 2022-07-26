@@ -1,6 +1,6 @@
 {
     "$defs": {
-        "<class 'int'>_False_True": {
+        "int_optional": {
             "oneOf": [
                 {
                     "type": "integer"
@@ -10,7 +10,7 @@
                 }
             ]
         },
-        "<class 'str'>_False_True": {
+        "str_optional": {
             "oneOf": [
                 {
                     "type": "string"
@@ -28,11 +28,11 @@
             "type": "boolean"
         },
         "group_method": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "How to group text samples into token samples. Either `truncate` or `concat`."
         },
         "max_seq_len": {
-            "$ref": "#/$defs/<class 'int'>_False_True",
+            "$ref": "#/$defs/int_optional",
             "description": "The max sequence length of each token sample."
         },
         "mlm": {
@@ -44,7 +44,7 @@
             "type": "number"
         },
         "num_samples": {
-            "$ref": "#/$defs/<class 'int'>_False_True",
+            "$ref": "#/$defs/int_optional",
             "description": "The number of post-processed token samples, used to set epoch size of the IterableDataset."
         },
         "seed": {
@@ -60,11 +60,11 @@
             "type": "integer"
         },
         "split": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "What split of the dataset to use. Either `train` or `validation`."
         },
         "tokenizer_name": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "The name of the HuggingFace tokenizer to preprocess text with."
         }
     },

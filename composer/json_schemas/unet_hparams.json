@@ -3,16 +3,6 @@
         "0_list": {
             "$ref": "#/$defs/Initializer"
         },
-        "<class 'int'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
         "Initializer": {
             "enum": [
                 "BN_ONES",
@@ -29,6 +19,16 @@
                 "linear_log_constant_bias",
                 "xavier_normal",
                 "xavier_uniform"
+            ]
+        },
+        "int_optional": {
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
             ]
         }
     },
@@ -49,7 +49,7 @@
             ]
         },
         "num_classes": {
-            "$ref": "#/$defs/<class 'int'>_False_True",
+            "$ref": "#/$defs/int_optional",
             "description": "The number of classes.  Needed for classification tasks"
         }
     },

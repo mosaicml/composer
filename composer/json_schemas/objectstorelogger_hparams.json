@@ -1,25 +1,5 @@
 {
     "$defs": {
-        "<class 'int'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
-        "<class 'str'>_False_True": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
         "LibcloudObjectStoreHparams": {
             "additionalProperties": false,
             "properties": {
@@ -32,15 +12,15 @@
                     "type": "object"
                 },
                 "host": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Override hostname for connections"
                 },
                 "key_environ": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The name of an environment variable containing an API key or username to use to connect to the provider."
                 },
                 "port": {
-                    "$ref": "#/$defs/<class 'int'>_False_True",
+                    "$ref": "#/$defs/int_optional",
                     "description": "Override port for connections"
                 },
                 "provider": {
@@ -48,11 +28,11 @@
                     "type": "string"
                 },
                 "region": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "Cloud region to use"
                 },
                 "secret_environ": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The name of an environment variable containing an API secret or password to use to connect to the provider."
                 }
             },
@@ -81,7 +61,7 @@
                     ]
                 },
                 "endpoint_url": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The URL to an S3-Compatible object store. Must be specified if using something\nother than Amazon S3, like Google Cloud Storage. Defaults to None."
                 },
                 "prefix": {
@@ -89,7 +69,7 @@
                     "type": "string"
                 },
                 "region_name": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The region name. Must be specified if not available in\na config file or environment variables. Defaults to None."
                 },
                 "transfer_config": {
@@ -132,7 +112,7 @@
                     "type": "string"
                 },
                 "key_filename": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The filepath to the a private key (if required) needed to\nauthenticate. Defaults to None. Any keys specified here will be tried *in addition* to any keys\nspecified in ``~/.ssh/`` or via a SSH agent."
                 },
                 "key_filename_environ": {
@@ -140,7 +120,7 @@
                     "type": "string"
                 },
                 "known_hosts_filename": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The filename of the known hosts file. If not specified,\nthe default SSH known hosts will be used."
                 },
                 "known_hosts_filename_environ": {
@@ -156,7 +136,7 @@
                     "type": "integer"
                 },
                 "username": {
-                    "$ref": "#/$defs/<class 'str'>_False_True",
+                    "$ref": "#/$defs/str_optional",
                     "description": "The username (if not specified in the SSH config) needed to authenticate.\nDefaults to None."
                 }
             },
@@ -164,6 +144,26 @@
                 "host"
             ],
             "type": "object"
+        },
+        "int_optional": {
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "str_optional": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         }
     },
     "additionalProperties": false,
@@ -213,11 +213,11 @@
             "description": "Object store provider hparams."
         },
         "should_log_artifact": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "Path to a filter function which returns whether an artifact should be logged."
         },
         "upload_staging_folder": {
-            "$ref": "#/$defs/<class 'str'>_False_True",
+            "$ref": "#/$defs/str_optional",
             "description": "A folder to use for staging uploads.\nIf not specified, defaults to using a :func:`~tempfile.TemporaryDirectory`."
         },
         "use_procs": {
