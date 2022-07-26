@@ -1,105 +1,105 @@
 {
-    "type": "object",
+    "$defs": {
+        "0_list": {
+            "type": "string"
+        }
+    },
+    "additionalProperties": false,
     "properties": {
-        "use_synthetic": {
-            "type": "boolean",
-            "description": "Whether to use synthetic data. Defaults to False."
-        },
-        "synthetic_num_unique_samples": {
-            "type": "integer",
-            "description": "The number of unique samples to allocate memory for."
-        },
-        "synthetic_device": {
-            "type": "string",
-            "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`."
-        },
-        "synthetic_memory_format": {
-            "enum": [
-                "CONTIGUOUS_FORMAT",
-                "CHANNELS_LAST_3D",
-                "preserve_format",
-                "contiguous_format",
-                "PRESERVE_FORMAT",
-                "channels_last",
-                "CHANNELS_LAST",
-                "channels_last_3d"
-            ],
-            "description": "Memory format. Defaults to contiguous format."
-        },
-        "drop_last": {
-            "type": "boolean",
-            "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros."
-        },
-        "shuffle": {
-            "type": "boolean",
-            "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
-        },
         "datadir": {
+            "description": "Path to the Huggingface Datasets directory.",
             "oneOf": [
                 {
                     "$ref": "#/$defs/0_list"
                 },
                 {
-                    "type": "array",
                     "items": {
                         "$ref": "#/$defs/0_list"
-                    }
+                    },
+                    "type": "array"
                 }
-            ],
-            "description": "Path to the Huggingface Datasets directory."
+            ]
         },
-        "split": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "description": "Whether to use 'train', 'validation' or 'test' split."
-        },
-        "tokenizer_name": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "description": "The name of the tokenizer to preprocess text with."
-        },
-        "use_masked_lm": {
-            "type": "boolean",
-            "description": "Whether the dataset should be encoded with masked language modeling or not."
-        },
-        "num_tokens": {
-            "type": "integer",
-            "description": "If desired, the number of tokens to truncate the dataset to."
-        },
-        "mlm_probability": {
-            "type": "number",
-            "description": "If using masked language modeling, the probability to mask tokens with."
-        },
-        "seed": {
-            "type": "integer",
-            "description": "Which seed to use to generate train and validation splits."
-        },
-        "subsample_ratio": {
-            "type": "number",
-            "description": "If desired, the percentage of the dataset to use."
+        "drop_last": {
+            "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
+            "type": "boolean"
         },
         "max_seq_length": {
-            "type": "integer",
-            "description": "Optionally, the ability to set a custom sequence length for the training dataset."
+            "description": "Optionally, the ability to set a custom sequence length for the training dataset.",
+            "type": "integer"
+        },
+        "mlm_probability": {
+            "description": "If using masked language modeling, the probability to mask tokens with.",
+            "type": "number"
+        },
+        "num_tokens": {
+            "description": "If desired, the number of tokens to truncate the dataset to.",
+            "type": "integer"
+        },
+        "seed": {
+            "description": "Which seed to use to generate train and validation splits.",
+            "type": "integer"
+        },
+        "shuffle": {
+            "description": "Whether to shuffle the dataset for each epoch. Defaults to True.",
+            "type": "boolean"
+        },
+        "split": {
+            "description": "Whether to use 'train', 'validation' or 'test' split.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "subsample_ratio": {
+            "description": "If desired, the percentage of the dataset to use.",
+            "type": "number"
+        },
+        "synthetic_device": {
+            "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`.",
+            "type": "string"
+        },
+        "synthetic_memory_format": {
+            "description": "Memory format. Defaults to contiguous format.",
+            "enum": [
+                "channels_last_3d",
+                "channels_last",
+                "preserve_format",
+                "CONTIGUOUS_FORMAT",
+                "contiguous_format",
+                "CHANNELS_LAST",
+                "PRESERVE_FORMAT",
+                "CHANNELS_LAST_3D"
+            ]
+        },
+        "synthetic_num_unique_samples": {
+            "description": "The number of unique samples to allocate memory for.",
+            "type": "integer"
+        },
+        "tokenizer_name": {
+            "description": "The name of the tokenizer to preprocess text with.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "use_masked_lm": {
+            "description": "Whether the dataset should be encoded with masked language modeling or not.",
+            "type": "boolean"
+        },
+        "use_synthetic": {
+            "description": "Whether to use synthetic data. Defaults to False.",
+            "type": "boolean"
         }
     },
-    "additionalProperties": false,
     "referenced": false,
-    "$defs": {
-        "0_list": {
-            "type": "string"
-        }
-    }
+    "type": "object"
 }

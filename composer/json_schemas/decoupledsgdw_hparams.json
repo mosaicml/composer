@@ -1,27 +1,27 @@
 {
-    "type": "object",
+    "additionalProperties": false,
     "properties": {
+        "dampening": {
+            "description": "Dampening factor applied to the momentum. Default: ``0``.",
+            "type": "number"
+        },
         "lr": {
-            "type": "number",
-            "description": "Learning rate."
+            "description": "Learning rate.",
+            "type": "number"
         },
         "momentum": {
-            "type": "number",
-            "description": "Momentum factor. Default: ``0``."
-        },
-        "weight_decay": {
-            "type": "number",
-            "description": "Decoupled weight decay factor. Default: ``0``."
-        },
-        "dampening": {
-            "type": "number",
-            "description": "Dampening factor applied to the momentum. Default: ``0``."
+            "description": "Momentum factor. Default: ``0``.",
+            "type": "number"
         },
         "nesterov": {
-            "type": "boolean",
-            "description": "Enables Nesterov momentum updates. Default: ``False``."
+            "description": "Enables Nesterov momentum updates. Default: ``False``.",
+            "type": "boolean"
+        },
+        "weight_decay": {
+            "description": "Decoupled weight decay factor. Default: ``0``.",
+            "type": "number"
         }
     },
-    "additionalProperties": false,
-    "referenced": false
+    "referenced": false,
+    "type": "object"
 }

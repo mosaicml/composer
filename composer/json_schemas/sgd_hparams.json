@@ -1,27 +1,27 @@
 {
-    "type": "object",
+    "additionalProperties": false,
     "properties": {
+        "dampening": {
+            "description": "dampening for momentum (default: 0)",
+            "type": "number"
+        },
         "lr": {
-            "type": "number",
-            "description": "learning rate"
+            "description": "learning rate",
+            "type": "number"
         },
         "momentum": {
-            "type": "number",
-            "description": "momentum factor (default: 0)"
-        },
-        "weight_decay": {
-            "type": "number",
-            "description": "weight decay (L2 penalty) (default: 0)"
-        },
-        "dampening": {
-            "type": "number",
-            "description": "dampening for momentum (default: 0)"
+            "description": "momentum factor (default: 0)",
+            "type": "number"
         },
         "nesterov": {
-            "type": "boolean",
-            "description": "enables Nesterov momentum (default: False)"
+            "description": "enables Nesterov momentum (default: False)",
+            "type": "boolean"
+        },
+        "weight_decay": {
+            "description": "weight decay (L2 penalty) (default: 0)",
+            "type": "number"
         }
     },
-    "additionalProperties": false,
-    "referenced": false
+    "referenced": false,
+    "type": "object"
 }

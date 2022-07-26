@@ -1,81 +1,81 @@
 {
-    "type": "object",
+    "additionalProperties": false,
     "properties": {
-        "use_synthetic": {
-            "type": "boolean",
-            "description": "Whether to use synthetic data. Defaults to False."
-        },
-        "synthetic_num_unique_samples": {
-            "type": "integer",
-            "description": "The number of unique samples to allocate memory for."
-        },
-        "synthetic_device": {
-            "type": "string",
-            "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`."
-        },
-        "synthetic_memory_format": {
-            "enum": [
-                "CONTIGUOUS_FORMAT",
-                "CHANNELS_LAST_3D",
-                "preserve_format",
-                "contiguous_format",
-                "PRESERVE_FORMAT",
-                "channels_last",
-                "CHANNELS_LAST",
-                "channels_last_3d"
-            ],
-            "description": "Memory format. Defaults to contiguous format."
-        },
         "drop_last": {
-            "type": "boolean",
-            "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros."
-        },
-        "shuffle": {
-            "type": "boolean",
-            "description": "Whether to shuffle the dataset for each epoch. Defaults to True."
-        },
-        "task": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "description": "The GLUE task to train on, choose one from: CoLA, MNLI, MRPC, QNLI, QQP, RTE, SST-2, and STS-B."
-        },
-        "tokenizer_name": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "description": "The name of the HuggingFace tokenizer to preprocess text with."
-        },
-        "split": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "description": "Whether to use 'train', 'validation' or 'test' split."
-        },
-        "max_seq_length": {
-            "type": "integer",
-            "description": "Optionally, the ability to set a custom sequence length for the training dataset."
+            "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
+            "type": "boolean"
         },
         "max_network_retries": {
-            "type": "integer",
-            "description": "Optionally, the number of times to retry HTTP requests if they fail."
+            "description": "Optionally, the number of times to retry HTTP requests if they fail.",
+            "type": "integer"
+        },
+        "max_seq_length": {
+            "description": "Optionally, the ability to set a custom sequence length for the training dataset.",
+            "type": "integer"
+        },
+        "shuffle": {
+            "description": "Whether to shuffle the dataset for each epoch. Defaults to True.",
+            "type": "boolean"
+        },
+        "split": {
+            "description": "Whether to use 'train', 'validation' or 'test' split.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "synthetic_device": {
+            "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`.",
+            "type": "string"
+        },
+        "synthetic_memory_format": {
+            "description": "Memory format. Defaults to contiguous format.",
+            "enum": [
+                "channels_last_3d",
+                "channels_last",
+                "preserve_format",
+                "CONTIGUOUS_FORMAT",
+                "contiguous_format",
+                "CHANNELS_LAST",
+                "PRESERVE_FORMAT",
+                "CHANNELS_LAST_3D"
+            ]
+        },
+        "synthetic_num_unique_samples": {
+            "description": "The number of unique samples to allocate memory for.",
+            "type": "integer"
+        },
+        "task": {
+            "description": "The GLUE task to train on, choose one from: CoLA, MNLI, MRPC, QNLI, QQP, RTE, SST-2, and STS-B.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "tokenizer_name": {
+            "description": "The name of the HuggingFace tokenizer to preprocess text with.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "use_synthetic": {
+            "description": "Whether to use synthetic data. Defaults to False.",
+            "type": "boolean"
         }
     },
-    "additionalProperties": false,
-    "referenced": false
+    "referenced": false,
+    "type": "object"
 }

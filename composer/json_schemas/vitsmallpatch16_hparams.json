@@ -1,61 +1,61 @@
 {
-    "type": "object",
+    "$defs": {
+        "0_list": {
+            "enum": [
+                "xavier_uniform",
+                "XAVIER_UNIFORM",
+                "KAIMING_NORMAL",
+                "bn_ones",
+                "bn_uniform",
+                "BN_ONES",
+                "XAVIER_NORMAL",
+                "KAIMING_UNIFORM",
+                "kaiming_uniform",
+                "linear_log_constant_bias",
+                "LINEAR_LOG_CONSTANT_BIAS",
+                "BN_UNIFORM",
+                "xavier_normal",
+                "kaiming_normal"
+            ]
+        }
+    },
+    "additionalProperties": false,
     "properties": {
+        "channels": {
+            "description": "number of  image channels",
+            "type": "integer"
+        },
+        "dropout": {
+            "description": "dropout rate",
+            "type": "number"
+        },
+        "embedding_dropout": {
+            "description": "embedding dropout rate",
+            "type": "number"
+        },
+        "image_size": {
+            "description": "input image size. If you have rectangular images, make sure your image size is the maximum of the width and height",
+            "type": "integer"
+        },
         "initializers": {
+            "description": "The initialization strategy for the model",
             "oneOf": [
                 {
                     "$ref": "#/$defs/0_list"
                 },
                 {
-                    "type": "array",
                     "items": {
                         "$ref": "#/$defs/0_list"
-                    }
+                    },
+                    "type": "array"
                 }
-            ],
-            "description": "The initialization strategy for the model"
+            ]
         },
         "num_classes": {
-            "type": "integer",
-            "description": "number of classes.  Needed for classification tasks"
-        },
-        "image_size": {
-            "type": "integer",
-            "description": "input image size. If you have rectangular images, make sure your image size is the maximum of the width and height"
-        },
-        "channels": {
-            "type": "integer",
-            "description": "number of  image channels"
-        },
-        "dropout": {
-            "type": "number",
-            "description": "dropout rate"
-        },
-        "embedding_dropout": {
-            "type": "number",
-            "description": "embedding dropout rate"
+            "description": "number of classes.  Needed for classification tasks",
+            "type": "integer"
         }
     },
-    "additionalProperties": false,
     "referenced": false,
-    "$defs": {
-        "0_list": {
-            "enum": [
-                "LINEAR_LOG_CONSTANT_BIAS",
-                "BN_UNIFORM",
-                "kaiming_normal",
-                "bn_uniform",
-                "XAVIER_UNIFORM",
-                "xavier_uniform",
-                "xavier_normal",
-                "KAIMING_UNIFORM",
-                "kaiming_uniform",
-                "XAVIER_NORMAL",
-                "BN_ONES",
-                "KAIMING_NORMAL",
-                "linear_log_constant_bias",
-                "bn_ones"
-            ]
-        }
-    }
+    "type": "object"
 }

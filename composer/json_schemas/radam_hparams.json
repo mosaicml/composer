@@ -1,38 +1,38 @@
 {
-    "type": "object",
+    "$defs": {
+        "0_list": {
+            "type": "number"
+        }
+    },
+    "additionalProperties": false,
     "properties": {
-        "lr": {
-            "type": "number",
-            "description": "learning rate (default: 1e-3)"
-        },
         "betas": {
+            "description": "coefficients used for computing\nrunning averages of gradient and its square (default: (0.9, 0.999))",
             "oneOf": [
                 {
                     "$ref": "#/$defs/0_list"
                 },
                 {
-                    "type": "array",
                     "items": {
                         "$ref": "#/$defs/0_list"
-                    }
+                    },
+                    "type": "array"
                 }
-            ],
-            "description": "coefficients used for computing\nrunning averages of gradient and its square (default: (0.9, 0.999))"
+            ]
         },
         "eps": {
-            "type": "number",
-            "description": "term added to the denominator to improve\nnumerical stability (default: 1e-8)"
+            "description": "term added to the denominator to improve\nnumerical stability (default: 1e-8)",
+            "type": "number"
+        },
+        "lr": {
+            "description": "learning rate (default: 1e-3)",
+            "type": "number"
         },
         "weight_decay": {
-            "type": "number",
-            "description": "weight decay (L2 penalty) (default: 0)"
-        }
-    },
-    "additionalProperties": false,
-    "referenced": false,
-    "$defs": {
-        "0_list": {
+            "description": "weight decay (L2 penalty) (default: 0)",
             "type": "number"
         }
-    }
+    },
+    "referenced": false,
+    "type": "object"
 }

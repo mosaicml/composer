@@ -85,7 +85,7 @@ def test_docker_build_matrix():
 @pytest.mark.timeout(30)
 def test_json_schemas():
     """Test JSON Schemas are up to date."""
-    schemas_folder = pathlib.Path(os.path.dirname(__file__)) / '..' / 'json_schemas'
+    schemas_folder = pathlib.Path(os.path.dirname(__file__)) / '..' / 'composer' / 'json_schemas'
 
     # Capture existing schemas
     existing_schemas = []

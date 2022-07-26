@@ -1,32 +1,32 @@
 {
-    "type": "object",
+    "additionalProperties": false,
     "properties": {
-        "use_synthetic": {
-            "type": "boolean",
-            "description": "Whether to use synthetic data. Defaults to False."
-        },
-        "synthetic_num_unique_samples": {
-            "type": "integer",
-            "description": "The number of unique samples to allocate memory for."
-        },
         "synthetic_device": {
-            "type": "string",
-            "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`."
+            "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`.",
+            "type": "string"
         },
         "synthetic_memory_format": {
+            "description": "Memory format. Defaults to contiguous format.",
             "enum": [
-                "CONTIGUOUS_FORMAT",
-                "CHANNELS_LAST_3D",
-                "preserve_format",
-                "contiguous_format",
-                "PRESERVE_FORMAT",
+                "channels_last_3d",
                 "channels_last",
+                "preserve_format",
+                "CONTIGUOUS_FORMAT",
+                "contiguous_format",
                 "CHANNELS_LAST",
-                "channels_last_3d"
-            ],
-            "description": "Memory format. Defaults to contiguous format."
+                "PRESERVE_FORMAT",
+                "CHANNELS_LAST_3D"
+            ]
+        },
+        "synthetic_num_unique_samples": {
+            "description": "The number of unique samples to allocate memory for.",
+            "type": "integer"
+        },
+        "use_synthetic": {
+            "description": "Whether to use synthetic data. Defaults to False.",
+            "type": "boolean"
         }
     },
-    "additionalProperties": false,
-    "referenced": false
+    "referenced": false,
+    "type": "object"
 }

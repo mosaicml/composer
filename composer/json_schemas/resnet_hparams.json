@@ -1,21 +1,54 @@
 {
-    "type": "object",
+    "$defs": {
+        "0_list": {
+            "enum": [
+                "xavier_uniform",
+                "XAVIER_UNIFORM",
+                "KAIMING_NORMAL",
+                "bn_ones",
+                "bn_uniform",
+                "BN_ONES",
+                "XAVIER_NORMAL",
+                "KAIMING_UNIFORM",
+                "kaiming_uniform",
+                "linear_log_constant_bias",
+                "LINEAR_LOG_CONSTANT_BIAS",
+                "BN_UNIFORM",
+                "xavier_normal",
+                "kaiming_normal"
+            ]
+        }
+    },
+    "additionalProperties": false,
     "properties": {
+        "groups": {
+            "description": "Number of filter groups for the 3x3 convolution layer in bottleneck block. (default: ``1``)",
+            "type": "integer"
+        },
         "initializers": {
+            "description": "The initialization strategy for the model",
             "oneOf": [
                 {
                     "$ref": "#/$defs/0_list"
                 },
                 {
-                    "type": "array",
                     "items": {
                         "$ref": "#/$defs/0_list"
-                    }
+                    },
+                    "type": "array"
                 }
-            ],
-            "description": "The initialization strategy for the model"
+            ]
+        },
+        "loss_name": {
+            "description": "Name of loss function. E.g. 'soft_cross_entropy' or 'binary_cross_entropy_with_logits'. (default: ``soft_cross_entropy``)",
+            "type": "string"
+        },
+        "model_name": {
+            "description": "ResNet architecture to instantiate, must be one of ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']. (default: '')",
+            "type": "string"
         },
         "num_classes": {
+            "description": "The number of classes.  Needed for classification tasks",
             "oneOf": [
                 {
                     "type": "integer"
@@ -23,14 +56,14 @@
                 {
                     "type": "null"
                 }
-            ],
-            "description": "The number of classes.  Needed for classification tasks"
+            ]
         },
-        "model_name": {
-            "type": "string",
-            "description": "ResNet architecture to instantiate, must be one of ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']. (default: '')"
+        "pretrained": {
+            "description": "If True, use ImageNet pretrained weights. Default: ``False``. This parameter is deprecated and will soon be removed.",
+            "type": "boolean"
         },
         "weights": {
+            "description": "If provided, pretrained weights can be specified, such as with ``IMAGENET1K_V2``. (default: ``None``)",
             "oneOf": [
                 {
                     "type": "string"
@@ -38,46 +71,13 @@
                 {
                     "type": "null"
                 }
-            ],
-            "description": "If provided, pretrained weights can be specified, such as with ``IMAGENET1K_V2``. (default: ``None``)"
-        },
-        "pretrained": {
-            "type": "boolean",
-            "description": "If True, use ImageNet pretrained weights. Default: ``False``. This parameter is deprecated and will soon be removed."
-        },
-        "groups": {
-            "type": "integer",
-            "description": "Number of filter groups for the 3x3 convolution layer in bottleneck block. (default: ``1``)"
+            ]
         },
         "width_per_group": {
-            "type": "integer",
-            "description": "Initial width for each convolution group. Width doubles after each stage. (default: ``64``)"
-        },
-        "loss_name": {
-            "type": "string",
-            "description": "Name of loss function. E.g. 'soft_cross_entropy' or 'binary_cross_entropy_with_logits'. (default: ``soft_cross_entropy``)"
+            "description": "Initial width for each convolution group. Width doubles after each stage. (default: ``64``)",
+            "type": "integer"
         }
     },
-    "additionalProperties": false,
     "referenced": false,
-    "$defs": {
-        "0_list": {
-            "enum": [
-                "LINEAR_LOG_CONSTANT_BIAS",
-                "BN_UNIFORM",
-                "kaiming_normal",
-                "bn_uniform",
-                "XAVIER_UNIFORM",
-                "xavier_uniform",
-                "xavier_normal",
-                "KAIMING_UNIFORM",
-                "kaiming_uniform",
-                "XAVIER_NORMAL",
-                "BN_ONES",
-                "KAIMING_NORMAL",
-                "linear_log_constant_bias",
-                "bn_ones"
-            ]
-        }
-    }
+    "type": "object"
 }

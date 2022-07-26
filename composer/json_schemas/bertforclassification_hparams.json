@@ -1,54 +1,53 @@
 {
-    "type": "object",
+    "$defs": {
+        "0_list": {
+            "enum": [
+                "xavier_uniform",
+                "XAVIER_UNIFORM",
+                "KAIMING_NORMAL",
+                "bn_ones",
+                "bn_uniform",
+                "BN_ONES",
+                "XAVIER_NORMAL",
+                "KAIMING_UNIFORM",
+                "kaiming_uniform",
+                "linear_log_constant_bias",
+                "LINEAR_LOG_CONSTANT_BIAS",
+                "BN_UNIFORM",
+                "xavier_normal",
+                "kaiming_normal"
+            ]
+        }
+    },
+    "additionalProperties": false,
     "properties": {
+        "gradient_checkpointing": {
+            "description": "Whether to enable gradient checkpointing.",
+            "oneOf": [
+                {
+                    "type": "boolean"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
         "initializers": {
+            "description": "The initialization strategy for the model",
             "oneOf": [
                 {
                     "$ref": "#/$defs/0_list"
                 },
                 {
-                    "type": "array",
                     "items": {
                         "$ref": "#/$defs/0_list"
-                    }
+                    },
+                    "type": "array"
                 }
-            ],
-            "description": "The initialization strategy for the model"
-        },
-        "num_classes": {
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "description": "The number of classes.  Needed for classification tasks"
-        },
-        "num_labels": {
-            "oneOf": [
-                {
-                    "type": "integer"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "description": "The number of possible labels for the task."
-        },
-        "pretrained_model_name": {
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "null"
-                }
-            ],
-            "description": "Pretrained model name to pull from Hugging Face Model Hub."
+            ]
         },
         "model_config": {
+            "description": "A dictionary providing a HuggingFace model configuration.",
             "oneOf": [
                 {
                     "type": "object"
@@ -56,21 +55,32 @@
                 {
                     "type": "null"
                 }
-            ],
-            "description": "A dictionary providing a HuggingFace model configuration."
+            ]
         },
-        "use_pretrained": {
+        "num_classes": {
+            "description": "The number of classes.  Needed for classification tasks",
             "oneOf": [
                 {
-                    "type": "boolean"
+                    "type": "integer"
                 },
                 {
                     "type": "null"
                 }
-            ],
-            "description": "Whether to initialize the model with the pretrained weights."
+            ]
         },
-        "tokenizer_name": {
+        "num_labels": {
+            "description": "The number of possible labels for the task.",
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "pretrained_model_name": {
+            "description": "Pretrained model name to pull from Hugging Face Model Hub.",
             "oneOf": [
                 {
                     "type": "string"
@@ -78,10 +88,21 @@
                 {
                     "type": "null"
                 }
-            ],
-            "description": "The tokenizer used for this model, necessary to assert required model inputs."
+            ]
         },
-        "gradient_checkpointing": {
+        "tokenizer_name": {
+            "description": "The tokenizer used for this model, necessary to assert required model inputs.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "use_pretrained": {
+            "description": "Whether to initialize the model with the pretrained weights.",
             "oneOf": [
                 {
                     "type": "boolean"
@@ -89,30 +110,9 @@
                 {
                     "type": "null"
                 }
-            ],
-            "description": "Whether to enable gradient checkpointing."
-        }
-    },
-    "additionalProperties": false,
-    "referenced": false,
-    "$defs": {
-        "0_list": {
-            "enum": [
-                "LINEAR_LOG_CONSTANT_BIAS",
-                "BN_UNIFORM",
-                "kaiming_normal",
-                "bn_uniform",
-                "XAVIER_UNIFORM",
-                "xavier_uniform",
-                "xavier_normal",
-                "KAIMING_UNIFORM",
-                "kaiming_uniform",
-                "XAVIER_NORMAL",
-                "BN_ONES",
-                "KAIMING_NORMAL",
-                "linear_log_constant_bias",
-                "bn_ones"
             ]
         }
-    }
+    },
+    "referenced": false,
+    "type": "object"
 }
