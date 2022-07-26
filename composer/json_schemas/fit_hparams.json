@@ -1,129 +1,5 @@
 {
     "$defs": {
-        "0_list": {
-            "$ref": "#/$defs/EvaluatorHparams"
-        },
-        "1_list": {
-            "anyOf": [
-                {
-                    "additionalProperties": false,
-                    "patternProperties": {
-                        "^constant($|\\+)": {
-                            "$ref": "#/$defs/ConstantSchedulerHparams"
-                        }
-                    },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "patternProperties": {
-                        "^constant_with_warmup($|\\+)": {
-                            "$ref": "#/$defs/ConstantWithWarmupSchedulerHparams"
-                        }
-                    },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "patternProperties": {
-                        "^cosine_decay($|\\+)": {
-                            "$ref": "#/$defs/CosineAnnealingSchedulerHparams"
-                        }
-                    },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "patternProperties": {
-                        "^cosine_decay_with_warmup($|\\+)": {
-                            "$ref": "#/$defs/CosineAnnealingWithWarmupSchedulerHparams"
-                        }
-                    },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "patternProperties": {
-                        "^cosine_warmrestart($|\\+)": {
-                            "$ref": "#/$defs/CosineAnnealingWarmRestartsSchedulerHparams"
-                        }
-                    },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "patternProperties": {
-                        "^exponential($|\\+)": {
-                            "$ref": "#/$defs/ExponentialSchedulerHparams"
-                        }
-                    },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "patternProperties": {
-                        "^linear_decay($|\\+)": {
-                            "$ref": "#/$defs/LinearSchedulerHparams"
-                        }
-                    },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "patternProperties": {
-                        "^linear_decay_with_warmup($|\\+)": {
-                            "$ref": "#/$defs/LinearWithWarmupSchedulerHparams"
-                        }
-                    },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "patternProperties": {
-                        "^multistep($|\\+)": {
-                            "$ref": "#/$defs/MultiStepSchedulerHparams"
-                        }
-                    },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "patternProperties": {
-                        "^multistep_with_warmup($|\\+)": {
-                            "$ref": "#/$defs/MultiStepWithWarmupSchedulerHparams"
-                        }
-                    },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "patternProperties": {
-                        "^polynomial($|\\+)": {
-                            "$ref": "#/$defs/PolynomialSchedulerHparams"
-                        }
-                    },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "patternProperties": {
-                        "^polynomial_with_warmup($|\\+)": {
-                            "$ref": "#/$defs/PolynomialWithWarmupSchedulerHparams"
-                        }
-                    },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "patternProperties": {
-                        "^step($|\\+)": {
-                            "$ref": "#/$defs/StepSchedulerHparams"
-                        }
-                    },
-                    "type": "object"
-                }
-            ]
-        },
         "ADE20kDatasetHparams": {
             "additionalProperties": false,
             "properties": {
@@ -1447,11 +1323,11 @@
             "description": "Evaluators",
             "oneOf": [
                 {
-                    "$ref": "#/$defs/0_list"
+                    "$ref": "#/$defs/EvaluatorHparams"
                 },
                 {
                     "items": {
-                        "$ref": "#/$defs/0_list"
+                        "$ref": "#/$defs/EvaluatorHparams"
                     },
                     "type": "array"
                 },
@@ -1501,11 +1377,247 @@
             "description": "See :class:`.Trainer`.",
             "oneOf": [
                 {
-                    "$ref": "#/$defs/1_list"
+                    "anyOf": [
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^constant($|\\+)": {
+                                    "$ref": "#/$defs/ConstantSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^constant_with_warmup($|\\+)": {
+                                    "$ref": "#/$defs/ConstantWithWarmupSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^cosine_decay($|\\+)": {
+                                    "$ref": "#/$defs/CosineAnnealingSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^cosine_decay_with_warmup($|\\+)": {
+                                    "$ref": "#/$defs/CosineAnnealingWithWarmupSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^cosine_warmrestart($|\\+)": {
+                                    "$ref": "#/$defs/CosineAnnealingWarmRestartsSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^exponential($|\\+)": {
+                                    "$ref": "#/$defs/ExponentialSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^linear_decay($|\\+)": {
+                                    "$ref": "#/$defs/LinearSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^linear_decay_with_warmup($|\\+)": {
+                                    "$ref": "#/$defs/LinearWithWarmupSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^multistep($|\\+)": {
+                                    "$ref": "#/$defs/MultiStepSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^multistep_with_warmup($|\\+)": {
+                                    "$ref": "#/$defs/MultiStepWithWarmupSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^polynomial($|\\+)": {
+                                    "$ref": "#/$defs/PolynomialSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^polynomial_with_warmup($|\\+)": {
+                                    "$ref": "#/$defs/PolynomialWithWarmupSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^step($|\\+)": {
+                                    "$ref": "#/$defs/StepSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    ]
                 },
                 {
                     "items": {
-                        "$ref": "#/$defs/1_list"
+                        "anyOf": [
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^constant($|\\+)": {
+                                        "$ref": "#/$defs/ConstantSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^constant_with_warmup($|\\+)": {
+                                        "$ref": "#/$defs/ConstantWithWarmupSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^cosine_decay($|\\+)": {
+                                        "$ref": "#/$defs/CosineAnnealingSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^cosine_decay_with_warmup($|\\+)": {
+                                        "$ref": "#/$defs/CosineAnnealingWithWarmupSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^cosine_warmrestart($|\\+)": {
+                                        "$ref": "#/$defs/CosineAnnealingWarmRestartsSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^exponential($|\\+)": {
+                                        "$ref": "#/$defs/ExponentialSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^linear_decay($|\\+)": {
+                                        "$ref": "#/$defs/LinearSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^linear_decay_with_warmup($|\\+)": {
+                                        "$ref": "#/$defs/LinearWithWarmupSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^multistep($|\\+)": {
+                                        "$ref": "#/$defs/MultiStepSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^multistep_with_warmup($|\\+)": {
+                                        "$ref": "#/$defs/MultiStepWithWarmupSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^polynomial($|\\+)": {
+                                        "$ref": "#/$defs/PolynomialSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^polynomial_with_warmup($|\\+)": {
+                                        "$ref": "#/$defs/PolynomialWithWarmupSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^step($|\\+)": {
+                                        "$ref": "#/$defs/StepSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        ]
                     },
                     "type": "array"
                 },

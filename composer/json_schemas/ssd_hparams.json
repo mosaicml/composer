@@ -1,8 +1,5 @@
 {
     "$defs": {
-        "0_list": {
-            "$ref": "#/$defs/Initializer"
-        },
         "Initializer": {
             "enum": [
                 "BN_ONES",
@@ -32,11 +29,11 @@
             "description": "The initialization strategy for the model",
             "oneOf": [
                 {
-                    "$ref": "#/$defs/0_list"
+                    "$ref": "#/$defs/Initializer"
                 },
                 {
                     "items": {
-                        "$ref": "#/$defs/0_list"
+                        "$ref": "#/$defs/Initializer"
                     },
                     "type": "array"
                 }
