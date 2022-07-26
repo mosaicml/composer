@@ -79,6 +79,15 @@ class Logger:
         self.destinations = ensure_tuple(destinations)
         self._state = state
 
+    def log_hyperparameters(self, parameters: Dict[str, Any]):
+        for destination in self.destinations:
+            destination.log_hyperparameters(parameters)
+
+    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None, epoch: Optional[int] = None) -> None:
+
+        for destination in self.destinations:
+            destination.log_metrics(metrics, step, epoch)
+
     def data(self, log_level: Union[str, int, LogLevel], data: Dict[str, Any]) -> None:
         """Log data to the :attr:`destinations`.
 
