@@ -88,6 +88,7 @@ extensions = [
     'sphinx_panels',
     'sphinxcontrib.images',
     'nbsphinx',
+    'sphinx-jsonschema',
 ]
 
 
