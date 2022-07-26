@@ -888,7 +888,7 @@ class ExperimentHparams(hp.Hparams):
         fits (List[FitHparams]): The hparams for calls to :meth:`.Trainer.fit`.
         evals (List[EvalHparams]): The hparams for calls to :meth:`.Trainer.eval`.
 
-    .. jsonschema:: ../json_schemas/experiment_hparamsg.json
+    .. jsonschema:: ../json_schemas/experiment_hparams.json
     """
     trainer: TrainerHparams = hp.required('Trainer hparams')
     fits: List[FitHparams] = hp.optional('Fit hparams', default_factory=list)
