@@ -1,1 +1,5 @@
-{"additionalProperties": false, "properties": {}, "type": "object"}
+{
+    "additionalProperties": false,
+    "properties": {},
+    "type": "object"
+}

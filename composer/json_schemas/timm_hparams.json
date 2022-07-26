@@ -1,1 +1,118 @@
-{"$defs": {"0_list": {"enum": ["BN_ONES", "BN_UNIFORM", "KAIMING_NORMAL", "KAIMING_UNIFORM", "LINEAR_LOG_CONSTANT_BIAS", "XAVIER_NORMAL", "XAVIER_UNIFORM", "bn_ones", "bn_uniform", "kaiming_normal", "kaiming_uniform", "linear_log_constant_bias", "xavier_normal", "xavier_uniform"]}}, "additionalProperties": false, "properties": {"bn_eps": {"oneOf": [{"type": "number"}, {"type": "null"}]}, "bn_momentum": {"oneOf": [{"type": "number"}, {"type": "null"}]}, "drop_block_rate": {"oneOf": [{"type": "number"}, {"type": "null"}]}, "drop_path_rate": {"oneOf": [{"type": "number"}, {"type": "null"}]}, "drop_rate": {"type": "number"}, "global_pool": {"oneOf": [{"type": "string"}, {"type": "null"}]}, "initializers": {"oneOf": [{"$ref": "#/$defs/0_list"}, {"items": {"$ref": "#/$defs/0_list"}, "type": "array"}]}, "model_name": {"oneOf": [{"type": "string"}, {"type": "null"}]}, "num_classes": {"type": "integer"}, "pretrained": {"type": "boolean"}}, "type": "object"}
+{
+    "$defs": {
+        "0_list": {
+            "enum": [
+                "BN_ONES",
+                "BN_UNIFORM",
+                "KAIMING_NORMAL",
+                "KAIMING_UNIFORM",
+                "LINEAR_LOG_CONSTANT_BIAS",
+                "XAVIER_NORMAL",
+                "XAVIER_UNIFORM",
+                "bn_ones",
+                "bn_uniform",
+                "kaiming_normal",
+                "kaiming_uniform",
+                "linear_log_constant_bias",
+                "xavier_normal",
+                "xavier_uniform"
+            ]
+        }
+    },
+    "additionalProperties": false,
+    "properties": {
+        "bn_eps": {
+            "description": "BatchNorm epsilon override (model default if not None)",
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "bn_momentum": {
+            "description": "BatchNorm momentum override (model default if not None)",
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "drop_block_rate": {
+            "description": "drop block rate (model default if None)",
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "drop_path_rate": {
+            "description": "drop path rate (model default if None)",
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "drop_rate": {
+            "description": "dropout rate",
+            "type": "number"
+        },
+        "global_pool": {
+            "description": "Global pool type, one of (fast, avg, max, avgmax, avgmaxc). Model default if None.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "initializers": {
+            "description": "The initialization strategy for the model",
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/0_list"
+                },
+                {
+                    "items": {
+                        "$ref": "#/$defs/0_list"
+                    },
+                    "type": "array"
+                }
+            ]
+        },
+        "model_name": {
+            "description": "timm model name e.g: 'resnet50', list of models can be found at\nhttps://github.com/rwightman/pytorch-image-models",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "num_classes": {
+            "description": "The number of classes.  Needed for classification tasks",
+            "type": "integer"
+        },
+        "pretrained": {
+            "description": "imagenet pretrained",
+            "type": "boolean"
+        }
+    },
+    "type": "object"
+}

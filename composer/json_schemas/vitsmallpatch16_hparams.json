@@ -1,1 +1,60 @@
-{"$defs": {"0_list": {"enum": ["BN_ONES", "BN_UNIFORM", "KAIMING_NORMAL", "KAIMING_UNIFORM", "LINEAR_LOG_CONSTANT_BIAS", "XAVIER_NORMAL", "XAVIER_UNIFORM", "bn_ones", "bn_uniform", "kaiming_normal", "kaiming_uniform", "linear_log_constant_bias", "xavier_normal", "xavier_uniform"]}}, "additionalProperties": false, "properties": {"channels": {"type": "integer"}, "dropout": {"type": "number"}, "embedding_dropout": {"type": "number"}, "image_size": {"type": "integer"}, "initializers": {"oneOf": [{"$ref": "#/$defs/0_list"}, {"items": {"$ref": "#/$defs/0_list"}, "type": "array"}]}, "num_classes": {"type": "integer"}}, "type": "object"}
+{
+    "$defs": {
+        "0_list": {
+            "enum": [
+                "BN_ONES",
+                "BN_UNIFORM",
+                "KAIMING_NORMAL",
+                "KAIMING_UNIFORM",
+                "LINEAR_LOG_CONSTANT_BIAS",
+                "XAVIER_NORMAL",
+                "XAVIER_UNIFORM",
+                "bn_ones",
+                "bn_uniform",
+                "kaiming_normal",
+                "kaiming_uniform",
+                "linear_log_constant_bias",
+                "xavier_normal",
+                "xavier_uniform"
+            ]
+        }
+    },
+    "additionalProperties": false,
+    "properties": {
+        "channels": {
+            "description": "number of  image channels",
+            "type": "integer"
+        },
+        "dropout": {
+            "description": "dropout rate",
+            "type": "number"
+        },
+        "embedding_dropout": {
+            "description": "embedding dropout rate",
+            "type": "number"
+        },
+        "image_size": {
+            "description": "input image size. If you have rectangular images, make sure your image size is the maximum of the width and height",
+            "type": "integer"
+        },
+        "initializers": {
+            "description": "The initialization strategy for the model",
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/0_list"
+                },
+                {
+                    "items": {
+                        "$ref": "#/$defs/0_list"
+                    },
+                    "type": "array"
+                }
+            ]
+        },
+        "num_classes": {
+            "description": "number of classes.  Needed for classification tasks",
+            "type": "integer"
+        }
+    },
+    "type": "object"
+}
