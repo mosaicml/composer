@@ -105,7 +105,6 @@ class WandBLogger(LoggerDestination):
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None, epoch: Optional[int] = None) -> None:
         del epoch # unused.
         import wandb
-        metrics = {metric_name: metric_value for metric_name, metric_value in metrics.items()}
         wandb.log(metrics, step=step)
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
@@ -147,6 +146,7 @@ class WandBLogger(LoggerDestination):
         if self._enabled:
             wandb.init(**self._init_kwargs)
             atexit.register(self._set_is_in_atexit)
+        print(wandb.run.dir)
 
     def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
                           overwrite: bool):
