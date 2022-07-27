@@ -7,18 +7,17 @@ train_dataset:
     shuffle: false
     drop_last: false
 evaluators:
-  - evaluator:
-      label: glue_sst2
-      eval_dataset:
-        glue:
-          task: sst2
-          tokenizer_name: bert-base-uncased
-          split: validation
-          max_seq_length: 256
-          shuffle: false
-          drop_last: false
-      metric_names:
-        - Accuracy
+  - label: glue_sst2
+    eval_dataset:
+      glue:
+        task: sst2
+        tokenizer_name: bert-base-uncased
+        split: validation
+        max_seq_length: 256
+        shuffle: false
+        drop_last: false
+    metric_names:
+      - Accuracy
 model:
   bert_classification:
     num_labels: 2

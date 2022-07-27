@@ -28,8 +28,7 @@ dataloader:
 # Periodically evaluate the LanguageCrossEntropy and Masked Accuracy
 # on the validation split of the dataset.
 evaluators:
-  evaluator:
-    label: bert_pre_training
+  - label: bert_pre_training
     eval_dataset:
       streaming_c4:
         remote: s3://allenai-c4/mds/1-gz/
