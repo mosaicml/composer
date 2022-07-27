@@ -89,21 +89,27 @@ def test_release_tests_reflect_readme(example: int):
     example_code_lines = []
     found_begin = False
     started = False
-    for l in readme_lines:
-        if f'begin_example_{example}' in l:
+    for i, line in enumerate(readme_lines):
+        if f'begin_example_{example}' in line:
             found_begin = True
             continue
-        if found_begin:
-            # wait until we get the ```python
-            if l == '```python\n':
+        # Wait until we get the ```python for start of code snippet
+        if found_begin and not started:
+            if line == '```python\n':
                 started = True
-        if started:
-            example_code_lines.append(l)
-        if started and l == '```\n':
-            break
+        # Reached end of code snippet
+        elif started and line == '```\n':
+            # Code snippet continues
+            if i + 2 < len(readme_lines) and '-->\n' == readme_lines[
+                    i + 1] and '<!--pytest-codeblocks:cont-->\n' == readme_lines[i + 2]:
+                started = False
+            # Code snippet ends
+            else:
+                break
+        # Add line
+        elif started:
+            example_code_lines.append(line)
 
-    # chop of the first and last lines -- they're ```python and ``` to start and end the code blocks
-    example_code_lines = example_code_lines[1:-1]
     example_file = pathlib.Path(os.path.dirname(__file__)) / 'release_tests' / f'example_{example}.py'
     with open(example_file, 'r') as f:
         assert f.readlines() == example_code_lines

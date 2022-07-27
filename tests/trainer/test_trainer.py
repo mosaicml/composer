@@ -33,7 +33,7 @@ from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices import Device
 from composer.trainer.trainer import _generate_run_name
-from composer.utils import dist, reproducibility
+from composer.utils import dist, is_model_deepspeed, reproducibility
 from composer.utils.iter_helpers import map_collection
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
@@ -389,7 +389,7 @@ class TestTrainerInitOrFit:
             train_dataloader=train_dataloader,
         )
 
-        assert trainer.state.is_model_deepspeed
+        assert is_model_deepspeed(trainer.state.model)
 
         assert trainer.state.deepspeed_enabled
         trainer.fit()
