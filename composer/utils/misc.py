@@ -5,7 +5,7 @@
 
 import torch
 
-__all__ = ['is_model_deepspeed']
+__all__ = ['is_model_deepspeed', 'is_notebook']
 
 
 def is_model_deepspeed(model: torch.nn.Module) -> bool:
@@ -16,3 +16,12 @@ def is_model_deepspeed(model: torch.nn.Module) -> bool:
         return False
     else:
         return isinstance(model, deepspeed.DeepSpeedEngine)
+
+
+def is_notebook():
+    """Whether Composer is running in a IPython/Jupyter Notebook."""
+    try:
+        __IPYTHON__  #type: ignore
+        return True
+    except NameError:
+        return False
