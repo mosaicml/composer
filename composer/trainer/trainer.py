@@ -897,7 +897,7 @@ class Trainer:
         if max_duration is not None:
             self.state.max_duration = ensure_time(max_duration, TimeUnit.EPOCH)
 
-        self.logger.data_fit({'rank_zero_seed': rank_zero_seed})
+        self.logger.log_hyperparameters({'rank_zero_seed': rank_zero_seed})
 
         assert isinstance(self.state.model, ComposerModel)
         self._original_model = self.state.model
@@ -1369,9 +1369,9 @@ class Trainer:
             log_level (LogLevel): The LogLevel for logging metrics.
         """
         computed_metrics = metrics.compute()
-        self.logger.data(
-            log_level=log_level,
-            data={f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},
+        self.logger.log_metrics(
+            metrics={f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},
+            step=self.state.timestamp.batch.value,
         )
         self.state.current_metrics[dataloader_label] = computed_metrics
 
@@ -1426,7 +1426,7 @@ class Trainer:
         """Run training for the specified number of epochs and log results."""
         # print training start
         log.info('Using precision %s', self.state.precision)
-        self.logger.data_fit({algo.__class__.__name__: 1 for algo in self.state.algorithms})
+        self.logger.log_hyperparameters({'algorithms/' + algo.__class__.__name__: 1 for algo in self.state.algorithms})
 
         assert self.state.dataloader is not None, 'dataloader is set in __init__() or fit()'
         assert self._train_data_spec is not None, 'The train data spec is set in __init__() or fit()'
@@ -1460,7 +1460,8 @@ class Trainer:
 
                 if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
-                    self.logger.data_epoch({'epoch': int(self.state.timestamp.epoch)})
+                    self.logger.log_metrics({'trainer/epoch': int(self.state.timestamp.epoch)},
+                                           step=self.state.timestamp.batch.value)
                     if self.train_metrics is not None:
                         # reset the metrics before every epoch
                         self.train_metrics.reset()
@@ -1501,10 +1502,11 @@ class Trainer:
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
                     self.engine.run_event(Event.BATCH_START)
-                    self.logger.data_batch({
+                    self.logger.log_metrics({
                         'trainer/global_step': int(self.state.timestamp.batch),
                         'trainer/batch_idx': self.state.timestamp.batch_in_epoch.value,
-                    })
+                    },
+                    step=self.state.timestamp.batch.value)
 
                     total_loss = self._train_batch(use_grad_scaling)
 
@@ -1518,7 +1520,9 @@ class Trainer:
                         # total_loss can be None if gradient scaling failed
                         dist.all_reduce(total_loss, reduce_operation='SUM')
                         full_loss = total_loss.cpu().item()
-                        self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
+                        self.logger.log_metrics(
+                            {'loss/train': full_loss / dist.get_world_size()},
+                            step=self.state.timestamp.batch.value)
 
                     # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
                     # next batch's wall clock time. The time accumulation must be done here so schedulers
@@ -1695,7 +1699,7 @@ class Trainer:
                 raise caught_timeout_error
             else:
                 # Otherwise, log grad_accum and return calculated loss
-                self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
+                self.logger.log_metrics({'trainer/grad_accum': self.state.grad_accum}, self.state.timestamp.batch.value)
                 return total_loss
 
     def _train_microbatches(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
