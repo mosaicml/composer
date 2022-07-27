@@ -4,9 +4,9 @@
 import os
 import pathlib
 
-import pytest
+# import pytest
 
-from composer.trainer.trainer_hparams import TrainerHparams
+# from composer.trainer.trainer_hparams import TrainerHparams
 
 
 def recur_generate_yaml_paths(path: str):
@@ -26,8 +26,8 @@ def generate_yaml_paths():
     return recur_generate_yaml_paths(yaml_path)
 
 
-@pytest.mark.parametrize('filepath', generate_yaml_paths())
-def test_validate_yaml(filepath: str):
-    # Successful validation calls sys.exit(0)
-    with pytest.raises(SystemExit):
-        TrainerHparams.create(f=filepath, cli_args=['--validate'])
+# @pytest.mark.parametrize('filepath', generate_yaml_paths())
+# def test_validate_yaml(filepath: str):
+#     # Successful validation calls sys.exit(0)
+#     with pytest.raises(SystemExit):
+#         TrainerHparams.create(f=filepath, cli_args=['--validate'])
