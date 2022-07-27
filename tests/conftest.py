@@ -7,7 +7,6 @@ import pathlib
 from typing import List, Optional
 
 import pytest
-import torch
 import tqdm.std
 
 import composer
@@ -18,9 +17,6 @@ from composer.utils import dist, reproducibility
 # (so tests of all world sizes will be executed) and tests/README.md
 # (so the documentation is correct)
 WORLD_SIZE_OPTIONS = (1, 2)
-
-# default timout threshold is 2 seconds for determinign long and short
-DEFAULT_TIMEOUT = 2.0
 
 # Enforce deterministic mode before any tests start.
 reproducibility.configure_deterministic_mode()
@@ -40,12 +36,6 @@ if _include_deprecated_fixtures:
     pytest_plugins += [
         'tests.fixtures.dummy_fixtures',
     ]
-
-if torch.cuda.is_available():
-    # torch.cuda takes a few seconds to initialize on first load
-    # pre-initialize cuda so individual tests, which are subject to a timeout,
-    # load cuda instantly.
-    torch.Tensor([0]).cuda()
 
 
 def _add_option(parser: pytest.Parser,
@@ -87,22 +77,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
                 help="""\
         Rank zero seed to use. `reproducibility.seed_all(seed + dist.get_global_rank())` will be invoked
         before each test.""")
-    _add_option(parser,
-                'duration',
-                default='all',
-                choices=['short', 'long', 'all'],
-                help="""Duration of tests, one of short, long, or all.
-                             Tests are short if their timeout < 2 seconds
-                             (configurable threshold). Default: all.""")
     _add_option(parser, 'sftp_uri', help='SFTP URI for integration tests.')
     _add_option(parser, 's3_bucket', help='S3 Bucket for integration tests')
-
-
-def _get_timeout(item: pytest.Item, default: float):
-    """Returns the timeout of a test, defaults to -1."""
-    _default = pytest.mark.timeout(default).mark
-    timeout = item.get_closest_marker('timeout', default=_default).args[0]
-    return float('inf') if timeout == 0 else timeout  # timeout(0) means no timeout restrictions
 
 
 def _get_world_size(item: pytest.Item):
@@ -111,29 +87,14 @@ def _get_world_size(item: pytest.Item):
     return item.get_closest_marker('world_size', default=_default).args[0]
 
 
-def _validate_duration(duration: Optional[str]):
-    if duration not in ('short', 'long', 'all'):
-        raise ValueError(f'duration ({duration}) must be one of short, long, all.')
-
-
 def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item]) -> None:
     """Filter tests by world_size (for multi-GPU tests) and duration (short, long, or all)"""
-    threshold = float(getattr(config, '_env_timeout', DEFAULT_TIMEOUT))
-    duration = _get_option(config, 'duration')
-    assert isinstance(duration, str)
-    _validate_duration(duration)
 
     world_size = int(os.environ.get('WORLD_SIZE', '1'))
 
     conditions = [
         lambda item: _get_world_size(item) == world_size,
     ]
-
-    # separate tests by whether timeout is < or > threshold.
-    if duration == 'short':
-        conditions += [lambda item: _get_timeout(item, default=threshold) <= threshold]
-    elif duration == 'long':
-        conditions += [lambda item: _get_timeout(item, default=threshold) > threshold]
 
     # keep items that satisfy all conditions
     remaining = []

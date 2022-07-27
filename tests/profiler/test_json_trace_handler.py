@@ -16,7 +16,6 @@ from tests.common import RandomClassificationDataset, SimpleModel
 
 
 # This test shouldn't run with the Torch profiler enabled, not providing a model or data can cause a seg fault
-@pytest.mark.timeout(30)
 @pytest.mark.filterwarnings(
     r'ignore:The profiler is enabled\. Using the profiler adds additional overhead when training\.:UserWarning')
 def test_json_trace_profiler_handler(tmp_path: pathlib.Path):

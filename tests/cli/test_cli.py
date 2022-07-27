@@ -17,7 +17,6 @@ import composer
     [sys.executable, '-m', 'composer.cli', '--version'],
     [sys.executable, '-m', 'composer.cli.launcher', '--version'],
 ])
-@pytest.mark.timeout(5)  # spawning a subprocess is slow
 def test_cli_version(args: List[str]):
     version_str = subprocess.check_output(args, text=True)
     assert version_str == f'composer {composer.__version__}\n'

@@ -27,7 +27,6 @@ class FileArtifactLoggerTracker(LoggerDestination):
 
 
 @pytest.mark.parametrize('log_level', [LogLevel.EPOCH, LogLevel.BATCH])
-@pytest.mark.timeout(30)
 def test_file_logger(dummy_state: State, log_level: LogLevel, tmp_path: pathlib.Path):
     log_file_name = os.path.join(tmp_path, 'output.log')
     log_destination = FileLogger(
@@ -102,7 +101,6 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmp_path: pathlib.
             dummy_state.timestamp.epoch) + int(dummy_state.timestamp.epoch) + 1
 
 
-@pytest.mark.timeout(15)  # disk can be slow on Jenkins
 def test_file_logger_capture_stdout_stderr(dummy_state: State, tmp_path: pathlib.Path):
     log_file_name = os.path.join(tmp_path, 'output.log')
     log_destination = FileLogger(filename=log_file_name,
