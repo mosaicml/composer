@@ -49,8 +49,9 @@ def test_export_for_inference_torchscript(model_cls, sample_input):
 def test_export_for_inference_onnx(model_cls, sample_input):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
-    import onnx  # type: ignore
-    import onnxruntime as ort  # type: ignore
+    import onnx
+    import onnx.checker
+    import onnxruntime as ort
 
     model = model_cls()
     model.eval()

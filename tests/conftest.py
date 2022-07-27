@@ -38,14 +38,10 @@ if _include_deprecated_fixtures:
     ]
 
 
-def _add_option(parser: pytest.Parser,
-                name: str,
-                help: str,
-                default: Optional[str] = None,
-                choices: Optional[List[str]] = None):
+def _add_option(parser: pytest.Parser, name: str, help: str, choices: Optional[List[str]] = None):
     parser.addoption(
         f'--{name}',
-        default=default,
+        default=None,
         type=str,
         choices=choices,
         help=help,
@@ -54,7 +50,7 @@ def _add_option(parser: pytest.Parser,
         name=name,
         help=help,
         type='string',
-        default=default,
+        default=None,
     )
 
 
@@ -64,6 +60,8 @@ def _get_option(config: pytest.Config, name: str, skip: bool = False) -> Optiona
         assert isinstance(val, str)
         return val
     val = config.getini(name)
+    if val == []:
+        val = None
     if val is None and skip:
         pytest.skip(f'Config option {name} is not specified; skipping test')
     assert val is None or isinstance(val, str)
@@ -73,7 +71,6 @@ def _get_option(config: pytest.Config, name: str, skip: bool = False) -> Optiona
 def pytest_addoption(parser: pytest.Parser) -> None:
     _add_option(parser,
                 'seed',
-                default='0',
                 help="""\
         Rank zero seed to use. `reproducibility.seed_all(seed + dist.get_global_rank())` will be invoked
         before each test.""")
@@ -120,8 +117,9 @@ def set_loglevels():
 @pytest.fixture
 def rank_zero_seed(pytestconfig: pytest.Config) -> int:
     """Read the rank_zero_seed from the CLI option."""
-    seed = _get_option(pytestconfig, 'seed')
-    assert seed is not None
+    seed = _get_option(pytestconfig, 'seed', skip=False)
+    if seed is None:
+        seed = 0
     return int(seed)
 
 
@@ -158,10 +156,16 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
 
 
 @pytest.fixture
-def sftp_uri(pytestconfig: pytest.Config):
-    return _get_option(pytestconfig, 'sftp_uri', skip=True)
+def sftp_uri(request: pytest.FixtureRequest):
+    if request.node.get_closest_marker('remote') is None:
+        return 'sftp://localhost'
+    else:
+        return _get_option(request.config, 'sftp_uri', skip=True)
 
 
 @pytest.fixture
-def s3_bucket(pytestconfig: pytest.Config):
-    return _get_option(pytestconfig, 's3_bucket', skip=True)
+def s3_bucket(request: pytest.FixtureRequest):
+    if request.node.get_closest_marker('remote') is None:
+        return 'my-bucket'
+    else:
+        return _get_option(request.config, 's3_bucket', skip=True)

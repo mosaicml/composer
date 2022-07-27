@@ -10,6 +10,7 @@ import warnings
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Sequence, Union, cast
 
 import torch
+import torch.nn
 import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer

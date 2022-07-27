@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional, TypeVar
 import torch
 import torch.backends.cuda
 import torch.backends.cudnn
+import torch.cuda
 import torch.cuda.amp
 import torch.utils.data
 
