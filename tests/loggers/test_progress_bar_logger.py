@@ -24,7 +24,6 @@ from tests.common import RandomClassificationDataset, SimpleModel
      Time.from_timestring('100sp'),
      Time.from_timestring('5ba')],
 )
-@pytest.mark.timeout(10)
 def test_progress_bar_logger(max_duration: Time[int], monkeypatch: MonkeyPatch, world_size: int):
 
     mock_tqdms_train = []

@@ -58,7 +58,6 @@ def write_synthetic_streaming_dataset(dirname: str,
         writer.write_samples(samples=samples)
 
 
-@pytest.mark.timeout(10)
 @pytest.mark.parametrize('num_samples', [100, 10000])
 @pytest.mark.parametrize('shard_size_limit', [1 << 8, 1 << 16, 1 << 24])
 def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limit: int) -> None:
@@ -80,7 +79,6 @@ def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limi
     assert len(files) == expected_num_files, f'Files written ({len(files)}) != expected ({expected_num_files}).'
 
 
-@pytest.mark.timeout(10)
 @pytest.mark.parametrize('batch_size', [None, 1, 2])
 @pytest.mark.parametrize('remote_arg', ['none', 'same', 'different'])
 @pytest.mark.parametrize('shuffle', [False, True])
@@ -134,7 +132,6 @@ def test_reader(remote_local: Tuple[str, str], batch_size: int, remote_arg: str,
     assert len(dataset) == num_samples, f'Got dataset length={len(dataset)} samples, expected {num_samples}'
 
 
-@pytest.mark.timeout(3)
 @pytest.mark.parametrize(
     'missing_file',
     [
@@ -163,7 +160,6 @@ def test_reader_download_fail(remote_local: Tuple[str, str], missing_file: str):
         print(f'Successfully raised error: {e}')
 
 
-@pytest.mark.timeout(10)
 @pytest.mark.parametrize('created_ago', [0.5, 3])
 @pytest.mark.parametrize('timeout', [1])
 def test_reader_after_crash(remote_local: Tuple[str, str], created_ago: float, timeout: float) -> None:
@@ -218,7 +214,6 @@ def test_reader_getitem(remote_local: Tuple[str, str], share_remote_local: bool)
 
 
 @pytest.mark.daily()
-@pytest.mark.timeout(10)
 @pytest.mark.parametrize('batch_size', [1, 2, 5])
 @pytest.mark.parametrize('drop_last', [False, True])
 @pytest.mark.parametrize('num_workers', [1, 2, 3])
@@ -296,7 +291,6 @@ def test_dataloader_single_device(remote_local: Tuple[str, str], batch_size: int
 
 
 @pytest.mark.daily()
-@pytest.mark.timeout(10)
 @pytest.mark.world_size(2)
 @pytest.mark.parametrize('batch_size', [4])
 @pytest.mark.parametrize('drop_last', [False, True])
@@ -409,7 +403,6 @@ def check_for_diff_files(dir: dircmp):
         check_for_diff_files(subdir)
 
 
-@pytest.mark.timeout(10)
 @pytest.mark.parametrize('compression', [None, 'gz', 'gz:5'])
 def test_compression(compressed_remote_local: Tuple[str, str, str], compression: Optional[str]):
     num_samples = 31

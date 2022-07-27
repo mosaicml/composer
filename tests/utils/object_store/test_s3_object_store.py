@@ -17,7 +17,6 @@ def _worker(bucket: str, tmp_path: pathlib.Path, tid: int):
         object_store.download_object('this_key_should_not_exist', filename=tmp_path / str(tid) / 'dummy_file')
 
 
-@pytest.mark.timeout(15)
 # This test requires properly configured aws credentials; otherwise the s3 client would hit a NoCredentialsError
 # when constructing the Session, which occurs before the bug this test checks
 @pytest.mark.remote
