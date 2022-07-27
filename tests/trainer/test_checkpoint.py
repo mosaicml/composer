@@ -147,7 +147,6 @@ def get_two_epoch_composer_hparams(composer_trainer_hparams: TrainerHparams, che
     return composer_trainer_hparams
 
 
-@pytest.mark.timeout(5)
 @pytest.mark.parametrize(
     'remove_field_paths,filter_params',
     [
@@ -227,7 +226,6 @@ def test_ignore_params(remove_field_paths: List[List[str]], filter_params: List[
     assert base_dict == new_dict
 
 
-@pytest.mark.timeout(90)
 @device('cpu', 'gpu')
 def test_load_weights(
     device: str,
@@ -278,7 +276,6 @@ def test_load_weights(
     )
 
 
-@pytest.mark.timeout(90)
 @device('cpu', 'gpu')
 @pytest.mark.parametrize('use_object_store,delete_local_checkpoint', [
     pytest.param(False, False),
@@ -364,7 +361,6 @@ def test_autoresume(
     assert trainer.state.run_name == second_trainer.state.run_name
 
 
-@pytest.mark.timeout(90)
 @device('cpu', 'gpu')
 def test_different_run_names(
     device: Device,
@@ -402,7 +398,6 @@ def test_different_run_names(
     assert trainer_a.state.run_name != trainer_b.state.run_name
 
 
-@pytest.mark.timeout(90)
 @device('cpu', 'gpu')
 @pytest.mark.parametrize('save_overwrite', [
     True,
@@ -461,7 +456,6 @@ def test_save_overwrite(
     trainer.fit(duration='1ba')
 
 
-@pytest.mark.timeout(90)
 def test_checkpoint_with_object_store_logger(
     composer_trainer_hparams: TrainerHparams,
     tmp_path: pathlib.Path,
@@ -552,7 +546,6 @@ def test_checkpoint_with_object_store_logger(
     )
 
 
-@pytest.mark.timeout(180)
 @pytest.mark.parametrize('world_size', [
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),

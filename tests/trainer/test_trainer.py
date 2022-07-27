@@ -518,7 +518,6 @@ class TestTrainerInitOrFit:
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, algo_trainer.state)
 
-    @pytest.mark.timeout(5.0)
     def test_dataloader_active_iterator_error(self, model: ComposerModel):
         dataloader = DataLoader(
             dataset=RandomClassificationDataset(),
@@ -564,7 +563,6 @@ class TestTrainerInitOrFit:
 
         assert trainer.state.timestamp.get(max_duration.unit) == 2 * max_duration
 
-    @pytest.mark.timeout(10)
     @pytest.mark.parametrize('eval_interval', ['1ba', '1ep'])
     def test_eval_is_excluded_from_wct_tracking(
         self,
@@ -783,7 +781,6 @@ class TestTrainerInitOrFit:
 
 @world_size(1, 2)
 @device('cpu', 'gpu', 'gpu-amp', precision=True)
-@pytest.mark.timeout(15)  # higher timeout since each model is trained twice
 class TestTrainerEquivalence():
 
     default_threshold = {'atol': 0, 'rtol': 0}
@@ -958,7 +955,6 @@ class TestTrainerEvents():
 
 
 @pytest.mark.vision
-@pytest.mark.timeout(30)
 class TestFFCVDataloaders:
 
     train_file = None

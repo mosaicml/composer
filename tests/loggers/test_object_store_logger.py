@@ -152,12 +152,10 @@ def test_object_store_logger(tmp_path: pathlib.Path, dummy_state: State):
     object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, use_procs=False)
 
 
-@pytest.mark.timeout(15)
 def test_object_store_logger_use_procs(tmp_path: pathlib.Path, dummy_state: State):
     object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, use_procs=True)
 
 
-@pytest.mark.timeout(15)
 @pytest.mark.filterwarnings(r'ignore:((.|\n)*)FileExistsError((.|\n)*):pytest.PytestUnhandledThreadExceptionWarning')
 @pytest.mark.parametrize('overwrite_delay', [True, False])
 def test_object_store_logger_no_overwrite(tmp_path: pathlib.Path, dummy_state: State, overwrite_delay: bool):
@@ -167,12 +165,10 @@ def test_object_store_logger_no_overwrite(tmp_path: pathlib.Path, dummy_state: S
                              overwrite_delay=overwrite_delay)
 
 
-@pytest.mark.timeout(5)
 def test_object_store_logger_should_log_artifact_filter(tmp_path: pathlib.Path, dummy_state: State):
     object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, should_filter=True)
 
 
-@pytest.mark.timeout(30)  # long timeout as this test spawns many subprocesses
 @pytest.mark.parametrize('use_procs', [True, False])
 def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_state: State):
     # Test a race condition with the object store logger where multiple files with the same name are logged in rapid succession
@@ -218,7 +214,6 @@ def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_stat
         assert f.read() == str(num_files - 1)
 
 
-@pytest.mark.timeout(5)
 @pytest.mark.filterwarnings(r'ignore:Exception in thread:pytest.PytestUnhandledThreadExceptionWarning')
 def test_close_on_failure(tmp_path: pathlib.Path, dummy_state: State):
     """Test that .close() and .post_close() does not hang even when a worker crashes."""
