@@ -98,6 +98,17 @@ def _get_distributed_config_var(
         raise RuntimeError('Torch distributed is initialized but environment variable '
                            f'{env_var} is not set.')
 
+    # Gloo initialization fails on >8 GPUs because of network device issues. For now, we only use
+    # monitored_barrier if we can initialize gloo.
+    try:
+        # monitored_barrier requires gloo backend, which is initialized as a global variable
+        global group_gloo
+        group_gloo = dist.new_group(backend='gloo')
+    except RuntimeError as e:
+        # Suppress setup issues related to incorrect network device and instead issue warning
+        if not 'Connection refused' in str(e):
+            raise
+
     return default
 
 
