@@ -209,6 +209,21 @@ class FileLogger(LoggerDestination):  # noqa: D101
             return self.is_batch_interval
         raise ValueError(f'Unknown log level: {log_level}')
 
+    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+        data_str = format_log_data_value(metrics)
+        self.write(
+            f'[metric][batch={step}]: ',
+            data_str + '\n',
+        )
+
+    def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
+        data_str = format_log_data_value(hyperparameters)
+        self.write(
+            f'[hyperparameter]: ',
+            data_str + '\n',
+        )
+        
+
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         if not self._will_log(log_level):
             return
