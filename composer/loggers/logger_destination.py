@@ -50,7 +50,7 @@ class LoggerDestination(Callback, ABC):
         del hyperparameters  # unused
         pass
 
-    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None, epoch: Optional[int] = None) -> None:
+    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
         """Log metrics or parameters that vary during training.
 
         Args:
@@ -63,7 +63,7 @@ class LoggerDestination(Callback, ABC):
             epoch (Optional[int], optional): The current epoch at the time of logging.
                 Defaults to None.
         """
-        del metrics, step, epoch  # unused
+        del metrics, step # unused
         pass
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):

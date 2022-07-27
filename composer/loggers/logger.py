@@ -83,10 +83,10 @@ class Logger:
         for destination in self.destinations:
             destination.log_hyperparameters(parameters)
 
-    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None, epoch: Optional[int] = None) -> None:
+    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
 
         for destination in self.destinations:
-            destination.log_metrics(metrics, step, epoch)
+            destination.log_metrics(metrics, step)
 
     def data(self, log_level: Union[str, int, LogLevel], data: Dict[str, Any]) -> None:
         """Log data to the :attr:`destinations`.
