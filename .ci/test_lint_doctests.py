@@ -79,6 +79,14 @@ def test_docker_build_matrix():
         assert existing_build_matrix == f.read()
 
 
+def sort_json(json):
+    if isinstance(json, dict):
+        return sorted((key, sort_json(value)) for key, value in json.items())
+    elif isinstance(json, list):
+        return sorted(sort_json(elem) for elem in json)
+    return json
+
+
 @pytest.mark.timeout(30)
 def test_json_schemas():
     """Test JSON Schemas are up to date."""
@@ -94,13 +102,6 @@ def test_json_schemas():
     # Run the script
     check_output(
         subprocess.run(['python', 'generate_json_schemas.py'], cwd=schemas_folder, capture_output=True, text=True))
-
-    def sort_json(json):
-        if isinstance(json, dict):
-            return sorted((key, sort_json(value)) for key, value in json.items())
-        elif isinstance(json, list):
-            return sorted(sort_json(elem) for elem in json)
-        return json
 
     # Assert that the files did not change
     for existing_schema, filename in zip(existing_schemas, sorted(os.listdir(schemas_folder))):
