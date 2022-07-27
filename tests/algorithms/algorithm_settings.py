@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader, Dataset
 import composer
 import composer.algorithms
 from composer import Algorithm
-from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
+from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, CopyPaste, ColOut, CutMix, CutOut,
                                  Factorize, FusedLayerNorm, GatedLinearUnits, GhostBatchNorm, GradientClipping,
                                  LabelSmoothing, LayerFreezing, MixUp, NoOpModel, ProgressiveResizing, RandAugment,
                                  SelectiveBackprop, SeqLengthWarmup, SqueezeExcite, StochasticDepth)
@@ -90,6 +90,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
             'num_classes': 2
         }
     },
+    CopyPaste: {},
     CutOut: simple_vision_settings,
     EMA: {
         'model': common.SimpleConvModel,

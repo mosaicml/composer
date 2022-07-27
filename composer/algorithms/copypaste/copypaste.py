@@ -28,6 +28,41 @@ log = logging.getLogger(__name__)
 
 __all__ = ['CopyPaste', 'copypaste_batch']
 
+def copypaste_batch_backup(input_dict, configs):
+    """
+    Randomly pastes objects onto an image.
+    """
+
+    output_dict = {
+     "masks": [],
+     "images": []
+    }
+
+    batch_size = len(input_dict["images"])
+
+    while(len(output_dict["images"]) < batch_size):
+        [i, j] = np.random.randint(0, high=batch_size, size=2)
+
+        num_instances = input_dict["masks"][i].shape[0]
+        num_copied_instances = random.randint(0, num_instances)
+        if configs["max_copied_instances"] is not None:
+            num_copied_instances = min(num_copied_instances, configs["max_copied_instances"])
+
+        rng = default_rng()
+        src_instance_ids = rng.choice(num_instances, size=num_copied_instances, replace=False)
+
+        trg_image = input_dict["images"][j]
+        trg_masks = input_dict["masks"][j]
+
+        if random.uniform(0, 1) < configs["p"]:
+            for idx in range(num_copied_instances):
+                trg_image, trg_masks = _copypaste_instance(input_dict, trg_image, trg_masks, i, src_instance_ids[idx], configs)
+
+        output_dict["images"].append(trg_image)
+        output_dict["masks"].append(trg_masks)
+
+    return output_dict
+
 def copypaste_batch(input_dict, configs):
     """
     Randomly pastes objects onto an image.
@@ -64,7 +99,84 @@ def copypaste_batch(input_dict, configs):
     return output_dict
 
 
+
+def _decompose_mask(mask, mask_color, background_color):
+    mask_npy = mask.numpy()
+    unique_vals = np.unique(mask_npy) 
+    parsed_mask = torch.zeros([len(unique_vals), mask.size(dim=1), mask.size(dim=2)])
+
+    for i, val in enumerate(unique_vals):
+        temp_mask = torch.where(mask == val, mask_color, background_color)
+        parsed_mask[i] = temp_mask
+
+    return parsed_mask
+
+
+def _parse_segmentation_batch(input_dict, mask_color=1, background_color=0):
+    for i, mask in enumerate(input_dict["masks"]):
+        input_dict["masks"].append(_decompose_mask(mask, mask_color, background_color))
+
+    return input_dict
+
+
 class CopyPaste(Algorithm):
+    """
+    Randomly pastes objects onto an image.
+    """
+
+    def __init__(
+        self,
+        p=1.0,
+        convert_to_binary_mask=True,
+        max_copied_instances=None,
+        area_threshold=100,
+        padding_factor=0.5,
+        jitter_scale=(0.01, 0.99),
+        jitter_ratio=(1.0, 1.0),
+        p_flip=1.0,
+        input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
+        target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
+    ):
+        self.input_key = input_key
+        self.target_key = target_key
+        self.configs = {
+            "p": p,
+            "convert_to_binary_mask": convert_to_binary_mask,
+            "max_copied_instances": max_copied_instances,
+            "area_threshold": area_threshold,
+            "padding_factor": padding_factor,
+            "jitter_scale": jitter_scale,
+            "jitter_ratio": jitter_ratio,
+            "p_flip": p_flip
+        }
+
+    def match(self, event: Event, state: State) -> bool:
+        return event == Event.AFTER_DATALOADER
+
+    def apply(self, event: Event, state: State, logger: Logger) -> None:
+        input_dict = {
+            "images": [],
+            "all_masks": []
+        }
+
+        input_dict["images"] = state.batch_get_item(key=self.input_key)
+        input_dict["all_masks"] = state.batch_get_item(key=self.target_key)
+
+        input_dict = _parse_segmentation_batch(input_dict)
+
+        # augmented_dict = copypaste_batch(input_dict, self.configs)
+        augmented_dict = input_dict
+
+        # here consolidate["masks"] to one flatten mask. you need to preserve mask values for this.
+
+
+        state.batch_set_item(key=self.input_key, value=augmented_dict["images"])
+        state.batch_set_item(key=self.target_key, value=augmented_dict["masks"])
+
+
+
+
+class CopyPaste_backup(Algorithm):
     """
     Randomly pastes objects onto an image.
     """
