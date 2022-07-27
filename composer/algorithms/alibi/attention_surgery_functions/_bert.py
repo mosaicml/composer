@@ -46,6 +46,7 @@ def bert_attention_converter(
 
     return module
 
+# This code is adapted from the HuggingFace Transformers library, so we ignore any type checking issues it triggers
 # pyright: reportGeneralTypeIssues = none
 def forward(
     self,
