@@ -234,27 +234,14 @@
             "anyOf": [
                 {
                     "additionalProperties": false,
-                    "properties": {
-                        "libcloud": {
-                            "$ref": "#/$defs/LibcloudObjectStoreHparams"
-                        }
-                    },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
                     "patternProperties": {
                         "^libcloud\\+": {
                             "$ref": "#/$defs/LibcloudObjectStoreHparams"
                         }
                     },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
                     "properties": {
-                        "s3": {
-                            "$ref": "#/$defs/S3ObjectStoreHparams"
+                        "libcloud": {
+                            "$ref": "#/$defs/LibcloudObjectStoreHparams"
                         }
                     },
                     "type": "object"
@@ -266,13 +253,9 @@
                             "$ref": "#/$defs/S3ObjectStoreHparams"
                         }
                     },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
                     "properties": {
-                        "sftp": {
-                            "$ref": "#/$defs/SFTPObjectStoreHparams"
+                        "s3": {
+                            "$ref": "#/$defs/S3ObjectStoreHparams"
                         }
                     },
                     "type": "object"
@@ -281,6 +264,11 @@
                     "additionalProperties": false,
                     "patternProperties": {
                         "^sftp\\+": {
+                            "$ref": "#/$defs/SFTPObjectStoreHparams"
+                        }
+                    },
+                    "properties": {
+                        "sftp": {
                             "$ref": "#/$defs/SFTPObjectStoreHparams"
                         }
                     },

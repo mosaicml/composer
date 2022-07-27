@@ -786,27 +786,14 @@
             "anyOf": [
                 {
                     "additionalProperties": false,
-                    "properties": {
-                        "ade20k": {
-                            "$ref": "#/$defs/ADE20kDatasetHparams"
-                        }
-                    },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
                     "patternProperties": {
                         "^ade20k\\+": {
                             "$ref": "#/$defs/ADE20kDatasetHparams"
                         }
                     },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
                     "properties": {
-                        "brats": {
-                            "$ref": "#/$defs/BratsDatasetHparams"
+                        "ade20k": {
+                            "$ref": "#/$defs/ADE20kDatasetHparams"
                         }
                     },
                     "type": "object"
@@ -818,13 +805,9 @@
                             "$ref": "#/$defs/BratsDatasetHparams"
                         }
                     },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
                     "properties": {
-                        "c4": {
-                            "$ref": "#/$defs/C4DatasetHparams"
+                        "brats": {
+                            "$ref": "#/$defs/BratsDatasetHparams"
                         }
                     },
                     "type": "object"
@@ -836,13 +819,9 @@
                             "$ref": "#/$defs/C4DatasetHparams"
                         }
                     },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
                     "properties": {
-                        "cifar10": {
-                            "$ref": "#/$defs/CIFAR10DatasetHparams"
+                        "c4": {
+                            "$ref": "#/$defs/C4DatasetHparams"
                         }
                     },
                     "type": "object"
@@ -854,13 +833,9 @@
                             "$ref": "#/$defs/CIFAR10DatasetHparams"
                         }
                     },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
                     "properties": {
-                        "coco": {
-                            "$ref": "#/$defs/COCODatasetHparams"
+                        "cifar10": {
+                            "$ref": "#/$defs/CIFAR10DatasetHparams"
                         }
                     },
                     "type": "object"
@@ -872,13 +847,9 @@
                             "$ref": "#/$defs/COCODatasetHparams"
                         }
                     },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
                     "properties": {
-                        "glue": {
-                            "$ref": "#/$defs/GLUEHparams"
+                        "coco": {
+                            "$ref": "#/$defs/COCODatasetHparams"
                         }
                     },
                     "type": "object"
@@ -890,13 +861,9 @@
                             "$ref": "#/$defs/GLUEHparams"
                         }
                     },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
                     "properties": {
-                        "imagenet": {
-                            "$ref": "#/$defs/ImagenetDatasetHparams"
+                        "glue": {
+                            "$ref": "#/$defs/GLUEHparams"
                         }
                     },
                     "type": "object"
@@ -908,13 +875,9 @@
                             "$ref": "#/$defs/ImagenetDatasetHparams"
                         }
                     },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
                     "properties": {
-                        "lm": {
-                            "$ref": "#/$defs/LMDatasetHparams"
+                        "imagenet": {
+                            "$ref": "#/$defs/ImagenetDatasetHparams"
                         }
                     },
                     "type": "object"
@@ -926,13 +889,9 @@
                             "$ref": "#/$defs/LMDatasetHparams"
                         }
                     },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
                     "properties": {
-                        "mnist": {
-                            "$ref": "#/$defs/MNISTDatasetHparams"
+                        "lm": {
+                            "$ref": "#/$defs/LMDatasetHparams"
                         }
                     },
                     "type": "object"
@@ -944,13 +903,9 @@
                             "$ref": "#/$defs/MNISTDatasetHparams"
                         }
                     },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
                     "properties": {
-                        "streaming_ade20k": {
-                            "$ref": "#/$defs/StreamingADE20kHparams"
+                        "mnist": {
+                            "$ref": "#/$defs/MNISTDatasetHparams"
                         }
                     },
                     "type": "object"
@@ -962,13 +917,9 @@
                             "$ref": "#/$defs/StreamingADE20kHparams"
                         }
                     },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
                     "properties": {
-                        "streaming_c4": {
-                            "$ref": "#/$defs/StreamingC4Hparams"
+                        "streaming_ade20k": {
+                            "$ref": "#/$defs/StreamingADE20kHparams"
                         }
                     },
                     "type": "object"
@@ -980,13 +931,9 @@
                             "$ref": "#/$defs/StreamingC4Hparams"
                         }
                     },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
                     "properties": {
-                        "streaming_cifar10": {
-                            "$ref": "#/$defs/StreamingCIFAR10Hparams"
+                        "streaming_c4": {
+                            "$ref": "#/$defs/StreamingC4Hparams"
                         }
                     },
                     "type": "object"
@@ -998,13 +945,9 @@
                             "$ref": "#/$defs/StreamingCIFAR10Hparams"
                         }
                     },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
                     "properties": {
-                        "streaming_coco": {
-                            "$ref": "#/$defs/StreamingCOCOHparams"
+                        "streaming_cifar10": {
+                            "$ref": "#/$defs/StreamingCIFAR10Hparams"
                         }
                     },
                     "type": "object"
@@ -1016,13 +959,9 @@
                             "$ref": "#/$defs/StreamingCOCOHparams"
                         }
                     },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
                     "properties": {
-                        "streaming_imagenet1k": {
-                            "$ref": "#/$defs/StreamingImageNet1kHparams"
+                        "streaming_coco": {
+                            "$ref": "#/$defs/StreamingCOCOHparams"
                         }
                     },
                     "type": "object"
@@ -1031,6 +970,11 @@
                     "additionalProperties": false,
                     "patternProperties": {
                         "^streaming_imagenet1k\\+": {
+                            "$ref": "#/$defs/StreamingImageNet1kHparams"
+                        }
+                    },
+                    "properties": {
+                        "streaming_imagenet1k": {
                             "$ref": "#/$defs/StreamingImageNet1kHparams"
                         }
                     },

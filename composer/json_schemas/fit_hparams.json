@@ -383,27 +383,14 @@
                     "anyOf": [
                         {
                             "additionalProperties": false,
-                            "properties": {
-                                "ade20k": {
-                                    "$ref": "#/$defs/ADE20kDatasetHparams"
-                                }
-                            },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "patternProperties": {
                                 "^ade20k\\+": {
                                     "$ref": "#/$defs/ADE20kDatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "brats": {
-                                    "$ref": "#/$defs/BratsDatasetHparams"
+                                "ade20k": {
+                                    "$ref": "#/$defs/ADE20kDatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -415,13 +402,9 @@
                                     "$ref": "#/$defs/BratsDatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "c4": {
-                                    "$ref": "#/$defs/C4DatasetHparams"
+                                "brats": {
+                                    "$ref": "#/$defs/BratsDatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -433,13 +416,9 @@
                                     "$ref": "#/$defs/C4DatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "cifar10": {
-                                    "$ref": "#/$defs/CIFAR10DatasetHparams"
+                                "c4": {
+                                    "$ref": "#/$defs/C4DatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -451,13 +430,9 @@
                                     "$ref": "#/$defs/CIFAR10DatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "coco": {
-                                    "$ref": "#/$defs/COCODatasetHparams"
+                                "cifar10": {
+                                    "$ref": "#/$defs/CIFAR10DatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -469,13 +444,9 @@
                                     "$ref": "#/$defs/COCODatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "glue": {
-                                    "$ref": "#/$defs/GLUEHparams"
+                                "coco": {
+                                    "$ref": "#/$defs/COCODatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -487,13 +458,9 @@
                                     "$ref": "#/$defs/GLUEHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "imagenet": {
-                                    "$ref": "#/$defs/ImagenetDatasetHparams"
+                                "glue": {
+                                    "$ref": "#/$defs/GLUEHparams"
                                 }
                             },
                             "type": "object"
@@ -505,13 +472,9 @@
                                     "$ref": "#/$defs/ImagenetDatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "lm": {
-                                    "$ref": "#/$defs/LMDatasetHparams"
+                                "imagenet": {
+                                    "$ref": "#/$defs/ImagenetDatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -523,13 +486,9 @@
                                     "$ref": "#/$defs/LMDatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "mnist": {
-                                    "$ref": "#/$defs/MNISTDatasetHparams"
+                                "lm": {
+                                    "$ref": "#/$defs/LMDatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -541,13 +500,9 @@
                                     "$ref": "#/$defs/MNISTDatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "streaming_ade20k": {
-                                    "$ref": "#/$defs/StreamingADE20kHparams"
+                                "mnist": {
+                                    "$ref": "#/$defs/MNISTDatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -559,13 +514,9 @@
                                     "$ref": "#/$defs/StreamingADE20kHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "streaming_c4": {
-                                    "$ref": "#/$defs/StreamingC4Hparams"
+                                "streaming_ade20k": {
+                                    "$ref": "#/$defs/StreamingADE20kHparams"
                                 }
                             },
                             "type": "object"
@@ -577,13 +528,9 @@
                                     "$ref": "#/$defs/StreamingC4Hparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "streaming_cifar10": {
-                                    "$ref": "#/$defs/StreamingCIFAR10Hparams"
+                                "streaming_c4": {
+                                    "$ref": "#/$defs/StreamingC4Hparams"
                                 }
                             },
                             "type": "object"
@@ -595,13 +542,9 @@
                                     "$ref": "#/$defs/StreamingCIFAR10Hparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "streaming_coco": {
-                                    "$ref": "#/$defs/StreamingCOCOHparams"
+                                "streaming_cifar10": {
+                                    "$ref": "#/$defs/StreamingCIFAR10Hparams"
                                 }
                             },
                             "type": "object"
@@ -613,13 +556,9 @@
                                     "$ref": "#/$defs/StreamingCOCOHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "streaming_imagenet1k": {
-                                    "$ref": "#/$defs/StreamingImageNet1kHparams"
+                                "streaming_coco": {
+                                    "$ref": "#/$defs/StreamingCOCOHparams"
                                 }
                             },
                             "type": "object"
@@ -628,6 +567,11 @@
                             "additionalProperties": false,
                             "patternProperties": {
                                 "^streaming_imagenet1k\\+": {
+                                    "$ref": "#/$defs/StreamingImageNet1kHparams"
+                                }
+                            },
+                            "properties": {
+                                "streaming_imagenet1k": {
                                     "$ref": "#/$defs/StreamingImageNet1kHparams"
                                 }
                             },
@@ -1423,27 +1367,14 @@
                     "anyOf": [
                         {
                             "additionalProperties": false,
-                            "properties": {
-                                "ade20k": {
-                                    "$ref": "#/$defs/ADE20kDatasetHparams"
-                                }
-                            },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "patternProperties": {
                                 "^ade20k\\+": {
                                     "$ref": "#/$defs/ADE20kDatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "brats": {
-                                    "$ref": "#/$defs/BratsDatasetHparams"
+                                "ade20k": {
+                                    "$ref": "#/$defs/ADE20kDatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -1455,13 +1386,9 @@
                                     "$ref": "#/$defs/BratsDatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "c4": {
-                                    "$ref": "#/$defs/C4DatasetHparams"
+                                "brats": {
+                                    "$ref": "#/$defs/BratsDatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -1473,13 +1400,9 @@
                                     "$ref": "#/$defs/C4DatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "cifar10": {
-                                    "$ref": "#/$defs/CIFAR10DatasetHparams"
+                                "c4": {
+                                    "$ref": "#/$defs/C4DatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -1491,13 +1414,9 @@
                                     "$ref": "#/$defs/CIFAR10DatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "coco": {
-                                    "$ref": "#/$defs/COCODatasetHparams"
+                                "cifar10": {
+                                    "$ref": "#/$defs/CIFAR10DatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -1509,13 +1428,9 @@
                                     "$ref": "#/$defs/COCODatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "glue": {
-                                    "$ref": "#/$defs/GLUEHparams"
+                                "coco": {
+                                    "$ref": "#/$defs/COCODatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -1527,13 +1442,9 @@
                                     "$ref": "#/$defs/GLUEHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "imagenet": {
-                                    "$ref": "#/$defs/ImagenetDatasetHparams"
+                                "glue": {
+                                    "$ref": "#/$defs/GLUEHparams"
                                 }
                             },
                             "type": "object"
@@ -1545,13 +1456,9 @@
                                     "$ref": "#/$defs/ImagenetDatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "lm": {
-                                    "$ref": "#/$defs/LMDatasetHparams"
+                                "imagenet": {
+                                    "$ref": "#/$defs/ImagenetDatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -1563,13 +1470,9 @@
                                     "$ref": "#/$defs/LMDatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "mnist": {
-                                    "$ref": "#/$defs/MNISTDatasetHparams"
+                                "lm": {
+                                    "$ref": "#/$defs/LMDatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -1581,13 +1484,9 @@
                                     "$ref": "#/$defs/MNISTDatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "streaming_ade20k": {
-                                    "$ref": "#/$defs/StreamingADE20kHparams"
+                                "mnist": {
+                                    "$ref": "#/$defs/MNISTDatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -1599,13 +1498,9 @@
                                     "$ref": "#/$defs/StreamingADE20kHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "streaming_c4": {
-                                    "$ref": "#/$defs/StreamingC4Hparams"
+                                "streaming_ade20k": {
+                                    "$ref": "#/$defs/StreamingADE20kHparams"
                                 }
                             },
                             "type": "object"
@@ -1617,13 +1512,9 @@
                                     "$ref": "#/$defs/StreamingC4Hparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "streaming_cifar10": {
-                                    "$ref": "#/$defs/StreamingCIFAR10Hparams"
+                                "streaming_c4": {
+                                    "$ref": "#/$defs/StreamingC4Hparams"
                                 }
                             },
                             "type": "object"
@@ -1635,13 +1526,9 @@
                                     "$ref": "#/$defs/StreamingCIFAR10Hparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "streaming_coco": {
-                                    "$ref": "#/$defs/StreamingCOCOHparams"
+                                "streaming_cifar10": {
+                                    "$ref": "#/$defs/StreamingCIFAR10Hparams"
                                 }
                             },
                             "type": "object"
@@ -1653,13 +1540,9 @@
                                     "$ref": "#/$defs/StreamingCOCOHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "streaming_imagenet1k": {
-                                    "$ref": "#/$defs/StreamingImageNet1kHparams"
+                                "streaming_coco": {
+                                    "$ref": "#/$defs/StreamingCOCOHparams"
                                 }
                             },
                             "type": "object"
@@ -1668,6 +1551,11 @@
                             "additionalProperties": false,
                             "patternProperties": {
                                 "^streaming_imagenet1k\\+": {
+                                    "$ref": "#/$defs/StreamingImageNet1kHparams"
+                                }
+                            },
+                            "properties": {
+                                "streaming_imagenet1k": {
                                     "$ref": "#/$defs/StreamingImageNet1kHparams"
                                 }
                             },
@@ -1756,27 +1644,14 @@
                     "anyOf": [
                         {
                             "additionalProperties": false,
-                            "properties": {
-                                "constant": {
-                                    "$ref": "#/$defs/ConstantSchedulerHparams"
-                                }
-                            },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "patternProperties": {
                                 "^constant\\+": {
                                     "$ref": "#/$defs/ConstantSchedulerHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "constant_with_warmup": {
-                                    "$ref": "#/$defs/ConstantWithWarmupSchedulerHparams"
+                                "constant": {
+                                    "$ref": "#/$defs/ConstantSchedulerHparams"
                                 }
                             },
                             "type": "object"
@@ -1788,13 +1663,9 @@
                                     "$ref": "#/$defs/ConstantWithWarmupSchedulerHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "cosine_decay": {
-                                    "$ref": "#/$defs/CosineAnnealingSchedulerHparams"
+                                "constant_with_warmup": {
+                                    "$ref": "#/$defs/ConstantWithWarmupSchedulerHparams"
                                 }
                             },
                             "type": "object"
@@ -1806,13 +1677,9 @@
                                     "$ref": "#/$defs/CosineAnnealingSchedulerHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "cosine_decay_with_warmup": {
-                                    "$ref": "#/$defs/CosineAnnealingWithWarmupSchedulerHparams"
+                                "cosine_decay": {
+                                    "$ref": "#/$defs/CosineAnnealingSchedulerHparams"
                                 }
                             },
                             "type": "object"
@@ -1824,13 +1691,9 @@
                                     "$ref": "#/$defs/CosineAnnealingWithWarmupSchedulerHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "cosine_warmrestart": {
-                                    "$ref": "#/$defs/CosineAnnealingWarmRestartsSchedulerHparams"
+                                "cosine_decay_with_warmup": {
+                                    "$ref": "#/$defs/CosineAnnealingWithWarmupSchedulerHparams"
                                 }
                             },
                             "type": "object"
@@ -1842,13 +1705,9 @@
                                     "$ref": "#/$defs/CosineAnnealingWarmRestartsSchedulerHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "exponential": {
-                                    "$ref": "#/$defs/ExponentialSchedulerHparams"
+                                "cosine_warmrestart": {
+                                    "$ref": "#/$defs/CosineAnnealingWarmRestartsSchedulerHparams"
                                 }
                             },
                             "type": "object"
@@ -1860,13 +1719,9 @@
                                     "$ref": "#/$defs/ExponentialSchedulerHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "linear_decay": {
-                                    "$ref": "#/$defs/LinearSchedulerHparams"
+                                "exponential": {
+                                    "$ref": "#/$defs/ExponentialSchedulerHparams"
                                 }
                             },
                             "type": "object"
@@ -1878,13 +1733,9 @@
                                     "$ref": "#/$defs/LinearSchedulerHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "linear_decay_with_warmup": {
-                                    "$ref": "#/$defs/LinearWithWarmupSchedulerHparams"
+                                "linear_decay": {
+                                    "$ref": "#/$defs/LinearSchedulerHparams"
                                 }
                             },
                             "type": "object"
@@ -1896,13 +1747,9 @@
                                     "$ref": "#/$defs/LinearWithWarmupSchedulerHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "multistep": {
-                                    "$ref": "#/$defs/MultiStepSchedulerHparams"
+                                "linear_decay_with_warmup": {
+                                    "$ref": "#/$defs/LinearWithWarmupSchedulerHparams"
                                 }
                             },
                             "type": "object"
@@ -1914,13 +1761,9 @@
                                     "$ref": "#/$defs/MultiStepSchedulerHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "multistep_with_warmup": {
-                                    "$ref": "#/$defs/MultiStepWithWarmupSchedulerHparams"
+                                "multistep": {
+                                    "$ref": "#/$defs/MultiStepSchedulerHparams"
                                 }
                             },
                             "type": "object"
@@ -1932,13 +1775,9 @@
                                     "$ref": "#/$defs/MultiStepWithWarmupSchedulerHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "polynomial": {
-                                    "$ref": "#/$defs/PolynomialSchedulerHparams"
+                                "multistep_with_warmup": {
+                                    "$ref": "#/$defs/MultiStepWithWarmupSchedulerHparams"
                                 }
                             },
                             "type": "object"
@@ -1950,13 +1789,9 @@
                                     "$ref": "#/$defs/PolynomialSchedulerHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "polynomial_with_warmup": {
-                                    "$ref": "#/$defs/PolynomialWithWarmupSchedulerHparams"
+                                "polynomial": {
+                                    "$ref": "#/$defs/PolynomialSchedulerHparams"
                                 }
                             },
                             "type": "object"
@@ -1968,13 +1803,9 @@
                                     "$ref": "#/$defs/PolynomialWithWarmupSchedulerHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "step": {
-                                    "$ref": "#/$defs/StepSchedulerHparams"
+                                "polynomial_with_warmup": {
+                                    "$ref": "#/$defs/PolynomialWithWarmupSchedulerHparams"
                                 }
                             },
                             "type": "object"
@@ -1983,6 +1814,11 @@
                             "additionalProperties": false,
                             "patternProperties": {
                                 "^step\\+": {
+                                    "$ref": "#/$defs/StepSchedulerHparams"
+                                }
+                            },
+                            "properties": {
+                                "step": {
                                     "$ref": "#/$defs/StepSchedulerHparams"
                                 }
                             },
@@ -1995,27 +1831,14 @@
                         "anyOf": [
                             {
                                 "additionalProperties": false,
-                                "properties": {
-                                    "constant": {
-                                        "$ref": "#/$defs/ConstantSchedulerHparams"
-                                    }
-                                },
-                                "type": "object"
-                            },
-                            {
-                                "additionalProperties": false,
                                 "patternProperties": {
                                     "^constant\\+": {
                                         "$ref": "#/$defs/ConstantSchedulerHparams"
                                     }
                                 },
-                                "type": "object"
-                            },
-                            {
-                                "additionalProperties": false,
                                 "properties": {
-                                    "constant_with_warmup": {
-                                        "$ref": "#/$defs/ConstantWithWarmupSchedulerHparams"
+                                    "constant": {
+                                        "$ref": "#/$defs/ConstantSchedulerHparams"
                                     }
                                 },
                                 "type": "object"
@@ -2027,13 +1850,9 @@
                                         "$ref": "#/$defs/ConstantWithWarmupSchedulerHparams"
                                     }
                                 },
-                                "type": "object"
-                            },
-                            {
-                                "additionalProperties": false,
                                 "properties": {
-                                    "cosine_decay": {
-                                        "$ref": "#/$defs/CosineAnnealingSchedulerHparams"
+                                    "constant_with_warmup": {
+                                        "$ref": "#/$defs/ConstantWithWarmupSchedulerHparams"
                                     }
                                 },
                                 "type": "object"
@@ -2045,13 +1864,9 @@
                                         "$ref": "#/$defs/CosineAnnealingSchedulerHparams"
                                     }
                                 },
-                                "type": "object"
-                            },
-                            {
-                                "additionalProperties": false,
                                 "properties": {
-                                    "cosine_decay_with_warmup": {
-                                        "$ref": "#/$defs/CosineAnnealingWithWarmupSchedulerHparams"
+                                    "cosine_decay": {
+                                        "$ref": "#/$defs/CosineAnnealingSchedulerHparams"
                                     }
                                 },
                                 "type": "object"
@@ -2063,13 +1878,9 @@
                                         "$ref": "#/$defs/CosineAnnealingWithWarmupSchedulerHparams"
                                     }
                                 },
-                                "type": "object"
-                            },
-                            {
-                                "additionalProperties": false,
                                 "properties": {
-                                    "cosine_warmrestart": {
-                                        "$ref": "#/$defs/CosineAnnealingWarmRestartsSchedulerHparams"
+                                    "cosine_decay_with_warmup": {
+                                        "$ref": "#/$defs/CosineAnnealingWithWarmupSchedulerHparams"
                                     }
                                 },
                                 "type": "object"
@@ -2081,13 +1892,9 @@
                                         "$ref": "#/$defs/CosineAnnealingWarmRestartsSchedulerHparams"
                                     }
                                 },
-                                "type": "object"
-                            },
-                            {
-                                "additionalProperties": false,
                                 "properties": {
-                                    "exponential": {
-                                        "$ref": "#/$defs/ExponentialSchedulerHparams"
+                                    "cosine_warmrestart": {
+                                        "$ref": "#/$defs/CosineAnnealingWarmRestartsSchedulerHparams"
                                     }
                                 },
                                 "type": "object"
@@ -2099,13 +1906,9 @@
                                         "$ref": "#/$defs/ExponentialSchedulerHparams"
                                     }
                                 },
-                                "type": "object"
-                            },
-                            {
-                                "additionalProperties": false,
                                 "properties": {
-                                    "linear_decay": {
-                                        "$ref": "#/$defs/LinearSchedulerHparams"
+                                    "exponential": {
+                                        "$ref": "#/$defs/ExponentialSchedulerHparams"
                                     }
                                 },
                                 "type": "object"
@@ -2117,13 +1920,9 @@
                                         "$ref": "#/$defs/LinearSchedulerHparams"
                                     }
                                 },
-                                "type": "object"
-                            },
-                            {
-                                "additionalProperties": false,
                                 "properties": {
-                                    "linear_decay_with_warmup": {
-                                        "$ref": "#/$defs/LinearWithWarmupSchedulerHparams"
+                                    "linear_decay": {
+                                        "$ref": "#/$defs/LinearSchedulerHparams"
                                     }
                                 },
                                 "type": "object"
@@ -2135,13 +1934,9 @@
                                         "$ref": "#/$defs/LinearWithWarmupSchedulerHparams"
                                     }
                                 },
-                                "type": "object"
-                            },
-                            {
-                                "additionalProperties": false,
                                 "properties": {
-                                    "multistep": {
-                                        "$ref": "#/$defs/MultiStepSchedulerHparams"
+                                    "linear_decay_with_warmup": {
+                                        "$ref": "#/$defs/LinearWithWarmupSchedulerHparams"
                                     }
                                 },
                                 "type": "object"
@@ -2153,13 +1948,9 @@
                                         "$ref": "#/$defs/MultiStepSchedulerHparams"
                                     }
                                 },
-                                "type": "object"
-                            },
-                            {
-                                "additionalProperties": false,
                                 "properties": {
-                                    "multistep_with_warmup": {
-                                        "$ref": "#/$defs/MultiStepWithWarmupSchedulerHparams"
+                                    "multistep": {
+                                        "$ref": "#/$defs/MultiStepSchedulerHparams"
                                     }
                                 },
                                 "type": "object"
@@ -2171,13 +1962,9 @@
                                         "$ref": "#/$defs/MultiStepWithWarmupSchedulerHparams"
                                     }
                                 },
-                                "type": "object"
-                            },
-                            {
-                                "additionalProperties": false,
                                 "properties": {
-                                    "polynomial": {
-                                        "$ref": "#/$defs/PolynomialSchedulerHparams"
+                                    "multistep_with_warmup": {
+                                        "$ref": "#/$defs/MultiStepWithWarmupSchedulerHparams"
                                     }
                                 },
                                 "type": "object"
@@ -2189,13 +1976,9 @@
                                         "$ref": "#/$defs/PolynomialSchedulerHparams"
                                     }
                                 },
-                                "type": "object"
-                            },
-                            {
-                                "additionalProperties": false,
                                 "properties": {
-                                    "polynomial_with_warmup": {
-                                        "$ref": "#/$defs/PolynomialWithWarmupSchedulerHparams"
+                                    "polynomial": {
+                                        "$ref": "#/$defs/PolynomialSchedulerHparams"
                                     }
                                 },
                                 "type": "object"
@@ -2207,13 +1990,9 @@
                                         "$ref": "#/$defs/PolynomialWithWarmupSchedulerHparams"
                                     }
                                 },
-                                "type": "object"
-                            },
-                            {
-                                "additionalProperties": false,
                                 "properties": {
-                                    "step": {
-                                        "$ref": "#/$defs/StepSchedulerHparams"
+                                    "polynomial_with_warmup": {
+                                        "$ref": "#/$defs/PolynomialWithWarmupSchedulerHparams"
                                     }
                                 },
                                 "type": "object"
@@ -2222,6 +2001,11 @@
                                 "additionalProperties": false,
                                 "patternProperties": {
                                     "^step\\+": {
+                                        "$ref": "#/$defs/StepSchedulerHparams"
+                                    }
+                                },
+                                "properties": {
+                                    "step": {
                                         "$ref": "#/$defs/StepSchedulerHparams"
                                     }
                                 },
@@ -2269,27 +2053,14 @@
                     "anyOf": [
                         {
                             "additionalProperties": false,
-                            "properties": {
-                                "ade20k": {
-                                    "$ref": "#/$defs/ADE20kDatasetHparams"
-                                }
-                            },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "patternProperties": {
                                 "^ade20k\\+": {
                                     "$ref": "#/$defs/ADE20kDatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "brats": {
-                                    "$ref": "#/$defs/BratsDatasetHparams"
+                                "ade20k": {
+                                    "$ref": "#/$defs/ADE20kDatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -2301,13 +2072,9 @@
                                     "$ref": "#/$defs/BratsDatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "c4": {
-                                    "$ref": "#/$defs/C4DatasetHparams"
+                                "brats": {
+                                    "$ref": "#/$defs/BratsDatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -2319,13 +2086,9 @@
                                     "$ref": "#/$defs/C4DatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "cifar10": {
-                                    "$ref": "#/$defs/CIFAR10DatasetHparams"
+                                "c4": {
+                                    "$ref": "#/$defs/C4DatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -2337,13 +2100,9 @@
                                     "$ref": "#/$defs/CIFAR10DatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "coco": {
-                                    "$ref": "#/$defs/COCODatasetHparams"
+                                "cifar10": {
+                                    "$ref": "#/$defs/CIFAR10DatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -2355,13 +2114,9 @@
                                     "$ref": "#/$defs/COCODatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "glue": {
-                                    "$ref": "#/$defs/GLUEHparams"
+                                "coco": {
+                                    "$ref": "#/$defs/COCODatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -2373,13 +2128,9 @@
                                     "$ref": "#/$defs/GLUEHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "imagenet": {
-                                    "$ref": "#/$defs/ImagenetDatasetHparams"
+                                "glue": {
+                                    "$ref": "#/$defs/GLUEHparams"
                                 }
                             },
                             "type": "object"
@@ -2391,13 +2142,9 @@
                                     "$ref": "#/$defs/ImagenetDatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "lm": {
-                                    "$ref": "#/$defs/LMDatasetHparams"
+                                "imagenet": {
+                                    "$ref": "#/$defs/ImagenetDatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -2409,13 +2156,9 @@
                                     "$ref": "#/$defs/LMDatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "mnist": {
-                                    "$ref": "#/$defs/MNISTDatasetHparams"
+                                "lm": {
+                                    "$ref": "#/$defs/LMDatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -2427,13 +2170,9 @@
                                     "$ref": "#/$defs/MNISTDatasetHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "streaming_ade20k": {
-                                    "$ref": "#/$defs/StreamingADE20kHparams"
+                                "mnist": {
+                                    "$ref": "#/$defs/MNISTDatasetHparams"
                                 }
                             },
                             "type": "object"
@@ -2445,13 +2184,9 @@
                                     "$ref": "#/$defs/StreamingADE20kHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "streaming_c4": {
-                                    "$ref": "#/$defs/StreamingC4Hparams"
+                                "streaming_ade20k": {
+                                    "$ref": "#/$defs/StreamingADE20kHparams"
                                 }
                             },
                             "type": "object"
@@ -2463,13 +2198,9 @@
                                     "$ref": "#/$defs/StreamingC4Hparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "streaming_cifar10": {
-                                    "$ref": "#/$defs/StreamingCIFAR10Hparams"
+                                "streaming_c4": {
+                                    "$ref": "#/$defs/StreamingC4Hparams"
                                 }
                             },
                             "type": "object"
@@ -2481,13 +2212,9 @@
                                     "$ref": "#/$defs/StreamingCIFAR10Hparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "streaming_coco": {
-                                    "$ref": "#/$defs/StreamingCOCOHparams"
+                                "streaming_cifar10": {
+                                    "$ref": "#/$defs/StreamingCIFAR10Hparams"
                                 }
                             },
                             "type": "object"
@@ -2499,13 +2226,9 @@
                                     "$ref": "#/$defs/StreamingCOCOHparams"
                                 }
                             },
-                            "type": "object"
-                        },
-                        {
-                            "additionalProperties": false,
                             "properties": {
-                                "streaming_imagenet1k": {
-                                    "$ref": "#/$defs/StreamingImageNet1kHparams"
+                                "streaming_coco": {
+                                    "$ref": "#/$defs/StreamingCOCOHparams"
                                 }
                             },
                             "type": "object"
@@ -2514,6 +2237,11 @@
                             "additionalProperties": false,
                             "patternProperties": {
                                 "^streaming_imagenet1k\\+": {
+                                    "$ref": "#/$defs/StreamingImageNet1kHparams"
+                                }
+                            },
+                            "properties": {
+                                "streaming_imagenet1k": {
                                     "$ref": "#/$defs/StreamingImageNet1kHparams"
                                 }
                             },
