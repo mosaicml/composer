@@ -99,7 +99,9 @@ def _get_distributed_config_var(
                            f'{env_var} is not set.')
 
     # Gloo initialization fails on >8 GPUs because of network device issues. For now, we only use
-    # monitored_barrier if we can initialize gloo.
+    # monitored_barrier if we can initialize gloo. If initialization fails, calls to
+    # monitored_barrier will become no-ops, which may result in deadlocks which do not eventually
+    # raise errors.
     try:
         # monitored_barrier requires gloo backend, which is initialized as a global variable
         global group_gloo
