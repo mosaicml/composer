@@ -1,15 +1,23 @@
 {
     "$defs": {
         "MemoryFormat": {
-            "enum": [
-                "CHANNELS_LAST",
-                "CHANNELS_LAST_3D",
-                "CONTIGUOUS_FORMAT",
-                "PRESERVE_FORMAT",
-                "channels_last",
-                "channels_last_3d",
-                "contiguous_format",
-                "preserve_format"
+            "oneOf": [
+                {
+                    "pattern": "(?i)^CHANNELS_LAST$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^CHANNELS_LAST_3D$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^CONTIGUOUS_FORMAT$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^PRESERVE_FORMAT$",
+                    "type": "string"
+                }
             ]
         }
     },

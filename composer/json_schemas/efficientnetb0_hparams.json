@@ -1,21 +1,35 @@
 {
     "$defs": {
         "Initializer": {
-            "enum": [
-                "BN_ONES",
-                "BN_UNIFORM",
-                "KAIMING_NORMAL",
-                "KAIMING_UNIFORM",
-                "LINEAR_LOG_CONSTANT_BIAS",
-                "XAVIER_NORMAL",
-                "XAVIER_UNIFORM",
-                "bn_ones",
-                "bn_uniform",
-                "kaiming_normal",
-                "kaiming_uniform",
-                "linear_log_constant_bias",
-                "xavier_normal",
-                "xavier_uniform"
+            "oneOf": [
+                {
+                    "pattern": "(?i)^BN_ONES$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^BN_UNIFORM$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^KAIMING_NORMAL$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^KAIMING_UNIFORM$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^LINEAR_LOG_CONSTANT_BIAS$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^XAVIER_NORMAL$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^XAVIER_UNIFORM$",
+                    "type": "string"
+                }
             ]
         }
     },
