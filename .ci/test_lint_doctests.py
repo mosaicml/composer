@@ -87,7 +87,6 @@ def sort_json(json):
     return json
 
 
-@pytest.mark.timeout(30)
 def test_json_schemas():
     """Test JSON Schemas are up to date."""
     schemas_folder = pathlib.Path(os.path.dirname(__file__)) / '..' / 'composer' / 'json_schemas'
