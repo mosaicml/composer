@@ -36,7 +36,6 @@ def run_and_measure_memory(precision: Precision) -> int:
 
 
 @pytest.mark.gpu
-@pytest.mark.timeout(5)
 @pytest.mark.parametrize('precision', [Precision.AMP, Precision.BF16])
 def test_precision_memory(precision: Precision):
     memory_full = run_and_measure_memory(Precision.FP32)

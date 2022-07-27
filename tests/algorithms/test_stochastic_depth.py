@@ -156,7 +156,6 @@ class TestStochasticDepthDropRate:
     @pytest.mark.parametrize('drop_rate', [0.0, 0.5, 1.0])
     @pytest.mark.parametrize('drop_distribution', ['uniform', 'linear'])
     @pytest.mark.parametrize('drop_warmup', ['0.1dur'])
-    @pytest.mark.timeout(5)
     def test_drop_rate_warmup(self, algorithm: StochasticDepth, step: int, state: State):
         old_drop_rates = []
         self.get_drop_rate_list(state.model, drop_rates=old_drop_rates)
