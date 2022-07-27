@@ -2012,8 +2012,8 @@ class Trainer:
 
                 self.engine.run_event(Event.EVAL_BATCH_END)
 
-            self.logger.data_epoch({'epoch': self.state.timestamp.epoch.value})
-            self.logger.data_batch({'trainer/global_step': self.state.timestamp.batch.value})
+            self.logger.log_metrics({'epoch': self.state.timestamp.epoch.value}, step=self.state.timestamp.batch.value)
+            self.logger.log_metrics({'trainer/global_step': self.state.timestamp.batch.value}, step=self.state.timestamp.batch.value)
 
             self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics, log_level=log_level)
 
