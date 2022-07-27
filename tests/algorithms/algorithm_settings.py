@@ -214,7 +214,7 @@ def get_algs_with_marks():
                 del transformers
             except ImportError:
                 transformers_available = False
-            marks.append(pytest.mark.skipif(transformers_available, reason='transformers not available'))
+            marks.append(pytest.mark.skipif(not transformers_available, reason='transformers not available'))
 
         if _settings[alg_cls] is simple_bert_settings:
             marks.append(pytest.mark.timeout(15))  # bert settings require the model to be downloaded from the HF hub
