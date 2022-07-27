@@ -140,7 +140,7 @@ class TensorboardLogger(LoggerDestination):
     def eval_end(self, state: State, logger: Logger) -> None:
         # Give the metrics used for hparams a unique name, so they don't get plotted in the
         # normal metrics plot.
-        metrics_for_hparams = {'hparams/' + name: metric for name, metric in self.current_metrics.items()}
+        metrics_for_hparams = {'hparams/' + name: metric for name, metric in self.current_metrics.items() if 'metric' in name or 'loss' in name}
         self.writer.add_hparams(hparam_dict=self.hyperparameters,
                                 metric_dict=metrics_for_hparams,
                                 run_name=self.run_name)
