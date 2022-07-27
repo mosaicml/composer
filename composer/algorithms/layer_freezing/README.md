@@ -49,7 +49,6 @@ def training_loop(model, train_loader):
 ### Composer Trainer
 
 <!--pytest.mark.gpu-->
-<!--pytest.mark.timeout(15)-->
 <!--
 ```python
 from torch.utils.data import DataLoader

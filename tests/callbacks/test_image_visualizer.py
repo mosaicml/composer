@@ -19,7 +19,6 @@ except ImportError:
     _WANDB_INSTALLED = False
 
 
-@pytest.mark.timeout(15.0)
 @pytest.mark.skipif(not _WANDB_INSTALLED, reason='Wandb is optional')
 @pytest.mark.parametrize('interval', ['9ba', '90ba'])
 def test_image_visualizer(interval: str):
@@ -36,6 +35,7 @@ def test_image_visualizer(interval: str):
         eval_dataloader=DataLoader(RandomImageDataset()),
         max_duration='1ep',
     )
+    pytest.xfail('This test segfaults. See https://mosaicml.atlassian.net/browse/CO-776')
     trainer.fit()
     num_train_steps = int(trainer.state.timestamp.batch)
     num_train_tables = len(in_memory_logger.data['Images/Train'])

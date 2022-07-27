@@ -58,7 +58,6 @@ class TestMLPerfCallbackEvents:
 
         return state
 
-    @pytest.mark.timeout(5)
     def test_eval_start(self, mlperf_callback, mock_state):
         mlperf_callback.eval_start(mock_state, Mock())
 
@@ -68,7 +67,6 @@ class TestMLPerfCallbackEvents:
 
         assert mlperf_callback.mllogger.logs == [{'key': 'eval_start', 'value': None, 'metadata': {'epoch_num': 1}}]
 
-    @pytest.mark.timeout(5)
     def test_eval_end(self, mlperf_callback, mock_state):
         mlperf_callback.eval_end(mock_state, Mock())
 
@@ -92,7 +90,6 @@ class TestMLPerfCallbackEvents:
 class TestWithMLPerfChecker:
     """Ensures that the logs created by the MLPerfCallback pass the official package checker."""
 
-    @pytest.mark.timeout(15)
     def test_mlperf_callback_passes(self, tmp_path, monkeypatch, world_size, device):
 
         def mock_accuracy(self, state: State):
@@ -108,7 +105,6 @@ class TestWithMLPerfChecker:
         if rank_zero():
             self.run_mlperf_checker(tmp_path, monkeypatch)
 
-    @pytest.mark.timeout(15)
     def test_mlperf_callback_fails(self, tmp_path, monkeypatch, world_size, device):
 
         def mock_accuracy(self, state: State):

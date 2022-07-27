@@ -57,7 +57,7 @@ git checkout -b cool-new-feature
 
 ## Configuring README Code Snippets
 
-Composer uses [pytest-codeblocks](https://github.com/nschloe/pytest-codeblocks) to test all example code snippets. The pytest-codeblocks repository explains how to annotate code snippets, which supports most `pytest` configurations. For example, if a test requires model training, the GPU mark (`<!--pytest.mark.skip-->`) and timeout mark (`<!--pytest.mark.timeout(15)-->`) should be applied.
+Composer uses [pytest-codeblocks](https://github.com/nschloe/pytest-codeblocks) to test all example code snippets. The pytest-codeblocks repository explains how to annotate code snippets, which supports most `pytest` configurations. For example, if a test requires model training, the GPU mark (`<!--pytest.mark.skip-->`) should be applied.
 
 ## Running Tests
 
