@@ -185,6 +185,8 @@ def monitored_barrier(group, timeout: Optional[datetime.timedelta] = None) -> No
         barrier_group = group if group else group_gloo
         if barrier_group:
             dist.monitored_barrier(group=barrier_group, timeout=timeout)
+        if group_gloo:
+            dist.monitored_barrier(group=group_gloo, timeout=timeout)
         return
     world_size = get_world_size()
     if world_size == 1:
