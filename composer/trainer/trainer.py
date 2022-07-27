@@ -1705,7 +1705,8 @@ class Trainer:
             else:
                 # Synchronize new batch compute time
                 batch_compute_time = end_time - start_time
-                batch_compute_time = self._device.tensor_to_device(torch.tensor([batch_compute_time], dtype=torch.float))
+                batch_compute_time = self._device.tensor_to_device(torch.tensor([batch_compute_time],
+                                                                                dtype=torch.float))
                 dist.all_reduce(batch_compute_time, reduce_operation='MAX')
                 self.batch_compute_time = batch_compute_time.item()
 
