@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import functools
 from typing import Mapping, Optional, Sequence, Union
 
 import torch
@@ -87,13 +88,15 @@ def apply_alibi(
     # Callable[[torch.nn.Module, Optional[int]], Optional[torch.nn.Module]].
     #
     # This mapping is built by the source code in `./attention_surgery_functions/` but
-    # needs to be completed here.
+    # needs to be completed here by "freezing" alibi-specific arguments.
     #
     # For additional details, see `./attention_surgery_functions/utils.py`.
     policies = {}
-    for module_class, replacement_function_builder in policy_registry.items():
-        # Each `replacement_function_builder` returns a ReplacementFunction
-        policies[module_class] = replacement_function_builder(max_sequence_length)
+    for module_class, alibi_surgery_function in policy_registry.items():
+        # This use of `functools.partial` makes `alibi_surgery_function` act like a ReplacementFunction
+        policies[module_class] = functools.partial(
+            alibi_surgery_function, max_sequence_length=max_sequence_length
+        )
 
     # Note: `policies` defines replacements for _all_ the modules registered in `policy_registry`,
     # meaning that some replacements may be irrelevant for `model`.

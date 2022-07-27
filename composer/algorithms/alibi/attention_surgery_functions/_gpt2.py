@@ -2,50 +2,43 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from types import MethodType
-from typing import Optional, Tuple
+from typing import Tuple
 
 import torch
 from transformers.models.gpt2.modeling_gpt2 import GPT2Attention, GPT2Model
 
-from composer.algorithms.alibi.attention_surgery_functions.utils import (ReplacementFunction, register_alibi,
+from composer.algorithms.alibi.attention_surgery_functions.utils import (register_alibi,
                                                                          register_alibi_replacement_function,
                                                                          zero_and_freeze_expand_position_embeddings)
 
 
 @register_alibi_replacement_function(GPT2Model)
-def build_gpt2_embedding_converter(max_sequence_length: int) -> ReplacementFunction:
-    """Builds a function to remove positional embeddings."""
+def gpt2_embedding_converter(
+    module: torch.nn.Module, module_index: int, max_sequence_length: int
+) -> torch.nn.Module:
+    """Removes positional embeddings."""
+    assert isinstance(module, GPT2Model)
+    del module_index  # unused
 
-    def convert_position_embeddings(module: torch.nn.Module, module_index: Optional[int] = None):
-        assert isinstance(module, GPT2Model)
-        del module_index  # unused
-
-        zero_and_freeze_expand_position_embeddings(module, max_sequence_length, position_embedding_attribute='wpe')
-        return module
-
-    return convert_position_embeddings
-
+    zero_and_freeze_expand_position_embeddings(module, max_sequence_length, position_embedding_attribute='wpe')
+    return module
 
 @register_alibi_replacement_function(GPT2Attention)
-def build_gpt2_attention_converter(max_sequence_length: int) -> ReplacementFunction:
-    """Builds a function that does model surgery to add ALiBi to GPT2Attention.
+def gpt2_attention_converter(
+    module: torch.nn.Module, module_index: int, max_sequence_length: int
+) -> torch.nn.Module:
+    """Adds ALiBi to GPT2Attention and replaces the attention mask to support `max_sequence_length` tokens."""
 
-    This function also replaces the attention mask to support `max_sequence_length` tokens.
-    """
+    assert isinstance(module, GPT2Attention)
+    del module_index  # unused
+    module = register_alibi(module=module,
+                            n_heads=int(module.num_heads),
+                            max_token_length=max_sequence_length,
+                            causal=True)
+    setattr(module, '_attn', MethodType(_attn, module))
 
-    def convert_attention(module: torch.nn.Module, module_index: Optional[int] = None):
-        assert isinstance(module, GPT2Attention)
-        del module_index  # unused
-        module = register_alibi(module=module,
-                                n_heads=int(module.num_heads),
-                                max_token_length=max_sequence_length,
-                                causal=True)
-        setattr(module, '_attn', MethodType(_attn, module))
-
-        module = enlarge_mask(module, max_sequence_length)
-        return module
-
-    return convert_attention
+    module = enlarge_mask(module, max_sequence_length)
+    return module
 
 
 def _attn(self, query, key, value, attention_mask=None, head_mask=None) -> Tuple[torch.Tensor, torch.Tensor]:

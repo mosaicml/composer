@@ -3,49 +3,29 @@
 
 import logging
 import math
+import inspect
 from operator import attrgetter
-from typing import Callable, Dict, Type
+from typing import Callable, Dict, Optional, Type
 
 import torch
-
-from composer.utils.module_surgery import ReplacementFunction
-
 log = logging.getLogger(__name__)
 
 # Initialize the empty registry that will be filled by using the `register_alibi_replacement_function` decorator.
-SurgeryFunctionBuilder = Callable[[int], ReplacementFunction]
-policy_registry: Dict[Type[torch.nn.Module], SurgeryFunctionBuilder] = {}
+AlibiReplacementFunction = Callable[[torch.nn.Module, int, int], Optional[torch.nn.Module]]
+policy_registry: Dict[Type[torch.nn.Module], AlibiReplacementFunction] = {}
 
 
 def register_alibi_replacement_function(
-        *modules: Type[torch.nn.Module]) -> Callable[[SurgeryFunctionBuilder], SurgeryFunctionBuilder]:
-    """This decorator builds a registry that maps torch module types to their applicable SurgeryFunctionBuilder.
+        *modules: Type[torch.nn.Module]) -> Callable[[AlibiReplacementFunction], AlibiReplacementFunction]:
+    """This decorator builds a registry that maps torch module types to their applicable AlibiReplacementFunction.
 
     To accommodate the specifics of composer's model surgery, our ALiBi implementation uses a registry to create
-    a `Mapping[torch.nn.Module, SurgeryFunctionBuilder]`, where :func:`SurgeryFunctionBuilder` is any function that
-    takes a `max_sequence_length` argument and returns a :func:`composer.utils.model_surgery.ReplacementFunction`.
-
-    At runtime (see `../alibi.py`), ALiBi finalizes the model surgery policy mapping
-    `Mapping[torch.nn.Module, ReplacementFunction]` by replacing each `SurgeryFunctionBuilder` with the
-    `ReplacementFunction` it returns, then using the resulting `policies` mapping to perform
-    model surgery.
-
-    Example:
-
-        .. code-block::
-
-            from composer.algorithms.alibi.attention_surgery_functions import policy_registry
-            from composer.utils import module_surgery
-
-            policies = {}
-            for module_class, replacement_function_builder in policy_registry.items():
-                # Each `replacement_function_builder` returns a replacement function
-                policies[module_class] = replacement_function_builder(max_sequence_length)
-
-            module_surgery.replace_module_classes(model, policies=policies)
+    a `Mapping[torch.nn.Module, AlibiReplacementFunction]`, where :func:`AlibiReplacementFunction` is any function that
+    takes acts a generic :func:`composer.utils.module_surgery.ReplacementFunction` but with an additional
+    `max_sequence_length` keyword argument.
 
     Implementation files (e.g., `_gpt2.py`) populate the `policy_registry`
-    registry by defining instances of `SurgeryFunctionBuilder` functions and decorating them with
+    registry by defining instances of `AlibiReplacementFunction` functions and decorating them with
     :func:`register_alibi_replacement_function`.
 
     Example:
@@ -56,7 +36,7 @@ def register_alibi_replacement_function(
             from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
 
             @register_alibi_replacement_function(GPT2Attention)
-            def build_gpt2_attention_converter(max_sequence_length):
+            def convert_gpt2_attention(module: torch.nn.Module, index: int, max_sequence_length: int):
                 # Builds a function (`convert_attention`) that does model surgery any GPT2Attention modules in the model.
 
                 def convert_attention(module, module_index):
@@ -68,7 +48,7 @@ def register_alibi_replacement_function(
                     return module
                 return convert_attention
 
-    In the above example, by decorating `build_gpt2_attention_converter` (which is an instance of a `SurgeryFunctionBuilder`
+    In the above example, by decorating `build_gpt2_attention_converter` (which is an instance of a `AlibiReplacementFunction`
     function) with `@register_alibi_replacement_function(GPT2Attention)`, the ALiBi algorithm will now apply model surgery to any
     instances of `GPT2Attention` within the model, and will apply surgery on those instances using the `convert_attention` function
     returned by `build_gpt2_attention_converter`.
@@ -76,18 +56,34 @@ def register_alibi_replacement_function(
     Note that `convert_attention` follows the specific signature of a `ReplacementFunction`, which has specific arguments (for additional
     details, see `composer/utils/module_surgery.py`). However, often the model surgery functions used by ALiBi should depend on
     a `max_sequence_length` argument. Since this argument is not used by a `ReplacementFunction`, we make use of these
-    `SurgeryFunctionBuilder` functions so that the exact functions used in model surgery can properly refer to the `max_sequence_length`
+    `AlibiReplacementFunction` functions so that the exact functions used in model surgery can properly refer to the `max_sequence_length`
     argument, which is not provided until runtime (see `../alibi.py`).
     """
+    def _validate_signature(func: Callable):
+        # Necessary to enforce that `func` has a valid signature (i.e. is a AlibiReplacementFunction)
+        signature = inspect.signature(func)
+        parameters = signature.parameters
+        if len(parameters) != 3:
+            raise ValueError(f'Each alibi surgery function must accept 3 arguments, {func} accepts {len(parameters)}')
+        ((_, module_param), (_, index_param), (max_seq_name, max_seq_param)) = parameters.items()
+        if module_param.annotation != torch.nn.Module:
+            raise TypeError(f'The first argument of alibi surgery function {func} must be of type "torch.nn.Module"')
+        if index_param.annotation != int:
+            raise TypeError(f'The second argument of alibi surgery function {func} must be of type "int"')
+        if max_seq_param.annotation != int:
+            raise TypeError(f'The third argument of alibi surgery function {func} must be of type "int"')
+        if max_seq_name != 'max_sequence_length':
+            raise NameError(f'The third argument of function {func} must be named "max_sequence_length"')
 
     def _register_module(module: Type[torch.nn.Module], func: Callable) -> None:
         assert issubclass(module, torch.nn.Module)
         if module in policy_registry:
-            raise ValueError(f'Module {module.__name__} already has a registered SurgeryFunctionBuilder.')
+            raise ValueError(f'Module {module.__name__} already has a registered AlibiReplacementFunction.')
         policy_registry[module] = func
         return
 
-    def wrapper(func: SurgeryFunctionBuilder) -> SurgeryFunctionBuilder:
+    def wrapper(func: AlibiReplacementFunction) -> AlibiReplacementFunction:
+        _validate_signature(func)
         for module in modules:
             _register_module(module, func)
         return func
