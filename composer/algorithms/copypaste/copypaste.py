@@ -12,6 +12,8 @@ Notes:
 from __future__ import annotations
 
 import logging
+import matplotlib.pyplot as plt
+import os
 from typing import Any, Callable, Optional, Tuple, Union
 
 from numpy.random import default_rng
@@ -63,6 +65,16 @@ def copypaste_batch_backup(input_dict, configs):
 
     return output_dict
 
+
+def _aggregate_masks(masks):
+    
+
+
+
+    aggregated_masks = masks
+    return aggregated_masks
+
+
 def copypaste_batch(input_dict, configs):
     """
     Randomly pastes objects onto an image.
@@ -93,8 +105,10 @@ def copypaste_batch(input_dict, configs):
             for idx in range(num_copied_instances):
                 trg_image, trg_masks = _copypaste_instance(input_dict, trg_image, trg_masks, i, src_instance_ids[idx], configs)
 
+        aggregated_trg_masks = _aggregate_masks(trg_masks)
+
         output_dict["images"].append(trg_image)
-        output_dict["masks"].append(trg_masks)
+        output_dict["aggregated_masks"].append(aggregated_trg_masks)
 
     return output_dict
 
@@ -103,7 +117,7 @@ def copypaste_batch(input_dict, configs):
 def _decompose_mask(mask, mask_color, background_color):
     mask_npy = mask.numpy()
     unique_vals = np.unique(mask_npy) 
-    parsed_mask = torch.zeros([len(unique_vals), mask.size(dim=1), mask.size(dim=2)])
+    parsed_mask = torch.zeros([len(unique_vals), mask.size(dim=0), mask.size(dim=1)])
 
     for i, val in enumerate(unique_vals):
         temp_mask = torch.where(mask == val, mask_color, background_color)
@@ -113,15 +127,69 @@ def _decompose_mask(mask, mask_color, background_color):
 
 
 def _parse_segmentation_batch(input_dict, mask_color=1, background_color=0):
-    for i, mask in enumerate(input_dict["masks"]):
-        input_dict["masks"].append(_decompose_mask(mask, mask_color, background_color))
+    for i, aggregated_mask in enumerate(input_dict["aggregated_masks"]):
+        input_dict["masks"].append(_decompose_mask(aggregated_mask, mask_color, background_color))
 
     return input_dict
+
+
+def save_tensor_to_png(tensor, path, name):
+    arr = np.transpose(tensor.cpu().numpy(), (1, 2, 0))
+    arr = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
+
+    plt.imsave(os.path.join(path, name), arr)
+    print("Torch tensor saved to png: " + name)
+
+
+def save_1d_tensor_to_png(tensor, path, name):
+    arr = tensor.cpu().numpy()
+    arr = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
+
+    uniques = np.unique(arr)
+
+
+    plt.imsave(os.path.join(path, name), arr, cmap="gray")
+    print("Torch tensor saved to png: " + name)
+
 
 
 class CopyPaste(Algorithm):
     """
     Randomly pastes objects onto an image.
+
+    Args:
+        p (float, optional): p. Default: ``1.0``
+        convert_to_binary_mask (bool, optional): convert_to_binary_mask. Default: ``True``.
+        max_copied_instances (int | None, optional): max_copied_instances. Default: ``None``.
+        area_threshold (int, optional): area_threshold. Default: ``100``.
+        padding_factor (float, optional): padding_factor. Default: ``0.5``.
+        jitter_scale (Tuple[float, float], optional): jitter_scale. Default: ``(0.01, 0.99)``.
+        jitter_ratio (Tuple[float, float], optional): jitter_ratio. Default: ``(1.0, 1.0)``.
+        p_flip (float, optional): p_flip. Default: ``1.0``.
+        spread_masks (bool, optional): spread_masks. Default: ``True``.
+        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
+            from the batch. Can also be a pair of get and set functions, where the getter
+            is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
+            is the input. Default: ``0``.
+        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target
+            from the batch. Can also be a pair of get and set functions, where the getter
+            is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
+            is the target. Default: ``1``.
+
+    Example:
+        .. testcode::
+
+            from composer.algorithms import CopyPaste
+            algorithm = CopyPaste()
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[algorithm],
+                optimizers=[optimizer]
+            )
+
     """
 
     def __init__(
@@ -134,9 +202,13 @@ class CopyPaste(Algorithm):
         jitter_scale=(0.01, 0.99),
         jitter_ratio=(1.0, 1.0),
         p_flip=1.0,
+        spread_masks=True,
         input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
         target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
     ):
+        print("------------------------------------")
+        print("copypaste constructor is called")
+        print("------------------------------------")
         self.input_key = input_key
         self.target_key = target_key
         self.configs = {
@@ -147,31 +219,56 @@ class CopyPaste(Algorithm):
             "padding_factor": padding_factor,
             "jitter_scale": jitter_scale,
             "jitter_ratio": jitter_ratio,
-            "p_flip": p_flip
+            "p_flip": p_flip,
+            "spread_masks": spread_masks
         }
 
     def match(self, event: Event, state: State) -> bool:
         return event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
+        print()
+        print("------------------------------------")
+        print("apply is called")
+        print("------------------------------------")
+
         input_dict = {
             "images": [],
-            "all_masks": []
+            "aggregated_masks": []
         }
 
         input_dict["images"] = state.batch_get_item(key=self.input_key)
-        input_dict["all_masks"] = state.batch_get_item(key=self.target_key)
+        input_dict["aggregated_masks"] = state.batch_get_item(key=self.target_key)
+
+        test_image = input_dict["images"][2]
+        test_mask = input_dict["aggregated_masks"][2]
+
+        print(torch.min(test_image), " - ", torch.max(test_image))
+        print(torch.min(test_mask), " - ", torch.max(test_mask))
+        
+        path = os.path.join(".", "debug_out")
+        if not os.path.isdir(path):
+            os.makedirs(path)
+        
+        save_tensor_to_png(test_image, path, "image2.png")
+        save_1d_tensor_to_png(test_mask, path, "mask2.png")
+
+
 
         input_dict = _parse_segmentation_batch(input_dict)
+        augmented_dict = copypaste_batch(input_dict, self.configs)
 
-        # augmented_dict = copypaste_batch(input_dict, self.configs)
-        augmented_dict = input_dict
 
         # here consolidate["masks"] to one flatten mask. you need to preserve mask values for this.
+        # state.batch_set_item(key=self.input_key, value=augmented_dict["images"])
+        # state.batch_set_item(key=self.target_key, value=augmented_dict["masks"])
 
 
-        state.batch_set_item(key=self.input_key, value=augmented_dict["images"])
-        state.batch_set_item(key=self.target_key, value=augmented_dict["masks"])
+
+
+        ## bypassing CopyPaste to make it run
+        state.batch_set_item(key=self.input_key, value=state.batch_get_item(key=self.input_key))
+        state.batch_set_item(key=self.target_key, value=state.batch_get_item(key=self.target_key))
 
 
 
