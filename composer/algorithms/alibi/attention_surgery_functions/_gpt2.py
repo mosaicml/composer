@@ -8,11 +8,11 @@ import torch
 from transformers.models.gpt2.modeling_gpt2 import GPT2Attention, GPT2Model
 
 from composer.algorithms.alibi.attention_surgery_functions.utils import (ReplacementFunction, register_alibi,
-                                                                         register_surgery_function_builder,
+                                                                         register_alibi_replacement_function,
                                                                          zero_and_freeze_expand_position_embeddings)
 
 
-@register_surgery_function_builder(GPT2Model)
+@register_alibi_replacement_function(GPT2Model)
 def build_gpt2_embedding_converter(max_sequence_length: int) -> ReplacementFunction:
     """Builds a function to remove positional embeddings."""
 
@@ -26,7 +26,7 @@ def build_gpt2_embedding_converter(max_sequence_length: int) -> ReplacementFunct
     return convert_position_embeddings
 
 
-@register_surgery_function_builder(GPT2Attention)
+@register_alibi_replacement_function(GPT2Attention)
 def build_gpt2_attention_converter(max_sequence_length: int) -> ReplacementFunction:
     """Builds a function that does model surgery to add ALiBi to GPT2Attention.
 

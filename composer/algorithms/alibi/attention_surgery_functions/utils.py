@@ -12,12 +12,12 @@ from composer.utils.module_surgery import ReplacementFunction
 
 log = logging.getLogger(__name__)
 
-# Initialize the empty registry that will be filled by using the `register_surgery_function_builder` decorator.
+# Initialize the empty registry that will be filled by using the `register_alibi_replacement_function` decorator.
 SurgeryFunctionBuilder = Callable[[int], ReplacementFunction]
-replacement_policy_mapping_builder: Dict[Type[torch.nn.Module], SurgeryFunctionBuilder] = {}
+policy_registry: Dict[Type[torch.nn.Module], SurgeryFunctionBuilder] = {}
 
 
-def register_surgery_function_builder(
+def register_alibi_replacement_function(
         *modules: Type[torch.nn.Module]) -> Callable[[SurgeryFunctionBuilder], SurgeryFunctionBuilder]:
     """This decorator builds a registry that maps torch module types to their applicable SurgeryFunctionBuilder.
 
@@ -34,28 +34,28 @@ def register_surgery_function_builder(
 
         .. code-block::
 
-            from composer.algorithms.alibi.attention_surgery_functions import replacement_policy_mapping_builder
+            from composer.algorithms.alibi.attention_surgery_functions import policy_registry
             from composer.utils import module_surgery
 
             policies = {}
-            for module_class, replacement_function_builder in replacement_policy_mapping_builder.items():
+            for module_class, replacement_function_builder in policy_registry.items():
                 # Each `replacement_function_builder` returns a replacement function
                 policies[module_class] = replacement_function_builder(max_sequence_length)
 
             module_surgery.replace_module_classes(model, policies=policies)
 
-    Implementation files (e.g., `_gpt2.py`) populate the `replacement_policy_mapping_builder`
+    Implementation files (e.g., `_gpt2.py`) populate the `policy_registry`
     registry by defining instances of `SurgeryFunctionBuilder` functions and decorating them with
-    :func:`register_surgery_function_builder`.
+    :func:`register_alibi_replacement_function`.
 
     Example:
 
         .. code-block::
 
-            from composer.algorithms.alibi.attention_surgery_functions.utils import register_surgery_function_builder
+            from composer.algorithms.alibi.attention_surgery_functions.utils import register_alibi_replacement_function
             from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
 
-            @register_surgery_function_builder(GPT2Attention)
+            @register_alibi_replacement_function(GPT2Attention)
             def build_gpt2_attention_converter(max_sequence_length):
                 # Builds a function (`convert_attention`) that does model surgery any GPT2Attention modules in the model.
 
@@ -69,7 +69,7 @@ def register_surgery_function_builder(
                 return convert_attention
 
     In the above example, by decorating `build_gpt2_attention_converter` (which is an instance of a `SurgeryFunctionBuilder`
-    function) with `@register_surgery_function_builder(GPT2Attention)`, the ALiBi algorithm will now apply model surgery to any
+    function) with `@register_alibi_replacement_function(GPT2Attention)`, the ALiBi algorithm will now apply model surgery to any
     instances of `GPT2Attention` within the model, and will apply surgery on those instances using the `convert_attention` function
     returned by `build_gpt2_attention_converter`.
 
@@ -82,9 +82,9 @@ def register_surgery_function_builder(
 
     def _register_module(module: Type[torch.nn.Module], func: Callable) -> None:
         assert issubclass(module, torch.nn.Module)
-        if module in replacement_policy_mapping_builder:
+        if module in policy_registry:
             raise ValueError(f'Module {module.__name__} already has a registered SurgeryFunctionBuilder.')
-        replacement_policy_mapping_builder[module] = func
+        policy_registry[module] = func
         return
 
     def wrapper(func: SurgeryFunctionBuilder) -> SurgeryFunctionBuilder:

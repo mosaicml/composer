@@ -11,10 +11,10 @@ from typing import Mapping, Optional, Sequence, Union
 import torch
 from torch.optim import Optimizer
 
-from composer.algorithms.alibi.attention_surgery_functions import replacement_policy_mapping_builder
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
 from composer.utils import module_surgery
+from composer.utils import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
 
@@ -77,8 +77,10 @@ def apply_alibi(
         replaced_pairs (dict[torch.nn.Module, torch.nn.Module]): Returned if `output_replaced_pairs`
             is `True`, otherwise returns None.
     """
-    # Validate that `replacement_policy_mapping_builder` was populated successfully
-    _check_builder_mapping(replacement_policy_mapping_builder)
+    try: 
+        from composer.algorithms.alibi.attention_surgery_functions import policy_registry
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
     # To use model surgery utilities, we need to define a policy of type
     # Mapping[Type[torch.nn.Module], ReplacementFunction], where ReplacementFunction is
@@ -89,11 +91,11 @@ def apply_alibi(
     #
     # For additional details, see `./attention_surgery_functions/utils.py`.
     policies = {}
-    for module_class, replacement_function_builder in replacement_policy_mapping_builder.items():
+    for module_class, replacement_function_builder in policy_registry.items():
         # Each `replacement_function_builder` returns a ReplacementFunction
         policies[module_class] = replacement_function_builder(max_sequence_length)
 
-    # Note: `policies` defines replacements for _all_ the modules registered in `replacement_policy_mapping_builder`,
+    # Note: `policies` defines replacements for _all_ the modules registered in `policy_registry`,
     # meaning that some replacements may be irrelevant for `model`.
     # Conversely, attention modules within `model` may be ignored if they are not registered by the
     # implementations within `./attention_surgery_functions/`.
@@ -104,26 +106,6 @@ def apply_alibi(
 
     if output_replaced_pairs:
         return replaced_pairs
-
-
-def _check_builder_mapping(builder_mapping: dict):
-    # This should be populated, and we can return without raising errors if it is
-    if len(builder_mapping) > 0:
-        return
-
-    # If it wasn't populated, first check to see if `transformers` package is missing
-    else:
-        from composer.utils import MissingConditionalImportError
-
-        # pyright: reportUnusedImport=none
-        try:
-            import transformers
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
-
-    # If we're here, there was an unknown error when importing the registry
-    raise ImportError('Failed to populate the module surgery registry when '
-                      ' importing from composer.algorithms.alibi.attention_surgery_function.')
 
 
 class Alibi(Algorithm):

@@ -11,11 +11,11 @@ from transformers.models.bert.modeling_bert import BertEmbeddings, BertSelfAtten
 from transformers.models.roberta.modeling_roberta import RobertaEmbeddings, RobertaSelfAttention
 
 from composer.algorithms.alibi.attention_surgery_functions.utils import (ReplacementFunction, register_alibi,
-                                                                         register_surgery_function_builder,
+                                                                         register_alibi_replacement_function,
                                                                          zero_and_freeze_expand_position_embeddings)
 
 
-@register_surgery_function_builder(BertEmbeddings, RobertaEmbeddings)
+@register_alibi_replacement_function(BertEmbeddings, RobertaEmbeddings)
 def build_bert_embedding_converter(max_sequence_length: int) -> ReplacementFunction:
     """Builds a function to remove positional embeddings.
 
@@ -36,7 +36,7 @@ def build_bert_embedding_converter(max_sequence_length: int) -> ReplacementFunct
     return convert_position_embeddings_and_ids
 
 
-@register_surgery_function_builder(BertSelfAttention, RobertaSelfAttention)
+@register_alibi_replacement_function(BertSelfAttention, RobertaSelfAttention)
 def build_bert_attention_converter(max_sequence_length: int) -> ReplacementFunction:
     """Builds a function that does model surgery to add ALiBi to Bert-style SelfAttention."""
 
