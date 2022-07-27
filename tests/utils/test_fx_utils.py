@@ -163,7 +163,6 @@ def test_fuse_parallel_linears(model_cls, before_count, after_count):
 @pytest.mark.filterwarnings(
     r'ignore:Attempted to insert a call_module Node with no underlying reference in the owning GraphModule!.*:UserWarning'
 )
-@pytest.mark.timeout(15)
 def test_stochastic_depth(model_cls, block_count):
     model = model_cls()
     traced = symbolic_trace(model)
