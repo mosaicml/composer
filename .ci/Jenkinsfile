@@ -46,7 +46,7 @@ pLintTimeout = '1800' // timeout to run lint + doctests, in seconds
 // Conda settings
 dependenciesChanged = false // Whether meta.yaml or setup.py have changed, (if so, rebuild conda)
 condaCpuLimit = '4'
-condaMemLimit = '20Gi' // memory limit for ram and ephemeral storage
+condaMemLimit = '30Gi' // memory limit for ram and ephemeral storage
 condaBuildDockerImage = 'continuumio/anaconda-pkg-build:2022.02.09-amd64'  // Docker image for conda builds
 condaTimeout = '7200' // timeout for conda builds, in seconds
 

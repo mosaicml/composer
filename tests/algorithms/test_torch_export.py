@@ -146,8 +146,9 @@ def test_surgery_onnx(
 ):
     """Tests onnx export and runtime"""
     pytest.importorskip('onnx')
-    import onnx  # type: ignore
-    import onnxruntime as ort  # type: ignore
+    pytest.importorskip('onnxruntime')
+    import onnx
+    import onnxruntime as ort
 
     surgery_method = get_surgery_method(alg_cls)
 
