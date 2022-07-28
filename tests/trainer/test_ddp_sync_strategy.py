@@ -39,7 +39,6 @@ class MinimalConditionalModel(nn.Module):
         return (output - target) * (output - target)
 
 
-@pytest.mark.timeout(90)
 @pytest.mark.parametrize('ddp_sync_strategy,expected_grads', [
     pytest.param('single_auto_sync', ([-1, None, None], [-1, -1.5, None], [-1, -1.5, None]), id='single_auto_sync'),
     pytest.param('multi_auto_sync', ([-1.5, None, None], [-1.5, -1.5, None], [-1.5, -1.5, None]), id='multi_auto_sync'),

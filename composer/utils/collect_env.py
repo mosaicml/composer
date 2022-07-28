@@ -49,6 +49,8 @@ import cpuinfo
 import importlib_metadata
 import psutil
 
+from composer.utils.misc import is_notebook
+
 __all__ = ['configure_excepthook', 'disable_env_report', 'enable_env_report', 'print_env']
 
 # Check if PyTorch is installed
@@ -70,14 +72,11 @@ except (ImportError,):
     COMPOSER_AVAILABLE = False
 
 # Check if we're running in a notebook
-try:
-    __IPYTHON__  #type: ignore
+IPYTHON_AVAILABLE = is_notebook()
+if IPYTHON_AVAILABLE:
     from composer.utils.import_helpers import import_object
     get_ipython = import_object('IPython:get_ipython')
     nb = get_ipython()
-    IPYTHON_AVAILABLE = True
-except (NameError,):
-    IPYTHON_AVAILABLE = False
 
 # Place to keep track of the original excepthook
 _orig_excepthook = None
@@ -369,8 +368,8 @@ def print_env(file: Optional[TextIO] = None) -> None:
 
         Composer information
         --------------------
-        Composer version: 0.8.1
-        Composer commit hash: 8418a674248d39c28403156a0559c77d1f3642f9
+        Composer version: 0.8.2
+        Composer commit hash: 9e14a47562def0baa414242c36954eb3083dcd46
         Host processor model name: AMD EPYC 7502 32-Core Processor
         Host processor core count: 64
         Number of nodes: 1
