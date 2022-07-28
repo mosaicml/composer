@@ -27,10 +27,27 @@ __all__ = ['NLPTrainerHparams', 'GLUETrainerHparams']
 class GLUETrainerHparams(hp.Hparams):
     """Finetuning Hparams class.
 
-    Specifies arguments that should be broadcasted as overrides to all GLUE finetuning tasks when using examples/run_nlp_trainer.py.
+       Specifies arguments that should be applied as overrides to all GLUE finetuning tasks when using examples/run_nlp_trainer.py.
 
-    Args:
-       ...
+        Args:
+        algorithms (List[AlgorithmHparams], optional): The algorithms to use during training. (default: ``[]``)
+
+                .. seealso:: :mod:`composer.algorithms` for the different algorithms built into Composer.
+            load_ignore_keys (List[str] | (Dict) -> None, optional): See :class:`.Trainer`.
+            load_path (str, optional): See :class:`.Trainer`.
+            load_object_store (ObjectStoreHparams, optional): See :class:`.Trainer`. Both ``load_logger_destination`` and
+                ``load_object_store`` should not be provided since there can only be one location to load from.
+            loggers (List[LoggerDestinationHparams], optional): Hparams for constructing the destinations
+            to log to. (default: ``[]``)
+
+                .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
+            save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+
+        Example: 
+
+            Specifying ``save_folder: path/to/example/folder`` in a yaml will force all glue tasks in composer/yamls/models/glue/ to 
+            save checkpoints to ``path/to/example/folder.``
+        
     """
     algorithms: Optional[List[Algorithm]] = hp.auto(Trainer, 'algorithms')
     load_ignore_keys: Optional[List[str]] = hp.auto(Trainer, 'load_ignore_keys')
@@ -38,21 +55,13 @@ class GLUETrainerHparams(hp.Hparams):
     load_object_store: Optional[ObjectStoreHparams] = hp.auto(Trainer, 'load_object_store')
     loggers: Optional[List[LoggerDestination]] = hp.auto(Trainer, 'loggers')
     save_folder: Optional[str] = hp.auto(Trainer, 'save_folder')
+    finetune_ckpts: Optional[List[str]] = hp.optional(doc="list of checkpoints to finetune on", default = None)
 
     hparams_registry = {
         'algorithms': algorithm_registry,
         'load_object_store': object_store_registry,
         'loggers': logger_registry,
     }
-
-    def initialize_object(self) -> Tuple:
-        load_object_store = None
-        if self.load_object_store:
-            load_object_store = self.load_object_store.initialize_object()
-
-        return (self.algorithms, self.load_ignore_keys, self.load_path, load_object_store, self.loggers,
-                self.save_folder)
-
 
 @dataclasses.dataclass
 class NLPTrainerHparams(hp.Hparams):
@@ -67,16 +76,11 @@ class NLPTrainerHparams(hp.Hparams):
 
     # GLUE Specific Overrides test
     pretrain_hparams: TrainerHparams = hp.required(doc='Pretraining hyperparameters')
-    training_scheme: str = hp.required(doc='training scheme used (one of "pretrain", "finetune", or "all")')
     finetune_hparams: Optional[GLUETrainerHparams] = hp.optional(doc='GLUE Finetuning hyperparameters', default=None)
+    training_scheme: Optional[str] = hp.optional(doc='training scheme used (one of "pretrain", "finetune", or "all")', default='all')
 
     def initialize_object(self) -> Trainer:
         self.validate()
-
-        # Glue Params
-        if self.finetune_hparams:
-            self.finetune_hparams = self.finetune_hparams.initialize_object()
-
         return self.pretrain_hparams.initialize_object()
 
     @classmethod
