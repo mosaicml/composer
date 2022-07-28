@@ -137,7 +137,7 @@ def copypaste_batch(images, masks, configs):
 
         trg_image = images[j]
         trg_mask = masks[j]
-        print("- num_copied_instances = ", num_copied_instances, ", instance_ids = ", src_instance_ids)
+        # print("- num_copied_instances = ", num_copied_instances, ", instance_ids = ", src_instance_ids)
         # imshow_1d_tensor(masks[i])
         # imshow_tensor(images[i])
         # imshow_1d_tensor(trg_mask)
@@ -146,7 +146,7 @@ def copypaste_batch(images, masks, configs):
         # print("target: ", torch.unique(trg_mask))
         if random.uniform(0, 1) < configs["p"]:
             for src_instance_id in src_instance_ids:
-                print ("i = ", i, ", j = ", j, " instance_id = ", src_instance_id)
+                # print ("i = ", i, ", j = ", j, " instance_id = ", src_instance_id)
 
                 trg_image, trg_mask = _copypaste_instance(images[i], masks[i], trg_image, trg_mask, src_instance_id, configs)
         else:
@@ -177,30 +177,36 @@ def visualize_copypaste_batch(images, masks, out_images, out_masks, num, fig_nam
     fig, axarr = plt.subplots(4, num, figsize=(14, 8), dpi=dpi)
 
     for col in range(min(num, len(images))):
-        image = images[col]
+        arr = images[col].cpu().numpy()
+        image = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
         ax = axarr[0, col]
-        ax.imshow(np.transpose(image.cpu().numpy(), (1, 2, 0)))
+        ax.imshow(np.transpose(image, (1, 2, 0)))
         ax.set_title("images")
         clean_axes(ax)
 
     for col in range(min(num, len(masks))):
-        image = masks[col]
+        arr = torch.unsqueeze(masks[col], dim=0).cpu().numpy()
+        image = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
         ax = axarr[1, col]
-        ax.imshow(np.transpose(torch.unsqueeze(image, dim=0).cpu().numpy(), (1, 2, 0)), cmap="gray")
+        ax.imshow(np.transpose(image, (1, 2, 0)), cmap="gray")
         ax.set_title("masks")
         clean_axes(ax)
 
     for col in range(min(num, len(out_images))):
-        image = out_images[col]
+        arr = out_images[col].cpu().numpy()
+        # print("out_images: ", (np.max(arr) - np.min(arr)))
+        image = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
         ax = axarr[2, col]
-        ax.imshow(np.transpose(image.cpu().numpy(), (1, 2, 0)))
+        ax.imshow(np.transpose(image, (1, 2, 0)))
         ax.set_title("out_images")
         clean_axes(ax)
 
     for col in range(min(num, len(out_masks))):
-        image = out_masks[col]
+        arr = torch.unsqueeze(out_masks[col], dim=0).cpu().numpy()
+        # print("out_masks: ", (np.max(arr) - np.min(arr)))
+        image = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
         ax = axarr[3, col]
-        ax.imshow(np.transpose(torch.unsqueeze(image, dim=0).cpu().numpy(), (1, 2, 0)), cmap="gray")
+        ax.imshow(np.transpose(image, (1, 2, 0)), cmap="gray")
         ax.set_title("out_masks")
         clean_axes(ax)
 
@@ -265,7 +271,7 @@ class CopyPaste(Algorithm):
     Randomly pastes objects onto an image.
 
     Args:
-        p (float, optional): p. Default: ``1.0``
+        p (float, optional): p. Default: ``0.75``
         convert_to_binary_mask (bool, optional): convert_to_binary_mask. Default: ``True``.
         max_copied_instances (int | None, optional): max_copied_instances. Default: ``None``.
         area_threshold (int, optional): area_threshold. Default: ``100``.
@@ -334,10 +340,10 @@ class CopyPaste(Algorithm):
         return event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        print()
-        print("------------------------------------")
-        print("apply is called")
-        print("------------------------------------")
+        # print()
+        # print("------------------------------------")
+        # print("apply is called")
+        # print("------------------------------------")
 
         # input_dict = {
         #     "images": [],
@@ -347,12 +353,25 @@ class CopyPaste(Algorithm):
         images = state.batch_get_item(key=self.input_key)
         masks = state.batch_get_item(key=self.target_key)
 
-        # test_image = input_dict["images"][2]
-        # test_mask = input_dict["aggregated_masks"][2]
 
-        # print(torch.min(test_image), " - ", torch.max(test_image))
-        # print(torch.min(test_mask), " - ", torch.max(test_mask))
+        for image in images:
+            arr = image.cpu().numpy()
+            dr = (np.max(arr) - np.min(arr))
+            if dr == 0:
+                print("FOUND!")
+                print("image DR: ", dr)
+                print("^^")
+
+
+
         
+        # print("BEFORE:")
+        # img = images[0]
+        # msk = masks[0]
+        # print(torch.min(img), " - ", torch.max(img))
+        # print(torch.min(msk), " - ", torch.max(msk))
+        
+
         # path = os.path.join(".", "debug_out")
         # if not os.path.isdir(path):
         #     os.makedirs(path)
@@ -364,7 +383,7 @@ class CopyPaste(Algorithm):
         # input_dict = _parse_segmentation_batch(input_dict)
         out_images, out_masks = copypaste_batch(images, masks, self.configs)
         
-        visualize_copypaste_batch(images, masks, out_images, out_masks, num=5, fig_name="copypaste_test"+str(batch_num))
+        # visualize_copypaste_batch(images, masks, out_images, out_masks, num=5, fig_name="copypaste_test"+str(batch_num))
         # augmented_dict = copypaste_batch(input_dict, self.configs)
 
 
@@ -372,12 +391,21 @@ class CopyPaste(Algorithm):
         # state.batch_set_item(key=self.input_key, value=augmented_dict["images"])
         # state.batch_set_item(key=self.target_key, value=augmented_dict["masks"])
 
+        
+        # print("AFTER:")
+        # img = out_images[0]
+        # msk = out_masks[0]
+        # print(torch.min(img), " - ", torch.max(img))
+        # print(torch.min(msk), " - ", torch.max(msk))
+        
 
+        # ## bypassing CopyPaste to make it run on r1z2
+        # state.batch_set_item(key=self.input_key, value=state.batch_get_item(key=self.input_key))
+        # state.batch_set_item(key=self.target_key, value=state.batch_get_item(key=self.target_key))
 
+        state.batch_set_item(key=self.input_key, value=out_images)
+        state.batch_set_item(key=self.target_key, value=out_masks)
 
-        ## bypassing CopyPaste to make it run on r1z2
-        state.batch_set_item(key=self.input_key, value=state.batch_get_item(key=self.input_key))
-        state.batch_set_item(key=self.target_key, value=state.batch_get_item(key=self.target_key))
 
 
 
@@ -389,7 +417,7 @@ class CopyPaste_backup(Algorithm):
 
     def __init__(
         self,
-        p=1.0,
+        p=0.75,
         convert_to_binary_mask=True,
         max_copied_instances=None,
         area_threshold=100,
@@ -441,6 +469,7 @@ def _parse_mask_by_id(mask, idx, background_color=-1):
 
 
 def _copypaste_instance(src_image, src_mask, trg_image, trg_mask, src_instance_id, configs):
+    zero_tensor = torch.zeros(1, dtype=src_image.dtype, device=src_image.device)
     # TODO: move to configs
     bg_color = configs["bg_color"]
     # src_instance_mask = src_mask[src_instance_id]
@@ -449,8 +478,7 @@ def _copypaste_instance(src_image, src_mask, trg_image, trg_mask, src_instance_i
     #     src_instance_mask = torch.where(src_instance_mask==0, 0, 1)
 
     # src_instance = torch.mul(src_image, src_instance_mask)
-
-    src_instance = torch.where(src_instance_mask==bg_color, 0, src_image)
+    src_instance = torch.where(src_instance_mask==bg_color, zero_tensor, src_image)
 
     # imshow_tensor(src_instance)
     # imshow_1d_tensor(src_instance_mask)
@@ -463,7 +491,7 @@ def _copypaste_instance(src_image, src_mask, trg_image, trg_mask, src_instance_i
     # imshow_tensor(src_instance)
     # imshow_1d_tensor(src_instance_mask)
 
-    trg_image = torch.where(src_instance_mask==bg_color, trg_image, 0)
+    trg_image = torch.where(src_instance_mask==bg_color, trg_image, zero_tensor)
     trg_image += src_instance
     trg_mask = torch.where(src_instance_mask==bg_color, trg_mask, src_instance_mask)
 
