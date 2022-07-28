@@ -207,13 +207,14 @@ class WandBLogger(LoggerDestination):
 
         # replace all unsupported characters with periods
         # Only alpha-numeric, periods, hyphens, and underscores are supported by wandb.
+        if ':' not in artifact_name:
+            artifact_name += ':latest'
+
         new_artifact_name = re.sub(r'[^a-zA-Z0-9-_\.]', '.', artifact_name)
         if new_artifact_name != artifact_name:
             warnings.warn(('WandB permits only alpha-numeric, periods, hyphens, and underscores in artifact names. '
                            f"The artifact with name '{artifact_name}' will be stored as '{new_artifact_name}'."))
 
-        if ':' not in new_artifact_name:
-            new_artifact_name += ':latest'
         try:
             artifact = api.artifact('/'.join([self.entity, self.project, new_artifact_name]))
         except wandb.errors.CommError as e:
