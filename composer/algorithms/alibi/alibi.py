@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-import logging
 import functools
+import logging
 from typing import Mapping, Optional, Sequence, Union
 
 import torch
@@ -14,8 +14,7 @@ from torch.optim import Optimizer
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
-from composer.utils import module_surgery
-from composer.utils import MissingConditionalImportError
+from composer.utils import MissingConditionalImportError, module_surgery
 
 log = logging.getLogger(__name__)
 
@@ -26,7 +25,6 @@ def apply_alibi(
     model: torch.nn.Module,
     max_sequence_length: int,
     optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
-    output_replaced_pairs: bool = False,
 ) -> Union[Mapping[torch.nn.Module, torch.nn.Module], None]:
     """Removes position embeddings and replaces the attention function and attention mask
     as per :class:`.Alibi`. Note that the majority of the training speed-up from using ALiBi
@@ -70,15 +68,12 @@ def apply_alibi(
             If the optimizer(s) are constructed *after* calling this function,
             then it is safe to omit this parameter. These optimizers will see the correct
             model parameters.
-        output_replaced_pairs (bool, optional): Whether to output the module pairs returned by
-            model surgery. This can be useful for confirming expected changes.
-            Default: `False`.
 
     Returns:
         replaced_pairs (dict[torch.nn.Module, torch.nn.Module]): Returned if `output_replaced_pairs`
             is `True`, otherwise returns None.
     """
-    try: 
+    try:
         from composer.algorithms.alibi.attention_surgery_functions import policy_registry
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
@@ -94,9 +89,7 @@ def apply_alibi(
     policies = {}
     for module_class, alibi_surgery_function in policy_registry.items():
         # This use of `functools.partial` makes `alibi_surgery_function` act like a ReplacementFunction
-        policies[module_class] = functools.partial(
-            alibi_surgery_function, max_sequence_length=max_sequence_length
-        )
+        policies[module_class] = functools.partial(alibi_surgery_function, max_sequence_length=max_sequence_length)
 
     # Note: `policies` defines replacements for _all_ the modules registered in `policy_registry`,
     # meaning that some replacements may be irrelevant for `model`.
@@ -105,10 +98,12 @@ def apply_alibi(
     replaced_pairs = module_surgery.replace_module_classes(model, optimizers=optimizers, policies=policies)
 
     count = len(replaced_pairs)
-    log.info(f' {count} instances of ALiBi added')
-
-    if output_replaced_pairs:
-        return replaced_pairs
+    if count == 0:
+        supported_modules = ''.join(sorted(['\n\t' + c.__module__ + '.' + c.__name__ for c in policy_registry.keys()]))
+        log.warning(f'ALiBi had no effect on the model! Support for ALiBi surgery '
+                    f'is currently limited to the following classes: {supported_modules}')
+    else:
+        log.info(f' {count} instances of ALiBi added')
 
 
 class Alibi(Algorithm):

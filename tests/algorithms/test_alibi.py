@@ -25,20 +25,6 @@ def _double_batch_sequence_length(batch):
     return batch
 
 
-def check_number_of_modules_replaced(family, model, replaced_pairs):
-    if family == 'gpt2':
-        attention_modules = model.config.num_hidden_layers
-        # Should "replace" the (1) `GPT2Model` and (n) `GPT2Attention` instances
-        expected_pairs = 1 + attention_modules
-    elif family == 'bert':
-        attention_modules = model.config.num_hidden_layers
-        # Should "replace" the (1) `BertEmbeddings` and (n) `BertSelfAttention` instances
-        expected_pairs = 1 + attention_modules
-    else:
-        raise NotImplementedError('Tests not implemented for synthetic_state_family=' + family)
-    assert len(replaced_pairs) == expected_pairs
-
-
 def check_position_embeddings(family, model, max_sequence_length):
     if family == 'gpt2':
         position_embedding_attribute = 'model.transformer.wpe'
@@ -85,11 +71,27 @@ def check_batch_reshaping(before, after, length):
         assert k in before, 'No keys should be added during sequence reshaping.'
 
 
+def encountered_alibi_warning(caplog):
+    """Return true if the caplog shows an alibi warning in the log"""
+    for (logger_name, level, _) in caplog.record_tuples:
+        if 'alibi' in logger_name and level >= 30:  # Warnings are level 30
+            return True
+    return False
+
+
+def test_warning_is_triggered(caplog):
+    apply_alibi(
+        model=torch.nn.Linear(20, 10),
+        max_sequence_length=64,
+    )
+    assert encountered_alibi_warning(caplog)
+
+
 @pytest.mark.timeout(15)
 @pytest.mark.parametrize('synthetic_state_family', ['bert', 'gpt2'])
 class TestAlibi:
 
-    def test_functional(self, synthetic_state_family: str):
+    def test_functional(self, synthetic_state_family: str, caplog):
         state, _, dataloader = make_synthetic_state(synthetic_state_family)
         if synthetic_state_family == 'gpt2':
             max_sequence_length = state.model.config.n_positions
@@ -101,14 +103,11 @@ class TestAlibi:
         #### With default sequence length ####
 
         # Apply ALiBi using the functional
-        replaced_pairs = apply_alibi(
+        apply_alibi(
             model=state.model,
             max_sequence_length=max_sequence_length,
-            output_replaced_pairs=True,
         )
-
-        # Ensure that the expected number of modules were affected
-        check_number_of_modules_replaced(synthetic_state_family, state.model, replaced_pairs)
+        assert not encountered_alibi_warning(caplog)  # This should not generate any warnings
 
         # Ensure that the position embeddings are properly shaped and zeroed
         check_position_embeddings(synthetic_state_family, state.model, max_sequence_length)
@@ -122,14 +121,11 @@ class TestAlibi:
         #### With double sequence length ####
 
         # Apply ALiBi using the functional
-        replaced_pairs = apply_alibi(
+        apply_alibi(
             model=state.model,
             max_sequence_length=2 * max_sequence_length,
-            output_replaced_pairs=True,
         )
-
-        # Ensure that the expected number of modules were affected
-        check_number_of_modules_replaced(synthetic_state_family, state.model, replaced_pairs)
+        assert not encountered_alibi_warning(caplog)  # This should not generate any warnings
 
         # Ensure that the position embeddings are properly shaped and zeroed
         check_position_embeddings(synthetic_state_family, state.model, 2 * max_sequence_length)
@@ -142,7 +138,8 @@ class TestAlibi:
         check_forward_backward(state.model, batch)
 
     @pytest.mark.parametrize('train_sequence_length_scaling', [0.25, 1.0])
-    def test_algorithm(self, synthetic_state_family: str, empty_logger: Logger, train_sequence_length_scaling: float):
+    def test_algorithm(self, synthetic_state_family: str, empty_logger: Logger, train_sequence_length_scaling: float,
+                       caplog):
         state, _, dataloader = make_synthetic_state(synthetic_state_family)
 
         if synthetic_state_family == 'gpt2':
@@ -159,6 +156,7 @@ class TestAlibi:
         )
         # Apply ALiBi to the model
         alibi.apply(Event.INIT, state, empty_logger)
+        assert not encountered_alibi_warning(caplog)  # This should not generate any warnings
 
         batch_before = next(iter(dataloader))
         state.batch = deepcopy(batch_before)
