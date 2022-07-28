@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Mapping, Optional, Sequence, Union
+from typing import Optional, Sequence, Union
 
 import torch
 from torch.optim import Optimizer
