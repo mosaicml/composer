@@ -12,6 +12,7 @@ import composer.profiler
 from composer import Callback
 from composer.callbacks import EarlyStopper, ImageVisualizer, MemoryMonitor, SpeedMonitor, ThresholdStopper
 from composer.callbacks.callback_hparams_registry import callback_registry
+from composer.callbacks.export_for_inference import ExportForInference
 from composer.callbacks.mlperf import MLPerfCallback
 from composer.loggers import ObjectStoreLogger, TensorboardLogger, WandBLogger
 from composer.loggers.logger_destination import LoggerDestination
@@ -69,6 +70,10 @@ _callback_kwargs: Dict[Union[Type[Callback], Type[hp.Hparams]], Dict[str, Any],]
     EarlyStopper: {
         'monitor': 'Accuracy',
         'dataloader_label': 'train',
+    },
+    ExportForInference: {
+        'save_format': 'torchscript',
+        'out_filename': '/tmp/model.pth',
     },
     MLPerfCallback: {
         'root_folder': '.',
