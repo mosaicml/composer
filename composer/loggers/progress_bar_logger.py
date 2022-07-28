@@ -173,18 +173,37 @@ class ProgressBarLogger(LoggerDestination):
                 raise ValueError(f'stream must be one of ("stdout", "stderr", TextIO-like), got {stream}')
 
         self.stream = stream
+        self.state: State = None
 
     @property
     def show_pbar(self) -> bool:
         return self._show_pbar and dist.get_local_rank() == 0
 
-    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]) -> None:
+    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+        assert self.state is not None
+        for metric_name, metric_value in metrics.items():
+            # Only log metrics and losses to pbar.
+            if 'metric' in metric_name or 'loss' in metric_name:
+                self.log_to_pbar(data={metric_name: metric_value})
+
+        # Automatic log_level determination.
+        if self.state.timestamp.batch == 0:
+            log_level = LogLevel.FIT
+        elif self.state.timestamp.batch_in_epoch == 0:
+            log_level = LogLevel.EPOCH
+        else:
+            log_level = LogLevel.BATCH
+        
+        self.log_to_console(self.state, log_level, metrics)
+
+    def log_to_pbar(self, data: Dict[str, Any]):
         # log to progress bar
         current_pbar = self.eval_pbar if self.eval_pbar is not None else self.train_pbar
         if current_pbar:
             # Logging outside an epoch
             current_pbar.log_data(data)
 
+    def log_to_console(self, state: State, log_level: LogLevel, data: Dict[str, Any]) -> None:
         # log to console
         if self.should_log(state, log_level):
             data_str = format_log_data_value(data)
@@ -196,7 +215,6 @@ class ProgressBarLogger(LoggerDestination):
                 else:
                     total = int(state.dataloader_len)
                     curr_progress = f'[batch={int(state.timestamp.batch_in_epoch)}/{total}]'
-
                 training_progress = f'[epoch={int(state.timestamp.epoch)}]{curr_progress}'
             else:
                 unit = state.max_duration.unit
@@ -205,9 +223,9 @@ class ProgressBarLogger(LoggerDestination):
                 training_progress = f'[{unit.name.lower()}={curr_duration}/{total}]'
 
             log_str = f'[{log_level.name}]{training_progress}: {data_str}'
-            self.log_to_console(log_str)
+            self._log_to_console(log_str)
 
-    def log_to_console(self, log_str: str):
+    def _log_to_console(self, log_str: str):
         """Logs to the console, avoiding interleaving with a progress bar."""
         current_pbar = self.eval_pbar if self.eval_pbar is not None else self.train_pbar
         if current_pbar:
@@ -274,7 +292,7 @@ class ProgressBarLogger(LoggerDestination):
         )
 
     def init(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
+        del logger  # unused
         self.dummy_pbar = _ProgressBar(
             file=self.stream,
             position=0,
@@ -284,6 +302,7 @@ class ProgressBarLogger(LoggerDestination):
             bar_format='{bar:-1b}',
             timestamp_key='',
         )
+        self.state = state
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         if self.show_pbar and not self.train_pbar:
