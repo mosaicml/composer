@@ -102,7 +102,8 @@ class TestObjectStore:
         cb.assert_all_data_transferred()
 
     def test_get_uri(self, object_store: ObjectStore, remote: bool):
-        del remote  # unused
+        if remote:
+            pytest.skip('This test_get_uri does not make any remote calls.')
         uri = object_store.get_uri('tmpfile_object_name')
         if isinstance(object_store, S3ObjectStore):
             assert uri == 's3://my-bucket/folder/subfolder/tmpfile_object_name'
