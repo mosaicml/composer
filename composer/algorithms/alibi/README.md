@@ -92,6 +92,7 @@ Please be aware that if you use ALiBi with an unsupported model type a logger wa
 
 You can add your own ALiBi implementation by extending the `policy_registry` that defines the "policy" that maps source module types (e.g., `transformers.models.bert.BertSelfAttention`) to their respective "replacement functions" (functions that modify instances of the source module or return new modules to replace them). Please see the documentation for `composer.algorithms.alibi.attention_surgery_functions.utils.PolicyRegistry` for details on the requirements of such implementations and specific examples. The following example demonstrates the basic pattern:
 
+<!--pytest.mark.skip-->
 ```python
 # Example for adding Alibi surgery functions to support a custom transformer model
 import torch

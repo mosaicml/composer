@@ -81,6 +81,7 @@ def encountered_alibi_warning(caplog):
 
 def test_warning_is_triggered(caplog):
     """Test that Alibi triggers a warning when it has no effect."""
+    pytest.importorskip('transformers')
     apply_alibi(
         model=torch.nn.Sequential(torch.nn.Linear(20, 10), torch.nn.Linear(10, 5)),
         max_sequence_length=64,
@@ -90,6 +91,7 @@ def test_warning_is_triggered(caplog):
 
 def test_registry(caplog):
     """Test that registry additions are used by Alibi."""
+    pytest.importorskip('transformers')
     from composer.algorithms.alibi.attention_surgery_functions import policy_registry
 
     @policy_registry.register(torch.nn.Linear)

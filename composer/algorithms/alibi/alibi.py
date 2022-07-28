@@ -68,10 +68,6 @@ def apply_alibi(
             If the optimizer(s) are constructed *after* calling this function,
             then it is safe to omit this parameter. These optimizers will see the correct
             model parameters.
-
-    Returns:
-        replaced_pairs (dict[torch.nn.Module, torch.nn.Module]): Returned if `output_replaced_pairs`
-            is `True`, otherwise returns None.
     """
     try:
         from composer.algorithms.alibi.attention_surgery_functions import policy_registry
