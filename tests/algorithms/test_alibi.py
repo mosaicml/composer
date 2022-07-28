@@ -80,11 +80,32 @@ def encountered_alibi_warning(caplog):
 
 
 def test_warning_is_triggered(caplog):
+    """Test that Alibi triggers a warning when it has no effect."""
     apply_alibi(
-        model=torch.nn.Linear(20, 10),
+        model=torch.nn.Sequential(torch.nn.Linear(20, 10), torch.nn.Linear(10, 5)),
         max_sequence_length=64,
     )
-    assert encountered_alibi_warning(caplog)
+    assert encountered_alibi_warning(caplog), 'A warning should be generated when Alibi has no effect.'
+
+
+def test_registry(caplog):
+    """Test that registry additions are used by Alibi."""
+    from composer.algorithms.alibi.attention_surgery_functions import policy_registry
+
+    @policy_registry.register(torch.nn.Linear)
+    def zero_linear_weights(  # pyright: reportUnusedFunction = none
+            module: torch.nn.Module, idx: int, max_sequence_length: int) -> torch.nn.Module:
+        assert isinstance(module, torch.nn.Linear)
+        old_weight = getattr(module, 'weight')
+        new_weight = torch.nn.Parameter(torch.zeros_like(old_weight))
+        setattr(module, 'weight', new_weight)
+        return module
+
+    apply_alibi(
+        model=torch.nn.Sequential(torch.nn.Linear(20, 10), torch.nn.Linear(10, 5)),
+        max_sequence_length=64,
+    )
+    assert not encountered_alibi_warning(caplog), 'No warnings should be generated after adding to the registry.'
 
 
 @pytest.mark.timeout(15)
