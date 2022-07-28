@@ -10,31 +10,27 @@ from torch import nn
 from transformers.models.bert.modeling_bert import BertEmbeddings, BertSelfAttention
 from transformers.models.roberta.modeling_roberta import RobertaEmbeddings, RobertaSelfAttention
 
-from composer.algorithms.alibi.attention_surgery_functions.utils import (register_alibi,
-                                                                         register_alibi_replacement_function,
+from composer.algorithms.alibi.attention_surgery_functions.utils import (policy_registry, register_alibi,
                                                                          zero_and_freeze_expand_position_embeddings)
 
 
-@register_alibi_replacement_function(BertEmbeddings, RobertaEmbeddings)
-def bert_embedding_converter(
-    module: torch.nn.Module, module_index: int, max_sequence_length: int
-) -> torch.nn.Module:
+@policy_registry.register(BertEmbeddings, RobertaEmbeddings)
+def bert_embedding_converter(module: torch.nn.Module, module_index: int, max_sequence_length: int) -> torch.nn.Module:
     """Removes positional embeddings and expands `position_ids` buffer to support `max_sequence_length` tokens.
     """
     assert isinstance(module, (BertEmbeddings, RobertaEmbeddings))
     del module_index  # unused
     zero_and_freeze_expand_position_embeddings(module,
-                                                max_sequence_length,
-                                                position_embedding_attribute='position_embeddings')
+                                               max_sequence_length,
+                                               position_embedding_attribute='position_embeddings')
 
     module_device = next(module.parameters()).device
     module.register_buffer('position_ids', torch.arange(max_sequence_length).expand((1, -1)).to(module_device))
     return module
 
-@register_alibi_replacement_function(BertSelfAttention, RobertaSelfAttention)
-def bert_attention_converter(
-    module: torch.nn.Module, module_index: int, max_sequence_length: int
-) -> torch.nn.Module:
+
+@policy_registry.register(BertSelfAttention, RobertaSelfAttention)
+def bert_attention_converter(module: torch.nn.Module, module_index: int, max_sequence_length: int) -> torch.nn.Module:
     """Adds ALiBi to Bert-style SelfAttention."""
     assert isinstance(module, (BertSelfAttention, RobertaSelfAttention))
     del module_index  # unused
@@ -45,6 +41,7 @@ def bert_attention_converter(
     setattr(module, 'forward', MethodType(forward, module))
 
     return module
+
 
 # This code is adapted from the HuggingFace Transformers library, so we ignore any type checking issues it triggers
 # pyright: reportGeneralTypeIssues = none
