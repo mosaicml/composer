@@ -95,9 +95,10 @@ class WandBLogger(LoggerDestination):
         self._init_kwargs = init_kwargs
         self._is_in_atexit = False
 
-        # These variables are set from global rank 0 to all ranks
-        self.entity = None
-        self.project = None
+        # Set these variable directly to allow fetching an Artifact **without** initializing a WandB run
+        # When used as a LoggerDestination, these values are overriden from global rank 0 to all ranks on Event.INIT
+        self.entity = entity
+        self.project = project
 
     def _set_is_in_atexit(self):
         self._is_in_atexit = True
