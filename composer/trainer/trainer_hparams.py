@@ -343,35 +343,35 @@ class TrainerHparams(hp.Hparams):
 
     # Save Checkpoint
     save_folder: Optional[str] = hp.auto(Trainer, 'save_folder')
-    save_filename: str = hp.auto(Trainer, 'save_filename')
-    save_artifact_name: str = hp.auto(Trainer, 'save_artifact_name')
-    save_latest_filename: str = hp.auto(Trainer, 'save_latest_filename')
-    save_latest_artifact_name: str = hp.auto(Trainer, 'save_latest_artifact_name')
-    save_overwrite: bool = hp.auto(Trainer, 'save_overwrite')
-    save_weights_only: bool = hp.auto(Trainer, 'save_weights_only')
-    save_interval: str = hp.auto(Trainer, 'save_interval')
-    save_num_checkpoints_to_keep: int = hp.auto(Trainer, 'save_num_checkpoints_to_keep')
+    save_filename: Optional[str] = hp.auto(Trainer, 'save_filename')
+    save_artifact_name: Optional[str] = hp.auto(Trainer, 'save_artifact_name')
+    save_latest_filename: Optional[str] = hp.auto(Trainer, 'save_latest_filename')
+    save_latest_artifact_name: Optional[str] = hp.auto(Trainer, 'save_latest_artifact_name')
+    save_overwrite: Optional[bool] = hp.auto(Trainer, 'save_overwrite')
+    save_weights_only: Optional[bool] = hp.auto(Trainer, 'save_weights_only')
+    save_interval: Optional[str] = hp.auto(Trainer, 'save_interval')
+    save_num_checkpoints_to_keep: Optional[int] = hp.auto(Trainer, 'save_num_checkpoints_to_keep')
 
     # Graceful Resumption
-    autoresume: bool = hp.auto(Trainer, 'autoresume')
+    autoresume: Optional[bool] = hp.auto(Trainer, 'autoresume')
     # DeepSpeed
     deepspeed_config: Optional[Dict[str, JSON]] = hp.auto(Trainer, 'deepspeed_config')
 
     # System/Numerics
     device: Optional[Device] = hp.auto(Trainer, 'device')
     precision: Optional[Precision] = hp.auto(Trainer, 'precision')
-    grad_accum: Union[int, str] = hp.auto(Trainer, 'grad_accum')
+    grad_accum: Optional[Union[int, str]] = hp.auto(Trainer, 'grad_accum')
 
     # Reproducibility
     seed: Optional[int] = hp.auto(Trainer, 'seed')
-    deterministic_mode: bool = hp.auto(Trainer, 'deterministic_mode')
+    deterministic_mode: Optional[bool] = hp.auto(Trainer, 'deterministic_mode')
 
     # Distributed
-    dist_timeout: float = hp.auto(Trainer, 'dist_timeout')
+    dist_timeout: Optional[float] = hp.auto(Trainer, 'dist_timeout')
     ddp_sync_strategy: Optional[DDPSyncStrategy] = hp.auto(Trainer, 'ddp_sync_strategy')
 
     # Grad Clip Norm
-    grad_clip_norm: float = hp.auto(Trainer, 'grad_clip_norm')
+    grad_clip_norm: Optional[float] = hp.auto(Trainer, 'grad_clip_norm')
 
     # Profiling
     profiler: Optional[Profiler] = hp.auto(Trainer, 'profiler')
