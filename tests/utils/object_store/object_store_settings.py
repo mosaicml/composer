@@ -53,6 +53,7 @@ _object_store_marks = {
     SFTPObjectStore: [
         pytest.mark.skipif(not _SFTP_AVAILABLE, reason='Missing dependency'),
         pytest.mark.filterwarnings(r'ignore:setDaemon\(\) is deprecated:DeprecationWarning'),
+        pytest.mark.filterwarnings(r'ignore:Unknown .* host key:UserWarning')
     ],
     SFTPObjectStoreHparams: [
         pytest.mark.skipif(not _SFTP_AVAILABLE, reason='Missing dependency'),

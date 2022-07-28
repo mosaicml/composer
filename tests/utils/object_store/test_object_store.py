@@ -35,7 +35,10 @@ def object_store_cls_and_kwargs(request, s3_bucket: str, sftp_uri: str, test_ses
             kwargs = {'bucket': 'my-bucket', 'prefix': 'folder/subfolder'}
     elif request.param is SFTPObjectStore:
         if remote:
-            kwargs = {'host': sftp_uri.rstrip('/') + '/' + test_session_name}
+            kwargs = {
+                'host': sftp_uri.rstrip('/') + '/' + test_session_name,
+                'missing_host_key_policy': 'WarningPolicy',
+            }
         else:
             kwargs = {
                 'host': 'localhost',
@@ -74,9 +77,10 @@ class TestObjectStore:
         object_store_cls_and_kwargs: Tuple[Type[ObjectStore], Dict[str, Any]],
         monkeypatch: pytest.MonkeyPatch,
         tmp_path: pathlib.Path,
+        remote: bool,
     ):
         object_store_cls, kwargs = object_store_cls_and_kwargs
-        with get_object_store_ctx(object_store_cls, kwargs, monkeypatch, tmp_path):
+        with get_object_store_ctx(object_store_cls, kwargs, monkeypatch, tmp_path, remote=remote):
             copied_config = copy.deepcopy(kwargs)
             # type error: Type[ObjectStore] is not callable
             object_store = object_store_cls(**copied_config)  # type: ignore
@@ -91,12 +95,14 @@ class TestObjectStore:
         return tmpfile_path
 
     def test_upload(self, object_store: ObjectStore, dummy_obj: pathlib.Path, remote: bool):
+        del remote  # unused
         object_name = 'tmpfile_object_name'
         cb = MockCallback(dummy_obj.stat().st_size)
         object_store.upload_object(object_name, str(dummy_obj), callback=cb)
         cb.assert_all_data_transferred()
 
     def test_get_uri(self, object_store: ObjectStore, remote: bool):
+        del remote  # unused
         uri = object_store.get_uri('tmpfile_object_name')
         if isinstance(object_store, S3ObjectStore):
             assert uri == 's3://my-bucket/folder/subfolder/tmpfile_object_name'
@@ -108,17 +114,26 @@ class TestObjectStore:
             raise NotImplementedError(f'Object store {type(object_store)} not implemented.')
 
     def test_get_file_size(self, object_store: ObjectStore, dummy_obj: pathlib.Path, remote: bool):
+        del remote  # unused
         object_name = 'tmpfile_object_name'
         object_store.upload_object(object_name, str(dummy_obj))
         assert object_store.get_object_size(object_name) == dummy_obj.stat().st_size
 
     def test_get_file_size_not_found(self, object_store: ObjectStore, remote: bool):
+        del remote  # unused
         with pytest.raises(FileNotFoundError):
             object_store.get_object_size('not found object')
 
     @pytest.mark.parametrize('overwrite', [True, False])
-    def test_download(self, object_store: ObjectStore, dummy_obj: pathlib.Path, tmp_path: pathlib.Path, overwrite: bool,
-                      remote: bool):
+    def test_download(
+        self,
+        object_store: ObjectStore,
+        dummy_obj: pathlib.Path,
+        tmp_path: pathlib.Path,
+        overwrite: bool,
+        remote: bool,
+    ):
+        del remote  # unused
         object_name = 'tmpfile_object_name'
         object_store.upload_object(object_name, str(dummy_obj))
         filepath = str(tmp_path / 'destination_path')
