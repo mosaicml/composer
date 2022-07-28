@@ -65,4 +65,4 @@ class ExportForInference(Callback):  # noqa: D101
                                  sample_input=(sample_input,),
                                  transforms=self.transforms)
         else:
-            raise RuntimeError('Exporing model failed because state has no dataloader.')
+            raise RuntimeError('Exporting model failed because state has no dataloader.')
