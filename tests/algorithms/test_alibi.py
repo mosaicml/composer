@@ -108,7 +108,6 @@ def test_registry(caplog):
     assert not encountered_alibi_warning(caplog), 'No warnings should be generated after adding to the registry.'
 
 
-@pytest.mark.timeout(15)
 @pytest.mark.parametrize('synthetic_state_family', ['bert', 'gpt2'])
 class TestAlibi:
 
