@@ -81,9 +81,50 @@ trainer.fit()
 
 ALiBi is implemented as follows. On `Event.INIT`:
 1. The model's position embeddings are expanded to accommodate sequences of up to length `max_sequence_length` and then "bypassed" by setting them to zero and freezing them.
-2. The attribute that computes the self-attention in the model's self-attention modules is replaced with an ALiBi-enabled self-attention method using graph surgery. Our implementation builds a registry that maps module types to their graph surgery functions. **Note:** you may need to add to the registry if your model's self-attention and embedding modules are not included in the registry.
+2. The attribute that computes the self-attention in the model's self-attention modules is replaced with an ALiBi-enabled self-attention method using graph surgery. Our implementation builds a registry that maps module types to their graph surgery functions. **Note:** you may need to add to the registry if your model's self-attention and embedding modules are not included in the registry (see "Supported Models" below).
 3. On `Event.AFTER_DATALOADER`, the length of training data sequences in a batch are scaled by `train_sequence_length_scaling` by reshaping the data tensors.
 
+## Supported Models
+
+Our current implementation of ALiBi provides out-of-the-box support for HuggingFace BERT (and RoBERTa) and HuggingFace GPT2 models. This support extends to any models that are superclasses of these models (e.g., the BERT and GPT2 models that can be created using `composer.models.create_bert_mlm` and `composer.models.create_gpt2`, respectively, both of which return instances of a `composer.models.huggingface.HuggingFaceModel` class).
+
+Please be aware that if you use ALiBi with an unsupported model type a logger warning will be generated but no error will be raised. Make sure to check the logs if you are uncertain whether your model is supported by ALiBi.
+
+You can add your own ALiBi implementation by extending the `policy_registry` that defines the "policy" that maps source module types (e.g., `transformers.models.bert.BertSelfAttention`) to their respective "replacement functions" (functions that modify instances of the source module or return new modules to replace them). Please see the documentation for `composer.algorithms.alibi.attention_surgery_functions.utils.PolicyRegistry` for details on the requirements of such implementations and specific examples. The following example demonstrates the basic pattern:
+
+```python
+# Example for adding Alibi surgery functions to support a custom transformer model
+import torch
+import composer.functional as cf
+
+# MyTransformer is the model class. Its modules include instances of EmbeddingLayer and AttentionLayer
+from my_custom_models import MyTransformer, EmbeddingLayer, AttentionLayer
+
+# Import the alibi policy registry
+from composer.algorithms.alibi.attention_surgery_functions import policy_registry
+
+# Register a surgery function for handling position embeddings in EmbeddingLayer instances
+@policy_registry.register(EmbeddingLayer)
+def embedding_surgery(module: torch.nn.Module, module_index: int, max_sequence_length: int) -> torch.nn.Module:
+    # Define code here that augments `module` (an instance of EmbeddingLayer) such that:
+    #   - position embeddings are not used
+    #   - any sequence-sized buffers are rebuilt to support max_sequence_length sized sequences
+    ...
+    return module # Return the augmented `module`
+
+# Register a surgery function for using Alibi biases to attention in AttentionLayer instances
+@policy_registry.register(AttentionLayer)
+def attention_surgery(module: torch.nn.Module, module_index: int, max_sequence_length: int) -> torch.nn.Module:
+    # Define code here that augments `module` (an instance of AttentionLayer) such that:
+    #   - the module has a buffer of Alibi-style attention biases, which are added to the attention logits before applying softmax
+    #   - any sequence-sized buffers are rebuilt to support max_sequence_length sized sequences
+    ...
+    return module # Return the augmented `module`
+
+# Alibi will now support MyTransformer (and any other model that uses the EmbeddingLayer and AttentionLayer modules)
+model = MyTransformer()
+cf.apply_alibi(model, max_sequence_length=1024)
+```
 
 ## Suggested Hyperparameters
 
