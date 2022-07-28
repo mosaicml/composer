@@ -7,18 +7,18 @@ Specifically designed for the NLP use case, allowing pre-training and fine-tunin
 downstream tasks to be handled within one script.
 
 Example that pretrains a BERT::
-    >>> composer examples/run_nlp_trainer.py
+    >>> composer examples/run_glue_trainer.py
     -f composer/yamls/models/glue/glue_example.yaml
     --training_scheme pretrain
 
 Example that pretrains and finetunes a BERT::
-    >>> composer examples/run_nlp_trainer.py
+    >>> composer examples/run_glue_trainer.py
     -f composer/yamls/models/glue/glue_example.yaml
     --training_scheme all
 
 Example that finetunes a pretrained BERT::
 
-    >>> composer examples/run_nlp_trainer.py
+    >>> composer examples/run_glue_trainer.py
     -f composer/yamls/models/glue/glue_example.yaml
     --training_scheme finetune
 """
@@ -287,15 +287,18 @@ def get_args() -> Tuple:
 
 def validate_args(training_scheme: str, hp: NLPTrainerHparams) -> None:
     """Validate CLI args as well as finetune-specific parameters."""
-    if training_scheme == 'finetune' and ((not hp.finetune_hparams) or
+    if training_scheme != 'finetune' and not hp.pretrain_hparams:
+        raise ValueError('pretrain_hparams must be specified if pretraining a model')
+
+    elif training_scheme == 'finetune' and ((not hp.finetune_hparams) or
                                                (hp.finetune_hparams and not hp.finetune_hparams.finetune_ckpts)):
         raise ValueError('load_path to checkpoints must be specified if finetuning a model')
 
-    elif training_scheme == 'all' and hp.finetune_hparams is None:
-        warnings.warn('No shared finetune_hparams specified. All finetune tasks will use their default configurations.')
-
     elif training_scheme == 'pretrain' and hp.finetune_hparams:
         warnings.warn('finetune_hparams specified. These values will be ignored during pretraining.')
+
+    elif training_scheme == 'all' and hp.finetune_hparams is None:
+        warnings.warn('No shared finetune_hparams specified. All finetune tasks will use their default configurations.')
 
     elif training_scheme == 'all' and hp.finetune_hparams and hp.finetune_hparams.finetune_ckpts:
         warnings.warn('finetune_ckpts specified in finetune_hparams. This value will be overriden during finetuning.')
@@ -329,6 +332,7 @@ def get_ckpt_names(hp: TrainerHparams, run_name: str, dataloader_len: int) -> Li
     ba = 0
     loop = True
     save = False
+    save_last_batch = False
     while loop:
         if save:
             time = Timestamp(epoch=ep, batch=ba)
@@ -336,6 +340,7 @@ def get_ckpt_names(hp: TrainerHparams, run_name: str, dataloader_len: int) -> Li
             ckpt_names.append(formatted_ckpt_name)
             save = False
 
+        ba += interval.value
         if interval.unit == TimeUnit.BATCH:
             save = True
         if ba >= dataloader_len: # batches per epoch
@@ -343,16 +348,26 @@ def get_ckpt_names(hp: TrainerHparams, run_name: str, dataloader_len: int) -> Li
             if interval.unit == TimeUnit.EPOCH: 
                 save = True
 
-        ba += interval.value
         if duration.unit == TimeUnit.BATCH:
-            if ba >= duration.value: loop = False
+            if ba >= duration.value: 
+                loop = False
+                if ba > duration.value:
+                    save_last_batch = True
+                    ba = duration.value
         elif duration.unit == TimeUnit.EPOCH:
             if ep >= duration.value: loop = False
         elif duration.unit == TimeUnit.SAMPLE:
             if ba * hp.train_batch_size >= duration.value: 
                 loop = False
-                if ba * hp.train_batch_size > duration.value: # don't save last batch
-                    save = False 
+                if ba * hp.train_batch_size > duration.value:
+                    ba = duration.value // hp.train_batch_size
+                    save_last_batch = True
+        
+    # save very last batch if incrementing batches passed it
+    if save_last_batch:
+        time = Timestamp(epoch=ep, batch=ba)
+        formatted_ckpt_name = format_name_with_dist_and_time(hp.save_artifact_name, run_name, time)
+        ckpt_names.append(formatted_ckpt_name)
         
     return ckpt_names
 
@@ -386,6 +401,7 @@ def run_pretrainer(training_scheme: str, file: str, save_locally: bool, finetune
         finetune_hparams.save_folder = save_folder
         finetune_hparams.finetune_ckpts = get_ckpt_names(hp, run_name, trainer.state.dataloader_len.value)
         
+    # call via composer to ensure pretraining done distributedly across all available GPUs
     subprocess.run(args=['composer', training_script, '-f', tmp_file, '--save_folder', save_folder], check=True)
 
 def run_finetuner(training_scheme: str, file: str, save_locally: bool, save_folder: str, finetune_hparams, glue_metrics: GlueState) -> None:

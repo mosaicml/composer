@@ -80,7 +80,7 @@ pretrain_hparams:
     object_store:
       object_store_hparams:
         s3:
-          bucket: ishana-bert-checkpoints
+          bucket: mosaicml-internal-checkpoints-bert
       use_procs: False
     wandb:
       tags:
@@ -92,14 +92,12 @@ finetune_hparams:
     object_store:
       object_store_hparams:
         s3:
-          bucket: ishana-bert-checkpoints
+          bucket: mosaicml-internal-checkpoints-bert
       use_procs: False
     wandb:
       tags:
         - finetune
   load_object_store:
     s3:
-      bucket: ishana-bert-checkpoints #TODO: replace
+      bucket: mosaicml-internal-checkpoints-bert 
   save_folder: checkpoints
-  finetune_ckpts: 
-    - bert-test-1mah/checkpoints/ep0-ba10-rank0 #TODO: replace

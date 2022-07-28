@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import dataclasses
 import os
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import yahp as hp
 
@@ -27,7 +27,7 @@ __all__ = ['NLPTrainerHparams', 'GLUETrainerHparams']
 class GLUETrainerHparams(hp.Hparams):
     """Finetuning Hparams class.
 
-       Specifies arguments that should be applied as overrides to all GLUE finetuning tasks when using examples/run_nlp_trainer.py.
+       Specifies arguments that should be applied as overrides to all GLUE finetuning tasks when using examples/run_glue_trainer.py.
 
         Args:
         algorithms (List[AlgorithmHparams], optional): The algorithms to use during training. (default: ``[]``)
@@ -75,13 +75,15 @@ class NLPTrainerHparams(hp.Hparams):
     """
 
     # GLUE Specific Overrides test
-    pretrain_hparams: TrainerHparams = hp.required(doc='Pretraining hyperparameters')
+    pretrain_hparams: Optional[TrainerHparams] = hp.optional(doc='Pretraining hyperparameters', default = None)
     finetune_hparams: Optional[GLUETrainerHparams] = hp.optional(doc='GLUE Finetuning hyperparameters', default=None)
     training_scheme: Optional[str] = hp.optional(doc='training scheme used (one of "pretrain", "finetune", or "all")', default='all')
 
-    def initialize_object(self) -> Trainer:
+    def initialize_object(self) -> Union[Trainer, None]:
         self.validate()
-        return self.pretrain_hparams.initialize_object()
+
+        if self.pretrain_hparams:
+            return self.pretrain_hparams.initialize_object()
 
     @classmethod
     def load(cls, model: str) -> NLPTrainerHparams:
