@@ -6,7 +6,6 @@ import os
 import pytest
 import torch
 import torch.distributed
-from packaging import version
 
 import composer
 from composer.core import Precision
@@ -39,8 +38,6 @@ def run_and_measure_memory(precision: Precision) -> int:
 @pytest.mark.gpu
 @pytest.mark.parametrize('precision', [Precision.AMP, Precision.BF16])
 def test_precision_memory(precision: Precision):
-    if version.parse(torch.__version__) < version.parse('1.10'):
-        pytest.skip('Test required torch >= 1.10')
     memory_full = run_and_measure_memory(Precision.FP32)
     memory_precision = run_and_measure_memory(precision)
     assert memory_precision < 0.7 * memory_full

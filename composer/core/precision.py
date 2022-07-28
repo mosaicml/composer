@@ -7,7 +7,6 @@ import contextlib
 from typing import Generator, Union
 
 import torch
-from packaging import version
 
 from composer.utils.string_enum import StringEnum
 
@@ -23,8 +22,7 @@ class Precision(StringEnum):
             compatible with GPUs on DeepSpeed.
         FP32: Use 32-bit floating-point precision.
             Compatible with CPUs and GPUs.
-        BF16: Use 16-bit BFloat mixed precision. Requires PyTorch
-            1.10. Compatible with CPUs and GPUs.
+        BF16: Use 16-bit BFloat mixed precision. Compatible with CPUs and GPUs.
     """
     AMP = 'amp'
     FP16 = 'fp16'
@@ -63,9 +61,7 @@ def get_precision_context(precision: Union[str, Precision]) -> Generator[None, N
         with torch.cuda.amp.autocast(True):
             yield
     elif precision == Precision.BF16:
-        if version.parse(torch.__version__) < version.parse('1.10'):
-            raise ValueError(f'BF16 precision requires torch > 1.10, got version {torch.__version__}')
-        with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):  # type: ignore (torch < 1.10 guard)
+        with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):
             yield
     else:
         raise ValueError(f'Unsupported precision: {precision}')
