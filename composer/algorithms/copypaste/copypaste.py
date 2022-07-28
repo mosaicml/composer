@@ -113,7 +113,7 @@ def copypaste_batch(images, masks, configs):
     """
     Randomly pastes objects onto an image.
     """
-    counter = 0
+    batch_idx = 0
     out_images = torch.zeros_like(images)
     out_masks = torch.zeros_like(masks)
 
@@ -121,10 +121,9 @@ def copypaste_batch(images, masks, configs):
     assert images.size(dim=0) == masks.size(dim=0), "Number of images and masks in the batch do not match!"
     batch_size = images.size(dim=0)
 
-    while counter < batch_size:
+    while batch_idx < batch_size:
         [i, j] = np.random.randint(0, high=batch_size, size=2)
-        i=1
-        j=0
+
         # num_instances = input_dict["masks"][i].shape[0]
 
         num_instances = _count_instances(masks[i])
@@ -138,7 +137,7 @@ def copypaste_batch(images, masks, configs):
 
         trg_image = images[j]
         trg_mask = masks[j]
-
+        print("- num_copied_instances = ", num_copied_instances, ", instance_ids = ", src_instance_ids)
         # imshow_1d_tensor(masks[i])
         # imshow_tensor(images[i])
         # imshow_1d_tensor(trg_mask)
@@ -147,11 +146,15 @@ def copypaste_batch(images, masks, configs):
         # print("target: ", torch.unique(trg_mask))
         if random.uniform(0, 1) < configs["p"]:
             for src_instance_id in src_instance_ids:
+                print ("i = ", i, ", j = ", j, " instance_id = ", src_instance_id)
 
-
-                src_instance_id = 1
                 trg_image, trg_mask = _copypaste_instance(images[i], masks[i], trg_image, trg_mask, src_instance_id, configs)
-
+        else:
+            print("skipped")
+        
+        out_images[batch_idx] = trg_image
+        out_masks[batch_idx] = trg_mask
+        batch_idx += 1
         # imshow_1d_tensor(trg_mask)
         # imshow_tensor(trg_image)
         # print("after: ", torch.unique(trg_mask))
@@ -161,35 +164,65 @@ def copypaste_batch(images, masks, configs):
         # aggregated_trg_masks = _aggregate_masks(trg_masks)
         # output_dict["images"].append(trg_image)
         # output_dict["aggregated_masks"].append(aggregated_trg_masks)
-    visualize_copypaste_batch()
+
 
     return out_images, out_masks
 
 
-def visualize_copypaste_batch(output_dict, input_dict, batch_size, i, j, fig_name=None):
+def visualize_copypaste_batch(images, masks, out_images, out_masks, num, fig_name=None):
     if fig_name is None:
-        fig_name = "SRC-"+input_dict["sample_names"][i]+"-TRG-"+input_dict["sample_names"][j]
+        fig_name = "copypaste_test"
 
-    dpi = 150
+    dpi = 100
+    fig, axarr = plt.subplots(4, num, figsize=(14, 8), dpi=dpi)
 
-    fig, axarr = plt.subplots(2, batch_size, figsize=(18, 7), dpi=dpi)
-
-    for col, image in enumerate(output_dict["images"]):
-
-        ax = axarr[1, col]
-        ax.imshow(np.transpose(image.numpy(), (1, 2, 0)))
-        clean_axes(ax)
-
-    for col, image in enumerate(input_dict["images"]):
+    for col in range(min(num, len(images))):
+        image = images[col]
         ax = axarr[0, col]
-        ax.imshow(np.transpose(image.numpy(), (1, 2, 0)))
+        ax.imshow(np.transpose(image.cpu().numpy(), (1, 2, 0)))
+        ax.set_title("images")
         clean_axes(ax)
-        
+
+    for col in range(min(num, len(masks))):
+        image = masks[col]
+        ax = axarr[1, col]
+        ax.imshow(np.transpose(torch.unsqueeze(image, dim=0).cpu().numpy(), (1, 2, 0)), cmap="gray")
+        ax.set_title("masks")
+        clean_axes(ax)
+
+    for col in range(min(num, len(out_images))):
+        image = out_images[col]
+        ax = axarr[2, col]
+        ax.imshow(np.transpose(image.cpu().numpy(), (1, 2, 0)))
+        ax.set_title("out_images")
+        clean_axes(ax)
+
+    for col in range(min(num, len(out_masks))):
+        image = out_masks[col]
+        ax = axarr[3, col]
+        ax.imshow(np.transpose(torch.unsqueeze(image, dim=0).cpu().numpy(), (1, 2, 0)), cmap="gray")
+        ax.set_title("out_masks")
+        clean_axes(ax)
 
     plt.suptitle("CopyPaste Augmentation Batch", fontweight="bold")
+    fig_out_path = os.path.join(".", "debug_out")
+    
+    if not os.path.isdir(fig_out_path):
+        os.makedirs(fig_out_path)
 
-    fig_out_path = os.path.join(".", "forks", "composer", "composer", "algorithms", "copypaste", "files", "out", "no_jittering", fig_name)
-    plt.savefig(fig_out_path + ".png", dpi=dpi)
+    plt.savefig(os.path.join(fig_out_path, fig_name + ".png"), dpi=dpi)
+
+
+def clean_axes(ax):
+    ax.spines["right"].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
+    ax.axes.yaxis.set_visible(False)
+    ax.axes.xaxis.set_visible(False)
+    ax.axis(('tight'))
+    ax.set_aspect(aspect=1)
+
 
 
 def _decompose_mask(mask, mask_color, background_color):
@@ -276,6 +309,7 @@ class CopyPaste(Algorithm):
         jitter_scale=(0.01, 0.99),
         jitter_ratio=(1.0, 1.0),
         p_flip=1.0,
+        bg_color=-1,
         input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
         target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
     ):
@@ -292,7 +326,8 @@ class CopyPaste(Algorithm):
             "padding_factor": padding_factor,
             "jitter_scale": jitter_scale,
             "jitter_ratio": jitter_ratio,
-            "p_flip": p_flip
+            "p_flip": p_flip,
+            "bg_color": bg_color
         }
 
     def match(self, event: Event, state: State) -> bool:
@@ -304,31 +339,33 @@ class CopyPaste(Algorithm):
         print("apply is called")
         print("------------------------------------")
 
-        input_dict = {
-            "images": [],
-            "aggregated_masks": []
-        }
+        # input_dict = {
+        #     "images": [],
+        #     "aggregated_masks": []
+        # }
 
-        input_dict["images"] = state.batch_get_item(key=self.input_key)
-        input_dict["aggregated_masks"] = state.batch_get_item(key=self.target_key)
+        images = state.batch_get_item(key=self.input_key)
+        masks = state.batch_get_item(key=self.target_key)
 
-        test_image = input_dict["images"][2]
-        test_mask = input_dict["aggregated_masks"][2]
+        # test_image = input_dict["images"][2]
+        # test_mask = input_dict["aggregated_masks"][2]
 
         # print(torch.min(test_image), " - ", torch.max(test_image))
         # print(torch.min(test_mask), " - ", torch.max(test_mask))
         
-        path = os.path.join(".", "debug_out")
-        if not os.path.isdir(path):
-            os.makedirs(path)
+        # path = os.path.join(".", "debug_out")
+        # if not os.path.isdir(path):
+        #     os.makedirs(path)
         
-        save_tensor_to_png(test_image, path, "image2.png")
-        save_1d_tensor_to_png(test_mask, path, "mask2.png")
+        # save_tensor_to_png(test_image, path, "image2.png")
+        # save_1d_tensor_to_png(test_mask, path, "mask2.png")
 
-
-
-        input_dict = _parse_segmentation_batch(input_dict)
-        augmented_dict = copypaste_batch(input_dict, self.configs)
+        batch_num = int(state.timestamp._batch)
+        # input_dict = _parse_segmentation_batch(input_dict)
+        out_images, out_masks = copypaste_batch(images, masks, self.configs)
+        
+        visualize_copypaste_batch(images, masks, out_images, out_masks, num=5, fig_name="copypaste_test"+str(batch_num))
+        # augmented_dict = copypaste_batch(input_dict, self.configs)
 
 
         # here consolidate["masks"] to one flatten mask. you need to preserve mask values for this.
@@ -338,7 +375,7 @@ class CopyPaste(Algorithm):
 
 
 
-        ## bypassing CopyPaste to make it run
+        ## bypassing CopyPaste to make it run on r1z2
         state.batch_set_item(key=self.input_key, value=state.batch_get_item(key=self.input_key))
         state.batch_set_item(key=self.target_key, value=state.batch_get_item(key=self.target_key))
 
@@ -439,12 +476,11 @@ def _copypaste_instance(src_image, src_mask, trg_image, trg_mask, src_instance_i
     return trg_image, trg_mask
 
 
-def _get_occluded_mask(src_instance_mask, trg_mask, configs):
-    occluded_mask = torch.where(src_instance_mask==1, 0, trg_mask)
+def _get_occluded_mask(occluded_mask, configs):
     threshold = configs["area_threshold"]
 
     if _ignore_mask(occluded_mask, threshold):
-        return trg_mask
+        return torch.zeros_like(occluded_mask)
     else:
         return occluded_mask
 
@@ -466,7 +502,9 @@ def _jitter_instance(arrs, configs):
         torch.random.manual_seed(jitter_seed)
         random.seed(jitter_seed)
         transformed = trns(arr)
-        out.append(transformed)
+        
+        out.append(_get_occluded_mask(transformed, configs))
+    
 
     return out
 
