@@ -25,7 +25,7 @@ def apply_alibi(
     model: torch.nn.Module,
     max_sequence_length: int,
     optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
-) -> Union[Mapping[torch.nn.Module, torch.nn.Module], None]:
+) -> None:
     """Removes position embeddings and replaces the attention function and attention mask
     as per :class:`.Alibi`. Note that the majority of the training speed-up from using ALiBi
     comes from being able to train on shorter sequence lengths; this function does not scale
