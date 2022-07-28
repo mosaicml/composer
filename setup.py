@@ -79,7 +79,7 @@ install_requires = [
     'torch_optimizer>=0.1.0,<0.2',
     'torchvision>=0.10.0',  # torchvision has strict pytorch requirements
     'torch>=1.10,<2',
-    'yahp@git+ssh://git@github.com:mosaicml/yahp.git@release/0.1.2',
+    'yahp@git+https://github.com/mosaicml/yahp.git@release/0.1.2',
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<2',
     'psutil>=5.8.0,<6',
