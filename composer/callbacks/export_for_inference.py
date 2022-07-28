@@ -23,8 +23,23 @@ __all__ = ['ExportForInferenceCallback']
 Transform = Callable[[nn.Module], nn.Module]
 
 
-class ExportForInferenceCallback(Callback):  # noqa: D101
+class ExportForInferenceCallback(Callback):
     """Callback to export model for inference.
+
+    Example:
+        .. doctest::
+        
+            >>> from composer import Trainer
+            >>> from composer.callbacks import ExportForInferenceCallback
+            >>> # constructing trainer object with this callback
+            >>> trainer = Trainer(
+            ...     model=model,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=eval_dataloader,
+            ...     optimizers=optimizer,
+            ...     max_duration="1ep",
+            ...     callbacks=[ExportForInferenceCallback(save_format='torchscript',save_path='/tmp/model.pth')],
+            ... )
 
     Args:
         save_format (Union[str, ExportFormat]):  Format to export to. Either ``"torchscript"`` or ``"onnx"``.
@@ -36,7 +51,7 @@ class ExportForInferenceCallback(Callback):  # noqa: D101
             :class:`~.ObjectStore` which will be used
             to store the exported model. Set this to ``None`` if ``save_path`` is a local filepath.
             (default: ``None``)
-        transforms (Union[Callable, Sequence[Callable]], optional): transformations (usually optimizations) that should
+        transforms (Union[Callable, Sequence[Callable], None]): transformations (usually optimizations) that should
             be applied to the model. Each should be a callable that takes a model and returns a modified model.
     """
 
@@ -45,7 +60,7 @@ class ExportForInferenceCallback(Callback):  # noqa: D101
         save_format: Union[str, ExportFormat],
         save_path: str,
         save_object_store: Optional[ObjectStore] = None,
-        transforms: Optional[Union[Transform, Sequence[Transform]]] = None,
+        transforms: Union[Transform, Sequence[Transform], None] = None,
     ):
         self.save_format = save_format
         self.save_path = save_path
