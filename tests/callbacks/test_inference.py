@@ -12,7 +12,7 @@ import pytest
 import torch
 from torch.utils.data import DataLoader
 
-from composer.callbacks import ExportForInference
+from composer.callbacks import ExportForInferenceCallback
 from composer.models import composer_resnet
 from composer.trainer import Trainer
 from tests.common.datasets import RandomImageDataset
@@ -30,7 +30,7 @@ def test_inference_callback_torchscript(model_cls, sample_input):
 
     with tempfile.TemporaryDirectory() as tempdir:
         save_path = os.path.join(tempdir, f'model.pt')
-        export_for_inference = ExportForInference(save_format=save_format, out_filename=str(save_path))
+        export_for_inference = ExportForInferenceCallback(save_format=save_format, save_path=str(save_path))
 
         # Construct the trainer and train
         trainer = Trainer(
@@ -48,9 +48,7 @@ def test_inference_callback_torchscript(model_cls, sample_input):
         loaded_model.eval()
         loaded_model_out = loaded_model(sample_input)
 
-        assert torch.allclose(
-            orig_out,
-            loaded_model_out), f'mismatch in the original and exported for inference model outputs with {save_format}'
+        torch.testing.assert_close(orig_out, loaded_model_out)
 
 
 @pytest.mark.parametrize(
@@ -62,15 +60,15 @@ def test_inference_callback_torchscript(model_cls, sample_input):
 def test_inference_callback_onnx(model_cls, sample_input):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
-    import onnx  # type: ignore
-    import onnxruntime as ort  # type: ignore
+    import onnx
+    import onnxruntime as ort
 
     save_format = 'onnx'
     model = model_cls()
 
     with tempfile.TemporaryDirectory() as tempdir:
         save_path = os.path.join(tempdir, f'model.onnx')
-        export_for_inference = ExportForInference(save_format=save_format, out_filename=str(save_path))
+        export_for_inference = ExportForInferenceCallback(save_format=save_format, save_path=str(save_path))
 
         # Construct the trainer and train
         trainer = Trainer(
@@ -98,4 +96,4 @@ def test_inference_callback_onnx(model_cls, sample_input):
             loaded_model_out[0],
             rtol=1e-4,  # lower tolerance for ONNX
             atol=1e-3,  # lower tolerance for ONNX
-            msg=f'mismatch in the original and exported for inference model outputs with {save_format}')
+        )
