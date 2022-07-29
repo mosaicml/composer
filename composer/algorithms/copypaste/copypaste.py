@@ -307,7 +307,7 @@ class CopyPaste(Algorithm):
 
     def __init__(
         self,
-        p=1.0,
+        p=0.75,
         convert_to_binary_mask=True,
         max_copied_instances=None,
         area_threshold=100,
@@ -320,7 +320,7 @@ class CopyPaste(Algorithm):
         target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
     ):
         print("------------------------------------")
-        print("copypaste constructor is called")
+        print("copypaste constructor is called with p=", p)
         print("------------------------------------")
         self.input_key = input_key
         self.target_key = target_key
