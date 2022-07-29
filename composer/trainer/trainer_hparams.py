@@ -436,7 +436,7 @@ class TrainerHparams(hp.Hparams):
         # Distributed
         # Initialized here so it is available within dataloaders
         if dist.get_world_size() > 1:
-            dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=self.dist_timeout))
+            dist.initialize_dist(device, datetime.timedelta(seconds=self.dist_timeout))
 
         # Reproducibility
         seed = self.seed if self.seed else reproducibility.get_random_seed()

@@ -15,7 +15,6 @@ from tests.utils.object_store.object_store_settings import (get_object_store_ctx
 
 
 @pytest.mark.parametrize('constructor', object_store_hparams)
-@pytest.mark.timeout(5)
 def test_object_store_hparams_is_constructable(
     constructor: Type[ObjectStoreHparams],
     monkeypatch: pytest.MonkeyPatch,

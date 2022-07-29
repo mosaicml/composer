@@ -42,7 +42,6 @@ def training_loop(model, train_loader):
 ### Composer Trainer
 
 <!--pytest.mark.gpu-->
-<!--pytest.mark.timeout(30)-->
 <!--
 ```python
 from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker

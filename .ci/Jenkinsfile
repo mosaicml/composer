@@ -342,8 +342,8 @@ stage('Build') {
         if (isComposerImage && buildArgs['COMPOSER_INSTALL_COMMAND'] == 'mosaicml[all]GIT_COMMIT') {
             // If this is a composer image and it is the 'GIT_COMMIT' entry in the matrix
             // then build and publish the image on the staging repo
-            if (!isMergeCommit) {
-                // Skip composer images except on merge commits -- it's slow!
+            if (!shouldPushToDestinations) {
+                // Skip composer images except on merge commits on the dev branch -- it's slow!
                 return
             }
             String stagingTagName = "mosaicml/composer_staging:${gitCommitHash[0..6]}"

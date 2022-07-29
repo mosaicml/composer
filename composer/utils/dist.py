@@ -36,11 +36,14 @@ import datetime
 import logging
 import os
 from contextlib import contextmanager
-from typing import Any, List, Optional, Sequence, TypeVar, cast
+from typing import TYPE_CHECKING, Any, List, Optional, Sequence, TypeVar, cast
 
 import torch
 import torch.distributed as dist
 import torch.utils.data
+
+if TYPE_CHECKING:
+    from composer.trainer.devices import Device
 
 TObj = TypeVar('TObj')
 
@@ -179,7 +182,8 @@ def monitored_barrier(timeout: Optional[datetime.timedelta] = None) -> None:
     if dist.is_available() and dist.is_initialized():
         # monitored_barrier requires gloo backend, which is initialized as a global variable
         global group_gloo
-        dist.monitored_barrier(group=group_gloo, timeout=datetime.timedelta(seconds=300))
+        if group_gloo:
+            dist.monitored_barrier(group=group_gloo, timeout=timeout)
         return
     world_size = get_world_size()
     if world_size == 1:
@@ -361,7 +365,7 @@ def is_initialized():
     return dist.is_initialized()
 
 
-def initialize_dist(backend: str, timeout: datetime.timedelta):
+def initialize_dist(device: Device, timeout: datetime.timedelta):
     """Initialize the default PyTorch distributed process group.
 
     This function assumes that the following environment variables are set:
@@ -380,8 +384,7 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
     .. seealso:: :func:`torch.distributed.init_process_group`
 
     Args:
-        backend (str): The distributed backend to use. Should be ``gloo`` for CPU training,
-            or ``nccl`` for GPU training.
+        device (str): The device from which the distributed backend is interpreted.
         timeout (datetime.timedelta): The timeout for operations executed against the process group.
     """
     if get_world_size() > 1 and not dist.is_available():
@@ -390,8 +393,8 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
                            'with distributed support.')
 
     if dist.is_initialized():
-        if dist.get_backend() != backend.lower():
-            raise RuntimeError(f'The requested backend ({backend}) differs from the backend '
+        if dist.get_backend() != device.dist_backend.lower():
+            raise RuntimeError(f'The requested backend ({device.dist_backend}) differs from the backend '
                                f'of the current process group ({dist.get_backend()}). If you '
                                'wish to change backends, please restart the python process.')
         return
@@ -425,13 +428,9 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
     if dist_env_vars_match_defaults:
         # Fill in the remaining single-rank variables
         os.environ.update(dist_env_var_defaults)
-        dist.init_process_group(backend, store=dist.HashStore(), world_size=1, rank=0)
+        dist.init_process_group(device.dist_backend, store=dist.HashStore(), world_size=1, rank=0)
     else:
-        dist.init_process_group(backend, timeout=timeout)
-
-    # monitored_barrier requires gloo backend, which is initialized as a global variable
-    global group_gloo
-    group_gloo = dist.new_group(backend='gloo')
+        dist.init_process_group(device.dist_backend, timeout=timeout)
 
 
 def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool, shuffle: bool):

@@ -124,7 +124,6 @@ def test_upload_streaming_dataset(tmp_path: pathlib.Path, s3_bucket: str):
 
 
 @pytest.mark.remote()
-@pytest.mark.timeout(0)
 @pytest.mark.filterwarnings(r'ignore::pytest.PytestUnraisableExceptionWarning')
 @pytest.mark.parametrize('name', [
     'ade20k',
@@ -165,7 +164,6 @@ def test_streaming_remote_dataset(tmp_path: pathlib.Path, name: str, split: str)
 
 
 @pytest.mark.remote()
-@pytest.mark.timeout(0)
 @pytest.mark.filterwarnings(r'ignore::pytest.PytestUnraisableExceptionWarning')
 @pytest.mark.parametrize('name', [
     'ade20k',

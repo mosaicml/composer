@@ -963,13 +963,19 @@
             "type": "object"
         },
         "DDPSyncStrategy": {
-            "enum": [
-                "FORCED_SYNC",
-                "MULTI_AUTO_SYNC",
-                "SINGLE_AUTO_SYNC",
-                "forced_sync",
-                "multi_auto_sync",
-                "single_auto_sync"
+            "oneOf": [
+                {
+                    "pattern": "(?i)^FORCED_SYNC$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^MULTI_AUTO_SYNC$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^SINGLE_AUTO_SYNC$",
+                    "type": "string"
+                }
             ]
         },
         "DataLoaderHparams": {
@@ -3190,21 +3196,35 @@
             "type": "object"
         },
         "Initializer": {
-            "enum": [
-                "BN_ONES",
-                "BN_UNIFORM",
-                "KAIMING_NORMAL",
-                "KAIMING_UNIFORM",
-                "LINEAR_LOG_CONSTANT_BIAS",
-                "XAVIER_NORMAL",
-                "XAVIER_UNIFORM",
-                "bn_ones",
-                "bn_uniform",
-                "kaiming_normal",
-                "kaiming_uniform",
-                "linear_log_constant_bias",
-                "xavier_normal",
-                "xavier_uniform"
+            "oneOf": [
+                {
+                    "pattern": "(?i)^BN_ONES$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^BN_UNIFORM$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^KAIMING_NORMAL$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^KAIMING_UNIFORM$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^LINEAR_LOG_CONSTANT_BIAS$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^XAVIER_NORMAL$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^XAVIER_UNIFORM$",
+                    "type": "string"
+                }
             ]
         },
         "LMDatasetHparams": {
@@ -3468,16 +3488,26 @@
             "type": "object"
         },
         "LogLevel": {
-            "enum": [
-                1,
-                2,
-                3,
-                "BATCH",
-                "EPOCH",
-                "FIT",
-                "batch",
-                "epoch",
-                "fit"
+            "oneOf": [
+                {
+                    "pattern": "(?i)^BATCH$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^EPOCH$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^FIT$",
+                    "type": "string"
+                },
+                {
+                    "enum": [
+                        1,
+                        2,
+                        3
+                    ]
+                }
             ]
         },
         "MLPerfCallbackHparams": {
@@ -3609,15 +3639,23 @@
             "type": "object"
         },
         "MemoryFormat": {
-            "enum": [
-                "CHANNELS_LAST",
-                "CHANNELS_LAST_3D",
-                "CONTIGUOUS_FORMAT",
-                "PRESERVE_FORMAT",
-                "channels_last",
-                "channels_last_3d",
-                "contiguous_format",
-                "preserve_format"
+            "oneOf": [
+                {
+                    "pattern": "(?i)^CHANNELS_LAST$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^CHANNELS_LAST_3D$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^CONTIGUOUS_FORMAT$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^PRESERVE_FORMAT$",
+                    "type": "string"
+                }
             ]
         },
         "MemoryMonitorHparams": {
@@ -3917,15 +3955,23 @@
             "type": "object"
         },
         "Precision": {
-            "enum": [
-                "AMP",
-                "BF16",
-                "FP16",
-                "FP32",
-                "amp",
-                "bf16",
-                "fp16",
-                "fp32"
+            "oneOf": [
+                {
+                    "pattern": "(?i)^AMP$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^BF16$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^FP16$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^FP32$",
+                    "type": "string"
+                }
             ]
         },
         "ProfilerHparams": {

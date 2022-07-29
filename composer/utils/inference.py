@@ -41,29 +41,29 @@ class ExportFormat(StringEnum):
 
 def export_for_inference(
     model: nn.Module,
-    target_format: Union[str, ExportFormat],
-    store_path: str,
-    store_object_store: Optional[ObjectStore] = None,
+    save_format: Union[str, ExportFormat],
+    save_path: str,
+    save_object_store: Optional[ObjectStore] = None,
     sample_input: Optional[Any] = None,
     surgery_algs: Optional[Union[Callable[[nn.Module], nn.Module], Sequence[Callable[[nn.Module], nn.Module]]]] = None,
     transforms: Optional[Union[Callable[[nn.Module], nn.Module], Sequence[Callable[[nn.Module], nn.Module]]]] = None,
     load_path: Optional[str] = None,
     load_object_store: Optional[ObjectStore] = None,
-    strict: bool = False,
+    load_strict: bool = False,
 ) -> None:
     """Export a model for inference.
 
     Args:
         model (nn.Module): An instance of nn.Module. Please note that model is not modified inplace.
             Instead, export-related transformations are applied to a  copy of the model.
-        target_format (Union[str, ExportFormat]):  Format to export to. Either ``"torchscript"`` or ``"onnx"``.
-        store_path: (str): The path for storing the exported model. It can be a path to a file on the local disk,
-        a URL, or if ``store_object_store`` is set, the object name
+        save_format (Union[str, ExportFormat]):  Format to export to. Either ``"torchscript"`` or ``"onnx"``.
+        save_path: (str): The path for storing the exported model. It can be a path to a file on the local disk,
+        a URL, or if ``save_object_store`` is set, the object name
             in a cloud bucket. For example, ``my_run/exported_model``.
-        store_object_store (ObjectStore, optional): If the ``store_path`` is in an object name in a cloud bucket
+        save_object_store (ObjectStore, optional): If the ``save_path`` is in an object name in a cloud bucket
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.ObjectStore` which will be used
-            to store the exported model. Set this to ``None`` if ``store_path`` is a local filepath.
+            to store the exported model. Set this to ``None`` if ``save_path`` is a local filepath.
             (default: ``None``)
         sample_input (Any, optional): Example model inputs used for tracing. This is needed for "onnx" export.
             The ``sample_input`` need not match the batch size you intend to use for inference. However, the model
@@ -81,13 +81,13 @@ def export_for_inference(
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.ObjectStore` which will be used to retreive the checkpoint.
             Otherwise, if the checkpoint is a local filepath, set to ``None``. (default: ``None``)
-        strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
+        load_strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
             perfectly match the keys in the model instance. (default: ``False``)
 
     Returns:
         None
     """
-    target_format = ExportFormat(target_format)
+    save_format = ExportFormat(save_format)
 
     if is_model_deepspeed(model):
         raise ValueError(f'Exporting for deepspeed models is currently not supported.')
@@ -112,7 +112,7 @@ def export_for_inference(
                                                                  object_store=load_object_store,
                                                                  progress_bar=True)
             state_dict = torch.load(composer_states_filepath, map_location='cpu')
-            missing_keys, unexpected_keys = model.load_state_dict(state_dict['state']['model'], strict=strict)
+            missing_keys, unexpected_keys = model.load_state_dict(state_dict['state']['model'], strict=load_strict)
             if len(missing_keys) > 0:
                 log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
             if len(unexpected_keys) > 0:
@@ -123,15 +123,15 @@ def export_for_inference(
     for transform in ensure_tuple(transforms):
         model = transform(model)
 
-    is_remote_store = store_object_store is not None
+    is_remote_store = save_object_store is not None
     tempdir_ctx = tempfile.TemporaryDirectory() if is_remote_store else contextlib.nullcontext(None)
     with tempdir_ctx as tempdir:
         if is_remote_store:
-            local_store_path = os.path.join(str(tempdir), 'model.export')
+            local_save_path = os.path.join(str(tempdir), 'model.export')
         else:
-            local_store_path = store_path
+            local_save_path = save_path
 
-        if target_format == ExportFormat.TORCHSCRIPT:
+        if save_format == ExportFormat.TORCHSCRIPT:
             export_model = None
             try:
                 export_model = torch.jit.script(model)
@@ -147,20 +147,20 @@ def export_for_inference(
                     ) from e
 
             if export_model is not None:
-                torch.jit.save(export_model, local_store_path)
+                torch.jit.save(export_model, local_save_path)
 
-        if target_format == ExportFormat.ONNX:
+        if save_format == ExportFormat.ONNX:
             if sample_input is None:
                 raise ValueError(f'sample_input argument is required for onnx export')
             sample_input = ensure_tuple(sample_input)
             torch.onnx.export(
                 model,
                 sample_input,
-                local_store_path,
+                local_save_path,
                 input_names=['input'],
                 output_names=['output'],
             )
 
         # upload if required.
         if is_remote_store:
-            store_object_store.upload_object(store_path, local_store_path)
+            save_object_store.upload_object(save_path, local_save_path)

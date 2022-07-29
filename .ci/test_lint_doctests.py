@@ -33,7 +33,6 @@ def check_output(proc: subprocess.CompletedProcess):
     raise RuntimeError(error_msg)
 
 
-@pytest.mark.timeout(0)
 def test_run_pre_commit_hooks():
     composer_root = os.path.join(os.path.dirname(__file__), '..')
     check_output(
@@ -45,7 +44,6 @@ def test_run_pre_commit_hooks():
         ))
 
 
-@pytest.mark.timeout(0)
 def test_run_doctests():
     docs_folder = pathlib.Path(os.path.dirname(__file__)) / '..' / 'docs'
     api_reference_folder = docs_folder / 'source' / 'api_reference'
@@ -57,7 +55,6 @@ def test_run_doctests():
     check_output(subprocess.run(['make', 'doctest'], cwd=docs_folder, capture_output=True, text=True))
 
 
-@pytest.mark.timeout(30)
 def test_docker_build_matrix():
     """Test that the docker build matrix is up to date."""
     docker_folder = pathlib.Path(os.path.dirname(__file__)) / '..' / 'docker'
@@ -90,7 +87,6 @@ def sort_json(json):
     return json
 
 
-@pytest.mark.timeout(30)
 def test_json_schemas():
     """Test JSON Schemas are up to date."""
     schemas_folder = pathlib.Path(os.path.dirname(__file__)) / '..' / 'composer' / 'json_schemas'

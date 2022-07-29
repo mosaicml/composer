@@ -56,7 +56,6 @@ test:
     - ipython >=8.4.0,<9
     - ipykernel ==6.13.1,<7
     - jupyter >=1.0.0,<2
-    - pytest-timeout >=2.1.0,<3
     - testbook >=0.4.2,<0.5
     # Including all run_constrained requirements in the test requirements, so those tests will not be import-skipped
     - pip # Required for dependencies not available on conda
@@ -86,8 +85,8 @@ test:
   commands:
     # deepspeed, codeblocks, and mock-ssh-server are not available on conda, and timm has a conda version conflict
     - pip install 'deepspeed>=0.5.5' 'timm>=0.5.4' 'pytest_codeblocks==0.16.1' 'mock-ssh-server>=0.9.1,<1'
-    - make test DURATION=all EXTRA_ARGS="-v -m 'not gpu and not vision and not daily and not remote'"
-    - make test-dist DURATION=all WORLD_SIZE=2 EXTRA_ARGS="-v -m 'not gpu and not vision and not daily and not remote'"
+    - make test EXTRA_ARGS="-v -m 'not gpu and not vision and not daily and not remote'"
+    - make test-dist WORLD_SIZE=2 EXTRA_ARGS="-v -m 'not gpu and not vision and not daily and not remote'"
 
 about:
   home: https://www.mosaicml.com
