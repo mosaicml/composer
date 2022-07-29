@@ -18,6 +18,7 @@ import importlib
 import inspect
 import json
 import os
+import pathlib
 import shutil
 import sys
 import tempfile
@@ -35,6 +36,7 @@ import yahp as hp
 from docutils import nodes
 from docutils.nodes import Element
 from git.repo.base import Repo
+from json_schema_for_humans.generate import generate_from_filename
 from pypandoc.pandoc_download import download_pandoc
 from sphinx.ext.autodoc import ClassDocumenter, _
 from sphinx.writers.html5 import HTML5Translator
@@ -88,7 +90,6 @@ extensions = [
     'sphinx_panels',
     'sphinxcontrib.images',
     'nbsphinx',
-    'sphinx-jsonschema',
 ]
 
 
@@ -380,10 +381,21 @@ def add_module_summary_tables(
         hparams = [(n, c) for (n, c) in classes if issubclass(c, hp.Hparams)]
         classes = [(n, c) for (n, c) in classes if not issubclass(c, hp.Hparams)]
 
+        schemas_path = os.path.join(pathlib.Path().resolve(), '_build', 'html', 'schemas')
+        os.makedirs(schemas_path, exist_ok=True)
+
         for category, category_name in ((functions, 'Functions'), (classes, 'Classes'), (hparams, 'Hparams'),
                                         (exceptions, 'Exceptions')):
             sphinx_lines = []
             for item_name, item in category:
+                # Add schema html page
+                if category_name == 'Hparams':
+                    file_name = item_name.lower().replace('hparams', '') + '_hparams'
+                    file_path = os.path.join(pathlib.Path().resolve(), '..', 'composer', 'json_schemas',
+                                             file_name + '.json')
+                    target_path = os.path.join(schemas_path, file_name + '.html')
+                    print(file_path, os.path.exists(file_path), target_path, os.path.exists(target_path))
+                    generate_from_filename(file_path, target_path)
                 sphinx_path = determine_sphinx_path(item, item.__module__)
                 if sphinx_path is not None:
                     sphinx_lines.append(f'      ~{sphinx_path}')

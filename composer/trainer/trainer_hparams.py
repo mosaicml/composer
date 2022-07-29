@@ -263,7 +263,7 @@ class TrainerHparams(hp.Hparams):
 
         profiler (ProfilerHparams, optional): Profiler hyperparameters.
 
-    .. jsonschema:: ../json_schemas/trainer_hparams.json
+    Link to `json_schema <../schemas/trainer_hparams.html>`_.
     """
 
     hparams_registry = {  # type: ignore
@@ -631,7 +631,7 @@ class FitHparams(hp.Hparams):
         precision (Precision, optional): See :meth:`.Trainer.fit`.
         grad_accum (int, optional): See :meth:`.Trainer.fit`.
 
-    .. jsonschema:: ../json_schemas/fit_hparams.json
+    Link to `json_schema <../schemas/fit_hparams.html>`_.
     """
 
     hparams_registry = {
@@ -749,7 +749,7 @@ class EvalHparams(hp.Hparams):
             :meth:`.ComposerModel.metrics`.
             If None (the default), uses all metrics in the model.
 
-    .. jsonschema:: ../json_schemas/eval_hparams.json
+    Link to `json_schema <../schemas/eval_hparams.html>`_.
     """
 
     hparams_registry = {
@@ -888,7 +888,7 @@ class ExperimentHparams(hp.Hparams):
         fits (List[FitHparams]): The hparams for calls to :meth:`.Trainer.fit`.
         evals (List[EvalHparams]): The hparams for calls to :meth:`.Trainer.eval`.
 
-    .. jsonschema:: ../json_schemas/experiment_hparams.json
+    Link to `json_schema <../schemas/experiment_hparams.html>`_.
     """
     trainer: TrainerHparams = hp.required('Trainer hparams')
     fits: List[FitHparams] = hp.optional('Fit hparams', default_factory=list)

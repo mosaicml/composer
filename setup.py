@@ -135,7 +135,7 @@ extra_deps['dev'] = [
     'mock-ssh-server==0.9.1',
     'cryptography==37.0.2',
     'pytest-httpserver>=1.0.4,<1.1',
-    'sphinx-jsonschema>=1.19.1,<1.20',
+    'json-schema-for-humans>=0.41.6,<0.42',
 ]
 
 extra_deps['deepspeed'] = [
