@@ -108,6 +108,7 @@ def test_registry(caplog):
         max_sequence_length=64,
     )
     assert not encountered_alibi_warning(caplog), 'No warnings should be generated after adding to the registry.'
+    del (policy_registry[torch.nn.Linear])
 
 
 @pytest.mark.parametrize('synthetic_state_family', ['bert', 'gpt2'])
