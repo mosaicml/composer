@@ -59,7 +59,14 @@ def configure_dist(request: pytest.FixtureRequest):
     if dist.get_world_size() == 1:
         return
 
-    device = DeviceCPU() if request.node.get_closest_marker('gpu') is None else DeviceGPU()
+    device = None
+
+    for item in request.session.items:
+        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
+        break
+
+    assert device is not None
+
     if not dist.is_initialized():
         dist.initialize_dist(device, timeout=datetime.timedelta(seconds=300))
     # Hold PyTest until all ranks have reached this barrier. Ensure that no rank starts
@@ -80,6 +87,7 @@ def self_destructing_tmp(tmp_path_factory: pytest.TempPathFactory):
 @pytest.fixture(scope='session')
 def test_session_name(configure_dist: None) -> str:
     """Generate a random name for the test session that is the same on all ranks."""
+    del configure_dist  # unused
     generated_session_name = str(int(time.time())) + '-' + coolname.generate_slug(2)
     name_list = [generated_session_name]
     # ensure all ranks have the same name
