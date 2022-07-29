@@ -271,7 +271,7 @@ class CopyPaste(Algorithm):
     Randomly pastes objects onto an image.
 
     Args:
-        p (float, optional): p. Default: ``0.75``
+        p (float, optional): p. Default: ``0.5``
         convert_to_binary_mask (bool, optional): convert_to_binary_mask. Default: ``True``.
         max_copied_instances (int | None, optional): max_copied_instances. Default: ``None``.
         area_threshold (int, optional): area_threshold. Default: ``100``.
@@ -307,7 +307,7 @@ class CopyPaste(Algorithm):
 
     def __init__(
         self,
-        p=0.75,
+        p=0.5,
         convert_to_binary_mask=True,
         max_copied_instances=None,
         area_threshold=100,
