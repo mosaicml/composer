@@ -149,8 +149,7 @@ def copypaste_batch(images, masks, configs):
                 # print ("i = ", i, ", j = ", j, " instance_id = ", src_instance_id)
 
                 trg_image, trg_mask = _copypaste_instance(images[i], masks[i], trg_image, trg_mask, src_instance_id, configs)
-        else:
-            print("skipped")
+
         
         out_images[batch_idx] = trg_image
         out_masks[batch_idx] = trg_mask
