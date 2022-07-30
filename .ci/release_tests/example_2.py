@@ -1,9 +1,14 @@
+import torch
+
+# adaptive_avg_pool2d_backward_cuda in mnist_classifier is not deterministic
+torch.use_deterministic_algorithms(False)
+
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 from composer import Trainer
-from composer.algorithms import BlurPool, ChannelsLast, CutMix, LabelSmoothing
-from composer.models import MNIST_Classifier
+from composer.algorithms import ChannelsLast, CutMix, LabelSmoothing
+from composer.models import mnist_model
 
 transform = transforms.Compose([transforms.ToTensor()])
 train_dataset = datasets.MNIST("data", download=True, train=True, transform=transform)
@@ -12,14 +17,13 @@ train_dataloader = DataLoader(train_dataset, batch_size=128)
 eval_dataloader = DataLoader(eval_dataset, batch_size=128)
 
 trainer = Trainer(
-    model=MNIST_Classifier(num_classes=10),
+    model=mnist_model(),
     train_dataloader=train_dataloader,
     eval_dataloader=eval_dataloader,
     max_duration="2ep",
     algorithms=[
-        BlurPool(replace_convs=True, replace_maxpools=True, blur_first=True),
         ChannelsLast(),
-        CutMix(num_classes=10),
+        CutMix(alpha=1.0),
         LabelSmoothing(smoothing=0.1),
     ]
 )

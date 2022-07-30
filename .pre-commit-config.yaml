@@ -35,7 +35,7 @@ repos:
         types: [python]
         pass_filenames: false
         args: [--warnings]
-        additional_dependencies: ["pyright@1.1.247"]
+        additional_dependencies: ["pyright@1.1.256"]
   -   repo: https://github.com/PyCQA/pydocstyle
       hooks:
       -   id: pydocstyle
@@ -102,6 +102,6 @@ repos:
             metadata.colab metadata.interpreter metadata.accelerator
             metadata.kernelspec metadata.language_info.version
             cell.metadata.heading_collapsed metadata.name metadata.nbconvert_exporter
-            metadata.version
+            metadata.version metadata.vscode
 
 exclude: .ci\/release_tests\/.*

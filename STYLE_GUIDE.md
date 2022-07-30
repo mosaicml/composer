@@ -203,13 +203,13 @@ not for data validation. As asserts can be disabled in python by using the `-O` 
 (e.g. `python -O path/to/script.py`), they are not guaranteed to run. For data validation, instead use a style like
 the following:
 
+<!--pytest.mark.xfail-->
 <!--
 ```python
 parameter = None
 ```
 -->
 <!--pytest-codeblocks:cont-->
-<!--pytest-codeblocks:expect-error-->
 ```python
 if parameter is None:
     raise ValueError("parameter must be specified and cannot be None")
@@ -302,7 +302,7 @@ class MemoryMonitor(Callback):
 
 All public classes and functions should be added to the module's `__init__.py`.
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```python
 from composer.path.to.module.file import MyClass as MyClass
 from composer.path.to.module.file import my_func as my_func
@@ -310,7 +310,7 @@ from composer.path.to.module.file import my_func as my_func
 
 If a file only contains public functions, then the following is also acceptable:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```python
 from composer.path.to.module import my_file as my_file
 ```
@@ -404,7 +404,7 @@ Assuming you already have a development install of Composer (see these [instruct
 
 In one terminal, run:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```bash
 source path/to/composer_venv/bin/activate  # activate your composer virtual env
 cd composer/docs  # cd to the docs folder insde your composer clone
@@ -415,7 +415,7 @@ make html
 
 In a second terminal, run:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```bash
 cd composer/docs
 python3 -m http.server --directory _build/html/
@@ -472,7 +472,7 @@ All doctests load the [docs/source/doctest_fixtures.py](docs/source/doctest_fixt
 
 Assuming you already have a development install of Composer (see these [instructions](CONTRIBUTING.md#prerequisites)), here’s how to run the doctests.
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```bash
 source path/to/composer_venv/bin/activate  # activate your composer virtual env
 cd composer/docs  # cd to the docs folder insde your composer clone

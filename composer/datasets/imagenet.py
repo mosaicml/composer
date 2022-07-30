@@ -15,13 +15,14 @@ import numpy as np
 import torch
 from PIL import Image
 from torchvision import transforms
+from torchvision.datasets import VisionDataset
 
 from composer.datasets.streaming import StreamingDataset
 
 __all__ = ['StreamingImageNet1k']
 
 
-class StreamingImageNet1k(StreamingDataset):
+class StreamingImageNet1k(StreamingDataset, VisionDataset):
     """
     Implementation of the ImageNet1k dataset using StreamingDataset.
 
@@ -94,13 +95,14 @@ class StreamingImageNet1k(StreamingDataset):
                 transforms.RandomResizedCrop(crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
                 transforms.RandomHorizontalFlip(),
             ]
-            self.transform = transforms.Compose(train_transforms)
+            transform = transforms.Compose(train_transforms)
         else:
             val_transforms: List[torch.nn.Module] = []
             if resize_size > 0:
                 val_transforms.append(transforms.Resize(resize_size))
             val_transforms += [transforms.CenterCrop(crop_size)]
-            self.transform = transforms.Compose(val_transforms)
+            transform = transforms.Compose(val_transforms)
+        VisionDataset.__init__(self, root=local, transform=transform)
 
     def __getitem__(self, idx: int) -> Any:
         """Get the decoded and transformed (image, class) pair by ID.
@@ -113,6 +115,7 @@ class StreamingImageNet1k(StreamingDataset):
         """
         obj = super().__getitem__(idx)
         x = obj['x']
+        assert self.transform is not None, 'transform set in __init__'
         x = self.transform(x)
         y = obj['y']
         return x, y

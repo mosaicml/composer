@@ -3,20 +3,21 @@
 
 """DeepLabV3 model extending :class:`.ComposerClassifier`."""
 
+import functools
 import textwrap
-from typing import Any, Sequence
+from typing import Sequence
 
 import torch
 import torch.nn.functional as F
 from torchmetrics import MetricCollection
 from torchvision.models import _utils, resnet
 
-from composer.loss import soft_cross_entropy
+from composer.loss import DiceLoss, soft_cross_entropy
 from composer.metrics import CrossEntropy, MIoU
-from composer.models.base import ComposerModel
 from composer.models.initializers import Initializer
+from composer.models.tasks import ComposerClassifier
 
-__all__ = ['deeplabv3_builder', 'ComposerDeepLabV3']
+__all__ = ['deeplabv3', 'composer_deeplabv3']
 
 
 class SimpleSegmentationModel(torch.nn.Module):
@@ -38,14 +39,14 @@ class SimpleSegmentationModel(torch.nn.Module):
         return logits
 
 
-def deeplabv3_builder(num_classes: int,
-                      backbone_arch: str = 'resnet101',
-                      is_backbone_pretrained: bool = True,
-                      backbone_url: str = '',
-                      sync_bn: bool = True,
-                      use_plus: bool = True,
-                      initializers: Sequence[Initializer] = ()):
-    """Helper function to build a torchvision DeepLabV3 model with a 3x3 convolution layer and dropout removed.
+def deeplabv3(num_classes: int,
+              backbone_arch: str = 'resnet101',
+              is_backbone_pretrained: bool = True,
+              backbone_url: str = '',
+              sync_bn: bool = True,
+              use_plus: bool = True,
+              initializers: Sequence[Initializer] = ()):
+    """Helper function to build a mmsegmentation DeepLabV3 model.
 
     Args:
         num_classes (int): Number of classes in the segmentation task.
@@ -65,9 +66,9 @@ def deeplabv3_builder(num_classes: int,
 
     .. code-block:: python
 
-        from composer.models.deeplabv3.deeplabv3 import deeplabv3_builder
+        from composer.models.deeplabv3.deeplabv3 import deeplabv3
 
-        pytorch_model = deeplabv3_builder(num_classes=150, backbone_arch='resnet101', is_backbone_pretrained=False)
+        pytorch_model = deeplabv3(num_classes=150, backbone_arch='resnet101', is_backbone_pretrained=False)
     """
 
     # check that the specified architecture is in the resnet module
@@ -138,74 +139,82 @@ def deeplabv3_builder(num_classes: int,
     return model
 
 
-class ComposerDeepLabV3(ComposerModel):
-    """DeepLabV3 model extending :class:`.ComposerClassifier`. Logs Mean Intersection over Union (MIoU) and Cross
-    Entropy during training and validation.
+def composer_deeplabv3(num_classes: int,
+                       backbone_arch: str = 'resnet101',
+                       is_backbone_pretrained: bool = True,
+                       backbone_url: str = '',
+                       sync_bn: bool = True,
+                       use_plus: bool = True,
+                       ignore_index: int = -1,
+                       cross_entropy_weight: float = 1.0,
+                       dice_weight: float = 0.0,
+                       initializers: Sequence[Initializer] = ()):
+    """Helper function to create a :class:`.ComposerClassifier` with a DeepLabv3(+) model. Logs
+        Mean Intersection over Union (MIoU) and Cross Entropy during training and validation.
 
-    From `Rethinking Atrous Convolution for Semantic Image Segmentation <https://arxiv.org/abs/1706.05587>`_ (Chen et al, 2017).
+    From `Rethinking Atrous Convolution for Semantic Image Segmentation <https://arxiv.org/abs/1706.05587>`_
+        (Chen et al, 2017).
 
     Args:
         num_classes (int): Number of classes in the segmentation task.
-        backbone_arch (str, optional): The architecture to use for the backbone. Must be either [``'resnet50'``, ``'resnet101'``].
-            Default: ``'resnet101'``.
-        is_backbone_pretrained (bool, optional): If ``True``, use pretrained weights for the backbone. Default: ``True``.
+        backbone_arch (str, optional): The architecture to use for the backbone. Must be either
+            [``'resnet50'``, ``'resnet101'``]. Default: ``'resnet101'``.
+        is_backbone_pretrained (bool, optional): If ``True``, use pretrained weights for the backbone.
+            Default: ``True``.
         backbone_url (str, optional): Url used to download model weights. If empty, the PyTorch url will be used.
             Default: ``''``.
-        sync_bn (bool, optional): If ``True``, replace all BatchNorm layers with SyncBatchNorm layers. Default: ``True``.
+        sync_bn (bool, optional): If ``True``, replace all BatchNorm layers with SyncBatchNorm layers.
+            Default: ``True``.
         use_plus (bool, optional): If ``True``, use DeepLabv3+ head instead of DeepLabv3. Default: ``True``.
-        initializers (List[Initializer], optional): Initializers for the model. ``[]`` for no initialization. Default: ``[]``.
+        ignore_index (int): Class label to ignore when calculating the loss and other metrics. Default: ``-1``.
+        cross_entropy_weight (float): Weight to scale the cross entropy loss. Default: ``1.0``.
+        dice_weight (float): Weight to scale the dice loss. Default: ``0.0``.
+        initializers (List[Initializer], optional): Initializers for the model. ``[]`` for no initialization.
+            Default: ``[]``.
 
+
+    Returns:
+        ComposerModel: instance of :class:`.ComposerClassifier` with a DeepLabv3(+) model.
 
     Example:
 
     .. code-block:: python
 
-        from composer.models import ComposerDeepLabV3
+        from composer.models import composer_deeplabv3
 
-        model = ComposerDeepLabV3(num_classes=150, backbone_arch='resnet101', is_backbone_pretrained=False)
+        model = composer_deeplabv3(num_classes=150, backbone_arch='resnet101', is_backbone_pretrained=False)
     """
 
-    def __init__(self,
-                 num_classes: int,
-                 backbone_arch: str = 'resnet101',
-                 is_backbone_pretrained: bool = True,
-                 backbone_url: str = '',
-                 sync_bn: bool = True,
-                 use_plus: bool = True,
-                 initializers: Sequence[Initializer] = ()):
+    model = deeplabv3(backbone_arch=backbone_arch,
+                      is_backbone_pretrained=is_backbone_pretrained,
+                      backbone_url=backbone_url,
+                      use_plus=use_plus,
+                      num_classes=num_classes,
+                      sync_bn=sync_bn,
+                      initializers=initializers)
 
-        super().__init__()
-        self.num_classes = num_classes
-        self.model = deeplabv3_builder(backbone_arch=backbone_arch,
-                                       is_backbone_pretrained=is_backbone_pretrained,
-                                       backbone_url=backbone_url,
-                                       use_plus=use_plus,
-                                       num_classes=num_classes,
-                                       sync_bn=sync_bn,
-                                       initializers=initializers)
+    train_metrics = MetricCollection(
+        [CrossEntropy(ignore_index=ignore_index),
+         MIoU(num_classes, ignore_index=ignore_index)])
+    val_metrics = MetricCollection(
+        [CrossEntropy(ignore_index=ignore_index),
+         MIoU(num_classes, ignore_index=ignore_index)])
 
-        # Metrics
-        self.train_miou = MIoU(self.num_classes, ignore_index=-1)
-        self.train_ce = CrossEntropy(ignore_index=-1)
-        self.val_miou = MIoU(self.num_classes, ignore_index=-1)
-        self.val_ce = CrossEntropy(ignore_index=-1)
+    ce_loss_fn = functools.partial(soft_cross_entropy, ignore_index=ignore_index)
+    dice_loss_fn = DiceLoss(softmax=True, batch=True, ignore_absent_classes=True)
 
-    def forward(self, batch: Any):
-        x = batch[0]
-        logits = self.model(x)
-        return logits
-
-    def loss(self, outputs: Any, batch: Any):
-        target = batch[1]
-        loss = soft_cross_entropy(outputs, target, ignore_index=-1)  # type: ignore
+    def _combo_loss(output, target):
+        loss = []
+        if cross_entropy_weight:
+            ce_loss = ce_loss_fn(output, target) * cross_entropy_weight
+            loss.append(ce_loss)
+        if dice_weight:
+            dice_loss = dice_loss_fn(output, target) * dice_weight
+            loss.append(dice_loss)
         return loss
 
-    def metrics(self, train: bool = False):
-        metric_list = [self.train_miou, self.train_ce] if train else [self.val_miou, self.val_ce]
-        return MetricCollection(metric_list)
-
-    def validate(self, batch: Any):
-        assert self.training is False, 'For validation, model must be in eval mode'
-        target = batch[1]
-        logits = self.forward(batch)
-        return logits, target
+    composer_model = ComposerClassifier(module=model,
+                                        train_metrics=train_metrics,
+                                        val_metrics=val_metrics,
+                                        loss_fn=_combo_loss)
+    return composer_model

@@ -15,6 +15,7 @@ import numpy as np
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
+from torchvision.datasets import VisionDataset
 
 from composer.core.types import Batch
 from composer.datasets.streaming import StreamingDataset
@@ -133,7 +134,7 @@ def split_dict_fn(batch: Batch, num_microbatches: int) -> Sequence[Batch]:  #typ
             ))  #type: ignore
 
 
-class StreamingCOCO(StreamingDataset):
+class StreamingCOCO(StreamingDataset, VisionDataset):
     """
     Implementation of the COCO dataset using StreamingDataset.
 
@@ -191,9 +192,10 @@ class StreamingCOCO(StreamingDataset):
         dboxes = dboxes300_coco()
         input_size = 300
         if split == 'train':
-            self.transform = SSDTransformer(dboxes, (input_size, input_size), val=False, num_cropping_iterations=1)
+            transform = SSDTransformer(dboxes, (input_size, input_size), val=False, num_cropping_iterations=1)
         else:
-            self.transform = SSDTransformer(dboxes, (input_size, input_size), val=True)
+            transform = SSDTransformer(dboxes, (input_size, input_size), val=True)
+        VisionDataset.__init__(self, root=local, transform=transform)
 
     def __getitem__(self, idx: int) -> Any:
         x = super().__getitem__(idx)
@@ -203,6 +205,6 @@ class StreamingCOCO(StreamingDataset):
         wtot = x['wtot']
         bbox_sizes = x['bbox_sizes']
         bbox_labels = x['bbox_labels']
-        if self.transform:
-            img, (htot, wtot), bbox_sizes, bbox_labels = self.transform(img, (htot, wtot), bbox_sizes, bbox_labels)
+        assert self.transform is not None, 'transform set in __init__'
+        img, (htot, wtot), bbox_sizes, bbox_labels = self.transform(img, (htot, wtot), bbox_sizes, bbox_labels)
         return img, img_id, (htot, wtot), bbox_sizes, bbox_labels

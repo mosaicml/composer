@@ -52,12 +52,15 @@ class MNISTDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 raise ValueError('datadir is required if synthetic is False')
 
             transform = transforms.Compose([transforms.ToTensor()])
-            dataset = datasets.MNIST(
-                self.datadir,
-                train=self.is_train,
-                download=self.download,
-                transform=transform,
-            )
+
+            with dist.run_local_rank_zero_first():
+                dataset = datasets.MNIST(
+                    self.datadir,
+                    train=self.is_train,
+                    download=dist.get_local_rank() == 0 and self.download,
+                    transform=transform,
+                )
+
         sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
         return dataloader_hparams.initialize_object(dataset=dataset,
                                                     batch_size=batch_size,

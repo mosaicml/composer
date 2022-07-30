@@ -34,6 +34,8 @@ class StreamingC4Hparams(DatasetHparams):
         group_method (str): How to group text samples into token samples. Currently only `truncate` is supported.
         mlm (bool): Whether or not to use masked language modeling. Default: ``False``.
         mlm_probability (float): If ``mlm==True``, the probability that tokens are masked. Default: ``0.15``.
+        max_retries (int): Number of download re-attempts before giving up. Default: 2.
+        timeout (float): How long to wait for shard to download before raising an exception. Default: 120 sec.
     """
 
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
@@ -48,6 +50,8 @@ class StreamingC4Hparams(DatasetHparams):
         'How to group text samples into token samples. Currently only `truncate` is supported.', default='truncate')
     mlm: bool = hp.optional('Whether or not to use masked language modeling.', default=False)
     mlm_probability: float = hp.optional('If `mlm==True`, the probability that tokens are masked.', default=0.15)
+    max_retries: int = hp.optional('Number of download re-attempts before giving up.', default=2)
+    timeout: float = hp.optional('How long to wait for shard to download before raising an exception.', default=120)
 
     def validate(self):
         if self.split not in ['train', 'val']:
@@ -75,6 +79,8 @@ class StreamingC4Hparams(DatasetHparams):
                               tokenizer_name=self.tokenizer_name,
                               max_seq_len=self.max_seq_len,
                               group_method=self.group_method,
+                              max_retries=self.max_retries,
+                              timeout=self.timeout,
                               batch_size=batch_size)
 
         # Get collate_fn

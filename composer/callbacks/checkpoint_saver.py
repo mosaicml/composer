@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import os
 import pathlib
+import tempfile
 import textwrap
 from typing import Callable, List, Optional, Tuple, Union
 
@@ -16,10 +17,10 @@ from composer.core.callback import Callback
 from composer.core.time import Time, Timestamp, TimeUnit
 from composer.loggers import Logger
 from composer.loggers.logger import LogLevel
-from composer.utils import checkpoint, dist
+from composer.utils import checkpoint, dist, is_model_deepspeed
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
-                                         ensure_folder_has_no_conflicting_files, format_name_with_dist,
-                                         format_name_with_dist_and_time, is_tar)
+                                         create_symlink_file, ensure_folder_has_no_conflicting_files,
+                                         format_name_with_dist, format_name_with_dist_and_time, is_tar)
 
 log = logging.getLogger(__name__)
 
@@ -229,7 +230,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             Whenever a new checkpoint is saved, a symlink artifact is created or updated to point to the latest checkpoint's ``artifact_name``.
             The artifact name will be determined by this format string. This parameter has no effect if ``latest_filename`` or ``artifact_name`` is ``None``.
 
-            .. seealso:: :meth:`.Logger.log_symlink_artifact` for symlink artifact logging.
+            .. seealso:: :func:`.write_symlink` for symlink artifact logging.
 
             The same format variables for ``filename`` are available.
 
@@ -328,7 +329,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             ensure_folder_has_no_conflicting_files(folder, self.filename, state.timestamp)
         # Ensure no rank proceeds (and potentially attempts to write to the folder), until all ranks have validated that the folder is safe.
         dist.barrier()
-        if state.is_model_deepspeed:
+        if is_model_deepspeed(state.model):
             if self.weights_only:
                 NotImplementedError(
                     ('Saving checkpoints with `weights_only=True` is not currently supported when using DeepSpeed. '
@@ -359,7 +360,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             if self.artifact_name is not None:
                 artifact_name = format_name_with_dist_and_time(self.artifact_name, state.run_name,
                                                                state.timestamp).lstrip('/')
-                if state.is_model_deepspeed and not is_tar(artifact_name):
+                if is_model_deepspeed(state.model) and not is_tar(artifact_name):
                     # Deepspeed requires tarballs; appending `.tar`
                     artifact_name += '.tar'
                 logger.file_artifact(log_level=log_level,
@@ -377,7 +378,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                         state.timestamp,
                     ).lstrip('/'),
                 )
-                if state.is_model_deepspeed and not is_tar(symlink_name):
+                if is_model_deepspeed(state.model) and not is_tar(symlink_name):
                     # Deepspeed requires tarballs; appending `.tar`
                     symlink_name += '.tar'
                 symlink_dirname = os.path.dirname(symlink_name)
@@ -391,14 +392,19 @@ class CheckpointSaver(Callback):  # noqa: D101
                 os.symlink(relative_checkpoint_path, symlink_name)
                 if self.artifact_name is not None and self.latest_artifact_name is not None:
                     symlink_artifact_name = format_name_with_dist_and_time(self.latest_artifact_name, state.run_name,
-                                                                           state.timestamp).lstrip('/')
+                                                                           state.timestamp).lstrip('/') + '.symlink'
                     artifact_name = format_name_with_dist_and_time(self.artifact_name, state.run_name,
                                                                    state.timestamp).lstrip('/')
                     # Always overwrite for symlinks since we use the same filename for latest
-                    logger.symlink_artifact(log_level=log_level,
-                                            existing_artifact_name=artifact_name,
-                                            symlink_artifact_name=symlink_artifact_name,
-                                            overwrite=True)
+                    with tempfile.TemporaryDirectory() as tmpdir:
+                        symlink_filename = os.path.join(tmpdir, 'latest.symlink')
+                        create_symlink_file(artifact_name, symlink_filename)
+                        logger.file_artifact(
+                            log_level=log_level,
+                            artifact_name=symlink_artifact_name,
+                            file_path=symlink_filename,
+                            overwrite=True,
+                        )
 
         timestamp = state.timestamp
 

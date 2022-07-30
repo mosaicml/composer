@@ -9,7 +9,6 @@ import warnings
 from typing import Optional
 
 import torch
-from torch.nn import functional as F
 
 __all__ = ['infer_target_type', 'ensure_targets_one_hot', 'check_for_index_targets']
 
@@ -32,7 +31,7 @@ def infer_target_type(input: torch.Tensor, targets: torch.Tensor) -> str:
 
 def ensure_targets_one_hot(input: torch.Tensor,
                            targets: torch.Tensor,
-                           num_classes: Optional[float] = None) -> torch.Tensor:
+                           num_classes: Optional[int] = None) -> torch.Tensor:
     r"""Ensures that the targets are in a one-hot format rather than an index format.
 
     Args:
@@ -51,22 +50,64 @@ def ensure_targets_one_hot(input: torch.Tensor,
         # If the number of classes isn't specified, attempt to infer it from the input
         if num_classes is None:
             num_classes = input.shape[1]
-        if targets.min() < 0:
-            warnings.warn('Negative label indices are being ignored in conversion to one-hot labels')
-            # Map all negative indicies to a class to drop.
-            targets[targets < 0] = num_classes
-            targets = F.one_hot(targets, num_classes=num_classes + 1)
-            targets = torch.movedim(targets, -1, 1)
-            # Drop any negative indices.
-            targets = targets[:, 0:-1]
-        else:
-            targets = F.one_hot(targets, num_classes=num_classes)
-            targets = torch.movedim(targets, -1, 1)
-        targets = targets.float()
-    return targets
+
+        # Convert to one-hot tensor
+        targets = _one_hot(targets, num_classes=num_classes, dim=1)
+    return targets.float()
 
 
 def check_for_index_targets(targets: torch.Tensor) -> bool:
     """Checks if a given set of targets are indices by looking at the type."""
     index_dtypes = [torch.uint8, torch.int8, torch.int16, torch.int32, torch.int64]
     return targets.dtype in index_dtypes
+
+
+def _one_hot(tensor: torch.Tensor, num_classes: int = -1, dim: int = -1) -> torch.Tensor:
+    """Converts a tensor of index class labels to a tensor of one-hot class labels.
+
+    Implementation is based on MONAI one-hot conversion function:
+    `<https://github.com/Project-MONAI/MONAI/blob/b390b0956334325edc0e5000afb58e2be7cbe550/monai/networks/utils.py#L49>`_.
+
+    Args:
+        tensor (torch.Tensor): Tensor containing index class labels.
+        num_classes (int): Size of the class dimension for the output one-hot tensor. If set to -1,
+            the number of classes will be inferred to be one greater than the largest value in ``tensor``.
+        dim (int): Location of the new class dimension of size ``num_classes``.
+
+
+    Returns:
+        torch.Tensor: One-hot class labels i.e. the same shape as ``tensor`` except with an
+            extra dimension of size ``num_classes`` inserted after the first dimension
+    """
+    if not check_for_index_targets(tensor):
+        raise ValueError(f'tensor must be integer type, current type: {tensor.dtype}')
+
+    max_index = tensor.max() + 1
+    if num_classes == -1:
+        num_classes = int(max_index)
+
+    if num_classes < max_index:
+        raise ValueError(f'num_classes must be greater than or equal to tensor.max() + 1: {num_classes} < {max_index}')
+
+    # Remove negative indices
+    neg_indices = tensor.min() < 0
+    if neg_indices:
+        warnings.warn('Negative label indices are being ignored in conversion to one-hot labels')
+        tensor = tensor.clone().long()
+        tensor[tensor < 0] = num_classes
+        num_classes += 1  # Add extra class for negative indices
+
+    # Assume class dimension is inserted after the first dimension
+    tensor = tensor.unsqueeze(dim)
+    tensor_shape = list(tensor.shape)
+    tensor_shape[dim] = num_classes
+
+    # Convert to one-hot
+    one_hot_tensor = torch.zeros(size=tensor_shape, dtype=tensor.dtype, device=tensor.device)
+    one_hot_tensor.scatter_(dim=dim, index=tensor, value=1)
+
+    # Remove negative indices
+    if neg_indices:
+        one_hot_tensor = one_hot_tensor[:, 0:-1]
+
+    return one_hot_tensor

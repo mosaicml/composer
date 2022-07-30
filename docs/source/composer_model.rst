@@ -75,7 +75,7 @@ We also provide several common classes for various tasks, specifically:
 
 -  :class:`.ComposerClassifier` - classification tasks with a cross entropy
    loss and accuracy metric.
--  :class:`.TIMM` - creates classification models from the popular `TIMM`_
+-  :func:`.composer_timm` - creates classification models from the popular `TIMM`_
    library.
 -  :class:`.HuggingFaceModel` - :class:`.ComposerModel` wrapper for a 🤗 `Transformers`_ model.
 
@@ -190,13 +190,13 @@ Integrations
 TIMM
 ~~~~
 
-Integrate with your favorite `TIMM`_ models with our :class:`.TIMM` class.
+Integrate with your favorite `TIMM`_ models with our :func:`.composer_timm` class.
 
 .. code:: python
 
-    from composer.models import Timm
+    from composer.models import composer_timm
 
-    timm_model = Timm(model_name='resnet50', pretrained=True)
+    timm_model = composer_timm(model_name='resnet50', pretrained=True)
 
 BERT Example with 🤗 Transformers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -15,6 +15,7 @@ It is a regularization technique that improves the generalization accuracy of mo
 
 ### Functional Interface
 
+Here we run `CutMix` using index labels and interpolating the loss (a trick when using cross entropy).
 ```python
 # Run the CutMix algorithm directly on the batch data using the Composer functional API
 import torch
@@ -28,13 +29,9 @@ def training_loop(model, train_loader):
 
     for epoch in range(num_epochs):
         for X, y in train_loader:
-            X_cutmix, y_cutmix = cf.cutmix_batch(X,
-                                                 y,
-                                                 num_classes=1000,
-                                                 alpha=1.0)
-
+            X_cutmix, y_perm, area, _ = cf.cutmix_batch(X, y, alpha=0.2)
             y_hat = model(X_cutmix)
-            loss = loss_fn(y_hat, y_cutmix)
+            loss = area * loss_fn(y_hat, y) + (1 - area) * loss_fn(y_hat, y_perm)
             loss.backward()
             opt.step()
             opt.zero_grad()
@@ -42,8 +39,18 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
-<!-- TODO: Address timeouts -->
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.gpu-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomClassificationDataset, SimpleModel
+
+model = SimpleModel()
+train_dataloader = DataLoader(RandomClassificationDataset())
+eval_dataloader = DataLoader(RandomClassificationDataset())
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
@@ -51,11 +58,12 @@ def training_loop(model, train_loader):
 from composer.algorithms import CutMix
 from composer.trainer import Trainer
 
-cutmix = CutMix(num_classes=1000, alpha=1.0)
+cutmix = CutMix(alpha=1.0)
 
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
     max_duration='1ep',
     algorithms=[cutmix]
 )

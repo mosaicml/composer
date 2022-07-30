@@ -8,18 +8,20 @@ Provides utilities to do FX-based model transformations.
 
 import logging
 import operator
-from typing import Any, Callable, Dict, List, Mapping, Tuple, Union
+import re
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
-from torch.fx import Node
-from torch.fx.graph_module import GraphModule
+from torch.fx import GraphModule, Node
+from torch.fx.passes.split_utils import split_by_tags
 
+from composer.algorithms.stochastic_depth.stochastic_layers import BlockStochasticModule
 from composer.utils import ensure_tuple
 
 log = logging.getLogger(__name__)
 
-__all__ = ['count_op_instances', 'replace_op', 'fuse_parallel_linears']
+__all__ = ['count_op_instances', 'replace_op', 'fuse_parallel_linears', 'apply_stochastic_residual']
 
 
 def count_op_instances(gm: GraphModule, ops: Union[Callable, str, List[Union[Callable, str]]]) -> int:
@@ -111,28 +113,138 @@ def replace_op(gm: GraphModule, src_ops: Union[Callable, str, List[Union[Callabl
     return gm
 
 
-def detect_residual_pattern(gm: GraphModule):
-    """Search and replace the pattern with another.
+def _get_ancestors(node: Node) -> List[Node]:
+    ancestorNodes = []
+    while node.op != 'placeholder':
+        ancestorNodes.append(node)
+        node = node.all_input_nodes[0]
+    return ancestorNodes
+
+
+def _get_residual_block_nodes(nodeLHS: Node, nodeRHS: Node) -> Tuple[List[Node], List[Node]]:
+    """Walk backwards from nodeLHS and nodeRSH to the root and construct lists of their parents.
 
     Arguments:
-        gm (GraphModule): The source FX-traced graph.
+        nodeLHS (Node): left-hand side node for a binary operator
+        nodeRHS (Node): right-hand side node for a binary operator
 
     Returns:
-        GraphModule: Modified GraphModule.
+        (lhsAncestors, rhsAncestors): Two lists of nodes containing ancestors for ``nodeLHS`` and ``nodeRHS`` with
+            their common ancestors removed.
     """
-    raise NotImplementedError('detect_residual_pattern is currently not implemented.')
+    lhsAncestors = _get_ancestors(nodeLHS)
+    rhsAncestors = _get_ancestors(nodeRHS)
+
+    # Iterate from back and eliminate common nodes
+    while lhsAncestors and rhsAncestors and lhsAncestors[-1] == rhsAncestors[-1]:
+        lhsAncestors.pop()
+        rhsAncestors.pop()
+    lhsAncestors.reverse()
+    rhsAncestors.reverse()
+    return lhsAncestors, rhsAncestors
 
 
-def replace_residual_with_stochastic(gm: GraphModule):
-    """Replaces residual pattern with their stoachstic equivalent.
+def _attach_tag(nodes: List[Node], tag: str):
+    """Attach tag to the given nodes for the splitter."""
+    for node in nodes:
+        node.tag = tag  # type: ignore[attr-defined]
+
+
+def _tag_residual_nodes(gm: GraphModule) -> Tuple[List[str], int]:
+    """Tag nodes for splitting."""
+    # all nodes that are not a part of the residual blocks are tagged with "mainN_{count}".
+    # a tag is required for all nodes by split_by_tags
+    # Also an earlier tag can be repeated for later nodes.
+    count = 0
+    all_tags = []
+    # In this pass over all nodes, we just tag them
+    for node in gm.graph.nodes:
+        default_tag = f'mainN_{count}'
+        node.tag = default_tag
+        if default_tag not in all_tags:
+            all_tags.append(default_tag)
+        if node.op == 'call_function' and node.target in [torch.add, operator.add]:
+            assert len(node.all_input_nodes) == 2
+            node0, node1 = node.all_input_nodes[0], node.all_input_nodes[1]
+            lhs_nodes, rhs_nodes = _get_residual_block_nodes(node0, node1)
+            if lhs_nodes or rhs_nodes:
+                if len(lhs_nodes):
+                    _attach_tag(lhs_nodes, f'non_res_{count}')
+                    all_tags.append(f'non_res_{count}')
+                if len(rhs_nodes):
+                    _attach_tag(rhs_nodes, f'residual_{count}')
+                    all_tags.append(f'residual_{count}')
+                add_tag = f'addN_{count}'
+                if add_tag not in all_tags:
+                    all_tags.append(add_tag)
+                node.tag = add_tag
+                count += 1
+    return all_tags, count
+
+
+def _get_residual_modules(gm: GraphModule, node: Node) -> Tuple[Optional[GraphModule], Optional[GraphModule], int]:
+    """Returns GraphModules for the main and residual branches.
+
+    node.op is assumed to be a call_module
+    """
+    pattern = re.compile(r'non_res_(\d+)|residual_(\d+)')
+    matches = pattern.match(str(node.target))
+    if matches:
+        idx = int(matches[1]) if matches[1] else int(matches[2])
+        main_submod = getattr(gm, f'non_res_{idx}')
+        residual_submod = getattr(gm, f'residual_{idx}', None)
+        return main_submod, residual_submod, idx
+    else:
+        return None, None, 0
+
+
+def _replace_residual_pattern(gm: GraphModule,
+                              original_node: Node,
+                              replacement_module: str,
+                              has_residual_ops: bool = False) -> None:
+    """Replaces main, residual and add_node with the ``replacement_module``.
+
+    ``replacement_module`` is already added to the gm.
+    """
+    insert_node = original_node.prev
+    add_node = original_node.next
+    if has_residual_ops:
+        add_node = original_node.next.next
+    with gm.graph.inserting_after(insert_node):
+        new_node = gm.graph.call_module(replacement_module, args=(insert_node,))  # type: ignore
+        add_node.replace_all_uses_with(new_node)
+        gm.graph.erase_node(add_node)
+        if has_residual_ops:
+            gm.graph.erase_node(original_node.next)
+        gm.graph.erase_node(original_node)
+    gm.graph.lint()
+
+
+def apply_stochastic_residual(gm: GraphModule, drop_rate: float = 0.2) -> Tuple[GraphModule, int]:
+    """Detect and replace residual pattern with their stochastic equivalent.
 
     Arguments:
-        gm (GraphModule): The source FX-traced graph.
+        gm (GraphModule): The source FX-traced graph. It can be the whole model symbolically traced.
 
     Returns:
-        GraphModule: Modified GraphModule.
+        GraphModule: Modified GraphModule that has stochastic residual connections.
     """
-    raise NotImplementedError('replace_residual_with_stochastic is currently not implemented.')
+    if not isinstance(gm, GraphModule):
+        raise ValueError(
+            f'Input to apply_stochastic_residual should be an instance of GraphModule. Received {type(gm)}')
+    all_tags, count = _tag_residual_nodes(gm)
+    split_gm = split_by_tags(gm, all_tags)
+    for node in split_gm.graph.nodes:
+        if node.op != 'call_module':
+            continue
+
+        main_submod, residual_submod, idx = _get_residual_modules(split_gm, node)
+        if main_submod:
+            residual_st_instance = BlockStochasticModule(main_submod, residual_submod, drop_rate)
+            split_gm.add_submodule(f'resi_st_{idx}', residual_st_instance)  # type: ignore
+            _replace_residual_pattern(split_gm, node, f'resi_st_{idx}', residual_submod is not None)
+    split_gm.recompile()
+    return split_gm, count
 
 
 def _can_linears_be_fused(linear_nodes: List[Node], all_modules: Mapping[str, nn.Module]) -> bool:

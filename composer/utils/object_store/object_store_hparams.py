@@ -193,6 +193,7 @@ class S3ObjectStoreHparams(ObjectStoreHparams):
 
     Args:
         bucket (str): See :class:`.S3ObjectStore`.
+        prefix (str): See :class:`.S3ObjectStore`.
         region_name (str, optional): See :class:`.S3ObjectStore`.
         endpoint_url (str, optional): See :class:`.S3ObjectStore`.
         client_config (dict, optional): See :class:`.S3ObjectStore`.
@@ -200,6 +201,7 @@ class S3ObjectStoreHparams(ObjectStoreHparams):
     """
 
     bucket: str = hp.auto(S3ObjectStore, 'bucket')
+    prefix: str = hp.auto(S3ObjectStore, 'prefix')
     region_name: Optional[str] = hp.auto(S3ObjectStore, 'region_name')
     endpoint_url: Optional[str] = hp.auto(S3ObjectStore, 'endpoint_url')
     # Not including the credentials as part of the hparams -- they should be specified through the default
@@ -239,15 +241,34 @@ class SFTPObjectStoreHparams(ObjectStoreHparams):
     port: int = hp.auto(SFTPObjectStore, 'port')
     username: Optional[str] = hp.auto(SFTPObjectStore, 'username')
     known_hosts_filename: Optional[str] = hp.auto(SFTPObjectStore, 'known_hosts_filename')
+    known_hosts_filename_environ: str = hp.optional(
+        ('The name of an environment variable containing '
+         'the path to a SSH known hosts file. Note that `known_hosts_filename` takes precedence over this variable.'),
+        default='COMPOSER_SFTP_KNOWN_HOSTS_FILE',
+    )
     key_filename: Optional[str] = hp.auto(SFTPObjectStore, 'key_filename')
-    cwd: Optional[str] = hp.auto(SFTPObjectStore, 'cwd')
+    key_filename_environ: str = hp.optional(
+        ('The name of an environment variable containing '
+         'the path to a SSH keyfile. Note that `key_filename` takes precedence over this variable.'),
+        default='COMPOSER_SFTP_KEY_FILE')
+    missing_host_key_policy: str = hp.auto(SFTPObjectStore, 'missing_host_key_policy')
+    cwd: str = hp.auto(SFTPObjectStore, 'cwd')
     connect_kwargs: Optional[Dict[str, Any]] = hp.auto(SFTPObjectStore, 'connect_kwargs')
 
     def get_object_store_cls(self) -> Type[ObjectStore]:
         return SFTPObjectStore
 
     def get_kwargs(self) -> Dict[str, Any]:
-        return dataclasses.asdict(self)
+        kwargs = dataclasses.asdict(self)
+        del kwargs['key_filename_environ']
+        if self.key_filename_environ in os.environ and self.key_filename is None:
+            kwargs['key_filename'] = os.environ[self.key_filename_environ]
+
+        del kwargs['known_hosts_filename_environ']
+        if self.known_hosts_filename_environ in os.environ and self.known_hosts_filename is None:
+            kwargs['known_hosts_filename'] = os.environ[self.known_hosts_filename_environ]
+
+        return kwargs
 
 
 object_store_registry: Dict[str, Type[ObjectStoreHparams]] = {

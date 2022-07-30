@@ -10,10 +10,8 @@ import dataclasses
 import datetime
 import logging
 import os
-import sys
-import tempfile
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Type, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union, cast
 
 import torch
 import yahp as hp
@@ -94,6 +92,18 @@ def _initialize_dataloader(
                  'Otherwise, each epoch may load a different subset of samples.'))
         dataloader = dataset_hparams.initialize_object(train_device_batch_size, dataloader_hparams)
     return dataloader
+
+
+def _parse_grad_accum(grad_accum: Union[int, str]) -> Union[int, str]:
+    if grad_accum == 'auto':
+        return grad_accum
+
+    try:
+        return int(grad_accum)
+    except (ValueError, TypeError):
+        pass
+
+    raise ValueError('grad_accum should be "auto" or an integer.')
 
 
 def _initialize_eval_dataloader(
@@ -402,8 +412,8 @@ class TrainerHparams(hp.Hparams):
         if self.scale_schedule_ratio <= 0:
             raise ValueError('scale_schedule_ratio must be a positive value.')
 
-        if (isinstance(self.grad_accum, str) and self.grad_accum != 'auto') or (isinstance(self.grad_accum, int) and
-                                                                                self.grad_accum < 1):
+        grad_accum = _parse_grad_accum(self.grad_accum)
+        if (isinstance(grad_accum, str) and grad_accum != 'auto') or (isinstance(grad_accum, int) and grad_accum < 1):
             raise ValueError('grad_accum must be "auto" or an int greater than or equal to 1.')
 
     def initialize_object(self) -> Trainer:
@@ -411,7 +421,10 @@ class TrainerHparams(hp.Hparams):
 
         # Set the Python LogLevel for Composer
         import composer
-        logging.getLogger(composer.__name__).setLevel(self.python_log_level)
+        logging.getLogger(composer.__name__).setLevel(self.python_log_level.upper())
+
+        # ensure grad_accum is 'auto' or an integer
+        grad_accum = _parse_grad_accum(self.grad_accum)
 
         # Device
         device = self.device
@@ -421,7 +434,7 @@ class TrainerHparams(hp.Hparams):
         # Distributed
         # Initialized here so it is available within dataloaders
         if dist.get_world_size() > 1:
-            dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=self.dist_timeout))
+            dist.initialize_dist(device, datetime.timedelta(seconds=self.dist_timeout))
 
         # Reproducibility
         seed = self.seed if self.seed else reproducibility.get_random_seed()
@@ -513,6 +526,7 @@ class TrainerHparams(hp.Hparams):
             save_filename=self.save_filename,
             save_latest_filename=self.save_latest_filename,
             save_artifact_name=self.save_artifact_name,
+            save_latest_artifact_name=self.save_latest_artifact_name,
             save_interval=self.save_interval,
             save_weights_only=self.save_weights_only,
             save_num_checkpoints_to_keep=self.save_num_checkpoints_to_keep,
@@ -526,7 +540,7 @@ class TrainerHparams(hp.Hparams):
             # System/Numerics
             device=device,
             precision=self.precision,
-            grad_accum=self.grad_accum,
+            grad_accum=grad_accum,
 
             # Reproducibility
             seed=seed,
@@ -664,6 +678,8 @@ class FitHparams(hp.Hparams):
         Returns:
             FitKwargs: A kwargs dictionary that can be unpacked and passed into :meth:`.Trainer.fit`.
         """
+        grad_accum = _parse_grad_accum(self.grad_accum) if self.grad_accum else self.grad_accum
+
         # Train DataLoader
         train_dataloader = _initialize_dataloader(
             dataset_hparams=self.train_dataset,
@@ -696,7 +712,7 @@ class FitHparams(hp.Hparams):
             'eval_dataloader': eval_dataloader,
             'eval_subset_num_batches': self.eval_subset_num_batches,
             'eval_interval': self.eval_interval,
-            'grad_accum': self.grad_accum,
+            'grad_accum': grad_accum,
             'precision': self.precision,
         }
 
@@ -889,53 +905,3 @@ class ExperimentHparams(hp.Hparams):
         ]
 
         return trainer, fit_kwargs, eval_kwargs
-
-
-def _warning_on_one_line(message: str, category: Type[Warning], filename: str, lineno: int, file=None, line=None):
-    # From https://stackoverflow.com/questions/26430861/make-pythons-warnings-warn-not-mention-itself
-    return f'{category.__name__}: {message} (source: {filename}:{lineno})\n'
-
-
-def train_via_hparams() -> None:
-    """Entrypoint to train a model via hparams."""
-    warnings.formatwarning = _warning_on_one_line
-
-    if len(sys.argv) == 1:
-        sys.argv.append('--help')
-
-    hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
-
-    trainer = hparams.initialize_object()
-
-    # if using wandb, store the config inside the wandb run
-    try:
-        import wandb
-    except ImportError:
-        pass
-    else:
-        if wandb.run is not None:
-            wandb.config.update(hparams.to_dict())
-
-    # Only log the config once, since it should be the same on all ranks.
-    if dist.get_global_rank() == 0:
-        with tempfile.NamedTemporaryFile(mode='x+') as f:
-            f.write(hparams.to_yaml())
-            trainer.logger.file_artifact(
-                LogLevel.FIT,
-                artifact_name=f'{trainer.state.run_name}/hparams.yaml',
-                file_path=f.name,
-                overwrite=True,
-            )
-
-    # Print the config to the terminal and log to artifact store if on each local rank 0
-    if dist.get_local_rank() == 0:
-        print('*' * 30)
-        print('Config:')
-        print(hparams.to_yaml())
-        print('*' * 30)
-
-    trainer.fit()
-
-
-if __name__ == '__main__':
-    train_via_hparams()
