@@ -15,7 +15,7 @@ from typing import List, Tuple
 
 import torch
 from torch.optim import SGD, AdamW
-from torch.optim.optimizer import required  # type: ignore
+from torch.optim.optimizer import _params_t, required  # type: ignore
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class DecoupledSGDW(SGD):
     on why decoupling might be desirable, see `Decoupled Weight Decay Regularization <https://arxiv.org/abs/1711.05101>`_.
 
     Args:
-        params (list): List of parameters to optimize or dicts defining parameter groups.
+        params (iterable): Iterable of parameters to optimize or dicts defining parameter groups.
         lr (float): Learning rate.
         momentum (int, optional): Momentum factor. Default: ``0``.
         dampening (int, optional): Dampening factor applied to the momentum. Default: ``0``.
@@ -42,7 +42,7 @@ class DecoupledSGDW(SGD):
     """
 
     def __init__(self,
-                 params: List[torch.Tensor],
+                 params: _params_t,
                  lr: float = required,
                  momentum: float = 0,
                  dampening: float = 0,
@@ -92,7 +92,7 @@ class DecoupledSGDW(SGD):
                     d_p = buf
 
             if weight_decay != 0:
-                decay_factor = lr / initial_lr if initial_lr else 1.0
+                decay_factor = (lr / initial_lr) if initial_lr else 1.0
                 param.mul_(1 - decay_factor * weight_decay)
 
             param.add_(d_p, alpha=-lr)
@@ -163,7 +163,7 @@ class DecoupledAdamW(AdamW):
     why decoupling might be desirable, see `Decoupled Weight Decay Regularization <https://arxiv.org/abs/1711.05101>`_.
 
     Args:
-        params (list): List of parameters to update.
+        params (iterable): Iterable of parameters to optimize or dicts defining parameter groups.
         lr (float, optional): Learning rate. Default: ``1e-3``.
         betas (tuple, optional): Coefficients used for computing running averages of gradient and its square
                                  Default: ``(0.9, 0.95)``.
@@ -173,18 +173,13 @@ class DecoupledAdamW(AdamW):
     """
 
     def __init__(self,
-                 params: List[torch.Tensor],
+                 params: _params_t,
                  lr: float = 1e-3,
                  betas: Tuple[float, float] = (0.9, 0.95),
                  eps: float = 1e-8,
                  weight_decay: float = 1e-5,
                  amsgrad: bool = False):
-        super().__init__(params=params,
-                                             lr=lr,
-                                             betas=betas,
-                                             eps=eps,
-                                             weight_decay=weight_decay,
-                                             amsgrad=amsgrad)
+        super().__init__(params=params, lr=lr, betas=betas, eps=eps, weight_decay=weight_decay, amsgrad=amsgrad)
         for group in self.param_groups:
             group['initial_lr'] = group['lr']
 
@@ -196,12 +191,12 @@ class DecoupledAdamW(AdamW):
         r"""Functional API that performs AdamW algorithm computation with decoupled weight decay.
 
         Args:
-            params (List[torch.Tensor]): List of parameters to update.
-            grads (List[torch.Tensor]): List of parameter gradients.
-            exp_avgs (List[torch.Tensor]): List of average gradients.
-            exp_avg_sqs (List[torch.Tensor]): List of average squared gradients.
-            max_exp_avg_sqs (List[torch.Tensor]): List of max average squared gradients for amsgrad updates.
-            state_steps (List[int]): List of steps taken for all parameters.
+            params (list): List of parameters to update.
+            grads (list): List of parameter gradients.
+            exp_avgs (list): List of average gradients.
+            exp_avg_sqs (list): List of average squared gradients.
+            max_exp_avg_sqs (list): List of max average squared gradients for amsgrad updates.
+            state_steps (list): List of steps taken for all parameters.
             amsgrad (bool): Enables amsgrad variant of Adam.
             beta1 (float): Coefficient for computing the moving average of gradient values.
             beta2 (float): Coefficient for computing the moving average of squared gradient values.
@@ -218,7 +213,7 @@ class DecoupledAdamW(AdamW):
 
             # Perform stepweight decay
             if weight_decay != 0:
-                decay_factor = lr / initial_lr if initial_lr else 1.0
+                decay_factor = (lr / initial_lr) if initial_lr else 1.0
                 param.mul_(1 - decay_factor * weight_decay)
 
             bias_correction1 = 1 - beta1**step
