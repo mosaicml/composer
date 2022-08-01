@@ -298,7 +298,7 @@ stage('Prepare') {
         }
 
         // TODO(ravi) remove this -- test if npx is available
-        sh "npx cobertura-merge -o $mergedCoverageFile $coverageGlob"
+        sh "npx cobertura-merge -o test.xml input.xml"
 
         def loadedSCM = checkout scm
 
