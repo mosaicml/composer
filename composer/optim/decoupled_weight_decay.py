@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Iterable, List, Tuple
+from typing import List, Tuple
 
 import torch
 from torch.optim import SGD, AdamW
@@ -34,17 +34,32 @@ class DecoupledSGDW(SGD):
 
     Args:
         params (list): List of parameters to optimize or dicts defining parameter groups.
-        lr (float, optional): Learning rate.
+        lr (float, required): Learning rate.
         momentum (int, optional): Momentum factor. Default: ``0``.
         dampening (int, optional): Dampening factor applied to the momentum. Default: ``0``.
         weight_decay (int, optional): Decoupled weight decay factor. Default: ``0``.
         nesterov (bool, optional): Enables Nesterov momentum updates. Default: ``False``.
     """
 
+    def __init__(self,
+                 params: List[torch.Tensor],
+                 lr: float = required,
+                 momentum: float = 0,
+                 dampening: float = 0,
+                 weight_decay: float = 0,
+                 nesterov: bool = False):
+        super().__init__(params=params,
+                         lr=lr,
+                         momentum=momentum,
+                         dampening=dampening,
+                         weight_decay=weight_decay,
+                         nesterov=nesterov)
+        for group in self.param_groups:
+            group['initial_lr'] = group['lr']
+
     @staticmethod
-    def sgdw(params: Iterable[torch.nn.parameter.Parameter], d_p_list: List[torch.Tensor],
-             momentum_buffer_list: List[torch.Tensor], *, weight_decay: float, momentum: float, lr: float,
-             initial_lr: float, dampening: float, nesterov: bool):
+    def sgdw(params: List[torch.Tensor], d_p_list: List[torch.Tensor], momentum_buffer_list: List[torch.Tensor], *,
+             weight_decay: float, momentum: float, lr: float, initial_lr: float, dampening: float, nesterov: bool):
         r"""Functional API that performs SGDW algorithm computation.
 
         Args:
@@ -77,21 +92,10 @@ class DecoupledSGDW(SGD):
                     d_p = buf
 
             if weight_decay != 0:
-                decay_factor = lr / initial_lr
+                decay_factor = lr / initial_lr if initial_lr else 1.0
                 param.mul_(1 - decay_factor * weight_decay)
 
             param.add_(d_p, alpha=-lr)
-
-    def __init__(self,
-                 params: List[torch.Tensor],
-                 lr: float = required,
-                 momentum: float = 0,
-                 dampening: float = 0,
-                 weight_decay: float = 0,
-                 nesterov: bool = False):
-        super().__init__(params, lr, momentum, dampening, weight_decay, nesterov)
-        for group in self.param_groups:
-            group['initial_lr'] = group['lr']
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -149,7 +153,9 @@ class DecoupledSGDW(SGD):
 class DecoupledAdamW(AdamW):
     """Adam optimizer with the weight decay term decoupled from the learning rate.
 
-    Argument defaults are copied from :class:`torch.optim.AdamW`.
+    Argument defaults are similar to :class:`torch.optim.AdamW` but we make two changes:
+    * The default for ``weight_decay`` is changed from ``1e-2`` -> ``1e-5`` because in `DecoupledAdamW`, the weight decay is decoupled and no longer scaled by the `lr=1e-3`.
+    * The default for ``betas`` is changed from ``(0.9, 0.999)`` to ``(0.9, 0.95)`` to reflect community best-practices for the beta2 hyperparameter.
 
     The standard `AdamW <https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html#torch.optim.AdamW>`_
     optimizer explicitly couples the weight decay term with the learning rate. This ties the
@@ -160,11 +166,27 @@ class DecoupledAdamW(AdamW):
         params (list): List of parameters to update.
         lr (float, optional): Learning rate. Default: ``1e-3``.
         betas (tuple, optional): Coefficients used for computing running averages of gradient and its square
-                                 Default: ``(0.9, 0.999)``.
+                                 Default: ``(0.9, 0.95)``.
         eps (float, optional): Term added to the denominator to improve numerical stability. Default: ``1e-8``.
-        weight_decay (float, optional): Decoupled weight decay factor. Default: ``1e-2``.
+        weight_decay (float, optional): Decoupled weight decay factor. Default: ``1e-5``.
         amsgrad (bool, optional): Enables the amsgrad variant of Adam. Default: ``False``.
     """
+
+    def __init__(self,
+                 params: List[torch.Tensor],
+                 lr: float = 1e-3,
+                 betas: Tuple[float, float] = (0.9, 0.95),
+                 eps: float = 1e-8,
+                 weight_decay: float = 1e-5,
+                 amsgrad: bool = False):
+        super(DecoupledAdamW, self).__init__(params=params,
+                                             lr=lr,
+                                             betas=betas,
+                                             eps=eps,
+                                             weight_decay=weight_decay,
+                                             amsgrad=amsgrad)
+        for group in self.param_groups:
+            group['initial_lr'] = group['lr']
 
     @staticmethod
     def adamw(params: List[torch.Tensor], grads: List[torch.Tensor], exp_avgs: List[torch.Tensor],
@@ -179,7 +201,7 @@ class DecoupledAdamW(AdamW):
             exp_avgs (List[torch.Tensor]): List of average gradients.
             exp_avg_sqs (List[torch.Tensor]): List of average squared gradients.
             max_exp_avg_sqs (List[torch.Tensor]): List of max average squared gradients for amsgrad updates.
-            state_steps (Iterable[int]): List of steps taken for all parameters.
+            state_steps (List[int]): List of steps taken for all parameters.
             amsgrad (bool): Enables amsgrad variant of Adam.
             beta1 (float): Coefficient for computing the moving average of gradient values.
             beta2 (float): Coefficient for computing the moving average of squared gradient values.
@@ -196,7 +218,7 @@ class DecoupledAdamW(AdamW):
 
             # Perform stepweight decay
             if weight_decay != 0:
-                decay_factor = lr / initial_lr
+                decay_factor = lr / initial_lr if initial_lr else 1.0
                 param.mul_(1 - decay_factor * weight_decay)
 
             bias_correction1 = 1 - beta1**step
@@ -216,17 +238,6 @@ class DecoupledAdamW(AdamW):
             step_size = lr / bias_correction1
 
             param.addcdiv_(exp_avg, denom, value=-step_size)
-
-    def __init__(self,
-                 params: List[torch.Tensor],
-                 lr: float = 1e-3,
-                 betas: Tuple[float, float] = (0.9, 0.999),
-                 eps: float = 1e-8,
-                 weight_decay: float = 1e-2,
-                 amsgrad: bool = False):
-        super().__init__(params, lr, betas, eps, weight_decay, amsgrad)
-        for group in self.param_groups:
-            group['initial_lr'] = group['lr']
 
     @torch.no_grad()
     def step(self, closure=None):
