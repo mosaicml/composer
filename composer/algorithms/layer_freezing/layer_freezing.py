@@ -95,7 +95,7 @@ class LayerFreezing(Algorithm):
     `FreezeOut <https://arxiv.org/abs/1706.04983>`_ and
     `Freeze Training <https://arxiv.org/abs/1706.05806>`_.
 
-    Runs on ``Event.EPOCH_END``.
+    Runs on :attr:`~composer.core.event.Event.EPOCH_END`.
 
     Example:
          .. testcode::
@@ -131,12 +131,10 @@ class LayerFreezing(Algorithm):
         return True
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on ``Event.EPOCH_END``."""
         del state  # unused
         return event == Event.EPOCH_END
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Freeze layers in the model."""
         del event  # unused
         optimizers = state.optimizers
         assert optimizers is not None

@@ -154,7 +154,7 @@ class RandAugment(Algorithm):
     Args:
         severity (int, optional): Severity of augmentation operators (between 1 to 10). M
             in the original paper. Default: ``9``.
-        depth (int, optional): Depth of augmentation chain. N in the original paper
+        depth (int, optional): Depth of augmentation chain. N in the original paper.
             Default: ``2``.
         augmentation_set (str, optional): Must be one of the following options
             as also described in :attr:`.augmentation_primitives.augmentation_sets`:
@@ -174,9 +174,9 @@ class RandAugment(Algorithm):
                 :math:`intensity \\times 0.18 + .1`, which ranges from 0.28 (intensity =
                 1) to 1.9 (intensity 10). These augmentations have different effects
                 depending on whether they are < 0 or > 0 (or < 1 or > 1).
-                "all" uses implementations of "color", "contrast",
-                "sharpness", and "brightness" that account for diverging effects around 0
-                (or 1).
+                ``"all"`` uses implementations of ``"color"``, ``"contrast"``,
+                ``"sharpness"``, and ``"brightness"`` that account for diverging effects
+                around 0 (or 1).
 
             Default: ``"all"``.
     """

@@ -33,12 +33,17 @@ If none of these environment variables are set, this module will safely assume a
 from __future__ import annotations
 
 import datetime
+import logging
 import os
-from typing import Any, List, Optional, Sequence, TypeVar, cast
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any, List, Optional, Sequence, TypeVar, cast
 
 import torch
 import torch.distributed as dist
 import torch.utils.data
+
+if TYPE_CHECKING:
+    from composer.trainer.devices import Device
 
 TObj = TypeVar('TObj')
 
@@ -58,7 +63,13 @@ __all__ = [
     'initialize_dist',
     'is_available',
     'is_initialized',
+    'monitored_barrier',
 ]
+
+log = logging.getLogger(__name__)
+
+# monitored_barrier requires gloo backend, which is initialized as a global variable
+group_gloo = None
 
 
 def _get_distributed_config_var(
@@ -150,6 +161,29 @@ def barrier() -> None:
     """
     if dist.is_available() and dist.is_initialized():
         dist.barrier()
+        return
+    world_size = get_world_size()
+    if world_size == 1:
+        return
+    raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
+                       'available or has not been initialized. Please check you have initialized '
+                       'the distributed runtime and that PyTorch has been built with distributed '
+                       'support.')
+
+
+def monitored_barrier(timeout: Optional[datetime.timedelta] = None) -> None:
+    """Synchronizes all processes.
+
+    This function blocks until all processes reach this function. Unlike `barrier`, `monitored_barrier`
+    times out and raises an error if not all ranks reach this function by `timeout`.
+
+    .. seealso:: :func:`torch.distributed.barrier`
+    """
+    if dist.is_available() and dist.is_initialized():
+        # monitored_barrier requires gloo backend, which is initialized as a global variable
+        global group_gloo
+        if group_gloo:
+            dist.monitored_barrier(group=group_gloo, timeout=timeout)
         return
     world_size = get_world_size()
     if world_size == 1:
@@ -331,7 +365,7 @@ def is_initialized():
     return dist.is_initialized()
 
 
-def initialize_dist(backend: str, timeout: datetime.timedelta):
+def initialize_dist(device: Device, timeout: datetime.timedelta):
     """Initialize the default PyTorch distributed process group.
 
     This function assumes that the following environment variables are set:
@@ -350,19 +384,17 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
     .. seealso:: :func:`torch.distributed.init_process_group`
 
     Args:
-        backend (str): The distributed backend to use. Should be ``gloo`` for CPU training,
-            or ``nccl`` for GPU training.
+        device (str): The device from which the distributed backend is interpreted.
         timeout (datetime.timedelta): The timeout for operations executed against the process group.
     """
     if get_world_size() > 1 and not dist.is_available():
         raise RuntimeError('When the world size is > 1, ``torch.distributed`` must be used. However, it is '
                            'not available in your installation of PyTorch. Please install or build PyTorch '
                            'with distributed support.')
-        return
 
     if dist.is_initialized():
-        if dist.get_backend() != backend.lower():
-            raise RuntimeError(f'The requested backend ({backend}) differs from the backend '
+        if dist.get_backend() != device.dist_backend.lower():
+            raise RuntimeError(f'The requested backend ({device.dist_backend}) differs from the backend '
                                f'of the current process group ({dist.get_backend()}). If you '
                                'wish to change backends, please restart the python process.')
         return
@@ -382,15 +414,23 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
         'LOCAL_RANK': '0',
     }
 
+    log.debug(
+        'Initializing torch.dist: global_rank=%d, local_rank=%d, world_size=%d, local_world_size=%d, node_rank=%d',
+        get_global_rank(),
+        get_local_rank(),
+        get_world_size(),
+        get_local_world_size(),
+        get_node_rank(),
+    )
+
     dist_env_vars_match_defaults = all(os.environ.get(k, v) == v for (k, v) in dist_env_var_defaults.items())
 
     if dist_env_vars_match_defaults:
         # Fill in the remaining single-rank variables
         os.environ.update(dist_env_var_defaults)
-        dist.init_process_group(backend, store=dist.HashStore(), world_size=1, rank=0)
-        return
-
-    dist.init_process_group(backend, timeout=timeout)
+        dist.init_process_group(device.dist_backend, store=dist.HashStore(), world_size=1, rank=0)
+    else:
+        dist.init_process_group(device.dist_backend, timeout=timeout)
 
 
 def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool, shuffle: bool):
@@ -420,3 +460,36 @@ def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool, shuffle: 
         num_replicas=get_world_size(),
         rank=get_global_rank(),
     )
+
+
+@contextmanager
+def run_local_rank_zero_first():
+    """Context manager to hold all non-zero ranks until rank zero completes.
+
+    The below example will let the local rank zero download
+    the dataset, and hold all non-rank zeros until the
+    download is complete.
+
+    .. code-block: python
+
+        with run_local_rank_zero_first():
+            dataset = CIFAR10(
+                ...,
+                download=True,
+            )
+
+    This prevents race conditions where multiple
+    ranks attempt to download the dataset to the
+    same location.
+    """
+    if not is_initialized():
+        yield
+        return
+
+    # hold non-zero ranks until rank zero done
+    if get_local_rank() != 0:
+        dist.barrier()
+        yield
+    else:
+        yield
+        dist.barrier()

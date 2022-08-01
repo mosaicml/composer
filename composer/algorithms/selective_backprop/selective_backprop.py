@@ -40,14 +40,14 @@ def should_selective_backprop(
 
     Args:
         current_duration (float): The elapsed training duration. Must be
-            within :math:`[0.0, 1.0)`.
-        batch_idx (int): The current batch within the epoch
+            within ``[0.0, 1.0)``.
+        batch_idx (int): The current batch within the epoch.
         start (float, optional): The duration at which selective backprop
-            should be enabled. Default: ``0.5``.
+            should be enabled, as a percentage. Default: ``0.5``.
         end (float, optional): The duration at which selective backprop
-            should be disabled Default: ``0.9``.
+            should be disabled. Default: ``0.9``.
         interrupt (int, optional): The number of batches between vanilla
-            minibatch gradient updates Default: ``2``.
+            minibatch gradient updates. Default: ``2``.
 
     Returns:
         bool: If selective backprop should be performed on this batch.
@@ -64,7 +64,7 @@ def select_using_loss(input: torch.Tensor,
                       loss_fun: Callable,
                       keep: float = 0.5,
                       scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Prunes minibatches as a subroutine of SelectiveBackprop. Computes the loss function on the provided training
+    """Prunes minibatches as a subroutine of :class:`.SelectiveBackprop`. Computes the loss function on the provided training
     examples and runs minibatches according to the difficulty. The fraction of the minibatch that is kept for gradient
     computation is specified by the argument ``0 <= keep <= 1``.
 
@@ -73,9 +73,9 @@ def select_using_loss(input: torch.Tensor,
     will still be used for the weight gradient computation.
 
     Args:
-        input (torch.Tensor): Input tensor to prune
-        target (torch.Tensor): Output tensor to prune
-        model (Callable): Model with which to predict outputs
+        input (torch.Tensor): Input tensor to prune.
+        target (torch.Tensor): Output tensor to prune.
+        model (Callable): Model with which to predict outputs.
         loss_fun (Callable): Loss function of the form ``loss(outputs, targets, reduction='none')``.
             The function must take the keyword argument ``reduction='none'``
             to ensure that per-sample losses are returned.
@@ -87,8 +87,8 @@ def select_using_loss(input: torch.Tensor,
         (torch.Tensor, torch.Tensor): The pruned batch of inputs and targets
 
     Raises:
-        ValueError: If ``scale_factor > 1``
-        TypeError: If ``loss_fun > 1`` has the wrong signature or is not callable
+        ValueError: If ``scale_factor > 1``.
+        TypeError: If ``loss_fun > 1`` has the wrong signature or is not callable.
 
     .. note::
 
@@ -104,9 +104,17 @@ def select_using_loss(input: torch.Tensor,
 
     .. doctest::
 
-        from composer.algorithms.selective_backprop import select_using_loss
-        with torch.cuda.amp.autocast(True):
-            X_new, y_new = select_using_loss(X_sb, y_sb, lin_model, loss_fun, keep=0.5, scale_factor=1)
+        >>> import torch
+        >>> from composer.algorithms.selective_backprop import select_using_loss
+        >>> with torch.cuda.amp.autocast(True):
+        ...     X_new, y_new = select_using_loss(
+        ...         X_sb,
+        ...         y_sb,
+        ...         lin_model,
+        ...         loss_fun,
+        ...         keep=0.5,
+        ...         scale_factor=1
+        ...     )
     """
     INTERPOLATE_MODES = {3: 'linear', 4: 'bilinear', 5: 'trilinear'}
 
@@ -160,34 +168,33 @@ def select_using_loss(input: torch.Tensor,
 class SelectiveBackprop(Algorithm):
     """Selectively backpropagate gradients from a subset of each batch.
 
-        Based on (`Jiang et al, 2019`_), Selective Backprop (SB) prunes minibatches
-        according to the difficulty of the individual training examples, and only
-        computes weight gradients over the pruned subset, reducing iteration time and
-        speeding up training.
+    Based on (`Jiang et al, 2019`_), Selective Backprop (SB) prunes minibatches
+    according to the difficulty of the individual training examples, and only
+    computes weight gradients over the pruned subset, reducing iteration time, and
+    speeding up training.
 
-        The fraction of the minibatch that is kept for gradient computation is
-        specified by the argument ``0 <= keep <= 1``.
+    The fraction of the minibatch that is kept for gradient computation is
+    specified by the argument ``0 <= keep <= 1``.
 
-        To speed up SB's selection forward pass, the argument ``scale_factor`` can
-        be used to spatially downsample input image tensors. The full-sized inputs
-        will still be used for the weight gradient computation.
+    To speed up SB's selection forward pass, the argument ``scale_factor`` can
+    be used to spatially downsample input image tensors. The full-sized inputs
+    will still be used for the weight gradient computation.
 
-        To preserve convergence, SB can be interrupted with vanilla minibatch
-        gradient steps every ``interrupt`` steps. When ``interrupt=0``, SB will be
-        used at every step during the SB interval. When ``interrupt=2``, SB will
-        alternate with vanilla minibatch steps.
+    To preserve convergence, SB can be interrupted with vanilla minibatch
+    gradient steps every ``interrupt`` steps. When ``interrupt=0``, SB will be
+    used at every step during the SB interval. When ``interrupt=2``, SB will
+    alternate with vanilla minibatch steps.
 
-        .. _Jiang et al, 2019: https://arxiv.org/abs/1910.00762
-
+    .. _Jiang et al, 2019: https://arxiv.org/abs/1910.00762
 
     Args:
-        start (float, optional): SB interval start as fraction of training duration
+        start (float, optional): SB interval start as fraction of training duration.
             Default: ``0.5``.
-        end (float, optional): SB interval end as fraction of training duration
+        end (float, optional): SB interval end as fraction of training duration.
             Default: ``0.9``.
-        keep (float, optional): fraction of minibatch to select and keep for gradient computation
+        keep (float, optional): fraction of minibatch to select and keep for gradient computation.
             Default: ``0.5``.
-        scale_factor (float, optional): scale for downsampling input for selection forward pass
+        scale_factor (float, optional): scale for downsampling input for selection forward pass.
             Default: ``1.``.
         interrupt (int, optional): interrupt SB with a vanilla minibatch step every
             ``interrupt`` batches. Default: ``2``.
@@ -213,8 +220,7 @@ class SelectiveBackprop(Algorithm):
                 algorithms=[algorithm],
                 optimizers=[optimizer]
             )
-
-"""
+    """
 
     def __init__(
         self,

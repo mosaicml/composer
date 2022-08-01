@@ -26,7 +26,7 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
     StreamingCIFAR10Hparams:
         lambda: StreamingCIFAR10Hparams(split='val'),
     ADE20kDatasetHparams:
-        lambda: ADE20kDatasetHparams(is_train=False),
+        lambda: ADE20kDatasetHparams(split='val'),
     StreamingADE20kHparams:
         lambda: StreamingADE20kHparams(split='val'),
     BratsDatasetHparams:
@@ -79,7 +79,6 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
 }
 
 
-@pytest.mark.timeout(10)
 @pytest.mark.parametrize('dataset_name', dataset_registry.keys())
 def test_dataset(dataset_name: str, dummy_dataloader_hparams: DataLoaderHparams) -> None:
     hparams_cls = dataset_registry[dataset_name]

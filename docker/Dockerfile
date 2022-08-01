@@ -58,13 +58,8 @@ ARG CUPY_VERSION='>=10.2.0'
 # Build the composer image on the vision image
 ARG COMPOSER_BASE=vision_stage
 
-# Include all Composer dependencies. For a slim image, leave this argument blank.
-ARG COMPOSER_EXTRA_DEPS=all
-
-# For a specific Composer version, set to a pip version string -- e.g.
-# ARG COMPOSER_VERSION='==0.7.0'
-# For the latest Composer version, leave blank
-ARG COMPOSER_VERSION=
+# The command that is passed to `pip install` -- e.g. `pip install "${COMPOSER_INSTALL_COMMAND}"`
+ARG COMPOSER_INSTALL_COMMAND='mosaicml[all]'
 
 #########################
 # Build the PyTorch Image
@@ -322,7 +317,6 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Install Composer
 ##################
 
-ARG COMPOSER_EXTRA_DEPS
-ARG COMPOSER_VERSION
+ARG COMPOSER_INSTALL_COMMAND
 
-RUN pip install "mosaicml[${COMPOSER_EXTRA_DEPS:-base}]${COMPOSER_VERSION}"
+RUN pip install "${COMPOSER_INSTALL_COMMAND}"

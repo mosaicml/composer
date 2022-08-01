@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Create compliant results file for MLPerf Training benchmark."""
+"""Create a submission for MLPerf Training benchmark."""
 
 import json
 import logging
@@ -36,6 +36,8 @@ except ImportError:
 BENCHMARKS = ('resnet',)
 DIVISIONS = ('open',)
 STATUS = ('onprem', 'cloud', 'preview')
+
+__all__ = ['MLPerfCallback', 'get_system_description']
 
 
 def _global_rank_zero() -> bool:
@@ -92,7 +94,7 @@ class MLPerfCallback(Callback):
 
     .. note::
 
-        This is currently an experimental logger, that has not been used (yet)
+        This is currently an experimental logger that has not been used (yet)
         to submit an actual result to MLPerf. Please use with caution.
 
     .. note::
@@ -107,12 +109,16 @@ class MLPerfCallback(Callback):
         index (int): The repetition index of this run. The filename created will be
             ``result_[index].txt``.
         benchmark (str, optional): Benchmark name. Currently only ``resnet`` supported.
+            Default: ``'resnet'``.
         target (float, optional): The target metric before the mllogger marks the stop
             of the timing run. Default: ``0.759`` (resnet benchmark).
         division (str, optional): Division of submission. Currently only ``open`` division supported.
-        metric_name (str, optional): name of the metric to compare against the target. Default: ``Accuracy``.
-        metric_label (str, optional): label name. The metric will be accessed via ``state.current_metrics[metric_label][metric_name]``.
-        submitter (str, optional): Submitting organization. Default: MosaicML.
+            Default: ``'open'``.
+        metric_name (str, optional): name of the metric to compare against the target.
+            Default: ``Accuracy``.
+        metric_label (str, optional): The label name. The metric will be accessed via
+            ``state.current_metrics[metric_label][metric_name]``.
+        submitter (str, optional): Submitting organization. Default: ``"MosaicML"``.
         system_name (str, optional): Name of the system (e.g. 8xA100_composer). If
             not provided, system name will default to ``[world_size]x[device_name]_composer``,
             e.g. ``8xNVIDIA_A100_80GB_composer``.
@@ -337,15 +343,16 @@ def get_system_description(
 ) -> Dict[str, str]:
     """Generates a valid system description.
 
-    Make a best effort to auto-populate some of the fields, but should
+    Makes a best effort to auto-populate some of the fields, but should
     be manually checked prior to submission. The system name is
-    auto-generated as "[world_size]x[device_name]_composer", e.g.
-    "8xNVIDIA_A100_80GB_composer".
+    auto-generated as ``"[world_size]x[device_name]_composer"``, e.g.
+    ``"8xNVIDIA_A100_80GB_composer"``.
 
     Args:
-        submitter (str): Name of the submitter organization
-        division (str): Submission division (open, closed)
-        status (str): system status (cloud, onprem, preview)
+        submitter (str): Name of the submitting organization.
+        division (str): Submission division (open, closed).
+        status (str): System status (cloud, onprem, preview).
+        system_name (str, optional): System name. Default: ``None``.
 
     Returns:
         system description as a dictionary

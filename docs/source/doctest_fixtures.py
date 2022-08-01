@@ -62,10 +62,19 @@ if sys.path[0] != _repo_root:
 
 from tests.common import SimpleModel
 
+
+def _make_synthetic_bert_state():
+    from tests.fixtures.synthetic_hf_state import make_synthetic_bert_dataloader, make_synthetic_bert_model
+    bert_model = make_synthetic_bert_model()
+    bert_optimizer = torch.optim.SGD(bert_model.parameters(), lr=0.001)
+    mlm_dataloader = make_synthetic_bert_dataloader()
+    return bert_model, mlm_dataloader, bert_optimizer
+
+
 # Change the cwd to be the tempfile, so we don't pollute the documentation source folder
-tmpdir = tempfile.TemporaryDirectory()
+tmpdir = tempfile.mkdtemp()
 cwd = os.path.abspath('.')
-os.chdir(tmpdir.name)
+os.chdir(tmpdir)
 
 num_channels = 3
 num_classes = 10

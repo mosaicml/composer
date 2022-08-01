@@ -13,9 +13,11 @@ import queue
 import shutil
 import tempfile
 import threading
+import time
 import uuid
+import warnings
 from multiprocessing.context import SpawnProcess
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel
@@ -204,18 +206,43 @@ class ObjectStoreLogger(LoggerDestination):
             raise ValueError('num_concurrent_uploads must be >= 1. Blocking uploads are not supported.')
         self._num_concurrent_uploads = num_concurrent_uploads
 
+        # There could be multiple upload workers uploading to the same object
+        # If multiple workers are uploading to the same object simultaneously (e.g. the checkpoint latest symlink file), then
+        # The object store might keep the earlier file rather than the latter file as the "latest" version
+
+        # To work around this, each object name can appear at most once in `self._file_upload_queue`
+        # The main separately keeps track of {object_name: tempfile_path} for each API call to self.log_file_artifact
+        # and then periodically transfers items from this dictionary onto the file upload queue
+
+        # Lock for modifying `logged_objects` or `enqueued_objects`
+        # These objects are used by threads on the main process only
+        self._object_lock = threading.Lock()
+
+        # Files that were logged but yet to be enqueued. Mapping of the object name to the (tempfile path, overwrite) for that object
+        self._logged_objects: Dict[str, Tuple[str, bool]] = {}
+
+        # Set of enqueued objects. This should keep track of everything in self._file_upload_queue with O(1) lookup
+        self._enqueued_objects: Set[str] = set()
+
+        # Thread that runs `self._enqueue_uploads`
+        self._enqueue_thread = None
+        # Event to signal the enqueue thread to shut down.
+        self._enqueue_thread_flag = None
+
         if use_procs:
             mp_ctx = multiprocessing.get_context('spawn')
             self._file_upload_queue: Union[queue.Queue[Tuple[str, str, bool]],
                                            multiprocessing.JoinableQueue[Tuple[str, str,
-                                                                               bool]]] = mp_ctx.JoinableQueue()
+                                                                               bool]],] = mp_ctx.JoinableQueue()
+            self._completed_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str],] = mp_ctx.JoinableQueue()
             self._finished_cls: Union[Callable[[], multiprocessing._EventType], Type[threading.Event]] = mp_ctx.Event
             self._proc_class = mp_ctx.Process
         else:
             self._file_upload_queue = queue.Queue()
+            self._completed_queue = queue.Queue()
             self._finished_cls = threading.Event
             self._proc_class = threading.Thread
-        self._finished: Optional[Union[multiprocessing._EventType, threading.Event]] = None
+        self._worker_flag: Optional[Union[multiprocessing._EventType, threading.Event]] = None
         self._workers: List[Union[SpawnProcess, threading.Thread]] = []
         # the object store instance for the main thread. Deferring the construction of the object_store to first use.
         self._object_store = None
@@ -229,25 +256,31 @@ class ObjectStoreLogger(LoggerDestination):
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
-        if self._finished is not None:
+        if self._worker_flag is not None:
             raise RuntimeError('The ObjectStoreLogger is already initialized.')
-        self._finished = self._finished_cls()
+        self._worker_flag = self._finished_cls()
         self._run_name = state.run_name
         object_name_to_test = self._object_name('.credentials_validated_successfully')
+
+        # Create the enqueue thread
+        self._enqueue_thread_flag = self._finished_cls()
+        self._enqueue_thread = threading.Thread(target=self._enqueue_uploads, daemon=True)
+        self._enqueue_thread.start()
 
         if dist.get_global_rank() == 0:
             retry(ObjectStoreTransientError,
                   self.num_attempts)(lambda: _validate_credentials(self.object_store, object_name_to_test))()
-        assert len(self._workers) == 0, 'workers should be empty if self._finished was None'
+        assert len(self._workers) == 0, 'workers should be empty if self._worker_flag was None'
         for _ in range(self._num_concurrent_uploads):
             worker = self._proc_class(
                 target=_upload_worker,
                 kwargs={
                     'file_queue': self._file_upload_queue,
-                    'is_finished': self._finished,
+                    'is_finished': self._worker_flag,
                     'object_store_cls': self.object_store_cls,
                     'object_store_kwargs': self.object_store_kwargs,
                     'num_attempts': self.num_attempts,
+                    'completed_queue': self._completed_queue,
                 },
                 # The worker threads are joined in the shutdown procedure, so it is OK to set the daemon status
                 # Setting daemon status prevents the process from hanging if close was never called (e.g. in doctests)
@@ -264,14 +297,18 @@ class ObjectStoreLogger(LoggerDestination):
         del state, logger  # unused
         self._check_workers()
 
+    @property
+    def _all_workers_alive(self):
+        """Whether all workers are alive."""
+        return all(worker.is_alive() for worker in self._workers)
+
     def _check_workers(self):
         # Periodically check to see if any of the upload workers crashed
         # They would crash if:
         #   a) A file could not be uploaded, and the retry counter failed, or
         #   b) allow_overwrite=False, but the file already exists,
-        for worker in self._workers:
-            if not worker.is_alive():
-                raise RuntimeError('Upload worker crashed. Please check the logs.')
+        if not self._all_workers_alive:
+            raise RuntimeError('Upload worker crashed. Please check the logs.')
 
     def log_file_artifact(
         self,
@@ -288,23 +325,57 @@ class ObjectStoreLogger(LoggerDestination):
         os.makedirs(self._upload_staging_folder, exist_ok=True)
         shutil.copy2(file_path, copied_path)
         object_name = self._object_name(artifact_name)
-        self._file_upload_queue.put_nowait((copied_path, object_name, overwrite))
+        with self._object_lock:
+            if object_name in self._logged_objects and not overwrite:
+                raise FileExistsError(f'Object {object_name} was already enqueued to be uploaded, but overwrite=False.')
+            self._logged_objects[object_name] = (copied_path, overwrite)
 
-    def log_symlink_artifact(self, state: State, log_level: LogLevel, existing_artifact_name: str,
-                             symlink_artifact_name: str, overwrite: bool):
-        # Object stores do not natively support symlinks, so we emulate symlinks by adding a .symlink file to the
-        # object store, which is a text file containing the name of the object it is pointing to.
-        # Only symlink if we're logging artifact to begin with
-        if not self.should_log_artifact(state, log_level, existing_artifact_name):
-            return
-        copied_path = os.path.join(self._upload_staging_folder, str(uuid.uuid4()))
-        os.makedirs(self._upload_staging_folder, exist_ok=True)
-        # Write artifact name into file to emulate symlink
-        with open(copied_path, 'w') as f:
-            f.write(existing_artifact_name)
-        # Add .symlink extension so we can identify as emulated symlink when downloading
-        object_name = self._object_name(symlink_artifact_name) + '.symlink'
-        self._file_upload_queue.put_nowait((copied_path, object_name, overwrite))
+    def _enqueue_uploads(self):
+        """Worker thread to enqueue uploads.
+
+        This thread does two things:
+
+        1.  It enqueues objects from ``self._logged_objects`` onto ``self._file_upload_queue``.
+        2.  It keeps ``self._enqueued_objects`` in sync with ``self._file_upload_queue`` by listening to ``self._completed_uploads``.
+        """
+        assert self._enqueue_thread_flag is not None
+        while True:
+            with self._object_lock:
+                # Remove all objects from self._enqueued_objects that have been successfully uploaded
+                while True:
+                    try:
+                        object_name = self._completed_queue.get_nowait()
+                    except queue.Empty:
+                        break
+                    self._enqueued_objects.remove(object_name)
+                    self._completed_queue.task_done()
+
+                # Enqueue all objects that are in self._logged_objects but not in self._file_upload_queue
+                objects_to_delete = []
+                for object_name, (copied_path, overwrite) in self._logged_objects.items():
+                    if object_name in self._enqueued_objects:
+                        continue
+                    self._file_upload_queue.put_nowait((copied_path, object_name, overwrite))
+                    objects_to_delete.append(object_name)
+                    self._enqueued_objects.add(object_name)
+                for object_name in objects_to_delete:
+                    del self._logged_objects[object_name]
+
+                # Shutdown if the enqueue thread flag is set, which means that no more objects will be added to
+                # self._logged_objects
+                if self._enqueue_thread_flag.is_set():
+                    if self._all_workers_alive:
+                        if len(self._logged_objects) == 0:
+                            # If finished (i.e. no more objects to be added to self._logged_objects) and all logged objects are
+                            # enqueued, then break
+                            break
+                    else:
+                        # If any worker died, then it's impossible to recover since the file was already popped off of the queue,
+                        # so break.Some files may not be uploaded.
+                        break
+
+            # Yield the lock, so it can be acquired by `self.log_file_artifact`
+            time.sleep(0.2)
 
     def get_file_artifact(
         self,
@@ -320,15 +391,55 @@ class ObjectStoreLogger(LoggerDestination):
                  progress_bar=progress_bar)
 
     def post_close(self):
-        # Cleaning up on post_close to ensure that all artifacts are uploaded
-        if self._finished is not None:
-            self._finished.set()
+        # Shutdown logic:
+        # 1. Signal to the enqueue thread that all uploads are enqueued. Specifically.
+        #    set a flag indicating that that no more objects will be added to self._logged_objects.
+        # 2. Wait for the enqueue thread to shut down. It will only shut down once all objects are added to
+        #    self._file_upload_queue. This will mean that self._logged_objects is empty.
+        # 3. Send a flag to the workers that all uploads are enqueued in self._file_upload_queue.
+        # 4. Wait for the workers to shut down. This means that all files have been uploaded
+        if self._enqueue_thread_flag is not None:
+            self._enqueue_thread_flag.set()
+
+        if self._enqueue_thread is not None:
+            self._enqueue_thread.join()
+
+        if self._worker_flag is not None:
+            self._worker_flag.set()
+
+        # Then, ensure all workers have finished all uploads
         for worker in self._workers:
             worker.join()
+
+        # Clean up the tempdir
         if self._tempdir is not None:
             self._tempdir.cleanup()
+
+        # Empty the completed queue
+        # This cleanup will not be done by the enqueue_thread anymore, as that thread has been shut down
+        while True:
+            try:
+                object_name = self._completed_queue.get_nowait()
+            except queue.Empty:
+                break
+            self._enqueued_objects.remove(object_name)
+            self._completed_queue.task_done()
+
+        if len(self._enqueued_objects) > 0 or len(self._logged_objects) > 0:
+            # Warn on all objects that have not been uploaded
+            object_names = list(self._enqueued_objects)
+            object_names.extend(self._logged_objects.keys())
+            warnings.warn(
+                RuntimeWarning('The following objects may not have been uploaded, likely due to a worker crash: ' +
+                               ', '.join(self._enqueued_objects)))
+
+        # Reset all variables
+        self._logged_objects.clear()
+        self._enqueued_objects.clear()
+        self._enqueue_thread = None
         self._tempdir = None
-        self._finished = None
+        self._worker_flag = None
+        self._enqueue_thread_flag = None
         self._workers.clear()
 
     def get_uri_for_artifact(self, artifact_name: str) -> str:
@@ -373,6 +484,7 @@ def _validate_credentials(
 
 def _upload_worker(
     file_queue: Union[queue.Queue[Tuple[str, str, bool]], multiprocessing.JoinableQueue[Tuple[str, str, bool]]],
+    completed_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str]],
     is_finished: Union[multiprocessing._EventType, threading.Event],
     object_store_cls: Type[ObjectStore],
     object_store_kwargs: Dict[str, Any],
@@ -393,19 +505,26 @@ def _upload_worker(
             else:
                 continue
         uri = object_store.get_uri(object_name)
-        if not overwrite:
-            try:
-                object_store.get_object_size(object_name)
-            except FileNotFoundError:
-                # Good! It shouldn't exist.
-                pass
-            else:
-                # Exceptions will be detected on the next batch_end or epoch_end event
-                raise FileExistsError(f'Object {uri} already exists, but allow_overwrite was set to False.')
-        log.info('Uploading file %s to %s', file_path_to_upload, uri)
-        retry(ObjectStoreTransientError, num_attempts=num_attempts)(lambda: object_store.upload_object(
-            object_name=object_name,
-            filename=file_path_to_upload,
-        ))()
-        os.remove(file_path_to_upload)
-        file_queue.task_done()
+
+        # defining as a function-in-function to use decorator notation with num_attempts as an argument
+        @retry(ObjectStoreTransientError, num_attempts=num_attempts)
+        def upload_file():
+            if not overwrite:
+                try:
+                    object_store.get_object_size(object_name)
+                except FileNotFoundError:
+                    # Good! It shouldn't exist.
+                    pass
+                else:
+                    # Exceptions will be detected on the next batch_end or epoch_end event
+                    raise FileExistsError(f'Object {uri} already exists, but allow_overwrite was set to False.')
+            log.info('Uploading file %s to %s', file_path_to_upload, uri)
+            object_store.upload_object(
+                object_name=object_name,
+                filename=file_path_to_upload,
+            )
+            os.remove(file_path_to_upload)
+            file_queue.task_done()
+            completed_queue.put_nowait(object_name)
+
+        upload_file()

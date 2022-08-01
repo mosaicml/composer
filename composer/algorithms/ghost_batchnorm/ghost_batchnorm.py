@@ -27,9 +27,9 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
     separately. ``dim=0`` is assumed to be the sample axis.
 
     Args:
-        model (:class:`torch.nn.Module`): the model to modify in-place
-        ghost_batch_size (int, optional): size of sub-batches to normalize over. Default: ``32``.
-        optimizers (:class:`torch.optim.Optimizer` | Sequence[:class:`torch.optim.Optimizer`], optional):
+        model (torch.nn.Module): The model to modify in-place.
+        ghost_batch_size (int, optional): Size of sub-batches to normalize over. Default: ``32``.
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
             Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
             constructed with ``model.parameters()`` must be specified here so that
             they will optimize the correct parameters.
@@ -80,19 +80,9 @@ class GhostBatchNorm(Algorithm):
         self.ghost_batch_size = ghost_batch_size
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on :attr:`~composer.core.event.Event.INIT`.
-
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-
-        Returns:
-            bool: True if this algorithm should run
-        """
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Optional[Logger] = None) -> None:
-        """Applies GhostBatchNorm by wrapping existing BatchNorm modules."""
         assert state.model is not None, 'Model must be in state'
 
         apply_ghost_batchnorm(model=state.model, optimizers=state.optimizers, ghost_batch_size=self.ghost_batch_size)
@@ -140,7 +130,7 @@ class _GhostBatchNorm(torch.nn.Module):
     `torch.nn.BatchNorm3d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm3d.html>`_.
 
     Args:
-        base_batchnorm (:class:`torch.nn.modules.batchnorm._BatchNorm`): A batch normalization module to be applied to each chunk
+        base_batchnorm (torch.nn.modules.batchnorm._BatchNorm): A batch normalization module to be applied to each chunk
         ghost_batch_size (int, optional): the size of the chunks passed into the underlying
             batch normalization. Default: ``32``.
 

@@ -116,7 +116,6 @@ class GradientClipping(Algorithm):
         self.clipping_threshold = clipping_threshold
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on ``Event.AFTER_TRAIN_BATCH``."""
         return event in [Event.INIT, Event.AFTER_TRAIN_BATCH]
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:

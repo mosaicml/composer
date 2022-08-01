@@ -6,9 +6,9 @@
 from __future__ import annotations
 
 import json
-import random
 import string
 from os.path import join
+from random import Random
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, NamedTuple, Optional
 
@@ -55,7 +55,7 @@ def _generate_bert_tokenizer_params(dataset) -> SyntheticTokenizerParams:
         normalizer=normalizers.BertNormalizer(),
         pre_tokenizer=pre_tokenizers.BertPreTokenizer(),
         decoder=decoders.WordPiece(),
-        initial_alphabet=initial_alphabet,
+        initial_alphabet=pre_tokenizers.ByteLevel.alphabet(),
         special_tokens=[pad_token, unk_token, '[SEP]', '[CLS]', '[MASK]'],
         pad_token=pad_token,
         trainer_cls=tokenizers_trainer.WordPieceTrainer,
@@ -101,6 +101,7 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
     """
 
     try:
+        import tokenizers.models as tokenizers_models
         from tokenizers import Tokenizer
         from transformers import PreTrainedTokenizer
     except ImportError as e:
@@ -146,7 +147,24 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
         initial_alphabet=tokenizer_params.initial_alphabet,
         special_tokens=tokenizer_params.special_tokens,
     )
+
     tokenizer.train_from_iterator(flattened_dataset, trainer=tokenizer_trainer)
+
+    # re-sort the tokenizer vocabulary in order to create determinism in the dataloader
+    # TODO: handle the GPT case in the future
+    if isinstance(tokenizer.model, tokenizers_models.WordPiece):
+        vocab = tokenizer.get_vocab()
+        # start by deleting the special tokens from the vocab map
+        for token in tokenizer_trainer.special_tokens:
+            del vocab[token.content]
+        # re-assign token indicies
+        for idx, vocab_item in enumerate(sorted(vocab.keys())):
+            vocab[vocab_item] = idx + len(tokenizer_trainer.special_tokens)
+        # add special tokens back in
+        for idx, token in enumerate(tokenizer_trainer.special_tokens):
+            vocab[token.content] = idx
+
+        tokenizer.model = tokenizer.model.__class__(vocab)  # type: ignore
 
     # save the tokenizer config
     with TemporaryDirectory() as tmp_path:
@@ -155,7 +173,7 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
         tokenizer.save(tmp_tokenizer_file)  #type: ignore (thirdparty)
 
         # save the vocabulary and potential merges file
-        tokenizer_params.tokenizer_model.save(tmp_tokenizer_dir)  # type: ignore
+        tokenizer.model.save(tmp_tokenizer_dir)  # type: ignore
 
         # the .from_pretrained method doesn't load our padding for some reason, so we save it as a special kwarg
         tmp_tokenizer_config = join(tmp_tokenizer_dir, 'tokenizer_config.json')
@@ -165,12 +183,14 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
         # instantiate the new tokenizer
         if not issubclass(tokenizer_params.tokenizer_cls, PreTrainedTokenizer):
             raise ValueError(f'{tokenizer_params.tokenizer_cls} should sub-class transformers.PreTrainedTokenizer.')
+        # print("Temporary path:", tmp_path)
+        # input("Waiting for input..")
         tokenizer = tokenizer_params.tokenizer_cls.from_pretrained(tmp_tokenizer_dir)
 
     return tokenizer
 
 
-def synthetic_hf_dataset_builder(num_samples: int, chars_per_sample: int, column_names: list):
+def synthetic_hf_dataset_builder(num_samples: int, chars_per_sample: int, column_names: list, seed=5):
     """Creates a synthetic :class:`~datasets.Dataset` and passes it to the preprocessing scripts.
 
     Args:
@@ -191,15 +211,18 @@ def synthetic_hf_dataset_builder(num_samples: int, chars_per_sample: int, column
         raise ValueError('There must be at least one column name provided for the final dataset.')
 
     data = {}
+    random_generator = Random(seed)
     for column_name in column_names:
-        data[column_name] = [_generate_synthetic_text_sample(chars_per_sample) for _ in range(num_samples)]
+        data[column_name] = [
+            _generate_synthetic_text_sample(chars_per_sample, random_generator) for _ in range(num_samples)
+        ]
     data['idx'] = list(range(num_samples))
 
     hf_synthetic_dataset = datasets.Dataset.from_dict(data)
     return hf_synthetic_dataset
 
 
-def _generate_synthetic_text_sample(chars_per_sample, min_word_length=3, max_word_length=10):
+def _generate_synthetic_text_sample(chars_per_sample, random_generator, min_word_length=3, max_word_length=10):
     character_set = {
         'letters': {
             'weight': 10,
@@ -218,8 +241,8 @@ def _generate_synthetic_text_sample(chars_per_sample, min_word_length=3, max_wor
 
     sample = ''
     while len(sample) < chars_per_sample:
-        sample_len = random.randint(min_word_length, max_word_length)
-        sample += ''.join([random.choice(valid_chars) for _ in range(sample_len)])
+        sample_len = random_generator.randint(min_word_length, max_word_length)
+        sample += ''.join([random_generator.choice(valid_chars) for _ in range(sample_len)])
         sample += ' '
     sample = sample[:chars_per_sample]
     return sample

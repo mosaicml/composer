@@ -25,7 +25,7 @@ def apply_channels_last(model: torch.nn.Module) -> None:
     This usually yields improved GPU utilization.
 
     Args:
-        model (:class:`torch.nn.Module`): model or module to modify
+        model (torch.nn.Module): The model or module to modify.
     """
     model.to(memory_format=torch.channels_last)  # type: ignore
 
@@ -34,7 +34,8 @@ class ChannelsLast(Algorithm):
     """Changes the memory format of the model to `torch.channels_last <https://\\
     pytorch.org/tutorials/intermediate/memory_format_tutorial.html>`_. This usually improves GPU utilization.
 
-    Runs on ``Event.INIT``, so it can set the memory format before the model is DDP wrapped. Has no hyperparameters.
+    Runs on :attr:`~composer.core.event.Event.INIT``, so it can set the memory format before the model is DDP wrapped.
+    Has no hyperparameters.
 
     Example:
         .. testcode::

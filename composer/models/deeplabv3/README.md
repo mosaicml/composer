@@ -5,15 +5,15 @@
 
 ## Example
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```python
-from composer.models import ComposerDeepLabV3
+from composer.models import composer_deeplabv3
 
-model = ComposerDeepLabV3(num_classes=150,
-                          backbone_arch="resnet101",
-                          is_backbone_pretrained=True,
-                          backbone_url="https://download.pytorch.org/models/resnet101-cd907fc2.pth",
-                          sync_bn=False
+model = composer_deeplabv3(num_classes=150,
+                           backbone_arch="resnet101",
+                           is_backbone_pretrained=True,
+                           backbone_url="https://download.pytorch.org/models/resnet101-cd907fc2.pth",
+                           sync_bn=False
 )
 ```
 
@@ -131,6 +131,6 @@ Improvements:
 ## API Reference
 
 ```{eval-rst}
-.. autoclass:: composer.models.deeplabv3.ComposerDeepLabV3
+.. autoclass:: composer.models.deeplabv3.composer_deeplabv3
     :noindex:
 ```

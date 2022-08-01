@@ -3,6 +3,7 @@
 
 """Helpers for running distributed data parallel training."""
 
+import logging
 from contextlib import contextmanager, nullcontext
 from typing import Callable, ContextManager, Union, cast
 
@@ -14,6 +15,8 @@ from composer.utils import dist
 from composer.utils.string_enum import StringEnum
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module']
+
+log = logging.getLogger(__name__)
 
 
 class DDPSyncStrategy(StringEnum):
@@ -103,6 +106,7 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
     """
     if dist.is_available() and dist.is_initialized():
         if any((p.requires_grad for p in module.parameters())):
+            log.debug('Wrapping model with DistributedDataParallel')
             ddp_model = DistributedDataParallel(module, find_unused_parameters=find_unused_parameters)
             return ddp_model
         return module

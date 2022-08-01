@@ -33,8 +33,8 @@ def colout_batch(sample: Union[ImgT, Tuple[ImgT, ImgT]],
                  p_row: float = 0.15,
                  p_col: float = 0.15,
                  resize_target: Union[bool, str] = 'auto') -> Union[ImgT, Tuple[ImgT, ImgT]]:
-    """Applies ColOut augmentation to a batch of images and (optionally) targets, dropping the same random rows and
-    columns from all images and targets in a batch.
+    """Applies ColOut augmentation to a batch of images and (optionally) targets,
+    dropping the same random rows and columns from all images and targets in a batch.
 
     See the :doc:`Method Card </method_cards/colout>` for more details.
 
@@ -45,14 +45,14 @@ def colout_batch(sample: Union[ImgT, Tuple[ImgT, ImgT]],
             new_X = colout_batch(X_example, p_row=0.15, p_col=0.15)
 
     Args:
-        sample (:class:`torch.Tensor` | PIL.Image | Tuple[:class:`torch.Tensor`, :class:`torch.Tensor`] | Tuple[PIL.Image, PIL.Image]):
+        sample (torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]):
             Either a single tensor or image or a 2-tuple of tensors or images. When tensor(s), the tensor must be of shape
             ``CHW`` for a single image or ``NCHW`` for a batch of images of shape.
         p_row (float, optional): Fraction of rows to drop (drop along H). Default: ``0.15``.
         p_col (float, optional): Fraction of columns to drop (drop along W). Default: ``0.15``.
         resize_target (bool | str, optional): If ``sample`` is a tuple, whether to resize both objects in the tuple.
-            If set to 'auto', both objects will be resized if they have the same spatial dimensions.
-            Otherwise, only the first object is resized. Default: ``auto``.
+            If set to ``'auto'``, both objects will be resized if they have the same spatial dimensions.
+            Otherwise, only the first object is resized. Default: ``'auto'``.
 
     Returns:
         torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]:
@@ -109,8 +109,9 @@ def colout_batch(sample: Union[ImgT, Tuple[ImgT, ImgT]],
 
 
 class ColOutTransform:
-    """Torchvision-like transform for performing the ColOut augmentation, where random rows and columns are dropped from
-    up to two Torch tensors or two PIL images.
+    """Torchvision-like transform for performing the ColOut augmentation,
+    where random rows and columns are dropped from up to two Torch tensors
+    or two PIL images.
 
     See the :doc:`Method Card </method_cards/colout>` for more details.
 
@@ -125,8 +126,9 @@ class ColOutTransform:
     Args:
         p_row (float, optional): Fraction of rows to drop (drop along H). Default: ``0.15``.
         p_col (float, optional): Fraction of columns to drop (drop along W). Default: ``0.15``.
-        resize_target (bool | str, optional): Whether to resize the target in addition to the input. If set to 'auto', resizing
-            the target will be based on if the target has the same spatial dimensions as the input. Default: ``auto``.
+        resize_target (bool | str, optional): Whether to resize the target in addition to the input.
+            If set to ``'auto'``, resizing the target will be based on if the target has the same spatial
+            dimensions as the input. Default: ``'auto'``.
     """
 
     def __init__(self, p_row: float = 0.15, p_col: float = 0.15, resize_target: Union[bool, str] = 'auto'):
@@ -138,8 +140,8 @@ class ColOutTransform:
         """Drops random rows and columns from up to two images.
 
         Args:
-            sample (:class:`torch.Tensor` | PIL.Image | Tuple[:class:`torch.Tensor`, :class:`torch.Tensor`] | Tuple[PIL.Image, PIL.Image]):
-                A single image or a 2-tuple of images as either :class:`torch.Tensor` or PIL.Image.
+            sample (torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]):
+                A single image or a 2-tuple of images as either :class:`torch.Tensor` or :class:`PIL.Image`.
 
         Returns:
             torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]:
@@ -158,11 +160,11 @@ class ColOut(Algorithm):
     rows/columns dropped isn't too large, this does not significantly alter the content of the image, but reduces its
     size and provides extra variability.
 
-    If ``batch`` is True (the default), then this algorithm runs on :attr:`Event.AFTER_DATALOADER` to modify the batch.
+    If ``batch`` is True (the default), then this algorithm runs on :attr:`~composer.core.event.Event.AFTER_DATALOADER`
+    to modify the batch.
 
-    Otherwise, if ``batch`` is False (the default), this algorithm runs on :attr:`Event.INIT` to insert a dataset
-    transformation. It is a no-op if this algorithm already applied itself on the
-    :attr:`State.train_dataloader.dataset`.
+    Otherwise, if ``batch=False`` (the default), this algorithm runs on :attr:`~composer.core.event.Event.INIT` to insert
+    a dataset transformation. It is a no-op if this algorithm already applied itself on the :attr:`State.train_dataloader.dataset`.
 
     See the :doc:`Method Card </method_cards/colout>` for more details.
 
@@ -185,7 +187,7 @@ class ColOut(Algorithm):
         p_row (float, optional): Fraction of rows to drop (drop along H). Default: ``0.15``.
         p_col (float, optional): Fraction of columns to drop (drop along W). Default: ``0.15``.
         batch (bool, optional): Run ColOut at the batch level. Default: ``True``.
-        resize_target (bool | str, optional): Whether to resize the target in addition to the input. If set to 'auto', resizing
+        resize_target (bool | str, optional): Whether to resize the target in addition to the input. If set to ``'auto'``, resizing
             the target will be based on if the target has the same spatial dimensions as the input. Default: ``auto``.
         input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
             from the batch. Can also be a pair of get and set functions, where the getter

@@ -103,7 +103,7 @@ def resize_batch(input: torch.Tensor,
         y_sized = y_sized.squeeze(dim=1).to(target.dtype)
 
     # Log results
-    log.info(
+    log.debug(
         textwrap.dedent(f"""\
             Applied Progressive Resizing with scale_factor={scale_factor} and mode={mode}.
             Old input dimensions: (H,W)={input.shape[2], input.shape[3]}.
@@ -148,7 +148,7 @@ class ProgressiveResizing(Algorithm):
     Args:
         mode (str, optional): Type of scaling to perform. Value must be one of ``'crop'`` or ``'resize'``.
             ``'crop'`` performs a random crop, whereas ``'resize'`` performs a bilinear
-            interpolation. Default: ``"resize"``.
+            interpolation. Default: ``'resize'``.
         initial_scale (float, optional): Initial scale factor used to shrink the inputs. Must be a
             value in between 0 and 1. Default: ``0.5``.
         finetune_fraction (float, optional): Fraction of training to reserve for finetuning on the

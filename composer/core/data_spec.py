@@ -51,11 +51,11 @@ def _split_mapping(m, num_microbatches: int):
 def _default_split_batch(batch: Any, num_microbatches: int) -> Sequence:
     """Splits batch into `num_microbatches` chunks for gradient accumulation.
 
-    Works with tensors, dictionaries of tensors, (x, y) tuples, and lists where batch is the 2nd dimension.
+    Works with tensors, dictionaries of tensors, (x, y) tuples, and lists where ``batch`` is the 2nd dimension.
 
     Args:
-        batch: output from the dataloader.
-        num_microbatches (int): number of microbatches to batch into, will be set by `grad_accum`.
+        batch (Any): output from the dataloader.
+        num_microbatches (int): number of microbatches to batch into. Will be set by `grad_accum`.
     """
     if num_microbatches < 1:
         raise ValueError('num_microbatches must be at least 1')
@@ -88,8 +88,8 @@ def _default_split_batch(batch: Any, num_microbatches: int) -> Sequence:
 class DataSpec:
     """Specifications for operating and training on data.
 
-    An example of constructing a :class:`DataSpec` object with a ``device_transforms`` callable
-    (:class:`~composer.datasets.utils.NormalizationFn`) and then using it with :class:`~.Trainer`:
+    An example of constructing a :class:`DataSpec` object with a ``device_transforms``
+    callable (:class:`.NormalizationFn`) and then using it with :class:`~.Trainer`:
 
     .. doctest::
 
@@ -115,29 +115,29 @@ class DataSpec:
         dataloader (Iterable): The dataloader, which can be any iterable that yields batches.
 
         num_samples (int, optional): The total number of samples in an epoch, across all ranks. This field is used by
-            the :class:`~.time.Timestamp` (training progress tracker). If not specified, then ``len(dataloader.dataset)`` is
+            the :class:`.Timestamp` (training progress tracker). If not specified, then ``len(dataloader.dataset)`` is
             used (if this property is available). Otherwise, the dataset is assumed to be unsized.
 
         num_tokens (int, optional): The total number of tokens in an epoch. This field is used by the
-            :class:`~.time.Timestamp` (training progress tracker).
+            :class:`.Timestamp` (training progress tracker).
 
-        device_transforms ((Batch) -> Batch, optional): Function called by the :class:`~.trainer.Trainer` to modify the
+        device_transforms ((Batch) -> Batch, optional): Function called by the :class:`.Trainer` to modify the
             batch once it has been moved onto the device. For example, this function can be used for GPU-based
-            normalization.  It can modify the batch in-place, and it should return the modified batch. If not specified,
+            normalization. It can modify the batch in-place, and it should return the modified batch. If not specified,
             the batch is not modified.
 
-        split_batch ((Batch, int) -> Sequence[Batch], optional): Function called by the :class:`~.trainer.Trainer` to
+        split_batch ((Batch, int) -> Sequence[Batch], optional): Function called by the :class:`.Trainer` to
             split a batch (the first parameter) into the number of microbatches specified (the second parameter). If the
-            ``dataloader`` yields batches not of type torch.Tensor, Mapping, Tuple, or List, then this function must
+            ``dataloader`` yields batches not of type :class:`torch.Tensor`, Mapping, Tuple, or List, then this function must
             be specified.
 
-        get_num_samples_in_batch ((Batch) -> int, optional): Function that is called by the :class:`~.trainer.Trainer`
+        get_num_samples_in_batch ((Batch) -> int, optional): Function that is called by the :class:`.Trainer`
             to get the number of samples in the provided batch.
 
             By default, if the batch contains tensors that all have the same 0th dim, then the value of the 0th dim will
             be returned. If the batch contains tensors where the 0th dim differ, then this function must be specified.
 
-        get_num_tokens_in_batch ((Batch) -> int, optional): Function that is called by the :class:`~.trainer.Trainer` to
+        get_num_tokens_in_batch ((Batch) -> int, optional): Function that is called by the :class:`.Trainer` to
             get the number of tokens in the provided batch.
 
             By default, it returns 0, meaning that number of tokens processed will not be tracked as a part of the

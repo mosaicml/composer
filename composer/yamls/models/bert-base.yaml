@@ -1,62 +1,84 @@
-train_dataset:
-  lm:
-    split: train
-    datadir:
-      - /datasets/wikipedia_saved_bert_128
-      - /datasets/bookcorpus_saved_bert_128
-    tokenizer_name: bert-base-uncased
-    seed: 19
-    shuffle: true
-    drop_last: false
-    subsample_ratio: 1.0
-    use_masked_lm: true
-    mlm_probability: 0.15
-    max_seq_length: 128
-evaluators:
-  - evaluator:
-      label: bert-base
-      eval_dataset:
-        lm:
-          split: validation
-          datadir:
-            - /datasets/wikipedia_saved_bert_128
-            - /datasets/bookcorpus_saved_bert_128
-          tokenizer_name: bert-base-uncased
-          seed: 19
-          shuffle: true
-          drop_last: false
-          subsample_ratio: 0.02
-          use_masked_lm: true
-          mlm_probability: 0.15
-          max_seq_length: 128
-      metric_names:
-        - LanguageCrossEntropy
-        - MaskedAccuracy
+# Use a bert-base model, initialized from scratch
 model:
   bert:
     use_pretrained: false
     tokenizer_name: bert-base-uncased
     pretrained_model_name: bert-base-uncased
+
+# Train the model on the English C4 corpus
+train_dataset:
+  streaming_c4:
+    remote: s3://allenai-c4/mds/1-gz/
+    local: /tmp/mds-cache/mds-c4/
+    split: train
+    shuffle: true
+    tokenizer_name: bert-base-uncased
+    max_seq_len: 128
+    group_method: truncate
+    mlm: true
+    mlm_probability: 0.15
+
+dataloader:
+  pin_memory: true
+  timeout: 0
+  prefetch_factor: 2
+  persistent_workers: true
+  num_workers: 8
+
+# Periodically evaluate the LanguageCrossEntropy and Masked Accuracy
+# on the validation split of the dataset.
+evaluators:
+  evaluator:
+    label: bert_pre_training
+    eval_dataset:
+      streaming_c4:
+        remote: s3://allenai-c4/mds/1-gz/
+        local: /tmp/mds-cache/mds-c4/
+        split: val
+        shuffle: false
+        tokenizer_name: bert-base-uncased
+        max_seq_len: 128
+        group_method: truncate
+        mlm: true
+        mlm_probability: 0.15
+    metric_names:
+      - LanguageCrossEntropy
+      - MaskedAccuracy
+
+# Run evaluation after every 1000 training steps
+eval_interval: 1000ba
+
+# Use the decoupled AdamW optimizer with learning rate warmup
 optimizers:
   decoupled_adamw:
-    lr: 5.0e-4
+    lr: 5.0e-4 # Peak learning rate
     betas:
       - 0.9
       - 0.98
     eps: 1.0e-06
-    weight_decay: 1.0e-5
+    weight_decay: 1.0e-5 # Amount of weight decay regularization
 schedulers:
-  - linear_decay_with_warmup:
-      t_warmup: 0.06dur
-max_duration: 256_000_000
-train_batch_size: 4000
-eval_batch_size: 2000
-seed: 19
-dataloader:
-  pin_memory: true
-  persistent_workers: true
-  num_workers: 8
-  timeout: 0
-  prefetch_factor: 2
-grad_accum: 2
-eval_interval: 1000ba
+  linear_decay_with_warmup:
+    t_warmup: 0.06dur # Point when peak learning rate is reached
+    alpha_f: 0.02
+
+max_duration: 286720000sp # Subsample the training data for ~275M samples
+train_batch_size: 4096 # Number of training examples to use per update
+eval_batch_size: 2048
+
+seed: 17
+
+precision: amp # Use mixed-precision training
+grad_clip_norm: -1.0 # Turn off gradient clipping
+grad_accum: auto # Use automatic gradient accumulation to avoid OOMs
+
+save_folder: bert_checkpoints # The directory to save checkpoints to
+save_interval: 3500ba # Save checkpoints every 3500 batches
+
+loggers:
+  progress_bar: {} # Add a TQDM progress bar
+  # Optional, some nice default parameters for object store checkpointing. Uncomment this if you want to checkpoint to cloud.
+  # object_store:
+  #  object_store_hparams:
+  #    s3:
+  #      bucket: mosaicml-internal-checkpoints-bert

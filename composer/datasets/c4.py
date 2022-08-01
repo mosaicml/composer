@@ -36,6 +36,8 @@ class StreamingC4(StreamingDataset):
         tokenizer_name (str): The name of the HuggingFace tokenizer to use to tokenize samples.
         max_seq_len (int): The max sequence length of each token sample.
         group_method (str): How to group text samples into token samples. Currently only supporting ``'truncate'``.
+        max_retries (int): Number of download re-attempts before giving up. Default: 2.
+        timeout (float): How long to wait for shard to download before raising an exception. Default: 120 sec.
         batch_size (Optional[int]): Hint batch_size that will be used on each device's DataLoader. Default: ``None``.
     """
 
@@ -61,6 +63,8 @@ class StreamingC4(StreamingDataset):
                  tokenizer_name: str,
                  max_seq_len: int,
                  group_method: str = 'truncate',
+                 max_retries: int = 2,
+                 timeout: float = 120,
                  batch_size: Optional[int] = None):
 
         # HF Transformers is needed to build the tokenizer
@@ -85,6 +89,8 @@ class StreamingC4(StreamingDataset):
                          local=os.path.join(local, split),
                          shuffle=shuffle,
                          decoders=decoders,
+                         max_retries=max_retries,
+                         timeout=timeout,
                          batch_size=batch_size)
         self.tokenizer_name = tokenizer_name
         self.max_seq_len = max_seq_len

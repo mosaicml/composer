@@ -50,7 +50,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
 .. toctree::
    :hidden:
    :maxdepth: 1
-   :caption: Examples
+   :caption: Tutorials
 
 
    examples/getting_started.ipynb
@@ -63,12 +63,14 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    examples/migrate_from_ptl.ipynb
    examples/early_stopping.ipynb
    examples/streaming_dataloader_facesynthetics.ipynb
-
+   examples/auto_grad_accum.ipynb
+   examples/checkpoint_autoresume.ipynb
+   examples/exporting_for_inference.ipynb
 
 .. toctree::
    :hidden:
    :maxdepth: 1
-   :caption: Adding Speedup Methods
+   :caption: Speedup Methods
 
    trainer/algorithms.rst
    functional_api.rst
@@ -88,10 +90,20 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    trainer/checkpointing.rst
    trainer/logging.rst
    trainer/callbacks.rst
-   trainer/distributed_training.rst
-   trainer/numerics.md
    trainer/performance.rst
 
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Notes
+
+   notes/distributed_training.rst
+   notes/early_stopping.rst
+   notes/numerics.md
+   notes/auto_grad_accum.rst
+   notes/resumption.rst
+   notes/tensorboard_logger.md
+   notes/run_name.md
 
 .. toctree::
    :hidden:
@@ -108,6 +120,8 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/cutout.md
    method_cards/ema.md
    method_cards/factorize.md
+   method_cards/fused_layernorm.md
+   method_cards/gated_linear_units.md
    method_cards/ghost_batchnorm.md
    method_cards/gradient_clipping.md
    method_cards/label_smoothing.md
@@ -129,6 +143,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    :maxdepth: 1
    :caption: Model Library
 
+   model_cards/BERT.md
    model_cards/cifar_resnet.md
    model_cards/deeplabv3.md
    model_cards/efficientnet.md

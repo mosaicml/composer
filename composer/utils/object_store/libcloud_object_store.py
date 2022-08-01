@@ -5,7 +5,6 @@
 import io
 import os
 import pathlib
-import tempfile
 import uuid
 from typing import Any, Callable, Dict, Optional, Union
 
@@ -130,41 +129,16 @@ class LibcloudObjectStore(ObjectStore):
     def _get_object(self, object_name: str):
         """Get object from object store.
 
-        Recursively follow any symlinks. If an object does not exist, automatically
-        checks if it is a symlink by appending ``.symlink``.
-
         Args:
             object_name (str): The name of the object.
         """
         from libcloud.storage.types import ObjectDoesNotExistError
-        obj = None
         try:
-            obj = self._provider.get_object(self._container.name, object_name)
+            return self._provider.get_object(self._container.name, object_name)
         except ObjectDoesNotExistError as e:
-            # Object not found, check for potential symlink
-            try:
-                if not object_name.endswith('.symlink'):
-                    obj = self._provider.get_object(self._container.name, object_name + '.symlink')
-                else:
-                    raise e
-            except ObjectDoesNotExistError as e:
-                raise FileNotFoundError(f'Object not found: {self.get_uri(object_name)}') from e
+            raise FileNotFoundError(f'Object not found: {self.get_uri(object_name)}') from e
         except Exception as e:
             self._ensure_transient_errors_are_wrapped(e)
-        # Recursively trace any symlinks
-        if obj.name.endswith('.symlink'):
-            # Download symlink object to temporary folder
-            with tempfile.TemporaryDirectory() as tmpdir:
-                tmppath = os.path.join(tmpdir, str(uuid.uuid4()))
-                try:
-                    self._provider.download_object(obj=obj, destination_path=tmppath, delete_on_failure=True)
-                except Exception as e:
-                    self._ensure_transient_errors_are_wrapped(e)
-                # Read object name in symlink and recurse
-                with open(tmppath) as f:
-                    symlinked_object_name = f.read()
-                    return self._get_object(symlinked_object_name)
-        return obj
 
     def get_object_size(self, object_name: str) -> int:
         return self._get_object(object_name).size

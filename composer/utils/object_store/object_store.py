@@ -5,7 +5,8 @@
 
 import abc
 import pathlib
-from typing import Callable, Optional, Union
+from types import TracebackType
+from typing import Callable, Optional, Type, Union
 
 __all__ = ['ObjectStore', 'ObjectStoreTransientError']
 
@@ -135,3 +136,19 @@ class ObjectStore(abc.ABC):
         """
         del object_name, filename, overwrite, callback  # unused
         raise NotImplementedError(f'{type(self).__name__}.download_object is not implemented')
+
+    def close(self):
+        """Close the object store."""
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ):
+        del exc_type, exc, traceback  # unused
+        self.close()

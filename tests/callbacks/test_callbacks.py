@@ -1,12 +1,13 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Type
+from typing import Type, cast
 
 import pytest
 from torch.utils.data import DataLoader
 
 from composer.core import Callback, Engine, Event, State
+from composer.core.time import Time
 from composer.loggers import Logger, LoggerDestination
 from composer.profiler import Profiler, ProfilerAction
 from composer.trainer import Trainer
@@ -126,14 +127,12 @@ class TestCallbackTrains:
             profiler=Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[]),
         )
 
-    @pytest.mark.timeout(15)
     def test_trains(self, cb_cls: Type[Callback], grad_accum: int):
         cb_kwargs = get_cb_kwargs(cb_cls)
         cb = cb_cls(**cb_kwargs)
         trainer = self._get_trainer(cb, grad_accum)
         trainer.fit()
 
-    @pytest.mark.timeout(15)
     def test_trains_multiple_calls(self, cb_cls: Type[Callback], grad_accum: int):
         """
         Tests that training with multiple fits complete.
@@ -146,6 +145,6 @@ class TestCallbackTrains:
         trainer.fit()
 
         assert trainer.state.max_duration is not None
-        trainer.state.max_duration *= 2
+        trainer.state.max_duration = cast(Time[int], trainer.state.max_duration * 2)
 
         trainer.fit()
