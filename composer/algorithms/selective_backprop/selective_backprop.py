@@ -208,18 +208,18 @@ class SelectiveBackprop(Algorithm):
             is the target. Default: ``1``.
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            from composer.algorithms import SelectiveBackprop
-            algorithm = SelectiveBackprop(start=0.5, end=0.9, keep=0.5)
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                algorithms=[algorithm],
-                optimizers=[optimizer]
-            )
+    from composer.algorithms import SelectiveBackprop
+    algorithm = SelectiveBackprop(start=0.5, end=0.9, keep=0.5)
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration="1ep",
+        algorithms=[algorithm],
+        optimizers=[optimizer]
+    )
     """
 
     def __init__(

@@ -46,13 +46,13 @@ def compute_ema(model: T_Model, ema_model: T_Model, smoothing: float = 0.99):
             Must be in the interval :math:`(0, 1)`. Default: ``0.99``.
 
     Example:
-        .. testcode::
+    .. testcode::
 
-                import composer.functional as cf
-                from torchvision import models
-                model = models.resnet50()
-                ema_model = models.resnet50()
-                cf.compute_ema(model, ema_model, smoothing=0.9)
+    import composer.functional as cf
+    from torchvision import models
+    model = models.resnet50()
+    ema_model = models.resnet50()
+    cf.compute_ema(model, ema_model, smoothing=0.9)
     """
     with torch.no_grad():
         model_params = itertools.chain(model.parameters(), model.buffers())
@@ -97,18 +97,18 @@ class EMA(Algorithm):
             weights. In most cases should be left as ``False``. Default ``False``.
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            from composer.algorithms import EMA
-            algorithm = EMA(half_life='50ba', update_interval='1ba')
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                algorithms=[algorithm],
-                optimizers=[optimizer]
-            )
+    from composer.algorithms import EMA
+    algorithm = EMA(half_life='50ba', update_interval='1ba')
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration="1ep",
+        algorithms=[algorithm],
+        optimizers=[optimizer]
+    )
     """
 
     def __init__(self, half_life: str, update_interval: Optional[str] = None, train_with_ema_weights: bool = False):

@@ -41,20 +41,20 @@ def augmix_image(img: ImgT,
     part of a :class:`torchvision.datasets.VisionDataset`\'s ``transform``.
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            import composer.functional as cf
+    import composer.functional as cf
 
-            from composer.algorithms.utils import augmentation_sets
+    from composer.algorithms.utils import augmentation_sets
 
-            augmixed_image = cf.augmix_image(
-                img=image,
-                severity=3,
-                width=3,
-                depth=-1,
-                alpha=1.0,
-                augmentation_set=augmentation_sets["all"]
-            )
+    augmixed_image = cf.augmix_image(
+        img=image,
+        severity=3,
+        width=3,
+        depth=-1,
+        alpha=1.0,
+        augmentation_set=augmentation_sets["all"]
+    )
 
     Args:
         img (PIL.Image.Image | torch.Tensor): Image or batch of images to be AugMix'd.
@@ -180,26 +180,26 @@ class AugMix(Algorithm):
     See the :doc:`Method Card </method_cards/augmix>` for more details.
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            from composer.algorithms import AugMix
-            from composer.trainer import Trainer
+    from composer.algorithms import AugMix
+    from composer.trainer import Trainer
 
-            augmix_algorithm = AugMix(
-                severity=3,
-                width=3,
-                depth=-1,
-                alpha=1.0,
-                augmentation_set="all"
-            )
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                algorithms=[augmix_algorithm],
-                optimizers=[optimizer]
-            )
+    augmix_algorithm = AugMix(
+        severity=3,
+        width=3,
+        depth=-1,
+        alpha=1.0,
+        augmentation_set="all"
+    )
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration="1ep",
+        algorithms=[augmix_algorithm],
+        optimizers=[optimizer]
+    )
 
     Args:
         severity (int, optional): Severity of augmentations; ranges from 0

@@ -31,26 +31,26 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
     .. code-block:: python
 
-        import torchvision
-        import torch.nn.functional as F
+    import torchvision
+    import torch.nn.functional as F
 
-        from composer.models import ComposerModel
+    from composer.models import ComposerModel
 
-        class ResNet18(ComposerModel):
+    class ResNet18(ComposerModel):
 
-            def __init__(self):
-                super().__init__()
-                self.model = torchvision.models.resnet18() # define PyTorch model in __init__.
+        def __init__(self):
+            super().__init__()
+            self.model = torchvision.models.resnet18() # define PyTorch model in __init__.
 
-            def forward(self, batch): # batch is the output of the dataloader
-                # specify how batches are passed through the model
-                inputs, _ = batch
-                return self.model(inputs)
+        def forward(self, batch): # batch is the output of the dataloader
+            # specify how batches are passed through the model
+            inputs, _ = batch
+            return self.model(inputs)
 
-            def loss(self, outputs, batch):
-                # pass batches and `forward` outputs to the loss
-                _, targets = batch
-                return F.cross_entropy(outputs, targets)
+        def loss(self, outputs, batch):
+            # pass batches and `forward` outputs to the loss
+            _, targets = batch
+            return F.cross_entropy(outputs, targets)
 
     Attributes:
         logger (Optional[Logger]): The training :class:`.Logger`.

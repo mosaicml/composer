@@ -38,17 +38,17 @@ class PolicyRegistry(Dict[Type[torch.nn.Module], AlibiReplacementFunction]):
 
         .. code-block::
 
-           from composer.algorithms.alibi.attention_surgery_functions.utils import policy_registry
-           from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
+        from composer.algorithms.alibi.attention_surgery_functions.utils import policy_registry
+        from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
 
-           @policy_registry.register(GPT2Attention)
-           def convert_gpt2_attention(module: torch.nn.Module, index: int, max_sequence_length: int):
-               # Do surgery (change ``module`` or generate a new ``module`` instance to return)
-               # Note that this function should depend on ``max_sequence_length``
+        @policy_registry.register(GPT2Attention)
+        def convert_gpt2_attention(module: torch.nn.Module, index: int, max_sequence_length: int):
+            # Do surgery (change ``module`` or generate a new ``module`` instance to return)
+            # Note that this function should depend on ``max_sequence_length``
 
-               # YOUR CODE HERE
+            # YOUR CODE HERE
 
-               return module
+            return module
 
         In the above example, ``convert_gpt2_attention`` (an instance of a `AlibiReplacementFunction`
         function) is decorated with ``@policy_registry.register(GPT2Attention)``. Using the decorator

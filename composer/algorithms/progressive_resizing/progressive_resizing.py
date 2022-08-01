@@ -55,14 +55,14 @@ def resize_batch(input: torch.Tensor,
             Depending on the input ``y``. Otherwise returns original ``y``.
 
     Example:
-         .. testcode::
+    .. testcode::
 
-            from composer.algorithms.progressive_resizing import resize_batch
-            X_resized, y_resized = resize_batch(X_example,
-                                                y_example,
-                                                scale_factor=0.5,
-                                                mode='resize',
-                                                resize_targets=False)
+    from composer.algorithms.progressive_resizing import resize_batch
+    X_resized, y_resized = resize_batch(X_example,
+                                        y_example,
+                                        scale_factor=0.5,
+                                        mode='resize',
+                                        resize_targets=False)
     """
     # Verify dimensionalities are enough to support resizing
     assert input.dim() > 2, 'Input dimensionality not large enough for resizing'
@@ -124,26 +124,26 @@ class ProgressiveResizing(Algorithm):
     model using the full-sized inputs.
 
     Example:
-         .. testcode::
+    .. testcode::
 
-            from composer.algorithms import ProgressiveResizing
-            from composer.trainer import Trainer
-            progressive_resizing_algorithm = ProgressiveResizing(
-                                                mode='resize',
-                                                initial_scale=1.0,
-                                                finetune_fraction=0.2,
-                                                delay_fraction=0.2,
-                                                size_increment=32,
-                                                resize_targets=False
-                                            )
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                algorithms=[progressive_resizing_algorithm],
-                optimizers=[optimizer]
-            )
+    from composer.algorithms import ProgressiveResizing
+    from composer.trainer import Trainer
+    progressive_resizing_algorithm = ProgressiveResizing(
+                                        mode='resize',
+                                        initial_scale=1.0,
+                                        finetune_fraction=0.2,
+                                        delay_fraction=0.2,
+                                        size_increment=32,
+                                        resize_targets=False
+                                    )
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration="1ep",
+        algorithms=[progressive_resizing_algorithm],
+        optimizers=[optimizer]
+    )
 
     Args:
         mode (str, optional): Type of scaling to perform. Value must be one of ``'crop'`` or ``'resize'``.

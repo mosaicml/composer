@@ -90,16 +90,16 @@ def cutmix_batch(input: Tensor,
         ValueError: If both ``length`` and ``bbox`` are provided.
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            import torch
-            from composer.functional import cutmix_batch
+    import torch
+    from composer.functional import cutmix_batch
 
-            N, C, H, W = 2, 3, 4, 5
-            num_classes = 10
-            X = torch.randn(N, C, H, W)
-            y = torch.randint(num_classes, size=(N,))
-            X_mixed, target_perm, area, _ = cutmix_batch(X, y, alpha=0.2)
+    N, C, H, W = 2, 3, 4, 5
+    num_classes = 10
+    X = torch.randn(N, C, H, W)
+    y = torch.randint(num_classes, size=(N,))
+    X_mixed, target_perm, area, _ = cutmix_batch(X, y, alpha=0.2)
     """
     if bbox is not None and length is not None:
         raise ValueError(f'Cannot provide both length and bbox; got {length} and {bbox}')
@@ -177,18 +177,18 @@ class CutMix(Algorithm):
             is the target. Default: ``1``.
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            from composer.algorithms import CutMix
-            algorithm = CutMix(alpha=0.2)
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                algorithms=[algorithm],
-                optimizers=[optimizer]
-            )
+    from composer.algorithms import CutMix
+    algorithm = CutMix(alpha=0.2)
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration="1ep",
+        algorithms=[algorithm],
+        optimizers=[optimizer]
+    )
     """
 
     def __init__(

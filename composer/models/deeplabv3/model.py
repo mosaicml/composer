@@ -66,9 +66,9 @@ def deeplabv3(num_classes: int,
 
     .. code-block:: python
 
-        from composer.models.deeplabv3.deeplabv3 import deeplabv3
+    from composer.models.deeplabv3.deeplabv3 import deeplabv3
 
-        pytorch_model = deeplabv3(num_classes=150, backbone_arch='resnet101', is_backbone_pretrained=False)
+    pytorch_model = deeplabv3(num_classes=150, backbone_arch='resnet101', is_backbone_pretrained=False)
     """
 
     # check that the specified architecture is in the resnet module
@@ -180,9 +180,9 @@ def composer_deeplabv3(num_classes: int,
 
     .. code-block:: python
 
-        from composer.models import composer_deeplabv3
+    from composer.models import composer_deeplabv3
 
-        model = composer_deeplabv3(num_classes=150, backbone_arch='resnet101', is_backbone_pretrained=False)
+    model = composer_deeplabv3(num_classes=150, backbone_arch='resnet101', is_backbone_pretrained=False)
     """
 
     model = deeplabv3(backbone_arch=backbone_arch,

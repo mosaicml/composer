@@ -34,11 +34,11 @@ class HuggingFaceModel(ComposerModel):
 
     .. testcode::
 
-        import transformers
-        from composer.models import HuggingFaceModel
+    import transformers
+    from composer.models import HuggingFaceModel
 
-        hf_model = transformers.AutoModelForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=2)
-        model = HuggingFaceModel(hf_model)
+    hf_model = transformers.AutoModelForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=2)
+    model = HuggingFaceModel(hf_model)
     """
 
     def __init__(self,

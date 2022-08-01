@@ -39,18 +39,18 @@ def randaugment_image(img: ImgT,
     :class:`.RandAugment` as part of a :class:`torchvision.datasets.VisionDataset` ``transform``.
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            import composer.functional as cf
+    import composer.functional as cf
 
-            from composer.algorithms.utils import augmentation_sets
+    from composer.algorithms.utils import augmentation_sets
 
-            randaugmented_image = cf.randaugment_image(
-                img=image,
-                severity=9,
-                depth=2,
-                augmentation_set=augmentation_sets["all"]
-            )
+    randaugmented_image = cf.randaugment_image(
+        img=image,
+        severity=9,
+        depth=2,
+        augmentation_set=augmentation_sets["all"]
+    )
 
     Args:
         img (PIL.Image.Image | torch.Tensor): Image or batch of images to be RandAugmented.
@@ -79,21 +79,21 @@ class RandAugmentTransform(torch.nn.Module):
     See :class:`.RandAugment` or the :doc:`Method Card </method_cards/randaugment>` for more details.
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            import torchvision.transforms as transforms
-            from composer.algorithms.randaugment import RandAugmentTransform
+    import torchvision.transforms as transforms
+    from composer.algorithms.randaugment import RandAugmentTransform
 
-            randaugment_transform = RandAugmentTransform(
-                severity=9,
-                depth=2,
-                augmentation_set="all"
-            )
-            composed = transforms.Compose([
-                randaugment_transform,
-                transforms.RandomHorizontalFlip()
-            ])
-            transformed_image = composed(image)
+    randaugment_transform = RandAugmentTransform(
+        severity=9,
+        depth=2,
+        augmentation_set="all"
+    )
+    composed = transforms.Compose([
+        randaugment_transform,
+        transforms.RandomHorizontalFlip()
+    ])
+    transformed_image = composed(image)
 
     Args:
         severity (int, optional): See :class:`.RandAugment`.
@@ -132,24 +132,24 @@ class RandAugment(Algorithm):
     See the :doc:`Method Card </method_cards/randaugment>` for more details.
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            from composer.algorithms import RandAugment
-            from composer.trainer import Trainer
+    from composer.algorithms import RandAugment
+    from composer.trainer import Trainer
 
-            randaugment_algorithm = RandAugment(
-                severity=9,
-                depth=2,
-                augmentation_set="all"
-            )
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                algorithms=[randaugment_algorithm],
-                optimizers=[optimizer]
-            )
+    randaugment_algorithm = RandAugment(
+        severity=9,
+        depth=2,
+        augmentation_set="all"
+    )
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration="1ep",
+        algorithms=[randaugment_algorithm],
+        optimizers=[optimizer]
+    )
 
     Args:
         severity (int, optional): Severity of augmentation operators (between 1 to 10). M

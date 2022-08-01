@@ -27,9 +27,9 @@ def composer_efficientnetb0(num_classes: int = 1000, drop_connect_rate: float = 
 
     .. testcode::
 
-        from composer.models import composer_efficientnetb0
+    from composer.models import composer_efficientnetb0
 
-        model = composer_efficientnetb0()  # creates EfficientNet-b0 for image classification
+    model = composer_efficientnetb0()  # creates EfficientNet-b0 for image classification
     """
     model = EfficientNet.get_model_from_name(model_name='efficientnet-b0',
                                              num_classes=num_classes,

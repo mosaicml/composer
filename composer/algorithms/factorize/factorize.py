@@ -75,12 +75,12 @@ def apply_factorization(model: torch.nn.Module,
         The modified model
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            import composer.functional as cf
-            from torchvision import models
-            model = models.resnet50()
-            cf.apply_factorization(model)
+    import composer.functional as cf
+    from torchvision import models
+    model = models.resnet50()
+    cf.apply_factorization(model)
     """
     if factorize_convs:
         _factorize_conv2d_modules(model,

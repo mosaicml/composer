@@ -71,15 +71,15 @@ def apply_stochastic_depth(model: torch.nn.Module,
         The modified model
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            import composer.functional as cf
-            from torchvision import models
-            model = models.resnet50()
-            cf.apply_stochastic_depth(
-                model,
-                target_layer_name='ResNetBottleneck'
-            )
+    import composer.functional as cf
+    from torchvision import models
+    model = models.resnet50()
+    cf.apply_stochastic_depth(
+        model,
+        target_layer_name='ResNetBottleneck'
+    )
     """
     _validate_stochastic_hparams(target_layer_name=target_layer_name,
                                  stochastic_method=stochastic_method,

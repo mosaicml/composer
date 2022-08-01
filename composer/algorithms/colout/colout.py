@@ -39,10 +39,10 @@ def colout_batch(sample: Union[ImgT, Tuple[ImgT, ImgT]],
     See the :doc:`Method Card </method_cards/colout>` for more details.
 
     Example:
-         .. testcode::
+    .. testcode::
 
-            from composer.algorithms.colout import colout_batch
-            new_X = colout_batch(X_example, p_row=0.15, p_col=0.15)
+    from composer.algorithms.colout import colout_batch
+    new_X = colout_batch(X_example, p_row=0.15, p_col=0.15)
 
     Args:
         sample (torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]):
@@ -116,12 +116,12 @@ class ColOutTransform:
     See the :doc:`Method Card </method_cards/colout>` for more details.
 
     Example:
-         .. testcode::
+    .. testcode::
 
-            from torchvision import datasets, transforms
-            from composer.algorithms.colout import ColOutTransform
-            colout_transform = ColOutTransform(p_row=0.15, p_col=0.15)
-            transforms = transforms.Compose([colout_transform, transforms.ToTensor()])
+    from torchvision import datasets, transforms
+    from composer.algorithms.colout import ColOutTransform
+    colout_transform = ColOutTransform(p_row=0.15, p_col=0.15)
+    transforms = transforms.Compose([colout_transform, transforms.ToTensor()])
 
     Args:
         p_row (float, optional): Fraction of rows to drop (drop along H). Default: ``0.15``.
@@ -169,19 +169,19 @@ class ColOut(Algorithm):
     See the :doc:`Method Card </method_cards/colout>` for more details.
 
     Example:
-         .. testcode::
+    .. testcode::
 
-            from composer.algorithms import ColOut
-            from composer.trainer import Trainer
-            colout_algorithm = ColOut(p_row=0.15, p_col=0.15, batch=True)
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                algorithms=[colout_algorithm],
-                optimizers=[optimizer]
-            )
+    from composer.algorithms import ColOut
+    from composer.trainer import Trainer
+    colout_algorithm = ColOut(p_row=0.15, p_col=0.15, batch=True)
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration="1ep",
+        algorithms=[colout_algorithm],
+        optimizers=[optimizer]
+    )
 
     Args:
         p_row (float, optional): Fraction of rows to drop (drop along H). Default: ``0.15``.

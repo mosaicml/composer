@@ -50,23 +50,23 @@ class SWA(Algorithm):
     See the :doc:`Method Card </method_cards/swa>` for more details.
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            from composer.algorithms import SWA
-            from composer.trainer import Trainer
+    from composer.algorithms import SWA
+    from composer.trainer import Trainer
 
-            swa_algorithm = SWA(
-                swa_start="6ep",
-                swa_end="8ep"
-            )
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="10ep",
-                algorithms=[swa_algorithm],
-                optimizers=[optimizer]
-            )
+    swa_algorithm = SWA(
+        swa_start="6ep",
+        swa_end="8ep"
+    )
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration="10ep",
+        algorithms=[swa_algorithm],
+        optimizers=[optimizer]
+    )
 
     Args:
         swa_start (str, optional): The time string denoting the amount of training

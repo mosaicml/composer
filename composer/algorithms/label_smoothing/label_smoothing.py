@@ -41,16 +41,16 @@ def smooth_labels(logits: torch.Tensor, target: torch.Tensor, smoothing: float =
         torch.Tensor: The smoothed targets.
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            import torch
+    import torch
 
-            num_classes = 10
-            targets = torch.randint(num_classes, size=(100,))
-            from composer.algorithms.label_smoothing import smooth_labels
-            new_targets = smooth_labels(logits=logits,
-                                        target=targets,
-                                        smoothing=0.1)
+    num_classes = 10
+    targets = torch.randint(num_classes, size=(100,))
+    from composer.algorithms.label_smoothing import smooth_labels
+    new_targets = smooth_labels(logits=logits,
+                                target=targets,
+                                smoothing=0.1)
     """
 
     target = ensure_targets_one_hot(logits, target)
@@ -75,18 +75,18 @@ class LabelSmoothing(Algorithm):
             is the target. Default: ``1``.
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            from composer.algorithms import LabelSmoothing
-            algorithm = LabelSmoothing(smoothing=0.1)
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                algorithms=[algorithm],
-                optimizers=[optimizer]
-            )
+    from composer.algorithms import LabelSmoothing
+    algorithm = LabelSmoothing(smoothing=0.1)
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration="1ep",
+        algorithms=[algorithm],
+        optimizers=[optimizer]
+    )
     """
 
     def __init__(

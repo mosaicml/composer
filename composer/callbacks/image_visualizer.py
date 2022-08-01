@@ -24,19 +24,19 @@ class ImageVisualizer(Callback):
     images under the ``Images/Train`` and ``Image/Eval`` keys.
 
     Example:
-        .. doctest::
+    .. doctest::
 
-            >>> from composer import Trainer
-            >>> from composer.callbacks import ImageVisualizer
-            >>> # constructing trainer object with this callback
-            >>> trainer = Trainer(
-            ...     model=model,
-            ...     train_dataloader=train_dataloader,
-            ...     eval_dataloader=eval_dataloader,
-            ...     optimizers=optimizer,
-            ...     max_duration="1ep",
-            ...     callbacks=[ImageVisualizer()],
-            ... )
+    >>> from composer import Trainer
+    >>> from composer.callbacks import ImageVisualizer
+    >>> # constructing trainer object with this callback
+    >>> trainer = Trainer(
+    ...     model=model,
+    ...     train_dataloader=train_dataloader,
+    ...     eval_dataloader=eval_dataloader,
+    ...     optimizers=optimizer,
+    ...     max_duration="1ep",
+    ...     callbacks=[ImageVisualizer()],
+    ... )
 
     The images are logged by the :class:`.Logger` to the following key(s) as described
     below.

@@ -192,10 +192,10 @@ class Event(StringEnum):
         Events that have a corresponding "before" or "after" event share the same canonical name.
 
         Example:
-            >>> Event.EPOCH_START.canonical_name
-            'epoch'
-            >>> Event.EPOCH_END.canonical_name
-            'epoch'
+        >>> Event.EPOCH_START.canonical_name
+        'epoch'
+        >>> Event.EPOCH_END.canonical_name
+        'epoch'
 
         Returns:
             str: The canonical name of the event.

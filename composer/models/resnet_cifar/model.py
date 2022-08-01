@@ -33,9 +33,9 @@ def composer_resnet_cifar(model_name: str,
 
     .. testcode::
 
-        from composer.models import composer_resnet_cifar
+    from composer.models import composer_resnet_cifar
 
-        model = composer_resnet_cifar(model_name="resnet_56")  # creates a resnet56 for cifar image classification
+    model = composer_resnet_cifar(model_name="resnet_56")  # creates a resnet56 for cifar image classification
 
     .. _blog: https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/
     """

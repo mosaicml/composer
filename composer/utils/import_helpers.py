@@ -44,15 +44,15 @@ def import_object(name: str) -> Any:
 
             Separate the module name and class name with a ``':'`` (e.g. ``'path.to.module:function_name'``).
 
-            Example:
+    Example:
 
-                >>> from composer.utils import import_object
-                >>> import_object('functools:partial')
-                <class 'functools.partial'>
+    >>> from composer.utils import import_object
+    >>> import_object('functools:partial')
+    <class 'functools.partial'>
 
-            .. note::
+    .. note::
 
-                The module name must be discoverale with the Python path, as determined by :attr:`sys.path`.
+        The module name must be discoverale with the Python path, as determined by :attr:`sys.path`.
 
     Returns:
         Any: The imported object.

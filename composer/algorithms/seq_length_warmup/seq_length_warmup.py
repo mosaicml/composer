@@ -67,13 +67,13 @@ def set_batch_sequence_length(
 
     .. code-block::
 
-        import composer.functional as cf
+    import composer.functional as cf
 
-        for epoch in range(num_epochs):
-            for X, y in train_loader:
-                X = cf.set_batch_sequence_length(X, sequence_length)
-                y_hat = model(X)
-                loss = loss_fn(y_hat, y)
+    for epoch in range(num_epochs):
+        for X, y in train_loader:
+            X = cf.set_batch_sequence_length(X, sequence_length)
+            y_hat = model(X)
+            loss = loss_fn(y_hat, y)
     """
 
     assert isinstance(batch, Mapping)
@@ -181,20 +181,20 @@ class SeqLengthWarmup(Algorithm):
 
     .. code-block::
 
-        from composer.algorithms import SeqLengthWarmup
-        from composer import Trainer
+    from composer.algorithms import SeqLengthWarmup
+    from composer import Trainer
 
-        seq_length_warmup = SeqLengthWarmup(duration=0.5,
-                                            min_seq_length=8,
-                                            max_seq_length=1024,
-                                            step_size=8,
-                                            truncate=True,
-                                            preserve_end_of_sequence=False)
+    seq_length_warmup = SeqLengthWarmup(duration=0.5,
+                                        min_seq_length=8,
+                                        max_seq_length=1024,
+                                        step_size=8,
+                                        truncate=True,
+                                        preserve_end_of_sequence=False)
 
-        trainer = Trainer(model=model,
-                          train_dataloader=train_dataloader,
-                          max_duration="1ep",
-                          algorithms=[seq_length_warmup])
+    trainer = Trainer(model=model,
+                        train_dataloader=train_dataloader,
+                        max_duration="1ep",
+                        algorithms=[seq_length_warmup])
 
     Args:
         duration (float, optional): Fraction of total training for sequential length

@@ -38,18 +38,18 @@ class ChannelsLast(Algorithm):
     Has no hyperparameters.
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            from composer.algorithms import ChannelsLast
-            algorithm = ChannelsLast()
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                algorithms=[algorithm],
-                optimizers=[optimizer]
-            )
+    from composer.algorithms import ChannelsLast
+    algorithm = ChannelsLast()
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration="1ep",
+        algorithms=[algorithm],
+        optimizers=[optimizer]
+    )
     """
 
     def __init__(self):

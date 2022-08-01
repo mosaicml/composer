@@ -99,24 +99,24 @@ class InMemoryLogger(LoggerDestination):
                 ...], "batch": [49, 98, 147, 196, ...], ...}
 
         Example:
-            .. testcode::
+        .. testcode::
 
-                import matplotlib.pyplot as plt
+        import matplotlib.pyplot as plt
 
-                from composer.loggers import InMemoryLogger, LogLevel
-                from composer.core.time import Time, Timestamp
+        from composer.loggers import InMemoryLogger, LogLevel
+        from composer.core.time import Time, Timestamp
 
-                in_mem_logger = InMemoryLogger(LogLevel.BATCH)
+        in_mem_logger = InMemoryLogger(LogLevel.BATCH)
 
-                # Populate the logger with data
-                for b in range(0,3):
-                    datapoint = b * 3
-                    in_mem_logger.log_data(state=state, log_level=LogLevel.BATCH, data={"accuracy/val": datapoint})
+        # Populate the logger with data
+        for b in range(0,3):
+            datapoint = b * 3
+            in_mem_logger.log_data(state=state, log_level=LogLevel.BATCH, data={"accuracy/val": datapoint})
 
-                timeseries = in_mem_logger.get_timeseries("accuracy/val")
-                plt.plot(timeseries["batch"], timeseries["accuracy/val"])
-                plt.xlabel("Batch")
-                plt.ylabel("Validation Accuracy")
+        timeseries = in_mem_logger.get_timeseries("accuracy/val")
+        plt.plot(timeseries["batch"], timeseries["accuracy/val"])
+        plt.xlabel("Batch")
+        plt.ylabel("Validation Accuracy")
         """
         # Check that desired metric is in present data
         if metric not in self.data.keys():

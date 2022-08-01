@@ -67,30 +67,30 @@ class FusedLayerNorm(Algorithm):
     Runs on ``Event.INIT``, so it can replace all instances of `torch.nn.LayerNorm` before the model is DDP wrapped. Has no hyperparameters.
 
     Example:
-        .. testsetup::
+    .. testsetup::
 
-           def no_op(self, *args): pass
+    def no_op(self, *args): pass
 
-           from composer.algorithms import FusedLayerNorm
+    from composer.algorithms import FusedLayerNorm
 
-           FusedLayerNorm.__init__ = no_op
+    FusedLayerNorm.__init__ = no_op
 
-           FusedLayerNorm.apply = no_op
+    FusedLayerNorm.apply = no_op
 
-           model, train_dataloader, optimizer = _make_synthetic_bert_state()
+    model, train_dataloader, optimizer = _make_synthetic_bert_state()
 
-        .. testcode::
+    .. testcode::
 
-           from composer.algorithms import FusedLayerNorm
+    from composer.algorithms import FusedLayerNorm
 
-           algorithm = FusedLayerNorm()
-           trainer = Trainer(
-               model=model,
-               train_dataloader=train_dataloader,
-               max_duration="1ep",
-               algorithms=[algorithm],
-               optimizers=[optimizer]
-           )
+    algorithm = FusedLayerNorm()
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration="1ep",
+        algorithms=[algorithm],
+        optimizers=[optimizer]
+    )
     """
 
     def __init__(self):

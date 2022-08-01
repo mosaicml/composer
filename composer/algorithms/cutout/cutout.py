@@ -47,10 +47,10 @@ def cutout_batch(input: ImgT, num_holes: int = 1, length: float = 0.5, uniform_s
             dimension determined by ``length`` replaced with zeros.
 
     Example:
-         .. testcode::
+    .. testcode::
 
-            from composer.algorithms.cutout import cutout_batch
-            new_input_batch = cutout_batch(X_example, num_holes=1, length=0.25)
+    from composer.algorithms.cutout import cutout_batch
+    new_input_batch = cutout_batch(X_example, num_holes=1, length=0.25)
     """
     X_tensor = image_as_type(input, torch.Tensor)
     h = X_tensor.shape[-2]
@@ -81,20 +81,20 @@ class CutOut(Algorithm):
     This implementation cuts out the same square from all images in a batch.
 
     Example:
-         .. testcode::
+    .. testcode::
 
-            from composer.algorithms import CutOut
-            from composer.trainer import Trainer
+    from composer.algorithms import CutOut
+    from composer.trainer import Trainer
 
-            cutout_algorithm = CutOut(num_holes=1, length=0.25)
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                algorithms=[cutout_algorithm],
-                optimizers=[optimizer]
-            )
+    cutout_algorithm = CutOut(num_holes=1, length=0.25)
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration="1ep",
+        algorithms=[cutout_algorithm],
+        optimizers=[optimizer]
+    )
 
     Args:
         num_holes (int, optional): Integer number of holes to cut out.

@@ -54,15 +54,15 @@ def apply_squeeze_excite(
         The modified model
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            import composer.functional as cf
-            from torchvision import models
-            model = models.resnet50()
-            cf.apply_stochastic_depth(
-                model,
-                target_layer_name='ResNetBottleneck'
-            )
+    import composer.functional as cf
+    from torchvision import models
+    model = models.resnet50()
+    cf.apply_stochastic_depth(
+        model,
+        target_layer_name='ResNetBottleneck'
+    )
     """
 
     def convert_module(module: torch.nn.Module, module_index: int):

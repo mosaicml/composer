@@ -59,9 +59,9 @@ def composer_resnet(model_name: str,
 
     .. testcode::
 
-        from composer.models import composer_resnet
+    from composer.models import composer_resnet
 
-        model = composer_resnet(model_name='resnet18')  # creates a torchvision resnet18 for image classification
+    model = composer_resnet(model_name='resnet18')  # creates a torchvision resnet18 for image classification
     """
 
     valid_model_names = ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']

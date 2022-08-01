@@ -126,18 +126,18 @@ class SAM(Algorithm):
             roughly twice as much time to complete. Default: ``1``.
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            from composer.algorithms import SAM
-            algorithm = SAM(rho=0.05, epsilon=1.0e-12, interval=1)
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                algorithms=[algorithm],
-                optimizers=[optimizer],
-            )
+    from composer.algorithms import SAM
+    algorithm = SAM(rho=0.05, epsilon=1.0e-12, interval=1)
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration="1ep",
+        algorithms=[algorithm],
+        optimizers=[optimizer],
+    )
     """
 
     def __init__(

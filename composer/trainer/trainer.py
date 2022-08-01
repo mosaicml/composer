@@ -465,37 +465,37 @@ class Trainer:
 
             .. testsetup::
 
-                import composer.trainer
+            import composer.trainer
 
-                composer.trainer.trainer.load_checkpoint = lambda *args, **kwargs: None
+            composer.trainer.trainer.load_checkpoint = lambda *args, **kwargs: None
 
             .. testcode::
 
-                from composer import Trainer
-                from composer.utils import LibcloudObjectStore
+            from composer import Trainer
+            from composer.utils import LibcloudObjectStore
 
-                # Create the object store provider with the specified credentials
-                creds = {"key": "object_store_key",
-                         "secret": "object_store_secret"}
-                store = LibcloudObjectStore(provider="s3",
-                                            container="my_container",
-                                            provider_kwargs=creds)
+            # Create the object store provider with the specified credentials
+            creds = {"key": "object_store_key",
+                        "secret": "object_store_secret"}
+            store = LibcloudObjectStore(provider="s3",
+                                        container="my_container",
+                                        provider_kwargs=creds)
 
-                checkpoint_path = "./path_to_the_checkpoint_in_object_store"
+            checkpoint_path = "./path_to_the_checkpoint_in_object_store"
 
-                # Create a trainer which will load a checkpoint from the specified object store
-                trainer = Trainer(
-                    model=model,
-                    train_dataloader=train_dataloader,
-                    max_duration="10ep",
-                    eval_dataloader=eval_dataloader,
-                    optimizers=optimizer,
-                    schedulers=scheduler,
-                    device="cpu",
-                    eval_interval="1ep",
-                    load_path=checkpoint_path,
-                    load_object_store=store,
-                )
+            # Create a trainer which will load a checkpoint from the specified object store
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                max_duration="10ep",
+                eval_dataloader=eval_dataloader,
+                optimizers=optimizer,
+                schedulers=scheduler,
+                device="cpu",
+                eval_interval="1ep",
+                load_path=checkpoint_path,
+                load_object_store=store,
+            )
         load_weights_only (bool, optional): Whether or not to only restore the weights from the checkpoint without
             restoring the associated state. Ignored if ``load_path`` is ``None``. (default: ``False``)
         load_strict_model_weights (bool, optional): Ensure that the set of weights in the checkpoint and model must exactly match.
@@ -1186,30 +1186,30 @@ class Trainer:
 
         .. testcode::
 
-            # Construct the trainer
-            trainer = Trainer(max_duration="1ep")
+        # Construct the trainer
+        trainer = Trainer(max_duration="1ep")
 
-            # Train for 1 epoch
-            trainer.fit()
-            assert trainer.state.timestamp.epoch == "1ep"
+        # Train for 1 epoch
+        trainer.fit()
+        assert trainer.state.timestamp.epoch == "1ep"
 
-            # Reset the time to 0, then train for 1 epoch
-            trainer.fit(reset_time=True)
-            assert trainer.state.timestamp.epoch == "1ep"
+        # Reset the time to 0, then train for 1 epoch
+        trainer.fit(reset_time=True)
+        assert trainer.state.timestamp.epoch == "1ep"
 
-            # Train for another epoch (2 epochs total)
-            trainer.fit(duration="1ep")
-            assert trainer.state.timestamp.epoch == "2ep"
+        # Train for another epoch (2 epochs total)
+        trainer.fit(duration="1ep")
+        assert trainer.state.timestamp.epoch == "2ep"
 
-            # Train for another batch (2 epochs + 1 batch total)
-            # It's OK to switch time units!
-            trainer.fit(duration="1ba")
-            assert trainer.state.timestamp.epoch == "2ep"
-            assert trainer.state.timestamp.batch_in_epoch == "1ba"
+        # Train for another batch (2 epochs + 1 batch total)
+        # It's OK to switch time units!
+        trainer.fit(duration="1ba")
+        assert trainer.state.timestamp.epoch == "2ep"
+        assert trainer.state.timestamp.batch_in_epoch == "1ba"
 
-            # Reset the time, then train for 3 epochs
-            trainer.fit(reset_time=True, duration="3ep")
-            assert trainer.state.timestamp.epoch == "3ep"
+        # Reset the time, then train for 3 epochs
+        trainer.fit(reset_time=True, duration="3ep")
+        assert trainer.state.timestamp.epoch == "3ep"
 
         Args:
             train_dataloader (Iterable | DataSpec | Dict[str, Any], optional): See :class:`.Trainer`.
@@ -1853,43 +1853,43 @@ class Trainer:
 
             .. testsetup::
 
-                predict_dl = train_dataloader
+            predict_dl = train_dataloader
 
             .. testcode::
 
-                import os
-                import torch
+            import os
+            import torch
 
-                from torch.utils.data import DataLoader
+            from torch.utils.data import DataLoader
 
-                from composer import Trainer, Callback
-                from composer.loggers import Logger, LogLevel
+            from composer import Trainer, Callback
+            from composer.loggers import Logger, LogLevel
 
-                class PredictionSaver(Callback):
-                    def __init__(self, folder: str):
-                        self.folder = folder
-                        os.makedirs(self.folder, exist_ok=True)
+            class PredictionSaver(Callback):
+                def __init__(self, folder: str):
+                    self.folder = folder
+                    os.makedirs(self.folder, exist_ok=True)
 
-                    def predict_batch_end(self, state: State, logger: Logger) -> None:
-                        name = f'batch_{int(state.predict_timestamp.batch)}.pt'
-                        filepath = os.path.join(self.folder, name)
-                        torch.save(state.outputs, filepath)
+                def predict_batch_end(self, state: State, logger: Logger) -> None:
+                    name = f'batch_{int(state.predict_timestamp.batch)}.pt'
+                    filepath = os.path.join(self.folder, name)
+                    torch.save(state.outputs, filepath)
 
-                        # Also log the outputs as an artifact
-                        logger.file_artifact(LogLevel.BATCH, artifact_name=name, file_path=filepath)
+                    # Also log the outputs as an artifact
+                    logger.file_artifact(LogLevel.BATCH, artifact_name=name, file_path=filepath)
 
-                trainer = Trainer(
-                    ...,
-                    callbacks=PredictionSaver('./predict_outputs'),
-                )
+            trainer = Trainer(
+                ...,
+                callbacks=PredictionSaver('./predict_outputs'),
+            )
 
-                trainer.predict(predict_dl, return_outputs=False)
+            trainer.predict(predict_dl, return_outputs=False)
 
-                print(sorted(os.listdir('./predict_outputs')))
+            print(sorted(os.listdir('./predict_outputs')))
 
             .. testoutput::
 
-                ['batch_1.pt', ...]
+            ['batch_1.pt', ...]
 
         Args:
             dataloader (DataLoader | DataSpec): The :class:`.DataLoader` or

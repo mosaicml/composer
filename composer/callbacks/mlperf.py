@@ -77,17 +77,17 @@ class MLPerfCallback(Callback):
     Currently, only open division submissions are supported with this Callback.
 
     Example:
-        .. code-block:: python
+    .. code-block:: python
 
-            from composer.callbacks import MLPerfCallback
+    from composer.callbacks import MLPerfCallback
 
-            callback = MLPerfCallback(
-                root_folder='/submission',
-                index=0,
-                metric_name='Accuracy',
-                metric_label='eval',
-                target='0.759',
-            )
+    callback = MLPerfCallback(
+        root_folder='/submission',
+        index=0,
+        metric_name='Accuracy',
+        metric_label='eval',
+        target='0.759',
+    )
 
     During training, the metric found in ``state.current_metrics[metric_label][metric_name]``
     will be compared against the target criterion.

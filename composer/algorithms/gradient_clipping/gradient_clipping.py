@@ -80,19 +80,19 @@ class GradientClipping(Algorithm):
     Runs on ``Event.AFTER_TRAIN_BATCH``.
 
     Example:
-         .. testcode::
+    .. testcode::
 
-            from composer.algorithms import GradientClipping
-            from composer.trainer import Trainer
-            gc = GradientClipping(clipping_type='norm', clipping_threshold=0.1)
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                algorithms=[gc],
-                optimizers=[optimizer]
-            )
+    from composer.algorithms import GradientClipping
+    from composer.trainer import Trainer
+    gc = GradientClipping(clipping_type='norm', clipping_threshold=0.1)
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration="1ep",
+        algorithms=[gc],
+        optimizers=[optimizer]
+    )
 
     Args:
         clipping_type ('adaptive', 'norm', 'value'): String denoting which type of

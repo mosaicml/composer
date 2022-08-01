@@ -42,12 +42,12 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
         The modified model
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            import composer.functional as cf
-            from torchvision import models
-            model = models.resnet50()
-            cf.apply_ghost_batchnorm(model)
+    import composer.functional as cf
+    from torchvision import models
+    model = models.resnet50()
+    cf.apply_ghost_batchnorm(model)
     """
 
     def maybe_replace(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:

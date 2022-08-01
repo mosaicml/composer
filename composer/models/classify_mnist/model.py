@@ -61,9 +61,9 @@ def mnist_model(num_classes: int = 10, initializers: Optional[List[Initializer]]
 
     .. testcode::
 
-        from composer.models import mnist_model
+    from composer.models import mnist_model
 
-        model = mnist_model()
+    model = mnist_model()
     """
 
     if initializers is None:

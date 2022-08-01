@@ -134,22 +134,22 @@ class GatedLinearUnits(Algorithm):
         non_gated_layer_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
 
     Example:
-        .. testsetup::
+    .. testsetup::
 
-           model, train_dataloader, optimizer = _make_synthetic_bert_state()
+    model, train_dataloader, optimizer = _make_synthetic_bert_state()
 
-        .. testcode::
+    .. testcode::
 
-           from composer.algorithms import GatedLinearUnits
+    from composer.algorithms import GatedLinearUnits
 
-           algorithm = GatedLinearUnits()
-           trainer = Trainer(
-               model=model,
-               train_dataloader=train_dataloader,
-               max_duration="1ep",
-               algorithms=[algorithm],
-               optimizers=[optimizer]
-           )
+    algorithm = GatedLinearUnits()
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration="1ep",
+        algorithms=[algorithm],
+        optimizers=[optimizer]
+    )
     """
 
     def __init__(self,

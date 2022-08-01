@@ -56,19 +56,19 @@ def mixup_batch(input: torch.Tensor,
         mixing (torch.Tensor): the amount of mixing used
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            import torch
-            from composer.functional import mixup_batch
+    import torch
+    from composer.functional import mixup_batch
 
-            N, C, H, W = 2, 3, 4, 5
-            X = torch.randn(N, C, H, W)
-            y = torch.randint(num_classes, size=(N,))
-            X_mixed, y_perm, mixing = mixup_batch(
-                X,
-                y,
-                alpha=0.2,
-            )
+    N, C, H, W = 2, 3, 4, 5
+    X = torch.randn(N, C, H, W)
+    y = torch.randint(num_classes, size=(N,))
+    X_mixed, y_perm, mixing = mixup_batch(
+        X,
+        y,
+        alpha=0.2,
+    )
     """
     if mixing is None:
         mixing = _gen_mixing_coef(alpha)
@@ -115,18 +115,18 @@ class MixUp(Algorithm):
             is the target. Default: ``1``.
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            from composer.algorithms import MixUp
-            algorithm = MixUp(alpha=0.2)
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                algorithms=[algorithm],
-                optimizers=[optimizer]
-            )
+    from composer.algorithms import MixUp
+    algorithm = MixUp(alpha=0.2)
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration="1ep",
+        algorithms=[algorithm],
+        optimizers=[optimizer]
+    )
     """
 
     def __init__(

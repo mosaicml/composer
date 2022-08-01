@@ -33,16 +33,16 @@ def freeze_layers(
     during training, starting with the earlier layers.
 
     Example:
-         .. testcode::
+    .. testcode::
 
-            from composer.algorithms.layer_freezing import freeze_layers
-            freeze_depth, feeze_level = freeze_layers(
-                                            model=model,
-                                            optimizers=optimizer,
-                                            current_duration=0.5,
-                                            freeze_start=0.0,
-                                            freeze_level=1.0
-                                        )
+    from composer.algorithms.layer_freezing import freeze_layers
+    freeze_depth, feeze_level = freeze_layers(
+                                    model=model,
+                                    optimizers=optimizer,
+                                    current_duration=0.5,
+                                    freeze_start=0.0,
+                                    freeze_level=1.0
+                                )
 
 
     Args:
@@ -98,22 +98,22 @@ class LayerFreezing(Algorithm):
     Runs on :attr:`~composer.core.event.Event.EPOCH_END`.
 
     Example:
-         .. testcode::
+    .. testcode::
 
-            from composer.algorithms import LayerFreezing
-            from composer.trainer import Trainer
-            layer_freezing_algorithm = LayerFreezing(
-                freeze_start=0.0,
-                freeze_level=1.0
-            )
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                algorithms=[layer_freezing_algorithm],
-                optimizers=[optimizer]
-            )
+    from composer.algorithms import LayerFreezing
+    from composer.trainer import Trainer
+    layer_freezing_algorithm = LayerFreezing(
+        freeze_start=0.0,
+        freeze_level=1.0
+    )
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration="1ep",
+        algorithms=[layer_freezing_algorithm],
+        optimizers=[optimizer]
+    )
 
     Args:
         freeze_start (float): The fraction of training to run before freezing begins. Default: ``0.5``.

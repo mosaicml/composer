@@ -45,11 +45,11 @@ class ComposerClassifier(ComposerModel):
 
     .. testcode::
 
-        import torchvision
-        from composer.models import ComposerClassifier
+    import torchvision
+    from composer.models import ComposerClassifier
 
-        pytorch_model = torchvision.models.resnet18(pretrained=False)
-        model = ComposerClassifier(pytorch_model)
+    pytorch_model = torchvision.models.resnet18(pretrained=False)
+    model = ComposerClassifier(pytorch_model)
     """
 
     num_classes: Optional[int] = None

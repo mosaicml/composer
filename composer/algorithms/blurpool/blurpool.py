@@ -59,12 +59,12 @@ def apply_blurpool(model: torch.nn.Module,
         The modified model
 
     Example:
-        .. testcode::
+    .. testcode::
 
-            import composer.functional as cf
-            from torchvision import models
-            model = models.resnet50()
-            cf.apply_blurpool(model)
+    import composer.functional as cf
+    from torchvision import models
+    model = models.resnet50()
+    cf.apply_blurpool(model)
     """
     transforms = {}
     if replace_maxpools:
