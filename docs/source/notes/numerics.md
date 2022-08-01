@@ -15,7 +15,6 @@ When using the {class}`~.Trainer`, the number format can be selected by specifyi
 initialization. In the example below, we are training on a `gpu` device using [Automatic Mixed Precision](amp) (`amp`):
 
 <!--pytest.mark.gpu-->
-<!--pytest.mark.timeout(15)-->
 <!--
 ```python
 from torch.utils.data import DataLoader

@@ -241,7 +241,6 @@ def check_output(proc: subprocess.CompletedProcess):
     raise RuntimeError(error_msg)
 
 
-@pytest.mark.timeout(30)
 @pytest.mark.parametrize('exception', [True, False])
 def test_engine_closes_on_atexit(exception: bool):
     # Running this test via a subprocess, as atexit() must trigger

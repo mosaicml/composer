@@ -26,15 +26,7 @@ def train():
     else:
         if wandb.run is not None:
             wandb.config.update(hparams.to_dict())
-    
-    if dist.get_global_rank() == 0:
-        with tempfile.NamedTemporaryFile(mode="x+") as f:
-            f.write(hparams.to_yaml())
-            trainer.logger.file_artifact(LogLevel.FIT,
-                                         artifact_name='bla',
-                                         file_path=f.name,
-                                         overwrite=True)
-    
+        
     trainer.fit()
 
     

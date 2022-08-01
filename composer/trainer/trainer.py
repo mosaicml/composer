@@ -106,8 +106,6 @@ def _get_training_metrics(model: ComposerModel):
 def _validate_precision(precision: Precision, device: Device, deepspeed_enabled: bool):
     if isinstance(device, DeviceCPU) and precision != Precision.FP32:
         raise ValueError(f'{precision} is not supproted for CPU training.')
-    if not deepspeed_enabled and precision == Precision.FP16:
-        raise ValueError('FP16 precision is only supported when training with DeepSpeed.')
 
 
 def _compile_schedulers(
@@ -777,7 +775,7 @@ class Trainer:
         if isinstance(precision, str):
             precision = Precision(precision)
 
-        #_validate_precision(precision, self._device, deepspeed_enabled)
+        _validate_precision(precision, self._device, deepspeed_enabled)
 
         # Optimizers and Schedulers
         if not optimizers:
@@ -1697,14 +1695,11 @@ class Trainer:
                         'A deadlock was encountered in the train loop, likely because a strict subset of '
                         'ranks encountered CUDA OOM when `grad_accum=auto`. Try manually setting `grad_accum` '
                         'instead.') from e
-            # Synchronize new batch compute time
-            batch_compute_time = end_time - start_time
-            batch_compute_time = self._device.tensor_to_device(torch.tensor([batch_compute_time], dtype=torch.float))
-            dist.all_reduce(batch_compute_time, reduce_operation='MAX')
-            self.batch_compute_time = batch_compute_time.item()
+
             # Propagate across all ranks if any rank hit CUDA OOM
             should_handle_cuda_oom = self._device.tensor_to_device(
                 torch.tensor([should_handle_cuda_oom], dtype=torch.uint8))
+
             if type(self._device) != DeviceTPU:
                 dist.all_reduce(should_handle_cuda_oom, reduce_operation='MAX')
             if int(should_handle_cuda_oom.item()) == 1:
@@ -1722,8 +1717,15 @@ class Trainer:
                     log.info(('CUDA out of memory detected. Gradient Accumulation '
                               f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
                               'and the batch will be retrained.'))
+            # Otherwise, log grad_accum and return calculated loss
             else:
-                # Otherwise, log grad_accum and return calculated loss
+                # Synchronize new batch compute time
+                batch_compute_time = end_time - start_time
+                batch_compute_time = self._device.tensor_to_device(torch.tensor([batch_compute_time],
+                                                                                dtype=torch.float))
+                dist.all_reduce(batch_compute_time, reduce_operation='MAX')
+                self.batch_compute_time = batch_compute_time.item()
+
                 self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
                 return total_loss
 

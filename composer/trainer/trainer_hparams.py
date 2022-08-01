@@ -86,7 +86,7 @@ def _initialize_dataloader(
                 f'The batch size for {dataloader_label} must be specified if the {dataloader_label} dataset is specified'
             )
 
-        train_device_batch_size = batch_size // dist.get_world_size()            
+        train_device_batch_size = batch_size // dist.get_world_size()
         if dataset_hparams.shuffle and subset_num_batches is not None:
             warnings.warn(
                 (f'SubsetNumBatchesWarning: When specifying `subset_num_batches` for the {dataloader_label} dataset, '
@@ -433,6 +433,9 @@ class TrainerHparams(hp.Hparams):
         # Device
         device = self.device
 
+        if device is None:
+            device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU()
+            
         # Distributed
         # Initialized here so it is available within dataloaders
         if dist.get_world_size() > 1:

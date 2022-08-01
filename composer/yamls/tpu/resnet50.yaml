@@ -18,8 +18,8 @@ optimizers:
     dampening: 0
     nesterov: false
 schedulers: {}
-  #- cosine_decay_with_warmup:
-  #    t_warmup: "8ep"
+  - cosine_decay_with_warmup:
+      t_warmup: "8ep"
 model:
   resnet:
     model_name: resnet50
