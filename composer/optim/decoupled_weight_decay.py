@@ -34,7 +34,7 @@ class DecoupledSGDW(SGD):
 
     Args:
         params (list): List of parameters to optimize or dicts defining parameter groups.
-        lr (float, required): Learning rate.
+        lr (float): Learning rate.
         momentum (int, optional): Momentum factor. Default: ``0``.
         dampening (int, optional): Dampening factor applied to the momentum. Default: ``0``.
         weight_decay (int, optional): Decoupled weight decay factor. Default: ``0``.
