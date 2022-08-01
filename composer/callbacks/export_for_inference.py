@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+from copy import deepcopy
 from typing import Any, Optional, Sequence, Union
 
 from composer.core import State
@@ -69,7 +70,7 @@ class ExportForInferenceCallback(Callback):
     def after_dataloader(self, state: State, logger: Logger) -> None:
         del logger
         if self.sample_input is None:
-            self.sample_input = state.batch
+            self.sample_input = deepcopy(state.batch)
 
     def fit_end(self, state: State, logger: Logger):
         del logger
