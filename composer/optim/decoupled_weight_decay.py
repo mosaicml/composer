@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import List, Tuple
+from typing import Iterable, List, Tuple, Union
 
 import torch
 from torch.optim import SGD, AdamW
-from torch.optim.optimizer import _params_t, required  # type: ignore
+from torch.optim.optimizer import required  # type: ignore
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ class DecoupledSGDW(SGD):
     """
 
     def __init__(self,
-                 params: _params_t,
+                 params: Union[Iterable[torch.Tensor], Iterable[dict]],
                  lr: float = required,
                  momentum: float = 0,
                  dampening: float = 0,
@@ -173,7 +173,7 @@ class DecoupledAdamW(AdamW):
     """
 
     def __init__(self,
-                 params: _params_t,
+                 params: Union[Iterable[torch.Tensor], Iterable[dict]],
                  lr: float = 1e-3,
                  betas: Tuple[float, float] = (0.9, 0.95),
                  eps: float = 1e-8,
