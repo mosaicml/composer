@@ -179,7 +179,7 @@ class DecoupledAdamW(AdamW):
                  eps: float = 1e-8,
                  weight_decay: float = 1e-5,
                  amsgrad: bool = False):
-        super(DecoupledAdamW, self).__init__(params=params,
+        super().__init__(params=params,
                                              lr=lr,
                                              betas=betas,
                                              eps=eps,
