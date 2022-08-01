@@ -3,14 +3,12 @@
 
 """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :func:`.composer_yolox`."""
 
-import textwrap
 from dataclasses import dataclass
 from typing import Optional
 
 import yahp as hp
 
 from composer.models.model_hparams import ModelHparams
-from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['YoloXHparams']
 

@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import TYPCHECKING, List, Optional
 
 from torchmetrics import Metric
 from torchmetrics.collections import MetricCollection
@@ -61,11 +61,10 @@ class MMDetModel(ComposerModel):
             self.valid_metrics = metric_collection.clone(prefix='val_')
 
     def forward(self, batch):
-        return self.model(
-            **batch)  # this will return a dictionary of 3 losses in train mode and model outputs in test mode
+        return self.model(**batch) # this will return a dictionary of 3 losses in train mode and model outputs in test mode
 
     def loss(self, outputs, batch, **kwargs):
-        return outputs
+        return outputs  
 
     def validate(self, batch):
         # TODO model.forward can only take one image at a time in test mode...
