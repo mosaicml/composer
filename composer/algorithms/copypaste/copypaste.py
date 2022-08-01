@@ -38,50 +38,12 @@ def imshow_tensor(tensor):
     plt.imshow(arr)
     
 
-
 def imshow_1d_tensor(tensor):
     plt.figure()
     arr = tensor.cpu().numpy()
     # arr = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
     plt.imshow(arr+1, cmap="gray")
     
-
-
-def copypaste_batch_backup(input_dict, configs):
-    """
-    Randomly pastes objects onto an image.
-    """
-
-    output_dict = {
-     "masks": [],
-     "images": []
-    }
-
-    batch_size = len(input_dict["images"])
-
-    while(len(output_dict["images"]) < batch_size):
-        [i, j] = np.random.randint(0, high=batch_size, size=2)
-
-        num_instances = input_dict["masks"][i].shape[0]
-        num_copied_instances = random.randint(0, num_instances)
-        if configs["max_copied_instances"] is not None:
-            num_copied_instances = min(num_copied_instances, configs["max_copied_instances"])
-
-        rng = default_rng()
-        src_instance_ids = rng.choice(num_instances, size=num_copied_instances, replace=False)
-
-        trg_image = input_dict["images"][j]
-        trg_masks = input_dict["masks"][j]
-
-        if random.uniform(0, 1) < configs["p"]:
-            for idx in range(num_copied_instances):
-                trg_image, trg_masks = _copypaste_instance(input_dict, trg_image, trg_masks, i, src_instance_ids[idx], configs)
-
-        output_dict["images"].append(trg_image)
-        output_dict["masks"].append(trg_masks)
-
-    return output_dict
-
 
 def _aggregate_masks(masks):
     
@@ -122,33 +84,20 @@ def copypaste_batch(images, masks, configs):
     while batch_idx < batch_size:
         [i, j] = np.random.randint(0, high=batch_size, size=2)
 
-        # num_instances = input_dict["masks"][i].shape[0]
-
         num_instances = _count_instances(masks[i])
         num_copied_instances = random.randint(0, num_instances)
         if configs["max_copied_instances"] is not None:
             num_copied_instances = min(num_copied_instances, configs["max_copied_instances"])
 
-
         src_instance_ids = _get_instance_ids(masks[i], num_copied_instances, configs["bg_color"])
-
 
         trg_image = images[j]
         trg_mask = masks[j]
-        # print("- num_copied_instances = ", num_copied_instances, ", instance_ids = ", src_instance_ids)
-        # imshow_1d_tensor(masks[i])
-        # imshow_tensor(images[i])
-        # imshow_1d_tensor(trg_mask)
-        # imshow_tensor(trg_image)
-        # print("source: ", torch.unique(masks[i]))
-        # print("target: ", torch.unique(trg_mask))
+
         if random.uniform(0, 1) < configs["p"]:
             for src_instance_id in src_instance_ids:
-                # print ("i = ", i, ", j = ", j, " instance_id = ", src_instance_id)
-
                 trg_image, trg_mask = _copypaste_instance(images[i], masks[i], trg_image, trg_mask, src_instance_id, configs)
 
-        
         out_images[batch_idx] = trg_image
         out_masks[batch_idx] = trg_mask
         
@@ -156,15 +105,7 @@ def copypaste_batch(images, masks, configs):
         # visualize_copypaste_sample(images[i], masks[i], images[j], masks[j], trg_image, trg_mask, fig_name=fig_name)
 
         batch_idx += 1
-        # imshow_1d_tensor(trg_mask)
-        # imshow_tensor(trg_image)
-        # print("after: ", torch.unique(trg_mask))
-        # print()
 
-
-        # aggregated_trg_masks = _aggregate_masks(trg_masks)
-        # output_dict["images"].append(trg_image)
-        # output_dict["aggregated_masks"].append(aggregated_trg_masks)
 
 
     return out_images, out_masks
@@ -221,10 +162,6 @@ def visualize_copypaste_sample(src_image, src_mask, trg_image, trg_mask, out_ima
     image = arr + 1
     ax.imshow(image, cmap= "gray")
     clean_axes(ax)
-
-    
-    
-
 
     plt.suptitle("CopyPaste Augmentation Sample", fontweight="bold")
     fig_out_path = os.path.join(".", "debug_out", "samples")
@@ -412,96 +349,15 @@ class CopyPaste(Algorithm):
         masks = state.batch_get_item(key=self.target_key)
 
 
-        # for image in images:
-        #     arr = image.cpu().numpy()
-        #     dr = (np.max(arr) - np.min(arr))
-        #     if dr == 0:
-        #         print("FOUND!")
-        #         print("image DR: ", dr)
-        #         print("^^")
-        
-        # print("BEFORE:")
-        # img = images[0]
-        # msk = masks[0]
-        # print(torch.min(img), " - ", torch.max(img))
-        # print(torch.min(msk), " - ", torch.max(msk))
-        
-
-        # path = os.path.join(".", "debug_out")
-        # if not os.path.isdir(path):
-        #     os.makedirs(path)
-        
-        # save_tensor_to_png(test_image, path, "image2.png")
-        # save_1d_tensor_to_png(test_mask, path, "mask2.png")
-
         batch_num = int(state.timestamp._batch)
 
         out_images, out_masks = copypaste_batch(images, masks, self.configs)
         
         # visualize_copypaste_batch(images, masks, out_images, out_masks, num=7, fig_name="copypaste_test"+str(batch_num))
         
-        # print("AFTER:")
-        # img = out_images[0]
-        # msk = out_masks[0]
-        # print(torch.min(img), " - ", torch.max(img))
-        # print(torch.min(msk), " - ", torch.max(msk))
-        
         state.batch_set_item(key=self.input_key, value=out_images)
         state.batch_set_item(key=self.target_key, value=out_masks)
 
-
-
-
-
-class CopyPaste_backup(Algorithm):
-    """
-    Randomly pastes objects onto an image.
-    """
-
-    def __init__(
-        self,
-        p=0.75,
-        convert_to_binary_mask=True,
-        max_copied_instances=None,
-        area_threshold=100,
-        padding_factor=0.5,
-        jitter_scale=(0.01, 0.99),
-        jitter_ratio=(1.0, 1.0),
-        p_flip=1.0,
-        bg_color=-1,
-        input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
-        target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
-    ):
-        self.input_key = input_key
-        self.target_key = target_key
-        self.configs = {
-            "p": p,
-            "convert_to_binary_mask": convert_to_binary_mask,
-            "max_copied_instances": max_copied_instances,
-            "area_threshold": area_threshold,
-            "padding_factor": padding_factor,
-            "jitter_scale": jitter_scale,
-            "jitter_ratio": jitter_ratio,
-            "p_flip": p_flip,
-            "bg_color": bg_color
-        }
-
-    def match(self, event: Event, state: State) -> bool:
-        return event == Event.AFTER_DATALOADER
-
-    def apply(self, event: Event, state: State, logger: Logger) -> None:
-        input_dict = {
-            "images": [],
-            "masks": []
-        }
-
-        input_dict["images"] = state.batch_get_item(key=self.input_key)
-        input_dict["masks"] = state.batch_get_item(key=self.target_key)
-
-        augmented_dict = copypaste_batch(input_dict, self.configs)  
-
-        state.batch_set_item(key=self.input_key, value=augmented_dict["images"])
-        state.batch_set_item(key=self.target_key, value=augmented_dict["masks"])
 
 
 def _parse_mask_by_id(mask, idx, background_color=-1):
@@ -533,17 +389,16 @@ def _copypaste_instance(src_image, src_mask, trg_image, trg_mask, src_instance_i
     return trg_image, trg_mask
 
 
-def _get_occluded_mask(occluded_mask, configs):
+def _get_occluded_mask(mask, configs):
     threshold = configs["area_threshold"]
 
-    if _ignore_mask(occluded_mask, threshold):
-        return torch.zeros_like(occluded_mask)
+    if _ignore_mask(mask, threshold):
+        return torch.ones_like(mask) * configs["bg_color"]
     else:
-        return occluded_mask
+        return mask
 
 def _get_jitter_transformations(is_mask, padding_size, crop_size, configs):
     fill = 0
-
     if is_mask == 1:
         fill = configs["bg_color"]
 
@@ -572,12 +427,16 @@ def _jitter_instance(arrs, configs):
         
         out.append(_get_occluded_mask(transformed, configs))
     
-
     return out
 
 
-def _ignore_mask(occluded_mask, threshold):
+def _ignore_mask(mask, threshold):
     # TODO: here check if mask area is smaller than a threshold, disregard the mask
     # TODO: check if the mask is too big, ignore them (this relates to the abnormal masks in ADE20K)
+    print()
+    uniques = mask.cpu().numpy()
+
+    print()
+
     return False
 
