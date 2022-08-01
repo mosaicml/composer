@@ -2,11 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Core CopyPaste classes and functions.
-TODO: complete the documenetation.
 
 Notes:
 - add thresholding for small masks
-- mention how you define masks (0 & 1)
 """
 
 from __future__ import annotations
@@ -340,30 +338,17 @@ class CopyPaste(Algorithm):
         return event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        # print()
-        # print("------------------------------------")
-        # print("apply is called")
-        # print("------------------------------------")
-
-        # input_dict = {
-        #     "images": [],
-        #     "aggregated_masks": []
-        # }
-
         images = state.batch_get_item(key=self.input_key)
         masks = state.batch_get_item(key=self.target_key)
 
 
-        for image in images:
-            arr = image.cpu().numpy()
-            dr = (np.max(arr) - np.min(arr))
-            if dr == 0:
-                print("FOUND!")
-                print("image DR: ", dr)
-                print("^^")
-
-
-
+        # for image in images:
+        #     arr = image.cpu().numpy()
+        #     dr = (np.max(arr) - np.min(arr))
+        #     if dr == 0:
+        #         print("FOUND!")
+        #         print("image DR: ", dr)
+        #         print("^^")
         
         # print("BEFORE:")
         # img = images[0]
@@ -380,17 +365,9 @@ class CopyPaste(Algorithm):
         # save_1d_tensor_to_png(test_mask, path, "mask2.png")
 
         batch_num = int(state.timestamp._batch)
-        # input_dict = _parse_segmentation_batch(input_dict)
         out_images, out_masks = copypaste_batch(images, masks, self.configs)
         
-        # visualize_copypaste_batch(images, masks, out_images, out_masks, num=5, fig_name="copypaste_test"+str(batch_num))
-        # augmented_dict = copypaste_batch(input_dict, self.configs)
-
-
-        # here consolidate["masks"] to one flatten mask. you need to preserve mask values for this.
-        # state.batch_set_item(key=self.input_key, value=augmented_dict["images"])
-        # state.batch_set_item(key=self.target_key, value=augmented_dict["masks"])
-
+        visualize_copypaste_batch(images, masks, out_images, out_masks, num=7, fig_name="copypaste_test"+str(batch_num))
         
         # print("AFTER:")
         # img = out_images[0]
@@ -398,11 +375,6 @@ class CopyPaste(Algorithm):
         # print(torch.min(img), " - ", torch.max(img))
         # print(torch.min(msk), " - ", torch.max(msk))
         
-
-        # ## bypassing CopyPaste to make it run on r1z2
-        # state.batch_set_item(key=self.input_key, value=state.batch_get_item(key=self.input_key))
-        # state.batch_set_item(key=self.target_key, value=state.batch_get_item(key=self.target_key))
-
         state.batch_set_item(key=self.input_key, value=out_images)
         state.batch_set_item(key=self.target_key, value=out_masks)
 
