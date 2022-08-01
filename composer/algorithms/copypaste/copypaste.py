@@ -151,6 +151,10 @@ def copypaste_batch(images, masks, configs):
         
         out_images[batch_idx] = trg_image
         out_masks[batch_idx] = trg_mask
+        
+        # fig_name = "copypaste_sample_test" + str(batch_idx)
+        # visualize_copypaste_sample(images[i], masks[i], images[j], masks[j], trg_image, trg_mask, fig_name=fig_name)
+
         batch_idx += 1
         # imshow_1d_tensor(trg_mask)
         # imshow_tensor(trg_image)
@@ -166,15 +170,82 @@ def copypaste_batch(images, masks, configs):
     return out_images, out_masks
 
 
+def visualize_copypaste_sample(src_image, src_mask, trg_image, trg_mask, out_image, out_mask, fig_name=None):
+    if fig_name is None:
+        fig_name = "copypaste_sample_test"
+
+    dpi = 100
+    fig, axarr = plt.subplots(2, 3, figsize=(10, 6), dpi=dpi)
+
+
+    arr = src_image.cpu().numpy()
+    ax = axarr[0, 0]
+    ax.set_title("src_image")
+    image = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
+    ax.imshow(np.transpose(image, (1, 2, 0)))
+    clean_axes(ax)
+
+    arr = src_mask.cpu().numpy()
+    ax = axarr[1, 0]
+    ax.set_title("src_mask")
+    image = arr + 1
+    ax.imshow(image, cmap= "gray")
+    clean_axes(ax)
+
+
+    arr = trg_image.cpu().numpy()
+    ax = axarr[0, 1]
+    ax.set_title("trg_image")
+    image = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
+    ax.imshow(np.transpose(image, (1, 2, 0)))
+    clean_axes(ax)
+
+    arr = trg_mask.cpu().numpy()
+    ax = axarr[1, 1]
+    ax.set_title("trg_mask")
+    image = arr + 1
+    ax.imshow(image, cmap= "gray")
+    clean_axes(ax)
+
+
+    arr = out_image.cpu().numpy()
+    ax = axarr[0, 2]
+    ax.set_title("out_image")
+    image = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
+    ax.imshow(np.transpose(image, (1, 2, 0)))
+    clean_axes(ax)
+
+    arr = out_mask.cpu().numpy()
+    ax = axarr[1, 2]
+    ax.set_title("out_mask")
+    image = arr + 1
+    ax.imshow(image, cmap= "gray")
+    clean_axes(ax)
+
+    
+    
+
+
+    plt.suptitle("CopyPaste Augmentation Sample", fontweight="bold")
+    fig_out_path = os.path.join(".", "debug_out", "samples")
+    
+    if not os.path.isdir(fig_out_path):
+        os.makedirs(fig_out_path)
+    print("sample image saved: ", fig_name)
+
+    plt.savefig(os.path.join(fig_out_path, fig_name + ".png"), dpi=dpi)
+
+
+
 def visualize_copypaste_batch(images, masks, out_images, out_masks, num, fig_name=None):
     if fig_name is None:
         fig_name = "copypaste_test"
-
-    dpi = 100
+    start_index = 50
+    dpi = 200
     fig, axarr = plt.subplots(4, num, figsize=(14, 8), dpi=dpi)
 
     for col in range(min(num, len(images))):
-        arr = images[col].cpu().numpy()
+        arr = images[start_index + col].cpu().numpy()
         image = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
         ax = axarr[0, col]
         ax.imshow(np.transpose(image, (1, 2, 0)))
@@ -182,7 +253,7 @@ def visualize_copypaste_batch(images, masks, out_images, out_masks, num, fig_nam
         clean_axes(ax)
 
     for col in range(min(num, len(masks))):
-        arr = torch.unsqueeze(masks[col], dim=0).cpu().numpy()
+        arr = torch.unsqueeze(masks[start_index + col], dim=0).cpu().numpy()
         image = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
         ax = axarr[1, col]
         ax.imshow(np.transpose(image, (1, 2, 0)), cmap="gray")
@@ -190,7 +261,7 @@ def visualize_copypaste_batch(images, masks, out_images, out_masks, num, fig_nam
         clean_axes(ax)
 
     for col in range(min(num, len(out_images))):
-        arr = out_images[col].cpu().numpy()
+        arr = out_images[start_index + col].cpu().numpy()
         # print("out_images: ", (np.max(arr) - np.min(arr)))
         image = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
         ax = axarr[2, col]
@@ -199,7 +270,7 @@ def visualize_copypaste_batch(images, masks, out_images, out_masks, num, fig_nam
         clean_axes(ax)
 
     for col in range(min(num, len(out_masks))):
-        arr = torch.unsqueeze(out_masks[col], dim=0).cpu().numpy()
+        arr = torch.unsqueeze(out_masks[start_index + col], dim=0).cpu().numpy()
         # print("out_masks: ", (np.max(arr) - np.min(arr)))
         image = (arr - np.min(arr)) / (np.max(arr) - np.min(arr))
         ax = axarr[3, col]
@@ -311,7 +382,7 @@ class CopyPaste(Algorithm):
         padding_factor=0.5,
         jitter_scale=(0.01, 0.99),
         jitter_ratio=(1.0, 1.0),
-        p_flip=1.0,
+        p_flip=0.9,
         bg_color=-1,
         input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
         target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
@@ -364,9 +435,10 @@ class CopyPaste(Algorithm):
         # save_1d_tensor_to_png(test_mask, path, "mask2.png")
 
         batch_num = int(state.timestamp._batch)
+
         out_images, out_masks = copypaste_batch(images, masks, self.configs)
         
-        visualize_copypaste_batch(images, masks, out_images, out_masks, num=7, fig_name="copypaste_test"+str(batch_num))
+        # visualize_copypaste_batch(images, masks, out_images, out_masks, num=7, fig_name="copypaste_test"+str(batch_num))
         
         # print("AFTER:")
         # img = out_images[0]
@@ -433,7 +505,7 @@ class CopyPaste_backup(Algorithm):
 
 
 def _parse_mask_by_id(mask, idx, background_color=-1):
-    parsed_mask = torch.where(mask == idx, idx, background_color)
+    parsed_mask = torch.where(mask==idx, idx, background_color)
 
     return parsed_mask
 
@@ -441,37 +513,23 @@ def _parse_mask_by_id(mask, idx, background_color=-1):
 
 def _copypaste_instance(src_image, src_mask, trg_image, trg_mask, src_instance_id, configs):
     zero_tensor = torch.zeros(1, dtype=src_image.dtype, device=src_image.device)
-    # TODO: move to configs
     bg_color = configs["bg_color"]
-    # src_instance_mask = src_mask[src_instance_id]
+    
     src_instance_mask = _parse_mask_by_id(src_mask, src_instance_id, bg_color)
-    # if configs["convert_to_binary_mask"]:
-    #     src_instance_mask = torch.where(src_instance_mask==0, 0, 1)
-
-    # src_instance = torch.mul(src_image, src_instance_mask)
     src_instance = torch.where(src_instance_mask==bg_color, zero_tensor, src_image)
 
-    # imshow_tensor(src_instance)
-    # imshow_1d_tensor(src_instance_mask)
-    # print("debug1:", torch.unique(src_instance_mask))
-    [src_instance, src_instance_mask] = _jitter_instance([src_instance, torch.unsqueeze(src_instance_mask, dim=0)], configs)
-    
-    # print("debug2:", torch.unique(src_instance_mask))
-    src_instance_mask = torch.squeeze(src_instance_mask)
-    # print("debug3:", torch.unique(src_instance_mask))
-    # imshow_tensor(src_instance)
-    # imshow_1d_tensor(src_instance_mask)
 
+    
+    [src_instance, src_instance_mask] = _jitter_instance([src_instance, torch.unsqueeze(src_instance_mask, dim=0)], configs)
+    src_instance_mask = torch.squeeze(src_instance_mask)
+
+    # visualize_copypaste_sample(src_instance, src_instance_mask, src_instance, src_instance_mask, src_instance, src_instance_mask, fig_name="debug_" + str(batch_id) + "_" + str(src_instance_id))
+    
     trg_image = torch.where(src_instance_mask==bg_color, trg_image, zero_tensor)
     trg_image += src_instance
     trg_mask = torch.where(src_instance_mask==bg_color, trg_mask, src_instance_mask)
 
-    # for idx, trg_mask in enumerate(trg_masks):
-    #     trg_masks[idx] = _get_occluded_mask(src_instance_mask, trg_mask, configs)
-
-    # new_trg_mask = torch.unsqueeze(src_instance_mask, dim=0)
-    # trg_masks = torch.cat((trg_masks, new_trg_mask), dim=0)
-
+    
     return trg_image, trg_mask
 
 
@@ -483,23 +541,33 @@ def _get_occluded_mask(occluded_mask, configs):
     else:
         return occluded_mask
 
-
-def _jitter_instance(arrs, configs):    
-    out = []
-    jitter_seed = random.randint(0, MAX_TORCH_SEED)
-    
-    padding_size = (int(configs["padding_factor"] * arrs[0].size(dim=1)), int(configs["padding_factor"] * arrs[0].size(dim=2)))
-    crop_size = (arrs[0].size(dim=1), arrs[0].size(dim=2))
+def _get_jitter_transformations(is_mask, padding_size, crop_size, configs):
+    if is_mask == 0:
+        fill = 0
+    elif is_mask == 1:
+        fill = configs["bg_color"]
 
     trns = T.Compose([
-        T.Pad(padding=padding_size, fill=0, padding_mode="constant"),
+        T.Pad(padding=padding_size, fill=fill, padding_mode="constant"),
         T.RandomResizedCrop(size=crop_size, scale=configs["jitter_scale"], ratio=configs["jitter_ratio"], interpolation=T.InterpolationMode.NEAREST), 
         T.RandomHorizontalFlip(p=configs["p_flip"])
         ])
 
-    for arr in arrs:
+    return trns
+
+
+
+def _jitter_instance(arrs, configs):    
+    out = []
+    jitter_seed = random.randint(0, MAX_TORCH_SEED)
+
+    padding_size = (int(configs["padding_factor"] * arrs[0].size(dim=1)), int(configs["padding_factor"] * arrs[0].size(dim=2)))
+    crop_size = (arrs[0].size(dim=1), arrs[0].size(dim=2))
+  
+    for idx, arr in enumerate(arrs):
         torch.random.manual_seed(jitter_seed)
         random.seed(jitter_seed)
+        trns = _get_jitter_transformations(idx, padding_size, crop_size, configs)
         transformed = trns(arr)
         
         out.append(_get_occluded_mask(transformed, configs))
