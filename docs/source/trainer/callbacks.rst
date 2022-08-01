@@ -49,7 +49,10 @@ components of training.
     ~lr_monitor.LRMonitor
     ~grad_monitor.GradMonitor
     ~memory_monitor.MemoryMonitor
-
+    ~image_visualizer.ImageVisualizer
+    ~mlperf.MLPerfCallback
+    ~threshold_stopper.ThresholdStopper
+    ~early_stopper.EarlyStopper
 
 Custom Callbacks
 ----------------

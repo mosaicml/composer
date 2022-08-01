@@ -65,7 +65,6 @@ def get_surgery_method(alg_cls: Type[Algorithm]) -> Callable:
     raise ValueError(f'Unknown algorithm class {alg_cls}')
 
 
-@pytest.mark.timeout(10)
 @pytest.mark.parametrize('alg_cls', torchscript_algs_with_marks)
 def test_surgery_torchscript_train(input: Any, alg_cls: Type[Algorithm]):
     """Tests torchscript model in train mode."""
@@ -84,10 +83,9 @@ def test_surgery_torchscript_train(input: Any, alg_cls: Type[Algorithm]):
     scripted_func = torch.jit.script(model)
     scripted_func.train()  # type: ignore (third-party)
     model.train()
-    torch.testing.assert_allclose(scripted_func(input), model(input))  # type: ignore (third-party)
+    torch.testing.assert_close(scripted_func(input), model(input))  # type: ignore (third-party)
 
 
-@pytest.mark.timeout(10)
 @pytest.mark.parametrize('alg_cls', torchscript_algs_with_marks)
 def test_surgery_torchscript_eval(input: Any, alg_cls: Type[Algorithm]):
     """Tests torchscript model in eval mode."""
@@ -105,13 +103,12 @@ def test_surgery_torchscript_eval(input: Any, alg_cls: Type[Algorithm]):
     scripted_func = torch.jit.script(model)
     scripted_func.eval()  # type: ignore (third-party)
     model.eval()
-    torch.testing.assert_allclose(scripted_func(input), model(input))  # type: ignore (third-party)
+    torch.testing.assert_close(scripted_func(input), model(input))  # type: ignore (third-party)
 
 
 # <--- torch.fx export --->
 
 
-@pytest.mark.timeout(10)
 @pytest.mark.parametrize('alg_cls', torchscript_algs_with_marks)
 def test_surgery_torchfx_eval(
     input: Any,
@@ -133,13 +130,12 @@ def test_surgery_torchfx_eval(
     model.eval()
 
     traced_func = torch.fx.symbolic_trace(model)
-    torch.testing.assert_allclose(traced_func(input), model(input))  # type: ignore (third-party)
+    torch.testing.assert_close(traced_func(input), model(input))  # type: ignore (third-party)
 
 
 # <--- onnx export --->
 
 
-@pytest.mark.timeout(10)
 @pytest.mark.parametrize('alg_cls', torchscript_algs_with_marks)
 @pytest.mark.filterwarnings(
     r'ignore:Converting a tensor to a Python .* might cause the trace to be incorrect:torch.jit._trace.TracerWarning')
@@ -150,8 +146,9 @@ def test_surgery_onnx(
 ):
     """Tests onnx export and runtime"""
     pytest.importorskip('onnx')
-    import onnx  # type: ignore
-    import onnxruntime as ort  # type: ignore
+    pytest.importorskip('onnxruntime')
+    import onnx
+    import onnxruntime as ort
 
     surgery_method = get_surgery_method(alg_cls)
 
@@ -182,9 +179,9 @@ def test_surgery_onnx(
         {'input': input[0].numpy()},
     )
 
-    torch.testing.assert_allclose(
+    torch.testing.assert_close(
         outputs[0],
-        model(input),
+        model(input).detach().numpy(),
         rtol=1e-4,  # lower tolerance for ONNX
         atol=1e-3,  # lower tolerance for ONNX
     )

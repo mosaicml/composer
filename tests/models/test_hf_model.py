@@ -5,7 +5,6 @@ import pytest
 import torch
 
 
-@pytest.mark.timeout(30)
 def test_hf_model_forward():
     pytest.importorskip('transformers')
     import transformers

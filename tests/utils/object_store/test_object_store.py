@@ -59,7 +59,7 @@ class TestObjectStore:
     def test_get_uri(self, object_store: ObjectStore):
         uri = object_store.get_uri('tmpfile_object_name')
         if isinstance(object_store, S3ObjectStore):
-            assert uri == 's3://my-bucket/tmpfile_object_name'
+            assert uri == 's3://my-bucket/folder/subfolder/tmpfile_object_name'
         elif isinstance(object_store, LibcloudObjectStore):
             assert uri == 'local://./tmpfile_object_name'
         elif isinstance(object_store, SFTPObjectStore):

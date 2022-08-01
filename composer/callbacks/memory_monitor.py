@@ -24,19 +24,19 @@ class MemoryMonitor(Callback):
     on the :attr:`.Event.AFTER_TRAIN_BATCH` and reports different memory statistics.
 
     Example:
-    .. doctest::
+        .. doctest::
 
-        >>> from composer import Trainer
-        >>> from composer.callbacks import MemoryMonitor
-        >>> # constructing trainer object with this callback
-        >>> trainer = Trainer(
-        ...     model=model,
-        ...     train_dataloader=train_dataloader,
-        ...     eval_dataloader=eval_dataloader,
-        ...     optimizers=optimizer,
-        ...     max_duration="1ep",
-        ...     callbacks=[MemoryMonitor()],
-        ... )
+            >>> from composer import Trainer
+            >>> from composer.callbacks import MemoryMonitor
+            >>> # constructing trainer object with this callback
+            >>> trainer = Trainer(
+            ...     model=model,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=eval_dataloader,
+            ...     optimizers=optimizer,
+            ...     max_duration="1ep",
+            ...     callbacks=[MemoryMonitor()],
+            ... )
 
     The memory statistics are logged by the :class:`~composer.loggers.logger.Logger` to the following keys as
     described below.

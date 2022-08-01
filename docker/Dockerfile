@@ -58,7 +58,7 @@ ARG CUPY_VERSION='>=10.2.0'
 # Build the composer image on the vision image
 ARG COMPOSER_BASE=vision_stage
 
-# The command that is passed to `pip install` -- e.g. `pip install ${COMPOSER_INSTALL_COMMAND}`
+# The command that is passed to `pip install` -- e.g. `pip install "${COMPOSER_INSTALL_COMMAND}"`
 ARG COMPOSER_INSTALL_COMMAND='mosaicml[all]'
 
 #########################
@@ -319,4 +319,4 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 ARG COMPOSER_INSTALL_COMMAND
 
-RUN pip install ${COMPOSER_INSTALL_COMMAND}
+RUN pip install "${COMPOSER_INSTALL_COMMAND}"

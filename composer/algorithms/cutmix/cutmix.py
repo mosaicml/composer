@@ -11,11 +11,10 @@ from typing import Any, Callable, Optional, Tuple, Union
 import numpy as np
 import torch
 from torch import Tensor
-from torch.nn import functional as F
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
-from composer.loss.utils import check_for_index_targets
+from composer.loss.utils import ensure_targets_one_hot
 
 log = logging.getLogger(__name__)
 
@@ -24,12 +23,11 @@ __all__ = ['CutMix', 'cutmix_batch']
 
 def cutmix_batch(input: Tensor,
                  target: Tensor,
-                 num_classes: int,
                  length: Optional[float] = None,
                  alpha: float = 1.,
                  bbox: Optional[Tuple] = None,
                  indices: Optional[torch.Tensor] = None,
-                 uniform_sampling: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
+                 uniform_sampling: bool = False) -> Tuple[torch.Tensor, torch.Tensor, float, Tuple]:
     """Create new samples using combinations of pairs of samples.
 
     This is done by masking a region of each image in ``input`` and filling
@@ -64,7 +62,6 @@ def cutmix_batch(input: Tensor,
             latter case, rows of ``target`` may be arbitrary vectors of targets,
             including, e.g., one-hot encoded class labels, smoothed class
             labels, or multi-output regression targets.
-        num_classes (int): total number of classes or output variables
         length (float, optional): Relative side length of the masked region.
             If specified, ``length`` is interpreted as a fraction of ``H`` and
             ``W``, and the resulting box is of size ``(length * H, length * W)``.
@@ -84,15 +81,10 @@ def cutmix_batch(input: Tensor,
     Returns:
         input_mixed (torch.Tensor): batch of inputs after cutmix has been
             applied.
-        target_mixed (torch.Tensor): soft labels for mixed input samples.
-            These are a convex combination of the (possibly one-hot-encoded)
-            labels from the original samples and the samples chosen to fill
-            the masked regions, with the relative weighting equal to the
-            fraction of the spatial size that is cut.
-            E.g., if a sample was originally an image with label ``0`` and
-            40% of the image of was replaced with data from an image with label
-            ``2``, the resulting labels, assuming only three classes, would be
-            ``[1, 0, 0] * 0.6 + [0, 0, 1] * 0.4 = [0.6, 0, 0.4]``.
+        target_perm (torch.Tensor): The labels of the mixed-in examples
+        area (float): The fractional area of the unmixed region.
+        bounding_box (tuple): the ``(left, top, right, bottom)`` coordinates of
+            the bounding box that defines the mixed region.
 
     Raises:
         ValueError: If both ``length`` and ``bbox`` are provided.
@@ -107,9 +99,7 @@ def cutmix_batch(input: Tensor,
             num_classes = 10
             X = torch.randn(N, C, H, W)
             y = torch.randint(num_classes, size=(N,))
-            X_mixed, y_mixed = cutmix_batch(
-                X, y, num_classes=num_classes, alpha=0.2
-            )
+            X_mixed, target_perm, area, _ = cutmix_batch(X, y, alpha=0.2)
     """
     if bbox is not None and length is not None:
         raise ValueError(f'Cannot provide both length and bbox; got {length} and {bbox}')
@@ -146,21 +136,12 @@ def cutmix_batch(input: Tensor,
     X_cutmix[:, :, rx:rw, ry:rh] = X_cutmix[shuffled_idx, :, rx:rw, ry:rh]
     # adjust lambda to exactly match pixel ratio. This is an implementation detail taken from
     # the original implementation, and implies lambda is not actually beta distributed.
-    adjusted_lambda = _adjust_lambda(cutmix_lambda, input, bbox)
+    adjusted_lambda = _adjust_lambda(input, bbox)
 
     # Make a shuffled version of y for interpolation
     y_shuffled = target[shuffled_idx]
-    # Interpolate between labels using the adjusted lambda
-    # First check if labels are indices. If so, convert them to onehots.
-    # This is under the assumption that the loss expects torch.LongTensor, which is true for pytorch cross_entropy
-    if check_for_index_targets(target):
-        y_onehot = F.one_hot(target, num_classes=num_classes)
-        y_shuffled_onehot = F.one_hot(y_shuffled, num_classes=num_classes)
-        y_cutmix = adjusted_lambda * y_onehot + (1 - adjusted_lambda) * y_shuffled_onehot
-    else:
-        y_cutmix = adjusted_lambda * target + (1 - adjusted_lambda) * y_shuffled
 
-    return X_cutmix, y_cutmix
+    return X_cutmix, y_shuffled, adjusted_lambda, bbox
 
 
 class CutMix(Algorithm):
@@ -174,12 +155,14 @@ class CutMix(Algorithm):
     Training in this fashion sometimes reduces generalization error.
 
     Args:
-        num_classes (int): the number of classes in the task labels.
         alpha (float, optional): the psuedocount for the Beta distribution
             used to sample area parameters. As ``alpha`` grows, the two samples
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
             one element of the pair. Default: ``1``.
+        interpolate_loss (bool, optional): Interpolates the loss rather than the labels.
+            A useful trick when using a cross entropy loss. Will produce incorrect behavior
+            if the loss is not a linear function of the targets. Default: ``False``
         uniform_sampling (bool, optional): If ``True``, sample the bounding
             box such that each pixel has an equal probability of being mixed.
             If ``False``, defaults to the sampling used in the original
@@ -197,7 +180,7 @@ class CutMix(Algorithm):
         .. testcode::
 
             from composer.algorithms import CutMix
-            algorithm = CutMix(num_classes=10, alpha=0.2)
+            algorithm = CutMix(alpha=0.2)
             trainer = Trainer(
                 model=model,
                 train_dataloader=train_dataloader,
@@ -210,48 +193,103 @@ class CutMix(Algorithm):
 
     def __init__(
         self,
-        num_classes: int,
         alpha: float = 1.,
+        interpolate_loss: bool = False,
         uniform_sampling: bool = False,
         input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
         target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
     ):
-        self.num_classes = num_classes
         self.alpha = alpha
+        self.interpolate_loss = interpolate_loss
         self._uniform_sampling = uniform_sampling
+
         self._indices = torch.Tensor()
         self._cutmix_lambda = 0.0
         self._bbox: Tuple[int, int, int, int] = (0, 0, 0, 0)
+        self._permuted_target = torch.Tensor()
+        self._adjusted_lambda = 0.0
         self.input_key, self.target_key = input_key, target_key
 
     def match(self, event: Event, state: State) -> bool:
-        return event == Event.AFTER_DATALOADER
+        if self.interpolate_loss:
+            return event in [Event.BEFORE_FORWARD, Event.BEFORE_BACKWARD]
+        else:
+            return event in [Event.BEFORE_FORWARD, Event.BEFORE_LOSS]
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         input = state.batch_get_item(key=self.input_key)
         target = state.batch_get_item(key=self.target_key)
 
-        assert isinstance(input, Tensor) and isinstance(target, Tensor), \
-            'Multiple tensors for inputs or targets not supported yet.'
+        if not isinstance(input, torch.Tensor):
+            raise NotImplementedError('Multiple tensors for inputs not supported yet.')
+        if not isinstance(target, torch.Tensor):
+            raise NotImplementedError('Multiple tensors for targets not supported yet.')
+
         alpha = self.alpha
 
-        # these are saved only for testing
-        self._indices = _gen_indices(input)
-        _cutmix_lambda = _gen_cutmix_coef(alpha)
-        self._bbox = _rand_bbox(input.shape[2], input.shape[3], _cutmix_lambda, uniform_sampling=self._uniform_sampling)
-        self._cutmix_lambda = _adjust_lambda(_cutmix_lambda, input, self._bbox)
+        if event == Event.BEFORE_FORWARD:
+            # these are saved only for testing
+            self._indices = _gen_indices(input)
 
-        new_input, new_target = cutmix_batch(
-            input=input,
-            target=target,
-            num_classes=self.num_classes,
-            alpha=alpha,
-            bbox=self._bbox,
-            indices=self._indices,
-        )
+            _cutmix_lambda = _gen_cutmix_coef(alpha)
+            self._bbox = _rand_bbox(input.shape[2],
+                                    input.shape[3],
+                                    _cutmix_lambda,
+                                    uniform_sampling=self._uniform_sampling)
+            self._adjusted_lambda = _adjust_lambda(input, self._bbox)
 
-        state.batch_set_item(key=self.input_key, value=new_input)
-        state.batch_set_item(key=self.target_key, value=new_target)
+            new_input, self._permuted_target, _, _ = cutmix_batch(input=input,
+                                                                  target=target,
+                                                                  alpha=self.alpha,
+                                                                  bbox=self._bbox,
+                                                                  indices=self._indices,
+                                                                  uniform_sampling=self._uniform_sampling)
+
+            state.batch_set_item(key=self.input_key, value=new_input)
+
+        if not self.interpolate_loss and event == Event.BEFORE_LOSS:
+            # Interpolate the targets
+            if not isinstance(state.outputs, torch.Tensor):
+                raise NotImplementedError('Multiple output tensors not supported yet')
+            if not isinstance(target, torch.Tensor):
+                raise NotImplementedError('Multiple target tensors not supported yet')
+            if self._permuted_target.ndim > 2 and self._permuted_target.shape[-2:] == input.shape[-2:]:
+                # Target has the same height and width as the input, no need to interpolate.
+                x1, y1, x2, y2 = self._bbox
+                target[..., x1:x2, y1:y2] = self._permuted_target[..., x1:x2, y1:y2]
+            else:
+                # Need to interpolate on dense/one-hot targets.
+                target = ensure_targets_one_hot(state.outputs, target)
+                permuted_target = ensure_targets_one_hot(state.outputs, self._permuted_target)
+                # Interpolate to get the new target
+                target = self._adjusted_lambda * target + (1 - self._adjusted_lambda) * permuted_target
+            # Create the new batch
+            state.batch_set_item(key=self.target_key, value=target)
+
+        if self.interpolate_loss and event == Event.BEFORE_BACKWARD:
+            if self._permuted_target.ndim > 2 and self._permuted_target.shape[-2:] == input.shape[-2:]:
+                raise ValueError("Can't interpolate loss when target has the same height and width as the input")
+
+            # Grab the loss function
+            if hasattr(state.model, 'loss'):
+                loss_fn = state.model.loss
+            elif hasattr(state.model, 'module') and hasattr(state.model.module, 'loss'):
+                if isinstance(state.model.module, torch.nn.Module):
+                    loss_fn = state.model.module.loss
+                else:
+                    raise TypeError('state.model.module must be a torch module')
+            else:
+                raise AttributeError('Loss must be accessible via model.loss or model.module.loss')
+            # Verify that the loss is callable
+            if not callable(loss_fn):
+                raise TypeError('Loss must be callable')
+            # Interpolate the loss
+            new_loss = loss_fn(state.outputs, (input, self._permuted_target))
+            if not isinstance(state.loss, torch.Tensor):
+                raise NotImplementedError('Multiple losses not supported yet')
+            if not isinstance(new_loss, torch.Tensor):
+                raise NotImplementedError('Multiple losses not supported yet')
+            state.loss = self._adjusted_lambda * state.loss + (1 - self._adjusted_lambda) * new_loss
 
 
 def _gen_indices(x: Tensor) -> Tensor:
@@ -339,11 +377,10 @@ def _rand_bbox(W: int,
     return bbx1, bby1, bbx2, bby2
 
 
-def _adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
+def _adjust_lambda(x: Tensor, bbox: Tuple) -> float:
     """Rescale the cutmix lambda according to the size of the clipped bounding box.
 
     Args:
-        cutmix_lambda (float): Lambda param from cutmix, used to set the area of the box.
         x (torch.Tensor): input tensor of shape ``(B, d1, d2, ..., dn)``, B is batch size, d1-dn
             are feature dimensions.
         bbox (tuple): (x1, y1, x2, y2) coordinates of the boundind box, obeying x2 > x1, y2 > y1.

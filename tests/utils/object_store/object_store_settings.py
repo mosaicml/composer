@@ -70,6 +70,7 @@ object_store_kwargs: Dict[Union[Type[ObjectStore], Type[ObjectStoreHparams]], Di
     },
     S3ObjectStore: {
         'bucket': 'my-bucket',
+        'prefix': 'folder/subfolder'
     },
     S3ObjectStoreHparams: {
         'bucket': 'my-bucket',

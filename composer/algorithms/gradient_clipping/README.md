@@ -1,54 +1,75 @@
 # 📎 Gradient Clipping
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Attribution\]](#attribution)
 
  `Computer Vision`, `Natural Language Processing`
 
-Gradient Clipping
+Gradient Clipping is a technique used to stabilize the training of neural networks. It was
+originally invented to solve the problem of vanishing and exploding gradients in [training](https://www.fit.vut.cz/study/phd-thesis/283/.en) [recurrent neural networks](https://arxiv.org/abs/1211.5063), but it has also shown to be useful for [transformers](https://arxiv.org/abs/1909.05858v2) and [convolutional](https://arxiv.org/abs/1512.00567v3) [neural networks](https://arxiv.org/abs/2102.06171).
+Gradient clipping usually consists of clipping the extreme values of a model's gradients (or the gradients' norms) to be under
+a certain threshold. The gradient clipping operation is executed after gradients are computed (after `loss.backward()`), but before the weights of the network are updated (`optim.step()`).
 
 <!--| |
 |:--:
 |*Need a picture.*|-->
 
 ## How to Use
-Gradient Clipping is a technique used to stabilize the training of neural networks. It was
-originally invented to solve the problem of vanishing and exploding gradients in [training](https://www.fit.vut.cz/study/phd-thesis/283/.en) [recurrent neural networks](https://arxiv.org/abs/1211.5063), but it has also shown to be useful for [transformers](https://arxiv.org/abs/1909.05858v2) and [convolutional](https://arxiv.org/abs/1512.00567v3) [neural networks](https://arxiv.org/abs/2102.06171).
-Gradient clipping usually consists of clipping the extreme values of a model's gradients (or the gradients' norms) to be under
-a certain threshold. The gradient clipping operation is executed after gradients are computed (after `loss.backward()`), but before the weights of the network are updated (`optim.step()`).
-
 The desired gradient clipping type can be controlled using the `clipping_type` argument.
-
 ### The Different Flavors of Gradient Clipping
 
-#### Gradient clipping by value
+#### **Gradient clipping by value:**
 Constrains all gradients to be between $[-\lambda, \lambda]$, where $\lambda$ is
 the `clipping_threshold`.
 
 <!-- Usage: -->
-<!--pytest-codeblocks:skip-->
+<!--
+```python
+from tests.common import SimpleModel
+
+model = SimpleModel()
+clipping_threshold = 0.1
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 import composer.functional as cf
 cf.apply_gradient_clipping(model.parameters(),
                            clipping_type='value',
                            clipping_threshold=clipping_threshold)
 ```
-#### Gradient clipping by norm
+#### **Gradient clipping by norm:**
 Multiplies all gradients by $\min(1, \frac{\lambda}{||G||})$, where $\lambda$ is
 the `clipping_threshold` and $||G||$ is the total L2 norm of all gradients.
 <!-- Usage: -->
-<!--pytest-codeblocks:skip-->
+<!--
+```python
+from tests.common import SimpleModel
+
+model = SimpleModel()
+clipping_threshold = 0.1
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 import composer.functional as cf
 cf.apply_gradient_clipping(model.parameters(),
                            clipping_type='norm',
                            clipping_threshold=clipping_threshold)
 ```
-#### Adaptive Gradient Clipping (AGC)
+#### **Adaptive Gradient Clipping (AGC):**
 Clips all gradients based on the gradient norm to parameter norm ratio by multiplying them by
 $\min(1, \lambda\frac{||W||}{||G||})$, where $\lambda$ is the `clipping_threshold`,
 $||G||$ is the norm of the gradients and $||W||$ is the norm of the weights.
 <!-- Usage: -->
-<!--pytest-codeblocks:skip-->
+<!--
+```python
+from tests.common import SimpleModel
+
+model = SimpleModel()
+clipping_threshold = 0.1
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 import composer.functional as cf
 cf.apply_gradient_clipping(model.parameters(),
@@ -84,7 +105,18 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.gpu-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomClassificationDataset, SimpleModel
+
+model = SimpleModel()
+train_dataloader = DataLoader(RandomClassificationDataset())
+eval_dataloader = DataLoader(RandomClassificationDataset())
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
@@ -98,6 +130,7 @@ gc = GradientClipping(clipping_type=clipping_type, clipping_threshold=0.1)
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
     max_duration='1ep',
     algorithms=[gc]
 )

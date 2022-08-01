@@ -46,6 +46,7 @@ Available Loggers
     ~file_logger.FileLogger
     ~wandb_logger.WandBLogger
     ~progress_bar_logger.ProgressBarLogger
+    ~tensorboard_logger.TensorboardLogger
     ~in_memory_logger.InMemoryLogger
     ~object_store_logger.ObjectStoreLogger
 

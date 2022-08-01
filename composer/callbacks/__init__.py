@@ -9,6 +9,7 @@ examples for writing your own callbacks at the :class:`.Callback` base class.
 from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.callbacks.early_stopper import EarlyStopper
 from composer.callbacks.grad_monitor import GradMonitor
+from composer.callbacks.image_visualizer import ImageVisualizer
 from composer.callbacks.lr_monitor import LRMonitor
 from composer.callbacks.memory_monitor import MemoryMonitor
 from composer.callbacks.mlperf import MLPerfCallback
@@ -24,4 +25,5 @@ __all__ = [
     'MLPerfCallback',
     'EarlyStopper',
     'ThresholdStopper',
+    'ImageVisualizer',
 ]

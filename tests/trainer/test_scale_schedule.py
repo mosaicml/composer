@@ -21,7 +21,7 @@ from tests.common.models import SimpleModel
 
 @pytest.fixture
 def optimizer():
-    return torch.optim.SGD(SimpleModel().parameters(), lr=1)
+    return torch.optim.SGD(SimpleModel().parameters(), lr=1.0)
 
 
 def flatten(lst: list):
@@ -37,7 +37,7 @@ class TestScaleSchedule():
         scale_pytorch_scheduler(scheduler, ssr)
         for epoch in range(epochs):
             for param_group in optimizer.param_groups:
-                torch.testing.assert_allclose(targets[epoch], param_group['lr'])
+                torch.testing.assert_close(targets[epoch], param_group['lr'])
             scheduler.step()
 
     def test_scale_schedule_step_lr(self, optimizer: Optimizer, ssr: float):

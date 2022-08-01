@@ -2,6 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Utility for uploading to and downloading from cloud object stores."""
+
+from __future__ import annotations
+
+import contextlib
 import os
 import pathlib
 import urllib.parse
@@ -14,6 +18,7 @@ from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTra
 __all__ = ['SFTPObjectStore']
 
 try:
+    import paramiko.client
     from paramiko import SSHClient
     _PARAMIKO_AVAILABLE = True
 except ImportError:
@@ -24,14 +29,6 @@ def _set_kwarg(value: Any, kwargs: Dict[str, Any], arg_name: str, kwarg_name: st
     if kwarg_name in kwargs:
         raise ValueError(f'The `{arg_name}` should be not be specified directly if also included via `connect_kwargs`')
     kwargs[kwarg_name] = value
-
-
-def _ensure_transient_errors_are_wrapped(e: Exception):
-    from paramiko import SSHException
-    if isinstance(e, SSHException):
-        if 'Server connection dropped:' in str(e):
-            raise ObjectStoreTransientError from e
-    raise e
 
 
 class SFTPObjectStore(ObjectStore):
@@ -52,6 +49,15 @@ class SFTPObjectStore(ObjectStore):
             specified in ``~/.ssh/`` or via a SSH agent.
         known_hosts_filename (pathlib.Path | str, optional): The filename of the known hosts file. If not specified,
             the default SSH known hosts will be used.
+        missing_host_key_policy (str | paramiko.client.MissingHostKeyPolicy): The class name or instance of
+            :class:`paramiko.client.MissingHostKeyPolicy` to use for a missing host key. Defaults to ``'RejectPolicy'``.
+
+            Built-in options:
+            *   ``'RejectPolicy'`` (the default), which will reject any host key not authorized in the ``known_hosts_filename``.
+            *   ``'AutoAddPolicy'``, which will add any unknown host key.
+            *   ``'WarningPolicy'``, which will warn on an unknown host key.
+
+            For custom logic, subclass :class:`paramiko.client.MissingHostKeyPolicy`, and provide an instance of this class.
         cwd (str, optional): The directory to navigate to upon creating the SSH connection. If not present
             it will be created.
         connect_kwargs (Dict[str, Any], optional): Any additional kwargs to pass through to :meth:`.SSHClient.connect`.
@@ -65,7 +71,8 @@ class SFTPObjectStore(ObjectStore):
         password: Optional[str] = None,
         known_hosts_filename: Optional[Union[pathlib.Path, str]] = None,
         key_filename: Optional[Union[pathlib.Path, str]] = None,
-        cwd: Optional[str] = None,
+        missing_host_key_policy: Union[str, paramiko.client.MissingHostKeyPolicy] = 'RejectPolicy',
+        cwd: str = '',
         connect_kwargs: Optional[Dict[str, Any]] = None,
     ):
         if not _PARAMIKO_AVAILABLE:
@@ -110,9 +117,9 @@ class SFTPObjectStore(ObjectStore):
         if key_filename:
             _set_kwarg(key_filename, connect_kwargs, arg_name='key_filename', kwarg_name='key_filename')
 
-        if cwd is not None:
-            if not cwd.endswith('/'):
-                cwd += '/'
+        if cwd and not cwd.endswith('/'):
+            cwd += '/'
+        self.cwd = cwd
 
         netloc = ''
         if username:
@@ -125,19 +132,25 @@ class SFTPObjectStore(ObjectStore):
         self._base_uri = urllib.parse.urlunsplit((
             'sftp',  # scheme
             netloc,  # netloc
-            '/' + (cwd or ''),  # path
+            '/' + cwd,  # path
             None,  # query
             None,  # fragment
         ))
         self.ssh_client = SSHClient()
         if known_hosts_filename is not None:
             known_hosts_filename = str(known_hosts_filename)
+        if isinstance(missing_host_key_policy, str):
+            try:
+                missing_host_key_policy = getattr(paramiko.client, missing_host_key_policy)()
+                assert isinstance(missing_host_key_policy, paramiko.client.MissingHostKeyPolicy)
+            except AttributeError:
+                raise ValueError(
+                    "Invalid `missing_host_key_policy`. Must be 'AutoAddPolicy', 'RejectPolicy', or 'WarningPolicy'.")
+        self.ssh_client.set_missing_host_key_policy(missing_host_key_policy)
         self.ssh_client.load_system_host_keys(known_hosts_filename)
+        self._connect_kwargs = connect_kwargs
         self.ssh_client.connect(**connect_kwargs)
         self.sftp_client = self.ssh_client.open_sftp()
-        if cwd:
-            self.ssh_client.exec_command(f'mkdir -p {cwd}')
-            self.sftp_client.chdir(cwd)
 
     def close(self):
         self.sftp_client.close()
@@ -147,10 +160,40 @@ class SFTPObjectStore(ObjectStore):
         return self._base_uri + object_name
 
     def get_object_size(self, object_name: str) -> int:
-        st_size = self.sftp_client.stat(object_name).st_size
+        object_name = os.path.join(self.cwd, object_name)
+        with self._handle_transient_errors():
+            st_size = self.sftp_client.stat(object_name).st_size
         if st_size is None:
             raise RuntimeError('Cannot determine object size: stat(object_name).st_size is None')
         return st_size
+
+    @contextlib.contextmanager
+    def _handle_transient_errors(self):
+        from paramiko import ChannelException, SSHException
+        try:
+            yield
+        except Exception as e:
+            if not self._is_cnx_alive():
+                # If the connection dropped, then it's a transient error. Create a new one, and raise the exception to try again.
+                self.close()
+                self.ssh_client.connect(**self._connect_kwargs)
+                self.sftp_client = self.ssh_client.open_sftp()
+                raise ObjectStoreTransientError from e
+            if isinstance(e, SSHException):
+                if 'Server connection dropped:' in str(e):
+                    raise ObjectStoreTransientError from e
+            if isinstance(e, (TimeoutError, ConnectionError, EOFError, ChannelException)):
+                raise ObjectStoreTransientError from e
+            raise e
+
+    def _is_cnx_alive(self):
+        transport = self.ssh_client.get_transport()
+        assert transport is not None, 'transport should not be None'
+        if not transport.is_active() or not transport.is_alive():
+            return False
+        channel = self.sftp_client.get_channel()
+        assert channel is not None, 'channels not be None if the transport is alive'
+        return channel.active and not channel.closed
 
     def upload_object(
         self,
@@ -158,19 +201,21 @@ class SFTPObjectStore(ObjectStore):
         filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
     ) -> None:
+        object_name = os.path.join(self.cwd, object_name)
         dirname = os.path.dirname(object_name)
-        if dirname:
-            self.ssh_client.exec_command(f'mkdir -p {dirname}')
-        try:
+        with self._handle_transient_errors():
+            if dirname:
+                self.ssh_client.exec_command(f'mkdir -p {dirname}')
             self.sftp_client.put(str(filename), object_name, callback=callback, confirm=True)
-        except Exception as e:
-            _ensure_transient_errors_are_wrapped(e)
 
-    def download_object(self,
-                        object_name: str,
-                        filename: Union[str, pathlib.Path],
-                        overwrite: bool = False,
-                        callback: Optional[Callable[[int, int], None]] = None) -> None:
+    def download_object(
+        self,
+        object_name: str,
+        filename: Union[str, pathlib.Path],
+        overwrite: bool = False,
+        callback: Optional[Callable[[int, int], None]] = None,
+    ) -> None:
+        object_name = os.path.join(self.cwd, object_name)
         dirname = os.path.dirname(filename)
         if dirname:
             os.makedirs(dirname, exist_ok=True)
@@ -181,14 +226,15 @@ class SFTPObjectStore(ObjectStore):
         tmp_path = str(filename) + f'.{uuid.uuid4()}.tmp'
 
         try:
-            self.sftp_client.get(remotepath=object_name, localpath=tmp_path, callback=callback)
-        except Exception as e:
+            with self._handle_transient_errors():
+                self.sftp_client.get(remotepath=object_name, localpath=tmp_path, callback=callback)
+        except Exception:
             # Make a best effort attempt to clean up the temporary file
             try:
                 os.remove(tmp_path)
             except OSError:
                 pass
-            _ensure_transient_errors_are_wrapped(e)
+            raise
         else:
             if overwrite:
                 os.replace(tmp_path, filename)

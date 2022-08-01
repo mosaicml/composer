@@ -14,14 +14,14 @@ from composer.algorithms.stochastic_depth.stochastic_depth import _STOCHASTIC_LA
 from composer.algorithms.stochastic_depth.stochastic_layers import make_resnet_bottleneck_stochastic
 from composer.core import Event, State
 from composer.core.time import TimeUnit
-from composer.models import ComposerResNet
+from composer.models import composer_resnet
 from composer.utils import module_surgery
 
 
 @pytest.fixture()
 def state(minimal_state: State):
     """stochastic depth tests require ResNet model."""
-    minimal_state.model = ComposerResNet(model_name='resnet50', num_classes=100)
+    minimal_state.model = composer_resnet(model_name='resnet50', num_classes=100)
     return minimal_state
 
 
@@ -156,7 +156,6 @@ class TestStochasticDepthDropRate:
     @pytest.mark.parametrize('drop_rate', [0.0, 0.5, 1.0])
     @pytest.mark.parametrize('drop_distribution', ['uniform', 'linear'])
     @pytest.mark.parametrize('drop_warmup', ['0.1dur'])
-    @pytest.mark.timeout(5)
     def test_drop_rate_warmup(self, algorithm: StochasticDepth, step: int, state: State):
         old_drop_rates = []
         self.get_drop_rate_list(state.model, drop_rates=old_drop_rates)
