@@ -13,7 +13,7 @@ from composer.models import composer_resnet
 model = composer_resnet(
     model_name="resnet50",
     num_classes=1000,
-    pretrained=False
+    weights=None
 )
 ```
 

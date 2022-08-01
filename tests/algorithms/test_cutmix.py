@@ -33,11 +33,11 @@ def validate_cutmix(x, y, indices, x_cutmix, y_perm, bbox):
         for j in range(x.size(2)):
             for k in range(x.size(3)):
                 if (j >= bbox[0] and j < bbox[2]) and (k >= bbox[1] and k < bbox[3]):
-                    torch.testing.assert_allclose(x_perm[i, :, j, k], x_cutmix[i, :, j, k])
+                    torch.testing.assert_close(x_perm[i, :, j, k], x_cutmix[i, :, j, k])
                 else:
-                    torch.testing.assert_allclose(x[i, :, j, k], x_cutmix[i, :, j, k])
+                    torch.testing.assert_close(x[i, :, j, k], x_cutmix[i, :, j, k])
     # Check the label
-    torch.testing.assert_allclose(y_perm_ref, y_perm)
+    torch.testing.assert_close(y_perm_ref, y_perm)
 
 
 @pytest.mark.parametrize('alpha', [0.2, 1])

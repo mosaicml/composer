@@ -24,26 +24,26 @@ class EarlyStopper(Callback):
     """Track a metric and halt training if it does not improve within a given interval.
 
     Example:
-    .. doctest::
+        .. doctest::
 
-        >>> from composer import Evaluator, Trainer
-        >>> from composer.callbacks.early_stopper import EarlyStopper
-        >>> from torchmetrics.classification.accuracy import Accuracy
-        >>> # constructing trainer object with this callback
-        >>> early_stopper = EarlyStopper("Accuracy", "my_evaluator", patience=1)
-        >>> evaluator = Evaluator(
-        ...     dataloader = eval_dataloader,
-        ...     label = 'my_evaluator',
-        ...     metrics = Accuracy()
-        ... )
-        >>> trainer = Trainer(
-        ...     model=model,
-        ...     train_dataloader=train_dataloader,
-        ...     eval_dataloader=evaluator,
-        ...     optimizers=optimizer,
-        ...     max_duration="1ep",
-        ...     callbacks=[early_stopper],
-        ... )
+            >>> from composer import Evaluator, Trainer
+            >>> from composer.callbacks.early_stopper import EarlyStopper
+            >>> from torchmetrics.classification.accuracy import Accuracy
+            >>> # constructing trainer object with this callback
+            >>> early_stopper = EarlyStopper("Accuracy", "my_evaluator", patience=1)
+            >>> evaluator = Evaluator(
+            ...     dataloader = eval_dataloader,
+            ...     label = 'my_evaluator',
+            ...     metrics = Accuracy()
+            ... )
+            >>> trainer = Trainer(
+            ...     model=model,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=evaluator,
+            ...     optimizers=optimizer,
+            ...     max_duration="1ep",
+            ...     callbacks=[early_stopper],
+            ... )
 
     Args:
         monitor (str): The name of the metric to monitor.

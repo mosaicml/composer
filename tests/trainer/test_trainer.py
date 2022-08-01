@@ -33,7 +33,7 @@ from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices import Device
 from composer.trainer.trainer import _generate_run_name
-from composer.utils import dist, reproducibility
+from composer.utils import dist, is_model_deepspeed, reproducibility
 from composer.utils.iter_helpers import map_collection
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
@@ -378,9 +378,6 @@ class TestTrainerInitOrFit:
         max_duration: Time[int],
         train_dataloader: DataLoader,
     ):
-        if precision == Precision.BF16:
-            pytest.importorskip('torch', minversion='1.10', reason='BF16 precision requires PyTorch 1.10+')
-
         trainer = Trainer(
             model=model,
             precision=precision,
@@ -389,7 +386,7 @@ class TestTrainerInitOrFit:
             train_dataloader=train_dataloader,
         )
 
-        assert trainer.state.is_model_deepspeed
+        assert is_model_deepspeed(trainer.state.model)
 
         assert trainer.state.deepspeed_enabled
         trainer.fit()
@@ -445,9 +442,6 @@ class TestTrainerInitOrFit:
     ):
         # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
         copied_model = copy.deepcopy(model)
-
-        if precision == Precision.BF16:
-            pytest.importorskip('torch', minversion='1.10', reason='BF16 precision requires PyTorch 1.10+')
 
         should_error = False
         ctx = contextlib.nullcontext()
@@ -518,7 +512,6 @@ class TestTrainerInitOrFit:
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, algo_trainer.state)
 
-    @pytest.mark.timeout(5.0)
     def test_dataloader_active_iterator_error(self, model: ComposerModel):
         dataloader = DataLoader(
             dataset=RandomClassificationDataset(),
@@ -564,7 +557,6 @@ class TestTrainerInitOrFit:
 
         assert trainer.state.timestamp.get(max_duration.unit) == 2 * max_duration
 
-    @pytest.mark.timeout(10)
     @pytest.mark.parametrize('eval_interval', ['1ba', '1ep'])
     def test_eval_is_excluded_from_wct_tracking(
         self,
@@ -783,7 +775,6 @@ class TestTrainerInitOrFit:
 
 @world_size(1, 2)
 @device('cpu', 'gpu', 'gpu-amp', precision=True)
-@pytest.mark.timeout(15)  # higher timeout since each model is trained twice
 class TestTrainerEquivalence():
 
     default_threshold = {'atol': 0, 'rtol': 0}
@@ -796,7 +787,7 @@ class TestTrainerEquivalence():
 
         assert model_1 is not model_2, 'Same model should not be compared.'
         for param1, param2 in zip(model_1.parameters(), model_2.parameters()):
-            torch.testing.assert_allclose(param1, param2, **threshold)
+            torch.testing.assert_close(param1, param2, **threshold)
 
     @pytest.fixture
     def config(self, device: Device, precision: Precision, world_size: int, rank_zero_seed: int):
@@ -958,7 +949,6 @@ class TestTrainerEvents():
 
 
 @pytest.mark.vision
-@pytest.mark.timeout(30)
 class TestFFCVDataloaders:
 
     train_file = None

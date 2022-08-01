@@ -3,8 +3,14 @@
 
 """Stochastic forward functions for ResNet Bottleneck modules."""
 
+from typing import Optional
+
 import torch
+import torch.nn as nn
+from torch.fx import GraphModule
 from torchvision.models.resnet import Bottleneck
+
+__all__ = ['make_resnet_bottleneck_stochastic', 'BlockStochasticModule']
 
 
 def block_stochastic_forward(self, x):
@@ -101,3 +107,37 @@ def make_resnet_bottleneck_stochastic(module: Bottleneck, module_index: int, mod
     module.forward = stochastic_func.__get__(module)  # Bind new forward function to ResNet Bottleneck Module
 
     return module
+
+
+class BlockStochasticModule(nn.Module):
+    """A convenience class that stochastically executes the provided main path of a residual block.
+
+    Args:
+        main (GraphModule): Operators in the main (non-residual) path of a residual block.
+        residual (GraphModule | None): Operators, if any, in the residual path of a residual block.
+        drop_rate: The base probability of dropping this layer. Must be between 0.0 (inclusive) and 1.0 (inclusive).
+
+    Returns:
+        BlockStochasticModule: An instance of :class:`.BlockStochasticModule`.
+    """
+
+    def __init__(self, main: GraphModule, residual: Optional[GraphModule] = None, drop_rate: float = 0.2):
+        super().__init__()
+        self.drop_rate = torch.tensor(drop_rate)
+        self.main = main
+        self.residual = residual
+
+    def forward(self, x):
+        sample = (not self.training) or bool(torch.bernoulli(1 - self.drop_rate))
+        # main side is the non-residual connection
+        residual_result = x
+        # residual side may or may not have any operations
+        if self.residual:
+            residual_result = self.residual(x)
+
+        if sample:
+            main_result = self.main(x)
+            if not self.training:
+                main_result = main_result * (1 - self.drop_rate)
+            residual_result = torch.add(main_result, residual_result)
+        return residual_result

@@ -12,6 +12,7 @@ Example that trains MNIST with label smoothing:
 """
 
 import logging
+import os
 import sys
 import tempfile
 import warnings
@@ -57,8 +58,10 @@ def _main():
 
     # Only log the config once, since it should be the same on all ranks.
     if dist.get_global_rank() == 0:
-        with tempfile.NamedTemporaryFile(mode='x+') as f:
-            f.write(hparams.to_yaml())
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hparams_name = os.path.join(tmpdir, 'hparams.yaml')
+            with open(hparams_name, 'w+') as f:
+                f.write(hparams.to_yaml())
             trainer.logger.file_artifact(
                 LogLevel.FIT,
                 artifact_name=f'{trainer.state.run_name}/hparams.yaml',

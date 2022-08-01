@@ -17,7 +17,7 @@ from torch.optim import Optimizer
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit
-from composer.utils import batch_get, batch_set, dist, ensure_tuple
+from composer.utils import batch_get, batch_set, dist, ensure_tuple, is_model_deepspeed
 
 if TYPE_CHECKING:
     import deepspeed
@@ -605,16 +605,6 @@ class State(Serializable):
         self._precision = Precision(precision)
 
     @property
-    def is_model_deepspeed(self) -> bool:
-        """Whether :attr:`model` is an instance of a :class:`~deepspeed.DeepSpeedEngine`."""
-        try:
-            import deepspeed
-        except ImportError:
-            return False
-        else:
-            return isinstance(self.model, deepspeed.DeepSpeedEngine)
-
-    @property
     def is_model_ddp(self):
         """Whether :attr:`model` is an instance of a :class:`.DistributedDataParallel`."""
         return isinstance(self.model, DistributedDataParallel)
@@ -622,6 +612,6 @@ class State(Serializable):
     @property
     def deepspeed_model(self) -> deepspeed.DeepSpeedEngine:
         """Cast :attr:`model` to :class:`~deepspeed.DeepSpeedEngine`."""
-        if self.is_model_deepspeed:
+        if is_model_deepspeed(self.model):
             return cast('deepspeed.DeepSpeedEngine', self.model)
         raise TypeError('state.model is not a DeepSpeed model')

@@ -537,19 +537,25 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
         rate multiplier until the warmup has completed.
 
     .. warning::
-        Initial warmup time is **not** scaled according to any provided scale schedule ratio! However, the milestones
-        will still be scaled accordingly.
+            By default, initial warmup time is **not** scaled according to any provided scale schedule ratio.
+            To change this behavior, set ``scale_warmup=True``.
 
     Args:
         t_warmup (str | Time): Warmup time.
         milestones (List[str | Time]): Times at which the learning rate should change.
         gamma (float): Multiplicative decay factor. Default = ``0.1``.
+        scale_warmup (float): SSR also scales the warmup period. Default = ``False``.
     """
 
-    def __init__(self, t_warmup: Union[str, Time], milestones: List[Union[str, Time]], gamma: float = 0.1):
+    def __init__(self,
+                 t_warmup: Union[str, Time],
+                 milestones: List[Union[str, Time]],
+                 gamma: float = 0.1,
+                 scale_warmup: bool = False):
         self.t_warmup = t_warmup
         self.milestones = milestones
         self.gamma = gamma
+        self.scale_warmup = scale_warmup
         self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=t_warmup)
         self.step_scheduler = MultiStepScheduler(milestones=milestones, gamma=gamma)
 
@@ -563,6 +569,8 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
                 same unit as the trainer's max_duration parameter."""))
 
         if state.timestamp < t_warmup:
+            if self.scale_warmup:
+                return self.warmup_scheduler(state, ssr)
             return self.warmup_scheduler(state)
 
         return self.step_scheduler(state, ssr)
@@ -587,17 +595,31 @@ class ConstantWithWarmupScheduler(ComposerScheduler):
     Where :math:`\alpha` represents the learning rate multiplier to maintain while this scheduler is active, and
     :math:`t_{max}` represents the duration of this scheduler.
 
+    .. warning::
+            By default, initial warmup time is **not** scaled according to any provided scale schedule ratio.
+            To change this behavior, set ``scale_warmup=True``.
+
     Args:
         t_warmup (str | Time): Warmup time.
         alpha (float): Learning rate multiplier to maintain while this scheduler is active. Default = ``1.0``.
         t_max (str | Time): Duration of this scheduler. Default = ``"1dur"``.
+        scale_warmup (float): SSR also scales the warmup period. Default = ``False``.
     """
 
-    def __init__(self, t_warmup: Union[str, Time], alpha: float = 1.0, t_max: Union[str, Time] = '1dur') -> None:
+    def __init__(self,
+                 t_warmup: Union[str, Time],
+                 alpha: float = 1.0,
+                 t_max: Union[str, Time] = '1dur',
+                 scale_warmup: bool = False) -> None:
         self.t_warmup = t_warmup
         self.alpha = alpha
         self.t_max = t_max
-        self.scheduler = LinearWithWarmupScheduler(t_warmup=t_warmup, alpha_i=alpha, alpha_f=alpha, t_max=t_max)
+        self.scale_warmup = scale_warmup
+        self.scheduler = LinearWithWarmupScheduler(t_warmup=t_warmup,
+                                                   alpha_i=alpha,
+                                                   alpha_f=alpha,
+                                                   t_max=t_max,
+                                                   scale_warmup=scale_warmup)
 
     def __call__(self, state: State, ssr: float = 1.0) -> float:
         return self.scheduler(state, ssr)
@@ -628,27 +650,31 @@ class LinearWithWarmupScheduler(ComposerScheduler):
     and :math:`\alpha_f` represents the learning rate multiplier to decay to, and :math:`t_{max}` represents the duration
     of this scheduler.
 
+
     .. warning::
-        Initial warmup time is **not** scaled according to any provided scale schedule ratio! However, the duration of
-        the scheduler is still scaled accordingly. To achieve this, after warmup, the scheduler's "pace" will be
-        slightly distorted from what would otherwise be expected.
+        By default, the initial warmup time is **not** scaled according to any provided scale schedule ratio! However, the duration of
+        the scheduler is still scaled accordingly. To achieve this, after warmup, the scheduler's "slope" will be
+        slightly distorted from what would otherwise be expected. To scale the entire schedule, set ``scale_warmup=True``.
 
     Args:
         t_warmup (str | Time): Warmup time.
         alpha_i (float): Initial learning rate multiplier. Default = ``1.0``.
         alpha_f (float): Final learning rate multiplier. Default = ``0.0``.
         t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
+        scale_warmup (float): SSR also scales the warmup period. Default = ``False``.
     """
 
     def __init__(self,
                  t_warmup: Union[str, Time],
                  alpha_i: float = 1.0,
                  alpha_f: float = 0.0,
-                 t_max: Union[str, Time] = '1dur'):
+                 t_max: Union[str, Time] = '1dur',
+                 scale_warmup: bool = False):
         self.t_warmup = t_warmup
         self.alpha_i = alpha_i
         self.alpha_f = alpha_f
         self.t_max = t_max
+        self.scale_warmup = scale_warmup
         self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=alpha_i, t_max=t_warmup)
 
     def __call__(self, state: State, ssr: float = 1.0):
@@ -661,6 +687,8 @@ class LinearWithWarmupScheduler(ComposerScheduler):
                 same unit as the trainer's max_duration parameter."""))
 
         if state.timestamp < t_warmup:
+            if self.scale_warmup:
+                return self.warmup_scheduler(state, ssr)
             return self.warmup_scheduler(state)
 
         t_max = _convert_time(self.t_max, state, ssr=ssr)
@@ -695,20 +723,25 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
     :math:`\alpha_f` represents the learning rate multiplier to decay to.
 
     .. warning::
-        Initial warmup time is **not** scaled according to any provided scale schedule ratio! However, the duration of
-        the scheduler is still scaled accordingly. To achieve this, after warmup, the scheduler's "pace" will be
-        slightly distorted from what would otherwise be expected.
+            By default, initial warmup time is **not** scaled according to any provided scale schedule ratio.
+            To change this behavior, set ``scale_warmup=True``.
 
     Args:
         t_warmup (str | Time): Warmup time.
         t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
+        scale_warmup (float): SSR also scales the warmup period. Default = ``False``.
     """
 
-    def __init__(self, t_warmup: Union[str, Time], t_max: Union[str, Time] = '1dur', alpha_f: float = 0.0):
+    def __init__(self,
+                 t_warmup: Union[str, Time],
+                 t_max: Union[str, Time] = '1dur',
+                 alpha_f: float = 0.0,
+                 scale_warmup: bool = False):
         self.t_warmup = t_warmup
         self.t_max = t_max
         self.alpha_f = alpha_f
+        self.scale_warmup = scale_warmup
         self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=t_warmup)
 
     def __call__(self, state: State, ssr: float = 1.0):
@@ -721,6 +754,8 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
                 same unit as the trainer's max_duration parameter."""))
 
         if state.timestamp < t_warmup:
+            if self.scale_warmup:
+                return self.warmup_scheduler(state, ssr)
             return self.warmup_scheduler(state)
 
         t_max = _convert_time(self.t_max, state, ssr=ssr)
@@ -754,26 +789,28 @@ class PolynomialWithWarmupScheduler(ComposerScheduler):
     :math:`\alpha_f` represents the learning rate multiplier to decay to.
 
     .. warning::
-        Initial warmup time is **not** scaled according to any provided scale schedule ratio! However, the duration of
-        the scheduler is still scaled accordingly. To achieve this, after warmup, the scheduler's "pace" will be
-        slightly distorted from what would otherwise be expected.
+            By default, initial warmup time is **not** scaled according to any provided scale schedule ratio.
+            To change this behavior, set ``scale_warmup=True``.
 
     Args:
         t_warmup (str | Time): Warmup time.
         power (float): The exponent to be used for the proportionality relationship. Default = ``2.0``.
         t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
+        scale_warmup (float): SSR also scales the warmup period. Default = ``False``.
     """
 
     def __init__(self,
                  t_warmup: Union[str, Time],
                  power: float = 2.0,
                  t_max: Union[str, Time] = '1dur',
-                 alpha_f: float = 0.0):
+                 alpha_f: float = 0.0,
+                 scale_warmup: bool = False):
         self.t_warmup = t_warmup
         self.power = power
         self.t_max = t_max
         self.alpha_f = alpha_f
+        self.scale_warmup = scale_warmup
         self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=t_warmup)
 
     def __call__(self, state: State, ssr: float = 1.0):
@@ -786,6 +823,8 @@ class PolynomialWithWarmupScheduler(ComposerScheduler):
                 same unit as the trainer's max_duration parameter."""))
 
         if state.timestamp < t_warmup:
+            if self.scale_warmup:
+                return self.warmup_scheduler(state, ssr)
             return self.warmup_scheduler(state)
 
         t_max = _convert_time(self.t_max, state, ssr=ssr)

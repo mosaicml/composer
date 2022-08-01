@@ -3,6 +3,7 @@
 
 """These fixtures are shared globally across the test suite."""
 import datetime
+import os
 import shutil
 
 import pytest
@@ -10,6 +11,7 @@ from torch.utils.data import DataLoader
 
 from composer.core import State
 from composer.loggers import Logger
+from composer.trainer.devices import DeviceCPU, DeviceGPU
 from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
 
@@ -37,8 +39,13 @@ def empty_logger(minimal_state: State) -> Logger:
 
 
 @pytest.fixture(autouse=True)
-def disable_wandb(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv('WANDB_MODE', 'disabled')
+def disable_wandb(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest):
+    monkeypatch.setenv('WANDB_START_METHOD', 'thread')
+    if request.node.get_closest_marker('remote') is None:
+        monkeypatch.setenv('WANDB_MODE', 'disabled')
+    else:
+        if not os.environ.get('WANDB_PROJECT'):
+            monkeypatch.setenv('WANDB_PROJECT', 'pytest')
 
 
 @pytest.fixture(autouse=True)
@@ -50,9 +57,9 @@ def configure_dist(request: pytest.FixtureRequest):
     if dist.get_world_size() == 1:
         return
 
-    backend = 'gloo' if request.node.get_closest_marker('gpu') is None else 'nccl'
+    device = DeviceCPU() if request.node.get_closest_marker('gpu') is None else DeviceGPU()
     if not dist.is_initialized():
-        dist.initialize_dist(backend, timeout=datetime.timedelta(seconds=300))
+        dist.initialize_dist(device, timeout=datetime.timedelta(seconds=300))
     # Hold PyTest until all ranks have reached this barrier. Ensure that no rank starts
     # any test before other ranks are ready to start it, which could be a cause of random timeouts
     # (e.g. rank 1 starts the next test while rank 0 is finishing up the previous test).

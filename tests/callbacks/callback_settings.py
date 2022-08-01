@@ -10,7 +10,7 @@ import composer.callbacks
 import composer.loggers
 import composer.profiler
 from composer import Callback
-from composer.callbacks import EarlyStopper, MemoryMonitor, SpeedMonitor, ThresholdStopper
+from composer.callbacks import EarlyStopper, ImageVisualizer, MemoryMonitor, SpeedMonitor, ThresholdStopper
 from composer.callbacks.callback_hparams_registry import callback_registry
 from composer.callbacks.mlperf import MLPerfCallback
 from composer.loggers import ObjectStoreLogger, TensorboardLogger, WandBLogger
@@ -116,6 +116,7 @@ _callback_marks: Dict[Union[Type[Callback], Type[hp.Hparams]], List[pytest.MarkD
             # post_close might not be called if being used outside of the trainer
             r'ignore:Implicitly cleaning up:ResourceWarning',),
     ],
+    ImageVisualizer: [pytest.mark.skipif(not _WANDB_INSTALLED, reason='Wandb is optional')],
 }
 
 

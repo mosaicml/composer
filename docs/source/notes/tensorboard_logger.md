@@ -4,7 +4,7 @@
 Before we get started make sure you have installed Tensorboard!
 Make sure to run:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```bash
 pip install 'mosaicml[tensorboard]'
 ```
@@ -13,7 +13,7 @@ pip install 'mosaicml[tensorboard]'
 To log your run's results to tensorboard, first you will need to create a `TensorboardLogger`
 object, like so:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```python
 from composer.loggers import TensorboardLogger
 
@@ -29,7 +29,7 @@ tb_logger = TensorboardLogger(log_dir="./my_tensorboard_logs")
 
  Once we have our TensorboardLogger, we just need to add it to our Trainer and then we'll be good to go. Below is an example of training MNIST with Tensorboard Logging:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```python
 
 from torchvision import datasets, transforms
@@ -98,7 +98,7 @@ Then save that YAML file as `mnist.yaml` for example.
 
 To run the training using this config file, just run:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```bash
 python examples/run_composer_trainer.py -f mnist.yaml
 ```
@@ -153,7 +153,7 @@ loggers:
 
 Once again you can run this job like so:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```bash
 python examples/run_composer_trainer.py -f mnist.yaml
 ```
@@ -167,14 +167,14 @@ See [these instructions](#viewing-your-results-from-s3) for viewing your results
 ## Viewing your Results Locally
 If you saved your Tensorboard log files locally you can view them by starting a Tensorboard process and pointing it to the log directory you specified. To do this run the following at the command line:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```bash
 tensorboard --logdir='./my_tensorboard_logs'
 ```
 
 This will start a Tensorboard process, which will write a message to stdout that looks something like:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```bash
 TensorBoard 2.9.1 at http://localhost:6006/ (Press CTRL+C to quit)
 ```
@@ -189,7 +189,7 @@ Enjoy viewing your metrics!
 ## Viewing your Results from S3
 To view your logs that are saved to S3, you first can use the AWS cli, which you can download [here](https://aws.amazon.com/cli/). Once you have that installed, you can run the following command:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```bash
  tensorboard --logdir=s3://my-bucket-name/tensorboard_logs
 ```

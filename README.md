@@ -79,13 +79,13 @@ With no additional tuning, you can apply our methods to:
 ## 💾 Installation
 Composer is available with Pip:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```bash
 pip install mosaicml
 ```
 Alternatively, install Composer with Conda:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```bash
 conda install -c mosaicml mosaicml
 ```
@@ -124,14 +124,24 @@ For more examples, see the [Composer Functional API Colab notebook](https://cola
 For the best experience and the most efficient possible training, we recommend using Composer's built-in trainer, which automatically takes care of the low-level details of using speedup methods and provides useful abstractions that facilitate rapid experimentation.
 
 <!-- begin_example_2 --->
-<!-- TODO: Address timeouts -->
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.gpu-->
+<!--pytest.mark.filterwarnings(r'ignore:Some targets have less than 1 total probability:UserWarning')-->
+<!--
+```python
+import torch
+
+# adaptive_avg_pool2d_backward_cuda in mnist_classifier is not deterministic
+torch.use_deterministic_algorithms(False)
+
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 from composer import Trainer
-from composer.algorithms import BlurPool, ChannelsLast, CutMix, LabelSmoothing
+from composer.algorithms import ChannelsLast, CutMix, LabelSmoothing
 from composer.models import mnist_model
 
 transform = transforms.Compose([transforms.ToTensor()])
@@ -141,12 +151,11 @@ train_dataloader = DataLoader(train_dataset, batch_size=128)
 eval_dataloader = DataLoader(eval_dataset, batch_size=128)
 
 trainer = Trainer(
-    model=MNIST_Classifier(num_classes=10),
+    model=mnist_model(),
     train_dataloader=train_dataloader,
     eval_dataloader=eval_dataloader,
     max_duration="2ep",
     algorithms=[
-        BlurPool(replace_convs=True, replace_maxpools=True, blur_first=True),
         ChannelsLast(),
         CutMix(alpha=1.0),
         LabelSmoothing(smoothing=0.1),

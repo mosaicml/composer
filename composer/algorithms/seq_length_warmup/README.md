@@ -41,14 +41,25 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.gpu-->
+<!--
+```python
+from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker
+
+synthetic_config = make_dataset_configs(model_family=['bert'])[0]
+_, model, train_dataloader = synthetic_hf_state_maker(synthetic_config)
+_, _, eval_dataloader = synthetic_hf_state_maker(synthetic_config)
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 from composer.trainer import Trainer
 from composer.algorithms import SeqLengthWarmup
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
-                  max_duration='1ep',
+                  eval_dataloader=eval_dataloader,
+                  max_duration='250ep',
                   algorithms=[SeqLengthWarmup()])
 
 trainer.fit()

@@ -10,20 +10,30 @@
 
 ### Functional Interface
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.gpu-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomImageDataset
+
+train_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 # Run the Stochastic Depth algorithm directly on the model using the Composer functional API
 
 import torch
 import torch.nn.functional as F
 import composer.functional as cf
+from composer.models import composer_resnet
 
 from torchvision.models import resnet50
 
 # Training
 
 # Stochastic depth can only be run on ResNet-50/101/152
-model = resnet50()
+model = composer_resnet('resnet50')
 
 opt = torch.optim.Adam(model.parameters())
 
@@ -34,37 +44,47 @@ cf.apply_stochastic_depth(
     target_layer_name='ResNetBottleneck',
     stochastic_method='sample',
     drop_rate=0.2,
-    drop_distribution='linear',
-    optimizers=opt
+    drop_distribution='linear'
 )
 
 loss_fn = F.cross_entropy
 model.train()
 
-for epoch in range(10):
-    for X, y in train_loader:
-        y_hat = model(X)
+for epoch in range(1):
+    for X, y in train_dataloader:
+        y_hat = model([X, y])
         loss = loss_fn(y_hat, y)
         loss.backward()
         opt.step()
         opt.zero_grad()
+        break
 ```
 
 ### Composer Trainer
 
-<!-- TODO: Address timeouts -->
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.gpu-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomImageDataset
+
+train_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
+eval_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate point in the training loop
 
 from composer.algorithms import StochasticDepth
+from composer.models import composer_resnet
 from composer.trainer import Trainer
 
 # Train model
 
 # Stochastic depth can only be run on ResNet-50/101/152
-model = resnet50()
+model = composer_resnet('resnet50')
 
 stochastic_depth = StochasticDepth(
     target_layer_name='ResNetBottleneck',
@@ -76,7 +96,8 @@ stochastic_depth = StochasticDepth(
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
-    max_duration='10ep',
+    eval_dataloader=eval_dataloader,
+    max_duration='1ep',
     algorithms=[stochastic_depth]
 )
 
