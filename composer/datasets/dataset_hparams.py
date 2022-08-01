@@ -111,23 +111,17 @@ class DatasetHparams(hp.Hparams, abc.ABC):
     """Abstract base class for hyperparameters to initialize a dataset.
 
     Args:
-        datadir (str): The path to the data directory.
-        is_train (bool): Whether to load the training data or validation data. Default:
-            ``True``.
         drop_last (bool): If the number of samples is not divisible by the batch size,
             whether to drop the last batch or pad the last batch with zeros. Default:
             ``True``.
         shuffle (bool): Whether to shuffle the dataset. Default: ``True``.
     """
 
-    is_train: bool = hp.optional('Whether to load the training data (the default) or validation data.', default=True)
     drop_last: bool = hp.optional(textwrap.dedent("""\
         If the number of samples is not divisible by the batch size,
         whether to drop the last batch (the default) or pad the last batch with zeros."""),
                                   default=True)
     shuffle: bool = hp.optional('Whether to shuffle the dataset for each epoch. Defaults to True.', default=True)
-
-    datadir: Optional[str] = hp.optional('The path to the data directory', default=None)
 
     @abc.abstractmethod
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> Union[Iterable, DataSpec]:

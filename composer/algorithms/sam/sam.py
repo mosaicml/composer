@@ -21,13 +21,27 @@ __all__ = ['SAM', 'SAMOptimizer']
 
 class SAMOptimizer(torch.optim.Optimizer):
     """Wraps an optimizer with sharpness-aware minimization (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_).
-    See :class:`SAM` for details.
+    See :class:`.SAM` for details.
 
     Implementation based on https://github.com/davda54/sam
+
+    Args:
+        base_optimizer (torch.optim.Optimizer) The optimizer to apply SAM to.
+        rho (float, optional): The SAM neighborhood size. Must be greater than 0. Default: ``0.05``.
+        epsilon (float, optional): A small value added to the gradient norm for numerical stability. Default: ``1.0e-12``.
+        interval (int, optional): SAM will run once per ``interval`` steps. A value of 1 will
+            cause SAM to run every step. Steps on which SAM runs take
+            roughly twice as much time to complete. Default: ``1``.
     """
 
-    def __init__(self, base_optimizer, rho: float = 0.05, epsilon: float = 1.0e-12, interval: int = 1, **kwargs):
-        assert rho >= 0.0, f'Invalid rho, should be non-negative: {rho}'
+    def __init__(self,
+                 base_optimizer: torch.optim.Optimizer,
+                 rho: float = 0.05,
+                 epsilon: float = 1.0e-12,
+                 interval: int = 1,
+                 **kwargs):
+        if rho < 0:
+            raise ValueError(f'Invalid rho, should be non-negative: {rho}')
         self.base_optimizer = base_optimizer
         self.global_step = 0
         self.interval = interval
@@ -96,8 +110,8 @@ class SAMOptimizer(torch.optim.Optimizer):
 
 
 class SAM(Algorithm):
-    """Adds sharpness-aware minimization (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_) by wrapping an
-    existing optimizer with a :class:`~composer.algorithms.sam.sam.SAMOptimizer`. SAM can improve model generalization
+    """Adds sharpness-aware minimization (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_)
+    by wrapping an existing optimizer with a :class:`.SAMOptimizer`. SAM can improve model generalization
     and provide robustness to label noise.
 
     Runs on :attr:`~composer.core.event.Event.INIT`.

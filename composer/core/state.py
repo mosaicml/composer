@@ -17,7 +17,7 @@ from torch.optim import Optimizer
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit
-from composer.utils import batch_get, batch_set, dist, ensure_tuple
+from composer.utils import batch_get, batch_set, dist, ensure_tuple, is_model_deepspeed
 
 if TYPE_CHECKING:
     import deepspeed
@@ -101,7 +101,7 @@ class State(Serializable):
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
         algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms used for training.
         callbacks (Callback | Sequence[Callback], optional): The callbacks used for training.
-        profiler (Optional[Profiler]): The Composer profiler.
+        deepspeed_config (Dict[str, Any], optional): The configuration dictionary for deepspeed.
 
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
@@ -120,7 +120,7 @@ class State(Serializable):
             ... )
             >>> trainer.fit()
             >>> trainer.state.current_metrics
-            {'train': {'Accuracy': tensor(...)}, 'eval': {'Accuracy': tensor(...)}}
+            {'train': {'Accuracy': tensor(...)}, 'eval': {'CrossEntropy': tensor(...), 'Accuracy': tensor(...)}}
 
             Or, when using an :class:`.Evaluator`:
 
@@ -237,6 +237,9 @@ class State(Serializable):
         # algorithms and callbacks
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
         callbacks: Optional[Union[Callback, Sequence[Callback]]] = None,
+
+        # deepspeed.
+        deepspeed_config: Optional[Dict[str, Any]] = None,
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
@@ -270,9 +273,10 @@ class State(Serializable):
 
         self.profiler: Optional[Profiler] = None
 
+        self.deepspeed_config = deepspeed_config
+
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
-        self.deepspeed_config: Any = None
         self.loss: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
         self.outputs: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
 
@@ -415,6 +419,7 @@ class State(Serializable):
 
     @property
     def deepspeed_enabled(self):
+        """Indicates if deepspeed is enabled."""
         return self.deepspeed_config is not None
 
     def state_dict(self) -> Dict[str, Any]:
@@ -600,16 +605,6 @@ class State(Serializable):
         self._precision = Precision(precision)
 
     @property
-    def is_model_deepspeed(self) -> bool:
-        """Whether :attr:`model` is an instance of a :class:`~deepspeed.DeepSpeedEngine`."""
-        try:
-            import deepspeed
-        except ImportError:
-            return False
-        else:
-            return isinstance(self.model, deepspeed.DeepSpeedEngine)
-
-    @property
     def is_model_ddp(self):
         """Whether :attr:`model` is an instance of a :class:`.DistributedDataParallel`."""
         return isinstance(self.model, DistributedDataParallel)
@@ -617,6 +612,6 @@ class State(Serializable):
     @property
     def deepspeed_model(self) -> deepspeed.DeepSpeedEngine:
         """Cast :attr:`model` to :class:`~deepspeed.DeepSpeedEngine`."""
-        if self.is_model_deepspeed:
+        if is_model_deepspeed(self.model):
             return cast('deepspeed.DeepSpeedEngine', self.model)
         raise TypeError('state.model is not a DeepSpeed model')

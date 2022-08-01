@@ -1,19 +1,20 @@
 /* groovylint-disable DuplicateMapLiteral, DuplicateStringLiteral, NestedBlockDepth */
 
 // Cloud settings
-pCloud = 'colo-research-01' // name of the jenkins cloud to use
+pCloud = 'r1z3' // name of the jenkins cloud to use
 
 // Git variables. These are populated during the "Prepare" stage
 gitUrl = null
 gitBranch = null
 gitCommit = null
+gitCommitHash = null
 baseBranch = 'dev'  // the branch on which merge-commits should be pushed to dockerhub
 
 // Docker build settings
 pytorchDockerBuildMatrix = null // The pytorch docker build matrix
 didDockerChange = false
 dockerBuildCpuLimit = '4'
-dockerBuildMemLimit = '30Gi'
+dockerBuildMemLimit = '50Gi'
 dockerBuildTimeout = '7200'  // timeout for docker builds, in seconds. Builds from scratch can be slow.
 // must use the kaniko debug image, as Jenkins needs shell access
 // see https://github.com/GoogleContainerTools/kaniko#debug-image
@@ -26,7 +27,7 @@ pytestTimeout = '1800' // timeout to run pytest, in seconds
 pytestCpuTestCpuLimit = '4'
 pytestCpuTestMemLimit = '20Gi' // memory limit for ram and ephemeral storage
 pytestGpuTestNumGpus = 2
-pytestGpuTestCpuLimit = '15'
+pytestGpuTestCpuLimit = '14'
 pytestGpuTestMemLimit = '30Gi' // memory limit for ram and ephemeral storage
 // Tags to run GPU image tests on when not building docker.
 // If building docker, then GPU tests will be run across the entire matrix.
@@ -53,6 +54,9 @@ condaTimeout = '7200' // timeout for conda builds, in seconds
 numDaysOfBuildsToKeep = '7' // number of days to keep builds (so Jenkins doesn't crash)
 jenkinsShellJobName = 'scratch/command2' // The jenkins job name used to spawn sub-jobs
 gitCredentialsId = '9cf9add1-2cdd-414b-8160-94bd4ac4a13d' // Jenkins credential ID to use for git clones
+wandbCredentialsId = 'e6fbcd33-e739-483f-a4a9-9b6815572c8b'
+awsCredentialsId = 'd931e1a8-f356-42f4-bc4d-bc8582c3bf9e'
+sshCredentialsId = 'f71fda19-c867-4e7b-b6e8-3894e8288076'
 
 // Artifact setting
 buildOutputFolder = 'build/output' // Folder where build artifacts are stored
@@ -78,7 +82,8 @@ Boolean isPathModified(...prefixes) {
     // starts with any specified prefix
     def changedFiles = []
 
-    // Adapted from https://stackoverflow.com/questions/50437626/how-to-get-list-of-all-modified-files-in-pipeline-jenkins
+    // Adapted from
+    // https://stackoverflow.com/questions/50437626/how-to-get-list-of-all-modified-files-in-pipeline-jenkins
     currentBuild.changeSets.each { entries ->
         entries.each { entry ->
             entry.affectedFiles.each { file ->
@@ -101,57 +106,43 @@ Boolean isPathModified(...prefixes) {
     return false
 }
 
-def getDockerBuildMatrix(String buildConfigYamlPath, String buildContext, String dockerfile) {
-    /*
-    Generates a build matrix from the given yaml file
-    For each entry in the matrix, it returns a tuple of
-    (
-        (str) base kaniko command,
-        (str) destinations. To push the image to these destinations, append this string to the base kaniko command.
-        (str) the staging image to where the base kaniko command always pushes
-        (list) a list of (key, value) pairs of build args
-    )
-    */
-
-    def buildMatrix = readYaml(file: buildConfigYamlPath)
-
-    return buildMatrix.collect { buildArgs ->
-
-        def cliArgsList = []
-        def tags = []
-
-        buildArgs.each { key, val ->
-            if (key == 'TAGS') {
-                val.each { tag ->
-                    tags << tag
-                }
-                return
-            }
-            if (key == 'TARGET') {
-                cliArgsList << "--target '$val'"
-                return
-            }
-            cliArgsList << "--build-arg '$key=$val'"
-        }
-        String cliArgs = cliArgsList.join(' ')
-        String stagingTag = UUID.randomUUID()
-        cliArgs = "$cliArgs --dockerfile $dockerfile --context $buildContext"
-        cliArgs = "$cliArgs --destination ${stagingDockerRepo}:${stagingTag}"
-        String destinations = ""
-        for (tag in tags) {
-            destinations = "$destinations --destination $tag"
-        }
-
-        if (cliArgs.contains(cacheRepo)) {
-            error("The kaniko args should not ever attempt to push images to the cache repo, ${cacheRepo}")
-        }
-
-        String kanikoCommand = "/kaniko/executor --cache=true --cache-repo=${cacheRepo} ${cliArgs} --cleanup"
-        String stagingImage = "${stagingDockerRepo}:${stagingTag}"
-
-        return [kanikoCommand, destinations, stagingImage, buildArgs]
-    }
+String generateStagingImageTag() {
+    // Generates a staging image tag
+    String stagingTag = UUID.randomUUID()
+    return "${stagingDockerRepo}:${stagingTag}"
 }
+
+def getKanikoCommand(buildArgs) {
+    // Constructs a kaniko command from the buildArgs
+    def cliArgsList = []
+    def tags = []
+    buildArgs.each { key, val ->
+        if (key == 'TAGS') {
+            val.each { tag ->
+                tags << tag
+            }
+            return
+        }
+        if (key == 'TARGET') {
+            cliArgsList << "--target '$val'"
+            return
+        }
+        cliArgsList << "--build-arg '$key=$val'"
+    }
+    String cliArgs = cliArgsList.join(' ')
+    String kanikoCommand = '/kaniko/executor --cache=true --dockerfile Dockerfile --context ./docker --cleanup'
+    kanikoCommand += " --cache-repo=${cacheRepo} ${cliArgs}"
+    for (tag in tags) {
+        kanikoCommand += " --destination $tag"
+    }
+
+    if (cliArgs.contains(cacheRepo)) {
+        error("The kaniko args should not ever attempt to push images to the cache repo, ${cacheRepo}")
+    }
+
+    return kanikoCommand
+}
+
 
 void trackBuild(Map buildArgs) {
     // 1. Run a build() command, but manually echo a link to the spawned job, since it may not show up
@@ -176,6 +167,7 @@ void runLint(String pDockerImage) {
             string(name: 'P_GIT_REPO', value: gitUrl),
             string(name: 'P_GIT_COMMIT', value: gitCommit),
             string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: lintMemLimit),
+            booleanParam(name: 'P_USE_TMP_RAMDISK', value: true),
             string(name: 'P_DOCKER_IMAGE', value: pDockerImage),
             string(name: 'P_TIMEOUT', value: pLintTimeout),
             string(name: 'P_CPU_LIMIT', value: lintCpuLimit),
@@ -188,32 +180,30 @@ void runLint(String pDockerImage) {
     )
 }
 
-void scheduleJob(jobs, String image, buildArgs) {
+void scheduleJob(jobs, String image, buildArgs, originalTags) {
     // jobs: The list of jobs. Modified in-place.
     // buildArgs: The build args matrix
+    // originalTags: The original tags
 
-    String markers = 'not daily and not remote'
+    String markers = 'not daily'
     Boolean isLintImage = false
     Boolean isVisionImage = false
     Boolean isDevTestInstallImage = false
     Boolean isGpu = false
-    String tag = ''
+    String tag = originalTags[0]
     buildArgs.each { key, val ->
         if (key == 'CUDA_VERSION') {
-            if (val != 'cpu') {
+            if (val != '') {
                 isGpu = true
             }
         }
         if (key == 'TARGET' && val == 'vision_stage') {
             isVisionImage = true
         }
-        if (key == 'TAGS') {
-            tag = val[0]
-            val.each { tagName ->
-                isLintImage = isLintImage || tagName == lintImage
-                isDevTestInstallImage = isDevTestInstallImage || tagName == devInstallTestImage
-            }
-        }
+    }
+    originalTags.each { tagName ->
+        isLintImage = isLintImage || tagName == lintImage
+        isDevTestInstallImage = isDevTestInstallImage || tagName == devInstallTestImage
     }
     String extraDeps = 'all'
 
@@ -274,7 +264,20 @@ void runPytest(String pDockerImage, String markers, String extraDeps, Boolean is
             string(name: 'P_TIMEOUT', value: pytestTimeout),
             string(name: 'P_N_GPUS', value: nGpus),
             string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: memLimit),
+            booleanParam(name: 'P_USE_TMP_RAMDISK', value: true),
             text(name: 'P_COMMAND', value: "./.ci/test.sh '$extraDeps' '$markers'"),
+            string(
+                name: 'P_JENKINS_USERNAME_PASSWORD_CREDENTIALS',
+                value: "IGNORED_WANDB_USERNAME,WANDB_API_KEY=$wandbCredentialsId",
+            ),
+            string(
+                name: 'P_JENKINS_AWS_CREDENTIALS',
+                value: awsCredentialsId,
+            ),
+            string(
+                name: 'P_JENKINS_SSH_CREDENTIALS',
+                value: sshCredentialsId,
+            ),
             string(name: 'P_ARTIFACTS_GLOB', value: artifactsGlob),
             string(name: 'P_JUNIT_GLOB', value: junitGlob),
             string(name: 'P_COVERAGE_GLOB', value: coverageGlob),
@@ -299,6 +302,7 @@ stage('Prepare') {
         gitUrl = loadedSCM.GIT_URL
         gitBranch = loadedSCM.GIT_BRANCH
         gitCommit = loadedSCM.GIT_COMMIT
+        gitCommitHash = loadedSCM.GIT_COMMIT
 
         if (env.CHANGE_ID) {
             // Use the origin/pr/PR_NUMBER/merge to support commits in external repos
@@ -309,12 +313,8 @@ stage('Prepare') {
         echo "gitBranch: $gitBranch"
         echo "gitCommit: $gitCommit"
 
-        didDockerChange = isPathModified('docker/pytorch/')
-
-        String dockerfile = 'Dockerfile'
-        String buildContext = './docker/pytorch'
-        String buildMatrix = './docker/pytorch/build_matrix.yaml'
-        pytorchDockerBuildMatrix = getDockerBuildMatrix(buildMatrix, buildContext, dockerfile)
+        didDockerChange = isPathModified('docker/')
+        pytorchDockerBuildMatrix = readYaml(file:  './docker/build_matrix.yaml')
 
         // Keep track of whether dependencies changed, in which case a conda build should be tested
         dependenciesChanged = isPathModified('setup.py') || isPathModified('meta.yaml')
@@ -328,25 +328,38 @@ stage('Build') {
         isMergeCommit = false
     }
 
-    pytorchDockerBuildMatrix.each { entry ->
-        // Extract the values from the buildMatrix
-        String kanikoCommand = entry[0]  // kanikoCommand is the command to run
-        String destinations = entry[1]  // The destinations to append to the kanikoCommand to push the image
-        String stagingImage = entry[2]  // stagingImage is where the built docker image is always pushed
-        // buildArgs contains the entry from the build matrix. It has the format [{key: key, value: value}, ...].
-        def buildArgs = entry[3]
+    pytorchDockerBuildMatrix.each { buildArgs ->
+        Boolean isComposerImage = buildArgs['TARGET'] == 'composer_stage'
+        Boolean shouldPushToDestinations = isMergeCommit && gitBranch == baseBranch
+        Boolean shouldBuildImage = didDockerChange  // Always build the image if the ./docker folder changed
 
-        if (didDockerChange) {
-            // If changing docker, build the docker images first
-            // Then, run pytest in the newly-built image
+        def originalTags = buildArgs['TAGS']
 
-            Boolean shouldPushToDestinations = isMergeCommit && gitBranch == baseBranch
+        if (!shouldPushToDestinations) {
+            buildArgs['TAGS'] = []
+        }
 
-            if (shouldPushToDestinations) {
-                kanikoCommand = "$kanikoCommand $destinations"
+        if (isComposerImage && buildArgs['COMPOSER_INSTALL_COMMAND'] == 'mosaicml[all]GIT_COMMIT') {
+            // If this is a composer image and it is the 'GIT_COMMIT' entry in the matrix
+            // then build and publish the image on the staging repo
+            if (!shouldPushToDestinations) {
+                // Skip composer images except on merge commits on the dev branch -- it's slow!
+                return
             }
+            String stagingTagName = "mosaicml/composer_staging:${gitCommitHash[0..6]}"
+            if (!buildArgs['CUDA_VERSION']) {
+                stagingTagName += '_cpu'
+            }
+            buildArgs['COMPOSER_INSTALL_COMMAND'] = "mosaicml[all] @ git+https://github.com/mosaicml/composer.git@${gitCommitHash}"
+            buildArgs['TAGS'] << stagingTagName
+            shouldBuildImage = true  // always build the image if it's a composer image
+        }
 
-            jobs << [ "$buildArgs": { ->
+        if (shouldBuildImage) {
+            String stagingImageTag = generateStagingImageTag()
+            buildArgs['TAGS'] << stagingImageTag
+            String kanikoCommand = getKanikoCommand(buildArgs)
+            jobs << [ "${buildArgs}": { ->
                 trackBuild(
                     job: jenkinsShellJobName,
                     parameters: [
@@ -357,32 +370,41 @@ stage('Build') {
                         string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: dockerBuildMemLimit),
                         text(name: 'P_COMMAND', value: kanikoCommand),
                         string(name: 'P_TIMEOUT', value: dockerBuildTimeout),
+                        string(name: 'POD_TIMEOUT', value: dockerBuildTimeout),
                         string(name: 'P_CPU_LIMIT', value: dockerBuildCpuLimit),
                         string(name: 'P_MEM_LIMIT', value: dockerBuildMemLimit),
                         booleanParam(name: 'P_MOUNT_KANIKO_CREDENTIALS', value: true),
                     ]
                 )
-                def subJobs = [:]
-                scheduleJob(subJobs, stagingImage, buildArgs)
-                subJobs.failFast = true
-                parallel(subJobs)
+                if (!isComposerImage) {
+                    // Only run tests on the 'mosaicml/pytorch' or 'mosaicml/pytorch_vision' images,
+                    // not 'mosaicml/composer'
+                    def subJobs = [:]
+                    scheduleJob(subJobs, stagingImageTag, buildArgs, originalTags)
+                    if (!isMergeCommit) {
+                        // Fail fast only on PR builds
+                        subJobs.failFast = true
+                    }
+                    parallel(subJobs)
+                }
             }]
         }
-        else {
-            // If not rebuilding the docker image, then run CPU tests acorss all images,
+        else if (!isComposerImage) {
+            // If not rebuilding the docker image, and it's not a composer image, then run CPU tests acorss all images,
             // and run GPU tests only on the "latest" image
-            Boolean isCpuImage = buildArgs['CUDA_VERSION'] == 'cpu'
+            // Only run tests on the 'mosaicml/pytorch' or 'mosaicml/pytorch_vision' images -- not 'mosaicml/composer'
+            Boolean isCpuImage = buildArgs['CUDA_VERSION'] == ''
             Boolean shouldRunGpuTests = false
 
-            buildArgs['TAGS'].each { tag ->
+            originalTags.each { tag ->
                 if (pytestGpuImageTagsToTest.contains(tag)) {
                     shouldRunGpuTests = true
                 }
             }
 
             if (isCpuImage || shouldRunGpuTests) {
-                String existingImageTag = buildArgs['TAGS'][0]
-                scheduleJob(jobs, existingImageTag, buildArgs)
+                String existingImageTag = originalTags[0]
+                scheduleJob(jobs, existingImageTag, buildArgs, originalTags)
             }
         }
     }
@@ -401,6 +423,7 @@ stage('Build') {
                         string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: condaMemLimit),
                         string(name: 'P_DOCKER_IMAGE', value: condaBuildDockerImage),
                         string(name: 'P_TIMEOUT', value: condaTimeout), // Conda builds take longer
+                        string(name: 'POD_TIMEOUT', value: condaTimeout),
                         string(name: 'P_CPU_LIMIT', value: condaCpuLimit),
                         string(name: 'P_MEM_LIMIT', value: condaMemLimit),  // must include the ephemeral storage limit
                         string(name: 'P_COMMAND', value: './.ci/build_conda.sh')
@@ -409,7 +432,10 @@ stage('Build') {
             }
         ]
     }
-    jobs.failFast = true
+    if (!isMergeCommit) {
+        // Fail fast only on PR builds
+        jobs.failFast = true
+    }
     try {
         parallel(jobs)
     }

@@ -15,7 +15,7 @@ from composer.utils.object_store.object_store import ObjectStore
 
 __all__ = ['S3ObjectStore']
 
-_NOT_FOUND_CODES = ('404', 'NoSuchKey')
+_NOT_FOUND_CODES = ('403', '404', 'NoSuchKey')
 
 
 def _ensure_not_found_errors_are_wrapped(uri: str, e: Exception):
@@ -50,6 +50,7 @@ class S3ObjectStore(ObjectStore):
 
     Args:
         bucket (str): The bucket name.
+        prefix (str): A path prefix such as `folder/subfolder/` to prepend to object names. Defaults to ''.
         region_name (str, optional): The region name. Must be specified if not available in
             a config file or environment variables. Defaults to None.
         endpoint_url (str, optional): The URL to an S3-Compatible object store. Must be specified if using something
@@ -67,6 +68,7 @@ class S3ObjectStore(ObjectStore):
     def __init__(
         self,
         bucket: str,
+        prefix: str = '',
         region_name: Optional[str] = None,
         endpoint_url: Optional[str] = None,
         aws_access_key_id: Optional[str] = None,
@@ -81,11 +83,17 @@ class S3ObjectStore(ObjectStore):
             from botocore.config import Config
         except ImportError as e:
             raise MissingConditionalImportError('s3', 'boto3') from e
-        self.bucket = bucket
+
+        # Format paths
+        self.bucket = bucket.strip('/')
+        self.prefix = prefix.strip('/')
+        if self.prefix:
+            self.prefix += '/'
+
         if client_config is None:
             client_config = {}
         config = Config(**client_config)
-        self.client = boto3.client(
+        self.client = boto3.Session().client(
             's3',
             config=config,
             region_name=region_name,
@@ -99,11 +107,14 @@ class S3ObjectStore(ObjectStore):
         self.transfer_config = TransferConfig(**transfer_config)
 
     def get_uri(self, object_name: str) -> str:
-        return f's3://{self.bucket}/{object_name}'
+        return f's3://{self.bucket}/{self.get_key(object_name)}'
+
+    def get_key(self, object_name: str) -> str:
+        return f'{self.prefix}{object_name}'
 
     def get_object_size(self, object_name: str) -> int:
         try:
-            obj = self.client.get_object(Bucket=self.bucket, Key=object_name)
+            obj = self.client.get_object(Bucket=self.bucket, Key=self.get_key(object_name))
         except Exception as e:
             _ensure_not_found_errors_are_wrapped(self.get_uri(object_name), e)
         return obj['ContentLength']
@@ -117,7 +128,7 @@ class S3ObjectStore(ObjectStore):
         file_size = os.path.getsize(filename)
         cb_wrapper = None if callback is None else lambda bytes_transferred: callback(bytes_transferred, file_size)
         self.client.upload_file(Bucket=self.bucket,
-                                Key=object_name,
+                                Key=self.get_key(object_name),
                                 Filename=filename,
                                 Callback=cb_wrapper,
                                 Config=self.transfer_config)
@@ -141,7 +152,7 @@ class S3ObjectStore(ObjectStore):
         try:
             try:
                 self.client.download_file(Bucket=self.bucket,
-                                          Key=object_name,
+                                          Key=self.get_key(object_name),
                                           Filename=tmp_path,
                                           Callback=cb_wrapper,
                                           Config=self.transfer_config)

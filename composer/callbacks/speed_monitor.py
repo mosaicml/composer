@@ -17,55 +17,51 @@ __all__ = ['SpeedMonitor']
 class SpeedMonitor(Callback):
     """Logs the training throughput.
 
-    The training throughput in terms of number of samples per second is logged on
-    the :attr:`~composer.core.event.Event.BATCH_END` event if we have reached the ``window_size`` threshold. Per epoch
-    average throughput and wall clock train, validation, and total time is also logged on
-    the :attr:`~composer.core.event.Event.EPOCH_END` event.
+    The training throughput in terms of number of samples per second is logged on the
+    :attr:`.Event.BATCH_END` event if we have reached the ``window_size`` threshold.
+
+    The wall clock train time is logged on every :attr:`.Event.BATCH_END` event.
+
+    The average throughout over an epoch is logged on the :attr:`.Event.EPOCH_END` event.
 
     Example:
-    .. doctest::
+        .. doctest::
 
-        >>> from composer.callbacks import SpeedMonitor
-        >>> # constructing trainer object with this callback
-        >>> trainer = Trainer(
-        ...     model=model,
-        ...     train_dataloader=train_dataloader,
-        ...     eval_dataloader=eval_dataloader,
-        ...     optimizers=optimizer,
-        ...     max_duration="1ep",
-        ...     callbacks=[SpeedMonitor(window_size=100)],
-        ... )
+            >>> from composer import Trainer
+            >>> from composer.callbacks import SpeedMonitor
+            >>> # constructing trainer object with this callback
+            >>> trainer = Trainer(
+            ...     model=model,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=eval_dataloader,
+            ...     optimizers=optimizer,
+            ...     max_duration='1ep',
+            ...     callbacks=[SpeedMonitor(window_size=100)],
+            ... )
 
     The training throughput is logged by the :class:`~composer.loggers.logger.Logger` to the following keys as
     described below.
 
-    +-----------------------+-------------------------------------------------------------+
-    | Key                   | Logged data                                                 |
-    +=======================+=============================================================+
-    |                       | Rolling average (over ``window_size`` most recent           |
-    | ``samples/step``      | batches) of the number of samples processed per second      |
-    |                       |                                                             |
-    +-----------------------+-------------------------------------------------------------+
-    |                       | Number of samples processed per second (averaged over       |
-    | ``samples/epoch``     | an entire epoch)                                            |
-    +-----------------------+-------------------------------------------------------------+
-    | ``wall_clock/train``  | Total elapsed training time                                 |
-    +-----------------------+-------------------------------------------------------------+
-    | ``wall_clock/val``    | Total elapsed validation time                               |
-    +-----------------------+-------------------------------------------------------------+
-    | ``wall_clock/total``  | Total elapsed time (wall_clock/train + wall_clock/val)      |
-    +-----------------------+-------------------------------------------------------------+
+    +----------------------------------+-------------------------------------------------------------+
+    | Key                              | Logged data                                                 |
+    +==================================+=============================================================+
+    |                                  | Rolling average (over ``window_size`` most recent           |
+    | ``throughput/samples_per_sec``   | batches) of the number of samples processed per second      |
+    |                                  |                                                             |
+    +----------------------------------+-------------------------------------------------------------+
+    | ``wall_clock/train``             | Total elapsed training time                                 |
+    +----------------------------------+-------------------------------------------------------------+
+    | ``wall_clock/val``               | Total elapsed validation time                               |
+    +----------------------------------+-------------------------------------------------------------+
+    | ``wall_clock/total``             | Total elapsed time (wall_clock/train + wall_clock/val)      |
+    +----------------------------------+-------------------------------------------------------------+
 
     Args:
         window_size (int, optional): Number of batches to use for a rolling average of throughput.
-            Default to 100.
+            Defaults to 100.
     """
 
     def __init__(self, window_size: int = 100):
-        # Track the epoch num samples and wct to compute throughput over the entire epoch
-        self.epoch_start_num_samples = 0
-        self.epoch_start_wct = 0.0
-
         # Track the batch num samples and wct to compute throughput over a window of batches
         self.batch_start_num_samples = 0
         self.batch_start_wct = 0.0
@@ -78,8 +74,6 @@ class SpeedMonitor(Callback):
 
     def state_dict(self) -> Dict[str, Any]:
         return {
-            'epoch_start_num_samples': self.epoch_start_num_samples,
-            'epoch_start_wct': self.epoch_start_wct,
             'batch_start_num_samples': self.batch_start_num_samples,
             'batch_start_wct': self.batch_start_wct,
             'batch_wct_buffer': self.batch_wct_buffer,
@@ -90,8 +84,6 @@ class SpeedMonitor(Callback):
         }
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
-        self.epoch_start_num_samples = state['epoch_start_num_samples']
-        self.epoch_start_wct = state['epoch_start_wct']
         self.batch_start_num_samples = state['batch_start_num_samples']
         self.batch_start_wct = state['batch_start_wct']
         self.batch_wct_buffer = deque(
@@ -103,11 +95,6 @@ class SpeedMonitor(Callback):
             maxlen=self.window_size,
         )
         self.total_eval_wct = state['total_eval_wct']
-
-    def epoch_start(self, state: State, logger: Logger):
-        del logger  # unused
-        self.epoch_start_wct = state.timestamp.total_wct.total_seconds()
-        self.epoch_start_num_samples = int(state.timestamp.sample)
 
     def batch_start(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -125,7 +112,7 @@ class SpeedMonitor(Callback):
         # Log the throughput
         if len(self.batch_num_samples_buffer) == self.window_size:
             throughput = sum(self.batch_num_samples_buffer) / sum(self.batch_wct_buffer)
-            logger.data_batch({'samples/step': throughput})
+            logger.data_batch({'throughput/samples_per_sec': throughput})
 
         # Log the time
         # `state.timestamp` excludes any time spent in evaluation
@@ -138,12 +125,3 @@ class SpeedMonitor(Callback):
     def eval_end(self, state: State, logger: Logger):
         del logger  # unused
         self.total_eval_wct += state.eval_timestamp.total_wct.total_seconds()
-
-    def epoch_end(self, state: State, logger: Logger):
-        # `state.timestamp` excludes any time spent in evaluation
-        epoch_time_in_train = state.timestamp.total_wct.total_seconds() - self.epoch_start_wct
-        train_examples_per_epoch = int(state.timestamp.sample) - self.epoch_start_num_samples
-
-        logger.data_epoch({
-            'samples/epoch': train_examples_per_epoch / epoch_time_in_train,
-        })

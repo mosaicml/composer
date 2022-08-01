@@ -95,6 +95,18 @@ def _initialize_dataloader(
     return dataloader
 
 
+def _parse_grad_accum(grad_accum: Union[int, str]) -> Union[int, str]:
+    if grad_accum == 'auto':
+        return grad_accum
+
+    try:
+        return int(grad_accum)
+    except (ValueError, TypeError):
+        pass
+
+    raise ValueError('grad_accum should be "auto" or an integer.')
+
+
 def _initialize_eval_dataloader(
     model: ComposerModel,
     eval_dataset_hparams: Optional[DatasetHparams],
@@ -233,7 +245,7 @@ class TrainerHparams(hp.Hparams):
         save_num_checkpoints_to_keep (int, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         autoresume (bool, optional): See :class:`.Trainer`.
 
-        deepspeed (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
+        deepspeed_config (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
             config for training  (see :class:`.Trainer` for more details). If ``None`` (the default), DeepSpeed will not
             be used.
 
@@ -401,8 +413,8 @@ class TrainerHparams(hp.Hparams):
         if self.scale_schedule_ratio <= 0:
             raise ValueError('scale_schedule_ratio must be a positive value.')
 
-        if (isinstance(self.grad_accum, str) and self.grad_accum != 'auto') or (isinstance(self.grad_accum, int) and
-                                                                                self.grad_accum < 1):
+        grad_accum = _parse_grad_accum(self.grad_accum)
+        if (isinstance(grad_accum, str) and grad_accum != 'auto') or (isinstance(grad_accum, int) and grad_accum < 1):
             raise ValueError('grad_accum must be "auto" or an int greater than or equal to 1.')
 
     def initialize_object(self) -> Trainer:
@@ -410,7 +422,10 @@ class TrainerHparams(hp.Hparams):
 
         # Set the Python LogLevel for Composer
         import composer
-        logging.getLogger(composer.__name__).setLevel(self.python_log_level)
+        logging.getLogger(composer.__name__).setLevel(self.python_log_level.upper())
+
+        # ensure grad_accum is 'auto' or an integer
+        grad_accum = _parse_grad_accum(self.grad_accum)
 
         # Device
         device = self.device
@@ -420,7 +435,7 @@ class TrainerHparams(hp.Hparams):
         # Distributed
         # Initialized here so it is available within dataloaders
         if dist.get_world_size() > 1:
-            dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=self.dist_timeout))
+            dist.initialize_dist(device, datetime.timedelta(seconds=self.dist_timeout))
 
         # Reproducibility
         seed = self.seed if self.seed else reproducibility.get_random_seed()
@@ -512,6 +527,7 @@ class TrainerHparams(hp.Hparams):
             save_filename=self.save_filename,
             save_latest_filename=self.save_latest_filename,
             save_artifact_name=self.save_artifact_name,
+            save_latest_artifact_name=self.save_latest_artifact_name,
             save_interval=self.save_interval,
             save_weights_only=self.save_weights_only,
             save_num_checkpoints_to_keep=self.save_num_checkpoints_to_keep,
@@ -525,7 +541,7 @@ class TrainerHparams(hp.Hparams):
             # System/Numerics
             device=device,
             precision=self.precision,
-            grad_accum=self.grad_accum,
+            grad_accum=grad_accum,
 
             # Reproducibility
             seed=seed,
@@ -663,6 +679,8 @@ class FitHparams(hp.Hparams):
         Returns:
             FitKwargs: A kwargs dictionary that can be unpacked and passed into :meth:`.Trainer.fit`.
         """
+        grad_accum = _parse_grad_accum(self.grad_accum) if self.grad_accum else self.grad_accum
+
         # Train DataLoader
         train_dataloader = _initialize_dataloader(
             dataset_hparams=self.train_dataset,
@@ -695,7 +713,7 @@ class FitHparams(hp.Hparams):
             'eval_dataloader': eval_dataloader,
             'eval_subset_num_batches': self.eval_subset_num_batches,
             'eval_interval': self.eval_interval,
-            'grad_accum': self.grad_accum,
+            'grad_accum': grad_accum,
             'precision': self.precision,
         }
 

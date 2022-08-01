@@ -59,9 +59,6 @@ reportUnusedCoroutine = "error"
 # By default, do not run gpu, vision, notebook, or daily tests
 addopts = "--codeblocks --strict-markers -m 'not gpu and not vision and not daily and not remote'"
 
-# by default, tests should be fast.
-# for slower tests, use @pytest.mark.timeout with a higher timeout (specified in seconds)
-timeout = 2
 markers = [
     # !!!!!!!!!!!IMPORTANT!!!!!!!!!: when updating the markers, also make sure to update .ci/Jenkinsfile and meta.yaml
     # Tests that require a world_size of two should be annotated with `@pytest.mark.world_size(2)`.
@@ -79,7 +76,14 @@ markers = [
 ]
 filterwarnings = [
     "error",  # Mark all warnings as errors
-    "default::DeprecationWarning",  # But treat all deprecation warnings as warnings
+
+    # Treat the warnings that python usually would ignore as warnings, not errors.
+    "default::DeprecationWarning",
+    'default::PendingDeprecationWarning',
+    'default::ImportWarning',
+    'ignore::ResourceWarning',  # Ignore these -- they are from errors like CPU OOMs
+
+    # Ignore the following warnings
     'ignore:Deterministic mode is activated:UserWarning',  # All tests run with deterministic mode
     'ignore:SubsetNumBatchesWarning',  # SubsetNumBatches is used extensively in testing
     # allow training metrics
@@ -101,8 +105,11 @@ filterwarnings = [
     'ignore:Failed to load image Python extension:UserWarning',
     # Ignore a deprecation warning in the conda build
     'ignore:distutils Version classes are deprecated:DeprecationWarning',
+    # Ignore a UserWarning from TorchMetrics about potentially large memory usage when batch sizes are extremely large
+    'ignore:Metric `SpearmanCorrcoef` will save all targets and predictions in the buffer:UserWarning:torchmetrics',
+    # Ignore a UserWarning from torch 1.12 due to DeepSpeed's use of positional args
+    'ignore:Positional args are being deprecated, use kwargs instead.*:UserWarning',
 ]
-timeout_func_only = true  # exclude fixtures from the timeout
 
 # Coverage
 [tool.coverage.run]

@@ -46,12 +46,13 @@ loggers:
 model:
   resnet:
     initializers:
-    - KAIMING_NORMAL
-    - BN_UNIFORM
-    - LINEAR_LOG_CONSTANT_BIAS
+      - KAIMING_NORMAL
+      - BN_UNIFORM
+      - LINEAR_LOG_CONSTANT_BIAS
     loss_name: binary_cross_entropy_with_logits
     model_name: resnet50
-optimizer:
+    num_classes: 1000
+optimizers:
   decoupled_sgdw:
     dampening: 0.0
     lr: 2.048
@@ -60,7 +61,7 @@ optimizer:
     weight_decay: 0.0005
 precision: AMP
 max_duration: 90ep
-scale_schedule_ratio: # Fraction of 90 epochs to train for. 0.75-2.6 for medium recipe
+scale_schedule_ratio: 1.5 # Fraction of 90 epochs to train for. 0.75-2.6 for medium recipe
 schedulers:
   cosine_decay_with_warmup:
     alpha_f: 0.0
@@ -74,7 +75,7 @@ train_dataset:
     # datadir: not needed because we're using FFCV
     drop_last: true
     ffcv_dest: imagenet_train.ffcv
-    ffcv_dir: # /path/to/ffcv/data/directory
+    ffcv_dir: /path/to/ffcv # /path/to/ffcv/data/directory
     ffcv_write_dataset: false
     is_train: true
     resize_size: -1
@@ -86,7 +87,7 @@ val_dataset:
     # datadir: not needed because we're using FFCV
     drop_last: false
     ffcv_dest: imagenet_val.ffcv
-    ffcv_dir: # /path/to/ffcv/data/directory
+    ffcv_dir: /path/to/ffcv # /path/to/ffcv/data/directory
     ffcv_write_dataset: false
     is_train: false
     resize_size: 232

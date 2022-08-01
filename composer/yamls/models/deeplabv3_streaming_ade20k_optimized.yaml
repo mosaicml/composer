@@ -22,9 +22,9 @@ val_dataset:
     shuffle: false
 optimizers:
   decoupled_sgdw:
-    lr: 0.01
+    lr: 0.08
     momentum: 0.9
-    weight_decay: 2.0e-5
+    weight_decay: 5.0e-5
     dampening: 0
     nesterov: false
 schedulers:
@@ -40,10 +40,10 @@ model:
     is_backbone_pretrained: true
     backbone_url: https://download.pytorch.org/models/resnet101-cd907fc2.pth
     use_plus: true
-    sync_bn: true
+    sync_bn: false
 max_duration: 128ep
-train_batch_size: 32
-eval_batch_size: 32
+train_batch_size: 128
+eval_batch_size: 128
 seed: 17
 dataloader:
   pin_memory: true

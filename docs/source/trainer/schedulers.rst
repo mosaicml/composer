@@ -122,7 +122,7 @@ For example, the code below will scale the training time by half
     )
 
 Importantly, for our schedulers that have warmup, the warmup
-period is *never* scaled. For example, if we apply
+period is *not* scaled by default. For example, if we apply
 ``scale_schedule_ratio=0.5`` to:
 
 .. testcode::
@@ -136,3 +136,18 @@ period is *never* scaled. For example, if we apply
 
 The resulting scheduler would warmup for 4 epochs and then
 have step milestones at 5 epochs and 10 epochs.
+
+To scale the warmup period as well, set ``scale_warmup=True``. For example:
+
+.. testcode::
+
+    from composer.optim.scheduler import MultiStepWithWarmupScheduler
+
+    scheduler = MultiStepWithWarmupScheduler(
+        milestones=["10ep", "20ep"],
+        t_warmup="4ep",
+        scale_warmup=True,
+    )
+
+With ``scale_schedule_ratio=0.5``, this scheduler will warmup for 2 epochs,
+then step on 5 and 10 epochs.

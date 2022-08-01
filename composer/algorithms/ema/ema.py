@@ -21,8 +21,8 @@ __all__ = ['EMA', 'compute_ema']
 
 
 def compute_ema(model: T_Model, ema_model: T_Model, smoothing: float = 0.99):
-    r"""Updates the weights of ``ema_model`` to be closer to the weights of ``model`` according to an exponential
-    weighted average. Weights are updated according to
+    r"""Updates the weights of ``ema_model`` to be closer to the weights of ``model``
+    according to an exponential weighted average. Weights are updated according to
 
     .. math::
         W_{ema_model}^{(t+1)} = smoothing\times W_{ema_model}^{(t)}+(1-smoothing)\times W_{model}^{(t)}
@@ -34,7 +34,7 @@ def compute_ema(model: T_Model, ema_model: T_Model, smoothing: float = 0.99):
     .. math::
         t_{1/2} = -\frac{\log(2)}{\log(smoothing)}
 
-    Therefore to set smoothing to obtain a target half life, set smoothing according to
+    Therefore, to set smoothing to obtain a target half life, set smoothing according to
 
     .. math::
         smoothing = \exp\left[-\frac{\log(2)}{t_{1/2}}\right]
@@ -203,8 +203,8 @@ class EMA(Algorithm):
             model (torch.nn.Module): the model to convert into the ema model.
 
         Returns:
-            model (torch.nn.Module): the input model with parameters and buffers replaced with the averaged parameters
-                and buffers.
+            torch.nn.Module: The input model with parameters and buffers replaced
+                with the averaged parameters and buffers.
         """
         if self.ema_model is None:
             raise AttributeError('ema model has not been initialized yet')
@@ -258,7 +258,7 @@ T_Model = Union[torch.nn.Module, ShadowModel]
 
 
 def _copy_model(source_model: T_Model, destination_model: T_Model):
-    """Copies parameters and buffers from ``source_model`` to ``destination_model``"""
+    """Copies parameters and buffers from ``source_model`` to ``destination_model``."""
     with torch.no_grad():
         source_params = itertools.chain(source_model.parameters(), source_model.buffers())
         destination_params = itertools.chain(destination_model.parameters(), destination_model.buffers())
@@ -268,7 +268,7 @@ def _copy_model(source_model: T_Model, destination_model: T_Model):
 
 
 def _move_shadow_model_to_device(shadow_model: ShadowModel, destination_model: torch.nn.Module):
-    """Ensures the tensors of a shadow model are on the same device as a destination model"""
+    """Ensures the tensors of a shadow model are on the same device as a destination model."""
     with torch.no_grad():
         destination_params = destination_model.parameters()
         shadow_params = shadow_model.parameters()

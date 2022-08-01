@@ -13,8 +13,12 @@ import yahp as hp
 from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
+from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 
-__all__ = ['ObjectStoreHparams', 'LibcloudObjectStoreHparams', 'S3ObjectStoreHparams', 'object_store_registry']
+__all__ = [
+    'ObjectStoreHparams', 'LibcloudObjectStoreHparams', 'S3ObjectStoreHparams', 'SFTPObjectStoreHparams',
+    'object_store_registry'
+]
 
 
 @dataclasses.dataclass
@@ -189,6 +193,7 @@ class S3ObjectStoreHparams(ObjectStoreHparams):
 
     Args:
         bucket (str): See :class:`.S3ObjectStore`.
+        prefix (str): See :class:`.S3ObjectStore`.
         region_name (str, optional): See :class:`.S3ObjectStore`.
         endpoint_url (str, optional): See :class:`.S3ObjectStore`.
         client_config (dict, optional): See :class:`.S3ObjectStore`.
@@ -196,6 +201,7 @@ class S3ObjectStoreHparams(ObjectStoreHparams):
     """
 
     bucket: str = hp.auto(S3ObjectStore, 'bucket')
+    prefix: str = hp.auto(S3ObjectStore, 'prefix')
     region_name: Optional[str] = hp.auto(S3ObjectStore, 'region_name')
     endpoint_url: Optional[str] = hp.auto(S3ObjectStore, 'endpoint_url')
     # Not including the credentials as part of the hparams -- they should be specified through the default
@@ -210,7 +216,63 @@ class S3ObjectStoreHparams(ObjectStoreHparams):
         return dataclasses.asdict(self)
 
 
+@dataclasses.dataclass
+class SFTPObjectStoreHparams(ObjectStoreHparams):
+    """:class:`~.SFTPObjectStore` hyperparameters.
+
+    The :class:`.SFTPObjectStore` uses :mod:`paramiko` to upload and download files from SSH servers
+
+    .. note::
+
+        To follow best security practices, credentials shouldn't be specified as part of the hyperparameters.
+        Instead, please ensure that credentials are in the environment, which will be read automatically.
+
+    Args:
+        host (str): See :class:`.SFTPObjectStore`.
+        port (int, optional): See :class:`.SFTPObjectStore`.
+        username (str, optional): See :class:`.SFTPObjectStore`.
+        known_hosts_filename (str, optional): See :class:`.SFTPObjectStore`.
+        key_filename (str, optional): See :class:`.SFTPObjectStore`.
+        cwd (str, optional): See :class:`.SFTPObjectStore`.
+        connect_kwargs (Dict[str, Any], optional): See :class:`.SFTPObjectStore`.
+    """
+
+    host: str = hp.auto(SFTPObjectStore, 'host')
+    port: int = hp.auto(SFTPObjectStore, 'port')
+    username: Optional[str] = hp.auto(SFTPObjectStore, 'username')
+    known_hosts_filename: Optional[str] = hp.auto(SFTPObjectStore, 'known_hosts_filename')
+    known_hosts_filename_environ: str = hp.optional(
+        ('The name of an environment variable containing '
+         'the path to a SSH known hosts file. Note that `known_hosts_filename` takes precedence over this variable.'),
+        default='COMPOSER_SFTP_KNOWN_HOSTS_FILE',
+    )
+    key_filename: Optional[str] = hp.auto(SFTPObjectStore, 'key_filename')
+    key_filename_environ: str = hp.optional(
+        ('The name of an environment variable containing '
+         'the path to a SSH keyfile. Note that `key_filename` takes precedence over this variable.'),
+        default='COMPOSER_SFTP_KEY_FILE')
+    missing_host_key_policy: str = hp.auto(SFTPObjectStore, 'missing_host_key_policy')
+    cwd: str = hp.auto(SFTPObjectStore, 'cwd')
+    connect_kwargs: Optional[Dict[str, Any]] = hp.auto(SFTPObjectStore, 'connect_kwargs')
+
+    def get_object_store_cls(self) -> Type[ObjectStore]:
+        return SFTPObjectStore
+
+    def get_kwargs(self) -> Dict[str, Any]:
+        kwargs = dataclasses.asdict(self)
+        del kwargs['key_filename_environ']
+        if self.key_filename_environ in os.environ and self.key_filename is None:
+            kwargs['key_filename'] = os.environ[self.key_filename_environ]
+
+        del kwargs['known_hosts_filename_environ']
+        if self.known_hosts_filename_environ in os.environ and self.known_hosts_filename is None:
+            kwargs['known_hosts_filename'] = os.environ[self.known_hosts_filename_environ]
+
+        return kwargs
+
+
 object_store_registry: Dict[str, Type[ObjectStoreHparams]] = {
     'libcloud': LibcloudObjectStoreHparams,
     's3': S3ObjectStoreHparams,
+    'sftp': SFTPObjectStoreHparams,
 }

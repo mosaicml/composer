@@ -99,6 +99,9 @@ A few tips and tricks for using our Trainer:
    centralized into one variable: :class:`.State`.
 -  We have an abstraction for tracking :class:`.Time`, see the
    :doc:`Time<time>` guide.
+-  By default, the Trainer will pick a run name for you, but if you want to name your run,
+   you can using the optional ``run_name`` argument to :class:`.Trainer`. See :doc:`/notes/run_name`
+   for more information.
 
 For a full list of Trainer options, see :class:`.Trainer`. Below, we
 illustrate some example use cases.
@@ -205,11 +208,11 @@ well as Composer's custom schedulers.
 .. testcode::
 
     from composer import Trainer
-    from composer.models import ComposerResNet
+    from composer.models import composer_resnet
     from torch.optim import SGD
     from torch.optim.lr_scheduler import LinearLR
 
-    model = ComposerResNet(model_name="resnet50", num_classes=1000)
+    model = composer_resnet(model_name="resnet50", num_classes=1000)
     optimizer = SGD(model.parameters(), lr=0.1)
     scheduler = LinearLR(optimizer)
 
@@ -315,7 +318,7 @@ data parallel across 8 GPUs the dataloader should set ``batch_size=256``.
 
 .. seealso::
 
-    Our :doc:`distributed_training` guide and
+    Our :doc:`/notes/distributed_training` guide and
     the :mod:`composer.utils.dist` module.
 
 
@@ -408,6 +411,10 @@ We recommend using ``amp`` on GPUs to accelerate your training.
         device='gpu',
         precision='amp'
     )
+
+.. seealso::
+
+    Our :doc:`/notes/numerics` guide.
 
 Checkpointing
 ~~~~~~~~~~~~~

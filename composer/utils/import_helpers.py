@@ -6,7 +6,7 @@
 import importlib
 from typing import Any, Optional
 
-__all__ = ['import_object', 'MissingConditionalImportError']
+__all__ = ['MissingConditionalImportError', 'import_object']
 
 
 class MissingConditionalImportError(ImportError):

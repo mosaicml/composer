@@ -27,15 +27,18 @@ __all__ = ['NoOpModelClass', 'NoOpModel']
 
 
 class NoOpModelClass(ComposerModel):
-    """Dummy model used for testing. The NoOpModel algorithm uses this to replace a ComposerModel.
+    """Dummy model used for performance measurements.
+
+    The :class:`.NoOpModel` algorithm uses this class to replace a :class:`torch.nn.Module`.
 
     Args:
-        original_model (ComposerModel): model to replace.
+        original_model (torch.nn.Module): Model to replace.
     """
 
     def __init__(self, original_model: torch.nn.Module):
         super().__init__()
-        self.weights = torch.nn.Parameter(torch.Tensor([1.5]))
+        original_device = next(original_model.parameters()).device
+        self.weights = torch.nn.Parameter(torch.Tensor([1.5]).to(original_device))
         try:
             # For classification
             self.num_classes = original_model.num_classes
@@ -64,7 +67,7 @@ class NoOpModelClass(ComposerModel):
 
 
 class NoOpModel(Algorithm):
-    """Runs on :attr:`Event.INIT` and replaces the model with a dummy model of type NoOpModelClass."""
+    """Runs on :attr:`Event.INIT` and replaces the model with a dummy :class:`.NoOpModelClass` instance."""
 
     def __init__(self):
         # No arguments

@@ -17,7 +17,6 @@ from composer.datasets.glue_hparams import GLUEHparams
 from composer.datasets.lm_dataset_hparams import LMDatasetHparams
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.models import ModelHparams
-from composer.models.transformer_hparams import TransformerHparams
 from tests.common.models import model_hparams_to_tokenizer_family
 
 
@@ -124,10 +123,7 @@ def configure_dataset_hparams_for_synthetic(
 
     dataset_hparams.use_synthetic = True
 
-    if isinstance(model_hparams, TransformerHparams):
-        if type(model_hparams) not in model_hparams_to_tokenizer_family:
-            raise ValueError(f'Model {type(model_hparams)} is currently not supported for synthetic testing!')
-
+    if model_hparams and type(model_hparams) in model_hparams_to_tokenizer_family:
         tokenizer_family = model_hparams_to_tokenizer_family[type(model_hparams)]
         assert isinstance(dataset_hparams, (GLUEHparams, LMDatasetHparams))
         dataset_hparams.tokenizer_name = tokenizer_family

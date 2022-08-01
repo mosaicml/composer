@@ -84,6 +84,25 @@
 
    :badge:`CV,badge-primary` :badge:`NLP,badge-success`
    ++++++++++++++
+   Uses Fused LayerNorm kernels for increased GPU utilization.
+
+   ---
+   .. link-button:: fused_layernorm.html
+      :text: Fused LayerNorm
+      :classes: card-title
+
+   :badge:`CV,badge-primary` :badge:`NLP,badge-success`
+   ++++++++++++++
+   Swaps linear layers for Gated Linear Units in the feed-forward network.
+
+   ---
+   .. link-button:: gated_linear_units.html
+      :text: Gated Linear Units
+      :classes: card-title
+
+   :badge:`NLP,badge-success`
+   ++++++++++++++
+
    Factorize GEMMs into smaller GEMMs
 
    ---

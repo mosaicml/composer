@@ -69,6 +69,7 @@ class TrackedDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     num_classes: Optional[int] = hp.optional('num_classes', default=None)
     data_shape: Optional[List[int]] = hp.optional('data_shape', default=None)
     tmp_path: Optional[str] = hp.optional('tmp_path', default=None)
+    is_train: bool = hp.optional('Whether to load the training data (the default) or validation data.', default=True)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
         assert self.num_classes is not None
@@ -119,7 +120,6 @@ class CheckBatch0(Callback):
             )
 
 
-@pytest.mark.timeout(90)
 @pytest.mark.parametrize('device,deepspeed', [
     pytest.param('cpu', False, id='cpu'),
     pytest.param('gpu', False, id='gpu', marks=pytest.mark.gpu),

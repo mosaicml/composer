@@ -8,6 +8,7 @@ import numpy as np
 import torch
 
 from composer import Time
+from composer.core.time import TimeUnit
 
 
 def deep_compare(item1: Any, item2: Any, atol: float = 0.0, rtol: float = 0.0):
@@ -26,7 +27,7 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
     if item1 is None:
         assert item2 is None, f'{path} differs: {item1} != {item2}'
         return
-    if isinstance(item1, (str, float, int, bool, Time, datetime.timedelta)):
+    if isinstance(item1, (str, float, int, bool, Time, datetime.timedelta, TimeUnit)):
         assert type(item1) == type(item2)
         assert item1 == item2, f'{path} differs: {item1} != {item2}'
         return

@@ -6,6 +6,7 @@ import os
 import pathlib
 
 import pytest
+import pytest_httpserver
 
 from composer.core.time import Time, Timestamp, TimeUnit
 from composer.utils.file_helpers import (ensure_folder_has_no_conflicting_files, ensure_folder_is_empty,
@@ -14,9 +15,10 @@ from composer.utils.object_store.object_store_hparams import LibcloudObjectStore
 
 
 @pytest.mark.xfail(reason='Occassionally hits the timeout. Should refactor to use a local webserver.')
-def test_get_file_uri(tmp_path: pathlib.Path):
+def test_get_file_uri(tmp_path: pathlib.Path, httpserver: pytest_httpserver.HTTPServer):
+    httpserver.expect_request('/hi').respond_with_data('hi')
     get_file(
-        path='https://www.mosaicml.com',
+        path=httpserver.url_for('/hi'),
         object_store=None,
         destination=str(tmp_path / 'example'),
     )
@@ -25,10 +27,10 @@ def test_get_file_uri(tmp_path: pathlib.Path):
 
 
 @pytest.mark.xfail(reason='Occassionally hits the timeout. Should refactor to use a local webserver.')
-def test_get_file_uri_not_found(tmp_path: pathlib.Path):
+def test_get_file_uri_not_found(tmp_path: pathlib.Path, httpserver: pytest_httpserver.HTTPServer):
     with pytest.raises(FileNotFoundError):
         get_file(
-            path='https://www.mosaicml.com/notfounasdfjilasdfjlkasdljkasjdklfljkasdjfk',
+            path=httpserver.url_for('/not_found_url'),
             object_store=None,
             destination=str(tmp_path / 'example'),
         )

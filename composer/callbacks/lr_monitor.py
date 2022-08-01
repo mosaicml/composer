@@ -11,24 +11,25 @@ __all__ = ['LRMonitor']
 class LRMonitor(Callback):
     """Logs the learning rate.
 
-    This callback iterates over all optimizers and their parameter groups to log learning rate under the
-    ``lr-{OPTIMIZER_NAME}/group{GROUP_NUMBER}`` key.
+    This callback iterates over all optimizers and their parameter groups to log
+    learning rate under the ``lr-{OPTIMIZER_NAME}/group{GROUP_NUMBER}`` key.
 
     Example:
-    .. doctest::
+        .. doctest::
 
-        >>> from composer.callbacks import LRMonitor
-        >>> # constructing trainer object with this callback
-        >>> trainer = Trainer(
-        ...     model=model,
-        ...     train_dataloader=train_dataloader,
-        ...     eval_dataloader=eval_dataloader,
-        ...     optimizers=optimizer,
-        ...     max_duration="1ep",
-        ...     callbacks=[LRMonitor()],
-        ... )
+            >>> from composer import Trainer
+            >>> from composer.callbacks import LRMonitor
+            >>> # constructing trainer object with this callback
+            >>> trainer = Trainer(
+            ...     model=model,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=eval_dataloader,
+            ...     optimizers=optimizer,
+            ...     max_duration="1ep",
+            ...     callbacks=[LRMonitor()],
+            ... )
 
-    The learning rate is logged by the :class:`~composer.loggers.logger.Logger` to the following key as described
+    The learning rate is logged by the :class:`.Logger` to the following key as described
     below.
 
     +---------------------------------------------+---------------------------------------+
@@ -36,7 +37,7 @@ class LRMonitor(Callback):
     +=============================================+=======================================+
     |                                             | Learning rate for each optimizer and  |
     | ``lr-{OPTIMIZER_NAME}/group{GROUP_NUMBER}`` | parameter group for that optimizer is |
-    |                                             | logged to a separate key              |
+    |                                             | logged to a separate key.             |
     +---------------------------------------------+---------------------------------------+
     """
 

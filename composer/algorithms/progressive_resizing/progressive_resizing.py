@@ -103,7 +103,7 @@ def resize_batch(input: torch.Tensor,
         y_sized = y_sized.squeeze(dim=1).to(target.dtype)
 
     # Log results
-    log.info(
+    log.debug(
         textwrap.dedent(f"""\
             Applied Progressive Resizing with scale_factor={scale_factor} and mode={mode}.
             Old input dimensions: (H,W)={input.shape[2], input.shape[3]}.
@@ -148,7 +148,7 @@ class ProgressiveResizing(Algorithm):
     Args:
         mode (str, optional): Type of scaling to perform. Value must be one of ``'crop'`` or ``'resize'``.
             ``'crop'`` performs a random crop, whereas ``'resize'`` performs a bilinear
-            interpolation. Default: ``"resize"``.
+            interpolation. Default: ``'resize'``.
         initial_scale (float, optional): Initial scale factor used to shrink the inputs. Must be a
             value in between 0 and 1. Default: ``0.5``.
         finetune_fraction (float, optional): Fraction of training to reserve for finetuning on the
@@ -201,25 +201,9 @@ class ProgressiveResizing(Algorithm):
         self.input_key, self.target_key = input_key, target_key
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on Event.AFTER_DATALOADER.
-
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-
-        Returns:
-            bool: True if this algorithm should run now
-        """
         return event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Optional[Logger] = None) -> None:
-        """Applies ProgressiveResizing on input images.
-
-        Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Logger): the training logger
-        """
         input, target = state.batch_get_item(key=self.input_key), state.batch_get_item(key=self.target_key)
         assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
             'Multiple tensors not supported for this method yet.'
@@ -272,12 +256,14 @@ def _make_crop(tensor: torch.Tensor, scale_factor: float) -> T_ResizeTransform:
     return resize_transform
 
 
-def _make_crop_pair(X: torch.Tensor, y: torch.Tensor,
-                    scale_factor: float) -> Tuple[T_ResizeTransform, T_ResizeTransform]:
-    """Makes a pair of random crops.
+def _make_crop_pair(
+    X: torch.Tensor,
+    y: torch.Tensor,
+    scale_factor: float,
+) -> Tuple[T_ResizeTransform, T_ResizeTransform]:
+    """Makes a pair of random crops for an input image ``X`` and target tensor ``y``.
 
-    Crops input image X and target tensor y such that the same region is selected from
-    both.
+    The same region is selected from both.
     """
     # New height and width for X
     HcX = int(scale_factor * X.shape[2])

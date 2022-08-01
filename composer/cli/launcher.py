@@ -20,6 +20,7 @@ from argparse import ArgumentParser
 from typing import Any, Dict, List
 
 import psutil
+import torch
 
 import composer
 
@@ -31,15 +32,17 @@ log = logging.getLogger(__name__)
 def _get_parser():
     parser = ArgumentParser(description='Utility for launching distributed machine learning jobs.')
 
-    parser.add_argument('--version', action='version', version=f'composer {composer.__version__}')
+    parser.add_argument('--version', action='version', version=f'MosaicML Composer {composer.__version__}')
 
     required_args = parser.add_argument_group('required arguments')
 
-    required_args.add_argument('-n',
-                               '--nproc',
-                               type=int,
-                               help=('The number of processes to launch on this node. Overrides env var '
-                                     'LOCAL_WORLD_SIZE.'))
+    parser.add_argument(
+        '-n',
+        '--nproc',
+        type=int,
+        help=('The number of processes to launch on this node. Overrides env var `LOCAL_WORLD_SIZE` if specified; '
+              'otherwise, defaults to `max(1, torch.cuda.device_count())`.'),
+    )
 
     parser.add_argument(
         '--stdout',
@@ -64,10 +67,20 @@ def _get_parser():
               'FileLogger within Composer. This logger captures and saves the STDERR of each process.'),
     )
     parser.add_argument('-v', '--verbose', action='store_true', help='If set, print verbose messages')
-    parser.add_argument('-m',
-                        '--module_mode',
-                        action='store_true',
-                        help='If set, run the training script as a module instead of as a script.')
+    parser.add_argument(
+        '-m',
+        '--module_mode',
+        action='store_true',
+        help=('If set, run the training script as a module instead of as a script. '
+              'Cannot be used in conjunction with `command_mode`'),
+    )
+    parser.add_argument(
+        '-c',
+        '--command_mode',
+        action='store_true',
+        help=('If set, run the training script as a command (i.e. without `python`). '
+              'Cannot be used in conjunction with `module_mode`.'),
+    )
 
     multinode_args = parser.add_argument_group(
         'multi-node arguments',
@@ -134,8 +147,20 @@ def _parse_args():
     args = parser.parse_args()
 
     # Default values to env vars if they are not provided
-    if args.nproc is None and 'LOCAL_WORLD_SIZE' in os.environ:
-        args.nproc = int(os.environ['LOCAL_WORLD_SIZE'])
+    if args.nproc is None:
+        if 'LOCAL_WORLD_SIZE' in os.environ:
+            args.nproc = int(os.environ['LOCAL_WORLD_SIZE'])
+        else:
+            args.nproc = torch.cuda.device_count()
+
+        if args.nproc == 0:
+            # This could happen if doing cpu-only training,
+            # which could cause torch.cuda.device_count() to return 0,
+            # and LOCAL_WORLD_SIZE (as set by MCLI) to be zero
+            args.nproc = 1
+
+    if args.nproc < 1:
+        raise ValueError('The nproc must be 1 or greater')
 
     if args.world_size is None and 'WORLD_SIZE' in os.environ:
         args.world_size = int(os.environ['WORLD_SIZE'])
@@ -157,6 +182,9 @@ def _parse_args():
 
     if args.world_size < args.nproc:
         raise ValueError(f'world_size({args.world_size}) cannot be less than nproc({args.nproc})')
+
+    if args.world_size < 1:
+        raise ValueError('The world_size must be 1 or greater')
 
     is_multinode = args.world_size > args.nproc
 
@@ -242,6 +270,7 @@ def _launch_processes(
     master_addr: str,
     master_port: int,
     module_mode: bool,
+    command_mode: bool,
     training_script: str,
     stdout_file_format: str,
     stderr_file_format: str,
@@ -253,7 +282,11 @@ def _launch_processes(
 
     for local_rank in range(nproc):
         global_rank = base_rank + local_rank
-        cmd = [sys.executable, '-u']
+        if command_mode and module_mode:
+            raise ValueError('Either `command_mode` or `module_mode` should be set, but not both.')
+        cmd = []
+        if not command_mode:
+            cmd.append(sys.executable)
         if module_mode:
             cmd.append('-m')
 
@@ -268,6 +301,7 @@ def _launch_processes(
                 NODE_RANK=str(node_rank),
                 MASTER_ADDR=master_addr,
                 MASTER_PORT=str(master_port),
+                PYTHONUNBUFFERED='1',
         ):
 
             # Populate the distributed variables in all launcher args
@@ -413,10 +447,14 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
                         pass
     for global_rank, process in processes.items():
         process.poll()
-        if process.returncode is not None and process.returncode > 0:
+        if process.returncode is not None and process.returncode != 0:
+            if -process.returncode in (signal.SIGKILL, signal.SIGTERM):
+                # Negative return codes indicate the process was killed via a signal
+                # If the launcher script killed the training process (which would happen via SIGKILL or SIGTERM),
+                # then do not print the stack trace.
+                continue
             # only print the processes that have actually crashed,
-            # not the ones that were killed, which would result in
-            # a negative exit code
+            # not the ones that were killed
             _print_process_exit_status(global_rank, process)
 
 
@@ -456,6 +494,7 @@ def main():
                           master_addr=args.master_addr,
                           master_port=args.master_port,
                           module_mode=args.module_mode,
+                          command_mode=args.command_mode,
                           stdout_file_format=args.stdout,
                           stderr_file_format=args.stderr,
                           training_script=args.training_script,

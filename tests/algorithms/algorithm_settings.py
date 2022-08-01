@@ -11,17 +11,32 @@ Each algorithm is keyed based on its name in the algorithm registry.
 from typing import Any, Dict, Optional, Type
 
 import pytest
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
 
 import composer
+import composer.algorithms
 from composer import Algorithm
 from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
-                                 Factorize, GhostBatchNorm, GradientClipping, LabelSmoothing, LayerFreezing, MixUp,
-                                 NoOpModel, ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup,
-                                 SqueezeExcite, StochasticDepth)
-from composer.models import ComposerResNet
+                                 Factorize, FusedLayerNorm, GatedLinearUnits, GhostBatchNorm, GradientClipping,
+                                 LabelSmoothing, LayerFreezing, MixUp, NoOpModel, ProgressiveResizing, RandAugment,
+                                 SelectiveBackprop, SeqLengthWarmup, SqueezeExcite, StochasticDepth)
+from composer.models import composer_resnet
 from composer.models.base import ComposerModel
 from tests import common
+from tests.fixtures.synthetic_hf_state import (make_synthetic_bert_dataloader, make_synthetic_bert_model,
+                                               make_synthetic_gpt2_dataloader, make_synthetic_gpt2_model)
+
+simple_bert_settings = {
+    'model': make_synthetic_bert_model,
+    'dataloader': make_synthetic_bert_dataloader,
+    'kwargs': {},
+}
+
+simple_gpt2_settings = {
+    'model': make_synthetic_gpt2_model,
+    'dataloader': make_synthetic_gpt2_dataloader,
+    'kwargs': {},
+}
 
 simple_vision_settings = {
     'model': common.SimpleConvModel,
@@ -38,7 +53,7 @@ simple_vision_pil_settings = {
 }
 
 simple_resnet_settings = {
-    'model': (ComposerResNet, {
+    'model': (composer_resnet, {
         'model_name': 'resnet18',
         'num_classes': 2
     }),
@@ -71,9 +86,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     CutMix: {
         'model': common.SimpleConvModel,
         'dataset': common.RandomImageDataset,
-        'kwargs': {
-            'num_classes': 2
-        }
+        'kwargs': {}
     },
     CutOut: simple_vision_settings,
     EMA: {
@@ -84,8 +97,10 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
         },
     },
     Factorize: simple_resnet_settings,
+    FusedLayerNorm: simple_bert_settings,
+    GatedLinearUnits: simple_bert_settings,
     GhostBatchNorm: {
-        'model': (ComposerResNet, {
+        'model': (composer_resnet, {
             'model_name': 'resnet18',
             'num_classes': 2
         }),
@@ -107,7 +122,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     SeqLengthWarmup: None,  # NLP settings needed
     SqueezeExcite: simple_resnet_settings,
     StochasticDepth: {
-        'model': (ComposerResNet, {
+        'model': (composer_resnet, {
             'model_name': 'resnet50',
             'num_classes': 2
         }),
@@ -120,7 +135,6 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
             'drop_rate': 0.2,
             'drop_distribution': 'linear',
             'drop_warmup': '0.0dur',
-            'use_same_gpu_seed': False,
         }
     },
     SWA: {
@@ -159,14 +173,26 @@ def get_alg_model(alg_cls: Type[Algorithm]) -> ComposerModel:
     return cls(**kwargs)
 
 
-def get_alg_dataset(alg_cls: Type[Algorithm]) -> Dataset:
+def get_alg_dataloader(alg_cls: Type[Algorithm]) -> DataLoader:
     """Return an instance of the dataset for an algorithm."""
-    settings = _get_alg_settings(alg_cls)['dataset']
+    settings = _get_alg_settings(alg_cls)
+
+    if 'dataloader' in settings:
+        settings = settings['dataloader']
+    elif 'dataset' in settings:
+        settings = settings['dataset']
+    else:
+        raise ValueError(f'Neither dataset nor dataloader have been provided for algorithm {alg_cls}')
+
     if isinstance(settings, tuple):
         (cls, kwargs) = settings
     else:
         (cls, kwargs) = (settings, {})
-    return cls(**kwargs)
+
+    dataloader = cls(**kwargs)
+    if isinstance(dataloader, Dataset):
+        dataloader = DataLoader(dataset=dataloader, batch_size=4)
+    return dataloader
 
 
 def get_algs_with_marks():
@@ -181,9 +207,14 @@ def get_algs_with_marks():
         marks = []
         settings = _settings[alg_cls]
 
-        if alg_cls in (CutMix, MixUp, LabelSmoothing):
-            # see: https://github.com/mosaicml/composer/issues/362
-            pytest.importorskip('torch', minversion='1.10', reason='Pytorch 1.10 required.')
+        if alg_cls in (Alibi, GatedLinearUnits, SeqLengthWarmup):
+            try:
+                import transformers
+                transformers_available = True
+                del transformers
+            except ImportError:
+                transformers_available = False
+            marks.append(pytest.mark.skipif(not transformers_available, reason='transformers not available'))
 
         if alg_cls == SWA:
             # TODO(matthew): Fix
@@ -195,6 +226,10 @@ def get_algs_with_marks():
             # TODO(Landen): Fix
             marks.append(
                 pytest.mark.filterwarnings(r'ignore:Some targets have less than 1 total probability:UserWarning'))
+
+        if alg_cls == FusedLayerNorm:
+            # FusedLayerNorm requires a GPU in order for the class to exist
+            marks.append(pytest.mark.gpu)
 
         if settings is None:
             marks.append(pytest.mark.xfail(reason=f'Algorithm {alg_cls.__name__} is missing settings.'))

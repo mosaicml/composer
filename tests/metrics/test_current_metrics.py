@@ -18,7 +18,6 @@ class MetricsCallback(Callback):
         self.compute_training_metrics = compute_training_metrics
         self.compute_val_metrics = compute_val_metrics
         self._train_batch_end_train_accuracy = None
-        self._eval_batch_end_accuracy = None
 
     def init(self, state: State, logger: Logger) -> None:
         # on init, the `current_metrics` should be empty
@@ -39,16 +38,10 @@ class MetricsCallback(Callback):
         if self.compute_training_metrics:
             assert state.current_metrics['train']['Accuracy'] == self._train_batch_end_train_accuracy
 
-    def eval_batch_end(self, state: State, logger: Logger) -> None:
-        # The validation accuracy should be defined after each eval batch
+    def eval_end(self, state: State, logger: Logger) -> None:
         if self.compute_val_metrics:
             # assuming that at least one sample was correctly classified
             assert state.current_metrics['eval']['Accuracy'] != 0.0
-            self._eval_batch_end_accuracy = state.current_metrics['eval']['Accuracy']
-
-    def eval_end(self, state: State, logger: Logger) -> None:
-        if self.compute_val_metrics:
-            assert state.current_metrics['eval']['Accuracy'] == self._eval_batch_end_accuracy
 
 
 @pytest.mark.parametrize('compute_training_metrics', [True, False])
@@ -111,8 +104,9 @@ def test_current_metrics(
         # computed once per batch
         # and again at epoch end
         num_expected_calls += (train_subset_num_batches + 1) * num_epochs
+    # computed at eval end
     if compute_val_metrics:
-        num_calls_per_eval = eval_subset_num_batches + 1
+        num_calls_per_eval = 1
         num_evals = 0
         if eval_interval == '1ba':
             num_evals += train_subset_num_batches * num_epochs

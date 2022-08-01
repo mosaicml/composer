@@ -10,6 +10,7 @@ import yahp as hp
 from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.callbacks.early_stopper import EarlyStopper
 from composer.callbacks.grad_monitor import GradMonitor
+from composer.callbacks.image_visualizer import ImageVisualizer
 from composer.callbacks.lr_monitor import LRMonitor
 from composer.callbacks.memory_monitor import MemoryMonitor
 from composer.callbacks.mlperf import MLPerfCallback
@@ -26,4 +27,5 @@ callback_registry: Dict[str, Union[Type[Callback], Type[hp.Hparams]]] = {
     'mlperf': MLPerfCallback,
     'early_stopper': EarlyStopper,
     'threshold_stopper': ThresholdStopper,
+    'image_visualizer': ImageVisualizer,
 }

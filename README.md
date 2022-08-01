@@ -56,21 +56,22 @@ Composer features:
 ## Benefits
 
 <p align="center">
-  <a href="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_light.svg#gh-light-mode-only" class="only-light">
-    <img src="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_light.svg" width="85%"/>
+  <a href="https://storage.googleapis.com/docs.mosaicml.com/images/composer_graph_light_06212022.svg?ref=Fiey0Xei#gh-light-mode-only" class="only-light">
+    <img src="https://storage.googleapis.com/docs.mosaicml.com/images/composer_graph_light_06212022.svg?ref=Fiey0Xei" width="75%"/>
   </a>
   <!-- link to the light mode image even on dark mode, so it will be readable in a new tab -->
   <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_BEGIN -->
-  <a href="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_light.svg#gh-dark-mode-only" class="only-dark">
-    <img src="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_dark.svg" width="85%"/>
+  <a href="https://storage.googleapis.com/docs.mosaicml.com/images/composer_graph_dark_06212022.svg?ref=Fiey0Xei#gh-dark-mode-only" class="only-dark">
+    <img src="https://storage.googleapis.com/docs.mosaicml.com/images/composer_graph_dark_06212022.svg?ref=Fiey0Xei" width="75%"/>
   </a>
   <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_END -->
 </p>
 
 With no additional tuning, you can apply our methods to:
 <!-- start numbers -->
-- Train ResNet-50 on ImageNet to the standard 76.6% top-one accuracy for \$40 in 1.2 hours (_with vanilla PyTorch:_ \$116 in 3.5 hours) on AWS.
-- Train a GPT-2 125M to a standard perplexity of 24.11 for \$145 in 4.5 hours (_with vanilla PyTorch_: \$255 in 7.8 hours) on AWS.
+- Train ResNet-50 on ImageNet to the standard 76.6% top-one accuracy for \$15 in 27 minutes (_with vanilla PyTorch:_ \$116 in 3.5 hours) on AWS.
+- Train GPT-2 125M to a the standard perplexity of 24.11 for \$145 in 4.5 hours (_with vanilla PyTorch_: \$255 in 7.8 hours) on AWS.
+- Train DeepLab-v3 on ADE20k to the standard mean IOU of 45.7 for \$36 in 1.1 hours (_with vanilla PyTorch_: \$110 in 3.5 hours on AWS)
 <!-- end numbers -->
 
 # 🚀 Quickstart
@@ -78,13 +79,13 @@ With no additional tuning, you can apply our methods to:
 ## 💾 Installation
 Composer is available with Pip:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```bash
 pip install mosaicml
 ```
 Alternatively, install Composer with Conda:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```bash
 conda install -c mosaicml mosaicml
 ```
@@ -123,15 +124,25 @@ For more examples, see the [Composer Functional API Colab notebook](https://cola
 For the best experience and the most efficient possible training, we recommend using Composer's built-in trainer, which automatically takes care of the low-level details of using speedup methods and provides useful abstractions that facilitate rapid experimentation.
 
 <!-- begin_example_2 --->
-<!-- TODO: Address timeouts -->
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.gpu-->
+<!--pytest.mark.filterwarnings(r'ignore:Some targets have less than 1 total probability:UserWarning')-->
+<!--
+```python
+import torch
+
+# adaptive_avg_pool2d_backward_cuda in mnist_classifier is not deterministic
+torch.use_deterministic_algorithms(False)
+
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 from composer import Trainer
-from composer.algorithms import BlurPool, ChannelsLast, CutMix, LabelSmoothing
-from composer.models import MNIST_Classifier
+from composer.algorithms import ChannelsLast, CutMix, LabelSmoothing
+from composer.models import mnist_model
 
 transform = transforms.Compose([transforms.ToTensor()])
 train_dataset = datasets.MNIST("data", download=True, train=True, transform=transform)
@@ -140,14 +151,13 @@ train_dataloader = DataLoader(train_dataset, batch_size=128)
 eval_dataloader = DataLoader(eval_dataset, batch_size=128)
 
 trainer = Trainer(
-    model=MNIST_Classifier(num_classes=10),
+    model=mnist_model(),
     train_dataloader=train_dataloader,
     eval_dataloader=eval_dataloader,
     max_duration="2ep",
     algorithms=[
-        BlurPool(replace_convs=True, replace_maxpools=True, blur_first=True),
         ChannelsLast(),
-        CutMix(num_classes=10),
+        CutMix(alpha=1.0),
         LabelSmoothing(smoothing=0.1),
     ]
 )
