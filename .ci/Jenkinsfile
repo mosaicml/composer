@@ -297,6 +297,9 @@ stage('Prepare') {
             milestone(buildNumber)
         }
 
+        // TODO(ravi) remove this -- test if npx is available
+        sh "npx cobertura-merge -o $mergedCoverageFile $coverageGlob"
+
         def loadedSCM = checkout scm
 
         gitUrl = loadedSCM.GIT_URL
@@ -452,12 +455,16 @@ stage('Build') {
                     )
                 }
 
+                String mergedCoverageFile = "$buildOutputFolder/coverage_merged.xml"
+
                 sh "mkdir -p $buildOutputFolder"
+
+                sh "npx cobertura-merge -o $mergedCoverageFile $coverageGlob"
 
                 archiveArtifacts(artifacts: artifactsGlob, fingerprint: true, allowEmptyArchive: true)
                 junit(allowEmptyResults: true, testResults: junitGlob, checksName: 'Tests', keepLongStdio: true)
                 publishCoverage(
-                    adapters: [istanbulCoberturaAdapter(path: coverageGlob, mergeToOneReport: true)],
+                    adapters: [istanbulCoberturaAdapter(path: mergedCoverageFile, mergeToOneReport: true)],
                     sourceFileResolver: sourceFiles('STORE_LAST_BUILD'),
                 )
             }
