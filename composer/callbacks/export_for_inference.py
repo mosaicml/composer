@@ -6,21 +6,17 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Optional, Sequence, Union
-
-import torch.nn as nn
+from typing import Any, Optional, Sequence, Union
 
 from composer.core import State
 from composer.core.callback import Callback
 from composer.loggers import Logger
-from composer.utils.inference import ExportFormat, export_for_inference
+from composer.utils.inference import ExportFormat, Transform, export_for_inference
 from composer.utils.object_store import ObjectStore
 
 log = logging.getLogger(__name__)
 
 __all__ = ['ExportForInferenceCallback']
-
-Transform = Callable[[nn.Module], nn.Module]
 
 
 class ExportForInferenceCallback(Callback):
@@ -52,8 +48,8 @@ class ExportForInferenceCallback(Callback):
             to store the exported model. Set this to ``None`` if ``save_path`` is a local filepath.
             (default: ``None``)
         sample_input (Any, optional): Example model inputs used for tracing. This is needed for "onnx" export
-        transforms (Union[Callable, Sequence[Callable]], optional): transformations (usually optimizations) that should
-            be applied to the model. Each should be a callable that takes a model and returns a modified model.
+        transforms (Sequence[Transform], optional): transformations (usually optimizations) that should
+            be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
     """
 
     def __init__(
@@ -62,7 +58,7 @@ class ExportForInferenceCallback(Callback):
         save_path: str,
         save_object_store: Optional[ObjectStore] = None,
         sample_input: Optional[Any] = None,
-        transforms: Optional[Union[Transform, Sequence[Transform]]] = None,
+        transforms: Optional[Sequence[Transform]] = None,
     ):
         self.save_format = save_format
         self.save_path = save_path
