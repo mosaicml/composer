@@ -34,17 +34,17 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 import torch
-from composer.cli.launcher import _get_free_tcp_port
-from composer.core.time import Time, TimeUnit, Timestamp
-from composer.utils.file_helpers import format_name_with_dist_and_time
 import yahp as hp
 from tabulate import tabulate
 
+from composer.cli.launcher import _get_free_tcp_port
+from composer.core.time import Time, Timestamp, TimeUnit
 from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.wandb_logger import WandBLogger
 from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.nlp_trainer_hparams import GLUETrainerHparams, NLPTrainerHparams
 from composer.trainer.trainer_hparams import TrainerHparams
+from composer.utils.file_helpers import format_name_with_dist_and_time
 from composer.utils.misc import warning_on_one_line
 
 
@@ -153,7 +153,6 @@ def log_metrics(metric: Dict[str, Dict], ckpt_filename: str, glue_metrics: GlueS
 
 def merge_hparams(hparams: TrainerHparams, override_hparams: Optional[GLUETrainerHparams]) -> TrainerHparams:
     """Overrides the atttributes of the hparams instance with those of the provided override_hparams."""
-    
     if override_hparams:
         hparams.algorithms = override_hparams.algorithms if override_hparams.algorithms else hparams.algorithms
         hparams.load_ignore_keys = override_hparams.load_ignore_keys if override_hparams.load_ignore_keys else hparams.load_ignore_keys
@@ -404,14 +403,15 @@ def run_pretrainer(training_scheme: str, file: str, save_locally: bool, finetune
                 outfile.write(line)
     
     hp = TrainerHparams.create(cli_args=False, f=tmp_file)
-    trainer = hp.initialize_object()
+    dataloader = hp.train_dataset.initialize_object(dataloader_hparams=hp.dataloader, batch_size=hp.train_batch_size)
+    dataloader_len = dataloader.num_samples // hp.train_batch_size
     run_name = hp.run_name
     save_folder = os.path.join(run_name, hp.save_folder) 
 
     if training_scheme == 'all':  # extract run_name from trainer args for finetuning
         # list and save checkpoint paths 
         finetune_hparams.save_folder = save_folder
-        finetune_hparams.finetune_ckpts = get_ckpt_names(hp, run_name, trainer.state.dataloader_len.value)
+        finetune_hparams.finetune_ckpts = get_ckpt_names(hp, run_name, dataloader_len)
         
     # call via composer to ensure pretraining done distributedly across all available GPUs
     subprocess.run(args=['composer', training_script, '-f', tmp_file, '--save_folder', save_folder], check=True)
