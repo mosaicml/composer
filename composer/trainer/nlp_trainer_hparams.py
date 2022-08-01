@@ -8,6 +8,7 @@ from __future__ import annotations
 import dataclasses
 import os
 from typing import List, Optional, Tuple, Union
+from composer.models.base import ComposerModel
 
 import yahp as hp
 
@@ -30,9 +31,14 @@ class GLUETrainerHparams(hp.Hparams):
        Specifies arguments that should be applied as overrides to all GLUE finetuning tasks when using examples/run_glue_trainer.py.
 
         Args:
-        algorithms (List[AlgorithmHparams], optional): The algorithms to use during training. (default: ``[]``)
+            model (ComposerModel, optional): The model to train. Can be user-defined or one of the models included
+            with Composer.
+
+                .. seealso:: :mod:`composer.models` for models built into Composer.
+            algorithms (List[AlgorithmHparams], optional): The algorithms to use during training. (default: ``[]``)
 
                 .. seealso:: :mod:`composer.algorithms` for the different algorithms built into Composer.
+            finetune_ckpts (List[str], optional): List of load paths to checkpoints to run finetune jobs on. 
             load_ignore_keys (List[str] | (Dict) -> None, optional): See :class:`.Trainer`.
             load_path (str, optional): See :class:`.Trainer`.
             load_object_store (ObjectStoreHparams, optional): See :class:`.Trainer`. Both ``load_logger_destination`` and
@@ -41,6 +47,8 @@ class GLUETrainerHparams(hp.Hparams):
             to log to. (default: ``[]``)
 
                 .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
+            run_name (str, optional): A name for this training run. If not specified, the timestamp will be combined with a
+            :doc:`coolname <coolname:index>`, e.g. ``1654298855-electric-zebra``.
             save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
 
         Example: 
@@ -49,13 +57,15 @@ class GLUETrainerHparams(hp.Hparams):
             save checkpoints to ``path/to/example/folder.``
         
     """
+    model: Optional[ComposerModel] = hp.auto(Trainer, 'model')
     algorithms: Optional[List[Algorithm]] = hp.auto(Trainer, 'algorithms')
+    finetune_ckpts: Optional[List[str]] = hp.optional(doc="list of checkpoints to finetune on", default = None)
     load_ignore_keys: Optional[List[str]] = hp.auto(Trainer, 'load_ignore_keys')
     load_path: Optional[str] = hp.auto(Trainer, 'load_path')
     load_object_store: Optional[ObjectStoreHparams] = hp.auto(Trainer, 'load_object_store')
     loggers: Optional[List[LoggerDestination]] = hp.auto(Trainer, 'loggers')
+    run_name: Optional[str] = hp.auto(Trainer, 'run_name')
     save_folder: Optional[str] = hp.auto(Trainer, 'save_folder')
-    finetune_ckpts: Optional[List[str]] = hp.optional(doc="list of checkpoints to finetune on", default = None)
 
     hparams_registry = {
         'algorithms': algorithm_registry,

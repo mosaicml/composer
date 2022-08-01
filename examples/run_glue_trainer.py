@@ -4,7 +4,8 @@
 """Entrypoint that runs the Composer trainer on a provided YAML hparams file.
 
 Specifically designed for the NLP use case, allowing pre-training and fine-tuning on
-downstream tasks to be handled within one script.
+downstream tasks to be handled within one script. This script requires that the 
+run_composer_trainer.py script lies in the same folder as this one.
 
 Example that pretrains a BERT::
     >>> composer examples/run_glue_trainer.py
@@ -39,7 +40,6 @@ from composer.utils.file_helpers import format_name_with_dist_and_time
 import yahp as hp
 from tabulate import tabulate
 
-import composer
 from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.wandb_logger import WandBLogger
 from composer.trainer.devices.device_gpu import DeviceGPU
@@ -160,8 +160,10 @@ def merge_hparams(hparams: TrainerHparams, override_hparams: Optional[GLUETraine
         hparams.load_path = override_hparams.load_path if override_hparams.load_path else hparams.load_path
         hparams.load_object_store = override_hparams.load_object_store if override_hparams.load_object_store else hparams.load_object_store
         hparams.loggers = override_hparams.loggers if override_hparams.loggers else hparams.loggers
+        hparams.model = override_hparams.model if override_hparams.model else hparams.model 
+        hparams.run_name = override_hparams.run_name if override_hparams.run_name else hparams.run_name 
         hparams.save_folder = override_hparams.save_folder if override_hparams.save_folder else hparams.save_folder
-      
+
     return hparams
 
 
@@ -273,6 +275,16 @@ def train_finetune(
     print(f'\n --------\n SPAWNING TASK {task.upper()}\n DEVICE: {torch.cuda.current_device()}\n --------')
 
     trainer = ft_hparams.initialize_object()
+
+    # if using wandb, store the config inside the wandb run
+    try:
+        import wandb
+    except ImportError:
+        pass
+    else:
+        if wandb.run is not None:
+            wandb.config.update(ft_hparams.to_dict())
+    
     trainer.fit()
     print(f'\nFINISHED TRAINING TASK {task.upper()}\n')
     return to_cpu(trainer.state.current_metrics)
@@ -351,17 +363,17 @@ def get_ckpt_names(hp: TrainerHparams, run_name: str, dataloader_len: int) -> Li
         if duration.unit == TimeUnit.BATCH:
             if ba >= duration.value: 
                 loop = False
+                save_last_batch = True
                 if ba > duration.value:
-                    save_last_batch = True
                     ba = duration.value
         elif duration.unit == TimeUnit.EPOCH:
             if ep >= duration.value: loop = False
         elif duration.unit == TimeUnit.SAMPLE:
             if ba * hp.train_batch_size >= duration.value: 
                 loop = False
+                save_last_batch = True
                 if ba * hp.train_batch_size > duration.value:
                     ba = duration.value // hp.train_batch_size
-                    save_last_batch = True
         
     # save very last batch if incrementing batches passed it
     if save_last_batch:
@@ -373,10 +385,10 @@ def get_ckpt_names(hp: TrainerHparams, run_name: str, dataloader_len: int) -> Li
 
 def run_pretrainer(training_scheme: str, file: str, save_locally: bool, finetune_hparams: GLUETrainerHparams) -> None:
     """Logic for handling a pretraining job spawn based on storage and training settings."""
-    root_dir = os.path.join(os.path.dirname(composer.__file__), '..')
-    training_script = os.path.join(root_dir, 'examples/run_composer_trainer.py')
+    root_dir = os.path.dirname(__file__)
+    training_script = os.path.join(root_dir, 'run_composer_trainer.py')
 
-    # manually copy pretrain_hparams to temporary file (workaround until CO-766 resolved) #TODO: MERGE DEV INTO THIS AND FIX AFTER PUSH 
+    # manually copy pretrain_hparams to temporary file (workaround until CO-766 resolved)
     tmp_dir = tempfile.TemporaryDirectory()
     tmp_file = os.path.join(tmp_dir.name, 'pretrained_hparams.yaml')
     with open(file) as infile, open(tmp_file, 'w+') as outfile:
