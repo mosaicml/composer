@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
 import os
 import pathlib
 import random
@@ -99,11 +100,16 @@ def object_store_test_helper(
     with open(file_path_2, 'w+') as f:
         f.write('2')
 
+    post_close_ctx = contextlib.nullcontext()
+
     if not overwrite:
         # If not `overwrite_delay`, then the `logger.file_artifact` will raise a FileExistsException, because the upload will not even be enqueued
         # Otherwise, with a sufficient will be uploaded, and cleared from the queue, causing a runtime error to be raised on Event.BATCH_END or Event.EPOCH_END
         # A 2 second sleep should be enough here -- the DummyObjectStore will block for at most 0.5 seconds, and the ObjectStoreLogger polls every 0.1 seconds
         if overwrite_delay:
+            post_close_ctx = pytest.warns(
+                RuntimeWarning,
+                match=r'The following objects may not have been uploaded, likely due to a worker crash: artifact_name')
             # Wait for the first upload to go through
             time.sleep(2)
             # Do the second upload -- it should enqueue
@@ -123,7 +129,9 @@ def object_store_test_helper(
                 logger.file_artifact(LogLevel.FIT, artifact_name, file_path_2, overwrite=overwrite)
 
     object_store_logger.close(dummy_state, logger)
-    object_store_logger.post_close()
+
+    with post_close_ctx:
+        object_store_logger.post_close()
 
     # verify upload uri for artifact is correct
     upload_uri = object_store_logger.get_uri_for_artifact(artifact_name)
@@ -254,4 +262,8 @@ def test_close_on_failure(tmp_path: pathlib.Path, dummy_state: State):
 
     # Shutdown the logger. This should not hang or cause any exception
     object_store_logger.close(dummy_state, logger=logger)
-    object_store_logger.post_close()
+    with pytest.warns(
+            RuntimeWarning,
+            match=r'The following objects may not have been uploaded, likely due to a worker crash: dummy_artifact_name'
+    ):
+        object_store_logger.post_close()
