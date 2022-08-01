@@ -1,12 +1,11 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-from itertools import chain
 from collections.abc import Mapping, Sequence
+from itertools import chain
 
 import torch
 import torch.nn.functional as F
 from torch.utils.data.dataloader import default_collate
-
 
 __all__ = ['coco_mmdet', 'mmdet_collate']
 
@@ -82,10 +81,9 @@ def coco_mmdet(path: str = '/data/coco', split: str = 'train'):
         'pipeline': [{
             'type': 'LoadImageFromFile'
         }, {
-                'type': 'LoadAnnotations',
-                'with_bbox': True
-            },
-        {
+            'type': 'LoadAnnotations',
+            'with_bbox': True
+        }, {
             'type':
                 'MultiScaleFlipAug',
             'img_scale': (640, 640),
@@ -121,10 +119,9 @@ def coco_mmdet(path: str = '/data/coco', split: str = 'train'):
         'pipeline': [{
             'type': 'LoadImageFromFile'
         }, {
-                'type': 'LoadAnnotations',
-                'with_bbox': True
-            },
-        {
+            'type': 'LoadAnnotations',
+            'with_bbox': True
+        }, {
             'type':
                 'MultiScaleFlipAug',
             'img_scale': (640, 640),
@@ -183,8 +180,8 @@ def mmdet_collate(batch):
         if batch[0].cpu_only:
             for i in range(0, len(batch), samples_per_gpu):
                 stacked.append(batch[i].data)
-            return stacked # modify to not return data container
-    
+            return stacked  # modify to not return data container
+
         elif batch[0].stack:
             for i in range(0, len(batch), samples_per_gpu):
                 assert isinstance(batch[i].data, torch.Tensor)
@@ -199,35 +196,25 @@ def mmdet_collate(batch):
                         for dim in range(0, ndim - batch[i].pad_dims):
                             assert batch[i].size(dim) == sample.size(dim)
                         for dim in range(1, batch[i].pad_dims + 1):
-                            max_shape[dim - 1] = max(max_shape[dim - 1],
-                                                     sample.size(-dim))
+                            max_shape[dim - 1] = max(max_shape[dim - 1], sample.size(-dim))
                     padded_samples = []
                     for sample in batch[i:i + samples_per_gpu]:
                         pad = [0 for _ in range(batch[i].pad_dims * 2)]
                         for dim in range(1, batch[i].pad_dims + 1):
-                            pad[2 * dim -
-                                1] = max_shape[dim - 1] - sample.size(-dim)
-                        padded_samples.append(
-                            F.pad(
-                                sample.data, pad, value=sample.padding_value))
+                            pad[2 * dim - 1] = max_shape[dim - 1] - sample.size(-dim)
+                        padded_samples.append(F.pad(sample.data, pad, value=sample.padding_value))
                     tensor_stack.append(default_collate(padded_samples))
                 elif batch[i].pad_dims is None:
-                    tensor_stack.append(
-                        default_collate([
-                            sample.data
-                            for sample in batch[i:i + samples_per_gpu]
-                        ]))
+                    tensor_stack.append(default_collate([sample.data for sample in batch[i:i + samples_per_gpu]]))
                 else:
-                    raise ValueError(
-                        'pad_dims should be either None or integers (1-3)')
+                    raise ValueError('pad_dims should be either None or integers (1-3)')
 
         else:
             for i in range(0, len(batch), samples_per_gpu):
-                tensor_stack.append(
-                    [sample.data for sample in batch[i:i + samples_per_gpu]])
+                tensor_stack.append([sample.data for sample in batch[i:i + samples_per_gpu]])
         # hack to convert for mosaic
-        tensor_stack = list(chain.from_iterable(tensor_stack)) # flatten
-        try: 
+        tensor_stack = list(chain.from_iterable(tensor_stack))  # flatten
+        try:
             return torch.stack(tensor_stack)
         except RuntimeError as e:
             return tensor_stack
@@ -236,9 +223,6 @@ def mmdet_collate(batch):
         transposed = zip(*batch)
         return [mmdet_collate(samples) for samples in transposed]
     elif isinstance(batch[0], Mapping):
-        return {
-            key: mmdet_collate([d[key] for d in batch])
-            for key in batch[0]
-        }
+        return {key: mmdet_collate([d[key] for d in batch]) for key in batch[0]}
     else:
         return default_collate(batch)
