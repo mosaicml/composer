@@ -7,6 +7,9 @@ from __future__ import annotations
 
 from typing import TYPCHECKING, List, Optional
 
+
+import numpy as np
+import torch
 from torchmetrics import Metric
 from torchmetrics.collections import MetricCollection
 
@@ -65,12 +68,31 @@ class MMDetModel(ComposerModel):
             **batch)  # this will return a dictionary of 3 losses in train mode and model outputs in test mode
 
     def loss(self, outputs, batch, **kwargs):
-        return outputs
+        return sum(outputs.values())   
 
     def validate(self, batch):
-        # TODO model.forward can only take one image at a time in test mode...
-        outputs = self.model(**batch)  # models behave differently in eval mode
-        return outputs, batch
+        device = batch['img'][0].device
+        targets_box = batch.pop('gt_bboxes')[0]
+        targets_cls = batch.pop('gt_labels')[0]
+        targets = []
+        for i in range(len(targets_box)):
+            t = {'boxes': targets_box[i],
+                'labels': targets_cls[i]}
+            targets.append(t)
+
+        outputs = self.model(return_loss=False, rescale=True, **batch)  # models behave differently in eval mode
+
+        preds = []
+        for bbox_result in outputs:
+            boxes_scores = np.vstack(bbox_result)
+            labels = [np.full(bbox.shape[0], i, dtype=np.int32)
+                        for i, bbox in enumerate(bbox_result)]
+            pred = {'labels': torch.from_numpy(np.concatenate(labels)).to(device).long(),
+                    'boxes': torch.from_numpy(boxes_scores[..., :-1]).to(device),
+                    'scores': torch.from_numpy(boxes_scores[..., -1]).to(device)}
+            preds.append(pred)
+
+        return preds, targets
 
     def metrics(self, train: bool = False):
         return self.train_metrics if train else self.valid_metrics
