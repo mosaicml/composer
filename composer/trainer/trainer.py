@@ -303,7 +303,6 @@ class Trainer:
 
             This label is used to index the training metrics (if ``compute_training_metrics`` is True) in
             :attr:`.State.current_metrics`.
-
             This parameter has no effect if ``train_dataloader`` or ``compute_training_metrics`` are not specified.
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
@@ -795,6 +794,10 @@ class Trainer:
         # Grad Accum
         self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
         grad_accum = _get_initial_grad_accum(grad_accum)
+
+        if grad_accum > 1 and isinstance(self._device, DeviceTPU):
+            raise NotImplementedError(f'auto grad accum not implemented on TPUs yet')
+            
         # Dynamic time estimate for forward and backward pass. Used for monitored_barrier to avoid deadlocks
         self.batch_compute_time = 300
 

@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional,
 import torch
 import yahp as hp
 from torchmetrics import Metric, MetricCollection
-import torch_xla.core.xla_model as xm
 
 import composer
 from composer.algorithms.algorithm_hparams_registry import algorithm_registry
@@ -37,7 +36,7 @@ from composer.optim.optimizer_hparams_registry import OptimizerHparams, optimize
 from composer.optim.scheduler_hparams_registry import scheduler_registry
 from composer.profiler import Profiler
 from composer.trainer.ddp import DDPSyncStrategy
-from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceTPU
+from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.trainer.devices.device_hparams_registry import device_registry
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, reproducibility
@@ -73,7 +72,6 @@ model_registry = {
 def _initialize_dataloader(
     dataset_hparams: Optional[DatasetHparams],
     dataloader_label: str,
-    device: Optional[DeviceHparams],
     batch_size: Optional[int],
     subset_num_batches: Optional[int],
     dataloader_hparams: DataLoaderHparams,
@@ -115,7 +113,6 @@ def _initialize_eval_dataloader(
     eval_batch_size: Optional[int],
     eval_subset_num_batches: Optional[int],
     dataloader_hparams: DataLoaderHparams,
-    device: DeviceHparams,
 ):
     """Helper method to evaluation arguments and initialize the eval_dataloader."""
     eval_dataloader = None
@@ -125,7 +122,6 @@ def _initialize_eval_dataloader(
     if eval_dataset_hparams is not None:
         eval_dataloader = _initialize_dataloader(
             eval_dataset_hparams,
-            device,
             'eval',
             eval_batch_size,
             eval_subset_num_batches,
@@ -283,7 +279,7 @@ class TrainerHparams(hp.Hparams):
     }
 
     model: ModelHparams = hp.auto(Trainer, 'model')
-    device: DeviceHparams = hp.auto(Trainer, 'device')
+
     # Shared data
     dataloader: DataLoaderHparams = hp.optional(doc='dataloader hparams', default=DataLoaderHparams())
 
@@ -432,10 +428,9 @@ class TrainerHparams(hp.Hparams):
 
         # Device
         device = self.device
-
         if device is None:
             device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU()
-            
+
         # Distributed
         # Initialized here so it is available within dataloaders
         if dist.get_world_size() > 1:
@@ -453,7 +448,7 @@ class TrainerHparams(hp.Hparams):
         model = self.model.initialize_object()
 
         # Train dataloader
-        train_dataloader = _initialize_dataloader(self.train_dataset, self.device, self.train_dataloader_label,
+        train_dataloader = _initialize_dataloader(self.train_dataset, self.train_dataloader_label,
                                                   self.train_batch_size, self.train_subset_num_batches, self.dataloader)
 
         # Evaluation
@@ -464,7 +459,6 @@ class TrainerHparams(hp.Hparams):
             self.eval_batch_size,
             self.eval_subset_num_batches,
             self.dataloader,
-            self.device
         )
 
         # Optimizers

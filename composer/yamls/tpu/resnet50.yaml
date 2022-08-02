@@ -36,5 +36,4 @@ device:
   tpu: {}
 dataloader:
   num_workers: 8
-grad_accum: 1
 precision: bf16
