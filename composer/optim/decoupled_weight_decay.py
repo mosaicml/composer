@@ -25,9 +25,14 @@ __all__ = ['DecoupledSGDW', 'DecoupledAdamW']
 class DecoupledSGDW(SGD):
     """SGD optimizer with the weight decay term decoupled from the learning rate.
 
+    NOTE: Since `weight_decay` is no longer scaled by `lr`, you will likely want to use much smaller values
+    for `weight_decay` than you would if using `torch.optim.SGD`. In this optimizer, the value `weight_decay` translates exactly to:
+    'On every optimizer update, every weight element will be multiplied by `(1.0 - weight_decay_t)`'.
+    The term `weight_decay_t` will follow the same schedule as `lr_t` but crucially will not be scaled by `lr`.
+
     Argument defaults are copied from :class:`torch.optim.SGD`.
 
-    The standard `SGD <https://pytorch.org/docs/stable/generated/torch.optim.SGD.html?highlight=sgd#torch.optim.SGD>`_
+    Why use this optimizer? The standard `SGD <https://pytorch.org/docs/stable/generated/torch.optim.SGD.html?highlight=sgd#torch.optim.SGD>`_
     optimizer couples the weight decay term with the gradient calculation. This ties the optimal value
     of :attr:`weight_decay` to :attr:`lr` and can also hurt generalization in practice. For more details
     on why decoupling might be desirable, see `Decoupled Weight Decay Regularization <https://arxiv.org/abs/1711.05101>`_.
@@ -48,6 +53,10 @@ class DecoupledSGDW(SGD):
                  dampening: float = 0,
                  weight_decay: float = 0,
                  nesterov: bool = False):
+        if weight_decay >= 1e-3:
+            log.warning(
+                f'You are using a high value of `weight_decay={weight_decay}` for the `DecoupledSGDW` optimizer. Are you sure you want to do this?'
+                f'Your model\'s weights will be multiplied by {1.0 - weight_decay} on every step.')
         super().__init__(params=params,
                          lr=lr,
                          momentum=momentum,
@@ -153,6 +162,11 @@ class DecoupledSGDW(SGD):
 class DecoupledAdamW(AdamW):
     """Adam optimizer with the weight decay term decoupled from the learning rate.
 
+    NOTE: Since `weight_decay` is no longer scaled by `lr`, you will likely want to use much smaller values
+    for `weight_decay` than you would if using `torch.optim.Adam` or `torch.optim.AdamW`. In this optimizer, the value `weight_decay` translates exactly to:
+    'On every optimizer update, every weight element will be multiplied by `(1.0 - weight_decay_t)`'.
+    The term `weight_decay_t` will follow the same schedule as `lr_t` but crucially will not be scaled by `lr`.
+
     Argument defaults are similar to :class:`torch.optim.AdamW` but we make two changes:
     * The default for ``weight_decay`` is changed from ``1e-2`` -> ``1e-5`` because in `DecoupledAdamW`, the weight decay is decoupled and no longer scaled by the `lr=1e-3`.
     * The default for ``betas`` is changed from ``(0.9, 0.999)`` to ``(0.9, 0.95)`` to reflect community best-practices for the beta2 hyperparameter.
@@ -179,6 +193,10 @@ class DecoupledAdamW(AdamW):
                  eps: float = 1e-8,
                  weight_decay: float = 1e-5,
                  amsgrad: bool = False):
+        if weight_decay >= 1e-3:
+            log.warning(
+                f'You are using a high value of `weight_decay={weight_decay}` for the `DecoupledAdamW` optimizer. Are you sure you want to do this?'
+                f'Your model\'s weights will be multiplied by {1.0 - weight_decay} on every step.')
         super().__init__(params=params, lr=lr, betas=betas, eps=eps, weight_decay=weight_decay, amsgrad=amsgrad)
         for group in self.param_groups:
             group['initial_lr'] = group['lr']
