@@ -159,8 +159,7 @@ def _get_initial_grad_accum(grad_accum: Union[int, str]):
 
 
 def _is_cuda_oom(e: RuntimeError):
-    """Determin
-es if error is CUDA Out of Memory and if adaptive_grad_accum is enabled."""
+    """Determines if error is CUDA Out of Memory and if adaptive_grad_accum is enabled."""
     return 'CUDA out of memory' in str(e)
 
 
