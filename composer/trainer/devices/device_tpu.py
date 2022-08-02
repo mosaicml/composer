@@ -10,7 +10,6 @@ from contextlib import contextmanager
 from typing import Generator, TypeVar, Union
 
 import torch
-import torch_xla
 
 from composer.core.precision import Precision
 from composer.trainer.devices.device import Device, T_nnModule
@@ -29,7 +28,11 @@ class DeviceTPU(Device):
     """
     dist_backend = "xla-tpu"
     def __init__(self):
-        import torch_xla.core.xla_model as xm
+        try:
+            import torch_xla.core.xla_model as xm
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]') from e
+        
         self._device = xm.xla_device()
 
     def module_to_device(self, module: T_nnModule) -> T_nnModule:

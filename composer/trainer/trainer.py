@@ -23,9 +23,6 @@ from torch.cuda.amp.grad_scaler import GradScaler as cuda_grad_scaler
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric, MetricCollection
-import torch_xla.distributed.parallel_loader as pl
-import torch_xla.core.xla_model as xm
-from torch_xla.amp import GradScaler as xla_grad_scaler
 
 from composer.algorithms import GradientClipping
 from composer.callbacks import CheckpointSaver
@@ -897,9 +894,14 @@ class Trainer:
         if self._train_data_spec is not None:
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label,
                                       train_subset_num_batches)
-            if type(self._device) == DeviceTPU:
-                import torch_xla.distributed.parallel_loader as pl
-                self.state.train_dataloader = pl.MpDeviceLoader(self.state.train_dataloader, xm.xla_device) #self._device)
+            if isinstance(self._device, DeviceTPU):
+                try:
+                    import torch_xla.distributed.parallel_loader as pl
+                    import torch_xla.core.xla_model as xm
+                except ImportError as e:
+                    raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]') from e
+                
+                self.state.train_dataloader = pl.MpDeviceLoader(self.state.train_dataloader, xm.xla_device())
 
             else:
                 self.state.train_dataloader = self.state.dataloader
@@ -930,7 +932,6 @@ class Trainer:
         if eval_dataloader is None:
             evaluators: List[Evaluator] = []
         else:
-            #eval_dataloader = pl.MpDeviceLoader(eval_dataloader, xm.xla_device())#self._device)
             evaluators = [
                 ensure_evaluator(evaluator, model.metrics(train=False)) for evaluator in ensure_tuple(eval_dataloader)
             ]
@@ -1451,7 +1452,12 @@ class Trainer:
         # surpressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
-        if type(self._device) == DeviceTPU:
+        if isinstance(self._device, DeviceTPU):
+            try:
+                from torch_xla.amp import GradScaler as xla_grad_scaler
+            except ImportError as e:
+                raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]') from e
+                
             self.state.scaler = xla_grad_scaler()
         else:
             self.state.scaler = ClosureGradScaler() if self._use_closures() else cuda_grad_scaler()
@@ -1665,7 +1671,12 @@ class Trainer:
                 elif self._use_closures():
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
-                            if type(self._device) == DeviceTPU:
+                            if isinstance(self._device, DeviceTPU):
+                                try:
+                                    import torch_xla.core.xla_model as xm
+                                except ImportError as e:
+                                    raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]') from e
+                                
                                 gradients = xm._fetch_gradients(optimizer)
                                 xm.all_reduce('sum', gradients, scale=1.0 / xm.xrt_world_size())
                                 total_loss = self.state.scaler.step(optimizer)
@@ -1674,7 +1685,7 @@ class Trainer:
                                 total_loss = self.state.scaler.step(
                                     optimizer, closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
                         else:
-                            if type(self._device) == DeviceTPU:
+                            if isinstance(self._device, DeviceTPU):
                                 total_loss = xm.optimizer_step(optimizer)
                             else:
                                 total_loss = optimizer.step(
@@ -1683,7 +1694,7 @@ class Trainer:
                     total_loss = self._train_microbatches(microbatches)
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
-                            if type(self._device) == DeviceTPU:
+                            if isinstance(self._device, DeviceTPU):
                                 gradients = xm._fetch_gradients(optimizer)
                                 xm.all_reduce('sum', gradients, scale=1.0 / xm.xrt_world_size())
                                 self.state.scaler.step(optimizer)
@@ -1691,7 +1702,7 @@ class Trainer:
                             else:
                                 self.state.scaler.step(optimizer)
                         else:
-                            if type(self._device) == DeviceTPU:
+                            if isinstance(self._device, DeviceTPU):
                                 xm.optimizer_step(optimizer)
                             else:
                                 optimizer.step()
@@ -2163,7 +2174,6 @@ class Trainer:
         precision = Precision(precision)
         use_grad_scaling = precision == Precision.AMP
 
-        # will need fix for tpu
         if use_grad_scaling and (scaler is None or not scaler.is_enabled()):
             raise RuntimeError(f'Attempting to use grad scaling with {precision}, but scaler is not enabled.'
                                f'Potentially your hardware does not support Precision {precision}.')

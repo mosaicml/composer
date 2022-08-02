@@ -151,6 +151,8 @@ extra_deps['unet'] = [
     'scikit-learn>=1.0.1,<2',
 ]
 
+extra_deps['tpu'] = ['torch_xla[tpuvm]']
+
 extra_deps['vit'] = [
     'vit_pytorch==0.27',
 ]
