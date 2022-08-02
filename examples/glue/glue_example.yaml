@@ -74,7 +74,7 @@ pretrain_hparams:
   save_folder: &folder checkpoints          # The directory to save checkpoints to
   save_interval: 3500ba              # Save checkpoints every 3500 batches
   save_artifact_name: '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}' # comment if you do not want to checkpoint to cloud
-  save_num_checkpoints_to_keep: 0 
+  save_num_checkpoints_to_keep: 0
   save_overwrite: True
 
   loggers:
@@ -85,7 +85,7 @@ pretrain_hparams:
     wandb:
       tags:
         - pretrain
-  
+
 finetune_hparams:
   # defaults
   loggers:

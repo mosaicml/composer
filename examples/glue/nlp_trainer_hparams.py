@@ -81,7 +81,7 @@ class NLPTrainerHparams(hp.Hparams):
 
     # GLUE Specific Overrides test
     training_scheme: str = hp.optional(doc='training scheme used (one of "pretrain", "finetune", or "all")',
-                                                 default="all")
+                                       default='all')
     pretrain_hparams: Optional[TrainerHparams] = hp.optional(doc='Pretraining hyperparameters', default=None)
     finetune_hparams: Optional[GLUETrainerHparams] = hp.optional(doc='GLUE Finetuning hyperparameters', default=None)
 
