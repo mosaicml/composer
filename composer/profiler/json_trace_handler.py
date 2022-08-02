@@ -357,7 +357,9 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
         is_start: bool,
         timestamp: Timestamp,
         wall_clock_time_ns: int,
+        action: ProfilerAction,
     ) -> None:
+        del action
         ph = 'B' if is_start else 'E'
         args = {}
         args['epoch'] = timestamp.epoch.value
@@ -378,7 +380,9 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
         categories: Union[List[str], Tuple[str, ...]],
         timestamp: Timestamp,
         wall_clock_time_ns: int,
+        action: ProfilerAction,
     ) -> None:
+        del action
         args = {}
         args['epoch'] = timestamp.epoch.value
         args['batch'] = timestamp.batch.value
@@ -393,8 +397,16 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
             s='p',  # mark instant event for at process level
         )
 
-    def process_counter_event(self, name: str, categories: Union[List[str], Tuple[str, ...]], timestamp: Timestamp,
-                              wall_clock_time_ns: int, values: Dict[str, Union[int, float]]) -> None:
+    def process_counter_event(
+        self,
+        name: str,
+        categories: Union[List[str], Tuple[str, ...]],
+        timestamp: Timestamp,
+        wall_clock_time_ns: int,
+        values: Dict[str, Union[int, float]],
+        action: ProfilerAction,
+    ) -> None:
+        del timestamp, action
         self._record_event(
             name=name,
             categories=','.join(categories),

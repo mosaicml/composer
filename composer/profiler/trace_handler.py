@@ -11,6 +11,7 @@ from typing import Dict, List, Tuple, Union
 
 from composer.core.callback import Callback
 from composer.core.time import Timestamp
+from composer.profiler.profiler_action import ProfilerAction
 
 __all__ = ['TraceHandler']
 
@@ -33,6 +34,7 @@ class TraceHandler(Callback, abc.ABC):
         is_start: bool,
         timestamp: Timestamp,
         wall_clock_time_ns: int,
+        action: ProfilerAction,
     ) -> None:
         """Invoked whenever there is a duration event to record.
 
@@ -47,8 +49,9 @@ class TraceHandler(Callback, abc.ABC):
             is_start (bool): Whether the event is a start event or end event.
             timestamp (Timestamp): Snapshot of the training time.
             wall_clock_time_ns (int): The :py:func:`time.time_ns` corresponding to the event.
+            action (ProfilerAction): Current ProfilerAction in schedule.
         """
-        del name, categories, is_start, timestamp, wall_clock_time_ns  # unused
+        del name, categories, is_start, timestamp, wall_clock_time_ns, action  # unused
         pass
 
     def process_instant_event(
@@ -57,6 +60,7 @@ class TraceHandler(Callback, abc.ABC):
         categories: Union[List[str], Tuple[str, ...]],
         timestamp: Timestamp,
         wall_clock_time_ns: int,
+        action: ProfilerAction,
     ) -> None:
         """Invoked whenever there is an instant event to record.
 
@@ -65,8 +69,9 @@ class TraceHandler(Callback, abc.ABC):
             categories (List[str] | Tuple[str, ...]): The categories for the event.
             timestamp (Timestamp): Snapshot of current training time.
             wall_clock_time_ns (int): The :py:func:`time.time_ns` corresponding to the event.
+            action (ProfilerAction): Current ProfilerAction in schedule.
         """
-        del name, categories, timestamp, wall_clock_time_ns  # unused
+        del name, categories, timestamp, wall_clock_time_ns, action  # unused
         pass
 
     def process_counter_event(
@@ -76,6 +81,7 @@ class TraceHandler(Callback, abc.ABC):
         timestamp: Timestamp,
         wall_clock_time_ns: int,
         values: Dict[str, Union[int, float]],
+        action: ProfilerAction,
     ) -> None:
         """Invoked whenever there is an counter event to record.
 
@@ -85,8 +91,9 @@ class TraceHandler(Callback, abc.ABC):
             timestamp (Timestamp): The timestamp.
             wall_clock_time_ns (int): The :py:func:`time.time_ns` corresponding to the event.
             values (Dict[str, int | float]): The values corresponding to this counter event.
+            action (ProfilerAction): Current ProfilerAction in schedule.
         """
-        del name, categories, timestamp, wall_clock_time_ns, values  # unused
+        del name, categories, timestamp, wall_clock_time_ns, values, action  # unused
         pass
 
     def process_chrome_json_trace_file(self, filepath: pathlib.Path) -> None:

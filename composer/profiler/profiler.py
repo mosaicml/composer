@@ -250,11 +250,15 @@ class Profiler:
             def should_record(state: State) -> bool:
                 return self.schedule(state) in actions
 
+            def get_action(state: State) -> ProfilerAction:
+                return self.schedule(state)
+
             self._names_to_markers[name] = Marker(
                 state=self.state,
                 trace_handlers=self.trace_handlers,
                 name=name,
                 should_record=should_record,
+                get_action=get_action,
                 record_instant_on_start=record_instant_on_start,
                 record_instant_on_finish=record_instant_on_finish,
                 categories=categories,

@@ -17,6 +17,7 @@ See the :doc:`Profiling Guide </trainer/performance_tutorials/profiling>` for ad
 """
 from composer.profiler.json_trace_handler import JSONTraceHandler
 from composer.profiler.marker import Marker
+from composer.profiler.performance_analysis_trace_handler import PerformanceAnalyzerTraceHandler
 from composer.profiler.profiler import Profiler
 from composer.profiler.profiler_action import ProfilerAction
 from composer.profiler.profiler_schedule import cyclic_schedule
@@ -32,6 +33,7 @@ __all__ = [
     'TraceHandler',
     'cyclic_schedule',
     'JSONTraceHandler',
+    'PerformanceAnalyzerTraceHandler',
     'SystemProfiler',
     'TorchProfiler',
 ]
