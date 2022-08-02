@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import copy
 import atexit
 import os
 import pathlib
@@ -104,7 +105,10 @@ class WandBLogger(LoggerDestination):
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
         import wandb
-        wandb.log(metrics, step=step)
+        # wandb.log alters the metrics dictionary object, so we deepcopy to avoid
+        # side effects.
+        metrics_copy = copy.deepcopy(metrics)
+        wandb.log(metrics_copy, step=step)
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         import wandb
