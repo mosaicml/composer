@@ -120,8 +120,22 @@ class ProgressBarLogger(LoggerDestination):
 
     Args:
         progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
+        bar_format (str, optional): The format string passed into the tqdm progress bar. More info
+            `here <https://tqdm.github.io/docs/tqdm/#__init__>`_. (default: ``'{l_bar}{bar:25}{r_bar}{bar:-1b}'``)
+        unit: The unit to measure progress in. Can be batches (default), tokens, or samples.
         dataloader_label (str, optional): The label for the dataloader that the progress bar is tracking.
             If no ``dataloader_label`` is specified, then the logger will track all dataloaders.
+        metrics: A format string of metrics to include.
+
+            All elements in ``state.metrics[state.dataloader_label]``, in addition to the ``state``,
+            are passed as format variables to the metrics.
+
+            This allows arbitrary elements of the state to be logged -- e.g::
+
+                metrics="loss={state.loss}, lr={state.optimizers[0].lr}, accuracy={accuracy}"
+
+            By default, all elements of ``state.metrics[state.dataloader_label]`` are logged. If
+            training, the training loss is also logged.
         log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
 
             The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is
@@ -142,13 +156,29 @@ class ProgressBarLogger(LoggerDestination):
     def __init__(
         self,
         progress_bar: bool = True,
+        bar_format: str = '{l_bar}{bar:25}{r_bar}{bar:-1b}',
+        unit: Union[str, TimeUnit] = TimeUnit.BATCH,
         dataloader_label: Optional[str] = None,
+        metrics: Optional[str] = None,
         log_to_console: Optional[bool] = None,
         console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         stream: Union[str, TextIO] = sys.stderr,
     ) -> None:
 
         self._show_pbar = progress_bar
+        # If using default bar_format and in notebook, remove {bar:25}
+        if bar_format == '{l_bar}{bar:25}{r_bar}{bar:-1b}' and is_notebook():
+            bar_format = ' {l_bar}{r_bar}{bar:-1b}'
+        self.bar_format = bar_format
+
+        # Cast str into TimeUnit if necessary
+        if isinstance(unit, str):
+            unit = TimeUnit(unit)
+        if unit not in [TimeUnit.BATCH, TimeUnit.SAMPLE, TimeUnit.TOKEN]:
+            raise ValueError(
+                f'Unit argument to ProgressBarLogger must be either batch, sample, or token, but received {unit}.')
+        self.unit = unit
+
         self.dataloader_label = dataloader_label
         # The dummy pbar is to fix issues when streaming progress bars over k8s, where the progress bar in position 0
         # doesn't update until it is finished.
@@ -241,11 +271,12 @@ class ProgressBarLogger(LoggerDestination):
         desc = f'{state.dataloader_label:15}'
         max_duration_unit = None if state.max_duration is None else state.max_duration.unit
 
+        timestamp_key = self.unit.name.lower()
+
         if max_duration_unit == TimeUnit.EPOCH or max_duration_unit is None:
             total = int(state.dataloader_len) if state.dataloader_len is not None else None
-            timestamp_key = 'batch_in_epoch'
+            timestamp_key = self.unit.name.lower() + '_in_epoch'
 
-            unit = TimeUnit.BATCH
             n = state.timestamp.epoch.value
             if self.train_pbar is None and not is_train:
                 # epochwise eval results refer to model from previous epoch (n-1)
@@ -260,18 +291,14 @@ class ProgressBarLogger(LoggerDestination):
         else:
             if is_train:
                 assert state.max_duration is not None, 'max_duration should be set if training'
-                unit = max_duration_unit
                 total = state.max_duration.value
                 # pad for the expected length of an eval pbar -- which is 14 characters (see the else logic below)
                 desc = desc.ljust(len(desc) + 14)
             else:
-                unit = TimeUnit.BATCH
                 total = int(state.dataloader_len) if state.dataloader_len is not None else None
                 value = int(state.timestamp.get(max_duration_unit))
                 # Longest unit name is sample (6 characters)
                 desc += f'{max_duration_unit.name.capitalize():6} {value:5}: '
-
-            timestamp_key = unit.name.lower()
 
         return _ProgressBar(
             file=self.stream,
@@ -280,8 +307,8 @@ class ProgressBarLogger(LoggerDestination):
             keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[is_train],
             # In a notebook, the `bar_format` should not include the {bar}, as otherwise
             # it would appear twice.
-            bar_format=desc + ' {l_bar}' + ('' if is_notebook() else '{bar:25}') + '{r_bar}{bar:-1b}',
-            unit=unit.value.lower(),
+            bar_format=desc + ' ' + self.bar_format,
+            unit=self.unit.value.lower(),
             metrics={},
             timestamp_key=timestamp_key,
         )
