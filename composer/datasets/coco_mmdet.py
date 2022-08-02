@@ -11,6 +11,12 @@ __all__ = ['coco_mmdet', 'mmdet_collate']
 
 
 def coco_mmdet(path: str = '/data/coco', split: str = 'train'):
+    """creates a coco dataset in mmdetection format
+
+    Args:
+        path (str): path to unzipped coco data. Default: ``''/data/coco'```.
+        split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
+    """
     from mmcv import ConfigDict
     from mmdet.datasets import build_dataset
 
@@ -156,7 +162,7 @@ def coco_mmdet(path: str = '/data/coco', split: str = 'train'):
         return build_dataset(ConfigDict(test_config))
 
 
-def mmdet_collate(batch):
+def mmdet_collate(batch) -> list:
     """Puts each data field into a tensor/DataContainer with outer dimension
     batch size.
 
@@ -216,7 +222,7 @@ def mmdet_collate(batch):
         tensor_stack = list(chain.from_iterable(tensor_stack))  # flatten
         try:
             return torch.stack(tensor_stack)
-        except RuntimeError as e:
+        except RuntimeError:
             return tensor_stack
 
     elif isinstance(batch[0], Sequence):

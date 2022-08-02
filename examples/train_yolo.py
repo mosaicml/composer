@@ -15,10 +15,12 @@ from composer.core.data_spec import DataSpec
 from composer.datasets import coco_mmdet
 from composer.datasets.coco_mmdet import mmdet_collate
 from composer.models import composer_yolox
-from composer.trainer.devices import DeviceGPU
 
-train_dataset = coco_mmdet(path='/workdisk/austin/data/coco', split='train')
-val_dataset = coco_mmdet(path='/workdisk/austin/data/coco', split='val')
+coco_path = '../data/coco'
+
+
+train_dataset = coco_mmdet(path=coco_path, split='train')
+val_dataset = coco_mmdet(path=coco_path, split='val')
 
 model = composer_yolox(model_name='yolox-s')
 

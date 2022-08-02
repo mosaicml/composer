@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import TYPCHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 import numpy as np
 import torch
@@ -13,6 +13,9 @@ from torchmetrics import Metric
 from torchmetrics.collections import MetricCollection
 
 from composer.models.base import ComposerModel
+
+if TYPE_CHECKING:
+    import mmdetection as mmdet
 
 __all__ = ['MMDetModel']
 
@@ -22,7 +25,7 @@ class MMDetModel(ComposerModel):
     A wrapper class that mmdetection detectors  to composer models.
 
     Args:
-        model (mmdet.models.detectors.BaseDetector): # TODO
+        model (mmdet.models.detectors.BaseDetector): An  MMdetection Detector
         metrics (list[Metric], optional): list of torchmetrics to apply to the output of `validate`. Default: ``None``.
 
     .. warning:: This wrapper is designed to work with mmdet datasets. #TODO convert to mmdet
