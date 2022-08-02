@@ -408,16 +408,6 @@ class Trainer:
 
             The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is ``False``.
 
-        console_log_level (LogLevel | str | (State, LogLevel) -> bool, optional): The maximum log level which
-            should be printed to the console. (default: :attr:`.LogLevel.EPOCH`)
-
-            It can either be :class:`.LogLevel`, a string corresponding to a :class:`.LogLevel`, or a callable
-            that takes the training :class:`.State` and the :class:`.LogLevel` and returns a boolean of whether this
-            statement should be printed.
-
-            This parameter has no effect if ``log_to_console`` is ``False``, or is unspecified and ``progres_bar`` is
-            ``True``.
-
         console_stream (TextIO | str, optional): The stream to write to. If a string, it can either be
             ``'stdout'`` or ``'stderr'``. (default: :attr:`sys.stderr`)
         load_path (str, optional):  The path format string to an existing checkpoint file.
@@ -694,7 +684,6 @@ class Trainer:
         run_name: Optional[str] = None,
         progress_bar: bool = True,
         log_to_console: Optional[bool] = None,
-        console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         console_stream: Union[str, TextIO] = 'stderr',
 
         # Load Checkpoint
@@ -847,7 +836,6 @@ class Trainer:
                 ProgressBarLogger(
                     progress_bar=progress_bar,
                     log_to_console=log_to_console,
-                    console_log_level=console_log_level,
                     stream=console_stream,
                 ))
 
@@ -1541,6 +1529,13 @@ class Trainer:
                     # `now` is actually in the past, but want to include the time it takes to perform this reduction
                     last_wct = now
 
+                    if self.train_metrics is not None:
+                        self._compute_and_log_metrics(
+                            dataloader_label='train',
+                            log_level=LogLevel.BATCH,
+                            metrics=self.train_metrics,
+                        )
+
                     self.state.timestamp = self.state.timestamp.to_next_batch(
                         samples=total_num_samples,
                         tokens=total_num_tokens,
@@ -1550,13 +1545,6 @@ class Trainer:
                     if self._scheduler_step_frequency == TimeUnit.BATCH:
                         for scheduler in self.state.schedulers:
                             scheduler.step()
-
-                    if self.train_metrics is not None:
-                        self._compute_and_log_metrics(
-                            dataloader_label='train',
-                            log_level=LogLevel.BATCH,
-                            metrics=self.train_metrics,
-                        )
 
                     self.engine.run_event(Event.BATCH_END)
 
