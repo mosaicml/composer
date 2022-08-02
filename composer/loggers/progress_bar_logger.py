@@ -300,15 +300,18 @@ class ProgressBarLogger(LoggerDestination):
                 timestamp_key='',
             )
 
+    def _is_dataloader_label_active(self, state: State):
+        """Checks if dataloader_label, if specified, matches state.dataloader_label."""
+        return self.dataloader_label is None or state.dataloader_label == self.dataloader_label
+
     def epoch_start(self, state: State, logger: Logger) -> None:
         # Build pbar if it's specified by dataloader_label, this rank should show pbar, and its not built already
-        if (self.dataloader_label is None or
-                state.dataloader_label == self.dataloader_label) and self.show_pbar and not self.train_pbar:
+        if self._is_dataloader_label_active(state) and self.show_pbar and not self.train_pbar:
             self.train_pbar = self._build_pbar(state=state, is_train=True)
 
     def eval_start(self, state: State, logger: Logger) -> None:
         # Build pbar if it's specified by dataloader_label and this rank should show pbar
-        if (self.dataloader_label is None or state.dataloader_label == self.dataloader_label) and self.show_pbar:
+        if self._is_dataloader_label_active(state) and self.show_pbar:
             self.eval_pbar = self._build_pbar(state, is_train=False)
 
     def batch_end(self, state: State, logger: Logger) -> None:
