@@ -6,8 +6,9 @@
 from typing import Type
 
 import torch
+import socket
 
-__all__ = ['is_model_deepspeed', 'is_notebook', 'warning_on_one_line']
+__all__ = ['is_model_deepspeed', 'is_notebook', 'warning_on_one_line', 'get_free_tcp_port']
 
 
 def is_model_deepspeed(model: torch.nn.Module) -> bool:
@@ -32,3 +33,12 @@ def warning_on_one_line(message: str, category: Type[Warning], filename: str, li
     """Force Python warnings to consolidate into one line."""
     # From https://stackoverflow.com/questions/26430861/make-pythons-warnings-warn-not-mention-itself
     return f'{category.__name__}: {message} (source: {filename}:{lineno})\n'
+
+
+def get_free_tcp_port() -> int:
+    # from https://www.programcreek.com/python/?CodeExample=get+free+port
+    tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp.bind(('', 0))
+    _, port = tcp.getsockname()
+    tcp.close()
+    return port

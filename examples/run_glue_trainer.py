@@ -9,18 +9,18 @@ run_composer_trainer.py script lies in the same folder as this one.
 
 Example that pretrains a BERT::
     >>> composer examples/run_glue_trainer.py
-    -f composer/yamls/models/glue/glue_example.yaml
+    -f examples/glue/glue_example.yaml
     --training_scheme pretrain
 
 Example that pretrains and finetunes a BERT::
     >>> composer examples/run_glue_trainer.py
-    -f composer/yamls/models/glue/glue_example.yaml
+    -f examples/glue/glue_example.yaml
     --training_scheme all
 
 Example that finetunes a pretrained BERT::
 
     >>> composer examples/run_glue_trainer.py
-    -f composer/yamls/models/glue/glue_example.yaml
+    -f examples/glue/glue_example.yaml
     --training_scheme finetune
 """
 import multiprocessing as mp
@@ -31,25 +31,31 @@ import tempfile
 import warnings
 from concurrent.futures import ProcessPoolExecutor as Pool
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
+from numpy import str_
 
 import torch
+import yaml
+from composer.trainer.devices.device_cpu import DeviceCPU
 import yahp as hp
 from tabulate import tabulate
 
-from composer.cli.launcher import _get_free_tcp_port
 from composer.core.time import Time, Timestamp, TimeUnit
-from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.wandb_logger import WandBLogger
 from composer.trainer.devices.device_gpu import DeviceGPU
-from composer.trainer.nlp_trainer_hparams import GLUETrainerHparams, NLPTrainerHparams
+from examples.glue.nlp_trainer_hparams import GLUETrainerHparams, NLPTrainerHparams
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils.file_helpers import format_name_with_dist_and_time
-from composer.utils.misc import warning_on_one_line
+from composer.utils.misc import warning_on_one_line, get_free_tcp_port
 
+__all__ = ['GlueMetricsState', 'GlueState'] 
 
-class GLUEMetricsState:
-    """Class mapping all GLUE tasks to their respective average metric values."""
+class GlueMetricsState:
+    """Class mapping all GLUE tasks to their respective average metric values.
+    
+    Args:
+        task_names (List[str]): the names of the GLUE tasks stored in the data struct
+    """
 
     def __init__(self, task_names: List[str]) -> None:
         self.task_to_avg_metric = {}
@@ -62,15 +68,15 @@ class GLUEMetricsState:
 class GlueState:
     """Class storing all GLUE metrics per checkpoint collected during a finetuning job spawned by the NLP entrypoint.
 
-    This class maps checkpoint names to GLUEMetricsState instances which map tasks to their respective average
+    This class maps checkpoint names to GlueMetricsState instances which map tasks to their respective average
     metric values.
 
     Args:
-        task_names list(str): the names of the GLUE tasks stored in the data struct
-        ckpt_to_tasks dict(str, GLUEMetricsState): dictionary mapping checkpoint names to GLUEMetricsState instances
+        task_names (List[str]): See :class:`.GLUEMetricsState`
+        ckpt_to_tasks (Dict[str, GLUEMetricsState]): dictionary mapping checkpoint names to :class:`.GLUEMetricsState`
     """
     task_names: List[str]
-    ckpt_to_tasks: Dict[str, GLUEMetricsState]
+    ckpt_to_tasks: Dict[str, GlueMetricsState]
 
 
 def init_cuda_queue(queue_size: int) -> mp.Queue:
@@ -94,6 +100,7 @@ def init_cuda_env(cuda_envs: mp.Queue, free_port: int) -> None:
     os.environ['NODE_RANK'] = '0'
     os.environ['LOCAL_RANK'] = '0'
     os.environ['RANK'] = '0'
+    os.environ['MASTER_ADDR'] = '127.0.0.1'
 
 
 def print_metrics(glue_metrics: GlueState) -> None:
@@ -138,7 +145,7 @@ def log_metrics(metric: Dict[str, Dict], ckpt_filename: str, glue_metrics: GlueS
         glue_metrics (GlueState): GlueState object storing all the glue metrics for the entrypoint's current run
     """
     if ckpt_filename not in glue_metrics.ckpt_to_tasks.keys():
-        glue_metrics.ckpt_to_tasks[ckpt_filename] = GLUEMetricsState(glue_metrics.task_names)
+        glue_metrics.ckpt_to_tasks[ckpt_filename] = GlueMetricsState(glue_metrics.task_names)
 
     task = list(metric.keys())[0]
     formatted_task = task.split('_')[1]  # remove "glue_" prefix
@@ -147,21 +154,21 @@ def log_metrics(metric: Dict[str, Dict], ckpt_filename: str, glue_metrics: GlueS
             tasks = glue_metrics.ckpt_to_tasks[ckpt_filename]
             task_metric = tasks.task_to_avg_metric[formatted_task]
             if not task_metric:
-                glue_metrics.ckpt_to_tasks[ckpt_filename].task_to_avg_metric[formatted_task] = []
-            glue_metrics.ckpt_to_tasks[ckpt_filename].task_to_avg_metric[formatted_task].append(metric_val.item())
+                tasks.task_to_avg_metric[formatted_task] = []
+            tasks.task_to_avg_metric[formatted_task].append(metric_val.item())
 
 
-def merge_hparams(hparams: TrainerHparams, override_hparams: Optional[GLUETrainerHparams]) -> TrainerHparams:
+def merge_hparams(hparams: TrainerHparams, override_hparams: GLUETrainerHparams) -> TrainerHparams:
     """Overrides the atttributes of the hparams instance with those of the provided override_hparams."""
-    if override_hparams:
-        hparams.algorithms = override_hparams.algorithms if override_hparams.algorithms else hparams.algorithms
-        hparams.load_ignore_keys = override_hparams.load_ignore_keys if override_hparams.load_ignore_keys else hparams.load_ignore_keys
-        hparams.load_path = override_hparams.load_path if override_hparams.load_path else hparams.load_path
-        hparams.load_object_store = override_hparams.load_object_store if override_hparams.load_object_store else hparams.load_object_store
-        hparams.loggers = override_hparams.loggers if override_hparams.loggers else hparams.loggers
-        hparams.model = override_hparams.model if override_hparams.model else hparams.model 
-        hparams.run_name = override_hparams.run_name if override_hparams.run_name else hparams.run_name 
-        hparams.save_folder = override_hparams.save_folder if override_hparams.save_folder else hparams.save_folder
+    hparams.algorithms = override_hparams.algorithms if override_hparams.algorithms else hparams.algorithms
+    hparams.load_ignore_keys = override_hparams.load_ignore_keys if override_hparams.load_ignore_keys else hparams.load_ignore_keys
+    hparams.load_path = override_hparams.load_path if override_hparams.load_path else hparams.load_path
+    hparams.load_object_store = override_hparams.load_object_store if override_hparams.load_object_store else hparams.load_object_store
+    hparams.load_logger_destination = override_hparams.load_logger_destination if override_hparams.load_logger_destination else hparams.load_logger_destination
+    hparams.loggers = override_hparams.loggers if override_hparams.loggers else hparams.loggers
+    hparams.model = override_hparams.model if override_hparams.model else hparams.model 
+    hparams.run_name = override_hparams.run_name if override_hparams.run_name else hparams.run_name 
+    hparams.save_folder = override_hparams.save_folder if override_hparams.save_folder else hparams.save_folder
 
     return hparams
 
@@ -172,7 +179,7 @@ def spawn_finetuning_jobs(
     ckpt_save_folder: str,
     glue_metrics: GlueState,
     base_yaml_file: str,
-    save_locally: bool,
+    save_num_checkpoints_to_keep: int,
     parent_ckpt: Optional[str] = None,
     load_ignore_keys: Optional[List[str]] = None,
 ) -> None:
@@ -192,29 +199,19 @@ def spawn_finetuning_jobs(
     print(f'FINETUNING ON {ckpt_load_path}!')
     done_callback = lambda future: log_metrics(
         metric=future.result(), ckpt_filename=logged_ckpt_name, glue_metrics=glue_metrics)
-    free_port = _get_free_tcp_port()
-    executor = Pool(max_workers=torch.cuda.device_count(), initializer=init_cuda_env, initargs=(cuda_envs, free_port))
+    free_port = get_free_tcp_port()
+    ctx = mp.get_context('spawn')
+    executor = Pool(max_workers=torch.cuda.device_count(), initializer=init_cuda_env, initargs=(cuda_envs, free_port), mp_context=ctx)
     for rank in range(num_tasks):
         task = finetune_tasks[rank]
         future = executor.submit(train_finetune, base_yaml_file, task, task_to_save_ckpt[task], ckpt_load_path,
-                                 wandb_group_name, ckpt_save_folder, save_locally, free_port + rank, load_ignore_keys)
+                                 wandb_group_name, ckpt_save_folder, save_num_checkpoints_to_keep, free_port + rank, load_ignore_keys)
         future.add_done_callback(done_callback)
 
     executor.shutdown(wait=True)  # wait for processes and callbacks to complete
 
     cuda_envs.close()
     cuda_envs.join_thread()
-
-def to_cpu(gpu_dict: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    """Copy given dictionary to CPU to avoid multiprocessing GPU tensor pickling issues."""
-    cpu_dict = {} 
-    for key in gpu_dict.keys():
-        if key not in cpu_dict.keys():
-            cpu_dict[key] = {}
-        for inner_key in gpu_dict[key].keys():
-            cpu_dict[key][inner_key] = gpu_dict[key][inner_key].cpu() 
-
-    return cpu_dict
 
 def train_finetune(
     base_yaml_file: str,
@@ -223,7 +220,7 @@ def train_finetune(
     load_path: str,
     wandb_group_name: str,
     save_folder: str,
-    save_locally: bool,
+    save_num_checkpoints_to_keep: int,
     master_port: int,
     load_ignore_keys: Optional[List[str]] = None,
 ):
@@ -233,10 +230,13 @@ def train_finetune(
     finetune_hparams = NLPTrainerHparams.create(cli_args=False, f=base_yaml_file).finetune_hparams
     task_hparams = TrainerHparams.create(cli_args=False, f=f'./composer/yamls/models/glue/{task}.yaml')
 
-    ft_hparams = merge_hparams(task_hparams, finetune_hparams)
+    if finetune_hparams:
+        ft_hparams = merge_hparams(task_hparams, finetune_hparams)
+    else:
+        ft_hparams = task_hparams
     
     ft_hparams.load_path = load_path
-    ft_hparams.device = DeviceGPU(torch.cuda.current_device())
+    ft_hparams.device = DeviceGPU(torch.cuda.current_device()) # set device manually to force finetuning to happen on one GPU
     ft_hparams.log_to_console = False
     ft_hparams.progress_bar = False
     ft_hparams.save_overwrite = True
@@ -247,6 +247,7 @@ def train_finetune(
         ft_hparams.load_ignore_keys = load_ignore_keys
 
     # add finetune-specific tags to wandb if logger exists
+    # TODO(Evan): Use the config logging API in https://mosaicml.atlassian.net/browse/CO-586 to set tags and groups
     if ft_hparams.loggers:
         for logger in ft_hparams.loggers:
             if isinstance(logger, WandBLogger):
@@ -264,12 +265,9 @@ def train_finetune(
         ft_hparams.save_artifact_name = save_artifact_name
         ft_hparams.save_latest_artifact_name = save_latest_artifact_name
 
-        ft_hparams.save_num_checkpoints_to_keep = 0
-
-        if save_locally:
+        if save_num_checkpoints_to_keep != 0:
             if not os.path.exists(ft_hparams.save_folder):
                 os.mkdir(ft_hparams.save_folder)
-            ft_hparams.save_num_checkpoints_to_keep = 1
            
     print(f'\n --------\n SPAWNING TASK {task.upper()}\n DEVICE: {torch.cuda.current_device()}\n --------')
 
@@ -286,52 +284,55 @@ def train_finetune(
     
     trainer.fit()
     print(f'\nFINISHED TRAINING TASK {task.upper()}\n')
-    return to_cpu(trainer.state.current_metrics)
+    # recursively move metrics to CPU to avoid pickling issues
+    return DeviceCPU().batch_to_device(trainer.state.current_metrics) 
 
-def get_args() -> Tuple:
+def get_args() -> str_:
     """Get NLPTrainerHparams arguments from CLI."""
     parser = hp.get_argparse(NLPTrainerHparams)
     args = parser.parse_args()
 
-    return args.file, args.training_scheme
+    return args.file
 
 
-def validate_args(training_scheme: str, hp: NLPTrainerHparams) -> None:
+def validate_args(hp: NLPTrainerHparams) -> None:
     """Validate CLI args as well as finetune-specific parameters."""
-    if training_scheme != 'finetune' and not hp.pretrain_hparams:
+    if hp.training_scheme not in ('finetune', 'pretrain', 'all'):
+        raise ValueError('training_scheme must be one of "finetune", "pretrain," or "all"')
+
+    if hp.training_scheme != 'finetune' and not hp.pretrain_hparams:
         raise ValueError('pretrain_hparams must be specified if pretraining a model')
 
-    elif training_scheme == 'finetune' and ((not hp.finetune_hparams) or
+    elif hp.training_scheme == 'finetune' and ((not hp.finetune_hparams) or
                                                (hp.finetune_hparams and not hp.finetune_hparams.finetune_ckpts)):
         raise ValueError('load_path to checkpoints must be specified if finetuning a model')
 
-    elif training_scheme == 'pretrain' and hp.finetune_hparams:
+    elif hp.training_scheme == 'pretrain' and hp.finetune_hparams:
         warnings.warn('finetune_hparams specified. These values will be ignored during pretraining.')
 
-    elif training_scheme == 'all' and hp.finetune_hparams is None:
+    elif hp.training_scheme == 'all' and hp.finetune_hparams is None:
         warnings.warn('No shared finetune_hparams specified. All finetune tasks will use their default configurations.')
 
-    elif training_scheme == 'all' and hp.finetune_hparams and hp.finetune_hparams.finetune_ckpts:
+    elif hp.training_scheme == 'all' and hp.finetune_hparams and hp.finetune_hparams.finetune_ckpts:
         warnings.warn('finetune_ckpts specified in finetune_hparams. This value will be overriden during finetuning.')
 
 
-def get_finetune_hparams(training_scheme: str) -> Tuple:
+def get_finetune_hparams() -> Tuple[GLUETrainerHparams, str, int]:
     """Extract finetune-specific hparams from the provided file and add entrypoint specific args to it."""
     hp = NLPTrainerHparams.create()
-    validate_args(training_scheme, hp)
+    validate_args(hp)
 
+    training_scheme = hp.training_scheme
+    save_num_checkpoints_to_keep = -1
+    if hp.pretrain_hparams:
+        save_num_checkpoints_to_keep = hp.pretrain_hparams.save_num_checkpoints_to_keep
     hparams = None
-    save_locally = True
-    if training_scheme != 'pretrain':
+    if training_scheme in ('finetune', 'all'):
         hparams = hp.finetune_hparams
         if not hparams:
             hparams = GLUETrainerHparams()
-        if hparams.loggers:
-            for l in hparams.loggers:
-                if isinstance(l, ObjectStoreLogger):
-                    save_locally = False
 
-    return hparams, save_locally
+    return hparams, training_scheme, save_num_checkpoints_to_keep 
 
 def get_ckpt_names(hp: TrainerHparams, run_name: str, dataloader_len: int) -> List[str]:
     """Extract list of checkpoints that will be saved by the given configuration."""
@@ -382,7 +383,7 @@ def get_ckpt_names(hp: TrainerHparams, run_name: str, dataloader_len: int) -> Li
         
     return ckpt_names
 
-def run_pretrainer(training_scheme: str, file: str, save_locally: bool, finetune_hparams: GLUETrainerHparams) -> None:
+def run_pretrainer(training_scheme: str, file: str, finetune_hparams: GLUETrainerHparams) -> None:
     """Logic for handling a pretraining job spawn based on storage and training settings."""
     root_dir = os.path.dirname(__file__)
     training_script = os.path.join(root_dir, 'run_composer_trainer.py')
@@ -391,35 +392,32 @@ def run_pretrainer(training_scheme: str, file: str, save_locally: bool, finetune
     tmp_dir = tempfile.TemporaryDirectory()
     tmp_file = os.path.join(tmp_dir.name, 'pretrained_hparams.yaml')
     with open(file) as infile, open(tmp_file, 'w+') as outfile:
-        copy = False
-        for line in infile:
-            if line.strip() == 'pretrain_hparams:':
-                copy = True
-                continue
-            elif line.strip() == 'finetune_hparams:':
-                copy = False
-                continue
-            elif copy:
-                outfile.write(line)
+        hparams = yaml.load(infile, yaml.Loader)
+        pretrain_hparams = hparams['pretrain_hparams']
+        yaml.dump(pretrain_hparams, outfile)
     
     hp = TrainerHparams.create(cli_args=False, f=tmp_file)
-    dataloader = hp.train_dataset.initialize_object(dataloader_hparams=hp.dataloader, batch_size=hp.train_batch_size)
-    dataloader_len = dataloader.num_samples // hp.train_batch_size
+    dataloader = hp.train_dataset.initialize_object(dataloader_hparams=hp.dataloader, batch_size=hp.train_batch_size).dataloader
+    dataloader_len = len(dataloader)
     run_name = hp.run_name
     save_folder = os.path.join(run_name, hp.save_folder) 
 
     if training_scheme == 'all':  # extract run_name from trainer args for finetuning
         # list and save checkpoint paths 
         finetune_hparams.save_folder = save_folder
+        # TODO(Evan): After CO-819 is merged, query the object store to list all checkpoint objects
         finetune_hparams.finetune_ckpts = get_ckpt_names(hp, run_name, dataloader_len)
         
     # call via composer to ensure pretraining done distributedly across all available GPUs
     subprocess.run(args=['composer', training_script, '-f', tmp_file, '--save_folder', save_folder], check=True)
 
-def run_finetuner(training_scheme: str, file: str, save_locally: bool, save_folder: str, finetune_hparams, glue_metrics: GlueState) -> None:
+def run_finetuner(file: str, save_num_checkpoints_to_keep: int, save_folder: str, finetune_hparams, glue_metrics: GlueState) -> None:
     """Logic for handling a finetuning job spawn based on storage and training settings."""
     # set automatic load and save paths
-    all_ckpts_list = finetune_hparams.finetune_ckpts
+    if save_num_checkpoints_to_keep != 0:
+        all_ckpts_list = os.listdir(save_folder)
+    else:
+        all_ckpts_list = finetune_hparams.finetune_ckpts
 
     # finetune on every pretrained checkpoint
     for ckpt_filename in all_ckpts_list:
@@ -431,7 +429,7 @@ def run_finetuner(training_scheme: str, file: str, save_locally: bool, save_fold
                               save_folder,
                               glue_metrics,
                               file,
-                              save_locally=save_locally,
+                              save_num_checkpoints_to_keep,
                               parent_ckpt=parent_ckpt,
                               load_ignore_keys=['state/model/model.classifier*'])
 
@@ -446,7 +444,7 @@ def run_finetuner(training_scheme: str, file: str, save_locally: bool, save_fold
             save_folder,
             glue_metrics,
             file,
-            save_locally=save_locally,
+            save_num_checkpoints_to_keep,
             parent_ckpt=parent_ckpt,
             load_ignore_keys=['state/model/model.classifier*'],
         )
@@ -458,19 +456,19 @@ def _main() -> None:
     if len(sys.argv) == 1:
         sys.argv = [sys.argv[0], '--help']
 
-    file, training_scheme = get_args()
-    finetune_hparams, save_locally = get_finetune_hparams(training_scheme)
+    file = get_args()
+    finetune_hparams, training_scheme, save_num_checkpoints_to_keep = get_finetune_hparams()
 
     # Pretrain
-    if training_scheme != 'finetune':
-        run_pretrainer(training_scheme, file, save_locally, finetune_hparams)
+    if training_scheme in ('pretrain', 'all'):
+        run_pretrainer(training_scheme, file, finetune_hparams)
         print('PRETRAINING COMPLETE')
 
     # Finetune
     glue_task_names = ['cola', 'sst2', 'qqp', 'qnli', 'mnli', 'rte', 'mrpc', 'stsb']
     glue_metrics = GlueState(glue_task_names, {})
-    if training_scheme != 'pretrain':
-        run_finetuner(training_scheme, file, save_locally, finetune_hparams.save_folder, finetune_hparams, glue_metrics)
+    if training_scheme in ('finetune', 'all'):
+        run_finetuner(file, save_num_checkpoints_to_keep, finetune_hparams.save_folder, finetune_hparams, glue_metrics)
         print('FINETUNING COMPLETE')
 
         # output GLUE metrics
@@ -478,5 +476,4 @@ def _main() -> None:
 
 
 if __name__ == '__main__':
-    mp.set_start_method('spawn')
     _main()
