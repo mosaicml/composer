@@ -155,3 +155,24 @@ def test_progress_bar_dataloader_label(max_duration: Time[int], monkeypatch: Mon
     # test eval pbar
     for mt in mock_tqdms_eval:
         assert mt.update.call_count == eval_subset_num_batches
+
+
+def test_progress_bar_invalid_args(monkeypatch: MonkeyPatch):
+    eval_interval = 1
+    eval_subset_num_batches = 2
+    batch_size = 10
+    train_dataset = RandomClassificationDataset()
+    eval_dataset = RandomClassificationDataset()
+    model = SimpleModel()
+
+    # Raise ValueError as both progress_bar and ProgressBarLogger are specified
+    with pytest.raises(ValueError):
+        Trainer(model=model,
+                max_duration='2ep',
+                eval_interval=eval_interval,
+                compute_training_metrics=True,
+                train_dataloader=torch.utils.data.DataLoader(train_dataset, batch_size=batch_size),
+                eval_dataloader=torch.utils.data.DataLoader(eval_dataset, batch_size=batch_size),
+                eval_subset_num_batches=eval_subset_num_batches,
+                progress_bar=False,
+                loggers=[ProgressBarLogger(True, dataloader_label='train')])
