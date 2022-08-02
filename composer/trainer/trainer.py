@@ -1686,6 +1686,11 @@ class Trainer:
                                     optimizer, closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
                         else:
                             if isinstance(self._device, DeviceTPU):
+                                try:
+                                    import torch_xla.core.xla_model as xm
+                                except ImportError as e:
+                                    raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]') from e
+                                # check for adding closure
                                 total_loss = xm.optimizer_step(optimizer)
                             else:
                                 total_loss = optimizer.step(
@@ -1695,8 +1700,11 @@ class Trainer:
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
                             if isinstance(self._device, DeviceTPU):
-                                gradients = xm._fetch_gradients(optimizer)
-                                xm.all_reduce('sum', gradients, scale=1.0 / xm.xrt_world_size())
+                                try:
+                                    import torch_xla.core.xla_model as xm
+                                except ImportError as e:
+                                    raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]') from e
+
                                 self.state.scaler.step(optimizer)
                                 self.state.scaler.update()
                             else:

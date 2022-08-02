@@ -1,15 +1,15 @@
 callbacks:
   speed_monitor:
 train_dataset:
-  imagenet:
-    use_synthetic: true
+  streaming_imagenet1k: # Configuration for ImageNet training data
+    split: train
     shuffle: true
     drop_last: true
 val_dataset:
-  imagenet:
-    use_synthetic: true
+  streaming_imagenet1k: # Configuration for ImageNet validation data
+    split: val
     shuffle: false
-    drop_last: false
+    drop_last: false  
 optimizers:
   decoupled_sgdw:
     lr: 2.048
@@ -37,4 +37,4 @@ device:
 dataloader:
   num_workers: 8
 grad_accum: 1
-precision: amp
+precision: bf16
