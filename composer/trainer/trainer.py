@@ -839,12 +839,22 @@ class Trainer:
         # Console Logging
         loggers = list(ensure_tuple(loggers))
         if any(isinstance(x, ProgressBarLogger) for x in loggers):
-            warnings.warn(
-                DeprecationWarning(
-                    (f'Specifying the {ProgressBarLogger.__name__} via `loggers` is deprecated. Instead, '
-                     'please specify `progress_bar`, `log_to_console`, `log_level`, and `stream` arguments when '
-                     'constructing the trainer. If specified, these arguments will be ignored, as the '
-                     f'{ProgressBarLogger.__name__} was already created.')))
+            if progress_bar != True:
+                raise ValueError(f'progress_bar was manually set while ProgressBarLogger was passed in the '
+                                 '`loggers` argument. This value will be ignored. Please leave it as '
+                                 'the default value or remove ProgressBarLogger from `loggers`.')
+            if log_to_console != None:
+                raise ValueError(f'log_to_console was manually set while ProgressBarLogger was passed in the '
+                                 '`loggers` argument. This value will be ignored. Please leave it as '
+                                 'the default value or remove ProgressBarLogger from `loggers`.')
+            if console_log_level != LogLevel.EPOCH:
+                raise ValueError(f'console_log_level was manually set while ProgressBarLogger was passed in the '
+                                 '`loggers` argument. This value will be ignored. Please leave it as '
+                                 'the default value or remove ProgressBarLogger from `loggers`.')
+            if console_stream != 'stderr':
+                raise ValueError(f'console_stream was manually set while ProgressBarLogger was passed in the '
+                                 '`loggers` argument. This value will be ignored. Please leave it as '
+                                 'the default value or remove ProgressBarLogger from `loggers`.')
         else:
             loggers.append(
                 ProgressBarLogger(
