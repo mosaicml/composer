@@ -55,8 +55,8 @@ class DecoupledSGDW(SGD):
                  nesterov: bool = False):
         if weight_decay >= 1e-3:
             log.warning(
-                f'You are using a high value of `weight_decay={weight_decay}` for the `DecoupledSGDW` optimizer. Are you sure you want to do this?'
-                f'Your model\'s weights will be multiplied by {1.0 - weight_decay} on every step.')
+                f'You are using a high value of `weight_decay={weight_decay}` for the `DecoupledSGDW` optimizer. Are you sure you want to do this? '
+                f'Your model\'s weights will be multiplied by {1.0 - weight_decay} on every step!')
         super().__init__(params=params,
                          lr=lr,
                          momentum=momentum,
@@ -195,8 +195,8 @@ class DecoupledAdamW(AdamW):
                  amsgrad: bool = False):
         if weight_decay >= 1e-3:
             log.warning(
-                f'You are using a high value of `weight_decay={weight_decay}` for the `DecoupledAdamW` optimizer. Are you sure you want to do this?'
-                f'Your model\'s weights will be multiplied by {1.0 - weight_decay} on every step.')
+                f'You are using a high value of `weight_decay={weight_decay}` for the `DecoupledAdamW` optimizer. Are you sure you want to do this? '
+                f'Your model\'s weights will be multiplied by {1.0 - weight_decay} on every step!')
         super().__init__(params=params, lr=lr, betas=betas, eps=eps, weight_decay=weight_decay, amsgrad=amsgrad)
         for group in self.param_groups:
             group['initial_lr'] = group['lr']
