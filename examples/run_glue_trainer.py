@@ -31,6 +31,7 @@ import tempfile
 import warnings
 from concurrent.futures import ProcessPoolExecutor as Pool
 from dataclasses import dataclass
+from multiprocessing.context import BaseContext
 from typing import Dict, List, Optional, Tuple
 
 import torch
@@ -80,9 +81,9 @@ class GlueState:
     ckpt_to_tasks: Dict[str, GlueMetricsState]
 
 
-def init_cuda_queue(queue_size: int) -> mp.Queue:
+def init_cuda_queue(queue_size: int, ctx: BaseContext) -> mp.Queue:
     """Generate a multiprocessing queue to store queue_size GPU IDs. The multiprocessing package has no way of extracting the worker ID from the worker name; therefore, a queue is used to map pool workers to GPUs to spawn finetune jobs one."""
-    cuda_envs = mp.Queue(queue_size)
+    cuda_envs = ctx.Queue(queue_size)
     cuda_envs_list = range(queue_size)
     for e in cuda_envs_list:
         cuda_envs.put(e)
@@ -185,7 +186,8 @@ def spawn_finetuning_jobs(
     load_ignore_keys: Optional[List[str]] = None,
 ) -> None:
     """Set up CUDA environment and process pool for given finetuning jobs."""
-    cuda_envs = init_cuda_queue(torch.cuda.device_count())
+    ctx = mp.get_context('spawn')
+    cuda_envs = init_cuda_queue(torch.cuda.device_count(), ctx)
     finetune_tasks = list(task_to_save_ckpt.keys())
     num_tasks = len(finetune_tasks)
 
@@ -201,7 +203,10 @@ def spawn_finetuning_jobs(
     done_callback = lambda future: log_metrics(
         metric=future.result(), ckpt_filename=logged_ckpt_name, glue_metrics=glue_metrics)
     free_port = get_free_tcp_port()
-    executor = Pool(max_workers=torch.cuda.device_count(), initializer=init_cuda_env, initargs=(cuda_envs, free_port))
+    executor = Pool(max_workers=torch.cuda.device_count(),
+                    initializer=init_cuda_env,
+                    initargs=(cuda_envs, free_port),
+                    mp_context=ctx)
     for rank in range(num_tasks):
         task = finetune_tasks[rank]
         future = executor.submit(train_finetune, base_yaml_file, task, task_to_save_ckpt[task], ckpt_load_path,
@@ -494,5 +499,4 @@ def _main() -> None:
 
 
 if __name__ == '__main__':
-    mp.set_start_method('spawn')
     _main()
