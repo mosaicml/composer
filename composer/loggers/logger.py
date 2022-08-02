@@ -79,6 +79,10 @@ class Logger:
         self.destinations = ensure_tuple(destinations)
         self._state = state
 
+    def log_traces(self, traces: Dict[str, Any]):
+        for destination in self.destinations:
+            destination.log_traces(traces)
+
     def log_hyperparameters(self, parameters: Dict[str, Any]):
         for destination in self.destinations:
             destination.log_hyperparameters(parameters)

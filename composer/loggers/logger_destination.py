@@ -60,12 +60,20 @@ class LoggerDestination(Callback, ABC):
                 time of logging. Defaults to None. If not specified the specific
                 LoggerDestination implementation will choose a step (usually a running
                 counter).
-            epoch (Optional[int], optional): The current epoch at the time of logging.
-                Defaults to None.
         """
         del metrics, step # unused
         pass
 
+    def log_traces(self, traces: Dict[str, Any]):
+        """Log traces. Logs any debug-related data like algorithm traces.
+        
+        Args:
+            traces (Dict[str, float]): Dictionary mapping trace names (str) to trace
+                (Any).
+        """
+        del traces
+        pass
+    
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         """Log data.
 
