@@ -1,6 +1,6 @@
 .. From https://github.com/sphinx-doc/sphinx/tree/4.x/sphinx/ext/autosummary/templates/autosummary/module.rst
 
-{{ fullname | escape | underline}}
+{{ name | escape | underline}}
 
 .. List the submodules
 
