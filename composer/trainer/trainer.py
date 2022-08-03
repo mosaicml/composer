@@ -41,11 +41,12 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
-from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed, map_collection,
-                            reproducibility)
+from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, inference, is_model_deepspeed,
+                            map_collection, reproducibility)
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
+from composer.utils.inference import ExportFormat, Transform
 
 log = logging.getLogger(__name__)
 
@@ -2193,3 +2194,40 @@ class Trainer:
             List[pathlib.Path]: See :func:`.save_checkpoint`.
         """
         return save_checkpoint(state=self.state, filename=name, weights_only=weights_only)
+
+    def export_for_inference(
+        self,
+        save_format: Union[str, ExportFormat],
+        save_path: str,
+        save_object_store: Optional[ObjectStore] = None,
+        sample_input: Optional[Any] = None,
+        transforms: Optional[Sequence[Transform]] = None,
+    ):
+        """Export a model for inference.
+
+        Args:
+            save_format (Union[str, ExportFormat]):  Format to export to. Either ``"torchscript"`` or ``"onnx"``.
+            save_path: (str): The path for storing the exported model. It can be a path to a file on the local disk,
+            a URL, or if ``save_object_store`` is set, the object name
+                in a cloud bucket. For example, ``my_run/exported_model``.
+            save_object_store (ObjectStore, optional): If the ``save_path`` is in an object name in a cloud bucket
+                (i.e. AWS S3 or Google Cloud Storage), an instance of
+                :class:`~.ObjectStore` which will be used
+                to store the exported model. Set this to ``None`` if ``save_path`` is a local filepath.
+                (default: ``None``)
+            sample_input (Any, optional): Example model inputs used for tracing. This is needed for "onnx" export.
+                The ``sample_input`` need not match the batch size you intend to use for inference. However, the model
+                should accept the ``sample_input`` as is. (default: ``None``)
+            transforms (Sequence[Transform], optional): transformations (usually optimizations) that should
+                be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
+                ``transforms`` are applied after ``surgery_algs``. (default: ``None``)
+
+            Returns:
+                None
+            """
+        inference.export_for_inference(model=self.state.model,
+                                       save_format=save_format,
+                                       save_path=save_path,
+                                       save_object_store=save_object_store,
+                                       sample_input=(sample_input,),
+                                       transforms=transforms)
