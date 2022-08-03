@@ -53,10 +53,6 @@ dataloader:
 device:
   gpu: {}
 eval_batch_size: 2048
-loggers:
-  progress_bar:
-    console_log_level: EPOCH
-    stream: stderr
 model:
   resnet:
     groups: 1

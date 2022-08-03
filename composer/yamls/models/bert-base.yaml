@@ -75,10 +75,9 @@ grad_accum: auto # Use automatic gradient accumulation to avoid OOMs
 save_folder: bert_checkpoints # The directory to save checkpoints to
 save_interval: 3500ba # Save checkpoints every 3500 batches
 
-loggers:
-  progress_bar: {} # Add a TQDM progress bar
-  # Optional, some nice default parameters for object store checkpointing. Uncomment this if you want to checkpoint to cloud.
-  # object_store:
-  #  object_store_hparams:
-  #    s3:
-  #      bucket: mosaicml-internal-checkpoints-bert
+# Optional, some nice default parameters for object store checkpointing. Uncomment this if you want to checkpoint to cloud.
+# loggers:
+# object_store:
+#  object_store_hparams:
+#    s3:
+#      bucket: mosaicml-internal-checkpoints-bert
