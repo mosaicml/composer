@@ -22,14 +22,16 @@
 # Assigning domain-specific owners for certain portions of the repo
 # Because of the catch-all above, their reviews are optional, but listing them as codeowners will automatically
 # add them as reviewers
-/composer/loggers/ @eracah
-/composer/profiler/ @bandish-shah
-/composer/cli/ @jbloxham @mvpatel2000
+
 /composer/algorithms/ @mosaicml/composer-team-research @dskhudia
+/composer/cli/ @jbloxham @mvpatel2000
+/composer/datasets/ @mosaicml/composer-team-research @dskhudia
 /composer/datasets/streaming/ @knighton
-/composer/datasets/[!streaming] @mosaicml/composer-team-research @dskhudia
+/composer/functional/ @mosaicml/composer-team-research @dskhudia
+/composer/loggers/ @eracah
 /composer/loss/ @mosaicml/composer-team-research @dskhudia
 /composer/metrics/ @mosaicml/composer-team-research @dskhudia
 /composer/models/ @mosaicml/composer-team-research @dskhudia
 /composer/optim/ @mosaicml/composer-team-research @dskhudia
+/composer/profiler/ @bandish-shah
 /composer/yamls/ @mosaicml/composer-team-research @dskhudia
