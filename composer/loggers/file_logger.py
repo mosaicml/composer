@@ -214,11 +214,12 @@ class FileLogger(LoggerDestination):  # noqa: D101
             )
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
-        data_str = format_log_data_value(hyperparameters)
-        self.write(
-            f'[hyperparameter]: ',
-            data_str + '\n',
-        )
+        for hparam_name, hparam_value in hyperparameters.items():
+            hparam_str = format_log_data_value(hparam_value)
+            self.write(
+                f'[hyperparameter]: ',
+                f'{hparam_name}: {hparam_str} \n',
+            )
         
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
