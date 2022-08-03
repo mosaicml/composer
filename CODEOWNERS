@@ -29,13 +29,13 @@
 # must be mentioned for each rule below.
 /composer/algorithms/ @mosaicml/composer-team-research @dskhudia @mosaicml/composer-team-eng
 /composer/cli/ @jbloxham @mvpatel2000 @mosaicml/composer-team-eng
-/composer/datasets/ @mosaicml/composer-team-research @dskhudia @mosaicml/composer-team-eng
+/composer/datasets/ @mosaicml/composer-team-research @mosaicml/composer-team-eng
 /composer/datasets/streaming/ @knighton @mosaicml/composer-team-eng
 /composer/functional/ @mosaicml/composer-team-research @dskhudia @mosaicml/composer-team-eng
 /composer/loggers/ @eracah @mosaicml/composer-team-eng
-/composer/loss/ @mosaicml/composer-team-research @dskhudia @mosaicml/composer-team-eng
-/composer/metrics/ @mosaicml/composer-team-research @dskhudia @mosaicml/composer-team-eng
-/composer/models/ @mosaicml/composer-team-research @dskhudia @mosaicml/composer-team-eng
-/composer/optim/ @mosaicml/composer-team-research @dskhudia @mosaicml/composer-team-eng
+/composer/loss/ @mosaicml/composer-team-research @mosaicml/composer-team-eng
+/composer/metrics/ @mosaicml/composer-team-research @eracah @mosaicml/composer-team-eng
+/composer/models/ @mosaicml/composer-team-research @mosaicml/composer-team-eng
+/composer/optim/ @mosaicml/composer-team-research @mosaicml/composer-team-eng
 /composer/profiler/ @bandish-shah @mosaicml/composer-team-eng
-/composer/yamls/ @mosaicml/composer-team-research @dskhudia @mosaicml/composer-team-eng
+/composer/yamls/ @mosaicml/composer-team-research @mosaicml/composer-team-eng
