@@ -79,11 +79,10 @@ def _main():
     trainer.fit()
 
 def _mp_fn(index):
-    #tpu_train()
     _main()
 
 if __name__ == '__main__':
-    if device == tpu:
+    if os.getenv('XRT_TPU_CONFIG'):
         import torch_xla.distributed.xla_multiprocessing as xmp
         xmp.spawn(_mp_fn, args=(), nprocs=8)
     else:
