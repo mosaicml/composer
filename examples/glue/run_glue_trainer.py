@@ -5,22 +5,22 @@
 
 Specifically designed for the NLP use case, allowing pre-training and fine-tuning on
 downstream tasks to be handled within one script. This script requires that the
-run_composer_trainer.py script lies in the same folder as this one.
+run_composer_trainer.py script lies in the parent folder to this one.
 
 Example that pretrains a BERT::
-    >>> composer examples/run_glue_trainer.py
-    -f examples/glue/glue_example.yaml
+    >>> python run_glue_trainer.py
+    -f glue_example.yaml
     --training_scheme pretrain
 
 Example that pretrains and finetunes a BERT::
-    >>> composer examples/run_glue_trainer.py
-    -f examples/glue/glue_example.yaml
+    >>> python run_glue_trainer.py
+    -f glue_example.yaml
     --training_scheme all
 
 Example that finetunes a pretrained BERT::
 
-    >>> composer examples/run_glue_trainer.py
-    -f examples/glue/glue_example.yaml
+    >>> python run_glue_trainer.py
+    -f glue_example.yaml
     --training_scheme finetune
 """
 import multiprocessing as mp
@@ -37,10 +37,9 @@ from typing import Dict, List, Optional, Tuple
 import torch
 import yahp as hp
 import yaml
+from nlp_trainer_hparams import GLUETrainerHparams, NLPTrainerHparams
 from tabulate import tabulate
 
-import examples.glue.nlp_trainer_hparams.GLUETrainerHparams as GLUETrainerHparams
-import examples.glue.nlp_trainer_hparams.NLPTrainerHparams as NLPTrainerHparams
 from composer.core.data_spec import DataSpec
 from composer.core.time import Time, Timestamp, TimeUnit
 from composer.loggers.wandb_logger import WandBLogger
@@ -338,7 +337,7 @@ def get_finetune_hparams() -> Tuple[GLUETrainerHparams, str, int]:
     if hp.pretrain_hparams:
         save_num_checkpoints_to_keep = hp.pretrain_hparams.save_num_checkpoints_to_keep
 
-    hparams = GLUETrainerHparams()
+    hparams = GLUETrainerHparams(model=None)
     if training_scheme in ('finetune', 'all'):
         if hp.finetune_hparams:
             hparams = hp.finetune_hparams
@@ -401,7 +400,7 @@ def get_ckpt_names(hp: TrainerHparams, run_name: str, dataloader_len: int) -> Li
 
 def run_pretrainer(training_scheme: str, file: str, finetune_hparams: GLUETrainerHparams) -> None:
     """Logic for handling a pretraining job spawn based on storage and training settings."""
-    root_dir = os.path.dirname(__file__)
+    root_dir = os.path.join(os.path.dirname(__file__), '..')
     training_script = os.path.join(root_dir, 'run_composer_trainer.py')
 
     # manually copy pretrain_hparams to temporary file (workaround until CO-766 resolved)

@@ -28,7 +28,7 @@ __all__ = ['NLPTrainerHparams', 'GLUETrainerHparams']
 class GLUETrainerHparams(hp.Hparams):
     """Finetuning Hparams class.
 
-    Specifies arguments that should be applied as overrides to all GLUE finetuning tasks when using examples/run_glue_trainer.py.
+    Specifies arguments that should be applied as overrides to all GLUE finetuning tasks when using examples/glue/run_glue_trainer.py.
 
     Args:
         model (ComposerModel, optional): See :class:`.Trainer`.
