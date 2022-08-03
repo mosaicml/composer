@@ -66,7 +66,7 @@ def eval_run_and_measure_memory(precision: Precision) -> int:
 def test_eval_precision_memory(precision: Precision):
     memory_full = eval_run_and_measure_memory(Precision.FP32)
     memory_precision = eval_run_and_measure_memory(precision)
-    assert memory_precision < 0.7 * memory_full
+    assert memory_precision < 0.9 * memory_full
 
 
 def predict_run_and_measure_memory(precision: Precision) -> int:
@@ -83,4 +83,4 @@ def predict_run_and_measure_memory(precision: Precision) -> int:
 def test_predict_precision_memory(precision: Precision):
     memory_full = predict_run_and_measure_memory(Precision.FP32)
     memory_precision = predict_run_and_measure_memory(precision)
-    assert memory_precision < 0.7 * memory_full
+    assert memory_precision < 0.9 * memory_full
