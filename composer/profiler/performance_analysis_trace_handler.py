@@ -64,8 +64,12 @@ class PerformanceAnalyzerTraceHandler(TraceHandler):
         del name
         if 'dataloader' in categories:
             self._record_wait_time(is_start, self.dataloader_wait_times, timestamp.batch.value, wall_clock_time_ns)
-        elif 'batch' in categories:
-            self._record_wait_time(is_start, self.batch_wait_times, timestamp.batch.value, wall_clock_time_ns)
+        # Check for both [before/after]_train_batch and PerformanceAnalyzerTraceHandler so it only
+        # fires once on [before/after]_train_batch
+        elif 'before_train_batch' in categories and 'PerformanceAnalyzerTraceHandler' in categories:
+            self._record_wait_time(True, self.batch_wait_times, timestamp.batch.value, wall_clock_time_ns)
+        elif 'after_train_batch' in categories and 'PerformanceAnalyzerTraceHandler' in categories:
+            self._record_wait_time(False, self.batch_wait_times, timestamp.batch.value, wall_clock_time_ns)
             # Only check for bottleneck on end of batch
             if not is_start and action == ProfilerAction.ACTIVE_AND_SAVE and self.is_dataloader_bottlenecked():
                 warnings.warn(
