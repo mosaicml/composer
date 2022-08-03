@@ -2220,7 +2220,6 @@ class Trainer:
                 should accept the ``sample_input`` as is. (default: ``None``)
             transforms (Sequence[Transform], optional): transformations (usually optimizations) that should
                 be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
-                ``transforms`` are applied after ``surgery_algs``. (default: ``None``)
 
             Returns:
                 None
