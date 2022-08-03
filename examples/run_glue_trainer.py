@@ -47,7 +47,7 @@ from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils.file_helpers import format_name_with_dist_and_time
 from composer.utils.misc import get_free_tcp_port, warning_on_one_line
-from examples.glue.nlp_trainer_hparams import GLUETrainerHparams, NLPTrainerHparams
+from .glue.nlp_trainer_hparams import GLUETrainerHparams, NLPTrainerHparams
 
 __all__ = ['GlueMetricsState', 'GlueState']
 
