@@ -1,8 +1,25 @@
 # Require admin approval to modify all files in the root of the repository
+# This includes setup.py, the README, and the CODEOWNERS file itself!
 /* @mosaicml/composer-team-admins
 
 # Require admin approval to change the CI build configuration
+# All CI Changes should be reviewed for security
 /.ci/ @mosaicml/composer-team-admins
 
 # Require admin approval to change the Dockerfile configuration
-/docker/ @mosaicml/composer-team-admins
+# All dockerfile changes should be reviewed for security
+# Adding Bandish explicitely, too.
+/docker/ @bandish-shah @mosaicml/composer-team-admins
+
+# Assign the entire eng team to own all subfolders that are not .ci or docker
+# This allows anyone on Composer to approve any PR that does not touch .ci or docker
+/![.ci|docker]/ @composer-team-eng
+
+# Assigning domain-specific owners for certain portions of the repo
+# Because of the catch-all above, their reviews are optional, but listing them as codeowners will automatically
+# add them as reviewers
+/composer/loggers/ @eracah
+/composer/profiler/ @bandish-shah
+/composer/cli/ @jbloxham @mvpatel2000
+/composer/datasets/streaming/ @knighton
+/composer/[algorithms|datasets|loss|metrics|models|optim|yamls]/ @composer-team-research @dskhudia
