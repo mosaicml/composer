@@ -42,6 +42,7 @@ from tabulate import tabulate
 
 from composer.core.data_spec import DataSpec
 from composer.core.time import Time, Timestamp, TimeUnit
+from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.wandb_logger import WandBLogger
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU
@@ -181,7 +182,7 @@ def spawn_finetuning_jobs(
     ckpt_save_folder: str,
     glue_metrics: GlueState,
     base_yaml_file: str,
-    save_num_checkpoints_to_keep: int,
+    save_locally: bool,
     parent_ckpt: Optional[str] = None,
     load_ignore_keys: Optional[List[str]] = None,
 ) -> None:
@@ -210,8 +211,7 @@ def spawn_finetuning_jobs(
     for rank in range(num_tasks):
         task = finetune_tasks[rank]
         future = executor.submit(train_finetune, base_yaml_file, task, task_to_save_ckpt[task], ckpt_load_path,
-                                 wandb_group_name, ckpt_save_folder, save_num_checkpoints_to_keep, free_port + rank,
-                                 load_ignore_keys)
+                                 wandb_group_name, ckpt_save_folder, save_locally, free_port + rank, load_ignore_keys)
         future.add_done_callback(done_callback)
 
     executor.shutdown(wait=True)  # wait for processes and callbacks to complete
@@ -227,7 +227,7 @@ def train_finetune(
     load_path: str,
     wandb_group_name: str,
     save_folder: str,
-    save_num_checkpoints_to_keep: int,
+    save_locally: bool,
     master_port: int,
     load_ignore_keys: Optional[List[str]] = None,
 ):
@@ -273,7 +273,7 @@ def train_finetune(
         ft_hparams.save_artifact_name = save_artifact_name
         ft_hparams.save_latest_artifact_name = save_latest_artifact_name
 
-        if save_num_checkpoints_to_keep != 0:
+        if save_locally:
             if not os.path.exists(ft_hparams.save_folder):
                 os.mkdir(ft_hparams.save_folder)
 
@@ -327,22 +327,26 @@ def validate_args(hp: NLPTrainerHparams) -> None:
         warnings.warn('finetune_ckpts specified in finetune_hparams. This value will be overriden during finetuning.')
 
 
-def get_finetune_hparams() -> Tuple[GLUETrainerHparams, str, int]:
+def get_finetune_hparams() -> Tuple[GLUETrainerHparams, str, bool]:
     """Extract finetune-specific hparams from the provided file and add entrypoint specific args to it."""
     hp = NLPTrainerHparams.create()
     validate_args(hp)
 
     training_scheme = hp.training_scheme
-    save_num_checkpoints_to_keep = -1
-    if hp.pretrain_hparams:
-        save_num_checkpoints_to_keep = hp.pretrain_hparams.save_num_checkpoints_to_keep
 
+    save_locally = True
     hparams = GLUETrainerHparams(model=None)
     if training_scheme in ('finetune', 'all'):
         if hp.finetune_hparams:
             hparams = hp.finetune_hparams
+            if hparams.loggers:
+                for l in hparams.loggers:
+                    if isinstance(l, ObjectStoreLogger):
+                        save_locally = False
+                    if isinstance(l, WandBLogger) and l._log_artifacts:
+                        save_locally = False
 
-    return hparams, training_scheme, save_num_checkpoints_to_keep
+    return hparams, training_scheme, save_locally
 
 
 def get_ckpt_names(hp: TrainerHparams, run_name: str, dataloader_len: int) -> List[str]:
@@ -432,11 +436,11 @@ def run_pretrainer(training_scheme: str, file: str, finetune_hparams: GLUETraine
     subprocess.run(args=['composer', training_script, '-f', tmp_file, '--save_folder', save_folder], check=True)
 
 
-def run_finetuner(file: str, save_num_checkpoints_to_keep: int, save_folder: str, finetune_hparams,
+def run_finetuner(training_scheme: str, file: str, save_locally: bool, save_folder: str, finetune_hparams,
                   glue_metrics: GlueState) -> None:
     """Logic for handling a finetuning job spawn based on storage and training settings."""
     # set automatic load and save paths
-    if save_num_checkpoints_to_keep != 0:
+    if save_locally and training_scheme == 'all':
         all_ckpts_list = os.listdir(save_folder)
     else:
         all_ckpts_list = finetune_hparams.finetune_ckpts
@@ -451,7 +455,7 @@ def run_finetuner(file: str, save_num_checkpoints_to_keep: int, save_folder: str
                               save_folder,
                               glue_metrics,
                               file,
-                              save_num_checkpoints_to_keep,
+                              save_locally,
                               parent_ckpt=parent_ckpt,
                               load_ignore_keys=['state/model/model.classifier*'])
 
@@ -466,7 +470,7 @@ def run_finetuner(file: str, save_num_checkpoints_to_keep: int, save_folder: str
             save_folder,
             glue_metrics,
             file,
-            save_num_checkpoints_to_keep,
+            save_locally,
             parent_ckpt=parent_ckpt,
             load_ignore_keys=['state/model/model.classifier*'],
         )
@@ -479,7 +483,7 @@ def _main() -> None:
         sys.argv = [sys.argv[0], '--help']
 
     file = get_args()
-    finetune_hparams, training_scheme, save_num_checkpoints_to_keep = get_finetune_hparams()
+    finetune_hparams, training_scheme, save_locally = get_finetune_hparams()
 
     # Pretrain
     if training_scheme in ('pretrain', 'all'):
@@ -491,7 +495,7 @@ def _main() -> None:
     glue_metrics = GlueState(glue_task_names, {})
     if training_scheme in ('finetune', 'all'):
         assert finetune_hparams.save_folder is not None
-        run_finetuner(file, save_num_checkpoints_to_keep, finetune_hparams.save_folder, finetune_hparams, glue_metrics)
+        run_finetuner(training_scheme, file, save_locally, finetune_hparams.save_folder, finetune_hparams, glue_metrics)
         print('FINETUNING COMPLETE')
 
         # output GLUE metrics
