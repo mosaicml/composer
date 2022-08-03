@@ -66,10 +66,11 @@ class PerformanceAnalyzerTraceHandler(TraceHandler):
             self._record_wait_time(is_start, self.dataloader_wait_times, timestamp.batch.value, wall_clock_time_ns)
         elif 'batch' in categories:
             self._record_wait_time(is_start, self.batch_wait_times, timestamp.batch.value, wall_clock_time_ns)
-        if action == ProfilerAction.ACTIVE_AND_SAVE and self.is_dataloader_bottlenecked():
-            warnings.warn(
-                f'The current training run is dataloader bottlenecked. {self._average_dataloader_wait_time()} additional time is being taken per batch waiting for the dataloader to fetch more data.'
-            )
+            # Only check for bottleneck on end of batch
+            if not is_start and action == ProfilerAction.ACTIVE_AND_SAVE and self.is_dataloader_bottlenecked():
+                warnings.warn(
+                    f'The current training run is dataloader bottlenecked. {self._average_dataloader_wait_time()} additional time is being taken per batch waiting for the dataloader to fetch more data.'
+                )
 
     def _average_batch_wait_time(self) -> float:
         return self._pruned_mean(list(self.batch_wait_times.values()))
