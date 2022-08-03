@@ -165,7 +165,7 @@ class ProgressBarLogger(LoggerDestination):
         if log_to_console:
             # set should_log to a Callable[[State, LogLevel], bool]
             self.should_log = lambda state, ll: (ll < console_log_level) or (
-                console_log_level == LogLevel.BATCH and state.timestamp.batch % console_log_every_n_batches == 0)
+                (console_log_level == LogLevel.BATCH) and (state.timestamp.batch % console_log_every_n_batches == 0))
         else:
             # never log to console
             self.should_log = lambda state, ll: False
