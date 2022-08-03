@@ -7,11 +7,11 @@
 
 # Require admin approval to change the CI build configuration
 # All CI Changes should be reviewed for security
-/.ci/ @mosaicml/composer-team-admins
+/.ci/ @bandish-shah @mosaicml/composer-team-admins
 
 # Require admin approval to change the Dockerfile configuration
 # All dockerfile changes should be reviewed for security
-# Adding Bandish explicitely, too.
+# Adding Bandish explicitly, too.
 /docker/ @bandish-shah @mosaicml/composer-team-admins
 
 # Assign the entire eng team to own all subfolders that are not .ci or docker
@@ -26,7 +26,7 @@
 # explicitely added in pull requests. Including @mosaicml/composer-team-eng
 # as an owner for all sections, so anyone on Composer Eng can approve any Composer PR
 # According to the CODEOWNER docs, the last match takes precedence, so @mosaicml/composer-team-eng
-# must be mentioend for each rule below.
+# must be mentioned for each rule below.
 /composer/algorithms/ @mosaicml/composer-team-research @dskhudia @mosaicml/composer-team-eng
 /composer/cli/ @jbloxham @mvpatel2000 @mosaicml/composer-team-eng
 /composer/datasets/ @mosaicml/composer-team-research @dskhudia @mosaicml/composer-team-eng
