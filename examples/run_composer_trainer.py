@@ -21,7 +21,7 @@ from typing import Type
 from composer.loggers import LogLevel
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist
-
+import torch
 
 def _warning_on_one_line(message: str, category: Type[Warning], filename: str, lineno: int, file=None, line=None):
     # From https://stackoverflow.com/questions/26430861/make-pythons-warnings-warn-not-mention-itself
@@ -78,6 +78,13 @@ def _main():
 
     trainer.fit()
 
+def _mp_fn(index):
+    #tpu_train()
+    _main()
 
 if __name__ == '__main__':
-    _main()
+    if device == tpu:
+        import torch_xla.distributed.xla_multiprocessing as xmp
+        xmp.spawn(_mp_fn, args=(), nprocs=8)
+    else:
+        _main()
