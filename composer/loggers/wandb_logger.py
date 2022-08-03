@@ -196,8 +196,9 @@ class WandBLogger(LoggerDestination):
     ):
         # Note: WandB doesn't support progress bars for downloading
         del progress_bar
-        import wandb
         import wandb.errors
+
+        import wandb
 
         # using the wandb.Api() to support retrieving artifacts on ranks where
         # artifacts are not initialized
