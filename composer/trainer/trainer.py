@@ -1698,9 +1698,10 @@ class Trainer:
                 else:
                     original_grad_accum = self.state.grad_accum
                     self.state.grad_accum = min(2 * self.state.grad_accum, device_batch_size)
-                    log.info(('CUDA out of memory detected. Gradient Accumulation '
-                              f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
-                              'and the batch will be retrained.'))
+                    warnings.warn(
+                        RuntimeWarning('CUDA out of memory detected. Gradient Accumulation '
+                                       f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
+                                       'and the batch will be retrained.'))
             # Otherwise, log grad_accum and return calculated loss
             else:
                 # Synchronize new batch compute time
@@ -1951,7 +1952,8 @@ class Trainer:
                 self.engine.run_event(Event.PREDICT_BATCH_START)
 
                 self.engine.run_event(Event.PREDICT_BEFORE_FORWARD)
-                self.state.outputs = self.state.model(self.state.batch)
+                with get_precision_context(self.state.precision):
+                    self.state.outputs = self.state.model(self.state.batch)
                 self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
 
                 if return_outputs:
@@ -1976,8 +1978,6 @@ class Trainer:
 
             self.engine.run_event(Event.PREDICT_END)
 
-            return outputs
-
         # Restore training mode
         if restore_model_train:
             self.state.model.train()
@@ -1986,6 +1986,8 @@ class Trainer:
         self.state.set_dataloader(original_dataloader, original_dataloader_label)
         if original_dataloader_len is not None:
             self.state.dataloader_len = original_dataloader_len
+
+        return outputs
 
     def eval(
         self,
@@ -2068,7 +2070,8 @@ class Trainer:
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
                 self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-                self.state.outputs, targets = self._original_model.validate(self.state.batch)
+                with get_precision_context(self.state.precision):
+                    self.state.outputs, targets = self._original_model.validate(self.state.batch)
                 self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
                 metrics.update(self.state.outputs, targets)
