@@ -260,10 +260,9 @@ def train_finetune(
     if ft_hparams.loggers:
         for logger in ft_hparams.loggers:
             if isinstance(logger, WandBLogger):
-                if not logger._init_kwargs['tags']:
+                if 'tags' not in logger._init_kwargs.keys():
                     logger._init_kwargs['tags'] = []
                 logger._init_kwargs['tags'].append(task)
-                logger._init_kwargs['group'] = wandb_group_name
 
     # saving single checkpoint at the end of training the task
     if save_ckpt:
@@ -282,7 +281,7 @@ def train_finetune(
 
     trainer = ft_hparams.initialize_object()
 
-    # if using wandb, store the config inside the wandb run
+    # if using wandb, store the config and other information inside the wandb run
     try:
         import wandb
     except ImportError:
@@ -290,6 +289,7 @@ def train_finetune(
     else:
         if wandb.run is not None:
             wandb.config.update(ft_hparams.to_dict())
+            wandb.config.update({'pretrained_ckpt': wandb_group_name, 'task': task})
 
     trainer.fit()
     print(f'\nFINISHED TRAINING TASK {task.upper()}\n')
