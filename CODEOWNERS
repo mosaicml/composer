@@ -27,7 +27,6 @@
 # as an owner for all sections, so anyone on Composer Eng can approve any Composer PR
 # According to the CODEOWNER docs, the last match takes precedence, so @mosaicml/composer-team-eng
 # must be mentioend for each rule below.
-
 /composer/algorithms/ @mosaicml/composer-team-research @dskhudia @mosaicml/composer-team-eng
 /composer/cli/ @jbloxham @mvpatel2000 @mosaicml/composer-team-eng
 /composer/datasets/ @mosaicml/composer-team-research @dskhudia @mosaicml/composer-team-eng
