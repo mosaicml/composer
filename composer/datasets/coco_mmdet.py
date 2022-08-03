@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data.dataloader import default_collate
 
-__all__ = ['coco_mmdet', 'mmdet_collate']
+__all__ = ['coco_mmdet', 'mmdet_collate', 'mmdet_get_num_samples']
 
 
 def coco_mmdet(path: str = '/data/coco', split: str = 'train'):
@@ -232,3 +232,6 @@ def mmdet_collate(batch) -> list:
         return {key: mmdet_collate([d[key] for d in batch]) for key in batch[0]}
     else:
         return default_collate(batch)
+
+def mmdet_get_num_samples(batch):
+    return len(batch)

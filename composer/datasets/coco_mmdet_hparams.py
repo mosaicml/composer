@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import yahp as hp
 
-from composer.datasets.coco_mmdet import coco_mmdet, mmdet_collate
+from composer.datasets.coco_mmdet import coco_mmdet, mmdet_collate, mmdet_get_num_samples
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams, DataSpec
 from composer.utils import dist
 
@@ -23,10 +23,12 @@ class COCOMMDetHparams(DatasetHparams):
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
         dataset = coco_mmdet(self.path, self.split)
-        sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
-
-        return dataloader_hparams.initialize_object(dataset,
+        # sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+        sampler = None
+        return DataSpec(dataloader=dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=sampler,
                                                     drop_last=self.drop_last,
-                                                    collate_fn=mmdet_collate)
+                                                    collate_fn=mmdet_collate), 
+                        get_num_samples_in_batch=mmdet_get_num_samples)
+                        

@@ -10,11 +10,11 @@ val_dataset:
     drop_last: false
 optimizers:
   decoupled_sgdw:
-    lr: 2.048
-    momentum: 0.875
+    lr: 0.01
+    momentum: 0.9
     weight_decay: 5.0e-4
     dampening: 0
-    nesterov: false
+    nesterov: true
 schedulers:
   - cosine_decay_with_warmup:
       t_warmup: "32ep"
@@ -22,12 +22,13 @@ model:
   yolox:
     model_name: "yolox-s"
 max_duration: 300ep
-train_batch_size: 64
-eval_batch_size: 64
+train_batch_size: 16
+eval_batch_size: 16
+grad_accum: 1
 seed: 1337
 dataloader:
-  pin_memory: true
+  pin_memory: false
   timeout: 0
   prefetch_factor: 2
-  persistent_workers: true
+  persistent_workers: false
   num_workers: 8
