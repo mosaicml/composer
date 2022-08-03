@@ -40,6 +40,14 @@ def train_run_and_measure_memory(precision: Precision) -> int:
     return torch.cuda.max_memory_allocated()
 
 
+@pytest.mark.gpu
+@pytest.mark.parametrize('precision', [Precision.AMP, Precision.BF16])
+def test_train_precision_memory(precision: Precision):
+    memory_full = train_run_and_measure_memory(Precision.FP32)
+    memory_precision = train_run_and_measure_memory(precision)
+    assert memory_precision < 0.7 * memory_full
+
+
 def eval_run_and_measure_memory(precision: Precision) -> int:
     hparams = setup_hparams(precision)
     trainer = hparams.initialize_object()
@@ -53,6 +61,14 @@ def eval_run_and_measure_memory(precision: Precision) -> int:
     return torch.cuda.max_memory_allocated()
 
 
+@pytest.mark.gpu
+@pytest.mark.parametrize('precision', [Precision.AMP, Precision.BF16])
+def test_eval_precision_memory(precision: Precision):
+    memory_full = eval_run_and_measure_memory(Precision.FP32)
+    memory_precision = eval_run_and_measure_memory(precision)
+    assert memory_precision < 0.7 * memory_full
+
+
 def predict_run_and_measure_memory(precision: Precision) -> int:
     hparams = setup_hparams(precision)
     trainer = hparams.initialize_object()
@@ -60,22 +76,6 @@ def predict_run_and_measure_memory(precision: Precision) -> int:
     torch.cuda.reset_peak_memory_stats()
     trainer.predict(dataloader=trainer.state.evaluators[0].dataloader,)
     return torch.cuda.max_memory_allocated()
-
-
-@pytest.mark.gpu
-@pytest.mark.parametrize('precision', [Precision.AMP, Precision.BF16])
-def test_train_precision_memory(precision: Precision):
-    memory_full = train_run_and_measure_memory(Precision.FP32)
-    memory_precision = train_run_and_measure_memory(precision)
-    assert memory_precision < 0.7 * memory_full
-
-
-@pytest.mark.gpu
-@pytest.mark.parametrize('precision', [Precision.AMP, Precision.BF16])
-def test_eval_precision_memory(precision: Precision):
-    memory_full = eval_run_and_measure_memory(Precision.FP32)
-    memory_precision = eval_run_and_measure_memory(precision)
-    assert memory_precision < 0.7 * memory_full
 
 
 @pytest.mark.gpu
