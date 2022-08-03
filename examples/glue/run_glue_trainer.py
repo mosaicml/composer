@@ -300,8 +300,7 @@ def train_finetune(
 def get_args() -> str:
     """Get NLPTrainerHparams arguments from CLI."""
     parser = hp.get_argparse(NLPTrainerHparams)
-    args = parser.parse_args()
-
+    args, _ = parser.parse_known_args()
     return args.file
 
 
@@ -407,7 +406,7 @@ def run_pretrainer(training_scheme: str, file: str, finetune_hparams: GLUETraine
     root_dir = os.path.join(os.path.dirname(__file__), '..')
     training_script = os.path.join(root_dir, 'run_composer_trainer.py')
 
-    # manually copy pretrain_hparams to temporary file (workaround until CO-766 resolved)
+    # manually copy pretrain_hparams to temporary file
     tmp_dir = tempfile.TemporaryDirectory()
     tmp_file = os.path.join(tmp_dir.name, 'pretrained_hparams.yaml')
     with open(file) as infile, open(tmp_file, 'w+') as outfile:
@@ -449,6 +448,7 @@ def run_finetuner(training_scheme: str, file: str, save_locally: bool, save_fold
     for ckpt_filename in all_ckpts_list:
         parent_ckpt = ckpt_filename  # necessary for logging
 
+        # TODO (Alex): Remove two-step finetuning setup after CO-806 is resolved
         task_to_save_ckpt = {'cola': False, 'sst-2': False, 'qqp': False, 'qnli': False, 'mnli': True}
         spawn_finetuning_jobs(task_to_save_ckpt,
                               ckpt_filename,
