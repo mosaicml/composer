@@ -13,11 +13,11 @@
 
 # Assign the entire eng team to own all subfolders that are not .ci or docker
 # This allows anyone on Composer to approve any PR that does not touch .ci or docker
-/composer @composer-team-eng
-/docs @composer-team-eng
-/examples @composer-team-eng
-/scripts @composer-team-eng
-/tests @composer-team-eng
+/composer @mosaicml/composer-team-eng
+/docs @mosaicml/composer-team-eng
+/examples @mosaicml/composer-team-eng
+/scripts @mosaicml/composer-team-eng
+/tests @mosaicml/composer-team-eng
 
 # Assigning domain-specific owners for certain portions of the repo
 # Because of the catch-all above, their reviews are optional, but listing them as codeowners will automatically
@@ -25,11 +25,11 @@
 /composer/loggers/ @eracah
 /composer/profiler/ @bandish-shah
 /composer/cli/ @jbloxham @mvpatel2000
-/composer/algorithms/ @composer-team-research @dskhudia
+/composer/algorithms/ @mosaicml/composer-team-research @dskhudia
 /composer/datasets/streaming/ @knighton
-/composer/datasets/[!streaming] @composer-team-research @dskhudia
-/composer/loss/ @composer-team-research @dskhudia
-/composer/metrics/ @composer-team-research @dskhudia
-/composer/models/ @composer-team-research @dskhudia
-/composer/optim/ @composer-team-research @dskhudia
-/composer/yamls/ @composer-team-research @dskhudia
+/composer/datasets/[!streaming] @mosaicml/composer-team-research @dskhudia
+/composer/loss/ @mosaicml/composer-team-research @dskhudia
+/composer/metrics/ @mosaicml/composer-team-research @dskhudia
+/composer/models/ @mosaicml/composer-team-research @dskhudia
+/composer/optim/ @mosaicml/composer-team-research @dskhudia
+/composer/yamls/ @mosaicml/composer-team-research @dskhudia
