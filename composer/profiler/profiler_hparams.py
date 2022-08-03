@@ -16,6 +16,7 @@ import yahp as hp
 
 from composer.core.state import State
 from composer.profiler.json_trace_handler import JSONTraceHandler
+from composer.profiler.performance_analysis_trace_handler import PerformanceAnalyzerTraceHandler
 from composer.profiler.profiler_action import ProfilerAction
 from composer.profiler.profiler_schedule import cyclic_schedule
 from composer.profiler.trace_handler import TraceHandler
@@ -27,6 +28,7 @@ __all__ = [
 
 trace_handler_registry: Dict[str, Union[Type[TraceHandler], Type[hp.Hparams]]] = {
     'json': JSONTraceHandler,
+    'performance_analyzer': PerformanceAnalyzerTraceHandler,
 }
 
 ProfilerScheduler = Callable[[State], ProfilerAction]
