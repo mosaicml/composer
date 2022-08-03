@@ -132,13 +132,12 @@ def _convert_time(time: Union[str, Time[int], Time[float]], state: State, ssr: f
     assert state.max_duration is not None, 'max_duration should be set whenever schedulers are invoked'
 
     if time.unit == TimeUnit.DURATION:
-        if state.dataloader_len is None:
-            raise RuntimeError('Cannot convert time, as state.dataloader_len is None.')
         if state.max_duration.unit == TimeUnit.EPOCH:
+            if state.dataloader_len is None:
+                raise RuntimeError('Cannot convert time, as state.dataloader_len is None.')
             return Time(int(time.value * int(state.dataloader_len) * state.max_duration.value), TimeUnit.BATCH)
         return Time(int(time.value * state.max_duration.value), state.max_duration.unit)
-
-    if time.unit == TimeUnit.EPOCH:
+    elif time.unit == TimeUnit.EPOCH:
         # Epochs do not provide sufficient granularity for SSR scaling
         # e.g. if max_duration = 1ep, then any SSR would result in a new duration of 0.
         # so, convert the time into batches
@@ -693,7 +692,8 @@ class LinearWithWarmupScheduler(ComposerScheduler):
 
         t_max = _convert_time(self.t_max, state, ssr=ssr)
         current_time = state.timestamp.get(t_warmup.unit)
-        frac_of_total = min(1.0, ((current_time - t_warmup) / (t_max - t_warmup)).value)
+        frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value if (t_max > t_warmup) else 0.0
+        frac_of_total = min(1.0, frac_of_total)
 
         current_factor = self.alpha_i + frac_of_total * (self.alpha_f - self.alpha_i)
 
@@ -760,7 +760,8 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
 
         t_max = _convert_time(self.t_max, state, ssr=ssr)
         current_time = state.timestamp.get(t_warmup.unit)
-        frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value
+        frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value if (t_max > t_warmup) else 0.0
+        frac_of_total = min(1.0, frac_of_total)
 
         return _cosine_anneal(x=frac_of_total, min_y=self.alpha_f)
 
@@ -829,7 +830,8 @@ class PolynomialWithWarmupScheduler(ComposerScheduler):
 
         t_max = _convert_time(self.t_max, state, ssr=ssr)
         current_time = state.timestamp.get(t_warmup.unit)
-        frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value
+        frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value if (t_max > t_warmup) else 0.0
+        frac_of_total = min(1.0, frac_of_total)
 
         coeff = (1 - frac_of_total)**self.power
         current_factor = self.alpha_f + coeff * (1.0 - self.alpha_f)
