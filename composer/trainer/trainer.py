@@ -13,6 +13,7 @@ import os
 import pathlib
 import time
 import warnings
+from copy import deepcopy
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
 
 import coolname
@@ -2224,6 +2225,8 @@ class Trainer:
         Returns:
             None
         """
+        if sample_input == None:
+            sample_input = deepcopy(self.state.batch)
         inference.export_for_inference(model=self.state.model,
                                        save_format=save_format,
                                        save_path=save_path,
