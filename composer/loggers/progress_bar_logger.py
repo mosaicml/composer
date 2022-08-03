@@ -106,12 +106,12 @@ class ProgressBarLogger(LoggerDestination):
     .. note::
 
         This logger is automatically instainatied by the trainer via the ``progress_bar``, ``log_to_console``,
-        ``log_level``, and ``console_stream`` options. This logger does not need to be created manually.
+        ``console_log_level``, ``console_log_every_n_batches`` and ``console_stream`` options. This logger does not need to be created manually.
 
     `TQDM <https://github.com/tqdm/tqdm>`_ is used to display progress bars.
 
     During training, the progress bar logs the batch and training loss.
-    During validation, the progress bar logs the batch and validation accuracy.
+    During validation, the progress bar logs the batch and validation metrics.
 
     Example progress bar output::
 
@@ -127,9 +127,7 @@ class ProgressBarLogger(LoggerDestination):
         console_log_level (str | int | LogLevel, optional): The maximum log level for which statements
             should be printed. (default: :attr:`.LogLevel.BATCH`)
 
-            It can either be :class:`.LogLevel`, a string corresponding to a :class:`.LogLevel`, or a callable that
-            takes the training :class:`.State` and the :class:`.LogLevel` and returns a boolean of whether this
-            statement should be printed.
+            It can either be :class:`.LogLevel`, or a string or int corresponding to a :class:`.LogLevel`.
 
             This parameter has no effect if ``log_to_console`` is ``False`` or is unspecified when ``progress_bar`` is
             ``True``.
@@ -157,18 +155,15 @@ class ProgressBarLogger(LoggerDestination):
         self.train_pbar: Optional[_ProgressBar] = None
         self.eval_pbar: Optional[_ProgressBar] = None
 
+        log_to_console = log_to_console if (log_to_console is not None) else (not progress_bar)
         console_log_level = LogLevel(console_log_level)
 
-        if log_to_console is None:
-            log_to_console = not progress_bar
+        def _should_log(state: State, log_level: LogLevel):
+            return (log_to_console and ((log_level < console_log_level) or  #type: ignore
+                                        ((console_log_level == LogLevel.BATCH) and
+                                         (state.timestamp.batch.value % console_log_every_n_batches == 0))))
 
-        if log_to_console:
-            # set should_log to a Callable[[State, LogLevel], bool]
-            self.should_log = lambda state, ll: (ll < console_log_level) or (
-                (console_log_level == LogLevel.BATCH) and (state.timestamp.batch % console_log_every_n_batches == 0))
-        else:
-            # never log to console
-            self.should_log = lambda state, ll: False
+        self.should_log = _should_log
 
         # set the stream
         if isinstance(stream, str):
