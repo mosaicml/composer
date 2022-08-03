@@ -25,7 +25,7 @@ model:
       - kaiming_normal
       - bn_uniform
     num_classes: 10
-max_duration: 10ep
+max_duration: 50ep
 train_batch_size: 2048
 eval_batch_size: 1000
 seed: 17
@@ -36,3 +36,4 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 grad_accum: 1
+precision: fp32
