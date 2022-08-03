@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from composer.core.state import State
-from composer.loggers.logger import Logger, LogLevel
+from composer.loggers.logger import Logger, LogLevel, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -65,7 +65,8 @@ class TensorboardLogger(LoggerDestination):
             return
         # Lazy logging of hyperparameters b/c Tensorboard requires a metric to pair 
         # with hyperparameters.
-        self.hyperparameters.update(hyperparameters)
+        formatted_hparams = {hparam_name: format_log_data_value(hparam_value) for hparam_name, hparam_value in hyperparameters.items()}
+        self.hyperparameters.update(formatted_hparams)
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None):
         if self.rank_zero_only and dist.get_global_rank() != 0:
