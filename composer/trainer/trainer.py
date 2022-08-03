@@ -1708,18 +1708,18 @@ class Trainer:
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
                             if isinstance(self._device, DeviceTPU):
-                                try:
-                                    import torch_xla.core.xla_model as xm
-                                except ImportError as e:
-                                    raise MissingConditionalImportError(extra_deps_group='tpu',
-                                                                        conda_package='torch_xla[tpuvm]') from e
-
                                 self.state.scaler.step(optimizer)
                                 self.state.scaler.update()
                             else:
                                 self.state.scaler.step(optimizer)
                         else:
                             if isinstance(self._device, DeviceTPU):
+                                if isinstance(self._device, DeviceTPU):
+                                    try:
+                                        import torch_xla.core.xla_model as xm
+                                    except ImportError as e:
+                                        raise MissingConditionalImportError(extra_deps_group='tpu',
+                                                                            conda_package='torch_xla[tpuvm]') from e
                                 xm.optimizer_step(optimizer)
                             else:
                                 optimizer.step()
@@ -2172,7 +2172,7 @@ class Trainer:
         if original_num_batches is not None:
             self.state.dataloader_len = original_num_batches
 
-    def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[GradScaler]) -> bool:
+    def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[cuda_grad_scaler]) -> bool:
         """Determines based on precision when to use grad scaling.
 
         By default, the pytorch GradScaler is a no-op if running on

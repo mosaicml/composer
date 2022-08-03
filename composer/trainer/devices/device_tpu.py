@@ -6,12 +6,11 @@
 from __future__ import annotations
 
 import logging
-from contextlib import contextmanager
-from typing import Generator, TypeVar, Union
+from typing import TypeVar
 
 import torch
 
-from composer.trainer.devices.device import Device, T_nnModule
+from composer.trainer.devices.device import Device
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +41,9 @@ class DeviceTPU(Device):
     def tensor_to_device(self, tensor: torch.Tensor) -> torch.Tensor:
         return tensor.to(self._device)
 
-    def state_dict(self) -> StateDict:
+    def state_dict(self) -> Dict[str, Any]:
         return {}
 
-    def load_state_dict(self, state: StateDict) -> None:
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
         if len(state) != 0:
             raise ValueError('TPU device has no state.')
