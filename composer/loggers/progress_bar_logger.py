@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import Any, Callable, Dict, List, Optional, TextIO, Union
+from typing import Any, Dict, List, Optional, TextIO, Union
 
 import tqdm.auto
 
@@ -124,8 +124,8 @@ class ProgressBarLogger(LoggerDestination):
 
             The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is
             ``False``.
-        console_log_level (LogLevel | str | (State, LogLevel) -> bool, optional): The maximum log level for which statements
-            should be printed. (default: :attr:`.LogLevel.EPOCH`)
+        console_log_level (str | int | LogLevel, optional): The maximum log level for which statements
+            should be printed. (default: :attr:`.LogLevel.BATCH`)
 
             It can either be :class:`.LogLevel`, a string corresponding to a :class:`.LogLevel`, or a callable that
             takes the training :class:`.State` and the :class:`.LogLevel` and returns a boolean of whether this
@@ -133,6 +133,9 @@ class ProgressBarLogger(LoggerDestination):
 
             This parameter has no effect if ``log_to_console`` is ``False`` or is unspecified when ``progress_bar`` is
             ``True``.
+        console_log_every_n_batches (int, optional): Limit console logging to every N batches to reduce verbosity. (default: ``1``)
+
+            This parameter only has an effect if ``log_level`` is ``LogLevel.BATCH``.
         stream (str | TextIO, optional): The console stream to use. If a string, it can either be ``'stdout'`` or
             ``'stderr'``. (default: :attr:`sys.stderr`)
     """
@@ -141,7 +144,8 @@ class ProgressBarLogger(LoggerDestination):
         self,
         progress_bar: bool = True,
         log_to_console: Optional[bool] = None,
-        console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
+        console_log_level: Union[str, int, LogLevel] = LogLevel.BATCH,
+        console_log_every_n_batches: int = 1,
         stream: Union[str, TextIO] = sys.stderr,
     ) -> None:
 
@@ -153,21 +157,18 @@ class ProgressBarLogger(LoggerDestination):
         self.train_pbar: Optional[_ProgressBar] = None
         self.eval_pbar: Optional[_ProgressBar] = None
 
-        if isinstance(console_log_level, str):
-            console_log_level = LogLevel(console_log_level)
+        console_log_level = LogLevel(console_log_level)
 
         if log_to_console is None:
             log_to_console = not progress_bar
 
-        if not log_to_console:
+        if log_to_console:
+            # set should_log to a Callable[[State, LogLevel], bool]
+            self.should_log = lambda state, ll: (ll < console_log_level) or (
+                console_log_level == LogLevel.BATCH and state.timestamp.batch % console_log_every_n_batches == 0)
+        else:
             # never log to console
             self.should_log = lambda state, ll: False
-        else:
-            # set should_log to a Callable[[State, LogLevel], bool]
-            if isinstance(console_log_level, LogLevel):
-                self.should_log = lambda state, ll: ll <= console_log_level
-            else:
-                self.should_log = console_log_level
 
         # set the stream
         if isinstance(stream, str):

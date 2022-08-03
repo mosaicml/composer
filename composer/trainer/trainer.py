@@ -409,8 +409,8 @@ class Trainer:
 
             The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is ``False``.
 
-        console_log_level (LogLevel | str | (State, LogLevel) -> bool, optional): The maximum log level which
-            should be printed to the console. (default: :attr:`.LogLevel.EPOCH`)
+        console_log_level (str | int | LogLevel): The maximum log level which
+            should be printed to the console. (default: :attr:`.LogLevel.BATCH`)
 
             It can either be :class:`.LogLevel`, a string corresponding to a :class:`.LogLevel`, or a callable
             that takes the training :class:`.State` and the :class:`.LogLevel` and returns a boolean of whether this
@@ -418,7 +418,9 @@ class Trainer:
 
             This parameter has no effect if ``log_to_console`` is ``False``, or is unspecified and ``progres_bar`` is
             ``True``.
+        console_log_every_n_batches (int, optional): Limit console logging to every N batches to reduce verbosity. (default: ``1``)
 
+            This parameter only has an effect if ``log_level`` is ``LogLevel.BATCH``.
         console_stream (TextIO | str, optional): The stream to write to. If a string, it can either be
             ``'stdout'`` or ``'stderr'``. (default: :attr:`sys.stderr`)
         load_path (str, optional):  The path format string to an existing checkpoint file.
@@ -695,7 +697,8 @@ class Trainer:
         run_name: Optional[str] = None,
         progress_bar: bool = True,
         log_to_console: Optional[bool] = None,
-        console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
+        console_log_level: Union[str, int, LogLevel] = LogLevel.BATCH,
+        console_log_every_n_batches: int = 1,
         console_stream: Union[str, TextIO] = 'stderr',
 
         # Load Checkpoint
@@ -851,6 +854,7 @@ class Trainer:
                     progress_bar=progress_bar,
                     log_to_console=log_to_console,
                     console_log_level=console_log_level,
+                    console_log_every_n_batches=console_log_every_n_batches,
                     stream=console_stream,
                 ))
 
