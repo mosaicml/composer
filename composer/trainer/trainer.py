@@ -104,7 +104,6 @@ def _validate_precision(precision: Precision, device: Device, deepspeed_enabled:
     if isinstance(device, DeviceCPU) and precision != Precision.FP32:
         raise ValueError(f'{precision} is not supproted for CPU training.')
 
-
 def _compile_schedulers(
     schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]],
     state: State,
