@@ -1802,12 +1802,10 @@ class Trainer:
             self.engine.run_event(Event.BEFORE_BACKWARD)
 
             # Sum individual losses
-            microbatch_loss = self._device.tensor_to_device(torch.zeros(size=(1,)))
-            for loss in ensure_tuple(self.state.loss):
-                microbatch_loss += loss
+            microbatch_loss = torch.stack(ensure_tuple(self.state.loss)).sum()
 
             # Loss used for logging, scaled by grad_accum for correctly calculating metrics
-            total_loss += microbatch_loss.detach().clone().mul(microbatch_num_samples / current_batch_size)
+            total_loss += microbatch_loss.detach().clone() * (microbatch_num_samples / current_batch_size)
 
             if use_grad_scaling:
                 microbatch_loss = cast(torch.Tensor, self.state.scaler.scale(microbatch_loss))
@@ -1816,7 +1814,7 @@ class Trainer:
                 self.state.deepspeed_model.backward(microbatch_loss)
 
             else:
-                # Scale loss by grad_accum before backwards pass
+                # Scale loss based on the number of samples in the microbatch to maintain gradient numerics
                 microbatch_loss.mul_(microbatch_num_samples / current_batch_size)
                 microbatch_loss.backward(create_graph=self._backwards_create_graph)
 
