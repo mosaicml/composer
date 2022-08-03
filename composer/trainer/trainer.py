@@ -2221,9 +2221,9 @@ class Trainer:
             transforms (Sequence[Transform], optional): transformations (usually optimizations) that should
                 be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
 
-            Returns:
-                None
-            """
+        Returns:
+            None
+        """
         inference.export_for_inference(model=self.state.model,
                                        save_format=save_format,
                                        save_path=save_path,
