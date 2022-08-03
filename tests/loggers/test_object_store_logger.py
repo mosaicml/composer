@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
 import os
 import pathlib
 import random
@@ -99,11 +100,16 @@ def object_store_test_helper(
     with open(file_path_2, 'w+') as f:
         f.write('2')
 
+    post_close_ctx = contextlib.nullcontext()
+
     if not overwrite:
         # If not `overwrite_delay`, then the `logger.file_artifact` will raise a FileExistsException, because the upload will not even be enqueued
         # Otherwise, with a sufficient will be uploaded, and cleared from the queue, causing a runtime error to be raised on Event.BATCH_END or Event.EPOCH_END
         # A 2 second sleep should be enough here -- the DummyObjectStore will block for at most 0.5 seconds, and the ObjectStoreLogger polls every 0.1 seconds
         if overwrite_delay:
+            post_close_ctx = pytest.warns(
+                RuntimeWarning,
+                match=r'The following objects may not have been uploaded, likely due to a worker crash: artifact_name')
             # Wait for the first upload to go through
             time.sleep(2)
             # Do the second upload -- it should enqueue
@@ -123,7 +129,9 @@ def object_store_test_helper(
                 logger.file_artifact(LogLevel.FIT, artifact_name, file_path_2, overwrite=overwrite)
 
     object_store_logger.close(dummy_state, logger)
-    object_store_logger.post_close()
+
+    with post_close_ctx:
+        object_store_logger.post_close()
 
     # verify upload uri for artifact is correct
     upload_uri = object_store_logger.get_uri_for_artifact(artifact_name)
@@ -152,12 +160,10 @@ def test_object_store_logger(tmp_path: pathlib.Path, dummy_state: State):
     object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, use_procs=False)
 
 
-@pytest.mark.timeout(15)
 def test_object_store_logger_use_procs(tmp_path: pathlib.Path, dummy_state: State):
     object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, use_procs=True)
 
 
-@pytest.mark.timeout(15)
 @pytest.mark.filterwarnings(r'ignore:((.|\n)*)FileExistsError((.|\n)*):pytest.PytestUnhandledThreadExceptionWarning')
 @pytest.mark.parametrize('overwrite_delay', [True, False])
 def test_object_store_logger_no_overwrite(tmp_path: pathlib.Path, dummy_state: State, overwrite_delay: bool):
@@ -167,12 +173,10 @@ def test_object_store_logger_no_overwrite(tmp_path: pathlib.Path, dummy_state: S
                              overwrite_delay=overwrite_delay)
 
 
-@pytest.mark.timeout(5)
 def test_object_store_logger_should_log_artifact_filter(tmp_path: pathlib.Path, dummy_state: State):
     object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, should_filter=True)
 
 
-@pytest.mark.timeout(30)  # long timeout as this test spawns many subprocesses
 @pytest.mark.parametrize('use_procs', [True, False])
 def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_state: State):
     # Test a race condition with the object store logger where multiple files with the same name are logged in rapid succession
@@ -218,7 +222,6 @@ def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_stat
         assert f.read() == str(num_files - 1)
 
 
-@pytest.mark.timeout(5)
 @pytest.mark.filterwarnings(r'ignore:Exception in thread:pytest.PytestUnhandledThreadExceptionWarning')
 def test_close_on_failure(tmp_path: pathlib.Path, dummy_state: State):
     """Test that .close() and .post_close() does not hang even when a worker crashes."""
@@ -259,4 +262,8 @@ def test_close_on_failure(tmp_path: pathlib.Path, dummy_state: State):
 
     # Shutdown the logger. This should not hang or cause any exception
     object_store_logger.close(dummy_state, logger=logger)
-    object_store_logger.post_close()
+    with pytest.warns(
+            RuntimeWarning,
+            match=r'The following objects may not have been uploaded, likely due to a worker crash: dummy_artifact_name'
+    ):
+        object_store_logger.post_close()

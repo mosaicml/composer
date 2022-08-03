@@ -49,7 +49,7 @@ class SFTPObjectStore(ObjectStore):
             specified in ``~/.ssh/`` or via a SSH agent.
         known_hosts_filename (pathlib.Path | str, optional): The filename of the known hosts file. If not specified,
             the default SSH known hosts will be used.
-        missing_host_key_policy (str | paramiko.client.MissingHostKeyPolicy): The class name or instance of
+        missing_host_key_policy (str | paramiko.client.MissingHostKeyPolicy, optional): The class name or instance of
             :class:`paramiko.client.MissingHostKeyPolicy` to use for a missing host key. Defaults to ``'RejectPolicy'``.
 
             Built-in options:

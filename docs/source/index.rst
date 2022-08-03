@@ -103,6 +103,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    notes/auto_grad_accum.rst
    notes/resumption.rst
    notes/tensorboard_logger.md
+   notes/run_name.md
 
 .. toctree::
    :hidden:

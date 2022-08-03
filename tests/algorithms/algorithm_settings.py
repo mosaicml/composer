@@ -207,12 +207,14 @@ def get_algs_with_marks():
         marks = []
         settings = _settings[alg_cls]
 
-        if alg_cls in (CutMix, MixUp, LabelSmoothing):
-            # see: https://github.com/mosaicml/composer/issues/362
-            pytest.importorskip('torch', minversion='1.10', reason='Pytorch 1.10 required.')
-
         if alg_cls in (Alibi, GatedLinearUnits, SeqLengthWarmup):
-            pytest.importorskip('transformers')
+            try:
+                import transformers
+                transformers_available = True
+                del transformers
+            except ImportError:
+                transformers_available = False
+            marks.append(pytest.mark.skipif(not transformers_available, reason='transformers not available'))
 
         if alg_cls == SWA:
             # TODO(matthew): Fix

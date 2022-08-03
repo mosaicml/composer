@@ -22,6 +22,7 @@ import torch
 from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist_and_time, get_file,
                                          is_tar)
+from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
@@ -30,7 +31,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-__all__ = ['load_checkpoint', 'save_checkpoint']
+__all__ = ['load_checkpoint', 'save_checkpoint', 'download_checkpoint']
 
 _COMPOSER_STATES_FILENAME = 'composer_states.pt'
 _DEEPSPEED_TAG = 'deepspeed'  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
@@ -156,7 +157,7 @@ def load_checkpoint(
     with tempdir_ctx as tempdir:
         try:
             node_checkpoint_folder = _get_node_checkpoint_download_folder(tempdir)
-            composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = _download_checkpoint(
+            composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = download_checkpoint(
                 path=path,
                 node_checkpoint_folder=node_checkpoint_folder,
                 object_store=object_store,
@@ -189,7 +190,7 @@ def _get_node_checkpoint_download_folder(path: Optional[str]) -> str:
     return local_rank_zero_path
 
 
-def _download_checkpoint(
+def download_checkpoint(
     path: str,
     node_checkpoint_folder: str,
     object_store: Optional[Union[ObjectStore, LoggerDestination]],
@@ -363,7 +364,7 @@ def _restore_checkpoint(
         ignore_keys(state_dict)
     log.debug(f"Loaded checkpoint with keys {state_dict.keys()} and state keys {state_dict['state'].keys()}")
 
-    if state.is_model_deepspeed:
+    if is_model_deepspeed(state.model):
         if extracted_checkpoint_folder is None:
             raise RuntimeError('Deepspeed checkpoints require a tarball, not a weights file.')
 
@@ -398,11 +399,11 @@ def save_checkpoint(
         'state': state.state_dict(),
         'rng': reproducibility.get_rng_state(),
     }
-    if weights_only and not state.is_model_deepspeed:
+    if weights_only and not is_model_deepspeed(state.model):
         state_dict['state'] = {'model': state_dict['state']['model']}
 
     checkpoint_filepath = format_name_with_dist_and_time(filename, state.run_name, state.timestamp)
-    if state.is_model_deepspeed and not is_tar(checkpoint_filepath):
+    if is_model_deepspeed(state.model) and not is_tar(checkpoint_filepath):
         # Deepspeed requires tarballs; appending `.tar`
         checkpoint_filepath += '.tar'
 
@@ -413,14 +414,14 @@ def save_checkpoint(
             with open(composer_states_filepath, 'xb') as f:
                 torch.save(state_dict, f)
 
-        if state.is_model_deepspeed:
+        if is_model_deepspeed(state.model):
             state.deepspeed_model.save_checkpoint(tmpdir, _DEEPSPEED_TAG)
 
         # Move the checkpoint to the correct location
 
         checkpoint_dirname = os.path.dirname(checkpoint_filepath)
 
-        if is_tar(checkpoint_filepath) and (state.is_model_deepspeed or dist.get_global_rank() == 0):
+        if is_tar(checkpoint_filepath) and (is_model_deepspeed(state.model) or dist.get_global_rank() == 0):
             # Either deepspeed (and every rank needs to call this),
             # or not deepspeed (but using an archive), in which case only rank zero should call this.
             if checkpoint_dirname:

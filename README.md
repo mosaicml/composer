@@ -125,7 +125,6 @@ For the best experience and the most efficient possible training, we recommend u
 
 <!-- begin_example_2 --->
 <!--pytest.mark.gpu-->
-<!--pytest.mark.timeout(30)-->
 <!--pytest.mark.filterwarnings(r'ignore:Some targets have less than 1 total probability:UserWarning')-->
 <!--
 ```python
@@ -360,7 +359,7 @@ Here's some resources actively maintained by the Composer community to help you 
 </tbody>
 </table>
 
-If you have any questions, please feel free to reach out to us on [Twitter](https://twitter.com/mosaicml), [email](mailto:community@mosaicml.com), or our [Community Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg)!
+If you have any questions, please feel free to reach out to us on [Twitter](https://twitter.com/mosaicml), [email](mailto:community@mosaicml.com), or our [Community Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-1dc6mo5wg-arlv6Oo9JjEn_g4d5s7PXQ)!
 
 # 💫 Contributors
 Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues!

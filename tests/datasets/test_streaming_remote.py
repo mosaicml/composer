@@ -107,20 +107,15 @@ def get_dataset(name: str,
     return (expected_samples, dataset)
 
 
-@pytest.mark.remote()
-def test_upload_streaming_dataset(tmp_path: pathlib.Path, download_path: pathlib.Path):
+@pytest.mark.remote
+@pytest.mark.xfail(reason='Test is broken. See https://mosaicml.atlassian.net/browse/CO-762')
+def test_upload_streaming_dataset(tmp_path: pathlib.Path, s3_bucket: str):
     num_samples = 1000
+    original_path = str(tmp_path / 'original')
+    download_path = str(tmp_path / 'downloaded')
     samples, decoders = get_fake_samples_decoders(num_samples)
-    write_synthetic_streaming_dataset(tmp_path.as_posix(),
-                                      samples,
-                                      shard_size_limit=1 >> 16,
-                                      upload='s3://streaming-upload-test-bucket/')
-    dataset = get_dataset('test_streaming_upload',
-                          download_path.as_posix(),
-                          'all',
-                          False,
-                          1,
-                          other_kwargs={'decoders': decoders})
+    write_synthetic_streaming_dataset(original_path, samples, shard_size_limit=1 >> 16, upload=f's3://{s3_bucket}/')
+    dataset = get_dataset('test_streaming_upload', download_path, 'all', False, 1, other_kwargs={'decoders': decoders})
     measured_samples = 0
     for _ in dataset:
         measured_samples += 1
@@ -129,7 +124,6 @@ def test_upload_streaming_dataset(tmp_path: pathlib.Path, download_path: pathlib
 
 
 @pytest.mark.remote()
-@pytest.mark.timeout(0)
 @pytest.mark.filterwarnings(r'ignore::pytest.PytestUnraisableExceptionWarning')
 @pytest.mark.parametrize('name', [
     'ade20k',
@@ -139,6 +133,7 @@ def test_upload_streaming_dataset(tmp_path: pathlib.Path, download_path: pathlib
     'cifar10',
 ])
 @pytest.mark.parametrize('split', ['val'])
+@pytest.mark.xfail(reason='Test is broken. See https://mosaicml.atlassian.net/browse/CO-762')
 def test_streaming_remote_dataset(tmp_path: pathlib.Path, name: str, split: str) -> None:
 
     # Build StreamingDataset
@@ -169,7 +164,6 @@ def test_streaming_remote_dataset(tmp_path: pathlib.Path, name: str, split: str)
 
 
 @pytest.mark.remote()
-@pytest.mark.timeout(0)
 @pytest.mark.filterwarnings(r'ignore::pytest.PytestUnraisableExceptionWarning')
 @pytest.mark.parametrize('name', [
     'ade20k',
@@ -179,6 +173,7 @@ def test_streaming_remote_dataset(tmp_path: pathlib.Path, name: str, split: str)
     'c4',
 ])
 @pytest.mark.parametrize('split', ['val'])
+@pytest.mark.xfail(reason='Test is broken. See https://mosaicml.atlassian.net/browse/CO-762')
 def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: str) -> None:
     # Transformers imports required for batch collating
     pytest.importorskip('transformers')
