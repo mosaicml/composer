@@ -83,7 +83,9 @@ class PerformanceAnalyzerTraceHandler(TraceHandler):
         deviations_from_median = np.abs(arr - np.median(arr))
         median_deviation = np.median(deviations_from_median)
         mstdevs = deviations_from_median / median_deviation if median_deviation else 0.
-        return float(np.mean(arr[mstdevs < mstdev_threshold]))
+        filtered_arr = arr[mstdevs < mstdev_threshold]
+        # Return mean of filtered_arr if it exists, otherwise return median of original array
+        return float(np.mean(filtered_arr)) if len(filtered_arr) > 0 else np.median(arr)
 
     def is_dataloader_bottlenecked(self) -> bool:
         """Bottlenecked if batch yield time is more than 0.1% of batch compute time with >=10 datapoints."""
