@@ -12,4 +12,3 @@ from composer.trainer.devices.device_gpu import DeviceGPU as DeviceGPU
 from composer.trainer.devices.device_tpu import DeviceTPU as DeviceTPU
 
 __all__ = ['Device', 'DeviceCPU', 'DeviceGPU', 'DeviceTPU']
-

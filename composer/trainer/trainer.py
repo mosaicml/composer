@@ -106,6 +106,7 @@ def _validate_precision(precision: Precision, device: Device, deepspeed_enabled:
     if not deepspeed_enabled and precision == Precision.FP16 and not isinstance(device, DeviceTPU):
         raise ValueError('FP16 precision is only supported when training with DeepSpeed.')
 
+
 def _compile_schedulers(
     schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]],
     state: State,
@@ -173,7 +174,7 @@ def _get_device(device: Optional[Union[str, Device]]):
             device = DeviceTPU()
         else:
             raise ValueError(f'device ({device}) must be one of (cpu, gpu, tpu).')
-    
+
     return device
 
 
@@ -799,7 +800,7 @@ class Trainer:
 
         if grad_accum > 1 and isinstance(self._device, DeviceTPU):
             raise NotImplementedError(f'auto grad accum not implemented on TPUs yet')
-            
+
         # Dynamic time estimate for forward and backward pass. Used for monitored_barrier to avoid deadlocks
         self.batch_compute_time = 300
 
@@ -901,11 +902,11 @@ class Trainer:
                                       train_subset_num_batches)
             if isinstance(self._device, DeviceTPU):
                 try:
-                    import torch_xla.distributed.parallel_loader as pl
                     import torch_xla.core.xla_model as xm
+                    import torch_xla.distributed.parallel_loader as pl
                 except ImportError as e:
                     raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]') from e
-                
+
                 self.state.train_dataloader = pl.MpDeviceLoader(self.state.train_dataloader, xm.xla_device())
 
             else:
@@ -1461,7 +1462,7 @@ class Trainer:
                 from torch_xla.amp import GradScaler as xla_grad_scaler
             except ImportError as e:
                 raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]') from e
-                
+
             self.state.scaler = xla_grad_scaler()
         else:
             self.state.scaler = ClosureGradScaler() if self._use_closures() else cuda_grad_scaler()
@@ -1679,21 +1680,24 @@ class Trainer:
                                 try:
                                     import torch_xla.core.xla_model as xm
                                 except ImportError as e:
-                                    raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]') from e
-                                
+                                    raise MissingConditionalImportError(extra_deps_group='tpu',
+                                                                        conda_package='torch_xla[tpuvm]') from e
+
                                 gradients = xm._fetch_gradients(optimizer)
                                 xm.all_reduce('sum', gradients, scale=1.0 / xm.xrt_world_size())
                                 total_loss = self.state.scaler.step(optimizer)
                                 self.state.scaler.update()
                             else:
                                 total_loss = self.state.scaler.step(
-                                    optimizer, closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
+                                    optimizer,
+                                    closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
                         else:
                             if isinstance(self._device, DeviceTPU):
                                 try:
                                     import torch_xla.core.xla_model as xm
                                 except ImportError as e:
-                                    raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]') from e
+                                    raise MissingConditionalImportError(extra_deps_group='tpu',
+                                                                        conda_package='torch_xla[tpuvm]') from e
                                 # check for adding closure
                                 total_loss = xm.optimizer_step(optimizer)
                             else:
@@ -1707,7 +1711,8 @@ class Trainer:
                                 try:
                                     import torch_xla.core.xla_model as xm
                                 except ImportError as e:
-                                    raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]') from e
+                                    raise MissingConditionalImportError(extra_deps_group='tpu',
+                                                                        conda_package='torch_xla[tpuvm]') from e
 
                                 self.state.scaler.step(optimizer)
                                 self.state.scaler.update()
