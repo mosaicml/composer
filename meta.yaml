@@ -20,7 +20,7 @@ requirements:
     - setuptools
     - git
   run:
-    - python >=3.7,<4
+    - python >=3.7,<5
     - pyyaml >=6.0,<7
     - pytorch >=1.10,<2
     - torch-optimizer >=0.1.0,<0.2
