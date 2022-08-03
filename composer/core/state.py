@@ -13,6 +13,7 @@ import torch
 import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
+from torch.utils.data import DataLoader
 
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
@@ -56,7 +57,27 @@ _STATE_DICT_SERIALIZED_ATTRIBUTES = [
     'callbacks',
     'scaler',
     'timestamp',
+    'dataloader_state',
 ]
+
+
+class DataloaderState:
+
+    def __init__(self, dataloader):
+        self.dataloader = dataloader
+
+    def state_dict(self):
+        if isinstance(self.dataloader, DataLoader):
+            if isinstance(self.dataloader.dataset, DataloaderState):
+                return self.dataloader.dataset.state_dict()
+
+    def load_state_dict(self, state):
+        pass
+
+    def apply_state_to_dataloader(self, state):
+        if isinstance(self.dataloader, DataLoader):
+            if isinstance(self.dataloader.dataset, DataloaderState):
+                self.dataloader.dataset.load_state_dict(state['dataloader_state'])
 
 
 class State(Serializable):
@@ -193,6 +214,8 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
             | run_name              | The run name for training.                                  |
             +-----------------------+-------------------------------------------------------------+
+            | dataloader_state      | The dataloader state used for training.                     |
+            +-----------------------+-------------------------------------------------------------+
 
         timestamp (Timestamp): The current training timestamp.
         train_dataloader (Iterable): The training dataloader. (May be ``None`` if not training.)
@@ -296,6 +319,7 @@ class State(Serializable):
             'rank_zero_seed',
             'current_metrics',
             'run_name',
+            'dataloader_state',
         ]
 
         self.current_metrics: Dict[str, Dict[str, Any]] = {}
@@ -482,6 +506,9 @@ class State(Serializable):
             if attribute_name == 'model':
                 self.load_model_state(state, strict=strict)
                 continue
+            elif attribute_name == 'dataloader_state':
+                self.dataloader_state.apply_state_to_dataloader(state)
+                continue
             state_field_value = getattr(self, attribute_name)
             if attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 for target in ensure_tuple(state_field_value):
@@ -504,6 +531,11 @@ class State(Serializable):
     def dataloader(self):
         """The active dataloader."""
         return self._dataloader
+
+    @property
+    def dataloader_state(self):
+        """The dataloader state (used for reproduction)."""
+        return DataloaderState(self._dataloader)
 
     @property
     def dataloader_label(self):

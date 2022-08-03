@@ -14,6 +14,7 @@ from typing import Any, Callable, Dict, Iterator, Optional
 import numpy as np
 from torch.utils.data import IterableDataset
 
+from composer.core.state import DataloaderState
 from composer.datasets.streaming.download import download_or_wait
 from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict,
                                                 get_compression_scheme_basename, get_index_basename, get_shard_basename,
@@ -35,7 +36,7 @@ class _DownloadStatus(enum.IntEnum):
     FAILED = 4
 
 
-class StreamingDataset(IterableDataset):
+class StreamingDataset(IterableDataset, DataloaderState):
     """A sharded, streaming, iterable dataset.
 
     Features:
@@ -171,6 +172,12 @@ class StreamingDataset(IterableDataset):
         self._downloaded_ids = []
         self._download_status = _DownloadStatus.NOT_STARTED
         self._download_exception: Exception
+
+    def state_dict(self):
+        pass
+
+    def load_state_dict(self, state):
+        pass
 
     def _download_file(self, basename: str, wait: bool = False, local_basename: Optional[str] = None) -> str:
         """Safely download a file from remote to local cache.

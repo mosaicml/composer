@@ -1475,6 +1475,8 @@ class Trainer:
                 for batch_idx, self.state.batch in enumerate(self._iter_dataloader()):
 
                     # if resuming, skip dataloader forward to the minibatch index
+                    # for streaming dataloaders, batch_idx will always start at batch_in_epoch ...
+                    # ... so the below code won't run.
                     if batch_idx < int(self.state.timestamp.batch_in_epoch):
                         # Restore the RNG state immediately before the next batch is yielded from the dataloader
                         if batch_idx + 1 == int(self.state.timestamp.batch_in_epoch) and self._rng_state is not None:
