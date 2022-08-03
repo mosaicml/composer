@@ -1976,8 +1976,6 @@ class Trainer:
 
             self.engine.run_event(Event.PREDICT_END)
 
-            return outputs
-
         # Restore training mode
         if restore_model_train:
             self.state.model.train()
@@ -1986,6 +1984,8 @@ class Trainer:
         self.state.set_dataloader(original_dataloader, original_dataloader_label)
         if original_dataloader_len is not None:
             self.state.dataloader_len = original_dataloader_len
+
+        return outputs
 
     def eval(
         self,
