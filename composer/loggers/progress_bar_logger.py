@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import Any, Callable, Dict, List, Optional, TextIO, Union
+from typing import Any, Callable, Dict, Optional, TextIO, Union
 
 import tqdm.auto
 
@@ -19,8 +19,6 @@ from composer.utils import dist, is_notebook
 
 __all__ = ['ProgressBarLogger']
 
-_IS_TRAIN_TO_KEYS_TO_LOG = {True: ['loss/train'], False: ['metrics/eval/Accuracy']}
-
 
 class _ProgressBar:
 
@@ -30,13 +28,9 @@ class _ProgressBar:
         position: Optional[int],
         bar_format: str,
         file: TextIO,
-        metrics: Dict[str, Any],
-        keys_to_log: List[str],
         timestamp_key: str,
         unit: str = 'it',
     ) -> None:
-        self.keys_to_log = keys_to_log
-        self.metrics = metrics
         self.position = position
         self.timestamp_key = timestamp_key
         self.file = file
@@ -53,14 +47,15 @@ class _ProgressBar:
             # But on k8s, we need `leave=True`, as it would otherwise overwrite the pbar in place
             # If in a notebook, then always set leave=True, as otherwise jupyter would remote the progress bars
             leave=True if is_notebook() else not is_atty,
-            postfix=metrics,
+            postfix={},
             unit=unit,
         )
 
-    def log_data(self, data: Dict[str, Any]):
-        formatted_data = {k: format_log_data_value(v) for (k, v) in data.items() if k in self.keys_to_log}
-        self.metrics.update(formatted_data)
-        self.pbar.set_postfix(self.metrics)
+    def log_data(self, data: Union[str, Dict[str, Any]]):
+        if isinstance(data, str):
+            self.pbar.set_postfix_str(data)
+        else:
+            self.pbar.set_postfix(data)
 
     def update(self, n=1):
         self.pbar.update(n=n)
@@ -93,8 +88,6 @@ class _ProgressBar:
             'total': pbar_state['total'],
             'position': self.position,
             'bar_format': pbar_state['bar_format'],
-            'metrics': self.metrics,
-            'keys_to_log': self.keys_to_log,
             'n': pbar_state['n'],
             'timestamp_key': self.timestamp_key,
         }
@@ -120,6 +113,21 @@ class ProgressBarLogger(LoggerDestination):
 
     Args:
         progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
+        bar_format (str, optional): The format string passed into the tqdm progress bar. More info
+            `here <https://tqdm.github.io/docs/tqdm/#__init__>`_. (default: ``'{l_bar}{bar:25}{r_bar}{bar:-1b}'``)
+        dataloader_label_to_metrics (Dict[str, str], optional): A dictionary specifying format strings
+            for each progress bar associated with a dataloader.
+
+            All elements in ``state.metrics[state.dataloader_label]``, in addition to the ``state``, are passed as
+            format variables to the metrics.
+
+            This allows arbitrary elements of the state to be logged -- e.g::
+
+                dataloader_label_to_metrics[train_dataloader]="loss={state.loss}, accuracy={accuracy}"
+
+            By default, if this parameter is ``None``, all metrics are logged on all progress bars. If a dictionary is
+            specified, the format string associated with each dataloader_label is used, and any missing dataloader_labels
+            log all metrics. (default: ``None``)
         log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
 
             The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is
@@ -140,12 +148,22 @@ class ProgressBarLogger(LoggerDestination):
     def __init__(
         self,
         progress_bar: bool = True,
+        bar_format: str = '{l_bar}{bar:25}{r_bar}{bar:-1b}',
+        dataloader_label_to_metrics: Optional[Dict[str, str]] = None,
         log_to_console: Optional[bool] = None,
         console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         stream: Union[str, TextIO] = sys.stderr,
     ) -> None:
 
         self._show_pbar = progress_bar
+        # Instantiate to empty dictionary, implying showing all metrics if None
+        self.dataloader_label_to_metrics = dataloader_label_to_metrics if dataloader_label_to_metrics else {}
+        # In a notebook, the `bar_format` should not include the {bar}, as otherwise it would appear twice, so
+        # adjust format if it is left to default value.
+        if bar_format == '{l_bar}{bar:25}{r_bar}{bar:-1b}' and is_notebook():
+            bar_format = '{l_bar}{r_bar}{bar:-1b}'
+        self.bar_format = ' ' + bar_format
+
         # The dummy pbar is to fix issues when streaming progress bars over k8s, where the progress bar in position 0
         # doesn't update until it is finished.
         # Need to have a dummy progress bar in position 0, so the "real" progress bars in position 1 doesn't jump around
@@ -188,8 +206,21 @@ class ProgressBarLogger(LoggerDestination):
         # log to progress bar
         current_pbar = self.eval_pbar if self.eval_pbar is not None else self.train_pbar
         if current_pbar:
+            formatted_data = None
+            # Custom formatting based on metric_format string
+            if state.dataloader_label in self.dataloader_label_to_metrics:
+                # Inject state into data so we can format in one pass
+                data['state'] = state
+                metric_format = self.dataloader_label_to_metrics[state.dataloader_label]
+                formatted_data = metric_format.format(**data)
+                # Clean up data
+                del data['state']
+            # Show all metrics
+            else:
+                formatted_data = {k: format_log_data_value(v) for (k, v) in data.items()}
+
             # Logging outside an epoch
-            current_pbar.log_data(data)
+            current_pbar.log_data(formatted_data)
 
         # log to console
         if self.should_log(state, log_level):
@@ -273,12 +304,8 @@ class ProgressBarLogger(LoggerDestination):
             file=self.stream,
             total=total,
             position=position,
-            keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[is_train],
-            # In a notebook, the `bar_format` should not include the {bar}, as otherwise
-            # it would appear twice.
-            bar_format=desc + ' {l_bar}' + ('' if is_notebook() else '{bar:25}') + '{r_bar}{bar:-1b}',
+            bar_format=desc + self.bar_format,
             unit=unit.value.lower(),
-            metrics={},
             timestamp_key=timestamp_key,
         )
 
@@ -290,8 +317,6 @@ class ProgressBarLogger(LoggerDestination):
                 file=self.stream,
                 position=0,
                 total=1,
-                metrics={},
-                keys_to_log=[],
                 bar_format='{bar:-1b}',
                 timestamp_key='',
             )

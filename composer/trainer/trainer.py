@@ -405,6 +405,21 @@ class Trainer:
         run_name (str, optional): A name for this training run. If not specified, the timestamp will be combined with a
             :doc:`coolname <coolname:index>`, e.g. ``1654298855-electric-zebra``.
         progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
+        bar_format (str, optional): The format string passed into the tqdm progress bar. More info
+            `here <https://tqdm.github.io/docs/tqdm/#__init__>`_. (default: ``'{l_bar}{bar:25}{r_bar}{bar:-1b}'``)
+        dataloader_label_to_metrics (Dict[str, str], optional): A dictionary specifying format strings
+            for each progress bar associated with a dataloader.
+
+            All elements in ``state.metrics[state.dataloader_label]``, in addition to the ``state``, are passed as
+            format variables to the metrics.
+
+            This allows arbitrary elements of the state to be logged -- e.g::
+
+                dataloader_label_to_metrics[train_dataloader]="loss={state.loss}, accuracy={accuracy}"
+
+            By default, if this parameter is ``None``, all metrics are logged on all progress bars. If a dictionary is
+            specified, the format string associated with each dataloader_label is used, and any missing dataloader_labels
+            log all metrics. (default: ``None``)
         log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
 
             The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is ``False``.
@@ -694,6 +709,8 @@ class Trainer:
         loggers: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
         run_name: Optional[str] = None,
         progress_bar: bool = True,
+        bar_format: str = '{l_bar}{bar:25}{r_bar}{bar:-1b}',
+        dataloader_label_to_metrics: Optional[Dict[str, str]] = None,
         log_to_console: Optional[bool] = None,
         console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         console_stream: Union[str, TextIO] = 'stderr',
@@ -849,6 +866,8 @@ class Trainer:
             loggers.append(
                 ProgressBarLogger(
                     progress_bar=progress_bar,
+                    bar_format=bar_format,
+                    dataloader_label_to_metrics=dataloader_label_to_metrics,
                     log_to_console=log_to_console,
                     console_log_level=console_log_level,
                     stream=console_stream,

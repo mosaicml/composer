@@ -211,6 +211,8 @@ class TrainerHparams(hp.Hparams):
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
         run_name (str, optional): See :class:`.Trainer`.
         progress_bar (bool, optional): See :class:`.Trainer`.
+        bar_format (str, optional): See :class:`.Trainer`.
+        dataloader_label_to_metrics (Dict[str, Union[bool, str]], optional): See :class:`.Trainer`.
         log_to_console (bool, optional): See :class:`.Trainer`.
         console_log_level (bool, optional): See :class:`.Trainer`.
         console_stream (bool, optional): See :class:`.Trainer`.
@@ -319,6 +321,8 @@ class TrainerHparams(hp.Hparams):
     loggers: Optional[List[LoggerDestination]] = hp.auto(Trainer, 'loggers')
     run_name: Optional[str] = hp.auto(Trainer, 'run_name')
     progress_bar: bool = hp.auto(Trainer, 'progress_bar')
+    bar_format: str = hp.auto(Trainer, 'bar_format')
+    dataloader_label_to_metrics: Optional[Dict[str, str]] = hp.auto(Trainer, 'dataloader_label_to_metrics')
     log_to_console: Optional[bool] = hp.auto(Trainer, 'log_to_console')
     console_log_level: LogLevel = hp.auto(Trainer, 'console_log_level')
     console_stream: str = hp.auto(Trainer, 'console_stream')
@@ -508,6 +512,8 @@ class TrainerHparams(hp.Hparams):
             loggers=self.loggers,
             run_name=self.run_name,
             progress_bar=self.progress_bar,
+            bar_format=self.bar_format,
+            dataloader_label_to_metrics=self.dataloader_label_to_metrics,
             log_to_console=self.log_to_console,
             console_log_level=self.console_log_level,
             console_stream=self.console_stream,
