@@ -286,41 +286,80 @@ void runPytest(String pDockerImage, String markers, String extraDeps, Boolean is
 }
 
 stage('Prepare') {
-    node(pCloud) {
-        // Automatically cancel old builds only on PR builds
-        // From https://stackoverflow.com/questions/40760716/jenkins-abort-running-build-if-new-one-is-started
-        if (env.CHANGE_ID) {  // if it is a PR build
-            int buildNumber = env.BUILD_NUMBER as int
-            if (buildNumber > 1) {
-                milestone(buildNumber - 1)
+    String yaml = '''
+apiVersion: v1
+kind: Pod
+spec:
+    volumes:
+      - emptyDir:
+            medium: Memory
+        name: dshm
+    containers:
+      - name: pod
+        image: node:18.7.0-buster
+        imagePullPolicy: Always
+        command: ["sleep"]
+        args: ["1800"]
+        volumeMounts:
+          - mountPath: /dev/shm
+            name: dshm
+        resources:
+            requests:
+                cpu: 2
+                ephemeral-storage: 4Gi
+                memory: 4Gi
+            limits:
+                cpu: 2
+                ephemeral-storage: 4Gi
+                memory: 4Gi
+'''
+    def podArgs = [
+        cloud: 'r1z3',
+        inheritFrom: 'r1z3',
+        label: env.BUILD_TAG,
+        yaml: yaml,
+        nodeSelector: 'mosaicml.com/instance-size=mosaic.a100-40sxm.1',
+    ]
+    podTemplate(podArgs) {
+        node(pCloud) {
+            container('pod') {
+                // Automatically cancel old builds only on PR builds
+                // From https://stackoverflow.com/questions/40760716/jenkins-abort-running-build-if-new-one-is-started
+                if (env.CHANGE_ID) {  // if it is a PR build
+                    int buildNumber = env.BUILD_NUMBER as int
+                    if (buildNumber > 1) {
+                        milestone(buildNumber - 1)
+                    }
+                    milestone(buildNumber)
+                }
+
+                // TODO(ravi) remove this -- test if npx is available
+
+                sh "npx cobertura-merge -o $mergedCoverageFile $coverageGlob"
+
+                def loadedSCM = checkout scm
+
+                gitUrl = loadedSCM.GIT_URL
+                gitBranch = loadedSCM.GIT_BRANCH
+                gitCommit = loadedSCM.GIT_COMMIT
+                gitCommitHash = loadedSCM.GIT_COMMIT
+
+                if (env.CHANGE_ID) {
+                    // Use the origin/pr/PR_NUMBER/merge to support commits in external repos
+                    gitCommit = "origin/pr/${pullRequest.number}/merge"
+                }
+
+                echo "gitUrl: $gitUrl"
+                echo "gitBranch: $gitBranch"
+                echo "gitCommit: $gitCommit"
+
+                didDockerChange = isPathModified('docker/')
+                pytorchDockerBuildMatrix = readYaml(file:  './docker/build_matrix.yaml')
+
+                // Keep track of whether dependencies changed, in which case a conda build should be tested
+                dependenciesChanged = isPathModified('setup.py') || isPathModified('meta.yaml')
             }
-            milestone(buildNumber)
         }
-
-        // TODO(ravi) remove this -- test if npx is available
-        sh "npx cobertura-merge -o $mergedCoverageFile $coverageGlob"
-
-        def loadedSCM = checkout scm
-
-        gitUrl = loadedSCM.GIT_URL
-        gitBranch = loadedSCM.GIT_BRANCH
-        gitCommit = loadedSCM.GIT_COMMIT
-        gitCommitHash = loadedSCM.GIT_COMMIT
-
-        if (env.CHANGE_ID) {
-            // Use the origin/pr/PR_NUMBER/merge to support commits in external repos
-            gitCommit = "origin/pr/${pullRequest.number}/merge"
-        }
-
-        echo "gitUrl: $gitUrl"
-        echo "gitBranch: $gitBranch"
-        echo "gitCommit: $gitCommit"
-
-        didDockerChange = isPathModified('docker/')
-        pytorchDockerBuildMatrix = readYaml(file:  './docker/build_matrix.yaml')
-
-        // Keep track of whether dependencies changed, in which case a conda build should be tested
-        dependenciesChanged = isPathModified('setup.py') || isPathModified('meta.yaml')
     }
 }
 
