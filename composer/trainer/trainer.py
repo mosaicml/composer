@@ -1714,12 +1714,11 @@ class Trainer:
                                 self.state.scaler.step(optimizer)
                         else:
                             if isinstance(self._device, DeviceTPU):
-                                if isinstance(self._device, DeviceTPU):
-                                    try:
-                                        import torch_xla.core.xla_model as xm
-                                    except ImportError as e:
-                                        raise MissingConditionalImportError(extra_deps_group='tpu',
-                                                                            conda_package='torch_xla[tpuvm]') from e
+                                try:
+                                    import torch_xla.core.xla_model as xm
+                                except ImportError as e:
+                                    raise MissingConditionalImportError(extra_deps_group='tpu',
+                                                                        conda_package='torch_xla[tpuvm]') from e
                                 xm.optimizer_step(optimizer)
                             else:
                                 optimizer.step()

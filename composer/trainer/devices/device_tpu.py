@@ -6,11 +6,12 @@
 from __future__ import annotations
 
 import logging
-from typing import TypeVar
+from typing import Any, Dict, TypeVar
 
 import torch
 
 from composer.trainer.devices.device import Device
+from composer.utils import MissingConditionalImportError
 
 logger = logging.getLogger(__name__)
 
