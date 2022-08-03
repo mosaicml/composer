@@ -103,6 +103,8 @@ def _get_training_metrics(model: ComposerModel):
 def _validate_precision(precision: Precision, device: Device, deepspeed_enabled: bool):
     if isinstance(device, DeviceCPU) and precision != Precision.FP32:
         raise ValueError(f'{precision} is not supproted for CPU training.')
+    if not deepspeed_enabled and precision == Precision.FP16 and not isinstance(device, DeviceTPU):
+        raise ValueError('FP16 precision is only supported when training with DeepSpeed.')
 
 def _compile_schedulers(
     schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]],
@@ -302,6 +304,7 @@ class Trainer:
 
             This label is used to index the training metrics (if ``compute_training_metrics`` is True) in
             :attr:`.State.current_metrics`.
+
             This parameter has no effect if ``train_dataloader`` or ``compute_training_metrics`` are not specified.
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
@@ -948,7 +951,6 @@ class Trainer:
             if eval_interval != 1:
                 raise ValueError('Specifying `eval_interval` without an `eval_dataloader` has no effect.')
 
-        ## check for tpu
         self.state.evaluators = evaluators
 
         # Some algorithms require specific settings
