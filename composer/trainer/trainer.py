@@ -2156,12 +2156,13 @@ class Trainer:
             if marker is not None:
                 marker.start()
             try:
-                yield next(dataloader_iter)
+                batch = next(dataloader_iter)
             except StopIteration:
                 break
             finally:
                 if marker is not None:
                     marker.finish()
+            yield batch
 
     def _use_closures(self) -> bool:
         """Determines based on precision and optimizers whether to use closures.
