@@ -72,8 +72,12 @@ class PerformanceAnalyzerTraceHandler(TraceHandler):
             self._record_wait_time(False, self.batch_wait_times, timestamp.batch.value, wall_clock_time_ns)
             # Only check for bottleneck on end of batch
             if not is_start and action == ProfilerAction.ACTIVE_AND_SAVE and self.is_dataloader_bottlenecked():
+                dataloader_time = self._average_dataloader_wait_time()
+                batch_time = self._average_batch_wait_time()
+                percentage = format(dataloader_time / batch_time * 100, '.2f')
+                additional_latency = format(dataloader_time / 1e9, '.3f')
                 warnings.warn(
-                    f"The current training run is dataloader bottlenecked. Waiting {format(self._average_dataloader_wait_time() / 1e9, '.3f')}s per batch for dataloader."
+                    f'The current training run is dataloader bottlenecked. The dataloader takes {percentage}% more time to compute a batch, adding {additional_latency}s per batch for dataloader.'
                 )
 
     def _average_batch_wait_time(self) -> float:
@@ -90,7 +94,7 @@ class PerformanceAnalyzerTraceHandler(TraceHandler):
         mstdevs = deviations_from_median / median_deviation if median_deviation else 0.
         filtered_arr = arr[mstdevs < mstdev_threshold]
         # Return mean of filtered_arr if it exists, otherwise return median of original array
-        return float(np.mean(filtered_arr)) if len(filtered_arr) > 0 else np.median(arr)
+        return float(np.mean(filtered_arr)) if len(filtered_arr) > 0 else float(np.median(arr))
 
     def is_dataloader_bottlenecked(self) -> bool:
         """Bottlenecked if batch yield time is more than 0.1% of batch compute time with >=10 datapoints."""
