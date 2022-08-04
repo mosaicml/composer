@@ -10,6 +10,7 @@ import torch
 import yahp as hp
 
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer
+from composer.loss import soft_cross_entropy
 from composer.models import ComposerClassifier
 from composer.models.bert.bert_hparams import BERTForClassificationHparams, BERTHparams
 from composer.models.deeplabv3.deeplabv3_hparams import DeepLabV3Hparams
@@ -118,6 +119,17 @@ class SimpleConvModelHparams(ModelHparams):
             num_classes=self.num_classes,
         )
 
+def dict_loss_simple_model(num_features: int = 1, num_classes: int = 2):
+    model = SimpleModel(num_features=num_features, num_classes=num_classes)
+
+    def dice_loss(outputs, targets, *args, **kwargs):
+        losses = {}
+        losses['cross_entropy1'] = 0.25 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+        losses['cross_entropy2'] = 0.75 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+        return losses
+
+    model._loss_fn = dice_loss
+    return model
 
 def configure_model_hparams_for_synthetic(model_hparams: ModelHparams) -> None:
     # configure Transformer-based models for synthetic testing

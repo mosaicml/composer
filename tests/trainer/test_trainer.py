@@ -36,7 +36,7 @@ from composer.trainer.trainer import _generate_run_name
 from composer.utils import dist, is_model_deepspeed, reproducibility
 from composer.utils.iter_helpers import map_collection
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
-                          world_size)
+                          world_size, dict_loss_simple_model)
 from tests.common.events import EventCounterCallback
 from tests.test_state import assert_state_equivalent
 
@@ -868,6 +868,16 @@ class TestTrainerEquivalence():
 
         self.assert_models_equal(trainer.state.model, self.reference_model)
 
+    def test_dict_loss_trainer(self, config, *args):
+        config['model'] = dict_loss_simple_model()
+
+        trainer = Trainer(**config)
+        trainer.fit()
+
+        print(trainer.state.loss)
+
+        self.assert_models_equal(trainer.state.model, self.reference_model)
+
     def test_algorithm_different(self, config, *args):
         # as a control, we train with an algorithm and
         # expect the test to fail
@@ -1006,7 +1016,6 @@ class TestFFCVDataloaders:
         config['precision'] = precision
         trainer = Trainer(**config)
         trainer.fit()
-
 
 @pytest.mark.world_size(2)
 def test_state_run_name():

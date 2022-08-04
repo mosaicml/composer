@@ -10,7 +10,7 @@ from tests.common.datasets import (RandomClassificationDataset, RandomClassifica
 from tests.common.events import EventCounterCallback
 from tests.common.markers import device, world_size
 from tests.common.models import (SimpleConvModel, SimpleConvModelHparams, SimpleModel, SimpleModelHparams,
-                                 configure_model_hparams_for_synthetic)
+                                 configure_model_hparams_for_synthetic, dict_loss_simple_model)
 from tests.common.state import assert_state_equivalent
 
 
@@ -34,5 +34,6 @@ __all__ = [
     'device',
     'world_size',
     'configure_model_hparams_for_synthetic',
+    'dict_loss_simple_model',
     'get_module_subclasses',
 ]
