@@ -2074,7 +2074,8 @@ class Trainer:
                     self.state.outputs, targets = self._original_model.validate(self.state.batch)
                 self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
-                metrics.update(self.state.outputs, targets)
+                with get_precision_context(self.state.precision):
+                    metrics.update(self.state.outputs, targets)
 
                 now = datetime.datetime.now()
                 batch_time = now - last_wct
