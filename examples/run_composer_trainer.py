@@ -16,20 +16,15 @@ import os
 import sys
 import tempfile
 import warnings
-from typing import Type
 
 from composer.loggers import LogLevel
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist
-
-
-def _warning_on_one_line(message: str, category: Type[Warning], filename: str, lineno: int, file=None, line=None):
-    # From https://stackoverflow.com/questions/26430861/make-pythons-warnings-warn-not-mention-itself
-    return f'{category.__name__}: {message} (source: {filename}:{lineno})\n'
+from composer.utils.misc import warning_on_one_line
 
 
 def _main():
-    warnings.formatwarning = _warning_on_one_line
+    warnings.formatwarning = warning_on_one_line
 
     global_rank = dist.get_global_rank()
 

@@ -1,8 +1,41 @@
+# By default, require admin approval for files that do not match any other rules
+* @mosaicml/composer-team-admins
+
 # Require admin approval to modify all files in the root of the repository
+# This includes setup.py, the README, and the CODEOWNERS file itself!
 /* @mosaicml/composer-team-admins
 
 # Require admin approval to change the CI build configuration
-/.ci/ @mosaicml/composer-team-admins
+# All CI Changes should be reviewed for security
+/.ci/ @bandish-shah @mosaicml/composer-team-admins
 
 # Require admin approval to change the Dockerfile configuration
-/docker/ @mosaicml/composer-team-admins
+# All dockerfile changes should be reviewed for security
+# Adding Bandish explicitly, too.
+/docker/ @bandish-shah @mosaicml/composer-team-admins
+
+# Assign the entire eng team to own all subfolders that are not .ci or docker
+# This allows anyone on Composer to approve any PR that does not touch .ci or docker
+/composer @mosaicml/composer-team-eng
+/docs @mosaicml/composer-team-eng
+/examples @mosaicml/composer-team-eng
+/scripts @mosaicml/composer-team-eng
+/tests @mosaicml/composer-team-eng
+
+# Assigning domain-specific owners for certain portions of the repo so they will be
+# explicitely added in pull requests. Including @mosaicml/composer-team-eng
+# as an owner for all sections, so anyone on Composer Eng can approve any Composer PR
+# According to the CODEOWNER docs, the last match takes precedence, so @mosaicml/composer-team-eng
+# must be mentioned for each rule below.
+/composer/algorithms/ @mosaicml/composer-team-research @dskhudia @mosaicml/composer-team-eng
+/composer/cli/ @jbloxham @mvpatel2000 @mosaicml/composer-team-eng
+/composer/datasets/ @mosaicml/composer-team-research @mosaicml/composer-team-eng
+/composer/datasets/streaming/ @knighton @mosaicml/composer-team-eng
+/composer/functional/ @mosaicml/composer-team-research @dskhudia @mosaicml/composer-team-eng
+/composer/loggers/ @eracah @mosaicml/composer-team-eng
+/composer/loss/ @mosaicml/composer-team-research @mosaicml/composer-team-eng
+/composer/metrics/ @mosaicml/composer-team-research @eracah @mosaicml/composer-team-eng
+/composer/models/ @mosaicml/composer-team-research @mosaicml/composer-team-eng
+/composer/optim/ @mosaicml/composer-team-research @mosaicml/composer-team-eng
+/composer/profiler/ @bandish-shah @mosaicml/composer-team-eng
+/composer/yamls/ @mosaicml/composer-team-research @mosaicml/composer-team-eng
