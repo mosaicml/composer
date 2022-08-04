@@ -296,7 +296,7 @@ spec:
         name: dshm
     containers:
       - name: pod
-        image: node:18.7.0-buster
+        image: node:latest
         imagePullPolicy: Always
         command: ["sleep"]
         args: ["1800"]
