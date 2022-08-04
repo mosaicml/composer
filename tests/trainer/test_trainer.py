@@ -29,6 +29,7 @@ from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.imagenet_hparams import ImagenetDatasetHparams
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger import Logger
+from composer.loss import soft_cross_entropy
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices import Device
@@ -864,6 +865,21 @@ class TestTrainerEquivalence():
 
         trainer = Trainer(**config)
         assert trainer.state.timestamp.epoch == '1ep'  # ensure checkpoint state loaded
+        trainer.fit()
+
+        self.assert_models_equal(trainer.state.model, self.reference_model)
+
+    def test_dict_loss_trainer(self, config, *args):
+
+        def dict_loss(outputs, targets, *args, **kwargs):
+            losses = {}
+            losses['cross_entropy1'] = 0.25 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+            losses['cross_entropy2'] = 0.75 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+            return losses
+
+        config['model']._loss_fn = dict_loss
+
+        trainer = Trainer(**config)
         trainer.fit()
 
         self.assert_models_equal(trainer.state.model, self.reference_model)
