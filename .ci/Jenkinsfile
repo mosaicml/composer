@@ -286,82 +286,38 @@ void runPytest(String pDockerImage, String markers, String extraDeps, Boolean is
 }
 
 stage('Prepare') {
-    String yaml = '''
-apiVersion: v1
-kind: Pod
-spec:
-    imagePullSecrets:
-      - name: jenkinsnext-regcred-20220302
-    volumes:
-      - emptyDir:
-            medium: Memory
-        name: dshm
-    containers:
-      - name: pod
-        image: mosaicml/pytorch:latest_cpu
-        imagePullPolicy: Always
-        command: ["sleep"]
-        args: ["1800"]
-        volumeMounts:
-          - mountPath: /dev/shm
-            name: dshm
-        resources:
-            requests:
-                cpu: 2
-                ephemeral-storage: 8Gi
-                memory: 8Gi
-            limits:
-                cpu: 2
-                ephemeral-storage: 8Gi
-                memory: 8Gi
-'''
-    def podArgs = [
-        cloud: pCloud,
-        inheritFrom: pCloud,
-        label: env.BUILD_TAG,
-        yaml: yaml,
-        nodeSelector: 'mosaicml.com/instance-size=mosaic.a100-40sxm.1',
-    ]
-    echo "pod args: $podArgs"
-    podTemplate(podArgs) {
-        node(env.BUILD_TAG) {
-            container('pod') {
-                // Automatically cancel old builds only on PR builds
-                // From https://stackoverflow.com/questions/40760716/jenkins-abort-running-build-if-new-one-is-started
-                if (env.CHANGE_ID) {  // if it is a PR build
-                    int buildNumber = env.BUILD_NUMBER as int
-                    if (buildNumber > 1) {
-                        milestone(buildNumber - 1)
-                    }
-                    milestone(buildNumber)
-                }
-
-                // TODO(ravi) remove this -- test if npx is available
-                def loadedSCM = checkout scm
-
-                sh "echo npx cobertura-merge -o hello world"
-
-                gitUrl = loadedSCM.GIT_URL
-                gitBranch = loadedSCM.GIT_BRANCH
-                gitCommit = loadedSCM.GIT_COMMIT
-                gitCommitHash = loadedSCM.GIT_COMMIT
-
-                if (env.CHANGE_ID) {
-                    // Use the origin/pr/PR_NUMBER/merge to support commits in external repos
-                    gitCommit = "origin/pr/${pullRequest.number}/merge"
-                }
-
-                echo "gitUrl: $gitUrl"
-                echo "gitBranch: $gitBranch"
-                echo "gitCommit: $gitCommit"
-
-                didDockerChange = isPathModified('docker/')
-                pytorchDockerBuildMatrix = readYaml(file:  './docker/build_matrix.yaml')
-
-                // Keep track of whether dependencies changed, in which case a conda build should be tested
-                dependenciesChanged = isPathModified('setup.py') || isPathModified('meta.yaml')
+    node (pCloud) {
+        // Automatically cancel old builds only on PR builds
+        // From https://stackoverflow.com/questions/40760716/jenkins-abort-running-build-if-new-one-is-started
+        if (env.CHANGE_ID) {  // if it is a PR build
+            int buildNumber = env.BUILD_NUMBER as int
+            if (buildNumber > 1) {
+                milestone(buildNumber - 1)
             }
+            milestone(buildNumber)
         }
+
+        def loadedSCM = checkout scm
+
+        gitUrl = loadedSCM.GIT_URL
+        gitBranch = loadedSCM.GIT_BRANCH
+        gitCommit = loadedSCM.GIT_COMMIT
+        gitCommitHash = loadedSCM.GIT_COMMIT
+
+        if (env.CHANGE_ID) {
+            // Use the origin/pr/PR_NUMBER/merge to support commits in external repos
+            gitCommit = "origin/pr/${pullRequest.number}/merge"
+        }
+
+        echo "gitUrl: $gitUrl"
+        echo "gitBranch: $gitBranch"
+        echo "gitCommit: $gitCommit"
+
+        didDockerChange = isPathModified('docker/')
+        pytorchDockerBuildMatrix = readYaml(file:  './docker/build_matrix.yaml')
+
+        // Keep track of whether dependencies changed, in which case a conda build should be tested
+        dependenciesChanged = isPathModified('setup.py') || isPathModified('meta.yaml')
     }
 }
 
@@ -485,29 +441,84 @@ stage('Build') {
     }
     finally {
         stage('Merge Artifacts') {
-            node(pCloud) {
-                checkout scm  // checking out the SCM so the coverage report can load the source
-                builds.each { item ->
-                    copyArtifacts(
-                        projectName: item.fullProjectName,
-                        selector: specific("${item.number}"),
-                        fingerprintArtifacts: true,
-                        optional: true,
-                    )
+            String yaml = '''
+apiVersion: v1
+kind: Pod
+spec:
+    imagePullSecrets:
+      - name: jenkinsnext-regcred-20220302
+    volumes:
+      - emptyDir:
+            medium: Memory
+        name: dshm
+    containers:
+      - name: pod
+        image: mosaicml/pytorch:latest_cpu
+        imagePullPolicy: Always
+        command: ["sleep"]
+        args: ["1800"]
+        volumeMounts:
+          - mountPath: /dev/shm
+            name: dshm
+        resources:
+            requests:
+                cpu: 2
+                ephemeral-storage: 8Gi
+                memory: 8Gi
+            limits:
+                cpu: 2
+                ephemeral-storage: 8Gi
+                memory: 8Gi
+'''
+            def podArgs = [
+                cloud: pCloud,
+                inheritFrom: pCloud,
+                label: env.BUILD_TAG,
+                yaml: yaml,
+                nodeSelector: 'mosaicml.com/instance-size=mosaic.a100-40sxm.1',
+            ]
+            echo "pod args: $podArgs"
+            podTemplate(podArgs) {
+                node(env.BUILD_TAG) {
+                    container('pod') {
+                        checkout scm  // checking out the SCM so the coverage report can load the source
+                        builds.each { item ->
+                            copyArtifacts(
+                                projectName: item.fullProjectName,
+                                selector: specific("${item.number}"),
+                                fingerprintArtifacts: true,
+                                optional: true,
+                            )
+                        }
+
+                        String mergedCoverageFile = "$buildOutputFolder/coverage_merged.xml"
+
+                        sh """!/usr/bin/env bash
+set -exuo pipefail
+
+
+ls -al ${buildOutputFolder}/.coverage*
+HAS_COVERAGE_FILES=\$("compgen -G \"${buildOutputFolder}/.coverage*\"")
+echo \$HAS_COVERAGE_FILES
+
+if [[ "\$HAS_COVERAGE_FILES" == 1 ]]; then
+
+    pip install coverage==6.4.2
+
+    python -m coverage combine ${buildOutputFolder}/.coverage*
+
+    python -m coverage xml -o ${mergedCoverageFile}
+fi
+"""
+
+                        archiveArtifacts(artifacts: artifactsGlob, fingerprint: true, allowEmptyArchive: true)
+                        junit(allowEmptyResults: true, testResults: junitGlob, checksName: 'Tests', keepLongStdio: true)
+                        publishCoverage(
+                            adapters: [istanbulCoberturaAdapter(path: mergedCoverageFile, mergeToOneReport: true)],
+                            sourceFileResolver: sourceFiles('STORE_LAST_BUILD'),
+                        )
+                    }
                 }
-
-                String mergedCoverageFile = "$buildOutputFolder/coverage_merged.xml"
-
-                sh "mkdir -p $buildOutputFolder"
-
-                sh "npx cobertura-merge -o $mergedCoverageFile $coverageGlob"
-
-                archiveArtifacts(artifacts: artifactsGlob, fingerprint: true, allowEmptyArchive: true)
-                junit(allowEmptyResults: true, testResults: junitGlob, checksName: 'Tests', keepLongStdio: true)
-                publishCoverage(
-                    adapters: [istanbulCoberturaAdapter(path: mergedCoverageFile, mergeToOneReport: true)],
-                    sourceFileResolver: sourceFiles('STORE_LAST_BUILD'),
-                )
             }
         }
     }
