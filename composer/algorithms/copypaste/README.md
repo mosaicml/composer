@@ -8,7 +8,7 @@ CopyPaste is a data augmentation technique that randomly pastes object instances
 This augmentation method can serve as a regularization technique to enhance the generalization capability of segmentation models for computer vision.
 
 
-| ![CopyPaste](https://storage.googleapis.com/docs.mosaicml.com/images/methods/cutmix.png) |
+| ![CopyPaste](https://storage.cloud.google.com/docs.mosaicml.com/images/methods/copypaste.png) |
 |:--:
 |*An example of data augmentation using CopyPaste. Object instances are randomly chosen from a source sample, jittered, and pasted into a target instance.*|
 ## How to Use
