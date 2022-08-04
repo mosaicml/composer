@@ -26,8 +26,6 @@ model:
       - bn_uniform
     num_classes: 10
 max_duration: 10ep
-eval_interval: 5ep
-#train_subset_num_batches: 10
 train_batch_size: 2048
 eval_batch_size: 1000
 seed: 17
@@ -38,4 +36,3 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 grad_accum: 1
-precision: bf16

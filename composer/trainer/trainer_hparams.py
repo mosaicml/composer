@@ -446,10 +446,12 @@ class TrainerHparams(hp.Hparams):
 
         # The model
         model = self.model.initialize_object()
-        import torch_xla.core.xla_model as xm
-        xla_device = xm.xla_device()
+        ## on tpus, the model needs to be transferred to the xla device before the optimizer is constructed
+        if os.getenv('XRT_TPU_CONFIG'):
+            import torch_xla.core.xla_model as xm
+            xla_device = xm.xla_device()
+            model = model.to(xla_device)
 
-        model = model.to(xla_device)
         # Train dataloader
         train_dataloader = _initialize_dataloader(self.train_dataset, self.train_dataloader_label,
                                                   self.train_batch_size, self.train_subset_num_batches, self.dataloader)
