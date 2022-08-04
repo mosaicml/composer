@@ -69,6 +69,15 @@
    Combines pairs of examples in non-overlapping regions and mixes labels
 
    ---
+   .. link-button:: copypaste.html
+      :text: CopyPaste
+      :classes: card-title
+
+   :badge:`CV,badge-primary`
+   ++++++++++++++
+   CopyPaste randomly pastes object instances onto an image.
+
+   ---
    .. link-button:: cutout.html
       :text: CutOut
       :classes: card-title

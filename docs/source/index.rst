@@ -116,6 +116,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/blurpool.md
    method_cards/channels_last.md
    method_cards/colout.md
+   method_cards/copypaste.md
    method_cards/cutmix.md
    method_cards/cutout.md
    method_cards/ema.md
