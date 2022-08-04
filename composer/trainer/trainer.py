@@ -1497,7 +1497,10 @@ class Trainer:
                                     self.state.batch, self.state.grad_accum):
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
-                                self.train_metrics.update(*self._original_model.validate(eval_microbatch))
+                                with get_precision_context(self.state.precision):
+                                    outputs, targets = self._original_model.validate(eval_microbatch)
+                                    # Run in same precision context to avoid NaNs
+                                    self.train_metrics.update(outputs, targets)
 
                     self.state.model.train()
 
@@ -2074,7 +2077,9 @@ class Trainer:
                     self.state.outputs, targets = self._original_model.validate(self.state.batch)
                 self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
-                metrics.update(self.state.outputs, targets)
+                # Run in same precision context to avoid NaNs
+                with get_precision_context(self.state.precision):
+                    metrics.update(self.state.outputs, targets)
 
                 now = datetime.datetime.now()
                 batch_time = now - last_wct
