@@ -10,14 +10,15 @@ from functools import partial
 
 import pytest
 import torch
-from torch.utils.data import DataLoader
 from torch.nn import Module
+from torch.utils.data import DataLoader
 
 from composer.core import State
 from composer.models import composer_resnet
 from composer.trainer.ddp import prepare_ddp_module
 from composer.utils import dist, export_for_inference
 from tests.common.datasets import RandomImageDataset
+
 
 @pytest.mark.parametrize(
     'model_cls, sample_input',
@@ -126,9 +127,9 @@ def test_export_for_inference_onnx_ddp(model_cls, sample_input):
             save_path = os.path.join(str(tempdir), f'model.{save_format}')
             assert isinstance(state.model.module, Module)
             export_for_inference(model=state.model.module,
-                                save_format=save_format,
-                                save_path=save_path,
-                                sample_input=(sample_input,))
+                                 save_format=save_format,
+                                 save_path=save_path,
+                                 sample_input=(sample_input,))
 
             loaded_model = onnx.load(save_path)
             onnx.checker.check_model(loaded_model)
