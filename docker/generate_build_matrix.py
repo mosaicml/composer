@@ -49,7 +49,7 @@ def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     if not use_cuda:
         return ''
     if pytorch_version in ('1.10.2', '1.11.0', '1.12.0'):
-        return '11.3.1'
+        return '11.6.2'
     raise ValueError(f'Invalid pytorch_version: {str}')
 
 
