@@ -410,31 +410,27 @@ stage('Build') {
     }
 
     if (dependenciesChanged) {
-        // Regardless of whether the docker image changed, rebuild the conda package
+        // regardless of whether the docker image changed, rebuild the conda package
         // if the dependencies changed
-
-        // Conda is temporarily being disabled due to issues it's having with dependency
-        // solving for mpi. It will be re-enabled once the conda issue https://github.com/conda/conda/issues/11442
-        // is closed by this PR https://github.com/conda/conda/pull/11612.
-        // jobs << [
-        //     'Conda': { ->
-        //         trackBuild(
-        //             job: jenkinsShellJobName,
-        //             parameters: [
-        //                 string(name: 'P_CLOUD', value: pCloud),
-        //                 string(name: 'P_GIT_REPO', value: gitUrl),
-        //                 string(name: 'P_GIT_COMMIT', value: gitCommit),
-        //                 string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: condaMemLimit),
-        //                 string(name: 'P_DOCKER_IMAGE', value: condaBuildDockerImage),
-        //                 string(name: 'P_TIMEOUT', value: condaTimeout), // Conda builds take longer
-        //                 string(name: 'POD_TIMEOUT', value: condaTimeout),
-        //                 string(name: 'P_CPU_LIMIT', value: condaCpuLimit),
-        //                 string(name: 'P_MEM_LIMIT', value: condaMemLimit),  // must include the ephemeral storage limit
-        //                 string(name: 'P_COMMAND', value: './.ci/build_conda.sh')
-        //             ]
-        //         )
-        //     }
-        // ]
+        jobs << [
+            'Conda': { ->
+                trackBuild(
+                    job: jenkinsShellJobName,
+                    parameters: [
+                        string(name: 'P_CLOUD', value: pCloud),
+                        string(name: 'P_GIT_REPO', value: gitUrl),
+                        string(name: 'P_GIT_COMMIT', value: gitCommit),
+                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: condaMemLimit),
+                        string(name: 'P_DOCKER_IMAGE', value: condaBuildDockerImage),
+                        string(name: 'P_TIMEOUT', value: condaTimeout), // Conda builds take longer
+                        string(name: 'POD_TIMEOUT', value: condaTimeout),
+                        string(name: 'P_CPU_LIMIT', value: condaCpuLimit),
+                        string(name: 'P_MEM_LIMIT', value: condaMemLimit),  // must include the ephemeral storage limit
+                        string(name: 'P_COMMAND', value: './.ci/build_conda.sh')
+                    ]
+                )
+            }
+        ]
     }
     if (!isMergeCommit) {
         // Fail fast only on PR builds
