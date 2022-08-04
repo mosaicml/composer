@@ -115,22 +115,44 @@ class CopyPaste(Algorithm):
     Randomly pastes objects onto an image.
 
     Args:
-        p (float, optional): p. Default: ``0.5``        
-        max_copied_instances (int | None, optional): max_copied_instances. Default: ``None``.
-        area_threshold (int, optional): area_threshold in pixels. Default: ``25``.
-        padding_factor (float, optional): padding_factor. Default: ``0.5``.
-        jitter_scale (Tuple[float, float], optional): jitter_scale. Default: ``(0.01, 0.99)``.
-        jitter_ratio (Tuple[float, float], optional): jitter_ratio. Default: ``(1.0, 1.0)``.
-        p_flip (float, optional): p_flip. Default: ``0.9``.
-        bg_color (int, optional): bg_color. Default: ``-1``.
-        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
-            from the batch. Can also be a pair of get and set functions, where the getter
-            is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
-            is the input. Default: ``0``.
-        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target
-            from the batch. Can also be a pair of get and set functions, where the getter
-            is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
-            is the target. Default: ``1``.
+        p (float, optional): Probability of applyig copy-paste augmentation on a
+            pair of randomly chosen source and target samples. Default: ``0.5``
+        max_copied_instances (int | None, optional): Maximum number of instances
+            to be copied from a randomly chosen source sample into another 
+            randomly chosen target sample. If this value is greater than the total 
+            number of instances in the source sample, it is overridden by the 
+            total number of instances in the source sample. If it is set to 
+            ``None``, the total number of instances in the source sample is set to 
+            be the limit. Default: ``None``.
+        area_threshold (int, optional): Minimum area (in pixels) of an augmented
+            instance to be considered a valid instance. Augmented instances with 
+            an area smaller than this threshold are removed from the sample. 
+            Default:``25``.
+        padding_factor (float, optional): The source sample is padded by this 
+            ratio before applying large scale jittering to it. Default: ``0.5``.
+        jitter_scale (Tuple[float, float], optional): Determines the scale used 
+            in the large scale jittering of the source instance. Specifies the 
+            lower and upper bounds for the random area of the crop, before 
+            resizing. The scale is defined with respect to the area of the 
+            original image. Default: ``(0.01, 0.99)``.
+        jitter_ratio (Tuple[float, float], optional): Determines the ratio used in 
+            the large scale jittering of the source instance. Lower and upper 
+            bounds for the random aspect ratio of the crop, before resizing. 
+            Default: ``(1.0, 1.0)``.
+        p_flip (float, optional): Probability of applying horizontal flipping 
+            during large scale jittering of the source instance. Default: ``0.9``.
+        bg_color (int, optional): Class label (pixel value) of the background 
+            class. Default: ``-1``.
+        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key 
+            that indexes to the input from the batch. Can also be a pair of get 
+            and set functions, where the getter is assumed to be first in the 
+            pair.  The default is 0, which corresponds to any sequence, where the 
+            first element is the input. Default: ``0``.
+        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key 
+            that indexes to the target from the batch. Can also be a pair of get 
+            and set functions, where the getter is assumed to be first in the 
+            pair. The default is 1, which corresponds to any sequence, where the 
+            second element is the target. Default: ``1``.
 
     Example:
         .. testcode::
@@ -188,6 +210,26 @@ class CopyPaste(Algorithm):
 
 
 def _copypaste_instance(src_image, src_mask, trg_image, trg_mask, src_instance_id, configs):
+    """Applies copy-paste augmentation on a set of source and target samples. The 
+    instance identified by ``src_instance_id`` is selected from the source sample 
+    to be copied to the target sample.
+
+    Args:
+        src_image (torch.Tensor): Source image of shape ``(C, H, W)``,
+            C is the number of channels.
+        src_mask (torch.Tensor): Source mask of shape ``(H, W)``,
+        trg_image (torch.Tensor): Target image of shape ``(C, H, W)``,
+            C is the number of channels.
+        trg_mask (torch.Tensor): Target mask of shape ``(H, W)``,
+        src_instance_id (int): Class ID of the randmoly chosen instance to be 
+            copied from the source sample into the target sample.
+        configs (dict): Configurable hyperparameters.
+
+    Returns:
+        trg_image (torch.Tensor): Augmented target image of shape ``(C, H, W)``,
+            C is the number of channels.
+        trg_mask (torch.Tensor): Augmented target mask of shape ``(H, W)``,
+    """
     zero_tensor = torch.zeros(
         1, dtype=src_image.dtype, device=src_image.device)
     bg_color = configs["bg_color"]
@@ -210,6 +252,24 @@ def _copypaste_instance(src_image, src_mask, trg_image, trg_mask, src_instance_i
 
 
 def _get_jitter_transformations(is_mask, padding_size, crop_size, configs):
+    """A wrapper around ``torchvision.transforms.transforms``. Generates a Torch transformation object to be used in large scale jittering.
+
+    Args:
+        is_mask (int): Identifier that indicates if the transformation is used on 
+            a mask or an image.
+        padding_size (int or sequence): Padding on each border. If a single int is 
+            provided this is used to pad all borders. If sequence of length 2 is provided this is the padding on left/right and top/bottom respectively.
+        size (int or sequence): Expected output size of the crop, for each edge. If 
+            size is an int instead of sequence like (h, w), a square output size 
+            ``(size, size)`` is made. If provided a sequence of length 1, it will 
+            be interpreted as (size[0], size[0]).
+        configs (dict): Configurable hyperparameters.
+
+
+    Returns:
+        trns (torchvision.transforms.transforms): An object of trochvision 
+            transformations.
+    """
     fill = 0
     if is_mask:
         fill = configs["bg_color"]
@@ -225,6 +285,20 @@ def _get_jitter_transformations(is_mask, padding_size, crop_size, configs):
 
 
 def _jitter_instance(arrs, configs):
+    """Applies transformations on a tuple of image and mask. 
+
+    Args:
+        arrs (sequence): Sequence containing the image and mask tensors. Element 0
+            always contains the image and element 1 contains the mask.
+        configs (dict): Configurable hyperparameters.
+
+
+    Returns:
+        out (sequence): Sequence containing the jittered (transformed) image and mask 
+            tensors. Element 0 always contains the image and element 1 contains the 
+            mask.
+    """
+
     out = []
     jitter_seed = random.randint(0, _MAX_TORCH_SEED)
 
@@ -248,6 +322,17 @@ def _jitter_instance(arrs, configs):
 
 
 def _ignore_instance(mask, configs):
+    """Compares the area of the mask with a threshold determined by the parameters 
+    in ``configs``. 
+
+    Args:
+        mask (torch.Tensore): Tensor of the instance mask.
+        configs (dict): Configurable hyperparameters.
+
+
+    Returns:
+        ignore (bool): A boolean flag determining if the mask must be ignored or not.
+    """
     uniques = torch.unique(mask, return_counts=True)
 
     mask_area = 0
@@ -259,12 +344,36 @@ def _ignore_instance(mask, configs):
 
 
 def _count_instances(input_tensor):
+    """Counts the total number of non-background class IDs in a mask tensor. 
+
+    Args:
+        input_tensor (torch.Tensore): Tensor of mask with shape ``(H, W)``.
+
+
+    Returns:
+        count (int): Number of non-background class IDs.
+    """
     unique_class_ids = torch.unique(input_tensor)
 
     return (len(unique_class_ids) - 1)
 
 
 def _get_instance_ids(input_tensor, num_instances, filtered_id):
+    """Generates a list of randomly selected (without replacement) 
+    non-background class IDs in a mask tensor. 
+
+    Args:
+        input_tensor (torch.Tensore): Tensor of mask with shape ``(H, W)``.
+        num_instances (int): Number of instances to be randomly selected from 
+            ``input_tensor``.
+        filtered_id (int): Class ID of the background class
+
+
+    Returns:
+        indices (sequence): a list of randomly selected (without replacement) 
+            non-background class IDs in a mask tensor.
+    """
+
     instance_ids = torch.unique(input_tensor)
 
     npy = instance_ids.cpu().numpy()
@@ -277,6 +386,18 @@ def _get_instance_ids(input_tensor, num_instances, filtered_id):
 
 
 def _parse_mask_by_id(mask, idx, background_color=-1):
+    """Extracts an instance indicated by ``idx`` from an input mask tensor. 
+
+    Args:
+        mask (torch.Tensore): Tensor of mask with shape ``(H, W)``.
+        idx (int): Class ID of the desired instance to be extracted from ``mask``
+        background_color (int): Class ID of the background class.
+
+
+    Returns:
+        parsed_mask (torch.Tensore): Tensor of mask with shape ``(H, W)`` that only 
+            contains the instance indicated by ``idx``.
+    """
     parsed_mask = torch.where(mask == idx, idx, background_color)
 
     return parsed_mask

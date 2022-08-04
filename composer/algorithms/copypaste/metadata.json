@@ -9,7 +9,7 @@
         "domains": [
             "cv"
         ],
-        "summary": "Randomly pastes objects onto an image.",
+        "summary": "Randomly pastes object instances onto an image.",
         "use": "Semantic segmentation, object detection"
     }
 }

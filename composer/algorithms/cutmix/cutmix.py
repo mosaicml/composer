@@ -102,7 +102,8 @@ def cutmix_batch(input: Tensor,
             X_mixed, target_perm, area, _ = cutmix_batch(X, y, alpha=0.2)
     """
     if bbox is not None and length is not None:
-        raise ValueError(f'Cannot provide both length and bbox; got {length} and {bbox}')
+        raise ValueError(
+            f'Cannot provide both length and bbox; got {length} and {bbox}')
 
     # Create shuffled indicies across the batch in preparation for cutting and mixing.
     # Use given indices if there are any.
@@ -129,7 +130,8 @@ def cutmix_batch(input: Tensor,
         box_area = (rw - rx) * (rh - ry)
         cutmix_lambda = box_area / (H * W)
     else:
-        rx, ry, rw, rh = _rand_bbox(input.shape[2], input.shape[3], cutmix_lambda, uniform_sampling=uniform_sampling)
+        rx, ry, rw, rh = _rand_bbox(
+            input.shape[2], input.shape[3], cutmix_lambda, uniform_sampling=uniform_sampling)
         bbox = (rx, ry, rw, rh)
 
     # Fill in the box with a part of a random image.
@@ -221,9 +223,11 @@ class CutMix(Algorithm):
         target = state.batch_get_item(key=self.target_key)
 
         if not isinstance(input, torch.Tensor):
-            raise NotImplementedError('Multiple tensors for inputs not supported yet.')
+            raise NotImplementedError(
+                'Multiple tensors for inputs not supported yet.')
         if not isinstance(target, torch.Tensor):
-            raise NotImplementedError('Multiple tensors for targets not supported yet.')
+            raise NotImplementedError(
+                'Multiple tensors for targets not supported yet.')
 
         alpha = self.alpha
 
@@ -250,9 +254,11 @@ class CutMix(Algorithm):
         if not self.interpolate_loss and event == Event.BEFORE_LOSS:
             # Interpolate the targets
             if not isinstance(state.outputs, torch.Tensor):
-                raise NotImplementedError('Multiple output tensors not supported yet')
+                raise NotImplementedError(
+                    'Multiple output tensors not supported yet')
             if not isinstance(target, torch.Tensor):
-                raise NotImplementedError('Multiple target tensors not supported yet')
+                raise NotImplementedError(
+                    'Multiple target tensors not supported yet')
             if self._permuted_target.ndim > 2 and self._permuted_target.shape[-2:] == input.shape[-2:]:
                 # Target has the same height and width as the input, no need to interpolate.
                 x1, y1, x2, y2 = self._bbox
@@ -260,15 +266,18 @@ class CutMix(Algorithm):
             else:
                 # Need to interpolate on dense/one-hot targets.
                 target = ensure_targets_one_hot(state.outputs, target)
-                permuted_target = ensure_targets_one_hot(state.outputs, self._permuted_target)
+                permuted_target = ensure_targets_one_hot(
+                    state.outputs, self._permuted_target)
                 # Interpolate to get the new target
-                target = self._adjusted_lambda * target + (1 - self._adjusted_lambda) * permuted_target
+                target = self._adjusted_lambda * target + \
+                    (1 - self._adjusted_lambda) * permuted_target
             # Create the new batch
             state.batch_set_item(key=self.target_key, value=target)
 
         if self.interpolate_loss and event == Event.BEFORE_BACKWARD:
             if self._permuted_target.ndim > 2 and self._permuted_target.shape[-2:] == input.shape[-2:]:
-                raise ValueError("Can't interpolate loss when target has the same height and width as the input")
+                raise ValueError(
+                    "Can't interpolate loss when target has the same height and width as the input")
 
             # Grab the loss function
             if hasattr(state.model, 'loss'):
@@ -277,9 +286,11 @@ class CutMix(Algorithm):
                 if isinstance(state.model.module, torch.nn.Module):
                     loss_fn = state.model.module.loss
                 else:
-                    raise TypeError('state.model.module must be a torch module')
+                    raise TypeError(
+                        'state.model.module must be a torch module')
             else:
-                raise AttributeError('Loss must be accessible via model.loss or model.module.loss')
+                raise AttributeError(
+                    'Loss must be accessible via model.loss or model.module.loss')
             # Verify that the loss is callable
             if not callable(loss_fn):
                 raise TypeError('Loss must be callable')
@@ -289,7 +300,8 @@ class CutMix(Algorithm):
                 raise NotImplementedError('Multiple losses not supported yet')
             if not isinstance(new_loss, torch.Tensor):
                 raise NotImplementedError('Multiple losses not supported yet')
-            state.loss = self._adjusted_lambda * state.loss + (1 - self._adjusted_lambda) * new_loss
+            state.loss = self._adjusted_lambda * state.loss + \
+                (1 - self._adjusted_lambda) * new_loss
 
 
 def _gen_indices(x: Tensor) -> Tensor:
@@ -390,5 +402,6 @@ def _adjust_lambda(x: Tensor, bbox: Tuple) -> float:
             being potentially out of bounds of the input.
     """
     rx, ry, rw, rh = bbox[0], bbox[1], bbox[2], bbox[3]
-    adjusted_lambda = 1 - ((rw - rx) * (rh - ry) / (x.size()[-1] * x.size()[-2]))
+    adjusted_lambda = 1 - ((rw - rx) * (rh - ry) /
+                           (x.size()[-1] * x.size()[-2]))
     return adjusted_lambda
