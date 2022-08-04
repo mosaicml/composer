@@ -216,6 +216,7 @@ def spawn_finetuning_jobs(
                     initializer=init_cuda_env,
                     initargs=(cuda_envs, free_port),
                     mp_context=ctx)
+
     def make_callback(parent_ckpt, glue_metrics):
         return lambda future: log_metrics(future.result(), ckpt_filename=parent_ckpt, glue_metrics=glue_metrics)
 
@@ -228,9 +229,8 @@ def spawn_finetuning_jobs(
         for task, save_ckpt in task_to_save_ckpt.items():
             if task not in seed_overrides:
                 # Run 1 fine-tune trainer from this checkpoint, with no seed overriding.
-                future = executor.submit(train_finetune, base_yaml_file, task, save_ckpt, ckpt_load_path,
-                                         parent_ckpt, parent_idx, ckpt_save_folder, save_locally, free_port + rank,
-                                         load_ignore_keys)
+                future = executor.submit(train_finetune, base_yaml_file, task, save_ckpt, ckpt_load_path, parent_ckpt,
+                                         parent_idx, ckpt_save_folder, save_locally, free_port + rank, load_ignore_keys)
                 future.add_done_callback(make_callback(parent_ckpt, glue_metrics))
                 rank += 1
             else:
@@ -249,17 +249,17 @@ def spawn_finetuning_jobs(
 
 
 def train_finetune(
-    base_yaml_file: str,
-    task: str,
-    save_ckpt: bool,
-    load_path: str,
-    parent_ckpt: str,
-    parent_idx: int, 
-    save_folder: str,
-    save_locally: bool,
-    master_port: int,
-    load_ignore_keys: Optional[List[str]] = None,
-    seed_override: Optional[int] = None,  # Option to manually set the seed to this value
+        base_yaml_file: str,
+        task: str,
+        save_ckpt: bool,
+        load_path: str,
+        parent_ckpt: str,
+        parent_idx: int,
+        save_folder: str,
+        save_locally: bool,
+        master_port: int,
+        load_ignore_keys: Optional[List[str]] = None,
+        seed_override: Optional[int] = None,  # Option to manually set the seed to this value
 ):
     """Run single instance of a finetuning job on given task."""
     os.environ['MASTER_PORT'] = f'{master_port}'  # set unique master port for each spawn
@@ -279,11 +279,11 @@ def train_finetune(
     ft_hparams.progress_bar = False
     ft_hparams.save_overwrite = True
 
-    if ft_hparams.load_ignore_keys:
-        assert load_ignore_keys is not None
-        ft_hparams.load_ignore_keys.extend(load_ignore_keys)
-    else:
-        ft_hparams.load_ignore_keys = load_ignore_keys
+    if load_ignore_keys is not None:
+        if ft_hparams.load_ignore_keys:
+            ft_hparams.load_ignore_keys.extend(load_ignore_keys)
+        else:
+            ft_hparams.load_ignore_keys = load_ignore_keys
 
     if seed_override is not None:
         assert seed_override > 0
@@ -324,7 +324,7 @@ def train_finetune(
 
         if save_locally:
             if not os.path.exists(ft_hparams.save_folder):
-                os.mkdir(ft_hparams.save_folder)
+                os.makedirs(ft_hparams.save_folder)
 
     else:
         # Disable saving
@@ -519,7 +519,7 @@ def run_finetuner(training_scheme: str, file: str, save_locally: bool, save_fold
         glue_metrics,
         file,
         save_locally,
-        parent_ckpts=all_ckpts_list,  
+        parent_ckpts=all_ckpts_list,
         load_ignore_keys=['state/model/model.classifier*'],
     )
 
