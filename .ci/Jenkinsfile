@@ -493,7 +493,7 @@ spec:
 
                         String mergedCoverageFile = "$buildOutputFolder/coverage_merged.xml"
 
-                        sh """!/usr/bin/env bash
+                        sh """#!/usr/bin/env bash
 set -exuo pipefail
 
 
