@@ -9,6 +9,8 @@ import logging
 from copy import deepcopy
 from typing import Any, Optional, Sequence, Union
 
+from torch.nn import Module
+
 from composer.core import State
 from composer.core.callback import Callback
 from composer.loggers import Logger
@@ -77,7 +79,10 @@ class ExportForInferenceCallback(Callback):
         self.export_model(state)
 
     def export_model(self, state: State):
-        export_for_inference(model=state.model,
+        export_model = state.model.module if state.is_model_ddp else state.model
+        if not isinstance(export_model, Module):
+            raise ValueError(f'Exporting Model requires type torch.nn.Module, got {type(export_model)}')
+        export_for_inference(model=export_model,
                              save_format=self.save_format,
                              save_path=self.save_path,
                              save_object_store=self.save_object_store,

@@ -21,6 +21,7 @@ import torch
 import torch.distributed
 import torch.utils.data
 from torch.cuda.amp.grad_scaler import GradScaler
+from torch.nn import Module
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric, MetricCollection
@@ -2225,9 +2226,12 @@ class Trainer:
         Returns:
             None
         """
+        export_model = self.state.model.module if self.state.is_model_ddp else self.state.model
+        if not isinstance(export_model, Module):
+            raise ValueError(f'Exporting Model requires type torch.nn.Module, got {type(export_model)}')
         if sample_input == None and save_format == 'onnx':
             sample_input = deepcopy(self.state.batch)
-        inference.export_for_inference(model=self.state.model,
+        inference.export_for_inference(model=export_model,
                                        save_format=save_format,
                                        save_path=save_path,
                                        save_object_store=save_object_store,
