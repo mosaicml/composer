@@ -8,20 +8,27 @@ downstream tasks to be handled within one script. This script requires that the
 run_composer_trainer.py script lies in the parent folder to this one.
 
 Example that pretrains a BERT::
-    >>> python run_glue_trainer.py
-    -f glue_example.yaml
+    >>> python examples/glue/run_glue_trainer.py
+    -f examples/glue/glue_example.yaml
     --training_scheme pretrain
 
 Example that pretrains and finetunes a BERT::
-    >>> python run_glue_trainer.py
-    -f glue_example.yaml
+    >>> python examples/glue/run_glue_trainer.py
+    -f examples/glue/glue_example.yaml
     --training_scheme all
 
 Example that finetunes a pretrained BERT::
 
-    >>> python run_glue_trainer.py
-    -f glue_example.yaml
+    >>> python examples/glue/run_glue_trainer.py
+    -f examples/glue/glue_example.yaml
     --training_scheme finetune
+
+To see all the possible options for a specific parameter usage,
+try ``python examples/glue/run_glue_trainer.py <PARAMETER_NAME> --help``
+like in the following::
+
+    >>> python examples/glue/run_glue_trainer.py
+    finetune_hparams --help
 """
 import multiprocessing as mp
 import os
