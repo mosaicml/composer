@@ -1497,7 +1497,10 @@ class Trainer:
                                     self.state.batch, self.state.grad_accum):
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
-                                self.train_metrics.update(*self._original_model.validate(eval_microbatch))
+                                with get_precision_context(self.state.precision):
+                                    outputs, targets = self._original_model.validate(eval_microbatch)
+                                    # Run in same precision context to avoid NaNs
+                                    self.train_metrics.update(outputs, targets)
 
                     self.state.model.train()
 
@@ -1698,9 +1701,10 @@ class Trainer:
                 else:
                     original_grad_accum = self.state.grad_accum
                     self.state.grad_accum = min(2 * self.state.grad_accum, device_batch_size)
-                    log.info(('CUDA out of memory detected. Gradient Accumulation '
-                              f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
-                              'and the batch will be retrained.'))
+                    warnings.warn(
+                        RuntimeWarning('CUDA out of memory detected. Gradient Accumulation '
+                                       f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
+                                       'and the batch will be retrained.'))
             # Otherwise, log grad_accum and return calculated loss
             else:
                 # Synchronize new batch compute time
@@ -1951,7 +1955,8 @@ class Trainer:
                 self.engine.run_event(Event.PREDICT_BATCH_START)
 
                 self.engine.run_event(Event.PREDICT_BEFORE_FORWARD)
-                self.state.outputs = self.state.model(self.state.batch)
+                with get_precision_context(self.state.precision):
+                    self.state.outputs = self.state.model(self.state.batch)
                 self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
 
                 if return_outputs:
@@ -1976,8 +1981,6 @@ class Trainer:
 
             self.engine.run_event(Event.PREDICT_END)
 
-            return outputs
-
         # Restore training mode
         if restore_model_train:
             self.state.model.train()
@@ -1986,6 +1989,8 @@ class Trainer:
         self.state.set_dataloader(original_dataloader, original_dataloader_label)
         if original_dataloader_len is not None:
             self.state.dataloader_len = original_dataloader_len
+
+        return outputs
 
     def eval(
         self,
@@ -2068,10 +2073,13 @@ class Trainer:
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
                 self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-                self.state.outputs, targets = self._original_model.validate(self.state.batch)
+                with get_precision_context(self.state.precision):
+                    self.state.outputs, targets = self._original_model.validate(self.state.batch)
                 self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
-                metrics.update(self.state.outputs, targets)
+                # Run in same precision context to avoid NaNs
+                with get_precision_context(self.state.precision):
+                    metrics.update(self.state.outputs, targets)
 
                 now = datetime.datetime.now()
                 batch_time = now - last_wct
@@ -2153,12 +2161,13 @@ class Trainer:
             if marker is not None:
                 marker.start()
             try:
-                yield next(dataloader_iter)
+                batch = next(dataloader_iter)
             except StopIteration:
                 break
             finally:
                 if marker is not None:
                     marker.finish()
+            yield batch
 
     def _use_closures(self) -> bool:
         """Determines based on precision and optimizers whether to use closures.
