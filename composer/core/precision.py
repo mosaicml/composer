@@ -61,7 +61,10 @@ def get_precision_context(precision: Union[str, Precision]) -> Generator[None, N
         with torch.cuda.amp.autocast(True):
             yield
     elif precision == Precision.BF16:
-        with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):
+        if not os.getenv('XRT_TPU_CONFIG'):
+            with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):
+                yield
+        else:
             yield
     else:
         raise ValueError(f'Unsupported precision: {precision}')

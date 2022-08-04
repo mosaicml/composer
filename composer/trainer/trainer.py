@@ -788,7 +788,8 @@ class Trainer:
 
         # Move the model and optimizers to the device
         if not deepspeed_enabled:
-            model = self._device.module_to_device(model)
+            if not os.getenv('XRT_TPU_CONFIG'):
+                model = self._device.module_to_device(model)
             # Move any remaining optimizer parameters onto the device
             # It is possible that optimizer initialize created some internal tensors on CPU
             # that need to be moved onto GPU.
@@ -1671,10 +1672,6 @@ class Trainer:
             try:
                 assert self.state.scaler is not None
                 microbatches = self._train_data_spec.split_batch(device_batch, self.state.grad_accum)
-                total_loss = self._train_microbatches(microbatches)
-                import torch_xla.core.xla_model as xm
-                xm.optimizer_step(optimizer)
-                
                 if self.deepspeed_enabled:
                     total_loss = self._train_microbatches(microbatches)
                 elif self._use_closures():
