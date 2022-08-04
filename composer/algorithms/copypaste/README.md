@@ -19,7 +19,7 @@ This augmentation method can serve as a regularization technique to enhance the 
 
 Here we run `CopyPaste` using index labels and interpolating the loss (a trick when using cross entropy).
 ```python
-# Run the CutMix algorithm directly on the batch data using the Composer functional API
+# Run the CopyPaste algorithm directly on the batch data using the Composer functional API
 import torch
 import torch.nn.functional as F
 import composer.functional as cf
@@ -97,7 +97,7 @@ Doing so avoids putting additional work on the CPU (since augmentation occurs on
 
 > 🚧 CopyPaste Requires a Small Amount of Additional GPU Compute and Memory
 >
-> CopyPaste requires a small amount of additional GPU compute and memory to produce the mixed-up batch.
+> CopyPaste requires a small amount of additional GPU compute and memory to produce the augmented batch.
 > In our experiments, we have found these additional resource requirements to be negligible.
 
 ## Attribution
