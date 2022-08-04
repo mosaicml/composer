@@ -870,6 +870,7 @@ class TestTrainerEquivalence():
         self.assert_models_equal(trainer.state.model, self.reference_model)
 
     def test_dict_loss_trainer(self, config, *args):
+
         def dict_loss(outputs, targets, *args, **kwargs):
             losses = {}
             losses['cross_entropy1'] = 0.25 * soft_cross_entropy(outputs, targets, *args, **kwargs)
@@ -1021,6 +1022,7 @@ class TestFFCVDataloaders:
         config['precision'] = precision
         trainer = Trainer(**config)
         trainer.fit()
+
 
 @pytest.mark.world_size(2)
 def test_state_run_name():

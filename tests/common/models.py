@@ -118,6 +118,7 @@ class SimpleConvModelHparams(ModelHparams):
             num_classes=self.num_classes,
         )
 
+
 def configure_model_hparams_for_synthetic(model_hparams: ModelHparams) -> None:
     # configure Transformer-based models for synthetic testing
     if type(model_hparams) in model_hparams_to_tokenizer_family.keys():
