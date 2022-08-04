@@ -337,10 +337,9 @@ spec:
                 }
 
                 // TODO(ravi) remove this -- test if npx is available
+                def loadedSCM = checkout scm
 
                 sh "echo npx cobertura-merge -o hello world"
-
-                def loadedSCM = checkout scm
 
                 gitUrl = loadedSCM.GIT_URL
                 gitBranch = loadedSCM.GIT_BRANCH
