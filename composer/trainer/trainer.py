@@ -2225,7 +2225,7 @@ class Trainer:
         Returns:
             None
         """
-        if sample_input == None:
+        if sample_input == None and save_format == 'onnx':
             sample_input = deepcopy(self.state.batch)
         inference.export_for_inference(model=self.state.model,
                                        save_format=save_format,
