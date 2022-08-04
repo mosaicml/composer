@@ -185,41 +185,62 @@ def merge_hparams(hparams: TrainerHparams, override_hparams: GLUETrainerHparams)
 
 def spawn_finetuning_jobs(
     task_to_save_ckpt: Dict[str, bool],
-    ckpt_load_path: str,
+    ckpt_load_paths: List[str],
     ckpt_save_folder: str,
     glue_metrics: GlueState,
     base_yaml_file: str,
     save_locally: bool,
-    parent_ckpt: Optional[str] = None,
+    parent_ckpts: Optional[List[str]] = None,
     load_ignore_keys: Optional[List[str]] = None,
 ) -> None:
-    """Set up CUDA environment and process pool for given finetuning jobs."""
+    """Set up CUDA environment and process pool for given finetuning jobs and wait for them to complete."""
+    if parent_ckpts:
+        assert len(parent_ckpts) == len(ckpt_load_paths), "Must supply one parent_ckpt per ckpt_load_path"
+    else:
+        parent_ckpts = ckpt_load_paths  # By default, the "parent checkpoint" is logged simply as the checkpoint
+
+    # To reduce noisiness with these tasks, expand the evaluation to multiple fine-tuning seeds per pre-train checkpoint
+    seed_overrides = {
+        'sst-2': [19, 8364, 717],
+        'cola': [19, 8364, 717, 10536],
+        'rte': [19, 8364, 717, 10536, 90166],
+        'mrpc': [19, 8364, 717, 10536, 90166],
+        'stsb': [19, 8364, 717, 10536, 90166],
+    }
+
+    # Set up CUDA environment(s) and process pool
     ctx = mp.get_context('spawn')
     cuda_envs = init_cuda_queue(torch.cuda.device_count(), ctx)
-    finetune_tasks = list(task_to_save_ckpt.keys())
-    num_tasks = len(finetune_tasks)
-
-    if parent_ckpt:
-        wandb_group_name = parent_ckpt
-        logged_ckpt_name = parent_ckpt
-    else:
-        wandb_group_name = ckpt_load_path
-        logged_ckpt_name = ckpt_load_path
-
-    # finetuning from pretrained checkpoint
-    print(f'FINETUNING ON {ckpt_load_path}!')
-    done_callback = lambda future: log_metrics(
-        metric=future.result(), ckpt_filename=logged_ckpt_name, glue_metrics=glue_metrics)
     free_port = get_free_tcp_port()
     executor = Pool(max_workers=torch.cuda.device_count(),
                     initializer=init_cuda_env,
                     initargs=(cuda_envs, free_port),
                     mp_context=ctx)
-    for rank in range(num_tasks):
-        task = finetune_tasks[rank]
-        future = executor.submit(train_finetune, base_yaml_file, task, task_to_save_ckpt[task], ckpt_load_path,
-                                 wandb_group_name, ckpt_save_folder, save_locally, free_port + rank, load_ignore_keys)
-        future.add_done_callback(done_callback)
+    def make_callback(parent_ckpt, glue_metrics):
+        return lambda future: log_metrics(future.result(), ckpt_filename=parent_ckpt, glue_metrics=glue_metrics)
+
+    # Fine-tune from pre-trained checkpoint(s)
+    for parent_idx, (ckpt_load_path, parent_ckpt) in enumerate(zip(ckpt_load_paths, parent_ckpts)):
+        # `ckpt_load_path` provides the path to the checkpoint from which we load the starting weights used when fine-tuning
+        # `parent_ckpt` keeps track of the original pre-training checkpoint, for tasks with multiple fine-tuning stages (e.g., RTE)
+        # `parent_idx` is used for bookkeeping, so `parent_ckpt` can be internally recovered from the path used to save fine-tune checkpoints
+        rank = 0
+        for task, save_ckpt in task_to_save_ckpt.items():
+            if task not in seed_overrides:
+                # Run 1 fine-tune trainer from this checkpoint, with no seed overriding.
+                future = executor.submit(train_finetune, base_yaml_file, task, save_ckpt, ckpt_load_path,
+                                         parent_ckpt, parent_idx, ckpt_save_folder, save_locally, free_port + rank,
+                                         load_ignore_keys)
+                future.add_done_callback(make_callback(parent_ckpt, glue_metrics))
+                rank += 1
+            else:
+                # Run multiple fine-tune trainers from this checkpoint, using a different seed override for each
+                for seed in seed_overrides[task]:
+                    future = executor.submit(train_finetune, base_yaml_file, task, save_ckpt, ckpt_load_path,
+                                             parent_ckpt, parent_idx, ckpt_save_folder, save_locally, free_port + rank,
+                                             load_ignore_keys, seed)
+                    future.add_done_callback(make_callback(parent_ckpt, glue_metrics))
+                    rank += 1
 
     executor.shutdown(wait=True)  # wait for processes and callbacks to complete
 
@@ -232,11 +253,13 @@ def train_finetune(
     task: str,
     save_ckpt: bool,
     load_path: str,
-    wandb_group_name: str,
+    parent_ckpt: str,
+    parent_idx: int, 
     save_folder: str,
     save_locally: bool,
     master_port: int,
     load_ignore_keys: Optional[List[str]] = None,
+    seed_override: Optional[int] = None,  # Option to manually set the seed to this value
 ):
     """Run single instance of a finetuning job on given task."""
     os.environ['MASTER_PORT'] = f'{master_port}'  # set unique master port for each spawn
@@ -262,6 +285,10 @@ def train_finetune(
     else:
         ft_hparams.load_ignore_keys = load_ignore_keys
 
+    if seed_override is not None:
+        assert seed_override > 0
+        ft_hparams.seed = seed_override
+
     # add finetune-specific tags to wandb if logger exists
     # TODO(Evan): Use the config logging API in https://mosaicml.atlassian.net/browse/CO-586 to set tags and groups
     if ft_hparams.loggers:
@@ -271,12 +298,27 @@ def train_finetune(
                     logger._init_kwargs['tags'] = []
                 logger._init_kwargs['tags'].append(task)
 
+    ##### WE WANT EVERYTHING TO GO STUPID QUICK FOR TESTING #####
+    task_dur_map = {
+        'mnli': 50,
+        'qqp': 100,
+        'qnli': 150,
+        'cola': 200,
+        'sst-2': 250,
+        'rte': 300,
+        'mrpc': 350,
+        'stsb': 400
+    }
+    ft_hparams.max_duration = f'{task_dur_map[task]}ba'
+    ft_hparams.eval_interval = f'{task_dur_map[task]}ba'
+    ##### WE WANT EVERYTHING TO GO STUPID QUICK FOR TESTING #####
+
     # saving single checkpoint at the end of training the task
     if save_ckpt:
         # add task specific artifact logging information
-        ft_hparams.save_folder = f'{save_folder}/{task}'
-        save_artifact_name = f'{save_folder}/{task}/ep{{epoch}}-ba{{batch}}-rank{{rank}}'  # ignored if not uploading
-        save_latest_artifact_name = f'{save_folder}/{task}/latest-rank{{rank}}'
+        ft_hparams.save_folder = f'{save_folder}/{task}-{parent_idx:03d}'
+        save_artifact_name = f'{save_folder}/{task}-{parent_idx:03d}/ep{{epoch}}-ba{{batch}}-rank{{rank}}'  # ignored if not uploading
+        save_latest_artifact_name = f'{save_folder}/{task}-{parent_idx:03d}/latest-rank{{rank}}'
         ft_hparams.save_artifact_name = save_artifact_name
         ft_hparams.save_latest_artifact_name = save_latest_artifact_name
 
@@ -284,7 +326,13 @@ def train_finetune(
             if not os.path.exists(ft_hparams.save_folder):
                 os.mkdir(ft_hparams.save_folder)
 
-    print(f'\n --------\n SPAWNING TASK {task.upper()}\n DEVICE: {torch.cuda.current_device()}\n --------')
+    else:
+        # Disable saving
+        ft_hparams.save_folder = None
+
+    print(
+        f'\n --------\n SPAWNING TASK {task.upper()}\n DEVICE: {torch.cuda.current_device()}\n CKPT: {parent_ckpt}\n --------'
+    )
 
     trainer = ft_hparams.initialize_object()
 
@@ -296,7 +344,7 @@ def train_finetune(
     else:
         if wandb.run is not None:
             wandb.config.update(ft_hparams.to_dict())
-            wandb.config.update({'pretrained_ckpt': wandb_group_name, 'task': task})
+            wandb.config.update({'pretrained_ckpt': parent_ckpt, 'task': task, 'pretrained_idx': parent_idx})
 
     trainer.fit()
     print(f'\nFINISHED TRAINING TASK {task.upper()}\n')
@@ -451,36 +499,29 @@ def run_finetuner(training_scheme: str, file: str, save_locally: bool, save_fold
     else:
         all_ckpts_list = finetune_hparams.finetune_ckpts
 
-    # finetune on every pretrained checkpoint
-    for ckpt_filename in all_ckpts_list:
-        parent_ckpt = ckpt_filename  # necessary for logging
+    # First, fine-tune COLA, MNLI, QNLI, QQP, and SST-2 from every pre-trained checkpoint, saving MNLI checkpoints for the next round
+    task_to_save_ckpt = {'cola': False, 'sst-2': False, 'qqp': False, 'qnli': False, 'mnli': True}
+    spawn_finetuning_jobs(task_to_save_ckpt,
+                          all_ckpts_list,
+                          save_folder,
+                          glue_metrics,
+                          file,
+                          save_locally,
+                          load_ignore_keys=['state/model/model.classifier*'])
 
-        # TODO (Alex): Remove two-step finetuning setup after CO-806 is resolved
-        task_to_save_ckpt = {'cola': False, 'sst-2': False, 'qqp': False, 'qnli': False, 'mnli': True}
-        spawn_finetuning_jobs(task_to_save_ckpt,
-                              ckpt_filename,
-                              save_folder,
-                              glue_metrics,
-                              file,
-                              save_locally,
-                              parent_ckpt=parent_ckpt,
-                              load_ignore_keys=['state/model/model.classifier*'])
-
-        # finetune on inference tasks using last mnli checkpoint
-        ckpt_filename = f'{save_folder}/mnli/latest-rank0'
-
-        mnli_task_to_save_ckpt = {'rte': False, 'mrpc': False, 'stsb': False}
-        # delete finetuning head to reinitialize number of classes
-        spawn_finetuning_jobs(
-            mnli_task_to_save_ckpt,
-            ckpt_filename,
-            save_folder,
-            glue_metrics,
-            file,
-            save_locally,
-            parent_ckpt=parent_ckpt,
-            load_ignore_keys=['state/model/model.classifier*'],
-        )
+    # Second, fine-tune RTE, MRPC, and STS-B from every pre-trained checkpoint's downstream MNLI checkpoints
+    ckpt_filenames = [f'{save_folder}/mnli-{idx:03d}/latest-rank0' for idx in range(len(all_ckpts_list))]
+    mnli_task_to_save_ckpt = {'rte': False, 'mrpc': False, 'stsb': False}
+    spawn_finetuning_jobs(
+        mnli_task_to_save_ckpt,
+        ckpt_filenames,
+        save_folder,
+        glue_metrics,
+        file,
+        save_locally,
+        parent_ckpts=all_ckpts_list,  
+        load_ignore_keys=['state/model/model.classifier*'],
+    )
 
 
 def _main() -> None:
