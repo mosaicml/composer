@@ -221,7 +221,9 @@ def spawn_finetuning_jobs(
         return lambda future: log_metrics(future.result(), ckpt_filename=parent_ckpt, glue_metrics=glue_metrics)
 
     # Fine-tune from pre-trained checkpoint(s)
-    for parent_idx, (ckpt_load_path, parent_ckpt) in enumerate(zip(ckpt_load_paths, parent_ckpts)):
+    ckpt_parent_pairs = zip(ckpt_load_paths, parent_ckpts)
+    for parent_idx, ckpt_parent_pair in enumerate(ckpt_parent_pairs):
+        ckpt_load_path, parent_ckpt = ckpt_parent_pair
         # `ckpt_load_path` provides the path to the checkpoint from which we load the starting weights used when fine-tuning
         # `parent_ckpt` keeps track of the original pre-training checkpoint, for tasks with multiple fine-tuning stages (e.g., RTE)
         # `parent_idx` is used for bookkeeping, so `parent_ckpt` can be internally recovered from the path used to save fine-tune checkpoints
