@@ -73,7 +73,7 @@ class PerformanceAnalyzerTraceHandler(TraceHandler):
             # Only check for bottleneck on end of batch
             if not is_start and action == ProfilerAction.ACTIVE_AND_SAVE and self.is_dataloader_bottlenecked():
                 warnings.warn(
-                    f"The current training run is dataloader bottlenecked. {format(self._average_dataloader_wait_time() / 1e9, '.3f')} additional time is being taken per batch waiting for the dataloader to fetch more data."
+                    f"The current training run is dataloader bottlenecked. Waiting {format(self._average_dataloader_wait_time() / 1e9, '.3f')}s per batch for dataloader."
                 )
 
     def _average_batch_wait_time(self) -> float:
