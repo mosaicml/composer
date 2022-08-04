@@ -324,7 +324,7 @@ spec:
     ]
     echo "pod args: $podArgs"
     podTemplate(podArgs) {
-        node(pCloud) {
+        node(env.BUILD_TAG) {
             container('pod') {
                 // Automatically cancel old builds only on PR builds
                 // From https://stackoverflow.com/questions/40760716/jenkins-abort-running-build-if-new-one-is-started
