@@ -79,68 +79,68 @@ ARG CUDA_VERSION
 # If this file is present after the first command, kaniko
 # won't be able to build the docker image.
 RUN if [ -n "$CUDA_VERSION" ]; then \
-        rm -f /usr/local/cuda-$(echo $CUDA_VERSION | cut -c -4)/cuda-$(echo $CUDA_VERSION | cut -c -4); \
+    rm -f /usr/local/cuda-$(echo $CUDA_VERSION | cut -c -4)/cuda-$(echo $CUDA_VERSION | cut -c -4); \
     fi
 
 
 # update repository keys
 # https://developer.nvidia.com/blog/updating-the-cuda-linux-gpg-repository-key/
 RUN if [ -n "$CUDA_VERSION" ] ; then \
-        rm -f /etc/apt/sources.list.d/cuda.list && \
-        rm -f /etc/apt/sources.list.d/nvidia-ml.list && \
-        apt-get update &&  \
-        apt-get install -y --no-install-recommends wget && \
-        apt-get autoclean && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* \
-        apt-key del 7fa2af80 && \
-        mkdir -p /tmp/cuda-keyring && \
-        wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb && \
-        dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
-        rm -rf /tmp/cuda-keyring ; \
+    rm -f /etc/apt/sources.list.d/cuda.list && \
+    rm -f /etc/apt/sources.list.d/nvidia-ml.list && \
+    apt-get update &&  \
+    apt-get install -y --no-install-recommends wget && \
+    apt-get autoclean && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* \
+    apt-key del 7fa2af80 && \
+    mkdir -p /tmp/cuda-keyring && \
+    wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb && \
+    dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
+    rm -rf /tmp/cuda-keyring ; \
     fi
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        libgomp1 \
-        curl \
-        wget \
-        sudo \
-        build-essential \
-        git \
-        software-properties-common \
-        dirmngr \
-        apt-utils \
-        gpg-agent \
-        openssh-client \
-        # For PILLOW:
-        zlib1g-dev \
-        libtiff-dev \
-        libfreetype6-dev \
-        liblcms2-dev \
-        tcl \
-        libjpeg8-dev && \
+    libgomp1 \
+    curl \
+    wget \
+    sudo \
+    build-essential \
+    git \
+    software-properties-common \
+    dirmngr \
+    apt-utils \
+    gpg-agent \
+    openssh-client \
+    # For PILLOW:
+    zlib1g-dev \
+    libtiff-dev \
+    libfreetype6-dev \
+    liblcms2-dev \
+    tcl \
+    libjpeg8-dev && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-##################################################
-# Change the NCCL version to fix NVLink errors
-# This is required to train on Nvidia A100s in GCP
-##################################################
-RUN if [ -n "$CUDA_VERSION" ] ; then \
-        apt-get update && \
-        apt-get install -y --no-install-recommends --allow-change-held-packages --allow-downgrades \
-            libnccl2=2.9.6-1+cuda11.0 \
-            libnccl-dev=2.9.6-1+cuda11.0 && \
-        apt-get autoclean && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* ; \
-    fi
+# ##################################################
+# # Change the NCCL version to fix NVLink errors
+# # This is required to train on Nvidia A100s in GCP
+# ##################################################
+# RUN if [ -n "$CUDA_VERSION" ] ; then \
+#         apt-get update && \
+#         apt-get install -y --no-install-recommends --allow-change-held-packages --allow-downgrades \
+#             libnccl2=2.9.6-1+cuda11.0 \
+#             libnccl-dev=2.9.6-1+cuda11.0 && \
+#         apt-get autoclean && \
+#         apt-get clean && \
+#         rm -rf /var/lib/apt/lists/* ; \
+#     fi
 
-# If using CUDA_VERSION, then use system installed NCCL per update above and point to library
-ENV USE_SYSTEM_NCCL=${CUDA_VERSION:+1}
-ENV LD_PRELOAD=${CUDA_VERSION:+/usr/lib/x86_64-linux-gnu/libnccl.so.2.9.6}
+# # If using CUDA_VERSION, then use system installed NCCL per update above and point to library
+# ENV USE_SYSTEM_NCCL=${CUDA_VERSION:+1}
+# ENV LD_PRELOAD=${CUDA_VERSION:+/usr/lib/x86_64-linux-gnu/libnccl.so.2.9.6}
 
 ##############################
 # Install NodeJS (for Pyright)
@@ -194,8 +194,8 @@ ARG TORCHVISION_VERSION
 
 RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
     pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
-        torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
-        torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG}
+    torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
+    torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG}
 
 ###################################
 # Mellanox OFED driver installation
@@ -204,11 +204,11 @@ RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_
 ARG MOFED_VERSION
 
 RUN if [ -n "$MOFED_VERSION" ] ; then \
-        mkdir -p /tmp/mofed && \
-        wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz && \
-        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
-        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
-        rm -rf /tmp/mofed ; \
+    mkdir -p /tmp/mofed && \
+    wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz && \
+    tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
+    /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
+    rm -rf /tmp/mofed ; \
     fi
 
 
@@ -216,16 +216,16 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
 # Install NVIDIA Apex
 #####################
 RUN if [ -n "$CUDA_VERSION" ] ; then \
-        mkdir -p /tmp/apex && \
-        cd /tmp/apex && \
-        git clone https://github.com/NVIDIA/apex && \
-        cd apex && \
-        pip${PYTHON_VERSION} install --no-cache-dir \
-            --global-option="--cpp_ext" \
-            --global-option="--cuda_ext" \
-            --target  /usr/local/lib/python${PYTHON_VERSION}/dist-packages \
-            ./ && \
-        rm -rf /tmp/apex ; \
+    mkdir -p /tmp/apex && \
+    cd /tmp/apex && \
+    git clone https://github.com/NVIDIA/apex && \
+    cd apex && \
+    pip${PYTHON_VERSION} install --no-cache-dir \
+    --global-option="--cpp_ext" \
+    --global-option="--cuda_ext" \
+    --target  /usr/local/lib/python${PYTHON_VERSION}/dist-packages \
+    ./ && \
+    rm -rf /tmp/apex ; \
     fi
 
 
@@ -293,15 +293,15 @@ ARG CUDA_VERSION
 RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
     MMCV_TORCH_VERSION=$(python -c "print('torch' + ''.join('${PYTORCH_VERSION}'.split('.')[:2]) + '.0')") && \
     sudo pip${PYTHON_VERSION} install --no-cache-dir \
-        "ffcv${FFCV_VERSION}" \
-        "opencv-python${OPENCV_VERSION}" \
-        "numba${NUMBA_VERSION}" \
-        "mmsegmentation${MMSEGMENTATION_VERSION}" && \
+    "ffcv${FFCV_VERSION}" \
+    "opencv-python${OPENCV_VERSION}" \
+    "numba${NUMBA_VERSION}" \
+    "mmsegmentation${MMSEGMENTATION_VERSION}" && \
     sudo pip${PYTHON_VERSION} install --no-cache-dir \
-        "mmcv-full${MMCV_VERSION}" \
-        -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html && \
+    "mmcv-full${MMCV_VERSION}" \
+    -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html && \
     if [ -n "$CUDA_VERSION" ] ; then \
-        sudo pip${PYTHON_VERSION} install --no-cache-dir cupy-`echo ${CUDA_VERSION_TAG} | sed "s/cu/cuda/g"`${CUPY_VERSION}; \
+    sudo pip${PYTHON_VERSION} install --no-cache-dir cupy-`echo ${CUDA_VERSION_TAG} | sed "s/cu/cuda/g"`${CUPY_VERSION}; \
     fi
 
 
