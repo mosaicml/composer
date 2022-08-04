@@ -1499,8 +1499,7 @@ class Trainer:
                                 # data and if so print a warning that metrics may return unexpected results
                                 with get_precision_context(self.state.precision):
                                     outputs, targets = self._original_model.validate(eval_microbatch)
-                                # Cast to full precision to avoid NaN
-                                with torch.cuda.amp.autocast(enabled=True, dtype=torch.float32):
+                                    # Run in same precision context to avoid NaNs
                                     self.train_metrics.update(outputs, targets)
 
                     self.state.model.train()
@@ -2078,8 +2077,8 @@ class Trainer:
                     self.state.outputs, targets = self._original_model.validate(self.state.batch)
                 self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
-                # Cast to full precision to avoid NaN
-                with torch.cuda.amp.autocast(enabled=True, dtype=torch.float32):
+                # Run in same precision context to avoid NaNs
+                with get_precision_context(self.state.precision):
                     metrics.update(self.state.outputs, targets)
 
                 now = datetime.datetime.now()
