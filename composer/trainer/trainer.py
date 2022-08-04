@@ -1497,7 +1497,11 @@ class Trainer:
                                     self.state.batch, self.state.grad_accum):
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
-                                self.train_metrics.update(*self._original_model.validate(eval_microbatch))
+                                with get_precision_context(self.state.precision):
+                                    outputs, targets = self._original_model.validate(eval_microbatch)
+                                # Cast to full precision to avoid NaN
+                                with torch.cuda.amp.autocast(enabled=True, dtype=torch.float32):
+                                    self.train_metrics.update(outputs, targets)
 
                     self.state.model.train()
 
@@ -2074,7 +2078,8 @@ class Trainer:
                     self.state.outputs, targets = self._original_model.validate(self.state.batch)
                 self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
-                with get_precision_context(self.state.precision):
+                # Cast to full precision to avoid NaN
+                with torch.cuda.amp.autocast(enabled=True, dtype=torch.float32):
                     metrics.update(self.state.outputs, targets)
 
                 now = datetime.datetime.now()
