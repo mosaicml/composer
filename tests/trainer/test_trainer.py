@@ -29,6 +29,7 @@ from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.imagenet_hparams import ImagenetDatasetHparams
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger import Logger
+from composer.loss import soft_cross_entropy
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices import Device
@@ -36,7 +37,7 @@ from composer.trainer.trainer import _generate_run_name
 from composer.utils import dist, is_model_deepspeed, reproducibility
 from composer.utils.iter_helpers import map_collection
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
-                          world_size, dict_loss_simple_model)
+                          world_size)
 from tests.common.events import EventCounterCallback
 from tests.test_state import assert_state_equivalent
 
@@ -869,12 +870,16 @@ class TestTrainerEquivalence():
         self.assert_models_equal(trainer.state.model, self.reference_model)
 
     def test_dict_loss_trainer(self, config, *args):
-        config['model'] = dict_loss_simple_model()
+        def dict_loss(outputs, targets, *args, **kwargs):
+            losses = {}
+            losses['cross_entropy1'] = 0.25 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+            losses['cross_entropy2'] = 0.75 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+            return losses
+
+        config['model']._loss_fn = dict_loss
 
         trainer = Trainer(**config)
         trainer.fit()
-
-        print(trainer.state.loss)
 
         self.assert_models_equal(trainer.state.model, self.reference_model)
 
