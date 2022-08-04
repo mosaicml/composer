@@ -49,7 +49,7 @@ class SFTPObjectStore(ObjectStore):
             specified in ``~/.ssh/`` or via a SSH agent.
         known_hosts_filename (pathlib.Path | str, optional): The filename of the known hosts file. If not specified,
             the default SSH known hosts will be used.
-        missing_host_key_policy (str | paramiko.client.MissingHostKeyPolicy): The class name or instance of
+        missing_host_key_policy (str | paramiko.client.MissingHostKeyPolicy, optional): The class name or instance of
             :class:`paramiko.client.MissingHostKeyPolicy` to use for a missing host key. Defaults to ``'RejectPolicy'``.
 
             Built-in options:
@@ -201,12 +201,20 @@ class SFTPObjectStore(ObjectStore):
         filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
     ) -> None:
-        object_name = os.path.join(self.cwd, object_name)
-        dirname = os.path.dirname(object_name)
+        remote_object_name = os.path.join(self.cwd, object_name)
+        dirname = os.path.dirname(remote_object_name)
         with self._handle_transient_errors():
             if dirname:
                 self.ssh_client.exec_command(f'mkdir -p {dirname}')
-            self.sftp_client.put(str(filename), object_name, callback=callback, confirm=True)
+            self.sftp_client.put(str(filename), remote_object_name, callback=callback, confirm=False)
+            # Validating manually to raise ObjectStoreTransientErrors if the size mismatches
+            # This logic was adapted from the original source -- see
+            # https://github.com/paramiko/paramiko/blob/1824a27c644132e5d46f2294c1e2fa131c523559/paramiko/sftp_client.py#L719-L724
+            local_file_size = os.stat(filename).st_size
+            remote_file_size = self.get_object_size(object_name)
+            if local_file_size != remote_file_size:
+                raise ObjectStoreTransientError(
+                    f'Size mismatch in put: local size ({local_file_size}) != remote size ({remote_file_size})')
 
     def download_object(
         self,
