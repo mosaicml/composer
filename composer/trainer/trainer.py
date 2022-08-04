@@ -1802,7 +1802,9 @@ class Trainer:
             self.engine.run_event(Event.BEFORE_BACKWARD)
 
             # Sum individual losses
-            microbatch_loss = torch.stack(ensure_tuple(self.state.loss)).sum()
+            microbatch_loss = self._device.tensor_to_device(torch.zeros(size=(1,)))
+            for loss in ensure_tuple(self.state.loss):
+                microbatch_loss.add_(loss.mean())
 
             # Loss used for logging, scaled by grad_accum for correctly calculating metrics
             total_loss += microbatch_loss.detach().clone() * (microbatch_num_samples / current_batch_size)
