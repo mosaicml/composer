@@ -101,6 +101,9 @@ def export_for_inference(
     # make a copy of the model so that we don't modify the original model
     model = copy.deepcopy(model)
 
+    # make a copy of the sample input so that we don't modify the original sample input
+    sample_input = copy.deepcopy(sample_input)
+
     # Apply surgery algorithms in the given order
     for alg in ensure_tuple(surgery_algs):
         model = alg(model)
@@ -155,6 +158,7 @@ def export_for_inference(
             if sample_input is None:
                 raise ValueError(f'sample_input argument is required for onnx export')
             sample_input = ensure_tuple(sample_input)
+
             torch.onnx.export(
                 model,
                 sample_input,

@@ -67,7 +67,6 @@ def test_export_for_inference_onnx(model_cls, sample_input):
     with tempfile.TemporaryDirectory() as tempdir:
         save_path = os.path.join(tempdir, f'model.{save_format}')
         export_for_inference(model=model, save_format=save_format, save_path=save_path, sample_input=(sample_input,))
-
         loaded_model = onnx.load(save_path)
         onnx.checker.check_model(loaded_model)
 

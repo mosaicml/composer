@@ -13,7 +13,6 @@ import os
 import pathlib
 import time
 import warnings
-from copy import deepcopy
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
 
 import coolname
@@ -2230,7 +2229,7 @@ class Trainer:
         if not isinstance(export_model, Module):
             raise ValueError(f'Exporting Model requires type torch.nn.Module, got {type(export_model)}')
         if sample_input == None and save_format == 'onnx':
-            sample_input = deepcopy(self.state.batch)
+            sample_input = self.state.batch
         inference.export_for_inference(model=export_model,
                                        save_format=save_format,
                                        save_path=save_path,
