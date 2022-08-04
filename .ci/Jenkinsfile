@@ -290,6 +290,8 @@ stage('Prepare') {
 apiVersion: v1
 kind: Pod
 spec:
+    imagePullSecrets:
+      - name: jenkinsnext-regcred-20220302
     volumes:
       - emptyDir:
             medium: Memory
@@ -306,20 +308,21 @@ spec:
         resources:
             requests:
                 cpu: 2
-                ephemeral-storage: 4Gi
-                memory: 4Gi
+                ephemeral-storage: 8Gi
+                memory: 8Gi
             limits:
                 cpu: 2
-                ephemeral-storage: 4Gi
-                memory: 4Gi
+                ephemeral-storage: 8Gi
+                memory: 8Gi
 '''
     def podArgs = [
-        cloud: 'r1z3',
-        inheritFrom: 'r1z3',
+        cloud: pCloud,
+        inheritFrom: pCloud,
         label: env.BUILD_TAG,
         yaml: yaml,
         nodeSelector: 'mosaicml.com/instance-size=mosaic.a100-40sxm.1',
     ]
+    echo "pod args: $podArgs"
     podTemplate(podArgs) {
         node(pCloud) {
             container('pod') {
