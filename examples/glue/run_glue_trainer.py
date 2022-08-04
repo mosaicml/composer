@@ -298,21 +298,6 @@ def train_finetune(
                     logger._init_kwargs['tags'] = []
                 logger._init_kwargs['tags'].append(task)
 
-    ##### WE WANT EVERYTHING TO GO STUPID QUICK FOR TESTING #####
-    task_dur_map = {
-        'mnli': 50,
-        'qqp': 100,
-        'qnli': 150,
-        'cola': 200,
-        'sst-2': 250,
-        'rte': 300,
-        'mrpc': 350,
-        'stsb': 400
-    }
-    ft_hparams.max_duration = f'{task_dur_map[task]}ba'
-    ft_hparams.eval_interval = f'{task_dur_map[task]}ba'
-    ##### WE WANT EVERYTHING TO GO STUPID QUICK FOR TESTING #####
-
     # saving single checkpoint at the end of training the task
     if save_ckpt:
         # add task specific artifact logging information
