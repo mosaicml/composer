@@ -195,7 +195,7 @@ def spawn_finetuning_jobs(
 ) -> None:
     """Set up CUDA environment and process pool for given finetuning jobs and wait for them to complete."""
     if parent_ckpts:
-        assert len(parent_ckpts) == len(ckpt_load_paths), "Must supply one parent_ckpt per ckpt_load_path"
+        assert len(parent_ckpts) == len(ckpt_load_paths), 'Must supply one parent_ckpt per ckpt_load_path'
     else:
         parent_ckpts = ckpt_load_paths  # By default, the "parent checkpoint" is logged simply as the checkpoint
 
