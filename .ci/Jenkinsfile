@@ -335,7 +335,7 @@ spec:
 
                 // TODO(ravi) remove this -- test if npx is available
 
-                sh "npx cobertura-merge -o hello world"
+                sh "echo npx cobertura-merge -o hello world"
 
                 def loadedSCM = checkout scm
 
