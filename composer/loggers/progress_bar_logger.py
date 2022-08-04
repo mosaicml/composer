@@ -158,12 +158,9 @@ class ProgressBarLogger(LoggerDestination):
         log_to_console = log_to_console if (log_to_console is not None) else (not progress_bar)
         console_log_level = LogLevel(console_log_level)
 
-        def _should_log(state: State, log_level: LogLevel):
-            return (log_to_console and ((log_level < console_log_level) or  #type: ignore
-                                        ((console_log_level == LogLevel.BATCH) and
-                                         (state.timestamp.batch.value % console_log_every_n_batches == 0))))
-
-        self.should_log = _should_log
+        self.should_log = lambda state, log_level: (log_to_console and (
+            (log_level < console_log_level) or ((console_log_level == LogLevel.BATCH) and
+                                                (state.timestamp.batch.value % console_log_every_n_batches == 0))))
 
         # set the stream
         if isinstance(stream, str):
