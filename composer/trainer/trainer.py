@@ -1497,7 +1497,10 @@ class Trainer:
                                     self.state.batch, self.state.grad_accum):
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
-                                self.train_metrics.update(*self._original_model.validate(eval_microbatch))
+                                with get_precision_context(self.state.precision):
+                                    outputs, targets = self._original_model.validate(eval_microbatch)
+                                    # Run in same precision context to avoid NaNs
+                                    self.train_metrics.update(outputs, targets)
 
                     self.state.model.train()
 
@@ -1795,39 +1798,30 @@ class Trainer:
             with get_precision_context(self.state.precision):
                 self.state.loss = self._original_model.loss(self.state.outputs, self.state.batch)
 
-            # We always want to scale loss by the grad_accum before the backwards pass and
-            # also for sake of metrics. Complicating matters, the DeepSpeed engine does its
-            # own scaling when we call `.backward`, but this isn't in place so we still need
-            # to scale for sake of metrics after the `.backward` call.
-
-            # Loss is added to losses with clone to not scale the loss for the step printout
-            # Likely need to look into the performance impact
-            if not self.deepspeed_enabled:
-                for loss in ensure_tuple(self.state.loss):
-                    loss.mul_(microbatch_num_samples / current_batch_size)
-                    total_loss += loss.detach().clone()
-
             assert self.state.loss is not None
             self.engine.run_event(Event.AFTER_LOSS)
 
             # backward
             self.engine.run_event(Event.BEFORE_BACKWARD)
 
+            # Sum individual losses
+            microbatch_loss = self._device.tensor_to_device(torch.zeros(size=(1,)))
+            for loss in ensure_tuple(self.state.loss):
+                microbatch_loss.add_(loss.mean())
+
+            # Loss used for logging, scaled by grad_accum for correctly calculating metrics
+            total_loss += microbatch_loss.detach().clone() * (microbatch_num_samples / current_batch_size)
+
             if use_grad_scaling:
-                self.state.loss = cast(torch.Tensor, self.state.scaler.scale(self.state.loss))
+                microbatch_loss = cast(torch.Tensor, self.state.scaler.scale(microbatch_loss))
 
             if self.deepspeed_enabled:
-                self.state.deepspeed_model.backward(self.state.loss)
+                self.state.deepspeed_model.backward(microbatch_loss)
 
-                # This is the same loss scaling and reporting we skipped earlier.
-                for loss in ensure_tuple(self.state.loss):
-                    loss.mul_(microbatch_num_samples / current_batch_size)
-                    total_loss += loss.detach().clone()
             else:
-                final_loss = self._device.tensor_to_device(torch.zeros(size=(1,)))
-                for loss in ensure_tuple(self.state.loss):
-                    final_loss += loss
-                final_loss.backward(create_graph=self._backwards_create_graph)
+                # Scale loss based on the number of samples in the microbatch to maintain gradient numerics
+                microbatch_loss.mul_(microbatch_num_samples / current_batch_size)
+                microbatch_loss.backward(create_graph=self._backwards_create_graph)
 
             self.engine.run_event(Event.AFTER_BACKWARD)
 
@@ -1952,7 +1946,8 @@ class Trainer:
                 self.engine.run_event(Event.PREDICT_BATCH_START)
 
                 self.engine.run_event(Event.PREDICT_BEFORE_FORWARD)
-                self.state.outputs = self.state.model(self.state.batch)
+                with get_precision_context(self.state.precision):
+                    self.state.outputs = self.state.model(self.state.batch)
                 self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
 
                 if return_outputs:
@@ -1977,8 +1972,6 @@ class Trainer:
 
             self.engine.run_event(Event.PREDICT_END)
 
-            return outputs
-
         # Restore training mode
         if restore_model_train:
             self.state.model.train()
@@ -1987,6 +1980,8 @@ class Trainer:
         self.state.set_dataloader(original_dataloader, original_dataloader_label)
         if original_dataloader_len is not None:
             self.state.dataloader_len = original_dataloader_len
+
+        return outputs
 
     def eval(
         self,
@@ -2069,10 +2064,13 @@ class Trainer:
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
                 self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-                self.state.outputs, targets = self._original_model.validate(self.state.batch)
+                with get_precision_context(self.state.precision):
+                    self.state.outputs, targets = self._original_model.validate(self.state.batch)
                 self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
-                metrics.update(self.state.outputs, targets)
+                # Run in same precision context to avoid NaNs
+                with get_precision_context(self.state.precision):
+                    metrics.update(self.state.outputs, targets)
 
                 now = datetime.datetime.now()
                 batch_time = now - last_wct
@@ -2154,12 +2152,13 @@ class Trainer:
             if marker is not None:
                 marker.start()
             try:
-                yield next(dataloader_iter)
+                batch = next(dataloader_iter)
             except StopIteration:
                 break
             finally:
                 if marker is not None:
                     marker.finish()
+            yield batch
 
     def _use_closures(self) -> bool:
         """Determines based on precision and optimizers whether to use closures.

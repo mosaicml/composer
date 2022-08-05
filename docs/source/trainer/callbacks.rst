@@ -53,6 +53,7 @@ components of training.
     ~mlperf.MLPerfCallback
     ~threshold_stopper.ThresholdStopper
     ~early_stopper.EarlyStopper
+    ~export_for_inference.ExportForInferenceCallback
 
 Custom Callbacks
 ----------------

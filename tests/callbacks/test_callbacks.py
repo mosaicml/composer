@@ -107,7 +107,10 @@ class TestCallbacks:
 
 
 @pytest.mark.parametrize('cb_cls', get_cbs_and_marks(callbacks=True, loggers=True, profilers=True))
-@pytest.mark.parametrize('grad_accum', [1, 2])
+# Parameterized across @pytest.mark.remote as some loggers (e.g. wandb) support integration testing
+@pytest.mark.parametrize('grad_accum,_remote',
+                         [(1, False),
+                          (2, False), pytest.param(1, True, marks=pytest.mark.remote)])
 @pytest.mark.filterwarnings(r'ignore:The profiler is enabled:UserWarning')
 class TestCallbackTrains:
 
@@ -127,18 +130,20 @@ class TestCallbackTrains:
             profiler=Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[]),
         )
 
-    def test_trains(self, cb_cls: Type[Callback], grad_accum: int):
+    def test_trains(self, cb_cls: Type[Callback], grad_accum: int, _remote: bool):
+        del _remote  # unused. `_remote` must be passed through to parameterize the test markers.
         cb_kwargs = get_cb_kwargs(cb_cls)
         cb = cb_cls(**cb_kwargs)
         trainer = self._get_trainer(cb, grad_accum)
         trainer.fit()
 
-    def test_trains_multiple_calls(self, cb_cls: Type[Callback], grad_accum: int):
+    def test_trains_multiple_calls(self, cb_cls: Type[Callback], grad_accum: int, _remote: bool):
         """
         Tests that training with multiple fits complete.
         Note: future functional tests should test for
         idempotency (e.g functionally)
         """
+        del _remote  # unused. `_remote` must be passed through to parameterize the test markers.
         cb_kwargs = get_cb_kwargs(cb_cls)
         cb = cb_cls(**cb_kwargs)
         trainer = self._get_trainer(cb, grad_accum)
