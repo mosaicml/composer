@@ -79,36 +79,6 @@ def test_docker_build_matrix():
         assert existing_build_matrix == f.read()
 
 
-def sort_json(json):
-    if isinstance(json, dict):
-        return sorted((key, sort_json(value)) for key, value in json.items())
-    elif isinstance(json, list):
-        return sorted(sort_json(elem) for elem in json)
-    return json
-
-
-def test_json_schemas():
-    """Test JSON Schemas are up to date."""
-    schemas_folder = pathlib.Path(os.path.dirname(__file__)) / '..' / 'composer' / 'json_schemas'
-
-    # Capture existing schemas
-    existing_schemas = []
-    for filename in sorted(os.listdir(schemas_folder)):
-        if filename != 'generate_json_schemas.py':
-            with open(os.path.join(schemas_folder, filename), 'r') as f:
-                existing_schemas.append(json.load(f))
-
-    # Run the script
-    check_output(
-        subprocess.run(['python', 'generate_json_schemas.py'], cwd=schemas_folder, capture_output=True, text=True))
-
-    # Assert that the files did not change
-    for existing_schema, filename in zip(existing_schemas, sorted(os.listdir(schemas_folder))):
-        if filename != 'generate_json_schemas.py':
-            with open(os.path.join(schemas_folder, filename), 'r') as f:
-                assert sort_json(existing_schema) == sort_json(json.load(f))
-
-
 @pytest.mark.parametrize('example', [1, 2])
 def test_release_tests_reflect_readme(example: int):
     """Test that example_1.py and example_2.py in release_tests reflect the README.md."""
