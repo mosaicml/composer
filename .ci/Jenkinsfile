@@ -503,7 +503,7 @@ set -e
 if [[ "\$EXIT_CODE" != 0 ]]; then
     echo "No coverage files found"
 else
-    pip install coverage==6.4.2
+    pip install 'coverage[toml]==6.4.2'
 
     python -m coverage combine ${buildOutputFolder}/.coverage*
 
