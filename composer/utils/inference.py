@@ -19,7 +19,7 @@ import torch.nn as nn
 from composer.utils import dist
 from composer.utils.checkpoint import download_checkpoint
 from composer.utils.iter_helpers import ensure_tuple
-from composer.utils.misc import is_model_deepspeed
+from composer.utils.misc import is_model_ddp, is_model_deepspeed
 from composer.utils.object_store import ObjectStore
 from composer.utils.string_enum import StringEnum
 
@@ -93,6 +93,10 @@ def export_for_inference(
 
     if is_model_deepspeed(model):
         raise ValueError(f'Exporting for deepspeed models is currently not supported.')
+
+    if is_model_ddp(model):
+        raise ValueError(
+            f'Directly exporting a DistributedDataParallel model is not supported. Export the module instead.')
 
     # Only rank0 exports the model
     if dist.get_global_rank() != 0:
