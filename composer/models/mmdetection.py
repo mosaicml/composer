@@ -73,6 +73,7 @@ class MMDetModel(ComposerModel):
         return sum(outputs.values())
 
     def validate(self, batch):
+        # by default, mmdet models return xyxy format bboxes but coco targets are xywh
         device = batch['img'][0].device
         targets_box = batch.pop('gt_bboxes')[0]
         targets_cls = batch.pop('gt_labels')[0]
@@ -86,11 +87,13 @@ class MMDetModel(ComposerModel):
         preds = []
         for bbox_result in outputs:
             boxes_scores = np.vstack(bbox_result)
+            boxes, scores = torch.from_numpy(boxes_scores[..., :-1]).to(device), torch.from_numpy(boxes_scores[..., -1]).to(device)
+            # boxes = xyxy2xywh(boxes)
             labels = [np.full(bbox.shape[0], i, dtype=np.int32) for i, bbox in enumerate(bbox_result)]
             pred = {
                 'labels': torch.from_numpy(np.concatenate(labels)).to(device).long(),
-                'boxes': torch.from_numpy(boxes_scores[..., :-1]).to(device),
-                'scores': torch.from_numpy(boxes_scores[..., -1]).to(device)
+                'boxes': boxes,
+                'scores': scores
             }
             preds.append(pred)
 
@@ -98,3 +101,21 @@ class MMDetModel(ComposerModel):
 
     def metrics(self, train: bool = False):
         return self.train_metrics if train else self.valid_metrics
+
+
+
+def xyxy2xywh(bbox):
+        """Convert ``xyxy`` style bounding boxes to ``xywh`` style for COCO
+        evaluation.
+
+        Args:
+            bbox (tensor.ndarray): The bounding boxes, shape (N, 4), in
+                ``xyxy`` order.
+
+        Returns:
+            tensor[float]: The converted bounding boxes, in ``xywh`` order.
+        """
+        new_bbox = bbox.clone()
+        new_bbox[...,2] = new_bbox[...,2] - new_bbox[...,0]
+        new_bbox[...,3] = new_bbox[...,3] - new_bbox[...,1]
+        return new_bbox

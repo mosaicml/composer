@@ -61,7 +61,7 @@ def composer_yolox(model_name: str, num_classes=80):
         raise ValueError(f'model name must be one of {model_names}.')
 
     config = ConfigDict(config)
-    metrics = [MeanAveragePrecision(box_format='xyxy')]
+    metrics = [MeanAveragePrecision(box_format='xywh')]
     model = build_detector(config)
     model.init_weights()
 

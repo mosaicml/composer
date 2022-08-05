@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging  # disable logging in notebook
-import os
 import sys
 
 logging.disable(sys.maxsize)
@@ -16,10 +15,15 @@ from composer.datasets import coco_mmdet
 from composer.datasets.coco_mmdet import mmdet_collate, mmdet_get_num_samples
 from composer.models import composer_yolox
 from composer.loggers import InMemoryLogger, LogLevel, WandBLogger
+from composer.trainer.devices import DeviceCPU, DeviceGPU
+# from composer.utils import dist
+
+# print(dist.get_world_size())
+
 
 
 coco_path = '../data/coco'
-batch_size = 16
+batch_size = 32
 num_workers = 8
 
 
@@ -40,20 +44,21 @@ optimizer = composer.optim.DecoupledSGDW(
 )
 
 lr_scheduler = composer.optim.CosineAnnealingWithWarmupScheduler(
-    t_warmup="1ep", # Warm up over 30 epoch
+    t_warmup="10ep", # Warm up over 30 epoch
 )
 
-train_epochs = '3ep'  # Train for 3 epochs because we're assuming Colab environment and hardware
+train_epochs = '30ep'  # Train for 3 epochs because we're assuming Colab environment and hardware
 
-trainer = composer.trainer.Trainer(model=model,
-                                   train_dataloader=DataSpec(train_loader, get_num_samples_in_batch=mmdet_get_num_samples),
-                                   eval_dataloader=DataSpec(val_loader, get_num_samples_in_batch=mmdet_get_num_samples),
-                                   max_duration=train_epochs,
-                                   optimizers=optimizer,
-                                   train_subset_num_batches=10,
-                                   schedulers=lr_scheduler,
-                                   device='gpu' if torch.cuda.is_available() else 'cpu',
-                                    loggers=[InMemoryLogger(log_level=LogLevel.BATCH), WandBLogger(project='yolox-test')])
+trainer = composer.Trainer(model=model,
+                        train_dataloader=DataSpec(train_loader, get_num_samples_in_batch=mmdet_get_num_samples),
+                        eval_dataloader=DataSpec(val_loader, get_num_samples_in_batch=mmdet_get_num_samples),
+                        max_duration=train_epochs,
+                        optimizers=optimizer,
+                        train_subset_num_batches=10,
+                        schedulers=lr_scheduler,
+                        # device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU(),
+                        device = 'gpu' if torch.cuda.is_available() else 'cpu',
+                        loggers=[InMemoryLogger(log_level=LogLevel.BATCH), WandBLogger(project='yolox-test')])
 
 
 trainer.fit()

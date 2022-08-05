@@ -3,11 +3,13 @@ train_dataset:
     split: train
     shuffle: true
     drop_last: true
+    path: /workdisk/austin/data/coco
 val_dataset:
   coco_mmdet:
     split: val
     shuffle: false
     drop_last: false
+    path: /workdisk/austin/data/coco
 optimizers:
   decoupled_sgdw:
     lr: 0.01
