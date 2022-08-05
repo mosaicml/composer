@@ -139,11 +139,11 @@ class Logger:
 
     def has_file_artifact_destination(self) -> bool:
         """Determines if the logger has a destination which supports logging file artifacts.
-            
+
             Needed for checking if a model can be exported via this logger.
-            
+
         Returns:
-            bool: Whether any of the destinations has supports file artifacts. 
+            bool: Whether any of the destinations has supports file artifacts.
         """
         for destination in self.destinations:
             if destination.can_log_file_artifacts():
