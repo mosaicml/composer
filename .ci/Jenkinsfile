@@ -500,7 +500,7 @@ spec:
 
                         String mergedCoverageFile = "$buildOutputFolder/merged.coverage.xml"
 
-                        sh "./ci/merge_coverage_reports.sh $buildOutputFolder $mergedCoverageFile"
+                        sh "./.ci/merge_coverage_reports.sh $buildOutputFolder $mergedCoverageFile"
                         archiveArtifacts(artifacts: artifactsGlob, fingerprint: true, allowEmptyArchive: true)
                         junit(allowEmptyResults: true, testResults: junitGlob, checksName: 'Tests', keepLongStdio: true)
                         publishCoverage(
