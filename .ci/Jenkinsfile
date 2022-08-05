@@ -61,7 +61,7 @@ nodeSelector = 'mosaicml.com/instance-size=mosaic.a100-40sxm.1'
 
 // Artifact setting
 buildOutputFolder = 'build/output' // Folder where build artifacts are stored
-artifactsGlob = "$buildOutputFolder/*" // Files matching this glob will be archived by Jenkins
+artifactsGlob = "$buildOutputFolder/**" // Files matching this glob will be archived by Jenkins
 junitGlob = "$buildOutputFolder/*.junit.xml" // Files matching this glob will be in Junit test reports
 coverageGlob = "$buildOutputFolder/*.coverage.xml" // Files matching this glob will be in coverage reports
 
