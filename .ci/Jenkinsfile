@@ -496,13 +496,13 @@ spec:
                         sh """#!/usr/bin/env bash
 set -exuo pipefail
 
-
+set +e
 ls -al ${buildOutputFolder}/.coverage*
-HAS_COVERAGE_FILES=\$("compgen -G \"${buildOutputFolder}/.coverage*\"")
-echo \$HAS_COVERAGE_FILES
-
-if [[ "\$HAS_COVERAGE_FILES" == 1 ]]; then
-
+EXIT_CODE="\$?"
+set -e
+if [[ "\$EXIT_CODE" != 0 ]]; then
+    echo "No coverage files found"
+else
     pip install coverage==6.4.2
 
     python -m coverage combine ${buildOutputFolder}/.coverage*
@@ -510,7 +510,6 @@ if [[ "\$HAS_COVERAGE_FILES" == 1 ]]; then
     python -m coverage xml -o ${mergedCoverageFile}
 fi
 """
-
                         archiveArtifacts(artifacts: artifactsGlob, fingerprint: true, allowEmptyArchive: true)
                         junit(allowEmptyResults: true, testResults: junitGlob, checksName: 'Tests', keepLongStdio: true)
                         publishCoverage(
