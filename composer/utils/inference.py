@@ -27,6 +27,8 @@ log = logging.getLogger(__name__)
 
 __all__ = ['export_for_inference', 'ExportFormat']
 
+Transform = Callable[[nn.Module], nn.Module]
+
 
 class ExportFormat(StringEnum):
     """Enum class for the supported export formats.
@@ -46,7 +48,7 @@ def export_for_inference(
     save_object_store: Optional[ObjectStore] = None,
     sample_input: Optional[Any] = None,
     surgery_algs: Optional[Union[Callable[[nn.Module], nn.Module], Sequence[Callable[[nn.Module], nn.Module]]]] = None,
-    transforms: Optional[Union[Callable[[nn.Module], nn.Module], Sequence[Callable[[nn.Module], nn.Module]]]] = None,
+    transforms: Optional[Sequence[Transform]] = None,
     load_path: Optional[str] = None,
     load_object_store: Optional[ObjectStore] = None,
     load_strict: bool = False,
@@ -71,8 +73,8 @@ def export_for_inference(
         surgery_algs (Union[Callable, Sequence[Callable]], optional): Algorithms that should be applied to the model
             before loading a checkpoint. Each should be callable that takes a model and returns modified model.
             ``surgery_algs`` are applied before ``transforms``. (default: ``None``)
-        transforms (Union[Callable, Sequence[Callable]], optional): transformations (usually optimizations) that should
-            be applied to the model. Each should be a callable that takes a model and returns a modified model.
+        transforms (Sequence[Transform], optional): transformations (usually optimizations) that should
+            be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
             ``transforms`` are applied after ``surgery_algs``. (default: ``None``)
         load_path (str): The path to an existing checkpoint file.
             It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
