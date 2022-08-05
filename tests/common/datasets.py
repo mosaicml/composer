@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import dataclasses
+import time
 from typing import List, Optional, Sequence
 
 import pytest
@@ -65,6 +66,15 @@ class RandomClassificationDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             sampler=sampler,
             drop_last=self.drop_last,
         )
+
+
+class RandomSlowClassificationDataset(RandomClassificationDataset):
+    """Classification dataset with artificial latency injected in."""
+
+    def __getitem__(self, index: int):
+        # Sleep for 2.5ms
+        time.sleep(0.0025)
+        return super().__getitem__(index)
 
 
 class RandomImageDataset(VisionDataset):

@@ -6,7 +6,7 @@ from typing import List, Type
 
 from tests.common.compare import deep_compare
 from tests.common.datasets import (RandomClassificationDataset, RandomClassificationDatasetHparams, RandomImageDataset,
-                                   configure_dataset_hparams_for_synthetic)
+                                   RandomSlowClassificationDataset, configure_dataset_hparams_for_synthetic)
 from tests.common.events import EventCounterCallback
 from tests.common.markers import device, world_size
 from tests.common.models import (SimpleConvModel, SimpleConvModelHparams, SimpleModel, SimpleModelHparams,
@@ -23,6 +23,7 @@ __all__ = [
     'assert_state_equivalent',
     'RandomClassificationDataset',
     'RandomClassificationDatasetHparams',
+    'RandomSlowClassificationDataset',
     'RandomImageDataset',
     'configure_dataset_hparams_for_synthetic',
     'SimpleConvModel',
