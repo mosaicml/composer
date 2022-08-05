@@ -200,7 +200,11 @@ def spawn_finetuning_jobs(
         parent_ckpts = ckpt_load_paths  # By default, the "parent checkpoint" is logged simply as the checkpoint
 
     # To reduce noisiness with these tasks, expand the evaluation to multiple fine-tuning seeds per pre-train checkpoint
+    # TODO(Alex): Expose these per-task seed choices through the `finetune_hparams`
     seed_overrides = {
+        'mnli': [19],
+        'qnli': [19],
+        'qqp': [19],
         'sst-2': [19, 8364, 717],
         'cola': [19, 8364, 717, 10536],
         'rte': [19, 8364, 717, 10536, 90166],
@@ -217,9 +221,6 @@ def spawn_finetuning_jobs(
                     initargs=(cuda_envs, free_port),
                     mp_context=ctx)
 
-    def make_callback(parent_ckpt, glue_metrics):
-        return lambda future: log_metrics(future.result(), ckpt_filename=parent_ckpt, glue_metrics=glue_metrics)
-
     # Fine-tune from pre-trained checkpoint(s)
     ckpt_parent_pairs = zip(ckpt_load_paths, parent_ckpts)
     for parent_idx, ckpt_parent_pair in enumerate(ckpt_parent_pairs):
@@ -229,20 +230,14 @@ def spawn_finetuning_jobs(
         # `parent_idx` is used for bookkeeping, so `parent_ckpt` can be internally recovered from the path used to save fine-tune checkpoints
         rank = 0
         for task, save_ckpt in task_to_save_ckpt.items():
-            if task not in seed_overrides:
-                # Run 1 fine-tune trainer from this checkpoint, with no seed overriding.
+            # Run 1 or more fine-tune trainers from this checkpoint, using a different seed override for each
+            for seed in seed_overrides[task]:
                 future = executor.submit(train_finetune, base_yaml_file, task, save_ckpt, ckpt_load_path, parent_ckpt,
-                                         parent_idx, ckpt_save_folder, save_locally, free_port + rank, load_ignore_keys)
-                future.add_done_callback(make_callback(parent_ckpt, glue_metrics))
+                                         parent_idx, ckpt_save_folder, save_locally, free_port + rank, load_ignore_keys,
+                                         seed)
+                future.add_done_callback(
+                    lambda future: log_metrics(future.result(), ckpt_filename=parent_ckpt, glue_metrics=glue_metrics))
                 rank += 1
-            else:
-                # Run multiple fine-tune trainers from this checkpoint, using a different seed override for each
-                for seed in seed_overrides[task]:
-                    future = executor.submit(train_finetune, base_yaml_file, task, save_ckpt, ckpt_load_path,
-                                             parent_ckpt, parent_idx, ckpt_save_folder, save_locally, free_port + rank,
-                                             load_ignore_keys, seed)
-                    future.add_done_callback(make_callback(parent_ckpt, glue_metrics))
-                    rank += 1
 
     executor.shutdown(wait=True)  # wait for processes and callbacks to complete
 
@@ -497,6 +492,7 @@ def run_finetuner(training_scheme: str, file: str, save_locally: bool, save_fold
                           load_ignore_keys=['state/model/model.classifier*'])
 
     # Second, fine-tune RTE, MRPC, and STS-B from every pre-trained checkpoint's downstream MNLI checkpoints
+    # Note: If MNLI ran for multiple seeds, this checkpoint will come from the last MNLI seed to finish.
     ckpt_filenames = [f'{save_folder}/mnli-{idx:03d}/latest-rank0' for idx in range(len(all_ckpts_list))]
     mnli_task_to_save_ckpt = {'rte': False, 'mrpc': False, 'stsb': False}
     spawn_finetuning_jobs(
