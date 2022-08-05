@@ -10,7 +10,8 @@ from composer.callbacks.callback_hparams_registry import callback_registry
 from composer.core import Callback
 from composer.loggers import ObjectStoreLogger
 from composer.loggers.logger_hparams_registry import ObjectStoreLoggerHparams, logger_registry
-from composer.profiler import JSONTraceHandler, SystemProfiler, TorchProfiler, TraceHandler
+from composer.profiler import (JSONTraceHandler, PerformanceAnalyzerTraceHandler, SystemProfiler, TorchProfiler,
+                               TraceHandler)
 from tests.callbacks.callback_settings import get_cb_hparams_and_marks, get_cb_kwargs, get_cbs_and_marks
 from tests.common.hparams import assert_in_registry, construct_from_yaml
 
@@ -37,7 +38,7 @@ def test_callback_in_registry(cb_cls: Type[Callback]):
         item = ObjectStoreLoggerHparams
     else:
         item = cb_cls
-    if cb_cls in [TorchProfiler, SystemProfiler, JSONTraceHandler, TraceHandler]:
+    if cb_cls in [TorchProfiler, SystemProfiler, JSONTraceHandler, PerformanceAnalyzerTraceHandler, TraceHandler]:
         pytest.skip(
             f'Callback {cb_cls.__name__} does not have a registry entry as it should not be constructed directly')
     joint_registry = {**callback_registry, **logger_registry}
