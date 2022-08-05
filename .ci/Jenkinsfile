@@ -486,7 +486,6 @@ spec:
                     container('pod') {
                         checkout scm  // checking out the SCM so the coverage report can load the source
 
-                        sh "mkdir -p $buildOutputFolder"
 
                         builds.each { item ->
                             copyArtifacts(
@@ -496,6 +495,8 @@ spec:
                                 optional: true,
                             )
                         }
+
+                        sh "mkdir -p $buildOutputFolder"
 
                         String mergedCoverageFile = "$buildOutputFolder/merged.coverage.xml"
 
