@@ -11,7 +11,6 @@ import itertools
 import logging
 import os
 import pathlib
-import tempfile
 import time
 import warnings
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
@@ -43,12 +42,12 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
-from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, inference, is_model_deepspeed,
-                            map_collection, reproducibility)
+from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed, map_collection,
+                            reproducibility)
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
-from composer.utils.inference import ExportFormat, Transform
+from composer.utils.inference import ExportFormat, Transform, export_with_logger
 
 log = logging.getLogger(__name__)
 
@@ -2228,21 +2227,10 @@ class Trainer:
             raise ValueError(f'Exporting Model requires type torch.nn.Module, got {type(export_model)}')
         if sample_input == None and save_format == 'onnx':
             sample_input = self.state.batch
-        if save_object_store == None and self.logger.has_file_artifact_destination():
-            with tempfile.TemporaryDirectory() as tmpdir:
-                temp_local_save_path = os.path.join(str(tmpdir), f'model')
-                inference.export_for_inference(model=export_model,
-                                               save_format=save_format,
-                                               save_path=temp_local_save_path,
-                                               sample_input=(sample_input,),
-                                               transforms=transforms)
-                self.logger.file_artifact(log_level=LogLevel.FIT,
-                                          artifact_name=save_path,
-                                          file_path=temp_local_save_path)
-        else:
-            inference.export_for_inference(model=export_model,
-                                           save_format=save_format,
-                                           save_path=save_path,
-                                           save_object_store=save_object_store,
-                                           sample_input=(sample_input,),
-                                           transforms=transforms)
+        export_with_logger(model=export_model,
+                           save_format=save_format,
+                           save_path=save_path,
+                           logger=self.logger,
+                           save_object_store=save_object_store,
+                           sample_input=(sample_input,),
+                           transforms=transforms)

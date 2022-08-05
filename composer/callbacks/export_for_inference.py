@@ -6,8 +6,6 @@
 from __future__ import annotations
 
 import logging
-import os
-import tempfile
 from copy import deepcopy
 from typing import Any, Optional, Sequence, Union
 
@@ -15,8 +13,8 @@ import torch.nn as nn
 
 from composer.core import State
 from composer.core.callback import Callback
-from composer.loggers import Logger, LogLevel
-from composer.utils.inference import ExportFormat, Transform, export_for_inference
+from composer.loggers import Logger
+from composer.utils.inference import ExportFormat, Transform, export_with_logger
 from composer.utils.object_store import ObjectStore
 
 log = logging.getLogger(__name__)
@@ -83,21 +81,10 @@ class ExportForInferenceCallback(Callback):
         export_model = state.model.module if state.is_model_ddp else state.model
         if not isinstance(export_model, nn.Module):
             raise ValueError(f'Exporting Model requires type torch.nn.Module, got {type(export_model)}')
-        if self.save_object_store == None and logger.has_file_artifact_destination():
-            with tempfile.TemporaryDirectory() as tmpdir:
-                temp_local_save_path = os.path.join(str(tmpdir), f'model')
-                export_for_inference(model=export_model,
-                                     save_format=self.save_format,
-                                     save_path=temp_local_save_path,
-                                     sample_input=(self.sample_input,),
-                                     transforms=self.transforms)
-                logger.file_artifact(log_level=LogLevel.FIT,
-                                     artifact_name=self.save_path,
-                                     file_path=temp_local_save_path)
-        else:
-            export_for_inference(model=export_model,
-                                 save_format=self.save_format,
-                                 save_path=self.save_path,
-                                 save_object_store=self.save_object_store,
-                                 sample_input=(self.sample_input,),
-                                 transforms=self.transforms)
+        export_with_logger(model=export_model,
+                           save_format=self.save_format,
+                           save_path=self.save_path,
+                           logger=logger,
+                           save_object_store=self.save_object_store,
+                           sample_input=(self.sample_input,),
+                           transforms=self.transforms)

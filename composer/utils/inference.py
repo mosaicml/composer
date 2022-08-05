@@ -5,13 +5,14 @@
 
 Used for exporting models into various formats such ONNX, torchscript etc. and apply optimizations such as fusion.
 """
+from __future__ import annotations
 
 import contextlib
 import copy
 import logging
 import os
 import tempfile
-from typing import Any, Callable, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Union
 
 import torch
 import torch.nn as nn
@@ -23,9 +24,12 @@ from composer.utils.misc import is_model_ddp, is_model_deepspeed
 from composer.utils.object_store import ObjectStore
 from composer.utils.string_enum import StringEnum
 
+if TYPE_CHECKING:
+    from composer.loggers import Logger
+
 log = logging.getLogger(__name__)
 
-__all__ = ['export_for_inference', 'ExportFormat']
+__all__ = ['export_for_inference', 'ExportFormat', 'export_with_logger']
 
 Transform = Callable[[nn.Module], nn.Module]
 
@@ -174,3 +178,63 @@ def export_for_inference(
         # upload if required.
         if is_remote_store:
             save_object_store.upload_object(save_path, local_save_path)
+
+
+def export_with_logger(
+    model: nn.Module,
+    save_format: Union[str, ExportFormat],
+    save_path: str,
+    logger: Logger,
+    save_object_store: Optional[ObjectStore] = None,
+    sample_input: Optional[Any] = None,
+    transforms: Optional[Sequence[Transform]] = None,
+) -> None:
+    """Helper method for exporting a model for inference.
+
+    Exports the model to:
+    1) save_object_store, if one is provided,
+    2) logger.file_artifact(save_path), if (1) does not apply and the logger has a destination that supports file artifact logging,
+    3) locally, if (1) and (2) do not apply.
+
+    Args:
+        model (nn.Module): An instance of nn.Module. Please note that model is not modified inplace.
+            Instead, export-related transformations are applied to a  copy of the model.
+        save_format (Union[str, ExportFormat]):  Format to export to. Either ``"torchscript"`` or ``"onnx"``.
+        save_path: (str): The path for storing the exported model. It can be a path to a file on the local disk,
+        a URL, or if ``save_object_store`` is set, the object name
+            in a cloud bucket. For example, ``my_run/exported_model``.
+        logger (Logger): If this logger has a destination that supports file artifacting logging, and save_object_store
+            is not provided, this logger is used to export the model.
+        save_object_store (ObjectStore, optional): If the ``save_path`` is in an object name in a cloud bucket
+            (i.e. AWS S3 or Google Cloud Storage), an instance of
+            :class:`~.ObjectStore` which will be used
+            to store the exported model. Set this to ``None`` if the logger should be used to export the model or
+            if ``save_path`` is a local filepath.
+            (default: ``None``)
+        sample_input (Any, optional): Example model inputs used for tracing. This is needed for "onnx" export.
+            The ``sample_input`` need not match the batch size you intend to use for inference. However, the model
+            should accept the ``sample_input`` as is. (default: ``None``)
+        transforms (Sequence[Transform], optional): transformations (usually optimizations) that should
+            be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
+            ``transforms`` are applied after ``surgery_algs``. (default: ``None``)
+
+    Returns:
+        None
+    """
+    from composer.loggers import LogLevel
+    if save_object_store == None and logger.has_file_artifact_destination():
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_local_save_path = os.path.join(str(tmpdir), f'model')
+            export_for_inference(model=model,
+                                 save_format=save_format,
+                                 save_path=temp_local_save_path,
+                                 sample_input=(sample_input,),
+                                 transforms=transforms)
+            logger.file_artifact(log_level=LogLevel.FIT, artifact_name=save_path, file_path=temp_local_save_path)
+    else:
+        export_for_inference(model=model,
+                             save_format=save_format,
+                             save_path=save_path,
+                             save_object_store=save_object_store,
+                             sample_input=(sample_input,),
+                             transforms=transforms)

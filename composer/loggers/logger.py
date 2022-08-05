@@ -138,8 +138,7 @@ class Logger:
         self.data(LogLevel.BATCH, data)
 
     def has_file_artifact_destination(self) -> bool:
-        """Determines if the logger has a destination which
-            supports logging file artifacts. 
+        """Determines if the logger has a destination which supports logging file artifacts. 
             
             Needed for checking if a model can be exported via this logger.
             
