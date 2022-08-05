@@ -121,9 +121,10 @@ class LoggerDestination(Callback, ABC):
         raise NotImplementedError
 
     def can_log_file_artifacts(self) -> bool:
-        """Indicates whether LoggerDestination can log file artifacts. 
+        """Indicates whether LoggerDestination can log file artifacts.
         
         Defaults to false, should return True for derived logger classes that implement log_file_artifact().
+
         Returns:
             bool: Whether the class supports logging file artifacts.
         """

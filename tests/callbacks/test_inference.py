@@ -64,7 +64,6 @@ def test_inference_callback_onnx(model_cls):
             save_path = os.path.join(tempdir, f'model.onnx')
             exp_for_inf_callback = ExportForInferenceCallback(save_format=save_format, save_path=str(save_path))
 
-            #in_memory_logger = InMemoryLogger(LogLevel.EPOCH)
             # Construct the trainer and train
             trainer = Trainer(model=model,
                               callbacks=exp_for_inf_callback,
