@@ -137,6 +137,19 @@ class Logger:
         """Helper function for ``self.data(LogLevel.BATCH, data)``."""
         self.data(LogLevel.BATCH, data)
 
+    def has_file_artifact_destination(self) -> bool:
+        """Determines if the logger has a destination which supports logging file artifacts.
+
+            Needed for checking if a model can be exported via this logger.
+
+        Returns:
+            bool: Whether any of the destinations has supports file artifacts.
+        """
+        for destination in self.destinations:
+            if destination.can_log_file_artifacts():
+                return True
+        return False
+
 
 def format_log_data_value(data: Any) -> str:
     """Recursively formats a given log data value into a string.
