@@ -32,6 +32,9 @@ function cleanup()
     # Combine the coverage reports
     python -m coverage combine
     python -m coverage xml -o build/output/build${BUILD_NUMBER}.coverage.xml
+
+    # Move the raw merged .coverage file into the build artifact folder
+    mv .coverage ${BUILD_DIR}/.coverage.${BUILD_NUMBER}
 }
 
 trap cleanup EXIT
