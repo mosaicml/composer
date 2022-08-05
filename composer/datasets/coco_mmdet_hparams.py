@@ -26,9 +26,8 @@ class COCOMMDetHparams(DatasetHparams):
         # sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
         sampler = None
         return DataSpec(dataloader=dataloader_hparams.initialize_object(dataset,
-                                                    batch_size=batch_size,
-                                                    sampler=sampler,
-                                                    drop_last=self.drop_last,
-                                                    collate_fn=mmdet_collate), 
+                                                                        batch_size=batch_size,
+                                                                        sampler=sampler,
+                                                                        drop_last=self.drop_last,
+                                                                        collate_fn=mmdet_collate),
                         get_num_samples_in_batch=mmdet_get_num_samples)
-                        

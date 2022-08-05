@@ -13,8 +13,6 @@ def composer_yolox(model_name: str, num_classes=80):
     Args:
         model_name: (str) one of 'yolox-s', 'yolox-m', 'yolox-l', 'yolox-x'
         num_classes: (int) Default: 80
-
-    Returns:
     """
     from mmcv import ConfigDict
     from mmdet.models import build_detector
@@ -61,7 +59,7 @@ def composer_yolox(model_name: str, num_classes=80):
         raise ValueError(f'model name must be one of {model_names}.')
 
     config = ConfigDict(config)
-    metrics = [MeanAveragePrecision(box_format='xywh')]
+    metrics = [MeanAveragePrecision(box_format='xyxy')]
     model = build_detector(config)
     model.init_weights()
 

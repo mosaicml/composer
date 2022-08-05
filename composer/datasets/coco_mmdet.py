@@ -233,5 +233,6 @@ def mmdet_collate(batch) -> list:
     else:
         return default_collate(batch)
 
+
 def mmdet_get_num_samples(batch):
     return len(batch)
