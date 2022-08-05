@@ -11,6 +11,7 @@ import itertools
 import logging
 import os
 import pathlib
+import tempfile
 import time
 import warnings
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
@@ -2211,8 +2212,8 @@ class Trainer:
             save_object_store (ObjectStore, optional): If the ``save_path`` is in an object name in a cloud bucket
                 (i.e. AWS S3 or Google Cloud Storage), an instance of
                 :class:`~.ObjectStore` which will be used
-                to store the exported model. Set this to ``None`` if ``save_path`` is a local filepath.
-                (default: ``None``)
+                to store the exported model. If this is set to ``None``,  will save to ``save_path`` using the trainer's
+                logger. (default: ``None``)
             sample_input (Any, optional): Example model inputs used for tracing. This is needed for "onnx" export.
                 The ``sample_input`` need not match the batch size you intend to use for inference. However, the model
                 should accept the ``sample_input`` as is. (default: ``None``)
@@ -2227,9 +2228,21 @@ class Trainer:
             raise ValueError(f'Exporting Model requires type torch.nn.Module, got {type(export_model)}')
         if sample_input == None and save_format == 'onnx':
             sample_input = self.state.batch
-        inference.export_for_inference(model=export_model,
-                                       save_format=save_format,
-                                       save_path=save_path,
-                                       save_object_store=save_object_store,
-                                       sample_input=(sample_input,),
-                                       transforms=transforms)
+        if save_object_store == None and self.logger.has_file_artifact_destination():
+            with tempfile.TemporaryDirectory() as tmpdir:
+                temp_local_save_path = os.path.join(str(tmpdir), f'model')
+                inference.export_for_inference(model=export_model,
+                                               save_format=save_format,
+                                               save_path=temp_local_save_path,
+                                               sample_input=(sample_input,),
+                                               transforms=transforms)
+                self.logger.file_artifact(log_level=LogLevel.FIT,
+                                          artifact_name=save_path,
+                                          file_path=temp_local_save_path)
+        else:
+            inference.export_for_inference(model=export_model,
+                                           save_format=save_format,
+                                           save_path=save_path,
+                                           save_object_store=save_object_store,
+                                           sample_input=(sample_input,),
+                                           transforms=transforms)

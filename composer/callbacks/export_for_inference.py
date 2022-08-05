@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import tempfile
 from copy import deepcopy
 from typing import Any, Optional, Sequence, Union
 
@@ -13,7 +15,7 @@ import torch.nn as nn
 
 from composer.core import State
 from composer.core.callback import Callback
-from composer.loggers import Logger
+from composer.loggers import Logger, LogLevel
 from composer.utils.inference import ExportFormat, Transform, export_for_inference
 from composer.utils.object_store import ObjectStore
 
@@ -48,7 +50,7 @@ class ExportForInferenceCallback(Callback):
         save_object_store (ObjectStore, optional): If the ``save_path`` is in an object name in a cloud bucket
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.ObjectStore` which will be used
-            to store the exported model. Set this to ``None`` if ``save_path`` is a local filepath.
+            to store the exported model. If this is set to ``None``,  will save to ``save_path`` using the logger.
             (default: ``None``)
         sample_input (Any, optional): Example model inputs used for tracing. This is needed for "onnx" export
         transforms (Sequence[Transform], optional): transformations (usually optimizations) that should
@@ -71,20 +73,31 @@ class ExportForInferenceCallback(Callback):
 
     def after_dataloader(self, state: State, logger: Logger) -> None:
         del logger
-        if self.sample_input is None:
+        if self.sample_input is None and self.save_format == 'onnx':
             self.sample_input = deepcopy(state.batch)
 
     def fit_end(self, state: State, logger: Logger):
-        del logger
-        self.export_model(state)
+        self.export_model(state, logger)
 
-    def export_model(self, state: State):
+    def export_model(self, state: State, logger: Logger):
         export_model = state.model.module if state.is_model_ddp else state.model
         if not isinstance(export_model, nn.Module):
             raise ValueError(f'Exporting Model requires type torch.nn.Module, got {type(export_model)}')
-        export_for_inference(model=export_model,
-                             save_format=self.save_format,
-                             save_path=self.save_path,
-                             save_object_store=self.save_object_store,
-                             sample_input=(self.sample_input,),
-                             transforms=self.transforms)
+        if self.save_object_store == None and logger.has_file_artifact_destination():
+            with tempfile.TemporaryDirectory() as tmpdir:
+                temp_local_save_path = os.path.join(str(tmpdir), f'model')
+                export_for_inference(model=export_model,
+                                     save_format=self.save_format,
+                                     save_path=temp_local_save_path,
+                                     sample_input=(self.sample_input,),
+                                     transforms=self.transforms)
+                logger.file_artifact(log_level=LogLevel.FIT,
+                                     artifact_name=self.save_path,
+                                     file_path=temp_local_save_path)
+        else:
+            export_for_inference(model=export_model,
+                                 save_format=self.save_format,
+                                 save_path=self.save_path,
+                                 save_object_store=self.save_object_store,
+                                 sample_input=(self.sample_input,),
+                                 transforms=self.transforms)
