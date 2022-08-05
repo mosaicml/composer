@@ -497,7 +497,9 @@ spec:
 set -exuo pipefail
 
 set +e
-ls -al ${buildOutputFolder}/.coverage*
+
+cp ${buildOutputFolder}/.coverage* ./
+ls -al .coverage*
 EXIT_CODE="\$?"
 set -e
 if [[ "\$EXIT_CODE" != 0 ]]; then
@@ -505,9 +507,11 @@ if [[ "\$EXIT_CODE" != 0 ]]; then
 else
     pip install 'coverage[toml]==6.4.2'
 
-    python -m coverage combine ${buildOutputFolder}/.coverage*
+    python -m coverage combine .coverage*
 
     python -m coverage xml -o ${mergedCoverageFile}
+
+    mv .coverage ${buildOutputFolder}/.coverage
 fi
 """
                         archiveArtifacts(artifacts: artifactsGlob, fingerprint: true, allowEmptyArchive: true)
