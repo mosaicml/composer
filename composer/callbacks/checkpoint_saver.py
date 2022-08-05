@@ -129,7 +129,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 Otherwise, multiple processes may attempt to write to the same file.
 
         filename (str, optional): A format string describing how to name checkpoints.
-            Default: ``'ep{{epoch}}-ba{{batch}}-rank{{rank}}'``.
+            Default: ``'ep{{epoch}}-ba{{batch}}-rank{{rank}}.pt'``.
 
             Checkpoints will be saved approximately to ``{{folder}}/{{filename.format(...)}}``.
 
@@ -189,7 +189,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             To disable logging trace files as file artifacts, set this parameter to ``None``.
         latest_filename (str, optional): A format string for a symlink which points to the last saved checkpoint.
-            Default: ``'latest-rank{{rank}}'``.
+            Default: ``'latest-rank{{rank}}.pt'``.
 
             Symlinks will be created approximately at ``{{folder}}/{{latest_filename.format(...)}}``.
 
@@ -290,9 +290,9 @@ class CheckpointSaver(Callback):  # noqa: D101
     def __init__(
         self,
         folder: str = '{run_name}/checkpoints',
-        filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
+        filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
         artifact_name: Optional[str] = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
-        latest_filename: Optional[str] = 'latest-rank{rank}',
+        latest_filename: Optional[str] = 'latest-rank{rank}.pt',
         latest_artifact_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
         save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = '1ep',
         *,
