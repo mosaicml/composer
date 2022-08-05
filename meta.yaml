@@ -27,7 +27,7 @@ requirements:
     - torchmetrics >=0.7.0,<0.8
     - torchvision >=0.9.0 # torchvision has strict pytorch requirements
     - tqdm >=4.62.3,<5
-    - yahp ==0.1.1
+    - yahp >=0.1.3,<2
     - requests >=2.26.0,<3
     - numpy >=1.21.5,<1.23.0
     - psutil >=5.8.0,<6
@@ -47,6 +47,7 @@ requirements:
     - apache-libcloud >=3.5.1,<4
     - paramiko>=2.11.0,<3
     - tensorboard>=2.9.1,<3.0.0
+    - tabulate ==0.8.9  # for auto-generating tables
 
 test:
   requires:
@@ -72,7 +73,10 @@ test:
     - moto >=3.1.12,<3.2
     - cryptography >=37.0.2,<38
     - tensorboard>=2.9.1,<3.0.0
+    # - mock-ssh-server >=0.9.1,<1 # mock-ssh-server is not available on conda; installing with pip
+    - tabulate ==0.8.9  # for auto-generating tables
     - pytest-httpserver>=1.0.4,<1.1
+
   files:
     - "**/composer/**"
     - "**/tests/**"

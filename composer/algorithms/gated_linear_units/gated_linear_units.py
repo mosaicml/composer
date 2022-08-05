@@ -118,7 +118,8 @@ def apply_gated_linear_units(model: torch.nn.Module,
         warnings.warn(
             NoEffectWarning(
                 'No instances of `torch.nn.LayerNorm` were found, and therefore, there were no modules to replace.'))
-    log.info(f'Successfully replaced {len(replaced_instances)} of LayerNorm with a Fused LayerNorm.')
+    log.info(
+        f'Successfully replaced {len(replaced_instances)} of BertIntermediate and BertOutput with a GatedLinearUnit.')
 
 
 class GatedLinearUnits(Algorithm):
