@@ -1,0 +1,2289 @@
+{
+    "$defs": {
+        "ADE20kDatasetHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "base_size": {
+                    "description": "Initial size of the image and target before other augmentations",
+                    "type": "integer"
+                },
+                "datadir": {
+                    "description": "The path to the data directory",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "drop_last": {
+                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
+                    "type": "boolean"
+                },
+                "final_size": {
+                    "description": "Final size of the image and target",
+                    "type": "integer"
+                },
+                "ignore_background": {
+                    "description": "If true, ignore the background class in training loss",
+                    "type": "boolean"
+                },
+                "max_resize_scale": {
+                    "description": "Maximum value that the image and target can be scaled",
+                    "type": "number"
+                },
+                "min_resize_scale": {
+                    "description": "Minimum value that the image and target can be scaled",
+                    "type": "number"
+                },
+                "shuffle": {
+                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True.",
+                    "type": "boolean"
+                },
+                "split": {
+                    "description": "Which split of the dataset to use. Either ['train', 'val', 'test']",
+                    "type": "string"
+                },
+                "synthetic_device": {
+                    "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`.",
+                    "type": "string"
+                },
+                "synthetic_memory_format": {
+                    "$ref": "#/$defs/MemoryFormat",
+                    "description": "Memory format. Defaults to contiguous format."
+                },
+                "synthetic_num_unique_samples": {
+                    "description": "The number of unique samples to allocate memory for.",
+                    "type": "integer"
+                },
+                "use_synthetic": {
+                    "description": "Whether to use synthetic data. Defaults to False.",
+                    "type": "boolean"
+                }
+            },
+            "type": "object"
+        },
+        "BratsDatasetHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "datadir": {
+                    "description": "The path to the data directory",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "drop_last": {
+                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
+                    "type": "boolean"
+                },
+                "is_train": {
+                    "description": "Whether to load the training data (the default) or validation data.",
+                    "type": "boolean"
+                },
+                "oversampling": {
+                    "description": "oversampling",
+                    "type": "number"
+                },
+                "shuffle": {
+                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True.",
+                    "type": "boolean"
+                }
+            },
+            "type": "object"
+        },
+        "C4DatasetHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "drop_last": {
+                    "description": "Whether to drop the last samples for the last batch.",
+                    "type": "boolean"
+                },
+                "group_method": {
+                    "description": "How to group text samples into token samples. Either `truncate` or `concat`.",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "max_seq_len": {
+                    "description": "The max sequence length of each token sample.",
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "mlm": {
+                    "description": "Whether or not to use masked language modeling.",
+                    "type": "boolean"
+                },
+                "mlm_probability": {
+                    "description": "If `mlm==True`, the probability that tokens are masked.",
+                    "type": "number"
+                },
+                "num_samples": {
+                    "description": "The number of post-processed token samples, used to set epoch size of the IterableDataset.",
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "seed": {
+                    "description": "If `shuffle=True`, what seed to use for shuffling operations.",
+                    "type": "integer"
+                },
+                "shuffle": {
+                    "description": "Whether to shuffle the samples in the dataset. Currently, shards are assigned and consumed with deterministic per-device shard order, but shuffling affects the order of samples via (per-device) shuffle buffers.",
+                    "type": "boolean"
+                },
+                "shuffle_buffer_size": {
+                    "description": "If `shuffle=True`, samples are read into a buffer of this size (per-device), and randomly sampled from there to produce shuffled samples.",
+                    "type": "integer"
+                },
+                "split": {
+                    "description": "What split of the dataset to use. Either `train` or `validation`.",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "tokenizer_name": {
+                    "description": "The name of the HuggingFace tokenizer to preprocess text with.",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            },
+            "type": "object"
+        },
+        "CIFAR10DatasetHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "datadir": {
+                    "description": "The path to the data directory",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "download": {
+                    "description": "whether to download the dataset, if needed",
+                    "type": "boolean"
+                },
+                "drop_last": {
+                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
+                    "type": "boolean"
+                },
+                "ffcv_dest": {
+                    "description": "<file>.ffcv file that has dataset samples",
+                    "type": "string"
+                },
+                "ffcv_dir": {
+                    "description": "A directory containing train/val <file>.ffcv files. If these files don't exist and ffcv_write_dataset is true, train/val <file>.ffcv files will be created in this dir.",
+                    "type": "string"
+                },
+                "ffcv_write_dataset": {
+                    "description": "Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist",
+                    "type": "boolean"
+                },
+                "is_train": {
+                    "description": "Whether to load the training data (the default) or validation data.",
+                    "type": "boolean"
+                },
+                "shuffle": {
+                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True.",
+                    "type": "boolean"
+                },
+                "synthetic_device": {
+                    "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`.",
+                    "type": "string"
+                },
+                "synthetic_memory_format": {
+                    "$ref": "#/$defs/MemoryFormat",
+                    "description": "Memory format. Defaults to contiguous format."
+                },
+                "synthetic_num_unique_samples": {
+                    "description": "The number of unique samples to allocate memory for.",
+                    "type": "integer"
+                },
+                "use_ffcv": {
+                    "description": "whether to use ffcv for faster dataloading",
+                    "type": "boolean"
+                },
+                "use_synthetic": {
+                    "description": "Whether to use synthetic data. Defaults to False.",
+                    "type": "boolean"
+                }
+            },
+            "type": "object"
+        },
+        "COCODatasetHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "datadir": {
+                    "description": "The path to the data directory",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "drop_last": {
+                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
+                    "type": "boolean"
+                },
+                "is_train": {
+                    "description": "Whether to load the training data (the default) or validation data.",
+                    "type": "boolean"
+                },
+                "shuffle": {
+                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True.",
+                    "type": "boolean"
+                }
+            },
+            "type": "object"
+        },
+        "ConstantSchedulerHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "alpha": {
+                    "description": "Learning rate multiplier to maintain while this scheduler is active. Default = ``1.0``.",
+                    "type": "number"
+                },
+                "t_max": {
+                    "description": "Duration of this scheduler. Default = ``\"1dur\"``.",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "ConstantWithWarmupSchedulerHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "alpha": {
+                    "description": "Learning rate multiplier to maintain while this scheduler is active. Default = ``1.0``.",
+                    "type": "number"
+                },
+                "scale_warmup": {
+                    "description": "SSR also scales the warmup period. Default = ``False``.",
+                    "type": "boolean"
+                },
+                "t_max": {
+                    "description": "Duration of this scheduler. Default = ``\"1dur\"``.",
+                    "type": "string"
+                },
+                "t_warmup": {
+                    "description": "Warmup time.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "t_warmup"
+            ],
+            "type": "object"
+        },
+        "CosineAnnealingSchedulerHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "alpha_f": {
+                    "description": "Learning rate multiplier to decay to. Default = ``0.0``.",
+                    "type": "number"
+                },
+                "t_max": {
+                    "description": "The duration of this scheduler. Default = ``\"1dur\"``.",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "CosineAnnealingWarmRestartsSchedulerHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "alpha_f": {
+                    "description": "Learning rate multiplier to decay to. Default = ``0.0``.",
+                    "type": "number"
+                },
+                "t_0": {
+                    "description": "The period of the first cycle.",
+                    "type": "string"
+                },
+                "t_mult": {
+                    "description": "The multiplier for the duration of successive cycles. Default = ``1.0``.",
+                    "type": "number"
+                }
+            },
+            "required": [
+                "t_0"
+            ],
+            "type": "object"
+        },
+        "CosineAnnealingWithWarmupSchedulerHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "alpha_f": {
+                    "description": "Learning rate multiplier to decay to. Default = ``0.0``.",
+                    "type": "number"
+                },
+                "scale_warmup": {
+                    "description": "SSR also scales the warmup period. Default = ``False``.",
+                    "type": "boolean"
+                },
+                "t_max": {
+                    "description": "The duration of this scheduler. Default = ``\"1dur\"``.",
+                    "type": "string"
+                },
+                "t_warmup": {
+                    "description": "Warmup time.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "t_warmup"
+            ],
+            "type": "object"
+        },
+        "EvaluatorHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "eval_dataset": {
+                    "anyOf": [
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^ade20k\\+": {
+                                    "$ref": "#/$defs/ADE20kDatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "ade20k": {
+                                    "$ref": "#/$defs/ADE20kDatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^brats\\+": {
+                                    "$ref": "#/$defs/BratsDatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "brats": {
+                                    "$ref": "#/$defs/BratsDatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^c4\\+": {
+                                    "$ref": "#/$defs/C4DatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "c4": {
+                                    "$ref": "#/$defs/C4DatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^cifar10\\+": {
+                                    "$ref": "#/$defs/CIFAR10DatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "cifar10": {
+                                    "$ref": "#/$defs/CIFAR10DatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^coco\\+": {
+                                    "$ref": "#/$defs/COCODatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "coco": {
+                                    "$ref": "#/$defs/COCODatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^glue\\+": {
+                                    "$ref": "#/$defs/GLUEHparams"
+                                }
+                            },
+                            "properties": {
+                                "glue": {
+                                    "$ref": "#/$defs/GLUEHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^imagenet\\+": {
+                                    "$ref": "#/$defs/ImagenetDatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "imagenet": {
+                                    "$ref": "#/$defs/ImagenetDatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^lm\\+": {
+                                    "$ref": "#/$defs/LMDatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "lm": {
+                                    "$ref": "#/$defs/LMDatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^mnist\\+": {
+                                    "$ref": "#/$defs/MNISTDatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "mnist": {
+                                    "$ref": "#/$defs/MNISTDatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^streaming_ade20k\\+": {
+                                    "$ref": "#/$defs/StreamingADE20kHparams"
+                                }
+                            },
+                            "properties": {
+                                "streaming_ade20k": {
+                                    "$ref": "#/$defs/StreamingADE20kHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^streaming_c4\\+": {
+                                    "$ref": "#/$defs/StreamingC4Hparams"
+                                }
+                            },
+                            "properties": {
+                                "streaming_c4": {
+                                    "$ref": "#/$defs/StreamingC4Hparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^streaming_cifar10\\+": {
+                                    "$ref": "#/$defs/StreamingCIFAR10Hparams"
+                                }
+                            },
+                            "properties": {
+                                "streaming_cifar10": {
+                                    "$ref": "#/$defs/StreamingCIFAR10Hparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^streaming_coco\\+": {
+                                    "$ref": "#/$defs/StreamingCOCOHparams"
+                                }
+                            },
+                            "properties": {
+                                "streaming_coco": {
+                                    "$ref": "#/$defs/StreamingCOCOHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^streaming_imagenet1k\\+": {
+                                    "$ref": "#/$defs/StreamingImageNet1kHparams"
+                                }
+                            },
+                            "properties": {
+                                "streaming_imagenet1k": {
+                                    "$ref": "#/$defs/StreamingImageNet1kHparams"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    ],
+                    "description": "Evaluator dataset for the Evaluator"
+                },
+                "eval_interval": {
+                    "description": "An integer,\nwhich will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time` object, or a callable.\nDefaults to ``None``, which means that the ``eval_interval`` parameter from the :class:`.Trainer` will be used.\n\nIf an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the evaluator will be run\nwith this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of\n:attr:`.TimeUnit.BATCH` or :attr:`.TimeUnit.EPOCH`.\n\nSet to ``0`` to disable evaluation.\n\nIf a callable, it should take two arguments (:class:`.State`, :class:`.Event`) and return a bool\nrepresenting whether the evaluator should be invoked. The event will be either :attr:`.Event.BATCH_END`\nor :attr:`.Event.EPOCH_END`.\n\nWhen specifying ``eval_interval``, the evaluator(s) are also run at the ``Event.FIT_END`` if it doesn't\nevenly divide the training duration.",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "label": {
+                    "description": "Name of the Evaluator.",
+                    "type": "string"
+                },
+                "metric_names": {
+                    "description": "Name of the metrics for the evaluator. Can be a torchmetrics metric name or the\n        class name of a metric returned by model.metrics(). If None (the default), uses all metrics in the model",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "subset_num_batches": {
+                    "description": "The maximum number of batches to use for each evaluation. Defaults to ``None``,\nwhich means that the ``eval_subset_num_batches`` parameter from the :class:`.Trainer` will be used.\nSet to ``-1`` to evaluate the entire ``dataloader``",
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "eval_dataset",
+                "label"
+            ],
+            "type": "object"
+        },
+        "ExponentialSchedulerHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "decay_period": {
+                    "description": "Decay period. Default = ``\"1ep\"``.",
+                    "type": "string"
+                },
+                "gamma": {
+                    "description": "Multiplicative decay factor.",
+                    "type": "number"
+                }
+            },
+            "required": [
+                "gamma"
+            ],
+            "type": "object"
+        },
+        "GLUEHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "drop_last": {
+                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
+                    "type": "boolean"
+                },
+                "max_network_retries": {
+                    "description": "Optionally, the number of times to retry HTTP requests if they fail.",
+                    "type": "integer"
+                },
+                "max_seq_length": {
+                    "description": "Optionally, the ability to set a custom sequence length for the training dataset.",
+                    "type": "integer"
+                },
+                "shuffle": {
+                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True.",
+                    "type": "boolean"
+                },
+                "split": {
+                    "description": "Whether to use 'train', 'validation' or 'test' split.",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "synthetic_device": {
+                    "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`.",
+                    "type": "string"
+                },
+                "synthetic_memory_format": {
+                    "$ref": "#/$defs/MemoryFormat",
+                    "description": "Memory format. Defaults to contiguous format."
+                },
+                "synthetic_num_unique_samples": {
+                    "description": "The number of unique samples to allocate memory for.",
+                    "type": "integer"
+                },
+                "task": {
+                    "description": "The GLUE task to train on, choose one from: CoLA, MNLI, MRPC, QNLI, QQP, RTE, SST-2, and STS-B.",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "tokenizer_name": {
+                    "description": "The name of the HuggingFace tokenizer to preprocess text with.",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "use_synthetic": {
+                    "description": "Whether to use synthetic data. Defaults to False.",
+                    "type": "boolean"
+                }
+            },
+            "type": "object"
+        },
+        "ImagenetDatasetHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "crop_size": {
+                    "description": "crop size",
+                    "type": "integer"
+                },
+                "datadir": {
+                    "description": "The path to the data directory",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "drop_last": {
+                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
+                    "type": "boolean"
+                },
+                "ffcv_cpu_only": {
+                    "description": "Use cpu for all transformations.",
+                    "type": "boolean"
+                },
+                "ffcv_dest": {
+                    "description": "<file>.ffcv file that has dataset samples",
+                    "type": "string"
+                },
+                "ffcv_dir": {
+                    "description": "A directory containing train/val <file>.ffcv files. If these files don't exist and ffcv_write_dataset is true, train/val <file>.ffcv files will be created in this dir.",
+                    "type": "string"
+                },
+                "ffcv_write_dataset": {
+                    "description": "Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist",
+                    "type": "boolean"
+                },
+                "is_train": {
+                    "description": "Whether to load the training data (the default) or validation data.",
+                    "type": "boolean"
+                },
+                "resize_size": {
+                    "description": "resize size. Set to -1 to not resize",
+                    "type": "integer"
+                },
+                "shuffle": {
+                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True.",
+                    "type": "boolean"
+                },
+                "synthetic_device": {
+                    "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`.",
+                    "type": "string"
+                },
+                "synthetic_memory_format": {
+                    "$ref": "#/$defs/MemoryFormat",
+                    "description": "Memory format. Defaults to contiguous format."
+                },
+                "synthetic_num_unique_samples": {
+                    "description": "The number of unique samples to allocate memory for.",
+                    "type": "integer"
+                },
+                "use_ffcv": {
+                    "description": "whether to use ffcv for faster dataloading",
+                    "type": "boolean"
+                },
+                "use_synthetic": {
+                    "description": "Whether to use synthetic data. Defaults to False.",
+                    "type": "boolean"
+                }
+            },
+            "type": "object"
+        },
+        "LMDatasetHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "datadir": {
+                    "description": "Path to the Huggingface Datasets directory.",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        }
+                    ]
+                },
+                "drop_last": {
+                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
+                    "type": "boolean"
+                },
+                "max_seq_length": {
+                    "description": "Optionally, the ability to set a custom sequence length for the training dataset.",
+                    "type": "integer"
+                },
+                "mlm_probability": {
+                    "description": "If using masked language modeling, the probability to mask tokens with.",
+                    "type": "number"
+                },
+                "num_tokens": {
+                    "description": "If desired, the number of tokens to truncate the dataset to.",
+                    "type": "integer"
+                },
+                "seed": {
+                    "description": "Which seed to use to generate train and validation splits.",
+                    "type": "integer"
+                },
+                "shuffle": {
+                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True.",
+                    "type": "boolean"
+                },
+                "split": {
+                    "description": "Whether to use 'train', 'validation' or 'test' split.",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "subsample_ratio": {
+                    "description": "If desired, the percentage of the dataset to use.",
+                    "type": "number"
+                },
+                "synthetic_device": {
+                    "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`.",
+                    "type": "string"
+                },
+                "synthetic_memory_format": {
+                    "$ref": "#/$defs/MemoryFormat",
+                    "description": "Memory format. Defaults to contiguous format."
+                },
+                "synthetic_num_unique_samples": {
+                    "description": "The number of unique samples to allocate memory for.",
+                    "type": "integer"
+                },
+                "tokenizer_name": {
+                    "description": "The name of the tokenizer to preprocess text with.",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "use_masked_lm": {
+                    "description": "Whether the dataset should be encoded with masked language modeling or not.",
+                    "type": "boolean"
+                },
+                "use_synthetic": {
+                    "description": "Whether to use synthetic data. Defaults to False.",
+                    "type": "boolean"
+                }
+            },
+            "type": "object"
+        },
+        "LinearSchedulerHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "alpha_f": {
+                    "description": "Final learning rate multiplier. Default = ``0.0``.",
+                    "type": "number"
+                },
+                "alpha_i": {
+                    "description": "Initial learning rate multiplier. Default = ``1.0``.",
+                    "type": "number"
+                },
+                "t_max": {
+                    "description": "The duration of this scheduler. Default = ``\"1dur\"``.",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "LinearWithWarmupSchedulerHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "alpha_f": {
+                    "description": "Final learning rate multiplier. Default = ``0.0``.",
+                    "type": "number"
+                },
+                "alpha_i": {
+                    "description": "Initial learning rate multiplier. Default = ``1.0``.",
+                    "type": "number"
+                },
+                "scale_warmup": {
+                    "description": "SSR also scales the warmup period. Default = ``False``.",
+                    "type": "boolean"
+                },
+                "t_max": {
+                    "description": "The duration of this scheduler. Default = ``\"1dur\"``.",
+                    "type": "string"
+                },
+                "t_warmup": {
+                    "description": "Warmup time.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "t_warmup"
+            ],
+            "type": "object"
+        },
+        "MNISTDatasetHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "datadir": {
+                    "description": "The path to the data directory",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "download": {
+                    "description": "whether to download the dataset, if needed",
+                    "type": "boolean"
+                },
+                "drop_last": {
+                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
+                    "type": "boolean"
+                },
+                "is_train": {
+                    "description": "Whether to load the training data (the default) or validation data.",
+                    "type": "boolean"
+                },
+                "shuffle": {
+                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True.",
+                    "type": "boolean"
+                },
+                "synthetic_device": {
+                    "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`.",
+                    "type": "string"
+                },
+                "synthetic_memory_format": {
+                    "$ref": "#/$defs/MemoryFormat",
+                    "description": "Memory format. Defaults to contiguous format."
+                },
+                "synthetic_num_unique_samples": {
+                    "description": "The number of unique samples to allocate memory for.",
+                    "type": "integer"
+                },
+                "use_synthetic": {
+                    "description": "Whether to use synthetic data. Defaults to False.",
+                    "type": "boolean"
+                }
+            },
+            "type": "object"
+        },
+        "MemoryFormat": {
+            "oneOf": [
+                {
+                    "pattern": "(?i)^CHANNELS_LAST$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^CHANNELS_LAST_3D$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^CONTIGUOUS_FORMAT$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^PRESERVE_FORMAT$",
+                    "type": "string"
+                }
+            ]
+        },
+        "MultiStepSchedulerHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "gamma": {
+                    "description": "Multiplicative decay factor. Default = ``0.1``.",
+                    "type": "number"
+                },
+                "milestones": {
+                    "description": "Times at which the learning rate should change.",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "milestones"
+            ],
+            "type": "object"
+        },
+        "MultiStepWithWarmupSchedulerHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "gamma": {
+                    "description": "Multiplicative decay factor. Default = ``0.1``.",
+                    "type": "number"
+                },
+                "milestones": {
+                    "description": "Times at which the learning rate should change.",
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        }
+                    ]
+                },
+                "scale_warmup": {
+                    "description": "SSR also scales the warmup period. Default = ``False``.",
+                    "type": "boolean"
+                },
+                "t_warmup": {
+                    "description": "Warmup time.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "milestones",
+                "t_warmup"
+            ],
+            "type": "object"
+        },
+        "PolynomialSchedulerHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "alpha_f": {
+                    "description": "Learning rate multiplier to decay to. Default = ``0.0``.",
+                    "type": "number"
+                },
+                "power": {
+                    "description": "The exponent to be used for the proportionality relationship.",
+                    "type": "number"
+                },
+                "t_max": {
+                    "description": "The duration of this scheduler. Default = ``\"1dur\"``.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "power"
+            ],
+            "type": "object"
+        },
+        "PolynomialWithWarmupSchedulerHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "alpha_f": {
+                    "description": "Learning rate multiplier to decay to. Default = ``0.0``.",
+                    "type": "number"
+                },
+                "power": {
+                    "description": "The exponent to be used for the proportionality relationship. Default = ``2.0``.",
+                    "type": "number"
+                },
+                "scale_warmup": {
+                    "description": "SSR also scales the warmup period. Default = ``False``.",
+                    "type": "boolean"
+                },
+                "t_max": {
+                    "description": "The duration of this scheduler. Default = ``\"1dur\"``.",
+                    "type": "string"
+                },
+                "t_warmup": {
+                    "description": "Warmup time.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "t_warmup"
+            ],
+            "type": "object"
+        },
+        "Precision": {
+            "oneOf": [
+                {
+                    "pattern": "(?i)^AMP$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^BF16$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^FP16$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^FP32$",
+                    "type": "string"
+                }
+            ]
+        },
+        "StepSchedulerHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "gamma": {
+                    "description": "Multiplicative decay factor. Default = ``0.1``.",
+                    "type": "number"
+                },
+                "step_size": {
+                    "description": "Time between changes to the learning rate.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "step_size"
+            ],
+            "type": "object"
+        },
+        "StreamingADE20kHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "base_size": {
+                    "description": "Initial size of the image and target before other augmentations",
+                    "type": "integer"
+                },
+                "drop_last": {
+                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
+                    "type": "boolean"
+                },
+                "final_size": {
+                    "description": "Final size of the image and target",
+                    "type": "integer"
+                },
+                "ignore_background": {
+                    "description": "If true, ignore the background class in training loss",
+                    "type": "boolean"
+                },
+                "local": {
+                    "description": "Local filesystem directory where dataset is cached during operation",
+                    "type": "string"
+                },
+                "max_resize_scale": {
+                    "description": "Maximum value that the image and target can be scaled",
+                    "type": "number"
+                },
+                "min_resize_scale": {
+                    "description": "Minimum value that the image and target can be scaled",
+                    "type": "number"
+                },
+                "remote": {
+                    "description": "Remote directory (S3 or local filesystem) where dataset is stored",
+                    "type": "string"
+                },
+                "shuffle": {
+                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True.",
+                    "type": "boolean"
+                },
+                "split": {
+                    "description": "Which split of the dataset to use. Either ['train', 'val']",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "StreamingC4Hparams": {
+            "additionalProperties": false,
+            "properties": {
+                "drop_last": {
+                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
+                    "type": "boolean"
+                },
+                "group_method": {
+                    "description": "How to group text samples into token samples. Currently only `truncate` is supported.",
+                    "type": "string"
+                },
+                "local": {
+                    "description": "Local filesystem directory where dataset is cached during operation",
+                    "type": "string"
+                },
+                "max_retries": {
+                    "description": "Number of download re-attempts before giving up.",
+                    "type": "integer"
+                },
+                "max_seq_len": {
+                    "description": "The max sequence length of each token sample.",
+                    "type": "integer"
+                },
+                "mlm": {
+                    "description": "Whether or not to use masked language modeling.",
+                    "type": "boolean"
+                },
+                "mlm_probability": {
+                    "description": "If `mlm==True`, the probability that tokens are masked.",
+                    "type": "number"
+                },
+                "remote": {
+                    "description": "Remote directory (S3 or local filesystem) where dataset is stored",
+                    "type": "string"
+                },
+                "shuffle": {
+                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True.",
+                    "type": "boolean"
+                },
+                "split": {
+                    "description": "What split of the dataset to use. Either `train` or `val`.",
+                    "type": "string"
+                },
+                "timeout": {
+                    "description": "How long to wait for shard to download before raising an exception.",
+                    "type": "number"
+                },
+                "tokenizer_name": {
+                    "description": "The name of the HuggingFace tokenizer to preprocess text with.",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "StreamingCIFAR10Hparams": {
+            "additionalProperties": false,
+            "properties": {
+                "drop_last": {
+                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
+                    "type": "boolean"
+                },
+                "local": {
+                    "description": "Local filesystem directory where dataset is cached during operation",
+                    "type": "string"
+                },
+                "remote": {
+                    "description": "Remote directory (S3 or local filesystem) where dataset is stored",
+                    "type": "string"
+                },
+                "shuffle": {
+                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True.",
+                    "type": "boolean"
+                },
+                "split": {
+                    "description": "Which split of the dataset to use. Either ['train', 'val']",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "StreamingCOCOHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "drop_last": {
+                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
+                    "type": "boolean"
+                },
+                "local": {
+                    "description": "Local filesystem directory where dataset is cached during operation",
+                    "type": "string"
+                },
+                "remote": {
+                    "description": "Remote directory (S3 or local filesystem) where dataset is stored",
+                    "type": "string"
+                },
+                "shuffle": {
+                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True.",
+                    "type": "boolean"
+                },
+                "split": {
+                    "description": "Which split of the dataset to use. Either ['train', 'val']",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "StreamingImageNet1kHparams": {
+            "additionalProperties": false,
+            "properties": {
+                "crop_size": {
+                    "description": "Crop size",
+                    "type": "integer"
+                },
+                "drop_last": {
+                    "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
+                    "type": "boolean"
+                },
+                "local": {
+                    "description": "Local filesystem directory where dataset is cached during operation",
+                    "type": "string"
+                },
+                "remote": {
+                    "description": "Remote directory (S3 or local filesystem) where dataset is stored",
+                    "type": "string"
+                },
+                "resize_size": {
+                    "description": "Resize size. Set to -1 to not resize",
+                    "type": "integer"
+                },
+                "shuffle": {
+                    "description": "Whether to shuffle the dataset for each epoch. Defaults to True.",
+                    "type": "boolean"
+                },
+                "split": {
+                    "description": "Which split of the dataset to use. Either ['train', 'val']",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        }
+    },
+    "additionalProperties": false,
+    "properties": {
+        "compute_training_metrics": {
+            "description": "See :class:`.Trainer`.",
+            "oneOf": [
+                {
+                    "type": "boolean"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "duration": {
+            "description": "The duration to train. Can be an integer, which will be\ninterpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.\n\nIf ``reset_time`` is False (the default), then :attr:`.State.max_duration` will be converted\ninto the same units as this parameter (if necessary), and then the max duration incremented by the\nvalue of this parameter.\n\nIf ``reset_time`` is True, then :attr:`.State.max_duration` will be set to this parameter.",
+            "oneOf": [
+                {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "integer"
+                        }
+                    ]
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "eval_batch_size": {
+            "description": "batch size to use for each evaluation step",
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "eval_dataset": {
+            "description": "Validation dataset hparams",
+            "oneOf": [
+                {
+                    "anyOf": [
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^ade20k\\+": {
+                                    "$ref": "#/$defs/ADE20kDatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "ade20k": {
+                                    "$ref": "#/$defs/ADE20kDatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^brats\\+": {
+                                    "$ref": "#/$defs/BratsDatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "brats": {
+                                    "$ref": "#/$defs/BratsDatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^c4\\+": {
+                                    "$ref": "#/$defs/C4DatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "c4": {
+                                    "$ref": "#/$defs/C4DatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^cifar10\\+": {
+                                    "$ref": "#/$defs/CIFAR10DatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "cifar10": {
+                                    "$ref": "#/$defs/CIFAR10DatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^coco\\+": {
+                                    "$ref": "#/$defs/COCODatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "coco": {
+                                    "$ref": "#/$defs/COCODatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^glue\\+": {
+                                    "$ref": "#/$defs/GLUEHparams"
+                                }
+                            },
+                            "properties": {
+                                "glue": {
+                                    "$ref": "#/$defs/GLUEHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^imagenet\\+": {
+                                    "$ref": "#/$defs/ImagenetDatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "imagenet": {
+                                    "$ref": "#/$defs/ImagenetDatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^lm\\+": {
+                                    "$ref": "#/$defs/LMDatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "lm": {
+                                    "$ref": "#/$defs/LMDatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^mnist\\+": {
+                                    "$ref": "#/$defs/MNISTDatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "mnist": {
+                                    "$ref": "#/$defs/MNISTDatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^streaming_ade20k\\+": {
+                                    "$ref": "#/$defs/StreamingADE20kHparams"
+                                }
+                            },
+                            "properties": {
+                                "streaming_ade20k": {
+                                    "$ref": "#/$defs/StreamingADE20kHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^streaming_c4\\+": {
+                                    "$ref": "#/$defs/StreamingC4Hparams"
+                                }
+                            },
+                            "properties": {
+                                "streaming_c4": {
+                                    "$ref": "#/$defs/StreamingC4Hparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^streaming_cifar10\\+": {
+                                    "$ref": "#/$defs/StreamingCIFAR10Hparams"
+                                }
+                            },
+                            "properties": {
+                                "streaming_cifar10": {
+                                    "$ref": "#/$defs/StreamingCIFAR10Hparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^streaming_coco\\+": {
+                                    "$ref": "#/$defs/StreamingCOCOHparams"
+                                }
+                            },
+                            "properties": {
+                                "streaming_coco": {
+                                    "$ref": "#/$defs/StreamingCOCOHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^streaming_imagenet1k\\+": {
+                                    "$ref": "#/$defs/StreamingImageNet1kHparams"
+                                }
+                            },
+                            "properties": {
+                                "streaming_imagenet1k": {
+                                    "$ref": "#/$defs/StreamingImageNet1kHparams"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    ]
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "eval_interval": {
+            "anyOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "string"
+                }
+            ],
+            "description": "See :class:`.Trainer`."
+        },
+        "eval_subset_num_batches": {
+            "description": "See :class:`.Trainer`.",
+            "type": "integer"
+        },
+        "evaluators": {
+            "description": "Evaluators",
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/EvaluatorHparams"
+                },
+                {
+                    "items": {
+                        "$ref": "#/$defs/EvaluatorHparams"
+                    },
+                    "type": "array"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "grad_accum": {
+            "description": "See :class:`.Trainer`.",
+            "oneOf": [
+                {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "integer"
+                        }
+                    ]
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "precision": {
+            "description": "See :class:`.Trainer`.",
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/Precision"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "reset_time": {
+            "description": "Whether to reset the :attr:`.State.timestamp` to zero values. Defaults to False.\nIf ``True``, the timestamp will be zeroed out, causing :class:`.ComposerScheduler` and\n:class:`.Algorithm` instances to start from the beginning, as if it is a new training run. The model\nwill be trained for ``duration``, if specified, or for :attr:`.State.max_duration`, which would have\nbeen provided when constructing the :class:`.Trainer` or by a previous call to :meth:`.fit`.\n\n.. note::\n\n    Model gradients, optimizer states, and native PyTorch schedulers will not be reset.\n\nIf ``False`` (the default), training time will be incremented from where the previous call to\n:meth:`.fit` finished (or from zero, if a new training run).\nThe :attr:`~.State.max_duration` will be incremented by the ``duration`` parameter.",
+            "type": "boolean"
+        },
+        "scale_schedule_ratio": {
+            "description": "Ratio by which to scale the training duration and learning rate schedules.",
+            "type": "number"
+        },
+        "schedulers": {
+            "description": "See :class:`.Trainer`.",
+            "oneOf": [
+                {
+                    "anyOf": [
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^constant\\+": {
+                                    "$ref": "#/$defs/ConstantSchedulerHparams"
+                                }
+                            },
+                            "properties": {
+                                "constant": {
+                                    "$ref": "#/$defs/ConstantSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^constant_with_warmup\\+": {
+                                    "$ref": "#/$defs/ConstantWithWarmupSchedulerHparams"
+                                }
+                            },
+                            "properties": {
+                                "constant_with_warmup": {
+                                    "$ref": "#/$defs/ConstantWithWarmupSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^cosine_decay\\+": {
+                                    "$ref": "#/$defs/CosineAnnealingSchedulerHparams"
+                                }
+                            },
+                            "properties": {
+                                "cosine_decay": {
+                                    "$ref": "#/$defs/CosineAnnealingSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^cosine_decay_with_warmup\\+": {
+                                    "$ref": "#/$defs/CosineAnnealingWithWarmupSchedulerHparams"
+                                }
+                            },
+                            "properties": {
+                                "cosine_decay_with_warmup": {
+                                    "$ref": "#/$defs/CosineAnnealingWithWarmupSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^cosine_warmrestart\\+": {
+                                    "$ref": "#/$defs/CosineAnnealingWarmRestartsSchedulerHparams"
+                                }
+                            },
+                            "properties": {
+                                "cosine_warmrestart": {
+                                    "$ref": "#/$defs/CosineAnnealingWarmRestartsSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^exponential\\+": {
+                                    "$ref": "#/$defs/ExponentialSchedulerHparams"
+                                }
+                            },
+                            "properties": {
+                                "exponential": {
+                                    "$ref": "#/$defs/ExponentialSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^linear_decay\\+": {
+                                    "$ref": "#/$defs/LinearSchedulerHparams"
+                                }
+                            },
+                            "properties": {
+                                "linear_decay": {
+                                    "$ref": "#/$defs/LinearSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^linear_decay_with_warmup\\+": {
+                                    "$ref": "#/$defs/LinearWithWarmupSchedulerHparams"
+                                }
+                            },
+                            "properties": {
+                                "linear_decay_with_warmup": {
+                                    "$ref": "#/$defs/LinearWithWarmupSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^multistep\\+": {
+                                    "$ref": "#/$defs/MultiStepSchedulerHparams"
+                                }
+                            },
+                            "properties": {
+                                "multistep": {
+                                    "$ref": "#/$defs/MultiStepSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^multistep_with_warmup\\+": {
+                                    "$ref": "#/$defs/MultiStepWithWarmupSchedulerHparams"
+                                }
+                            },
+                            "properties": {
+                                "multistep_with_warmup": {
+                                    "$ref": "#/$defs/MultiStepWithWarmupSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^polynomial\\+": {
+                                    "$ref": "#/$defs/PolynomialSchedulerHparams"
+                                }
+                            },
+                            "properties": {
+                                "polynomial": {
+                                    "$ref": "#/$defs/PolynomialSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^polynomial_with_warmup\\+": {
+                                    "$ref": "#/$defs/PolynomialWithWarmupSchedulerHparams"
+                                }
+                            },
+                            "properties": {
+                                "polynomial_with_warmup": {
+                                    "$ref": "#/$defs/PolynomialWithWarmupSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^step\\+": {
+                                    "$ref": "#/$defs/StepSchedulerHparams"
+                                }
+                            },
+                            "properties": {
+                                "step": {
+                                    "$ref": "#/$defs/StepSchedulerHparams"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    ]
+                },
+                {
+                    "items": {
+                        "anyOf": [
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^constant\\+": {
+                                        "$ref": "#/$defs/ConstantSchedulerHparams"
+                                    }
+                                },
+                                "properties": {
+                                    "constant": {
+                                        "$ref": "#/$defs/ConstantSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^constant_with_warmup\\+": {
+                                        "$ref": "#/$defs/ConstantWithWarmupSchedulerHparams"
+                                    }
+                                },
+                                "properties": {
+                                    "constant_with_warmup": {
+                                        "$ref": "#/$defs/ConstantWithWarmupSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^cosine_decay\\+": {
+                                        "$ref": "#/$defs/CosineAnnealingSchedulerHparams"
+                                    }
+                                },
+                                "properties": {
+                                    "cosine_decay": {
+                                        "$ref": "#/$defs/CosineAnnealingSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^cosine_decay_with_warmup\\+": {
+                                        "$ref": "#/$defs/CosineAnnealingWithWarmupSchedulerHparams"
+                                    }
+                                },
+                                "properties": {
+                                    "cosine_decay_with_warmup": {
+                                        "$ref": "#/$defs/CosineAnnealingWithWarmupSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^cosine_warmrestart\\+": {
+                                        "$ref": "#/$defs/CosineAnnealingWarmRestartsSchedulerHparams"
+                                    }
+                                },
+                                "properties": {
+                                    "cosine_warmrestart": {
+                                        "$ref": "#/$defs/CosineAnnealingWarmRestartsSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^exponential\\+": {
+                                        "$ref": "#/$defs/ExponentialSchedulerHparams"
+                                    }
+                                },
+                                "properties": {
+                                    "exponential": {
+                                        "$ref": "#/$defs/ExponentialSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^linear_decay\\+": {
+                                        "$ref": "#/$defs/LinearSchedulerHparams"
+                                    }
+                                },
+                                "properties": {
+                                    "linear_decay": {
+                                        "$ref": "#/$defs/LinearSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^linear_decay_with_warmup\\+": {
+                                        "$ref": "#/$defs/LinearWithWarmupSchedulerHparams"
+                                    }
+                                },
+                                "properties": {
+                                    "linear_decay_with_warmup": {
+                                        "$ref": "#/$defs/LinearWithWarmupSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^multistep\\+": {
+                                        "$ref": "#/$defs/MultiStepSchedulerHparams"
+                                    }
+                                },
+                                "properties": {
+                                    "multistep": {
+                                        "$ref": "#/$defs/MultiStepSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^multistep_with_warmup\\+": {
+                                        "$ref": "#/$defs/MultiStepWithWarmupSchedulerHparams"
+                                    }
+                                },
+                                "properties": {
+                                    "multistep_with_warmup": {
+                                        "$ref": "#/$defs/MultiStepWithWarmupSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^polynomial\\+": {
+                                        "$ref": "#/$defs/PolynomialSchedulerHparams"
+                                    }
+                                },
+                                "properties": {
+                                    "polynomial": {
+                                        "$ref": "#/$defs/PolynomialSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^polynomial_with_warmup\\+": {
+                                        "$ref": "#/$defs/PolynomialWithWarmupSchedulerHparams"
+                                    }
+                                },
+                                "properties": {
+                                    "polynomial_with_warmup": {
+                                        "$ref": "#/$defs/PolynomialWithWarmupSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "patternProperties": {
+                                    "^step\\+": {
+                                        "$ref": "#/$defs/StepSchedulerHparams"
+                                    }
+                                },
+                                "properties": {
+                                    "step": {
+                                        "$ref": "#/$defs/StepSchedulerHparams"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        ]
+                    },
+                    "type": "array"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "step_schedulers_every_batch": {
+            "description": "See :class:`.Trainer`.",
+            "oneOf": [
+                {
+                    "type": "boolean"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "train_batch_size": {
+            "description": "batch size for each optimization step, across all devices and gradient accumulations.",
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "train_dataloader_label": {
+            "description": "See :class:`.Trainer`.",
+            "type": "string"
+        },
+        "train_dataset": {
+            "description": "Train dataset",
+            "oneOf": [
+                {
+                    "anyOf": [
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^ade20k\\+": {
+                                    "$ref": "#/$defs/ADE20kDatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "ade20k": {
+                                    "$ref": "#/$defs/ADE20kDatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^brats\\+": {
+                                    "$ref": "#/$defs/BratsDatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "brats": {
+                                    "$ref": "#/$defs/BratsDatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^c4\\+": {
+                                    "$ref": "#/$defs/C4DatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "c4": {
+                                    "$ref": "#/$defs/C4DatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^cifar10\\+": {
+                                    "$ref": "#/$defs/CIFAR10DatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "cifar10": {
+                                    "$ref": "#/$defs/CIFAR10DatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^coco\\+": {
+                                    "$ref": "#/$defs/COCODatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "coco": {
+                                    "$ref": "#/$defs/COCODatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^glue\\+": {
+                                    "$ref": "#/$defs/GLUEHparams"
+                                }
+                            },
+                            "properties": {
+                                "glue": {
+                                    "$ref": "#/$defs/GLUEHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^imagenet\\+": {
+                                    "$ref": "#/$defs/ImagenetDatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "imagenet": {
+                                    "$ref": "#/$defs/ImagenetDatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^lm\\+": {
+                                    "$ref": "#/$defs/LMDatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "lm": {
+                                    "$ref": "#/$defs/LMDatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^mnist\\+": {
+                                    "$ref": "#/$defs/MNISTDatasetHparams"
+                                }
+                            },
+                            "properties": {
+                                "mnist": {
+                                    "$ref": "#/$defs/MNISTDatasetHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^streaming_ade20k\\+": {
+                                    "$ref": "#/$defs/StreamingADE20kHparams"
+                                }
+                            },
+                            "properties": {
+                                "streaming_ade20k": {
+                                    "$ref": "#/$defs/StreamingADE20kHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^streaming_c4\\+": {
+                                    "$ref": "#/$defs/StreamingC4Hparams"
+                                }
+                            },
+                            "properties": {
+                                "streaming_c4": {
+                                    "$ref": "#/$defs/StreamingC4Hparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^streaming_cifar10\\+": {
+                                    "$ref": "#/$defs/StreamingCIFAR10Hparams"
+                                }
+                            },
+                            "properties": {
+                                "streaming_cifar10": {
+                                    "$ref": "#/$defs/StreamingCIFAR10Hparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^streaming_coco\\+": {
+                                    "$ref": "#/$defs/StreamingCOCOHparams"
+                                }
+                            },
+                            "properties": {
+                                "streaming_coco": {
+                                    "$ref": "#/$defs/StreamingCOCOHparams"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "patternProperties": {
+                                "^streaming_imagenet1k\\+": {
+                                    "$ref": "#/$defs/StreamingImageNet1kHparams"
+                                }
+                            },
+                            "properties": {
+                                "streaming_imagenet1k": {
+                                    "$ref": "#/$defs/StreamingImageNet1kHparams"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    ]
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "train_subset_num_batches": {
+            "description": "See :class:`.Trainer`.",
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        }
+    },
+    "required": [
+        "train_dataset"
+    ],
+    "type": "object"
+}

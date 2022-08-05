@@ -1,0 +1,26 @@
+{
+    "additionalProperties": false,
+    "properties": {
+        "num_workers": {
+            "description": "Number of CPU workers to use per device to fetch data.\nSet to ``0`` to use the main training thread for dataloading.\nWhile zero workers can be useful for debugging, it should not be used for performance reasons.",
+            "type": "integer"
+        },
+        "persistent_workers": {
+            "description": "Whether to reuse dataloader workers across epochs. If ``num_workers`` is 0,\n   then this field must be ``False``",
+            "type": "boolean"
+        },
+        "pin_memory": {
+            "description": "Whether or not to copy Tensors into CUDA pinned memory before returning them.\nIf ``num_workers = 0``, then the ``pin_memory`` must be ``False``.",
+            "type": "boolean"
+        },
+        "prefetch_factor": {
+            "description": "Number of samples loaded in advance by each worker.\nFor example, 2 means there will be a total of 2 * num_workers samples prefetched across all workers.\nIf ``num_workers = 0``, then the ``prefetch_factor`` must be left at the default value.",
+            "type": "integer"
+        },
+        "timeout": {
+            "description": "Timeout, in seconds, for collecting a batch from workers. Set to ``0`` for no timeout.",
+            "type": "number"
+        }
+    },
+    "type": "object"
+}

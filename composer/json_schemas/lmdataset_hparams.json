@@ -1,0 +1,112 @@
+{
+    "$defs": {
+        "MemoryFormat": {
+            "oneOf": [
+                {
+                    "pattern": "(?i)^CHANNELS_LAST$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^CHANNELS_LAST_3D$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^CONTIGUOUS_FORMAT$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^PRESERVE_FORMAT$",
+                    "type": "string"
+                }
+            ]
+        }
+    },
+    "additionalProperties": false,
+    "properties": {
+        "datadir": {
+            "description": "Path to the Huggingface Datasets directory.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            ]
+        },
+        "drop_last": {
+            "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
+            "type": "boolean"
+        },
+        "max_seq_length": {
+            "description": "Optionally, the ability to set a custom sequence length for the training dataset.",
+            "type": "integer"
+        },
+        "mlm_probability": {
+            "description": "If using masked language modeling, the probability to mask tokens with.",
+            "type": "number"
+        },
+        "num_tokens": {
+            "description": "If desired, the number of tokens to truncate the dataset to.",
+            "type": "integer"
+        },
+        "seed": {
+            "description": "Which seed to use to generate train and validation splits.",
+            "type": "integer"
+        },
+        "shuffle": {
+            "description": "Whether to shuffle the dataset for each epoch. Defaults to True.",
+            "type": "boolean"
+        },
+        "split": {
+            "description": "Whether to use 'train', 'validation' or 'test' split.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "subsample_ratio": {
+            "description": "If desired, the percentage of the dataset to use.",
+            "type": "number"
+        },
+        "synthetic_device": {
+            "description": "Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`.",
+            "type": "string"
+        },
+        "synthetic_memory_format": {
+            "$ref": "#/$defs/MemoryFormat",
+            "description": "Memory format. Defaults to contiguous format."
+        },
+        "synthetic_num_unique_samples": {
+            "description": "The number of unique samples to allocate memory for.",
+            "type": "integer"
+        },
+        "tokenizer_name": {
+            "description": "The name of the tokenizer to preprocess text with.",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "use_masked_lm": {
+            "description": "Whether the dataset should be encoded with masked language modeling or not.",
+            "type": "boolean"
+        },
+        "use_synthetic": {
+            "description": "Whether to use synthetic data. Defaults to False.",
+            "type": "boolean"
+        }
+    },
+    "type": "object"
+}

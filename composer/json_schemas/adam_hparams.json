@@ -1,0 +1,36 @@
+{
+    "additionalProperties": false,
+    "properties": {
+        "amsgrad": {
+            "description": "whether to use the AMSGrad variant of this\nalgorithm from the paper `On the Convergence of Adam and Beyond`_\n(default: False)",
+            "type": "boolean"
+        },
+        "betas": {
+            "description": "coefficients used for computing\nrunning averages of gradient and its square (default: (0.9, 0.999))",
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "items": {
+                        "type": "number"
+                    },
+                    "type": "array"
+                }
+            ]
+        },
+        "eps": {
+            "description": "term added to the denominator to improve\nnumerical stability (default: 1e-8)",
+            "type": "number"
+        },
+        "lr": {
+            "description": "learning rate (default: 1e-3)",
+            "type": "number"
+        },
+        "weight_decay": {
+            "description": "weight decay (L2 penalty) (default: 0)",
+            "type": "number"
+        }
+    },
+    "type": "object"
+}

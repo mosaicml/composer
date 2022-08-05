@@ -1,0 +1,97 @@
+{
+    "$defs": {
+        "Initializer": {
+            "oneOf": [
+                {
+                    "pattern": "(?i)^BN_ONES$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^BN_UNIFORM$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^KAIMING_NORMAL$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^KAIMING_UNIFORM$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^LINEAR_LOG_CONSTANT_BIAS$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^XAVIER_NORMAL$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^XAVIER_UNIFORM$",
+                    "type": "string"
+                }
+            ]
+        }
+    },
+    "additionalProperties": false,
+    "properties": {
+        "backbone_arch": {
+            "description": "The backbone architecture to use. Must be either ['resnet50', resnet101'].",
+            "type": "string"
+        },
+        "backbone_url": {
+            "description": "Url to download model weights from. If blank (default), will download from PyTorch's url.",
+            "type": "string"
+        },
+        "cross_entropy_weight": {
+            "description": "Weight to scale the cross entropy loss.",
+            "type": "number"
+        },
+        "dice_weight": {
+            "description": "Weight to scale the dice loss.",
+            "type": "number"
+        },
+        "ignore_index": {
+            "description": "Class label to ignore when calculating the loss and other metrics.",
+            "type": "integer"
+        },
+        "initializers": {
+            "description": "The initialization strategy for the model",
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/Initializer"
+                },
+                {
+                    "items": {
+                        "$ref": "#/$defs/Initializer"
+                    },
+                    "type": "array"
+                }
+            ]
+        },
+        "is_backbone_pretrained": {
+            "description": "If true, use pre-trained weights for backbone.",
+            "type": "boolean"
+        },
+        "num_classes": {
+            "description": "The number of classes.  Needed for classification tasks",
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "sync_bn": {
+            "description": "If true, use SyncBatchNorm to sync batch norm statistics across GPUs.",
+            "type": "boolean"
+        },
+        "use_plus": {
+            "description": "If true (default), use DeepLabv3+ head instead of DeepLabv3.",
+            "type": "boolean"
+        }
+    },
+    "type": "object"
+}

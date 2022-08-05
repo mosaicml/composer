@@ -1,0 +1,29 @@
+{
+    "additionalProperties": false,
+    "properties": {
+        "datadir": {
+            "description": "The path to the data directory",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "drop_last": {
+            "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
+            "type": "boolean"
+        },
+        "is_train": {
+            "description": "Whether to load the training data (the default) or validation data.",
+            "type": "boolean"
+        },
+        "shuffle": {
+            "description": "Whether to shuffle the dataset for each epoch. Defaults to True.",
+            "type": "boolean"
+        }
+    },
+    "type": "object"
+}

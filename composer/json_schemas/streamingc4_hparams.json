@@ -1,0 +1,54 @@
+{
+    "additionalProperties": false,
+    "properties": {
+        "drop_last": {
+            "description": "If the number of samples is not divisible by the batch size,\nwhether to drop the last batch (the default) or pad the last batch with zeros.",
+            "type": "boolean"
+        },
+        "group_method": {
+            "description": "How to group text samples into token samples. Currently only `truncate` is supported.",
+            "type": "string"
+        },
+        "local": {
+            "description": "Local filesystem directory where dataset is cached during operation",
+            "type": "string"
+        },
+        "max_retries": {
+            "description": "Number of download re-attempts before giving up.",
+            "type": "integer"
+        },
+        "max_seq_len": {
+            "description": "The max sequence length of each token sample.",
+            "type": "integer"
+        },
+        "mlm": {
+            "description": "Whether or not to use masked language modeling.",
+            "type": "boolean"
+        },
+        "mlm_probability": {
+            "description": "If `mlm==True`, the probability that tokens are masked.",
+            "type": "number"
+        },
+        "remote": {
+            "description": "Remote directory (S3 or local filesystem) where dataset is stored",
+            "type": "string"
+        },
+        "shuffle": {
+            "description": "Whether to shuffle the dataset for each epoch. Defaults to True.",
+            "type": "boolean"
+        },
+        "split": {
+            "description": "What split of the dataset to use. Either `train` or `val`.",
+            "type": "string"
+        },
+        "timeout": {
+            "description": "How long to wait for shard to download before raising an exception.",
+            "type": "number"
+        },
+        "tokenizer_name": {
+            "description": "The name of the HuggingFace tokenizer to preprocess text with.",
+            "type": "string"
+        }
+    },
+    "type": "object"
+}

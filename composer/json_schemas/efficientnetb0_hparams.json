@@ -1,0 +1,69 @@
+{
+    "$defs": {
+        "Initializer": {
+            "oneOf": [
+                {
+                    "pattern": "(?i)^BN_ONES$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^BN_UNIFORM$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^KAIMING_NORMAL$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^KAIMING_UNIFORM$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^LINEAR_LOG_CONSTANT_BIAS$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^XAVIER_NORMAL$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "(?i)^XAVIER_UNIFORM$",
+                    "type": "string"
+                }
+            ]
+        }
+    },
+    "additionalProperties": false,
+    "properties": {
+        "drop_connect_rate": {
+            "description": "Probability of dropping a sample within a block before identity connection.",
+            "type": "number"
+        },
+        "initializers": {
+            "description": "The initialization strategy for the model",
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/Initializer"
+                },
+                {
+                    "items": {
+                        "$ref": "#/$defs/Initializer"
+                    },
+                    "type": "array"
+                }
+            ]
+        },
+        "num_classes": {
+            "description": "The number of classes.  Needed for classification tasks",
+            "oneOf": [
+                {
+                    "type": "integer"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        }
+    },
+    "type": "object"
+}
