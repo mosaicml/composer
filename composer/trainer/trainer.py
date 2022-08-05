@@ -1580,7 +1580,7 @@ class Trainer:
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {int(self.state.timestamp.epoch)}')
 
-            if not finished_epoch_early or self.state.dataloader_len == self.state.timestamp.batch_in_epoch:
+            if finished_epoch_early or self.state.dataloader_len == self.state.timestamp.batch_in_epoch:
                 # Trigger the epoch end events if the dataloader was exhausted.
                 # This happens if the "break" did not trigger above, or if it
                 # did (e.g. duration specified in samples/batches/tokens), but it is still
