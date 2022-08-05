@@ -6,7 +6,6 @@
 # Running these checks through pytest allows us to report any errors in Junit format,
 # which is posted directly on the PR
 
-import json
 import os
 import pathlib
 import shutil
