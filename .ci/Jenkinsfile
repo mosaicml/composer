@@ -500,27 +500,7 @@ spec:
 
                         String mergedCoverageFile = "$buildOutputFolder/merged.coverage.xml"
 
-                        sh """#!/usr/bin/env bash
-set -exuo pipefail
-
-set +e
-
-cp ${buildOutputFolder}/.coverage* ./
-ls -al .coverage*
-EXIT_CODE="\$?"
-set -e
-if [[ "\$EXIT_CODE" != 0 ]]; then
-    echo "No coverage files found"
-else
-    pip install 'coverage[toml]==6.4.2'
-
-    python -m coverage combine .coverage*
-
-    python -m coverage xml -o ${mergedCoverageFile}
-
-    mv .coverage ${buildOutputFolder}/.coverage
-fi
-"""
+                        sh "./ci/merge_coverage_reports.sh $buildOutputFolder $mergedCoverageFile"
                         archiveArtifacts(artifacts: artifactsGlob, fingerprint: true, allowEmptyArchive: true)
                         junit(allowEmptyResults: true, testResults: junitGlob, checksName: 'Tests', keepLongStdio: true)
                         publishCoverage(
