@@ -57,12 +57,13 @@ gitCredentialsId = '9cf9add1-2cdd-414b-8160-94bd4ac4a13d' // Jenkins credential 
 wandbCredentialsId = 'e6fbcd33-e739-483f-a4a9-9b6815572c8b'
 awsCredentialsId = 'd931e1a8-f356-42f4-bc4d-bc8582c3bf9e'
 sshCredentialsId = 'f71fda19-c867-4e7b-b6e8-3894e8288076'
+nodeSelector = 'mosaicml.com/instance-size=mosaic.a100-40sxm.1'
 
 // Artifact setting
 buildOutputFolder = 'build/output' // Folder where build artifacts are stored
 artifactsGlob = "$buildOutputFolder/**" // Files matching this glob will be archived by Jenkins
-junitGlob = "$buildOutputFolder/*.junit.xml" // Files matching this glob will be presented Junit test reports
-coverageGlob = "$buildOutputFolder/*.coverage.xml" // Files matching this glob will be presented Junit coverage reports
+junitGlob = "$buildOutputFolder/*.junit.xml" // Files matching this glob will be in Junit test reports
+coverageGlob = "$buildOutputFolder/*.coverage.xml" // Files matching this glob will be in coverage reports
 
 // Spawned builds
 builds = [] // List of spawned sub-jobs
@@ -445,26 +446,70 @@ stage('Build') {
     }
     finally {
         stage('Merge Artifacts') {
-            node(pCloud) {
-                checkout scm  // checking out the SCM so the coverage report can load the source
-                builds.each { item ->
-                    copyArtifacts(
-                        projectName: item.fullProjectName,
-                        selector: specific("${item.number}"),
-                        fingerprintArtifacts: true,
-                        optional: true,
-                    )
+            String yaml = """
+apiVersion: v1
+kind: Pod
+spec:
+    volumes:
+      - emptyDir:
+            medium: Memory
+        name: dshm
+    containers:
+      - name: pod
+        image: ${lintImage}
+        imagePullPolicy: Always
+        command: ["sleep"]
+        args: [${pLintTimeout}]
+        volumeMounts:
+          - mountPath: /dev/shm
+            name: dshm
+        resources:
+            requests:
+                cpu: ${lintCpuLimit}
+                ephemeral-storage: ${lintMemLimit}
+                memory: ${lintMemLimit}
+            limits:
+                cpu: ${lintCpuLimit}
+                ephemeral-storage: ${lintMemLimit}
+                memory: ${lintMemLimit}
+"""
+            def podArgs = [
+                cloud: pCloud,
+                inheritFrom: pCloud,
+                label: env.BUILD_TAG,
+                yaml: yaml,
+                nodeSelector: nodeSelector,
+            ]
+            echo "pod args: $podArgs"
+            podTemplate(podArgs) {
+                node(env.BUILD_TAG) {
+                    container('pod') {
+                        checkout scm  // checking out the SCM so the coverage report can load the source
+
+
+                        builds.each { item ->
+                            copyArtifacts(
+                                projectName: item.fullProjectName,
+                                selector: specific("${item.number}"),
+                                fingerprintArtifacts: true,
+                                optional: true,
+                            )
+                        }
+
+                        sh "mkdir -p $buildOutputFolder"
+
+                        String mergedCoverageFile = "$buildOutputFolder/merged.coverage.xml"
+
+                        sh "./.ci/merge_coverage_reports.sh $buildOutputFolder $mergedCoverageFile"
+                        archiveArtifacts(artifacts: artifactsGlob, fingerprint: true, allowEmptyArchive: true)
+                        junit(allowEmptyResults: true, testResults: junitGlob, checksName: 'Tests', keepLongStdio: true)
+                        publishCoverage(
+                            adapters: [istanbulCoberturaAdapter(path: mergedCoverageFile, mergeToOneReport: true)],
+                            calculateDiffForChangeRequests: true,
+                            sourceFileResolver: sourceFiles('STORE_LAST_BUILD'),
+                        )
+                    }
                 }
-
-                sh "mkdir -p $buildOutputFolder"
-
-                archiveArtifacts(artifacts: artifactsGlob, fingerprint: true, allowEmptyArchive: true)
-                junit(allowEmptyResults: true, testResults: junitGlob, checksName: 'Tests', keepLongStdio: true)
-                publishCoverage(
-                    adapters: [cobertura(path: coverageGlob, mergeToOneReport: true)],
-                    calculateDiffForChangeRequests: true,
-                    sourceFileResolver: [level: 'STORE_LAST_BUILD']
-                )
             }
         }
     }
