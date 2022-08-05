@@ -27,8 +27,12 @@ class PerformanceAnalyzerTraceHandler(TraceHandler):
         self.dataloader_wait_times: Dict[int, Any] = {}
         self.batch_wait_times: Dict[int, Any] = {}
         self.last_start_time = None
-        # Dataloader is bottlenecked if yield takes more than 0.1% of batch compute time
-        self.DATALOADER_YIELD_THRESHOLD = 0.001
+        # Dataloader is bottlenecked if yield takes more than 1% of batch compute time and at least
+        # 1 millisecond. We use a percentage threshold as the primary metric users care about, but
+        # we also need to put a floor millisecond threshold to account for python overhead in
+        # yielding a batch, which could potentially exceed 1% for very small models.
+        self.DATALOADER_PERCENTAGE_THRESHOLD = 0.01
+        self.DATALOADER_TIME_THRESHOLD = 1.0e6  # 1 millisecond or 1e6 nanoseconds
 
     def reset_wait_times(self, state: State, logger: Logger) -> None:
         """Reset wait times if algorithms have changed in response to bottleneck.
@@ -103,5 +107,8 @@ class PerformanceAnalyzerTraceHandler(TraceHandler):
 
     def is_dataloader_bottlenecked(self) -> bool:
         """Bottlenecked if batch yield time is more than 0.1% of batch compute time with >=10 datapoints."""
-        return len(self.dataloader_wait_times) >= MINIMUM_DATAPOINTS_NEEDED and self._average_dataloader_wait_time(
-        ) > self._average_batch_wait_time() * self.DATALOADER_YIELD_THRESHOLD
+        dataloader_time = self._average_dataloader_wait_time()
+        batch_time = self._average_batch_wait_time()
+        return len(
+            self.dataloader_wait_times
+        ) >= MINIMUM_DATAPOINTS_NEEDED and dataloader_time > batch_time * self.DATALOADER_PERCENTAGE_THRESHOLD and dataloader_time > self.DATALOADER_TIME_THRESHOLD
