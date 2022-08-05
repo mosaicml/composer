@@ -24,8 +24,10 @@ model:
   yolox:
     model_name: "yolox-s"
 max_duration: 300ep
-train_batch_size: 16
-eval_batch_size: 16
+precision: fp32
+train_batch_size: 64
+eval_batch_size: 64
+eval_interval: 10ep
 grad_accum: 1
 seed: 1337
 dataloader:
