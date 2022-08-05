@@ -79,11 +79,12 @@ install_requires = [
     'torch_optimizer>=0.1.0,<0.2',
     'torchvision>=0.10.0',  # torchvision has strict pytorch requirements
     'torch>=1.10,<2',
-    'yahp>=0.1.1,<0.2',
+    'yahp>=0.1.3,<0.2',
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<1.23.0',
     'psutil>=5.8.0,<6',
     'coolname>=1.1.0,<2',
+    'tabulate==0.8.9',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<9',
     'packaging>=21.3.0,<22',
     'importlib-metadata>=4.11.0,<5',
@@ -119,7 +120,6 @@ extra_deps['dev'] = [
     'sphinxemoji==0.2.0',
     'furo==2022.3.4',
     'sphinx-copybutton==0.5.0',
-    'tabulate==0.8.9',  # for auto-generating tables
     'testbook==0.4.2',
     'myst-parser==0.16.1',
     'sphinx_panels==0.6.0',
