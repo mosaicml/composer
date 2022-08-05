@@ -1,49 +1,49 @@
 algorithms:
-  blurpool:
-    blur_first: true
-    min_channels: 16
-    replace_convs: true
-    replace_maxpools: true
-  channels_last: {}
-  colout:
-    batch: true
-    p_col: 0.05
-    p_row: 0.05
-    resize_target: auto
-  ema:
-    half_life: 100ba
-    train_with_ema_weights: false
-    update_interval: 20ba
-  label_smoothing:
-    smoothing: 0.13
-  mixup:
-    alpha: 0.25
-    interpolate_loss: false
-  progressive_resizing:
-    delay_fraction: 0.2
-    finetune_fraction: 0.2
-    initial_scale: 0.6
-    mode: resize
-    resize_targets: false
-    size_increment: 4
-  randaugment:
-    augmentation_set: all
-    depth: 1
-    severity: 10
-  sam:
-    epsilon: 1.0e-12
-    interval: 5
-    rho: 0.5
-  stochastic_depth:
-    drop_distribution: linear
-    drop_rate: 0.1
-    drop_warmup: 0.0dur
-    stochastic_method: sample
-    target_layer_name: ResNetBottleneck
+  - blurpool:
+      blur_first: true
+      min_channels: 16
+      replace_convs: true
+      replace_maxpools: true
+  - channels_last: {}
+  - colout:
+      batch: true
+      p_col: 0.05
+      p_row: 0.05
+      resize_target: auto
+  - ema:
+      half_life: 100ba
+      train_with_ema_weights: false
+      update_interval: 20ba
+  - label_smoothing:
+      smoothing: 0.13
+  - mixup:
+      alpha: 0.25
+      interpolate_loss: false
+  - progressive_resizing:
+      delay_fraction: 0.2
+      finetune_fraction: 0.2
+      initial_scale: 0.6
+      mode: resize
+      resize_targets: false
+      size_increment: 4
+  - randaugment:
+      augmentation_set: all
+      depth: 1
+      severity: 10
+  - sam:
+      epsilon: 1.0e-12
+      interval: 5
+      rho: 0.5
+  - stochastic_depth:
+      drop_distribution: linear
+      drop_rate: 0.1
+      drop_warmup: 0.0dur
+      stochastic_method: sample
+      target_layer_name: ResNetBottleneck
 callbacks:
-  lr_monitor: {}
-  speed_monitor:
-    window_size: 100
+  - lr_monitor: {}
+  - speed_monitor:
+      window_size: 100
 dataloader:
   num_workers: 8
   persistent_workers: true
@@ -54,9 +54,9 @@ device:
   gpu: {}
 eval_batch_size: 2048
 loggers:
-  progress_bar:
-    console_log_level: EPOCH
-    stream: stderr
+  - progress_bar:
+      console_log_level: EPOCH
+      stream: stderr
 model:
   resnet:
     groups: 1

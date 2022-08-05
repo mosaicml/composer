@@ -536,7 +536,7 @@ class Trainer:
                 instance(s) of :class:`~.CheckpointSaver` directly as ``callbacks``.
         save_filename (str, optional): A format string describing how to name checkpoints.
             This parameter has no effect if ``save_folder`` is ``None``.
-            (default: ``"ep{epoch}-ba{batch}-rank{rank}"``)
+            (default: ``"ep{epoch}-ba{batch}-rank{rank}.pt"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
         save_artifact_name (str, optional): A format string describing how to name checkpoints in loggers.
@@ -547,7 +547,7 @@ class Trainer:
         save_latest_filename (str, optional): A format string for the name of a symlink
             (relative to ``save_folder``) that points to the last saved checkpoint.
             This parameter has no effect if ``save_folder`` is ``None``.
-            To disable symlinking, set this to ``None``. (default: ``"latest-rank{rank}"``)
+            To disable symlinking, set this to ``None``. (default: ``"latest-rank{rank}.pt"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
         save_latest_artifact_name (str, optional): A format string describing how to name symlinks in loggers.
@@ -708,9 +708,9 @@ class Trainer:
 
         # Save Checkpoint
         save_folder: Optional[str] = None,
-        save_filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
+        save_filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
         save_artifact_name: str = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
-        save_latest_filename: Optional[str] = 'latest-rank{rank}',
+        save_latest_filename: Optional[str] = 'latest-rank{rank}.pt',
         save_latest_artifact_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
