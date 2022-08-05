@@ -32,7 +32,7 @@ def composer_yolox(model_name: str, num_classes=80):
         train_cfg=dict(assigner=dict(type='SimOTAAssigner', center_radius=2.5)),
         # In order to align the source code, the threshold of the val phase is
         # 0.01, and the threshold of the test phase is 0.001.
-        test_cfg=dict(score_thr=0.01, nms=dict(type='nms', iou_threshold=0.65)))
+        test_cfg=dict(score_thr=0.01, nms=dict(type='nms', iou_threshold=0.65))) # yapf: disable
 
     if model_name == 'yolox-s':
         config = yolox_s_config
@@ -42,19 +42,19 @@ def composer_yolox(model_name: str, num_classes=80):
             backbone=dict(deepen_factor=0.67, widen_factor=0.75),
             neck=dict(in_channels=[192, 384, 768], out_channels=192, num_csp_blocks=2),
             bbox_head=dict(in_channels=192, feat_channels=192),
-        )
+        ) # yapf: disable
         config = yolox_s_config.update(yolox_m_config)
 
     elif model_name == 'yolox-l':
         yolox_l_config = dict(backbone=dict(deepen_factor=1.0, widen_factor=1.0),
                               neck=dict(in_channels=[256, 512, 1024], out_channels=256, num_csp_blocks=3),
-                              bbox_head=dict(in_channels=256, feat_channels=256))
+                              bbox_head=dict(in_channels=256, feat_channels=256)) # yapf: disable
         config = yolox_s_config.update(yolox_l_config)
 
     elif model_name == 'yolox-x':
         yolox_x_config = dict(backbone=dict(deepen_factor=1.33, widen_factor=1.25),
                               neck=dict(in_channels=[320, 640, 1280], out_channels=320, num_csp_blocks=4),
-                              bbox_head=dict(in_channels=320, feat_channels=320))
+                              bbox_head=dict(in_channels=320, feat_channels=320)) # yapf: disable
         config = yolox_s_config.update(yolox_x_config)
 
     else:
