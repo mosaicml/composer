@@ -34,7 +34,6 @@ def test_performance_analysis_trace_handler_with_small_model():
         profiler=profiler,
     )
 
-    # Train
     trainer.fit()
 
 
@@ -61,5 +60,6 @@ def test_performance_analysis_trace_handler_with_dataloader_bottleneck():
         profiler=profiler,
     )
 
-    # Train
-    trainer.fit()
+    # Expect a UserWarning indicating we've encountered a dataloader bottleneck
+    with pytest.warns(UserWarning):
+        trainer.fit()
