@@ -560,14 +560,17 @@ def test_checkpoint_with_object_store_logger(
 @pytest.mark.parametrize(
     'seed,save_interval,save_filename,resume_file,final_checkpoint',
     [
-        [None, '1ep', 'ep{epoch}-rank{rank}', 'ep1-rank{rank}', 'latest-rank{rank}'
+        [None, '1ep', 'ep{epoch}-rank{rank}.pt', 'ep1-rank{rank}.pt', 'latest-rank{rank}.pt'
         ],  # test randomized seed saving and symlinking
-        [42, '1ep', 'ep{epoch}-rank{rank}', 'ep1-rank{rank}', 'ep2-rank{rank}'],  # test save at epoch end
+        [42, '1ep', 'ep{epoch}-rank{rank}.pt', 'ep1-rank{rank}.pt', 'ep2-rank{rank}.pt'],  # test save at epoch end
         [42, '1ep', 'ep{epoch}-rank{rank}.tgz', 'ep1-rank{rank}.tgz', 'ep2-rank{rank}.tgz'
         ],  # test tarball with compression
-        [42, '2ba', 'ba{batch}-rank{rank}', 'ba4-rank{rank}', 'ba8-rank{rank}'],  # test save batch in partial epoch
-        [42, '1ba', 'ba{batch}-rank{rank}', 'ba5-rank{rank}', 'ba8-rank{rank}'],  # test save batch at epoch end
-        [42, '2ba', 'ba{batch}-rank{rank}', 'ba6-rank{rank}', 'ba8-rank{rank}'],  # test save batch after complete epoch
+        [42, '2ba', 'ba{batch}-rank{rank}.pt', 'ba4-rank{rank}.pt', 'ba8-rank{rank}.pt'
+        ],  # test save batch in partial epoch
+        [42, '1ba', 'ba{batch}-rank{rank}.pt', 'ba5-rank{rank}.pt', 'ba8-rank{rank}.pt'
+        ],  # test save batch at epoch end
+        [42, '2ba', 'ba{batch}-rank{rank}.pt', 'ba6-rank{rank}.pt', 'ba8-rank{rank}.pt'
+        ],  # test save batch after complete epoch
     ],
 )
 @pytest.mark.parametrize('model_name', [
