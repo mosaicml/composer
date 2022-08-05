@@ -115,6 +115,7 @@ filterwarnings = [
 [tool.coverage.run]
 parallel = true
 branch = true
+relative_files = true
 concurrency = ["thread"]
 include = [
     "composer/*"
