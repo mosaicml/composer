@@ -12,10 +12,10 @@ __all__ = ['cyclic_schedule']
 
 
 def cyclic_schedule(
-    skip_first: int = 0,
+    skip_first: int = 1,
     wait: int = 0,
     warmup: int = 1,
-    active: int = 4,
+    active: int = 50,
     repeat: int = 1,
 ) -> Callable[[State], ProfilerAction]:
     """Profiler schedule function for a cyclic profiling window.
@@ -29,12 +29,12 @@ def cyclic_schedule(
     This logic repeats every epoch.
 
     Args:
-        skip_first (int, optional): Number of batches to skip profiling at epoch start.  Defaults to ``0``.
+        skip_first (int, optional): Number of batches to skip profiling at epoch start.  Defaults to ``1``.
         wait (int, optional): For each profiling cycle, number of batches to skip at the beginning of the cycle.
             Defaults to ``0``.
         warmup (int, optional): For each profiling cycle, number of batches to be in the warmup state after skipping
             ``wait`` batches. Defaults to ``1``.
-        active (int, optional): For each profiling cycle, number of batches to record after warming up.  Defaults to ``4``.
+        active (int, optional): For each profiling cycle, number of batches to record after warming up.  Defaults to ``50``.
         repeat (int, optional): Number of profiling cycles to perform per epoch. Set to ``0`` to record the entire epoch.
             Defaults to ``1``.
 

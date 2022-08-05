@@ -31,13 +31,17 @@ class PerformanceAnalyzerTraceHandler(TraceHandler):
         self.DATALOADER_YIELD_THRESHOLD = 0.001
 
     def reset_wait_times(self, state: State, logger: Logger) -> None:
-        """Reset wait times for new epoch as we might have changed algorithms in response to bottleneck.
+        """Reset wait times if algorithms have changed in response to bottleneck.
 
-        This function should be called to reset the trace handelr if we've made changes to the training
-        loop which may change dataloader bottlenecked status.
+        This function should be called to reset the trace handler if any changes have been made to the
+        training loop which may change dataloader bottlenecked status.
         """
+        del state, logger
         self.dataloader_wait_times = {}
         self.batch_wait_times = {}
+
+    def epoch_start(self, state: State, logger: Logger) -> None:
+        self.reset_wait_times(state, logger)
 
     def _record_wait_time(
         self,
@@ -74,11 +78,12 @@ class PerformanceAnalyzerTraceHandler(TraceHandler):
             if not is_start and action == ProfilerAction.ACTIVE_AND_SAVE and self.is_dataloader_bottlenecked():
                 dataloader_time = self._average_dataloader_wait_time()
                 batch_time = self._average_batch_wait_time()
+                # Log percentage overhead and additional time in milliseconds
                 percentage = format(dataloader_time / batch_time * 100, '.2f')
-                additional_latency = format(dataloader_time / 1e9, '.3f')
-                warnings.warn(
-                    f'The current training run is dataloader bottlenecked. The dataloader takes {percentage}% more time to compute a batch, adding {additional_latency}s per batch for dataloader.'
-                )
+                additional_latency = format(dataloader_time / 1e6, '.3f')
+                warnings.warn(f'The current training run is dataloader bottlenecked, adding {additional_latency}ms and '
+                              f'increasing batch time by {percentage}%. This warning may be spurious or noisy if the '
+                              '`active` period of the profiler schedule is too small.')
 
     def _average_batch_wait_time(self) -> float:
         return self._pruned_mean(list(self.batch_wait_times.values()))
