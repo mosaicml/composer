@@ -10,7 +10,7 @@ from functools import partial
 
 import pytest
 import torch
-from torch.nn import Module
+import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from composer.core import State
@@ -124,7 +124,7 @@ def test_export_for_inference_onnx_ddp(model_cls, sample_input):
     if dist.get_local_rank() == 0:
         with tempfile.TemporaryDirectory() as tempdir:
             save_path = os.path.join(str(tempdir), f'model.{save_format}')
-            assert isinstance(state.model.module, Module)
+            assert isinstance(state.model.module, nn.Module)
             export_for_inference(model=state.model.module,
                                  save_format=save_format,
                                  save_path=save_path,
@@ -180,7 +180,7 @@ def test_export_for_inference_torchscript_ddp(model_cls, sample_input):
     if dist.get_local_rank() == 0:
         with tempfile.TemporaryDirectory() as tempdir:
             save_path = os.path.join(str(tempdir), f'model.pt')
-            assert isinstance(state.model.module, Module)
+            assert isinstance(state.model.module, nn.Module)
             export_for_inference(model=state.model.module, save_format=save_format, save_path=save_path)
 
             loaded_model = torch.jit.load(save_path)
