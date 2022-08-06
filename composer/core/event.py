@@ -207,6 +207,16 @@ class Event(StringEnum):
         name = name.replace('_end', '')
         return name
 
+    @property
+    def is_predict(self) -> bool:
+        """Whether the event is during the predict loop."""
+        return self.value.startswith('predict')
+
+    @property
+    def is_eval(self) -> bool:
+        """Whether the event is during the eval loop."""
+        return self.value.startswith('eval')
+
 
 _BEFORE_EVENTS = (Event.FIT_START, Event.EPOCH_START, Event.BATCH_START, Event.BEFORE_TRAIN_BATCH, Event.BEFORE_FORWARD,
                   Event.BEFORE_LOSS, Event.BEFORE_BACKWARD, Event.EVAL_START, Event.EVAL_BATCH_START,
