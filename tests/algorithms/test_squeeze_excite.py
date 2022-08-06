@@ -52,7 +52,7 @@ def test_se_logging(state: State, empty_logger: Logger):
     conv_count = module_surgery.count_module_instances(state.model, torch.nn.Conv2d)
 
     logger_mock.log_hyperparameters.assert_called_once_with({
-        'squeeze_excite/num_squeeze_excite_layers': conv_count,
+        'algorithm_hparams/squeeze_excite/num_squeeze_excite_layers': conv_count,
     })
 
 

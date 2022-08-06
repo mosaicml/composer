@@ -133,5 +133,5 @@ def test_algorithm_logging(state, algo_instance):
     logger_mock = Mock()
     algo_instance.apply(Event.INIT, state, logger_mock)
     logger_mock.log_hyperparameters.assert_called_once_with({
-        'GhostBatchNorm/num_new_modules': 1,
+        'algorithm_hparams/GhostBatchNorm/num_new_modules': 1,
     })
