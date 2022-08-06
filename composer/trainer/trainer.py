@@ -1518,13 +1518,10 @@ class Trainer:
                         self.state.scaler.update()
 
                     if total_loss is not None:
-                        if not isinstance(total_loss, torch.Tensor):
-                            total_loss = self._device.tensor_to_device(torch.tensor([total_loss]))
-
                         # total_loss can be None if gradient scaling failed
-                        dist.all_reduce(total_loss, reduce_operation='SUM')
-                        full_loss = total_loss.cpu().item()
-                        self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
+                        map_collection(total_loss, dist.all_reduce)
+                        total_loss = map_collection(total_loss, lambda loss: loss.cpu().item() / dist.get_world_size())
+                        self.logger.data_batch(total_loss)
 
                     # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
                     # next batch's wall clock time. The time accumulation must be done here so schedulers
@@ -1746,7 +1743,7 @@ class Trainer:
                     optimizer.zero_grad()
 
             # tracker for gradient accumulation
-            total_loss = self._device.tensor_to_device(torch.zeros(size=(1,)))
+            total_loss = {}
             current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(batch) for batch in microbatches])
 
             for microbatch_idx, self.state.batch in enumerate(microbatches):
@@ -1762,7 +1759,7 @@ class Trainer:
 
             return total_loss
 
-    def _train_microbatch(self, use_grad_scaling: bool, current_batch_size: int, total_loss: torch.Tensor,
+    def _train_microbatch(self, use_grad_scaling: bool, current_batch_size: int, total_loss: Map[str, torch.Tensor],
                           is_final_microbatch: bool):
         """Train and compute the loss of ``state.batch``, which is assumed to be a single microbatch.
 
@@ -1809,8 +1806,23 @@ class Trainer:
             for loss in ensure_tuple(self.state.loss):
                 microbatch_loss.add_(loss.mean())
 
-            # Loss used for logging, scaled by grad_accum for correctly calculating metrics
-            total_loss += microbatch_loss.detach().clone() * (microbatch_num_samples / current_batch_size)
+            # If loss is not a dictionary, convert it into one
+            if not isinstance(self.state.loss, dict):
+                loss_dict = {f'loss{i}': loss for i, loss in enumerate(ensure_tuple(self.state.loss))}
+            else:
+                loss_dict = self.state.loss.copy()
+
+            # Log loss into total_loss dictionary
+            for k, loss in loss_dict.items():
+
+                if not isinstance(loss, torch.Tensor):
+                    loss = self._device.tensor_to_device(torch.tensor(loss))
+
+                loss_key = f'loss/train/{k}'
+                if loss_key not in total_loss:
+                    total_loss[loss_key] = loss.mean() * (microbatch_num_samples / current_batch_size)
+                else:
+                    total_loss[loss_key] += loss.mean() * (microbatch_num_samples / current_batch_size)
 
             if use_grad_scaling:
                 microbatch_loss = cast(torch.Tensor, self.state.scaler.scale(microbatch_loss))
