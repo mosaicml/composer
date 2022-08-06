@@ -78,7 +78,7 @@ Each of its methods has access to the :class:`.Logger`.
     class EpochMonitor(Callback):
 
         def epoch_end(self, state: State, logger: Logger):
-            logger.data_epoch({"Epoch": int(state.timestamp.epoch)})
+            logger.log_metrics({"Epoch": int(state.timestamp.epoch)})
 
 .. testcleanup::
 
@@ -121,17 +121,15 @@ into a dictionary:
     from composer.core.state import State
 
     class DictionaryLogger(LoggerDestination):
-        def __init__(self, log_level: LogLevel = LogLevel.BATCH):
-            self.log_level = log_level
+        def __init__(self):
             # Dictionary to store logged data
             self.data = {}
 
-        def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
-            if log_level <= self.log_level:
-                for k, v in data.items():
-                    if k not in self.data:
-                        self.data[k] = []
-                    self.data[k].append((state.timestamp, log_level, v))
+        def log_metrics(self, data: Dict[str, Any]):
+            for k, v in data.items():
+                if k not in self.data:
+                    self.data[k] = []
+                self.data[k].append((state.timestamp, v))
 
     # Construct a trainer using this logger
     trainer = Trainer(..., loggers=[DictionaryLogger()])
