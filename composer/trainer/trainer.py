@@ -1518,6 +1518,7 @@ class Trainer:
                     total_loss = self._train_batch(use_grad_scaling)
 
                     if use_grad_scaling:
+                        assert self.state.scaler is not None, 'scaler should have been set in __init__()'
                         self.state.scaler.update()
 
                     if total_loss is not None:
