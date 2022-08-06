@@ -147,7 +147,7 @@ class LayerFreezing(Algorithm):
             freeze_start=self.freeze_start,
             freeze_level=self.freeze_level,
         )
-        logger.data_epoch({
+        logger.log_metrics({
             'layer_freezing/layers_frozen': freeze_depth,
             'layer_freezing/percentage_frozen': freeze_percentage
         })

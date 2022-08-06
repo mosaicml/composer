@@ -125,18 +125,6 @@ class Logger:
                 overwrite=overwrite,
             )
 
-    def data_fit(self, data: Dict[str, Any]) -> None:
-        """Helper function for ``self.data(LogLevel.FIT, data)``."""
-        self.data(LogLevel.FIT, data)
-
-    def data_epoch(self, data: Dict[str, Any]) -> None:
-        """Helper function for ``self.data(LogLevel.EPOCH, data)``."""
-        self.data(LogLevel.EPOCH, data)
-
-    def data_batch(self, data: Dict[str, Any]) -> None:
-        """Helper function for ``self.data(LogLevel.BATCH, data)``."""
-        self.data(LogLevel.BATCH, data)
-
 
 def format_log_data_value(data: Any) -> str:
     """Recursively formats a given log data value into a string.
