@@ -92,19 +92,6 @@ class Logger:
         for destination in self.destinations:
             destination.log_metrics(metrics, step)
 
-    def data(self, log_level: Union[str, int, LogLevel], data: Dict[str, Any]) -> None:
-        """Log data to the :attr:`destinations`.
-
-        Args:
-            log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
-                :class:`LogLevel`.
-            data (Dict[str, Any]): The data to log.
-        """
-        log_level = LogLevel(log_level)
-
-        for destination in self.destinations:
-            destination.log_data(self._state, log_level, data)
-
     def file_artifact(
         self,
         log_level: Union[str, int, LogLevel],

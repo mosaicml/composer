@@ -81,10 +81,6 @@ class InMemoryLogger(LoggerDestination):
         self.most_recent_values.update(copied_metrics.items())
         self.most_recent_timestamps.update({k: timestamp for k in copied_metrics})
 
-
-    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
-        pass
-
     def init(self, state: State, logger: Logger) -> None:
         self.state = state
 
@@ -117,7 +113,7 @@ class InMemoryLogger(LoggerDestination):
                 # Populate the logger with data
                 for b in range(0,3):
                     datapoint = b * 3
-                    in_mem_logger.log_data(state=state, log_level=LogLevel.BATCH, data={"accuracy/val": datapoint})
+                    in_mem_logger.log_metrics({"accuracy/val": datapoint})
 
                 timeseries = in_mem_logger.get_timeseries("accuracy/val")
                 plt.plot(timeseries["batch"], timeseries["accuracy/val"])

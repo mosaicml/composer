@@ -28,7 +28,7 @@ class LoggerDestination(Callback, ABC):
 
             >>> from composer.loggers import LoggerDestination
             >>> class MyLogger(LoggerDestination):
-            ...     def log_data(self, state, log_level, data):
+            ...     def log_metrics(self, state, log_level, data):
             ...         print(f'Batch {int(state.timestamp.batch)}: {data}')
             >>> logger = MyLogger()
             >>> trainer = Trainer(
@@ -72,31 +72,6 @@ class LoggerDestination(Callback, ABC):
                 (Any).
         """
         del traces
-        pass
-    
-    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
-        """Log data.
-
-        Subclasses should implement this method to store logged data (e.g. write it to a file, send it to a server,
-        etc...). However, not all loggers need to implement this method.
-
-        .. note::
-
-            This method will block the training loop. For optimal performance, it is recommended to deepcopy the
-            ``data`` (e.g. ``copy.deepcopy(data)``), and store the copied data in queue. Then, either:
-
-            *   Use background thread(s) or process(s) to read from this queue to perform any I/O.
-            *   Batch the data together and flush periodically on events, such as
-                :attr:`~composer.core.event.Event.BATCH_END` or :attr:`~composer.core.event.Event.EPOCH_END`.
-
-                .. seealso:: :class:`~composer.loggers.file_logger.FileLogger` as an example.
-
-        Args:
-            state (State): The training state.
-            log_level (LogLevel): The log level.
-            data (Dict[str, Any]): The data to log.
-        """
-        del state, log_level, data  # unused
         pass
 
     def log_file_artifact(
