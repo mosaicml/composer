@@ -1348,6 +1348,9 @@ class Trainer:
             _validate_precision(precision, self._device, self.deepspeed_enabled)
             self.state.precision = precision
 
+            # update scaler since precision was provided
+            self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
+
         self._train_loop()
 
     def close(self):
