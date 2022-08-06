@@ -87,26 +87,7 @@ class TensorboardLogger(LoggerDestination):
             # Gets raised if data_point is not a tensor, array, scalar, or string.
             except NotImplementedError:
                 pass
-        
-
-
-    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
-        del log_level
-
-        if self.rank_zero_only and dist.get_global_rank() != 0:
-            return
-        for tag, data_point in data.items():
-            if isinstance(data_point, str):  # Will error out with weird caffe2 import error.
-                continue
-            # TODO: handle logging non-(scalars/arrays/tensors/strings)
-            # If a non-(scalars/arrays/tensors/strings) is passed, we skip logging it,
-            # so that we do not crash the job.
-            try:
-                assert self.writer is not None
-                self.writer.add_scalar(tag, data_point, global_step=int(state.timestamp.batch))
-            # Gets raised if data_point is not a tensor, array, scalar, or string.
-            except NotImplementedError:
-                pass
+    
 
     def init(self, state: State, logger: Logger) -> None:
         self.run_name = state.run_name

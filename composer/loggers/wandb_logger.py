@@ -110,12 +110,6 @@ class WandBLogger(LoggerDestination):
         metrics_copy = copy.deepcopy(metrics)
         wandb.log(metrics_copy, step=step)
 
-    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
-        import wandb
-        del log_level  # unused
-        if self._enabled:
-            wandb.log(data, step=int(state.timestamp.batch))
-
     def state_dict(self) -> Dict[str, Any]:
         import wandb
 

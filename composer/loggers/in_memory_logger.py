@@ -34,7 +34,6 @@ class InMemoryLogger(LoggerDestination):
             from composer.loggers import InMemoryLogger, LogLevel
             from composer.trainer import Trainer
             logger = InMemoryLogger(
-                log_level=LogLevel.BATCH
             )
             trainer = Trainer(
                 model=model,
