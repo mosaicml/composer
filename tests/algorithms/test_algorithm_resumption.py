@@ -42,6 +42,7 @@ def test_algorithm_resumption(
         'max_duration': '2ep',
         'save_filename': 'ep{epoch}-rank{rank}',
         'train_subset_num_batches': 2,
+        'precision': 'fp32',
     }
 
     # train model once, saving checkpoints every epoch

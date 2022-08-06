@@ -768,7 +768,7 @@ class Trainer:
 
         # Precision
         if precision is None:
-            precision = Precision.AMP if isinstance(device, DeviceGPU) else Precision.FP32
+            precision = Precision.AMP if isinstance(self._device, DeviceGPU) else Precision.FP32
         if isinstance(precision, str):
             precision = Precision(precision)
 
