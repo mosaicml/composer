@@ -108,6 +108,15 @@ def _set_atexit_ran():
 atexit.register(_set_atexit_ran)
 
 
+def _get_default_passes():
+    return [
+        passes.sort_selective_backprop_first,
+        passes.sort_fused_layernorm_last,
+        passes.set_filo_order,
+        passes.warn_if_multiple_loss_interpolation,
+    ]
+
+
 @dataclass
 class Trace():
     """Record of an algorithm's execution.
@@ -150,17 +159,13 @@ class Engine():
             specific metrics.
     """
 
-    algorithm_passes: List[passes.AlgorithmPass] = [
-        passes.sort_selective_backprop_first,
-        passes.sort_fused_layernorm_last,
-        passes.set_filo_order,
-        passes.warn_if_multiple_loss_interpolation,
-    ]
-
     def __init__(self, state: State, logger: Logger):
         self.logger = logger
         self.state = state
         self._is_closed = False
+
+        self.algorithm_passes: List[passes.AlgorithmPass] = _get_default_passes()
+
         atexit.register(self._close, state, logger)
 
     def run_event(
@@ -238,6 +243,20 @@ class Engine():
 
         return traces
 
+    def register_pass(self, algorithm_pass: passes.AlgorithmPass, index: int = -1):
+        """Registers an algorithm pass with the Engine.
+
+        Args:
+            algorithm_pass (passes.AlgorithmPass): A method that maps a list of
+                algorithms to a list of algorithms.
+            index (int, optional): The index to insert into the list of passes.
+                If -1 (default), the pass will be insert to the end of the list.
+        """
+        if index == -1:
+            index = len(self.algorithm_passes)
+
+        self.algorithm_passes.insert(index, algorithm_pass)
+
     @staticmethod
     def _assert_dataloader_and_duration_set(state: State, event: Event):
         # correctness checks that dataloader and max duration need to be set for certain events
@@ -254,7 +273,7 @@ class Engine():
     ) -> Traces:
         algorithms_to_run = [algo for algo in self.state.algorithms if algo.match(event, self.state)]
 
-        # future collision resolution
+        # apply algorithm passes
         algorithms_to_run = self._compile(algorithms_to_run, event)
 
         trace = _setup_trace(algorithms_to_run, event)
@@ -423,18 +442,3 @@ class Engine():
                     log.error(f'Error running {callback.__class__.__name__}.post_close().', exc_info=e, stack_info=True)
                 else:
                     _OPEN_CALLBACKS.discard(callback)
-
-    @classmethod
-    def register_pass(cls, algorithm_pass: passes.AlgorithmPass, index: int = -1):
-        """Registers an algorithm pass with the Engine.
-
-        Args:
-            algorithm_pass (passes.AlgorithmPass): A method that maps a list of
-                algorithms to a list of algorithms.
-            index (int, optional): The index to insert into the list of passes.
-                If -1 (default), the pass will be insert to the end of the list.
-        """
-        if index == -1:
-            index = len(cls.algorithm_passes)
-
-        cls.algorithm_passes.insert(index, algorithm_pass)

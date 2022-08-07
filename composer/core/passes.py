@@ -107,7 +107,7 @@ def set_filo_order(algorithms: Sequence[Algorithm], event: Event) -> Sequence[Al
 
     Events with the pattern ``_start`` or ``_end`` will not be affected.
     """
-    if event.name.startswith('after_'):
+    if event.name.startswith('AFTER_'):
         return list(reversed(algorithms))
 
     return algorithms
