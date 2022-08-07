@@ -7,7 +7,7 @@ import contextlib
 from typing import Generator, Union
 
 import torch
-
+import os
 from composer.utils.string_enum import StringEnum
 
 __all__ = ['Precision', 'get_precision_context']
@@ -62,7 +62,7 @@ def get_precision_context(precision: Union[str, Precision]) -> Generator[None, N
             yield
     elif precision == Precision.BF16:
         if not os.getenv('XRT_TPU_CONFIG'):
-            with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):
+            #with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):
                 yield
         else:
             yield
