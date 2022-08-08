@@ -389,20 +389,19 @@ def _restore_checkpoint(
 
 
 def save_checkpoint(
-    state: State,
+    state_dict: Dict[str, Any],
     filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
-    *,
-    weights_only: bool = False,
 ) -> List[pathlib.Path]:  # noqa: D103
     log.debug('Saving checkpoint to %s', filename)
-    state_dict = {
-        'state': state.state_dict(),
-        'rng': reproducibility.get_rng_state(),
-    }
-    if weights_only and not is_model_deepspeed(state.model):
-        state_dict['state'] = {'model': state_dict['state']['model']}
+    # state_dict = {
+    #     'state': state.state_dict(),
+    #     'rng': reproducibility.get_rng_state(),
+    # }
+    # if weights_only and not is_model_deepspeed(state.model):
+    #     state_dict['state'] = {'model': state_dict['state']['model']}
 
-    checkpoint_filepath = format_name_with_dist_and_time(filename, state.run_name, state.timestamp)
+    filename = format_name_with_dist_and_time(filename, state)
+
     if is_model_deepspeed(state.model) and not is_tar(checkpoint_filepath):
         # Deepspeed requires tarballs; appending `.tar`
         checkpoint_filepath += '.tar'

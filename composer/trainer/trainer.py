@@ -2191,7 +2191,14 @@ class Trainer:
         Returns:
             List[pathlib.Path]: See :func:`.save_checkpoint`.
         """
-        return save_checkpoint(state=self.state, filename=name, weights_only=weights_only)
+        state_dict = {
+            'state': self.state.state_dict(),
+            'rng': reproducibility.get_rng_state(),
+        }
+        if weights_only and not is_model_deepspeed(self.state.model):
+            state_dict['state'] = {'model': state_dict['state']['model']}
+
+        return save_checkpoint(state=state_dict, filename=name)
 
     def export_for_inference(
         self,

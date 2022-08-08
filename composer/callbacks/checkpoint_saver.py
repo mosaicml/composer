@@ -10,7 +10,7 @@ import os
 import pathlib
 import tempfile
 import textwrap
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Any, Callable, List, Optional, Tuple, Union
 
 from composer.core import Event, State
 from composer.core.callback import Callback
@@ -350,7 +350,88 @@ class CheckpointSaver(Callback):  # noqa: D101
             log_level = LogLevel.EPOCH if elapsed_duration < 1.0 else LogLevel.FIT
             self._save_checkpoint(state, logger, log_level)
 
+    def _format_path(self, folder: str, filename: str, state: State, is_deepspeed: bool):
+
+
+
+
     def _save_checkpoint(self, state: State, logger: Logger, log_level: LogLevel):
+
+        filepath = os.path.join(
+            format_name_with_dist(self.folder, state.run_name),
+            format_name_with_dist_and_time(self.filename, state.run_name, state.timestamp),
+        )
+
+        # save the checkpoint here
+
+        # if latest_filename provided, symlink to the saved_checkpoint
+        if self.latest_filename is not None:
+            symlink_path = os.path.join(
+                os.path.dirname(filepath),
+                format_name_with_dist_and_time(self.latest_filename, state.run_name, state.timestamp)
+            )
+
+            os.symlink(filepath, symlink_path)
+
+        # if artifact name provided, upload the checkpoint
+        if self.artifact_name is not None:
+            artifact_name = format_name_with_dist_and_time(
+                self.artifact_name,
+                state.run_name,
+                state.timestamp,
+            ).lstrip('/')
+
+            if is_model_deepspeed(state.model) and not is_tar(artifact_name):
+                artifact_name += '.tar'
+
+            logger.file_artifact(log_level=log_level,
+                                 artifact_name=artifact_name,
+                                 file_path=filepath,
+                                 overwrite=self.overwrite)
+
+            # optionally, create and upload a symlink as well
+            if self.latest_artifact_name is not None:
+                symlink_name = format_name_with_dist_and_time(
+                    self.latest_artifact_name,
+                    state.run_name,
+                    state.timestamp
+                ).lstrip('/')
+
+                # Always overwrite for symlinks since we use the same filename for latest
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    symlink_filename = os.path.join(tmpdir, 'latest.symlink')
+                    create_symlink_file(artifact_name, symlink_filename)
+                    logger.file_artifact(
+                        log_level=log_level,
+                        artifact_name=symlink_name,
+                        file_path=symlink_filename,
+                        overwrite=True,
+                    )
+
+        if self.num_checkpoints_to_keep >= 0:
+            self._prune_checkpoints()
+
+
+class PartialFilePath:
+
+    def __init__(self, filename: str, folder: Optional[str]= None):
+        self.folder = folder
+        self.filename = filename
+
+    def format(self, state: State, is_deepspeed: bool=False) -> str:
+        suffix = '.tar' if is_deepspeed else ''
+        if self.folder:
+            return os.path.join(
+                format_name_with_dist(self.folder, state.run_name, state.timestamp),
+                format_name_with_dist_and_time(self.filename, state.run_name, state.timestamp)
+            ) + suffix
+        else:
+            return format_name_with_dist_and_time(self.filename, state.run_name, state.timestamp) + suffix
+
+
+
+
+
         checkpoint_filepath = os.path.join(format_name_with_dist(self.folder, state.run_name), self.filename)
         checkpoint_filepaths = checkpoint.save_checkpoint(state, checkpoint_filepath, weights_only=self.weights_only)
 
@@ -417,3 +498,18 @@ class CheckpointSaver(Callback):  # noqa: D101
                     # Remove this rank's checkpoint
                     os.remove(checkpoint_filepaths[dist.get_global_rank()])
                 del self.saved_checkpoints[0]
+
+
+class SimpleCheckpointSaver():
+
+    def __init__(self, weights_only):
+
+        self.weights_only = weights_only
+
+    def get_state_dict(self, state: State) -> Dict[str, Any]:
+        state_dict = {
+            'state': state.state_dict(),
+            'rng': reproducibility.get_rng_state(),
+        }
+        if self.weights_only and not is_model_deepspeed(state.model):
+            state_dict['state'] = {'model': state_dict['state']['model']}
