@@ -1503,6 +1503,8 @@ class Trainer:
                                 # Run in same precision context to avoid NaNs
                                 self.train_metrics.update(outputs, targets)
 
+                self.state.model.train()
+
                 self.engine.run_event(Event.AFTER_DATALOADER)
 
                 self.engine.run_event(Event.BATCH_START)
@@ -1804,7 +1806,11 @@ class Trainer:
 
             # If loss is not a dictionary, convert it into one
             if not isinstance(self.state.loss, dict):
-                loss_dict = {f'loss{i}': loss for i, loss in enumerate(ensure_tuple(self.state.loss))}
+                loss_tuple = ensure_tuple(self.state.loss)
+                if len(loss_tuple) > 1:
+                    loss_dict = {f'loss{i}': loss for i, loss in enumerate(loss_tuple)}
+                else:
+                    loss_dict = {'': self.state.loss}
             else:
                 loss_dict = self.state.loss.copy()
 
