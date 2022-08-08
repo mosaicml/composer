@@ -24,8 +24,8 @@ class PerformanceAnalyzerTraceHandler(TraceHandler):
 
     def __init__(self):
         # Stores wait times for the current epoch
-        self.dataloader_wait_times: Dict[int, Any] = {}
-        self.batch_wait_times: Dict[int, Any] = {}
+        self.dataloader_wait_times: Dict[int, float] = {}
+        self.batch_wait_times: Dict[int, float] = {}
         self.last_start_time = None
         # Dataloader is bottlenecked if yield takes more than 1% of batch compute time and at least
         # 1 millisecond. We use a percentage threshold as the primary metric users care about, but
@@ -83,11 +83,12 @@ class PerformanceAnalyzerTraceHandler(TraceHandler):
                 dataloader_time = self._average_dataloader_wait_time()
                 batch_time = self._average_batch_wait_time()
                 # Log percentage overhead and additional time in milliseconds
-                percentage = format(dataloader_time / batch_time * 100, '.2f')
-                additional_latency = format(dataloader_time / 1e6, '.3f')
-                warnings.warn(f'The current training run is dataloader bottlenecked, adding {additional_latency}ms and '
-                              f'increasing batch time by {percentage}%. This warning may be spurious or noisy if the '
-                              '`active` period of the profiler schedule is too small.')
+                percentage = dataloader_time / batch_time * 100
+                additional_latency = dataloader_time / 1e6
+                warnings.warn(
+                    f'The current training run is dataloader bottlenecked, adding {additional_latency:.3f}ms and '
+                    f'increasing batch time by {percentage:.2f}%. This warning may be spurious or noisy if the '
+                    '`active` period of the profiler schedule is too small.')
 
     def _average_batch_wait_time(self) -> float:
         return self._pruned_mean(list(self.batch_wait_times.values()))
@@ -95,7 +96,7 @@ class PerformanceAnalyzerTraceHandler(TraceHandler):
     def _average_dataloader_wait_time(self) -> float:
         return self._pruned_mean(list(self.dataloader_wait_times.values()))
 
-    def _pruned_mean(self, data: List[float], mstdev_threshold=2.0) -> float:
+    def _pruned_mean(self, data: List[float], mstdev_threshold: float = 2.0) -> float:
         """Compute pruned mean by filtering outliers using median standard deviations."""
         arr = np.asarray(data)
         deviations_from_median = np.abs(arr - np.median(arr))

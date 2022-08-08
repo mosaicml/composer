@@ -70,10 +70,9 @@ class Marker:
             something_to_measure
     """
 
-    def __init__(self, state: State, should_record: Callable[[State], bool], get_action: Callable[[State],
-                                                                                                  ProfilerAction],
-                 trace_handlers: Sequence[TraceHandler], name: str, record_instant_on_start: bool,
-                 record_instant_on_finish: bool, categories: Union[List[str], Tuple[str, ...]]) -> None:
+    def __init__(self, state: State, should_record: Callable[[State], bool], trace_handlers: Sequence[TraceHandler],
+                 name: str, record_instant_on_start: bool, record_instant_on_finish: bool,
+                 categories: Union[List[str], Tuple[str, ...]]) -> None:
         self.state = state
         self.trace_handlers = trace_handlers
         self.name = name
@@ -81,9 +80,13 @@ class Marker:
         self.record_instant_on_start = record_instant_on_start
         self.record_instant_on_finish = record_instant_on_finish
         self.should_record = should_record
-        self.get_action = get_action
         self._started = False
         self._recorded_start = False
+
+    def _get_action(self):
+        if self.state.profiler:
+            return self.state.profiler.schedule(self.state)
+        return ProfilerAction.SKIP
 
     def _record_duration_event(self, is_start: bool, wall_clock_time_ns: int, timestamp: Timestamp):
         """Record a duration event."""
@@ -94,7 +97,7 @@ class Marker:
                 timestamp=timestamp,
                 is_start=is_start,
                 wall_clock_time_ns=wall_clock_time_ns,
-                action=self.get_action(self.state),
+                action=self._get_action(),
             )
 
     def _record_instant_event(self, wall_clock_time_ns: int, timestamp: Timestamp):
@@ -105,7 +108,7 @@ class Marker:
                 categories=self.categories,
                 timestamp=timestamp,
                 wall_clock_time_ns=wall_clock_time_ns,
-                action=self.get_action(self.state),
+                action=self._get_action(),
             )
 
     def _record_counter_event(self, wall_clock_time_ns: int, timestamp: Timestamp,
@@ -118,7 +121,7 @@ class Marker:
                 wall_clock_time_ns=wall_clock_time_ns,
                 timestamp=timestamp,
                 values=values,
-                action=self.get_action(self.state),
+                action=self._get_action(),
             )
 
     def start(self) -> None:
