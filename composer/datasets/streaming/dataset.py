@@ -31,6 +31,7 @@ from composer.datasets.streaming.download import download_or_wait
 from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict,
                                                 get_compression_scheme_basename, get_index_basename, get_shard_basename,
                                                 split_compression_suffix)
+from composer.datasets.streaming.world import get_world
 from composer.utils import dist
 
 __all__ = ['StreamingDataset']
@@ -235,12 +236,16 @@ class StreamingDataset(IterableDataset, DataloaderState):
         self._shuffle_buffer_size = shuffle_buffer_size
         self._cipher_key = None
         N = self.index.num_shards
+        world = get_world()
+        num_nodes = world.global_num_nodes
+        global_rank = dist.get_global_rank()
         if shuffle:
             self._cipher_key = self._next_epoch + np.random.randint(2 << 10)  # initialize using a random cipher key
-            self._shard_shuffle_indices = np.array([encrypt(self._cipher_key, v, N) for v in range(N)])
+            self._shard_shuffle_indices = np.array(
+                [encrypt(self._cipher_key, v, N) for v in range(N) if v % num_nodes == global_rank])
             self.index.relocate_samples(self._shard_shuffle_indices)
         else:
-            self._shard_shuffle_indices = np.arange(N)
+            self._shard_shuffle_indices = np.arange(N)[np.arange(N) % num_nodes == global_rank]
 
     def state_dict(self):
         return {'batch_count': self._batch_count, 'cipher_key': self._cipher_key}
@@ -290,6 +295,9 @@ class StreamingDataset(IterableDataset, DataloaderState):
                 self._download_exception = e
 
     def shuffle_sample(self, idx):
+        num_workers = dist.get_local_world_size()
+        rank = dist.get_local_rank()
+        idx = idx * num_workers + rank
         shard_id = self.index.sample_shards[idx]
         group_id = shard_id - shard_id % self._shuffle_buffer_size
         group_key = self._cipher_key + group_id
