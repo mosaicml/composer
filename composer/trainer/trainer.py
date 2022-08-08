@@ -999,7 +999,7 @@ class Trainer:
         # surpressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
-        self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
+        self.state.scaler = ClosureGradScaler() if self._use_closures() else cuda_grad_scaler()
 
         # Load Checkpoint
         self._rng_state = None
@@ -1369,7 +1369,7 @@ class Trainer:
             self.state.precision = precision
 
             # update scaler since precision was provided
-            self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
+            self.state.scaler = ClosureGradScaler() if self._use_closures() else cuda_grad_scaler()
 
         self._train_loop()
 

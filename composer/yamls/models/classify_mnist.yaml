@@ -2,14 +2,14 @@ train_dataset:
   mnist:
     is_train: true
     datadir: /datasets/mnist
-    download: false
+    download: true
     shuffle: true
     drop_last: true
 val_dataset:
   mnist:
     is_train: false
     datadir: /datasets/mnist
-    download: false
+    download: true
     shuffle: false
     drop_last: false
 optimizers:
@@ -36,4 +36,3 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 grad_accum: 1
-precision: bf16
