@@ -93,8 +93,8 @@ class MMDetModel(ComposerModel):
             labels = [np.full(bbox.shape[0], i, dtype=np.int32) for i, bbox in enumerate(bbox_result)]
             pred = {
                 'labels': torch.from_numpy(np.concatenate(labels)).to(device).long(),
-                'boxes': boxes,
-                'scores': scores
+                'boxes': boxes.float(),
+                'scores': scores.float()
             }
             preds.append(pred)
 
