@@ -21,6 +21,7 @@ import enum
 import math
 import os
 from threading import Lock, Thread
+from time import sleep
 from typing import Any, Callable, Dict, Iterator, Optional
 
 import numpy as np
@@ -53,7 +54,7 @@ def encrypt_round(key, round_num, plaintext, block_size):
         return plaintext
 
     half_block_size = (block_size + 1) // 2
-    N = 2 << (half_block_size - 1)
+    N = 1 << half_block_size
     upper, lower = plaintext >> half_block_size, plaintext % (N)
     gen = np.random.default_rng(key + round_num + upper)
     lower = lower ^ gen.integers(N)
@@ -66,7 +67,7 @@ def decrypt_round(key, round_num, ciphertext, block_size, num_rounds):
         return ciphertext
 
     half_block_size = (block_size + 1) // 2
-    N = 2 << (half_block_size - 1)
+    N = 1 << half_block_size
     upper, lower = ciphertext >> half_block_size, ciphertext % (N)
     gen = np.random.default_rng(key + round_num + lower)
     upper = upper ^ gen.integers(N)
@@ -186,7 +187,7 @@ class StreamingDataset(IterableDataset, DataloaderState):
                  max_retries: int = 2,
                  timeout: float = 60,
                  batch_size: Optional[int] = None,
-                 shuffle_buffer_size: Optional[str] = '0.05prop') -> None:
+                 shuffle_buffer_size: str = '0.05prop') -> None:
 
         self.remote = remote
         self.local = local
@@ -233,7 +234,7 @@ class StreamingDataset(IterableDataset, DataloaderState):
         self._shuffle_index = 0
         self._shuffle_buffer_settings = None
         self._batch_count = 0
-        self._shuffle_buffer_size = shuffle_buffer_size
+        self._shuffle_buffer_size = self._parse_shuffle_buffer_size(shuffle_buffer_size)
         self._cipher_key = None
         N = self.index.num_shards
         world = get_world()
@@ -246,6 +247,14 @@ class StreamingDataset(IterableDataset, DataloaderState):
             self.index.relocate_samples(self._shard_shuffle_indices)
         else:
             self._shard_shuffle_indices = np.arange(N)[np.arange(N) % num_nodes == global_rank]
+
+    def _parse_shuffle_buffer_size(self, shuffle_buffer_size_arg: str) -> np.int64:
+        if shuffle_buffer_size_arg.endswith('prop'):
+            return np.int64(self.index.num_shards * float(shuffle_buffer_size_arg.strip('prop'))) + 1
+        elif shuffle_buffer_size_arg.endswith('samp'):
+            return np.int64(int(shuffle_buffer_size_arg.strip('prop'))) + 1
+        else:
+            return np.int64(1)
 
     def state_dict(self):
         return {'batch_count': self._batch_count, 'cipher_key': self._cipher_key}
@@ -277,12 +286,14 @@ class StreamingDataset(IterableDataset, DataloaderState):
         local, _ = split_compression_suffix(local)
         return local
 
-    def download(self):
+    def download(self) -> None:
         """Downloads everything in the correct order"""
 
         N = self.index.num_shards
-        current_shard = self.index.sample_shards[encrypt(self._cipher_key, self._batch_count, N)]
-        current_shard_index = decrypt(self._cipher_key, current_shard, N)
+        current_shard = self.index.sample_shards[self._batch_count]
+        current_shard_index = current_shard
+        if self.shuffle:
+            current_shard_index = decrypt(self._cipher_key, current_shard, N)
         current_shard_index -= current_shard_index % self._shuffle_buffer_size
         shard_ids = self._shard_shuffle_indices[current_shard_index:]
 
@@ -293,6 +304,7 @@ class StreamingDataset(IterableDataset, DataloaderState):
             except Exception as e:
                 self._download_status = _DownloadStatus.FAILED
                 self._download_exception = e
+                raise e
 
     def shuffle_sample(self, idx):
         num_workers = dist.get_local_world_size()
@@ -308,7 +320,8 @@ class StreamingDataset(IterableDataset, DataloaderState):
         group_relative_id = encrypt(group_key, idx % num_group_items, num_group_items)
         shards_passed = group_samples_seen_by_shard[group_samples_seen_by_shard < group_relative_id]
         shard_id = group_id + len(shards_passed)
-        return self.index.shard_samples[shard_id] + group_relative_id - shards_passed[-1]
+        last_shard_passed = shards_passed[-1] if shards_passed else 0
+        return self.index.shard_samples[shard_id] + group_relative_id - last_shard_passed
 
     def __len__(self) -> int:
         """Get the length of the dataset.
@@ -370,6 +383,11 @@ class StreamingDataset(IterableDataset, DataloaderState):
             Iterator[Any]: Each sample.
         """
         Thread(target=self.download, daemon=True).start()
+        #self.download()
         while self._batch_count < self.index.total_samples:
-            self._batch_count += 1
-            yield self[self.shuffle_sample(self._batch_count)]
+            try:
+                idx = self.shuffle_sample(self._batch_count) if self.shuffle else self._batch_count
+                yield self[idx]
+                self._batch_count += 1
+            except FileNotFoundError:
+                sleep(0.25)
