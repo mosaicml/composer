@@ -248,6 +248,8 @@ class StreamingDataset(IterableDataset, DataloaderState):
         else:
             self._shard_shuffle_indices = np.arange(N)[np.arange(N) % num_nodes == global_rank]
 
+        self.downloaded_shards = {}
+
     def _parse_shuffle_buffer_size(self, shuffle_buffer_size_arg: str) -> np.int64:
         if shuffle_buffer_size_arg.endswith('prop'):
             return np.int64(self.index.num_shards * float(shuffle_buffer_size_arg.strip('prop'))) + 1
@@ -289,6 +291,14 @@ class StreamingDataset(IterableDataset, DataloaderState):
     def download(self) -> None:
         """Downloads everything in the correct order"""
 
+        if not hasattr(self, '_lock'):
+            self._lock = Lock()
+
+        with self._lock:
+            if self._download_status != _DownloadStatus.NOT_STARTED:
+                return
+            self._download_status = _DownloadStatus.IN_PROGRESS
+
         N = self.index.num_shards
         current_shard = self.index.sample_shards[self._batch_count]
         current_shard_index = current_shard
@@ -300,11 +310,15 @@ class StreamingDataset(IterableDataset, DataloaderState):
         for shard_id in shard_ids:
             basename = get_shard_basename(shard_id, compression_name=self.compression_scheme)
             try:
+                self.downloaded_shards[shard_id] = True
                 self._download_file(basename, wait=(dist.get_local_rank() != 0))
             except Exception as e:
-                self._download_status = _DownloadStatus.FAILED
-                self._download_exception = e
-                raise e
+                with self._lock:
+                    self._download_status = _DownloadStatus.FAILED
+                    self._download_exception = e
+
+        with self._lock:
+            self._download_status = _DownloadStatus.DONE
 
     def shuffle_sample(self, idx):
         num_workers = dist.get_local_world_size()
@@ -390,4 +404,9 @@ class StreamingDataset(IterableDataset, DataloaderState):
                 yield self[idx]
                 self._batch_count += 1
             except FileNotFoundError:
+                with self._lock:
+                    if self._download_status == _DownloadStatus.FAILED:
+                        raise self._download_exception
+                    elif self._download_status == _DownloadStatus.DONE:
+                        raise ValueError('Oh nooo...')
                 sleep(0.25)
