@@ -12,6 +12,14 @@ import setuptools
 from setuptools import setup
 from setuptools.command.develop import develop as develop_orig
 
+# Read the composer version
+# Cannot import from `composer.__version__` since that will not be available when building or installing the package
+with open(os.path.join(os.path.dirname(__file__), 'composer', '_version.py')) as f:
+    version_globals = {}
+    version_locals = {}
+    exec(f.read(), version_globals, version_locals)
+    composer_version = version_locals['__version__']
+
 _IS_ROOT = os.getuid() == 0
 _IS_USER = '--user' in sys.argv[1:]
 _IS_VIRTUALENV = 'VIRTUAL_ENV' in os.environ
@@ -70,14 +78,16 @@ install_requires = [
     'torchmetrics>=0.7.0,<0.8',
     'torch_optimizer>=0.1.0,<0.2',
     'torchvision>=0.10.0',  # torchvision has strict pytorch requirements
-    'torch>=1.9,<2',
-    'yahp>=0.1.1,<0.2',
+    'torch>=1.10,<2',
+    'yahp>=0.1.3,<0.2',
     'requests>=2.26.0,<3',
-    'numpy>=1.21.5,<2',
+    'numpy>=1.21.5,<1.23.0',
     'psutil>=5.8.0,<6',
     'coolname>=1.1.0,<2',
+    'tabulate==0.8.9',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<9',
     'packaging>=21.3.0,<22',
+    'importlib-metadata>=4.11.0,<5',
 ]
 extra_deps = {}
 
@@ -97,7 +107,6 @@ extra_deps['dev'] = [
     'ipykernel==6.9.2',
     'jupyter==1.0.0',
     'yamllint==1.26.3',
-    'pytest-timeout==2.1.0',
     'recommonmark==0.7.1',
     'sphinx==4.4.0',
     'pre-commit>=2.18.1,<3',
@@ -111,7 +120,6 @@ extra_deps['dev'] = [
     'sphinxemoji==0.2.0',
     'furo==2022.3.4',
     'sphinx-copybutton==0.5.0',
-    'tabulate==0.8.9',  # for auto-generating tables
     'testbook==0.4.2',
     'myst-parser==0.16.1',
     'sphinx_panels==0.6.0',
@@ -192,7 +200,7 @@ if package_name != 'mosaicml':
     print(f'`Building composer as `{package_name}`)', file=sys.stderr)
 
 setup(name=package_name,
-      version='0.8.0',
+      version=composer_version,
       author='MosaicML',
       author_email='team@mosaicml.com',
       description='Composer provides well-engineered implementations of efficient training methods to give '

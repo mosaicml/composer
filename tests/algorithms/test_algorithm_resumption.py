@@ -15,7 +15,6 @@ from tests.algorithms.algorithm_settings import get_alg_dataloader, get_alg_kwar
 from tests.common import deep_compare
 
 
-@pytest.mark.timeout(30)
 @pytest.mark.gpu
 @pytest.mark.parametrize('alg_cls', get_algs_with_marks())
 def test_algorithm_resumption(
@@ -43,6 +42,7 @@ def test_algorithm_resumption(
         'max_duration': '2ep',
         'save_filename': 'ep{epoch}-rank{rank}',
         'train_subset_num_batches': 2,
+        'precision': 'fp32',
     }
 
     # train model once, saving checkpoints every epoch

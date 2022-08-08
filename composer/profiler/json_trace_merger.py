@@ -68,7 +68,7 @@ def merge_traces(output_file: Union[str, pathlib.Path], *trace_files: Union[str,
     This function will update the trace events such that:
 
     - The ``pid`` will be set to the global rank.
-    - The ``ts`` is syncronized with that of the rank 0 process.
+    - The ``ts`` is synchronized with that of the rank 0 process.
     - The backward pass process appears below the forward process.
 
     Args:
@@ -79,7 +79,13 @@ def merge_traces(output_file: Union[str, pathlib.Path], *trace_files: Union[str,
     rank_to_backwards_thread = {}
     rank_to_seen_threads = {rank: set() for rank in ranks_to_clock_sync.keys()}
 
-    rank_zero_clock_sync = ranks_to_clock_sync[0]
+    # Local rank zero will be the lowest global rank
+    # Use that as the base timestamp for clock syncing
+    lowest_rank = float('inf')
+    for k in ranks_to_clock_sync:
+        lowest_rank = min(k, lowest_rank)
+    assert isinstance(lowest_rank, int), 'there should be at least one rank'
+    rank_zero_clock_sync = ranks_to_clock_sync[lowest_rank]
 
     with open(output_file, 'w+') as output_f:
         is_first_line = True

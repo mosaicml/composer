@@ -15,7 +15,7 @@ from composer.core.state import State
 from composer.core.time import Timestamp, TimeUnit
 from composer.loggers.logger import Logger, LogLevel, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import dist
+from composer.utils import dist, is_notebook
 
 __all__ = ['ProgressBarLogger']
 
@@ -27,7 +27,7 @@ class _ProgressBar:
     def __init__(
         self,
         total: Optional[int],
-        position: int,
+        position: Optional[int],
         bar_format: str,
         file: TextIO,
         metrics: Dict[str, Any],
@@ -40,7 +40,7 @@ class _ProgressBar:
         self.position = position
         self.timestamp_key = timestamp_key
         self.file = file
-        is_atty = os.isatty(self.file.fileno())
+        is_atty = is_notebook() or os.isatty(self.file.fileno())
         self.pbar = tqdm.auto.tqdm(
             total=total,
             position=position,
@@ -51,7 +51,8 @@ class _ProgressBar:
             # We set `leave=False` so TQDM does not jump around, but we emulate `leave=True` behavior when closing
             # by printing a dummy newline and refreshing to force tqdm to print to a stale line
             # But on k8s, we need `leave=True`, as it would otherwise overwrite the pbar in place
-            leave=not is_atty,
+            # If in a notebook, then always set leave=True, as otherwise jupyter would remote the progress bars
+            leave=True if is_notebook() else not is_atty,
             postfix=metrics,
             unit=unit,
         )
@@ -67,18 +68,23 @@ class _ProgressBar:
     def update_to_timestamp(self, timestamp: Timestamp):
         n = int(getattr(timestamp, self.timestamp_key))
         n = n - self.pbar.n
-        self.pbar.update(int(n))
+        self.update(int(n))
 
     def close(self):
-        if self.position != 0:
-            # Force a (potentially hidden) progress bar to re-render itself
-            # Don't render the dummy pbar (at position 0), since that will clear a real pbar (at position 1)
+        if is_notebook():
+            # If in a notebook, always refresh before closing, so the
+            # finished progress is displayed
             self.pbar.refresh()
-        # Create a newline that will not be erased by leave=False. This allows for the finished pbar to be cached in the terminal
-        # This emulates `leave=True` without progress bar jumping
-        print('', file=self.file, flush=True)
-
-        self.pbar.close()
+        else:
+            if self.position != 0:
+                # Force a (potentially hidden) progress bar to re-render itself
+                # Don't render the dummy pbar (at position 0), since that will clear a real pbar (at position 1)
+                self.pbar.refresh()
+            # Create a newline that will not be erased by leave=False. This allows for the finished pbar to be cached in the terminal
+            # This emulates `leave=True` without progress bar jumping
+            if not self.file.closed:
+                print('', file=self.file, flush=True)
+            self.pbar.close()
 
     def state_dict(self) -> Dict[str, Any]:
         pbar_state = self.pbar.format_dict
@@ -226,7 +232,8 @@ class ProgressBarLogger(LoggerDestination):
             with the time (in units of ``max_duration.unit``) at which evaluation runs.
         """
         # Always using position=1 to avoid jumping progress bars
-        position = 1
+        # In jupyter notebooks, no need for the dummy pbar, so use the default position
+        position = None if is_notebook() else 1
         desc = f'{state.dataloader_label:15}'
         max_duration_unit = None if state.max_duration is None else state.max_duration.unit
 
@@ -267,7 +274,9 @@ class ProgressBarLogger(LoggerDestination):
             total=total,
             position=position,
             keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[is_train],
-            bar_format=desc + ' {l_bar}{bar:25}{r_bar}{bar:-1b}',
+            # In a notebook, the `bar_format` should not include the {bar}, as otherwise
+            # it would appear twice.
+            bar_format=desc + ' {l_bar}' + ('' if is_notebook() else '{bar:25}') + '{r_bar}{bar:-1b}',
             unit=unit.value.lower(),
             metrics={},
             timestamp_key=timestamp_key,
@@ -275,15 +284,17 @@ class ProgressBarLogger(LoggerDestination):
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        self.dummy_pbar = _ProgressBar(
-            file=self.stream,
-            position=0,
-            total=1,
-            metrics={},
-            keys_to_log=[],
-            bar_format='{bar:-1b}',
-            timestamp_key='',
-        )
+        if not is_notebook():
+            # Notebooks don't need the dummy progress bar; otherwise, it would be visible.
+            self.dummy_pbar = _ProgressBar(
+                file=self.stream,
+                position=0,
+                total=1,
+                metrics={},
+                keys_to_log=[],
+                bar_format='{bar:-1b}',
+                timestamp_key='',
+            )
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         if self.show_pbar and not self.train_pbar:

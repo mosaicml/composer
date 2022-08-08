@@ -2,7 +2,7 @@
 
 package:
   name: mosaicml
-  version: "0.8.0"
+  version: "{{ load_setup_py_data().get('version') }}"
 
 source:
   git_url: ./
@@ -22,18 +22,19 @@ requirements:
   run:
     - python >=3.7,<4
     - pyyaml >=6.0,<7
-    - pytorch >=1.9,<2
+    - pytorch >=1.10,<2
     - torch-optimizer >=0.1.0,<0.2
     - torchmetrics >=0.7.0,<0.8
     - torchvision >=0.9.0 # torchvision has strict pytorch requirements
     - tqdm >=4.62.3,<5
-    - yahp ==0.1.1
+    - yahp >=0.1.3,<2
     - requests >=2.26.0,<3
-    - numpy >=1.21.5,<2
+    - numpy >=1.21.5,<1.23.0
     - psutil >=5.8.0,<6
     - coolname >=1.1.0,<2
     - py-cpuinfo>=8.0.0,<9
     - packaging >=21.3.0,<22
+    - importlib-metadata >=4.11.0,<5
   run_constrained:
     - wandb >=0.12.17,<0.13
     - monai >=0.8.0,<0.9
@@ -46,6 +47,7 @@ requirements:
     - apache-libcloud >=3.5.1,<4
     - paramiko>=2.11.0,<3
     - tensorboard>=2.9.1,<3.0.0
+    - tabulate ==0.8.9  # for auto-generating tables
 
 test:
   requires:
@@ -55,14 +57,12 @@ test:
     - ipython >=8.4.0,<9
     - ipykernel ==6.13.1,<7
     - jupyter >=1.0.0,<2
-    - pytest-timeout >=2.1.0,<3
     - testbook >=0.4.2,<0.5
     # Including all run_constrained requirements in the test requirements, so those tests will not be import-skipped
-    - pip # Since deepspeed and timm are not available on anaconda, they are installed via pip.
+    - pip # Required for dependencies not available on conda
     - wandb >=0.12.17,<0.13
     - monai >=0.8.0,<0.9
     - scikit-learn >=1.0.1,<2
-    # - timm >=0.5.4 # This timm version is not available on conda; installing via pip
     - transformers >=4.11,<5
     - datasets >=1.14,<2
     - pycocotools >=2.0.4,<3
@@ -73,8 +73,10 @@ test:
     - moto >=3.1.12,<3.2
     - cryptography >=37.0.2,<38
     - tensorboard>=2.9.1,<3.0.0
-    # - mock-ssh-server >=0.9.1,<1 # mock-ssh-server is not available on conda; installing with pip\
+    # - mock-ssh-server >=0.9.1,<1 # mock-ssh-server is not available on conda; installing with pip
+    - tabulate ==0.8.9  # for auto-generating tables
     - pytest-httpserver>=1.0.4,<1.1
+
   files:
     - "**/composer/**"
     - "**/tests/**"
@@ -87,8 +89,8 @@ test:
   commands:
     # deepspeed, codeblocks, and mock-ssh-server are not available on conda, and timm has a conda version conflict
     - pip install 'deepspeed>=0.5.5' 'timm>=0.5.4' 'pytest_codeblocks==0.16.1' 'mock-ssh-server>=0.9.1,<1'
-    - make test DURATION=all EXTRA_ARGS="-v -m 'not gpu and not vision and not daily and not remote'"
-    - make test-dist DURATION=all WORLD_SIZE=2 EXTRA_ARGS="-v -m 'not gpu and not vision and not daily and not remote'"
+    - make test EXTRA_ARGS="-v -m 'not gpu and not vision and not daily and not remote'"
+    - make test-dist WORLD_SIZE=2 EXTRA_ARGS="-v -m 'not gpu and not vision and not daily and not remote'"
 
 about:
   home: https://www.mosaicml.com
