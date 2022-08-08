@@ -204,13 +204,13 @@ def composer_deeplabv3(num_classes: int,
     dice_loss_fn = DiceLoss(softmax=True, batch=True, ignore_absent_classes=True)
 
     def _combo_loss(output, target):
-        loss = []
+        loss = {}
         if cross_entropy_weight:
             ce_loss = ce_loss_fn(output, target) * cross_entropy_weight
-            loss.append(ce_loss)
+            loss['cross_entropy_loss'] = ce_loss
         if dice_weight:
             dice_loss = dice_loss_fn(output, target) * dice_weight
-            loss.append(dice_loss)
+            loss['dice_loss'] = dice_loss
         return loss
 
     composer_model = ComposerClassifier(module=model,

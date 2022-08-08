@@ -119,3 +119,13 @@ class LoggerDestination(Callback, ABC):
         """
         del artifact_name, destination, overwrite, progress_bar  # unused
         raise NotImplementedError
+
+    def can_log_file_artifacts(self) -> bool:
+        """Indicates whether LoggerDestination can log file artifacts.
+
+        Defaults to false, should return True for derived logger classes that implement log_file_artifact().
+
+        Returns:
+            bool: Whether the class supports logging file artifacts.
+        """
+        return False
