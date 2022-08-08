@@ -1341,7 +1341,7 @@ class Trainer:
             self.state.grad_accum = _get_initial_grad_accum(grad_accum)
 
         # Precision
-        if precision is not None:
+        if precision is not None and Precision(precision) != self.state.precision:
             if self.deepspeed_enabled:
                 raise ValueError('Changing the precision when using DeepSpeed is not supported')
             precision = Precision(precision)
