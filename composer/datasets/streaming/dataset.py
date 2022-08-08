@@ -226,13 +226,10 @@ class StreamingDataset(IterableDataset, DataloaderState):
         # Fields, protected by the lock, relating to loading shards in the background.
         self._lock: Lock
         self._next_epoch = 0
-        self._epoch_to_todo_ids = {}
-        self._downloaded_ids = []
         self._download_status = _DownloadStatus.NOT_STARTED
         self._download_exception: Exception
 
         self._shuffle_index = 0
-        self._shuffle_buffer_settings = None
         self._batch_count = 0
         self._shuffle_buffer_size = self._parse_shuffle_buffer_size(shuffle_buffer_size)
         self._cipher_key = None
@@ -247,8 +244,6 @@ class StreamingDataset(IterableDataset, DataloaderState):
             self.index.relocate_samples(self._shard_shuffle_indices)
         else:
             self._shard_shuffle_indices = np.arange(N)[np.arange(N) % num_nodes == global_rank]
-
-        self.downloaded_shards = {}
 
     def _parse_shuffle_buffer_size(self, shuffle_buffer_size_arg: str) -> np.int64:
         if shuffle_buffer_size_arg.endswith('prop'):
@@ -310,7 +305,6 @@ class StreamingDataset(IterableDataset, DataloaderState):
         for shard_id in shard_ids:
             basename = get_shard_basename(shard_id, compression_name=self.compression_scheme)
             try:
-                self.downloaded_shards[shard_id] = True
                 self._download_file(basename, wait=(dist.get_local_rank() != 0))
             except Exception as e:
                 with self._lock:
