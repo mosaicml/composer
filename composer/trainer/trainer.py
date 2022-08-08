@@ -1814,7 +1814,6 @@ class Trainer:
 
             # Log loss into total_loss dictionary
             for k, loss in loss_dict.items():
-
                 if not isinstance(loss, torch.Tensor):
                     loss = self._device.tensor_to_device(torch.tensor(loss))
 
