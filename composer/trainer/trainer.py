@@ -1708,13 +1708,8 @@ class Trainer:
                                        f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
                                        'and the batch will be retrained.'))
                     # Empty cache if on GPU, which will help reduce fragmentation
-                    if type(self._device) == DeviceGPU:
-                        def compute_memory_fragmentation():
-                            snapshot = torch.cuda.memory_snapshot()
-                            return sum(b['allocated_size'] for b in snapshot) / sum(b['total_size'] for b in snapshot)
-                        print("\n!!", compute_memory_fragmentation())
+                    if isinstance(self._device, DeviceGPU):
                         torch.cuda.empty_cache()
-                        print("!!", compute_memory_fragmentation(), '\n')
             # Otherwise, log grad_accum and return calculated loss
             else:
                 # Synchronize new batch compute time
