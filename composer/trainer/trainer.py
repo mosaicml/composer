@@ -1503,39 +1503,24 @@ class Trainer:
                                 # Run in same precision context to avoid NaNs
                                 self.train_metrics.update(outputs, targets)
 
-                    if self.deepspeed_enabled:
-                        self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
+                self.engine.run_event(Event.AFTER_DATALOADER)
 
-                    if self.train_metrics is not None:
-                        self.state.model.eval()
-                        with torch.no_grad():
-                            for eval_microbatch in self._train_data_spec.split_batch(
-                                    self.state.batch, self.state.grad_accum):
-                                # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
-                                # data and if so print a warning that metrics may return unexpected results
-                                with get_precision_context(self.state.precision):
-                                    outputs, targets = self._original_model.validate(eval_microbatch)
-                                    # Run in same precision context to avoid NaNs
-                                    self.train_metrics.update(outputs, targets)
+                self.engine.run_event(Event.BATCH_START)
+                self.logger.data_batch({
+                    'trainer/global_step': int(self.state.timestamp.batch),
+                    'trainer/batch_idx': self.state.timestamp.batch_in_epoch.value,
+                })
 
-                    self.engine.run_event(Event.AFTER_DATALOADER)
+                total_loss = self._train_batch(use_grad_scaling)
 
-                    self.engine.run_event(Event.BATCH_START)
-                    self.logger.data_batch({
-                        'trainer/global_step': int(self.state.timestamp.batch),
-                        'trainer/batch_idx': self.state.timestamp.batch_in_epoch.value,
-                    })
+                if use_grad_scaling:
+                    self.state.scaler.update()
 
-                    total_loss = self._train_batch(use_grad_scaling)
-
-                    if use_grad_scaling:
-                        self.state.scaler.update()
-
-                    if total_loss is not None:
-                        # total_loss can be None if gradient scaling failed
-                        map_collection(total_loss, dist.all_reduce)
-                        total_loss = map_collection(total_loss, lambda loss: loss.cpu().item() / dist.get_world_size())
-                        self.logger.data_batch(total_loss)
+                if total_loss is not None:
+                    # total_loss can be None if gradient scaling failed
+                    map_collection(total_loss, dist.all_reduce)
+                    total_loss = map_collection(total_loss, lambda loss: loss.cpu().item() / dist.get_world_size())
+                    self.logger.data_batch(total_loss)
 
                 # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
                 # next batch's wall clock time. The time accumulation must be done here so schedulers
