@@ -330,6 +330,10 @@ class ObjectStoreLogger(LoggerDestination):
                 raise FileExistsError(f'Object {object_name} was already enqueued to be uploaded, but overwrite=False.')
             self._logged_objects[object_name] = (copied_path, overwrite)
 
+    def can_log_file_artifacts(self) -> bool:
+        """Whether the logger supports logging file artifacts."""
+        return True
+
     def _enqueue_uploads(self):
         """Worker thread to enqueue uploads.
 

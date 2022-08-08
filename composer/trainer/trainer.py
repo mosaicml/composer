@@ -18,6 +18,7 @@ from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional
 import coolname
 import torch
 import torch.distributed
+import torch.nn as nn
 import torch.utils.data
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.nn.parallel import DistributedDataParallel
@@ -30,7 +31,7 @@ from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Eve
                            ensure_data_spec, ensure_evaluator, ensure_time)
 from composer.core.precision import get_precision_context
 from composer.core.time import TimeUnit
-from composer.core.types import Batch, BreakEpochException, PyTorchScheduler
+from composer.core.types import Batch, PyTorchScheduler
 from composer.loggers import Logger, LoggerDestination, LogLevel, ProgressBarLogger
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
@@ -46,6 +47,7 @@ from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_di
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
+from composer.utils.inference import ExportFormat, Transform, export_with_logger
 
 log = logging.getLogger(__name__)
 
@@ -536,7 +538,7 @@ class Trainer:
                 instance(s) of :class:`~.CheckpointSaver` directly as ``callbacks``.
         save_filename (str, optional): A format string describing how to name checkpoints.
             This parameter has no effect if ``save_folder`` is ``None``.
-            (default: ``"ep{epoch}-ba{batch}-rank{rank}"``)
+            (default: ``"ep{epoch}-ba{batch}-rank{rank}.pt"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
         save_artifact_name (str, optional): A format string describing how to name checkpoints in loggers.
@@ -547,7 +549,7 @@ class Trainer:
         save_latest_filename (str, optional): A format string for the name of a symlink
             (relative to ``save_folder``) that points to the last saved checkpoint.
             This parameter has no effect if ``save_folder`` is ``None``.
-            To disable symlinking, set this to ``None``. (default: ``"latest-rank{rank}"``)
+            To disable symlinking, set this to ``None``. (default: ``"latest-rank{rank}.pt"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
         save_latest_artifact_name (str, optional): A format string describing how to name symlinks in loggers.
@@ -708,9 +710,9 @@ class Trainer:
 
         # Save Checkpoint
         save_folder: Optional[str] = None,
-        save_filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
+        save_filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
         save_artifact_name: str = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
-        save_latest_filename: Optional[str] = 'latest-rank{rank}',
+        save_latest_filename: Optional[str] = 'latest-rank{rank}.pt',
         save_latest_artifact_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
@@ -766,7 +768,7 @@ class Trainer:
 
         # Precision
         if precision is None:
-            precision = Precision.AMP if isinstance(device, DeviceGPU) else Precision.FP32
+            precision = Precision.AMP if isinstance(self._device, DeviceGPU) else Precision.FP32
         if isinstance(precision, str):
             precision = Precision(precision)
 
@@ -1458,7 +1460,49 @@ class Trainer:
         last_wct = datetime.datetime.now()
 
         while self.state.timestamp < self.state.max_duration:
-            try:
+            self.state.model.train()
+
+            if int(self.state.timestamp.batch_in_epoch) == 0:
+                self.engine.run_event(Event.EPOCH_START)
+                self.logger.data_epoch({'epoch': int(self.state.timestamp.epoch)})
+                if self.train_metrics is not None:
+                    # reset the metrics before every epoch
+                    self.train_metrics.reset()
+
+            dataloader = self.state.dataloader
+            if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
+                dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
+
+            for batch_idx, self.state.batch in enumerate(self._iter_dataloader()):
+
+                # if resuming, skip dataloader forward to the minibatch index
+                if batch_idx < int(self.state.timestamp.batch_in_epoch):
+                    # Restore the RNG state immediately before the next batch is yielded from the dataloader
+                    if batch_idx + 1 == int(self.state.timestamp.batch_in_epoch) and self._rng_state is not None:
+                        reproducibility.load_rng_state(self._rng_state)
+                        self._rng_state = None
+                    continue
+
+                self.state.batch = self._device.batch_to_device(self.state.batch)
+                self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
+                rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
+                rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
+
+                if self.deepspeed_enabled:
+                    self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
+
+                if self.train_metrics is not None:
+                    self.state.model.eval()
+                    with torch.no_grad():
+                        for eval_microbatch in self._train_data_spec.split_batch(self.state.batch,
+                                                                                 self.state.grad_accum):
+                            # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
+                            # data and if so print a warning that metrics may return unexpected results
+                            with get_precision_context(self.state.precision):
+                                outputs, targets = self._original_model.validate(eval_microbatch)
+                                # Run in same precision context to avoid NaNs
+                                self.train_metrics.update(outputs, targets)
+
                 self.state.model.train()
 
                 if int(self.state.timestamp.batch_in_epoch) == 0:
@@ -1536,46 +1580,78 @@ class Trainer:
                         rank_num_tokens,
                         batch_time,
                     )
+                self.engine.run_event(Event.AFTER_DATALOADER)
 
-                    # `now` is actually in the past, but want to include the time it takes to perform this reduction
-                    last_wct = now
+                self.engine.run_event(Event.BATCH_START)
+                self.logger.data_batch({
+                    'trainer/global_step': int(self.state.timestamp.batch),
+                    'trainer/batch_idx': self.state.timestamp.batch_in_epoch.value,
+                })
 
-                    self.state.timestamp = self.state.timestamp.to_next_batch(
-                        samples=total_num_samples,
-                        tokens=total_num_tokens,
-                        duration=batch_time,
+                total_loss = self._train_batch(use_grad_scaling)
+
+                if use_grad_scaling:
+                    self.state.scaler.update()
+
+                if total_loss is not None:
+                    if not isinstance(total_loss, torch.Tensor):
+                        total_loss = self._device.tensor_to_device(torch.tensor([total_loss]))
+
+                    # total_loss can be None if gradient scaling failed
+                    dist.all_reduce(total_loss, reduce_operation='SUM')
+                    full_loss = total_loss.cpu().item()
+                    self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
+
+                # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
+                # next batch's wall clock time. The time accumulation must be done here so schedulers
+                # have the latest timing information
+
+                now = datetime.datetime.now()
+
+                batch_time = now - last_wct
+
+                total_num_samples, total_num_tokens, batch_time = self._accumulate_time_across_ranks(
+                    rank_num_samples,
+                    rank_num_tokens,
+                    batch_time,
+                )
+
+                # `now` is actually in the past, but want to include the time it takes to perform this reduction
+                last_wct = now
+
+                self.state.timestamp = self.state.timestamp.to_next_batch(
+                    samples=total_num_samples,
+                    tokens=total_num_tokens,
+                    duration=batch_time,
+                )
+
+                if self._scheduler_step_frequency == TimeUnit.BATCH:
+                    for scheduler in self.state.schedulers:
+                        scheduler.step()
+
+                if self.train_metrics is not None:
+                    self._compute_and_log_metrics(
+                        dataloader_label='train',
+                        log_level=LogLevel.BATCH,
+                        metrics=self.train_metrics,
                     )
 
-                    if self._scheduler_step_frequency == TimeUnit.BATCH:
-                        for scheduler in self.state.schedulers:
-                            scheduler.step()
+                self.engine.run_event(Event.BATCH_END)
 
-                    if self.train_metrics is not None:
-                        self._compute_and_log_metrics(
-                            dataloader_label='train',
-                            log_level=LogLevel.BATCH,
-                            metrics=self.train_metrics,
-                        )
+                # Pause the timing during evaluation
+                # Evaluation time is tracked separately in state.eval_timestamp
+                duration = datetime.datetime.now() - last_wct
+                self._run_evaluators(Event.BATCH_END, log_level=LogLevel.BATCH)
+                last_wct = datetime.datetime.now() - duration
 
-                    self.engine.run_event(Event.BATCH_END)
+                self.engine.run_event(Event.BATCH_CHECKPOINT)
 
-                    # Pause the timing during evaluation
-                    # Evaluation time is tracked separately in state.eval_timestamp
-                    duration = datetime.datetime.now() - last_wct
-                    self._run_evaluators(Event.BATCH_END, log_level=LogLevel.BATCH)
-                    last_wct = datetime.datetime.now() - duration
-
-                    self.engine.run_event(Event.BATCH_CHECKPOINT)
-
-                    if self.state.timestamp >= self.state.max_duration:
-                        # If max_duration is specified in batches, samples, or tokens, and
-                        # and the max_duration is reached mid-epoch, then break out of the dataloader
-                        # to finish the epoch early and finish training.
-                        finished_epoch_early = True
-                        break
-
-            except BreakEpochException:
-                log.info(f'Skipping the rest of Epoch {int(self.state.timestamp.epoch)}')
+                if self.state.timestamp >= self.state.max_duration:
+                    # If max_duration is specified in batches, samples, or tokens, and
+                    # and the max_duration is reached mid-epoch, then break out of the dataloader
+                    # to finish the epoch early and finish training.
+                    finished_epoch_early = True
+                    break
 
             if not finished_epoch_early or self.state.dataloader_len == self.state.timestamp.batch_in_epoch:
                 # Trigger the epoch end events if the dataloader was exhausted.
@@ -2201,3 +2277,45 @@ class Trainer:
             List[pathlib.Path]: See :func:`.save_checkpoint`.
         """
         return save_checkpoint(state=self.state, filename=name, weights_only=weights_only)
+
+    def export_for_inference(
+        self,
+        save_format: Union[str, ExportFormat],
+        save_path: str,
+        save_object_store: Optional[ObjectStore] = None,
+        sample_input: Optional[Any] = None,
+        transforms: Optional[Sequence[Transform]] = None,
+    ):
+        """Export a model for inference.
+
+        Args:
+            save_format (Union[str, ExportFormat]):  Format to export to. Either ``"torchscript"`` or ``"onnx"``.
+            save_path: (str): The path for storing the exported model. It can be a path to a file on the local disk,
+            a URL, or if ``save_object_store`` is set, the object name
+                in a cloud bucket. For example, ``my_run/exported_model``.
+            save_object_store (ObjectStore, optional): If the ``save_path`` is in an object name in a cloud bucket
+                (i.e. AWS S3 or Google Cloud Storage), an instance of
+                :class:`~.ObjectStore` which will be used
+                to store the exported model. If this is set to ``None``,  will save to ``save_path`` using the trainer's
+                logger. (default: ``None``)
+            sample_input (Any, optional): Example model inputs used for tracing. This is needed for "onnx" export.
+                The ``sample_input`` need not match the batch size you intend to use for inference. However, the model
+                should accept the ``sample_input`` as is. (default: ``None``)
+            transforms (Sequence[Transform], optional): transformations (usually optimizations) that should
+                be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
+
+        Returns:
+            None
+        """
+        export_model = self.state.model.module if self.state.is_model_ddp else self.state.model
+        if not isinstance(export_model, nn.Module):
+            raise ValueError(f'Exporting Model requires type torch.nn.Module, got {type(export_model)}')
+        if sample_input == None and save_format == 'onnx':
+            sample_input = self.state.batch
+        export_with_logger(model=export_model,
+                           save_format=save_format,
+                           save_path=save_path,
+                           logger=self.logger,
+                           save_object_store=save_object_store,
+                           sample_input=(sample_input,),
+                           transforms=transforms)

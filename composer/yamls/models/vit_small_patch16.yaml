@@ -16,7 +16,7 @@ val_dataset:
     drop_last: false
 optimizers:
   adamw:
-    lr: 3e-3
+    lr: 3.0e-3
     betas:
       - 0.9
       - 0.999
