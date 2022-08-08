@@ -1503,34 +1503,6 @@ class Trainer:
                                 # Run in same precision context to avoid NaNs
                                 self.train_metrics.update(outputs, targets)
 
-                self.state.model.train()
-
-                if int(self.state.timestamp.batch_in_epoch) == 0:
-                    self.engine.run_event(Event.EPOCH_START)
-                    self.logger.data_epoch({'epoch': int(self.state.timestamp.epoch)})
-                    if self.train_metrics is not None:
-                        # reset the metrics before every epoch
-                        self.train_metrics.reset()
-
-                dataloader = self.state.dataloader
-                if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
-                    dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
-
-                for batch_idx, self.state.batch in enumerate(self._iter_dataloader()):
-
-                    # if resuming, skip dataloader forward to the minibatch index
-                    if batch_idx < int(self.state.timestamp.batch_in_epoch):
-                        # Restore the RNG state immediately before the next batch is yielded from the dataloader
-                        if batch_idx + 1 == int(self.state.timestamp.batch_in_epoch) and self._rng_state is not None:
-                            reproducibility.load_rng_state(self._rng_state)
-                            self._rng_state = None
-                        continue
-
-                    self.state.batch = self._device.batch_to_device(self.state.batch)
-                    self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
-                    rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-                    rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
-
                     if self.deepspeed_enabled:
                         self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
@@ -1545,8 +1517,6 @@ class Trainer:
                                     outputs, targets = self._original_model.validate(eval_microbatch)
                                     # Run in same precision context to avoid NaNs
                                     self.train_metrics.update(outputs, targets)
-
-                    self.state.model.train()
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
@@ -1566,41 +1536,6 @@ class Trainer:
                         map_collection(total_loss, dist.all_reduce)
                         total_loss = map_collection(total_loss, lambda loss: loss.cpu().item() / dist.get_world_size())
                         self.logger.data_batch(total_loss)
-
-                    # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
-                    # next batch's wall clock time. The time accumulation must be done here so schedulers
-                    # have the latest timing information
-
-                    now = datetime.datetime.now()
-
-                    batch_time = now - last_wct
-
-                    total_num_samples, total_num_tokens, batch_time = self._accumulate_time_across_ranks(
-                        rank_num_samples,
-                        rank_num_tokens,
-                        batch_time,
-                    )
-                self.engine.run_event(Event.AFTER_DATALOADER)
-
-                self.engine.run_event(Event.BATCH_START)
-                self.logger.data_batch({
-                    'trainer/global_step': int(self.state.timestamp.batch),
-                    'trainer/batch_idx': self.state.timestamp.batch_in_epoch.value,
-                })
-
-                total_loss = self._train_batch(use_grad_scaling)
-
-                if use_grad_scaling:
-                    self.state.scaler.update()
-
-                if total_loss is not None:
-                    if not isinstance(total_loss, torch.Tensor):
-                        total_loss = self._device.tensor_to_device(torch.tensor([total_loss]))
-
-                    # total_loss can be None if gradient scaling failed
-                    dist.all_reduce(total_loss, reduce_operation='SUM')
-                    full_loss = total_loss.cpu().item()
-                    self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
 
                 # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
                 # next batch's wall clock time. The time accumulation must be done here so schedulers
