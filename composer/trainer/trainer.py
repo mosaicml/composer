@@ -1552,8 +1552,11 @@ class Trainer:
 
                         # total_loss can be None if gradient scaling failed
                         dist.all_reduce(total_loss, reduce_operation='SUM')
-                        full_loss = total_loss#.cpu().item()
-                        #self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
+                        if isinstance(self._device, DeviceTPU):
+                            full_loss = total_loss
+                        else:
+                            full_loss = total_loss.cpu().item()
+                            self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
 
                     # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
                     # next batch's wall clock time. The time accumulation must be done here so schedulers
