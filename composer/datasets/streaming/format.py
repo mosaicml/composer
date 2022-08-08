@@ -149,8 +149,12 @@ class StreamingDatasetIndex(object):
         fields (List[str]): The names of the samples' fields in order.
     """
 
-    def __init__(self, samples_per_shard: NDArray[np.int64], bytes_per_shard: NDArray[np.int64],
-                 bytes_per_sample: NDArray[np.int64], fields: List[str]) -> None:
+    def __init__(self,
+                 samples_per_shard: NDArray[np.int64],
+                 bytes_per_shard: NDArray[np.int64],
+                 bytes_per_sample: NDArray[np.int64],
+                 fields: List[str],
+                 shuffle_indices: Optional[NDArray[np.int64]] = None) -> None:
         self.samples_per_shard = samples_per_shard
         self.bytes_per_shard = bytes_per_shard
         self.bytes_per_sample = bytes_per_sample
@@ -167,7 +171,12 @@ class StreamingDatasetIndex(object):
         self.shard_begins = self.shard_ends - self.samples_per_shard
 
         # Sample -> shard, byte offset within shard.
-        self.sample_shards, self.sample_shard_offsets = self._locate_samples()
+        self.shuffle_indices = shuffle_indices if shuffle_indices is not None else np.arange(self.num_shards)
+        self.sample_shards, self.sample_shard_offsets, self.shard_samples = self._locate_samples()
+
+    def relocate_samples(self, shuffle_indices: NDArray[np.int64]):
+        self.shuffle_indices = shuffle_indices
+        self.sample_shards, self.sample_shard_offsets, self.shard_samples = self._locate_samples()
 
     @classmethod
     def loads(cls, data: bytes):
@@ -183,7 +192,7 @@ class StreamingDatasetIndex(object):
         return cls.load(fp)
 
     @classmethod
-    def load(cls, fp: Union[BufferedReader, BytesIO, GzipFile]):
+    def load(cls, fp: Union[BufferedReader, BytesIO, GzipFile], shuffle_indices: Optional[NDArray[np.int64]] = None):
         """Load a StreamingDatasetIndex from a file handle.
 
         Args:
@@ -217,7 +226,7 @@ class StreamingDatasetIndex(object):
         num_fields, = read_array(fp, 1, np.int32)
         bytes_per_field = read_array(fp, num_fields, np.int32)
         fields = [fp.read(size).decode('utf-8') for size in bytes_per_field]
-        return cls(samples_per_shard, bytes_per_shard, bytes_per_sample, fields)
+        return cls(samples_per_shard, bytes_per_shard, bytes_per_sample, fields, shuffle_indices)
 
     def dumps(self) -> bytes:
         """Dump a StreamingDatasetIndex to raw bytes.
@@ -267,28 +276,36 @@ class StreamingDatasetIndex(object):
         data = self.dumps()
         fp.write(data)
 
-    def _locate_samples(self) -> Tuple[NDArray[np.int64], NDArray[np.int64]]:
+    def _locate_samples(self) -> Tuple[NDArray[np.int64], NDArray[np.int64], NDArray[np.int64]]:
         """Precompute the shard and byte offset within the shard of every sample.
 
         Returns:
             sample_shards (NDArray[np.int64]): Shard per sample.
             sample_shard_offsets (NDArray[np.int64]): Intra-shard byte offset per sample.
         """
-        shard_ends = self.bytes_per_shard.cumsum()
-        shard_begins = shard_ends - self.bytes_per_shard
+        bytes_per_shard_shuffled = self.bytes_per_shard[self.shuffle_indices]
+        samples_per_shard_shuffled = self.samples_per_shard[self.shuffle_indices]
+        shard_ends_shuffled = bytes_per_shard_shuffled.cumsum()
+        shard_begins_shuffled = shard_ends_shuffled - bytes_per_shard_shuffled
+        indices = self.shuffle_indices
 
+        sample_count = 0
         sample_shard_begins = []
         sample_shards = []
-        for shard, (num_samples, shard_begin) in enumerate(zip(self.samples_per_shard, shard_begins)):
+        shard_samples = []
+        for (shard, num_samples, shard_begin) in zip(indices, samples_per_shard_shuffled, shard_begins_shuffled):
             sample_shard_begins += [shard_begin] * num_samples
             sample_shards += [shard] * num_samples
+            shard_samples.append(num_samples)
+            sample_count += num_samples
         sample_shard_begins = np.array(sample_shard_begins, np.int64)
         sample_shards = np.array(sample_shards, np.int64)
+        shard_samples = np.array(shard_samples, np.int64)
 
         sample_ends = self.bytes_per_sample.astype(np.int64).cumsum()
         sample_begins = sample_ends - self.bytes_per_sample
         sample_shard_offsets = sample_begins - sample_shard_begins
-        return sample_shards, sample_shard_offsets
+        return sample_shards, sample_shard_offsets, shard_samples
 
     def get_partition(self, world: World, batch_size: Optional[int] = None) -> Tuple[List[int], List[int], int, int]:
         """Get the shards and sample range of a given partition of the dataset.

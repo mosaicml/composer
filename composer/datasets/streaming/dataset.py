@@ -4,11 +4,23 @@
 """The :class:`StreamingDataset` class, used for building streaming iterable datasets.
 """
 
+### High level overview:
+### - Permute shards (cipher shuffle)
+### - Divide shards between nodes
+### - Calculate sample order within
+
+### at a high level, we want a function from batch_idx -> sample_indices[batch_size]
+
+### TODO:
+### - add shard_id -> is_downloaded dictionary
+### - modify partition to return list of shards in canonical order
+### - modify __iter__ to shuffle within shards
+### - modify __iter__ to block if get_shard_id(sample_id) is not downloaded
+
 import enum
 import math
 import os
 from threading import Lock, Thread
-from time import sleep
 from typing import Any, Callable, Dict, Iterator, Optional
 
 import numpy as np
@@ -19,7 +31,6 @@ from composer.datasets.streaming.download import download_or_wait
 from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict,
                                                 get_compression_scheme_basename, get_index_basename, get_shard_basename,
                                                 split_compression_suffix)
-from composer.datasets.streaming.world import get_world
 from composer.utils import dist
 
 __all__ = ['StreamingDataset']
@@ -34,6 +45,50 @@ class _DownloadStatus(enum.IntEnum):
     IN_PROGRESS = 2
     DONE = 3
     FAILED = 4
+
+
+def encrypt_round(key, round_num, plaintext, block_size):
+    if round_num == 0:
+        return plaintext
+
+    half_block_size = (block_size + 1) // 2
+    N = 2 << (half_block_size - 1)
+    upper, lower = plaintext >> half_block_size, plaintext % (N)
+    gen = np.random.default_rng(key + round_num + upper)
+    lower = lower ^ gen.integers(N)
+    upper, lower = lower, upper
+    return encrypt_round(key, round_num - 1, (upper << half_block_size) ^ lower, block_size)
+
+
+def decrypt_round(key, round_num, ciphertext, block_size, num_rounds):
+    if round_num > num_rounds:
+        return ciphertext
+
+    half_block_size = (block_size + 1) // 2
+    N = 2 << (half_block_size - 1)
+    upper, lower = ciphertext >> half_block_size, ciphertext % (N)
+    gen = np.random.default_rng(key + round_num + lower)
+    upper = upper ^ gen.integers(N)
+    upper, lower = lower, upper
+    return decrypt_round(key, round_num + 1, (upper << half_block_size) ^ lower, block_size, num_rounds)
+
+
+def encrypt(key, value, num_possible_values):
+    num_rounds = 4
+    block_size = int(np.ceil(np.log2(num_possible_values)))
+    ciphertext = encrypt_round(key, num_rounds, value, block_size)
+    if ciphertext < num_possible_values:
+        return ciphertext
+    return encrypt(key, ciphertext, num_possible_values)
+
+
+def decrypt(key, value, num_possible_values):
+    num_rounds = 4
+    block_size = int(np.ceil(np.log2(num_possible_values)))
+    plaintext = decrypt_round(key, 1, value, block_size, num_rounds)
+    if plaintext < num_possible_values:
+        return plaintext
+    return decrypt(key, plaintext, num_possible_values)
 
 
 class StreamingDataset(IterableDataset, DataloaderState):
@@ -129,7 +184,8 @@ class StreamingDataset(IterableDataset, DataloaderState):
                  decoders: Dict[str, Callable[[bytes], Any]],
                  max_retries: int = 2,
                  timeout: float = 60,
-                 batch_size: Optional[int] = None) -> None:
+                 batch_size: Optional[int] = None,
+                 shuffle_buffer_size: Optional[str] = '0.05prop') -> None:
 
         self.remote = remote
         self.local = local
@@ -173,11 +229,28 @@ class StreamingDataset(IterableDataset, DataloaderState):
         self._download_status = _DownloadStatus.NOT_STARTED
         self._download_exception: Exception
 
+        self._shuffle_index = 0
+        self._shuffle_buffer_settings = None
+        self._batch_count = 0
+        self._shuffle_buffer_size = shuffle_buffer_size
+        self._cipher_key = None
+        N = self.index.num_shards
+        if shuffle:
+            self._cipher_key = self._next_epoch + np.random.randint(2 << 10)  # initialize using a random cipher key
+            self._shard_shuffle_indices = np.array([encrypt(self._cipher_key, v, N) for v in range(N)])
+            self.index.relocate_samples(self._shard_shuffle_indices)
+        else:
+            self._shard_shuffle_indices = np.arange(N)
+
     def state_dict(self):
-        pass
+        return {'batch_count': self._batch_count, 'cipher_key': self._cipher_key}
 
     def load_state_dict(self, state):
-        pass
+        self._batch_count = state['batch_count']
+        self._cipher_key = state['cipher_key']
+        N = self.index.num_shards
+        self._shard_shuffle_indices = np.array([encrypt(self._cipher_key, v, N) for v in range(N)])
+        self.index.relocate_samples(self._shard_shuffle_indices)
 
     def _download_file(self, basename: str, wait: bool = False, local_basename: Optional[str] = None) -> str:
         """Safely download a file from remote to local cache.
@@ -199,84 +272,35 @@ class StreamingDataset(IterableDataset, DataloaderState):
         local, _ = split_compression_suffix(local)
         return local
 
-    def _insert_shard_samples(self, shard: int, part_min_id: int, part_max_id: int) -> None:
-        """Load the given locally cached shard into the dataset.
+    def download(self):
+        """Downloads everything in the correct order"""
 
-        Every time you call __iter__ on this dataset, it registers the list of samples you have left, which will not be
-        the full epoch if the dataset isn't finished loaded when you start training.
+        N = self.index.num_shards
+        current_shard = self.index.sample_shards[encrypt(self._cipher_key, self._batch_count, N)]
+        current_shard_index = decrypt(self._cipher_key, current_shard, N)
+        current_shard_index -= current_shard_index % self._shuffle_buffer_size
+        shard_ids = self._shard_shuffle_indices[current_shard_index:]
 
-        Calls to _insert_shard_samples during training modify the samples remaining on these iterations on the fly to
-        insert these new samples and then re-sort, making the shuffle as perfect as was possible.
-
-        This operation takes the lock, so batch your _insert_shard_samples calls where possible.
-
-        Args:
-            shard (int): Shard to load.
-            part_min_id (int): Minimum sample ID of this partition.
-            part_max_id (int): Maximum sample ID of this partition.
-        """
-        # Get all samples from the given shards that fall within our partition.
-        shard_min_id = self.index.shard_begins[shard]
-        shard_max_id = self.index.shard_ends[shard] - 1
-        min_id = max(part_min_id, shard_min_id)
-        max_id = min(part_max_id, shard_max_id)
-        new_ids = list(range(min_id, max_id + 1))
-
-        with self._lock:
-            # Extend and optionally reshuffle the remaining samples of any
-            # epochs we have in progress.
-            if self.shuffle:
-                if self._download_status == _DownloadStatus.IN_PROGRESS:
-                    self._downloaded_ids.extend(new_ids)
-                    np.random.shuffle(self._downloaded_ids)
-                for todo_ids in self._epoch_to_todo_ids.values():
-                    todo_ids.extend(new_ids)
-                    np.random.shuffle(todo_ids)
-            else:
-                if self._download_status == _DownloadStatus.IN_PROGRESS:
-                    self._downloaded_ids.reverse()
-                    self._downloaded_ids.extend(new_ids)
-                    self._downloaded_ids.reverse()
-                for todo_ids in self._epoch_to_todo_ids.values():
-                    todo_ids.reverse()
-                    todo_ids.extend(new_ids)
-                    todo_ids.reverse()
-
-    def download(self) -> None:
-        """Download and assimilate missing shards."""
-        if not hasattr(self, '_lock'):
-            self._lock = Lock()
-
-        with self._lock:
-            if self._download_status != _DownloadStatus.NOT_STARTED:
-                return
-            self._download_status = _DownloadStatus.IN_PROGRESS
-
-        # We find out num workers, and therefore num partitions, when __iter__ is called.
-        # From the partition, derive our shard overlap range and exact sample range.
-        world = get_world()
-        part_shards, part_shards_to_download, part_min_id, part_max_id = self.index.get_partition(
-            world, self.batch_size)
-
-        if self.shuffle:
-            # Always process first shard first because other workers may be waiting on it
-            part_shards = np.array(part_shards)
-            np.random.shuffle(part_shards[1:])
-
-        for shard in part_shards:
-            # If this worker is in charge of downloading the shard, download it.
-            # Otherwise, wait until shard gets downloaded by another worker on this node
-            # This produces deterministic sample order.
-            basename = get_shard_basename(shard, compression_name=self.compression_scheme)
+        for shard_id in shard_ids:
+            basename = get_shard_basename(shard_id, compression_name=self.compression_scheme)
             try:
-                self._download_file(basename, wait=(shard not in part_shards_to_download))
+                self._download_file(basename, wait=(dist.get_local_rank() != 0))
             except Exception as e:
                 self._download_status = _DownloadStatus.FAILED
                 self._download_exception = e
-            self._insert_shard_samples(shard, part_min_id, part_max_id)
 
-        with self._lock:
-            self._download_status = _DownloadStatus.DONE
+    def shuffle_sample(self, idx):
+        shard_id = self.index.sample_shards[idx]
+        group_id = shard_id - shard_id % self._shuffle_buffer_size
+        group_key = self._cipher_key + group_id
+        group_samples = self.index.samples_per_shard[self._shard_shuffle_indices[np.arange(
+            group_id, group_id + self._shuffle_buffer_size)]]
+        num_group_items = np.sum(group_samples)
+        group_samples_seen_by_shard = np.cumsum(group_samples)
+        group_relative_id = encrypt(group_key, idx % num_group_items, num_group_items)
+        shards_passed = group_samples_seen_by_shard[group_samples_seen_by_shard < group_relative_id]
+        shard_id = group_id + len(shards_passed)
+        return self.index.shard_samples[shard_id] + group_relative_id - shards_passed[-1]
 
     def __len__(self) -> int:
         """Get the length of the dataset.
@@ -328,67 +352,6 @@ class StreamingDataset(IterableDataset, DataloaderState):
 
         return self._unpack_sample(data)
 
-    def _iter_ids_static(self) -> Iterator[int]:
-        """Get an iterator over all our sample IDs.
-
-        Returns:
-            Iterator[int]: Each sample ID.
-        """
-        ids = list(self._downloaded_ids)
-        if self.shuffle:
-            np.random.shuffle(ids)
-            yield from ids
-        else:
-            yield from ids[::-1]
-
-    def _iter_ids_dynamic(self) -> Iterator[int]:
-        """Get an iterator over all our sample IDs as they become downloaded.
-
-        If we are currently out of samples but not finished downloading the shards, blocks until it has new samples.
-
-        Returns:
-            Iterator[int]: Each sample ID.
-        """
-        with self._lock:
-            epoch = self._next_epoch
-            self._next_epoch += 1
-            self._epoch_to_todo_ids[epoch] = todo_ids = list(self._downloaded_ids)
-
-        while True:
-            with self._lock:
-                if todo_ids:
-                    yield todo_ids.pop()
-                    continue
-                elif self._download_status == _DownloadStatus.NOT_STARTED:
-                    pass
-                elif self._download_status == _DownloadStatus.IN_PROGRESS:
-                    pass
-                elif self._download_status == _DownloadStatus.DONE:
-                    del self._epoch_to_todo_ids[epoch]
-                    return
-                elif self._download_status == _DownloadStatus.FAILED:
-                    raise self._download_exception
-                else:
-                    raise RuntimeError('Unexpected download status.')
-            sleep(0.25)
-
-    def _iter_ids(self) -> Iterator[int]:
-        """Get an iterator over all our sample IDs.
-
-        Returns:
-            Iterator[int]: Each sample ID.
-        """
-        if not hasattr(self, '_lock'):
-            self._lock = Lock()
-
-        with self._lock:
-            is_downloaded = self._download_status == _DownloadStatus.DONE
-
-        if is_downloaded:
-            yield from self._iter_ids_static()
-        else:
-            yield from self._iter_ids_dynamic()
-
     def __iter__(self) -> Iterator[Any]:
         """Iterate over all the samples in our partition.
 
@@ -399,6 +362,6 @@ class StreamingDataset(IterableDataset, DataloaderState):
             Iterator[Any]: Each sample.
         """
         Thread(target=self.download, daemon=True).start()
-
-        for idx in self._iter_ids():
-            yield self[idx]
+        while self._batch_count < self.index.total_samples:
+            self._batch_count += 1
+            yield self[self.shuffle_sample(self._batch_count)]
