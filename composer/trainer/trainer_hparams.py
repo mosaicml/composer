@@ -39,7 +39,7 @@ from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.trainer.devices.device_hparams_registry import device_registry
 from composer.trainer.trainer import Trainer
-from composer.utils import dist, reproducibility
+from composer.utils import MissingConditionalImportError, dist, reproducibility
 from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
 
 if TYPE_CHECKING:
@@ -450,7 +450,6 @@ class TrainerHparams(hp.Hparams):
         if os.getenv('XRT_TPU_CONFIG') is not None:
             try:
                 import torch_xla.core.xla_model as xm
-                import torch_xla.distributed.parallel_loader as pl
             except ImportError as e:
                 raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]') from e
 

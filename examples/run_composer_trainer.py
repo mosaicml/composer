@@ -73,7 +73,7 @@ def _main():
 
     trainer.fit()
 
-import torch
+
 def _mp_fn(index):
     _main()
 

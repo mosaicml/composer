@@ -1553,8 +1553,10 @@ class Trainer:
 
                     # total_loss can be None if gradient scaling failed
                     dist.all_reduce(total_loss, reduce_operation='SUM')
+                    import torch_xla.core.xla_model as xm
                     if isinstance(self._device, DeviceTPU):
                         full_loss = total_loss
+                        xm.add_step_closure(self.logger.data_batch({'loss/train': full_loss}))
                     else:
                         full_loss = total_loss.cpu().item()
                         self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
@@ -1682,30 +1684,25 @@ class Trainer:
                 if self.deepspeed_enabled:
                     total_loss = self._train_microbatches(microbatches)
                 elif self._use_closures():
-                    '''
-                    import torch_xla.core.xla_model as xm
-                    for optimizer in self.state.optimizers:
-                            total_loss = self._train_microbatches(microbatches)
-                            xm.optimizer_step(optimizer)
-                    '''
                     if isinstance(self._device, DeviceTPU):
                         try:
                             import torch_xla.core.xla_model as xm
-                            import torch_xla.distributed.parallel_loader as pl
                         except ImportError as e:
-                            raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]') from e
-        
+                            raise MissingConditionalImportError(extra_deps_group='tpu',
+                                                                conda_package='torch_xla[tpuvm]') from e
+
                         for optimizer in self.state.optimizers:
                             total_loss = self._train_microbatches(microbatches)
                             xm.optimizer_step(optimizer)
                     else:
-                        if use_grad_scaling:
-                            total_loss = self.state.scaler.step(
-                                optimizer,
-                                closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
-                        else:
-                            total_loss = optimizer.step(
-                                closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs).item())
+                        for optimizer in self.state.optimizers:
+                            if use_grad_scaling:
+                                total_loss = self.state.scaler.step(
+                                    optimizer,
+                                    closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
+                            else:
+                                total_loss = optimizer.step(
+                                    closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs).item())
                 else:
                     total_loss = self._train_microbatches(microbatches)
                     for optimizer in self.state.optimizers:
@@ -1713,7 +1710,7 @@ class Trainer:
                             self.state.scaler.step(optimizer)
                         else:
                             optimizer.step()
-                       
+
             except RuntimeError as e:
                 if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))

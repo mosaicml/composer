@@ -1,5 +1,6 @@
-import composer.functional as cf
 from torchvision import models
+
+import composer.functional as cf
 
 my_model = models.resnet18()
 
