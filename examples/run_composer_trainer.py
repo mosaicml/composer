@@ -75,7 +75,6 @@ def _main():
 
 import torch
 def _mp_fn(index):
-    torch.set_default_tensor_type('torch.FloatTensor')
     _main()
 
 

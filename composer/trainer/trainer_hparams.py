@@ -447,8 +447,13 @@ class TrainerHparams(hp.Hparams):
         # The model
         model = self.model.initialize_object()
         ## on tpus, the model needs to be transferred to the xla device before the optimizer is constructed
-        if os.getenv('XRT_TPU_CONFIG'):
-            import torch_xla.core.xla_model as xm
+        if os.getenv('XRT_TPU_CONFIG') is not None:
+            try:
+                import torch_xla.core.xla_model as xm
+                import torch_xla.distributed.parallel_loader as pl
+            except ImportError as e:
+                raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]') from e
+
             xla_device = xm.xla_device()
             model = model.to(xla_device)
 

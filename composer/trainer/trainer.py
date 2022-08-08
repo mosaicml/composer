@@ -787,12 +787,13 @@ class Trainer:
             raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
         # Move the model and optimizers to the device
+
         if not deepspeed_enabled:
-            if not os.getenv('XRT_TPU_CONFIG'):
+            if os.getenv('XRT_TPU_CONFIG') is None:
                 model = self._device.module_to_device(model)
-            # Move any remaining optimizer parameters onto the device
-            # It is possible that optimizer initialize created some internal tensors on CPU
-            # that need to be moved onto GPU.
+                # Move any remaining optimizer parameters onto the device
+                # It is possible that optimizer initialize created some internal tensors on CPU
+                # that need to be moved onto GPU.
             optimizers = map_collection(optimizers, self._device.optimizer_to_device)
 
         # Grad Accum
@@ -1551,8 +1552,8 @@ class Trainer:
 
                         # total_loss can be None if gradient scaling failed
                         dist.all_reduce(total_loss, reduce_operation='SUM')
-                        full_loss = total_loss.cpu().item()
-                        self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
+                        full_loss = total_loss#.cpu().item()
+                        #self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
 
                     # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
                     # next batch's wall clock time. The time accumulation must be done here so schedulers
@@ -1678,7 +1679,23 @@ class Trainer:
                 if self.deepspeed_enabled:
                     total_loss = self._train_microbatches(microbatches)
                 elif self._use_closures():
+                    '''
+                    import torch_xla.core.xla_model as xm
                     for optimizer in self.state.optimizers:
+                            total_loss = self._train_microbatches(microbatches)
+                            xm.optimizer_step(optimizer)
+                    '''
+                    if isinstance(self._device, DeviceTPU):
+                        try:
+                            import torch_xla.core.xla_model as xm
+                            import torch_xla.distributed.parallel_loader as pl
+                        except ImportError as e:
+                            raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]') from e
+        
+                        for optimizer in self.state.optimizers:
+                            total_loss = self._train_microbatches(microbatches)
+                            xm.optimizer_step(optimizer)
+                    else:
                         if use_grad_scaling:
                             total_loss = self.state.scaler.step(
                                 optimizer,
@@ -1690,22 +1707,10 @@ class Trainer:
                     total_loss = self._train_microbatches(microbatches)
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
-                            if isinstance(self._device, DeviceTPU):
-                                self.state.scaler.step(optimizer)
-                                self.state.scaler.update()
-                            else:
-                                self.state.scaler.step(optimizer)
+                            self.state.scaler.step(optimizer)
                         else:
-                            if isinstance(self._device, DeviceTPU):
-                                try:
-                                    import torch_xla.core.xla_model as xm
-                                except ImportError as e:
-                                    raise MissingConditionalImportError(extra_deps_group='tpu',
-                                                                        conda_package='torch_xla[tpuvm]') from e
-                                xm.optimizer_step(optimizer)
-                            else:
-                                optimizer.step()
-                
+                            optimizer.step()
+                       
             except RuntimeError as e:
                 if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
