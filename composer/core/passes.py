@@ -34,6 +34,10 @@ def sort_to_front(list_to_sort: Sequence[T], cls: Any) -> Sequence[T]:
 
     Example:
 
+        .. testsetup::
+
+            from composer.core.passes import sort_to_front
+
         .. doctest::
 
             >>> sort_to_front([1, 'b', 3], str)
@@ -54,6 +58,10 @@ def sort_to_back(list_to_sort: Sequence[T], cls: Any) -> Sequence[T]:
     """Helper function to sort instances of a provided class to the back.
 
     Example:
+
+        .. testsetup::
+
+            from composer.core.passes import sort_to_back
 
         .. doctest::
 
