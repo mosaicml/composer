@@ -90,6 +90,8 @@ class LoggerDestination(Callback, ABC):
                 artifact can be corrupted (e.g., if the logger destination is reading from file while the training loop
                 is writing to it).
 
+        .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
+
         Args:
             state (State): The training state.
             log_level (Union[str, LogLevel]): A :class:`LogLevel`.

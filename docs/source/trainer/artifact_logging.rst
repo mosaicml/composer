@@ -1,96 +1,229 @@
 |:hindu_temple:| Artifact Logging
-====================
+=================================
+
+Composer supports uploading artifacts, such as checkpoints and profiling traces, directly to third-party
+experiment trackers (e.g. Weights & Biases) and cloud storage backends (e.g. AWS S3).
 
 What is an artifact?
------------
+--------------------
 
-An artifact can be thought of as a folder stored in the cloud. This folder can contain any
-files or file URL that are pertinent to a training run. These files are called **assets**
-or **asset files**. Assets can be any type of inputs to or byproducts of a training run,
-like datasets, checkpoints, config files, etc. This folder different from a normal folder
-or directory you would have on your local system is that it is ‘versioned’ and it is often
-stored in the cloud. It is  versioned in the sense that it will track the whole history of
-versions of these asset  files much like `git` or `subversion` tracks code files.
-Moreover, this folder is usually stored in the cloud on S3 or GCP, for example.
+An artifact is an file generated during training. Checkpoints, profiling traces, and log files
+are the most common examples of artifacts. An artifacts must be a single, local file.
+Collections of files can be combined into a single tarball, and a file can be stored in a temporary folder.
 
-Artifacts and Assets in Composer
------------
+Each artifact must have a name, which is independent of the artifact's local filepath.
+A remote backend that logs an artifact is responsible for storing and organizing the file by the artifact's
+name. An artifact with the same name should override a previous artifact with that name. It is recommended that
+artifact names include file extensions.
 
-Artifact amd asset creation and artifact uploading/logging in Composer two separate 
-operations that must be separately configured for. For example, it is possible to set up
-checkpoint logging or metric logging in Composer, but if you don’t configure artifact
-logging, these files will not get uploaded to the cloud. Below we will explain 
-**asset creation**, **artifact creation** and **artifact logging** in Composer.
+How are artifacts generated?
+----------------------------
 
-Creating Artifacts and Assets in Composer
------------
+In Composer, individual classes, such as algorithms, callbacks, loggers, and profiler trace handlers, can generate
+artifacts.
 
-When using Composer, most asset files are usually created for you without you even 
-realizing it. For example, configuring any of the following will create asset files:
+Once a artifact file has been written to disk, the class should call
+:meth:`~composer.loggers.logger.Logger.file_artifact`, and the
+centralized :class:`~composer.loggers.logger.Logger` will then pass the filepath and artifact name to all
+LoggerDestinations, which are ultimately responsible for uploading and storing artifacts
+(more on that :ref:`below <artifact_logging_uploading>`).
 
-* :doc:`Checkpoint Saving<checkpointing>` will create checkpoint asset files.
-* Many :doc:`metric loggers<logging>` will create assets. For example:
-    * :class:`~.TensorboardLogger` will create Tensorboard event log asset files.
-    * :class:`~.FileLogger` will create log asset files.
+Below are some examples of the classes that generate artifacts and the types of artifacts they generate. For each class,
+see the linked api reference for additional documentation.
 
-* Using our example entrypoint `run_composer_trainer.py` will log a yaml file containing
-all of a run's hyperparameters and configurations called `hparams.yaml`
+.. list-table::
+    :header-rows: 1
 
-Logging (or Uploading) Artifacts
------------
+    * - Type
+      - Class Name
+      - Description of Generated Artifacts
+    * - Callback
+      - :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`
+      - Training checkpoint files
+    * - Callback
+      - :class:`~composer.callbacks.export_for_inference.ExportForInferenceCallback`
+      - Trained models in inference formats
+    * - Callback
+      - :class:`~composer.callbacks.mlperf.MLPerfCallback`
+      - MLPerf submission files
+    * - Logger
+      - :class:`~composer.loggers.file_logger.FileLogger`
+      - Log files
+    * - Logger
+      - :class:`~composer.loggers.tensorboard_logger.TensorboardLogger`
+      - Tensorboard TF Event Files
+    * - Trace Handler
+      - :class:`~composer.profiler.json_trace_handler.JSONTraceHandler`
+      - Profiler trace files
 
-Uploading your artifacts (and the assets within your artifacts) to S3 or some
-other cloud storage location, like GCP, is what we call **artifact logging** (or 
-artifact uploading). To make sure these artifacts are uploaded to cloud storage, you need
-to specify a "backend" logger for logging artifacts. Currently we support two 
-"backend loggers": :class:`~.ObjectStoreLogger` and :class:`~.WandBLogger`. In order to have your artifacts and their assets
-uploaded to the cloud You must
-instantiate one of those two loggers . The :class:`~.ObjectStoreLogger` will upload your asset files to
-cloud storage, like AWS S3 or GCP. The :class:`~.WandBLogger` will upload your assets to
-your WandB run. See [here](https://docs.wandb.ai/guides/artifacts) for more details on
-WandB artifact logging.
+Logging custom artifacts
+------------------------
 
-Using the ObjectStoreLogger
------------
-There are two key arguments you need to specify to create an :class:`~.ObjectStoreLogger`:
+It is also possible to log custom artifacts outside of an algorithm or callback. For example:
 
-* `object_store_cls`
+.. testcode::
 
-Which cloud storage you are using. (e.g. S3, GCP, etc.)
-The choices we provide are:
-:class:`~.S3ObjectStore` for S3 storage.
-:class:`SFTPObjectStore` for storage in a server you upload to via SFTP.
-:class:`~.LibcloudObjectStore`, a general purpose class for specifying whatever cloud
-storage you are using.
+    from composer import Trainer
+    from composer.loggers import LogLevel
+
+    # Construct the trainer
+    trainer = Trainer(...)
+
+    # Log a custom artifact, such as a configuration YAML
+    trainer.logger.file_artifact(
+        log_level=LogLevel.FIT,
+        artifact_name='hparams.yaml',
+        file_path='/path/to/hparams.yaml',
+    )
+
+    # Train!
+    trainer.fit()
+
+.. _artifact_logging_uploading:
+
+How are artifacts uploaded?
+---------------------------
+
+To store artifacts, in the ``loggers`` argument to the Trainer constructor, you must specify a
+:class:`~composer.loggers.logger_destination.LoggerDestination` that implements the
+:meth:`~composer.loggers.logger_destination.LoggerDestination.log_file_artifact`.
+
+.. seealso::
+
+    The built-in :class:`~composer.loggers.wandb_logger.WandBLogger` and
+    :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`
+    implement this method -- see the examples below.
+
+The centralized Composer
+:class:`~composer.loggers.logger.Logger` will invoke this method for all LoggerDestinations. If no LoggerDestination
+implements this method, then artifacts will not be stored remotely.
+
+Because LoggerDestinations can both generate and store artifacts, there is a potential for a ciruclar dependency. As
+such, it is important that any logger that generates artifacts (e.g. the Tensorboard Logger) does not also attempt
+to store artifacts. Otherwise, you could run into an infinite loop!
+
+Where can I store artifacts?
+----------------------------
+
+Composer includes two built-in LoggerDestinations to store artifacts:
+
+*   The :class:`~composer.loggers.wandb_logger.WandBLogger` can upload Composer training artifacts
+    as `W & B Artifacts <https://docs.wandb.ai/ref/python/artifact>`_, which are associated with the corresponding
+    W & B project.
+
+*   The :class:`~composer.loggers.object_store_logger.ObjectStoreLogger` can upload Composer training artifacts
+    to any cloud storage backend or remote filesystem. We include integrations for AWS S3 and SFTP
+    (see the :ref:`examples <artifact_logging_examples>` below), and you can write your own integration for a custom backend.
 
 
-* `object_store_kwargs`
+Why should I use artifact logging instead of uploading artifacts manually?
+--------------------------------------------------------------------------
 
-`object_store_kwargs` are any arguments to the `object_store_cls` that you want to set. See
-the links to the classes' API docs for more information.
+Artifact logging in Composer is optimized for efficiency. File uploads happen in background threads or
+processes, ensuring that the training loop is not blocked due to network I/O. In other words, this feature
+allows you to train the next batch while the previous checkpoint is being uploaded simultaneously.
+
+.. _artifact_logging_examples:
 
 
-For example if you want to create an :class:`~.ObjectStoreLogger` for logging to S3,
-you could do something like this:
+Examples
+--------
 
-:class:`~.ObjectStoreLogger`
+Below are some examples on how to configure Composer to log artifacts to various backends:
 
-.. code:: python
+Weights & Biases Artifacts
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. seealso::
+
+    The :class:`~composer.loggers.wandb_logger.WandBLogger` API Reference.
+
+.. testcode::
+
+    from composer.loggers import WandBLogger
+    from composer import Trainer
+
+    # Configure the logger
+    logger = WandBLogger(
+        log_artifacts=True,  # enable artifact logging
+    )
+
+    # Define the trainer
+    trainer = Trainer(
+        ...,
+        loggers=logger,
+    )
+
+    # Train!
+    trainer.fit()
+
+S3 Objects
+^^^^^^^^^^
+
+To log artifacts to a S3 bucket, we'll need to configure the :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`
+with the :class:`~composer.utils.object_store.s3_object_store.S3ObjectStore` backend.
+
+.. seealso::
+
+    The :class:`~composer.loggers.object_store_logger.ObjectStoreLogger` and
+    :class:`~composer.utils.object_store.s3_object_store.S3ObjectStore` API Reference.
+
+.. testcode::
+
     from composer.loggers import ObjectStoreLogger
-    from composer.utils import LibcloudObjectStore
+    from composer.utils.object_store import S3ObjectStore
+    from composer import Trainer
 
-    object_store_logger = ObjectStoreLogger(
-        object_store_cls=LibcloudObjectStore,
+    # Configure the logger
+    logger = ObjectStoreLogger(
+        object_store_cls=S3ObjectStore,
         object_store_kwargs={
-            "provider": "s3",  # The Apache Libcloud provider name
-            "container": "my_bucket",  # The name of the cloud container (i.e. bucket) to use.
-            "provider_kwargs": {  # The Apache Libcloud provider driver initialization arguments
-                'key': 'provider_key',  # The cloud provider key.
-                'secret': '*******',  # The cloud provider secret.
-                # Any additional arguments required for the cloud provider.
-            },
+            # Keyword arguments for the S3ObjectStore constructor.
+            # See the API reference for all available arguments
+            'bucket': 'my-bucket-name',
         },
     )
 
-As you can see `object_store_kwargs` are arguments to :class:`~.LibcloudObjectStore` if we were to
-instantiate our own :class:`~.LibcloudObjectStore` object.
+    # Define the trainer
+    trainer = Trainer(
+        ...,
+        loggers=logger,
+    )
+
+    # Train!
+    trainer.fit()
+
+SFTP Filesystem
+^^^^^^^^^^^^^^^
+
+Similar to the S3 Example above, we can log artifacts to a remote SFTP filesystem.
+
+.. seealso::
+
+    The :class:`~composer.loggers.object_store_logger.ObjectStoreLogger` and
+    :class:`~composer.utils.object_store.sftp_object_store.SFTPObjectStore` API Reference.
+
+.. testcode::
+
+    from composer.loggers import ObjectStoreLogger
+    from composer.utils.object_store import SFTPObjectStore
+    from composer import Trainer
+
+    # Configure the logger
+    logger = ObjectStoreLogger(
+        object_store_cls=SFTPObjectStore,
+        object_store_kwargs={
+            # Keyword arguments for the SFTPObjectStore constructor.
+            # See the API reference for all available arguments
+            'host': 'sftp_server.example.com',
+        },
+    )
+
+    # Define the trainer
+    trainer = Trainer(
+        ...,
+        loggers=logger,
+    )
+
+    # Train!
+    trainer.fit()
