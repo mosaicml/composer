@@ -2157,6 +2157,7 @@ class Trainer:
                 self.engine.run_event(Event.BEFORE_DATALOADER)
                 batch = next(dataloader_iter)
             except StopIteration:
+                self.engine.run_marker_only_event(Event.AFTER_DATALOADER)
                 break
             yield batch
 
