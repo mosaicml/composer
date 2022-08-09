@@ -7,7 +7,7 @@ experiment trackers (e.g. Weights & Biases) and cloud storage backends (e.g. AWS
 What is an artifact?
 --------------------
 
-An artifact is an file generated during training. Checkpoints, profiling traces, and log files
+An artifact is a file generated during training. Checkpoints, profiling traces, and log files
 are the most common examples of artifacts. An artifacts must be a single, local file.
 Collections of files can be combined into a single tarball, and a file can be stored in a temporary folder.
 
@@ -29,7 +29,7 @@ LoggerDestinations, which are ultimately responsible for uploading and storing a
 (more on that :ref:`below <artifact_logging_uploading>`).
 
 Below are some examples of the classes that generate artifacts and the types of artifacts they generate. For each class,
-see the linked api reference for additional documentation.
+see the linked API Reference for additional documentation.
 
 .. list-table::
     :header-rows: 1
@@ -98,7 +98,7 @@ The centralized Composer
 :class:`~composer.loggers.logger.Logger` will invoke this method for all LoggerDestinations. If no LoggerDestination
 implements this method, then artifacts will not be stored remotely.
 
-Because LoggerDestinations can both generate and store artifacts, there is a potential for a ciruclar dependency. As
+Because LoggerDestinations can both generate and store artifacts, there is a potential for a circular dependency. As
 such, it is important that any logger that generates artifacts (e.g. the Tensorboard Logger) does not also attempt
 to store artifacts. Otherwise, you could run into an infinite loop!
 
