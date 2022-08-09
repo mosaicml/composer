@@ -111,7 +111,6 @@ class FileLogger(LoggerDestination):  # noqa: D101
         capture_stdout: bool = True,
         capture_stderr: bool = True,
         buffer_size: int = 1,
-        log_interval: int = 1,
         log_traces: bool = True,
         flush_interval: int = 100,
         overwrite: bool = False,
@@ -122,7 +121,6 @@ class FileLogger(LoggerDestination):  # noqa: D101
         self.artifact_name_format = artifact_name
         self.buffer_size = buffer_size
         self.should_log_traces = log_traces
-        self.log_interval = log_interval
         self.flush_interval = flush_interval
         self.is_batch_interval = False
         self.is_epoch_interval = False
