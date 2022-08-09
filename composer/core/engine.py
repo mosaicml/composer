@@ -216,7 +216,7 @@ class Engine():
         if self.state.profiler is not None:
             name = f'event/{event.canonical_name}'
             if (event.is_before_event or event.is_after_event):
-                # if not part of an event pair (e.g. init or after dataloader), then don't record an event here
+                # if not part of an event pair (e.g. init), then don't record an event here
                 if event in _ALWAYS_RECORD_EVENTS:
                     actions = [ProfilerAction.ACTIVE, ProfilerAction.WARMUP, ProfilerAction.SKIP]
                 else:

@@ -2145,9 +2145,6 @@ class Trainer:
         This method yields up to :attr:`.State.dataloader_len`` batches from the dataloader. In addition, if the
         profiler is enabled, the dataloader latency recorded via the :class:`.Marker` API.
         """
-        marker = None
-        if self.state.profiler is not None:
-            marker = self.state.profiler.marker(f'dataloader/{self.state.dataloader_label}', categories=['dataloader'])
         assert self.state.dataloader is not None, 'the dataloader should be set before calling this method'
 
         if self.state.dataloader_len is None:
@@ -2156,15 +2153,11 @@ class Trainer:
             dataloader_iter = itertools.islice(self.state.dataloader, int(self.state.dataloader_len))
 
         while True:
-            if marker is not None:
-                marker.start()
             try:
+                self.engine.run_event(Event.BEFORE_DATALOADER)
                 batch = next(dataloader_iter)
             except StopIteration:
                 break
-            finally:
-                if marker is not None:
-                    marker.finish()
             yield batch
 
     def _use_closures(self) -> bool:
