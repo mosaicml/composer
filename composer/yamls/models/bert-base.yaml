@@ -8,7 +8,7 @@ model:
 # Train the model on the English C4 corpus
 train_dataset:
   streaming_c4:
-    remote: s3://my-s3-bucket-name
+    remote: s3://allenai-c4/mds/1-gz/
     local: /tmp/mds-cache/mds-c4/
     split: train
     shuffle: true
@@ -31,7 +31,7 @@ evaluators:
   - label: bert_pre_training
     eval_dataset:
       streaming_c4:
-        remote: s3://my-s3-bucket-name
+        remote: s3://allenai-c4/mds/1-gz/
         local: /tmp/mds-cache/mds-c4/
         split: val
         shuffle: false
@@ -80,4 +80,4 @@ loggers:
   # object_store:
   #  object_store_hparams:
   #    s3:
-  #      bucket: <your-s3-bucket>
+  #      bucket:
