@@ -53,7 +53,7 @@ class LogLevel(IntEnum):
 class Logger:
     """An interface to record training data.
 
-    The :class:`~composer.trainer.trainer.Trainer`, instances of :class:`~composer.core.callback.Callback`, and
+    The :class:`.Trainer`, instances of :class:`~composer.core.callback.Callback`, and
     instances of :class:`~composer.core.algorithm.Algorithm` invoke the logger to record data such as
     the epoch, training loss, and custom metrics as provided by individual callbacks and algorithms.
     This class does not store any data itself; instead, it routes all data to the ``destinations``.

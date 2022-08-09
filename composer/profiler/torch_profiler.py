@@ -32,12 +32,12 @@ class TorchProfiler(Callback):  # noqa: D101
 
     .. note::
 
-        The Composer :class:`~composer.trainer.trainer.Trainer` automatically creates an instance of this
+        The Composer :class:`.Trainer` automatically creates an instance of this
         :class:`.TorchProfiler` callback whenever any of the PyTorch Profiler arguments
         (``torch_prof_record_shapes``, ``torch_prof_profile_memory``, ``torch_prof_with_stack``, or
         ``torch_prof_with_flops``) are enabled.
 
-        When using the Composer :class:`~composer.trainer.trainer.Trainer`, one does not need to directly create an
+        When using the Composer :class:`.Trainer`, one does not need to directly create an
         instance of this :class:`.TorchProfiler` callback.
 
 
