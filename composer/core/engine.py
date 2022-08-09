@@ -250,9 +250,9 @@ class Engine():
         """Runs the marker for an event if the profiler is enabled.
 
         This is primarily used to complete the dataloader marker at the end of the dataloader. In
-        this scenario, the dataloader marker has started from Event.BEFORE_DATALOADER, but 
+        this scenario, the dataloader marker has started from Event.BEFORE_DATALOADER, but
         Event.AFTER_DATALOADER cannot be called as no batch was yielded from the dataloader.
-        
+
         Args:
             event (Event | str): The current :class:`.Event`. It can be the enum member values or a
                 string with the event value.
