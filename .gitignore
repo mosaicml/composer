@@ -159,3 +159,7 @@ package-lock.json
 
 # pycharm
 .idea/
+
+# composer
+data/
+datasets/

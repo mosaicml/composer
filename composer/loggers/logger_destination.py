@@ -90,6 +90,8 @@ class LoggerDestination(Callback, ABC):
                 artifact can be corrupted (e.g., if the logger destination is reading from file while the training loop
                 is writing to it).
 
+        .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
+
         Args:
             state (State): The training state.
             log_level (Union[str, LogLevel]): A :class:`LogLevel`.
@@ -119,3 +121,13 @@ class LoggerDestination(Callback, ABC):
         """
         del artifact_name, destination, overwrite, progress_bar  # unused
         raise NotImplementedError
+
+    def can_log_file_artifacts(self) -> bool:
+        """Indicates whether LoggerDestination can log file artifacts.
+
+        Defaults to false, should return True for derived logger classes that implement log_file_artifact().
+
+        Returns:
+            bool: Whether the class supports logging file artifacts.
+        """
+        return False

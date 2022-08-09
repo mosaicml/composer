@@ -1,27 +1,27 @@
 algorithms:
-  blurpool:
-    blur_first: true
-    min_channels: 16
-    replace_convs: true
-    replace_maxpools: true
-  channels_last: {}
-  ema:
-    half_life: 100ba
-    train_with_ema_weights: false
-    update_interval: 20ba
-  label_smoothing:
-    smoothing: 0.08
-  progressive_resizing:
-    delay_fraction: 0.4
-    finetune_fraction: 0.2
-    initial_scale: 0.5
-    mode: resize
-    resize_targets: false
-    size_increment: 4
+  - blurpool:
+      blur_first: true
+      min_channels: 16
+      replace_convs: true
+      replace_maxpools: true
+  - channels_last: {}
+  - ema:
+      half_life: 100ba
+      train_with_ema_weights: false
+      update_interval: 20ba
+  - label_smoothing:
+      smoothing: 0.08
+  - progressive_resizing:
+      delay_fraction: 0.4
+      finetune_fraction: 0.2
+      initial_scale: 0.5
+      mode: resize
+      resize_targets: false
+      size_increment: 4
 callbacks:
-  lr_monitor: {}
-  speed_monitor:
-    window_size: 100
+  - lr_monitor: {}
+  - speed_monitor:
+      window_size: 100
 dataloader:
   num_workers: 8
   persistent_workers: true
@@ -33,9 +33,9 @@ device:
 eval_batch_size: 2048
 eval_interval: 1
 loggers:
-  progress_bar:
-    console_log_level: EPOCH
-    stream: stderr
+  - progress_bar:
+      console_log_level: EPOCH
+      stream: stderr
 model:
   resnet:
     initializers:

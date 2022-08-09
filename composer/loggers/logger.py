@@ -105,6 +105,8 @@ class Logger:
         Both ``file_path`` and ``artifact_name`` can be specified as format strings.
         See :func:`~.composer.utils.file_helpers.format_name_with_dist` for more information.
 
+        .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
+
         Args:
             log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
                 :class:`LogLevel`.
@@ -136,6 +138,19 @@ class Logger:
     def data_batch(self, data: Dict[str, Any]) -> None:
         """Helper function for ``self.data(LogLevel.BATCH, data)``."""
         self.data(LogLevel.BATCH, data)
+
+    def has_file_artifact_destination(self) -> bool:
+        """Determines if the logger has a destination which supports logging file artifacts.
+
+            Needed for checking if a model can be exported via this logger.
+
+        Returns:
+            bool: Whether any of the destinations has supports file artifacts.
+        """
+        for destination in self.destinations:
+            if destination.can_log_file_artifacts():
+                return True
+        return False
 
 
 def format_log_data_value(data: Any) -> str:

@@ -79,7 +79,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
             Whenever a trace file is saved, it is also logged as a file artifact according to this format string.
             The same format variables as for ``filename`` are available.
 
-            .. seealso:: :meth:`~composer.loggers.logger.Logger.file_artifact` for file artifact logging.
+            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
 
             Leading slashes (``'/'``) will be stripped.
 
