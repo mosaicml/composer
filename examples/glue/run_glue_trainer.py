@@ -232,11 +232,11 @@ def spawn_finetuning_jobs(
         for task, save_ckpt in task_to_save_ckpt.items():
             # Run 1 or more fine-tune trainers from this checkpoint, using a different seed override for each
             for seed in seed_overrides[task]:
-                future = executor.submit(train_finetune, base_yaml_file, task, save_ckpt, ckpt_load_path, parent_ckpt,
-                                         parent_idx, ckpt_save_folder, save_locally, free_port + rank, load_ignore_keys,
-                                         seed)
-                future.add_done_callback(
-                    lambda future: log_metrics(future.result(), ckpt_filename=parent_ckpt, glue_metrics=glue_metrics))
+                _ = executor.submit(train_finetune, base_yaml_file, task, save_ckpt, ckpt_load_path, parent_ckpt,
+                                    parent_idx, ckpt_save_folder, save_locally, free_port + rank, load_ignore_keys,
+                                    seed)
+                # future.add_done_callback(
+                #     lambda future: log_metrics(future.result(), ckpt_filename=parent_ckpt, glue_metrics=glue_metrics))
                 rank += 1
 
     executor.shutdown(wait=True)  # wait for processes and callbacks to complete
