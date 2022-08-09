@@ -2164,6 +2164,11 @@ class Trainer:
             except StopIteration:
                 # [BEFORE/AFTER]_DATALOADER only runs while training
                 if trainer_mode == TrainerMode.TRAIN:
+                    # Event.AFTER_DATALOADER is normally called in the train loop. However, if we
+                    # encounter StopIteration, the train loop will not run. Accordingly, we need to
+                    # explicitly call the engine to run marker.finish() for the dataloader marker.
+                    # Otherwise, we will encounter an error at the start of the next epoch when
+                    # Event.BEFORE_DATALOADER tries to start an unfinished marker.
                     self.engine.run_marker_only_event(Event.AFTER_DATALOADER)
                 break
             yield batch
