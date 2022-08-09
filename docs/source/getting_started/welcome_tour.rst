@@ -178,3 +178,4 @@ The trainer not only takes care of all the state management and event callbacks 
 but also adds advanced features like hyperparameter management, gradient accumulation, and closure support.
 
 .. _Howard et al, 2020: https://arxiv.org/abs/2002.04688
+
