@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for
-:class:`.UNet`."""
+:class:`~composer.models.unet.unet.UNet`."""
 
 from dataclasses import dataclass
 
@@ -14,7 +14,7 @@ __all__ = ['UnetHparams']
 @dataclass
 class UnetHparams(ModelHparams):
     """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for
-    :class:`.UNet`.
+    :class:`~composer.models.unet.unet.UNet`.
 
     Args:
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``3``.
