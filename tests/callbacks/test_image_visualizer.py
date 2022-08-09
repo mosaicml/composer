@@ -18,7 +18,6 @@ try:
 except ImportError:
     _WANDB_INSTALLED = False
 
-#@pytest.mark.skip
 @pytest.mark.skipif(not _WANDB_INSTALLED, reason='Wandb is optional')
 @pytest.mark.parametrize('interval', ['9ba', '90ba'])
 def test_image_visualizer(interval: str):

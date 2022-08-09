@@ -143,7 +143,6 @@ class WandBLogger(LoggerDestination):
         if self._enabled:
             wandb.init(**self._init_kwargs)
             atexit.register(self._set_is_in_atexit)
-        print(wandb.run.dir)
 
     def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
                           overwrite: bool):
