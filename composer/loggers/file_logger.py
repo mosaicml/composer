@@ -250,7 +250,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
 
         .. note::
 
-            If the ``write`` occurs before the :attr:`~composer.core.event.Event.INIT` event,
+            If the ``write`` occurs before the :attr:`.Event.INIT` event,
             the write will be enqueued, as the file is not yet open.
 
         Args:
