@@ -1518,11 +1518,16 @@ class Trainer:
                 if use_grad_scaling:
                     self.state.scaler.update()
 
-                if total_loss is not None and isinstance(total_loss, dict):
-                    # total_loss can be None if gradient scaling failed
-                    map_collection(total_loss, dist.all_reduce)
-                    total_loss = {k: loss.cpu().item() / dist.get_world_size() for k, loss in total_loss.items()}
-                    self.logger.data_batch(total_loss)
+                # total_loss can be None if gradient scaling failed
+                if total_loss is not None:
+                    if isinstance(total_loss, dict):
+                        map_collection(total_loss, dist.all_reduce)
+                        total_loss = {k: loss.cpu().item() / dist.get_world_size() for k, loss in total_loss.items()}
+                        self.logger.data_batch(total_loss)
+                    if isinstance(total_loss, torch.Tensor):
+                        dist.all_reduce(total_loss, reduce_operation='SUM')
+                        full_loss = total_loss.cpu().item()
+                        self.logger.data_batch({'loss/train/total': full_loss / dist.get_world_size()})
 
                 # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
                 # next batch's wall clock time. The time accumulation must be done here so schedulers
