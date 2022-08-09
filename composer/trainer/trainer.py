@@ -1707,7 +1707,8 @@ class Trainer:
                     warnings.warn(
                         RuntimeWarning('CUDA out of memory detected. Gradient Accumulation '
                                        f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
-                                       'and the batch will be retrained.'))
+                                       'and the batch will be retrained with a '
+                                       f'micro-batchsize of {device_batch_size // self.state.grad_accum}'))
                     # Empty cache if on GPU, which will help reduce fragmentation
                     if isinstance(self._device, DeviceGPU):
                         torch.cuda.empty_cache()
