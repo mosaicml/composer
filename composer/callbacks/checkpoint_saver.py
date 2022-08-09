@@ -129,7 +129,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 Otherwise, multiple processes may attempt to write to the same file.
 
         filename (str, optional): A format string describing how to name checkpoints.
-            Default: ``'ep{{epoch}}-ba{{batch}}-rank{{rank}}'``.
+            Default: ``'ep{{epoch}}-ba{{batch}}-rank{{rank}}.pt'``.
 
             Checkpoints will be saved approximately to ``{{folder}}/{{filename.format(...)}}``.
 
@@ -181,7 +181,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             After the checkpoint is saved, it will be periodically logged as a file artifact.
             The artifact name will be determined by this format string.
 
-            .. seealso:: :meth:`.Logger.log_file_artifact` for file artifact logging.
+            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
 
             The same format variables for ``filename`` are available.
 
@@ -189,7 +189,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             To disable logging trace files as file artifacts, set this parameter to ``None``.
         latest_filename (str, optional): A format string for a symlink which points to the last saved checkpoint.
-            Default: ``'latest-rank{{rank}}'``.
+            Default: ``'latest-rank{{rank}}.pt'``.
 
             Symlinks will be created approximately at ``{{folder}}/{{latest_filename.format(...)}}``.
 
@@ -230,7 +230,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             Whenever a new checkpoint is saved, a symlink artifact is created or updated to point to the latest checkpoint's ``artifact_name``.
             The artifact name will be determined by this format string. This parameter has no effect if ``latest_filename`` or ``artifact_name`` is ``None``.
 
-            .. seealso:: :func:`.write_symlink` for symlink artifact logging.
+            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
 
             The same format variables for ``filename`` are available.
 
@@ -290,9 +290,9 @@ class CheckpointSaver(Callback):  # noqa: D101
     def __init__(
         self,
         folder: str = '{run_name}/checkpoints',
-        filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
+        filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
         artifact_name: Optional[str] = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
-        latest_filename: Optional[str] = 'latest-rank{rank}',
+        latest_filename: Optional[str] = 'latest-rank{rank}.pt',
         latest_artifact_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
         save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = '1ep',
         *,

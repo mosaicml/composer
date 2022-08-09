@@ -90,6 +90,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    trainer/events.rst
    trainer/checkpointing.rst
    trainer/logging.rst
+   trainer/artifact_logging.rst
    trainer/callbacks.rst
    trainer/performance.rst
 
