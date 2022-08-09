@@ -85,7 +85,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
             The logfile will be periodically logged (according to the ``flush_interval``) as a file artifact.
             The artifact name will be determined by this format string.
 
-            .. seealso:: :meth:`.Logger.log_file_artifact` for file artifact logging.
+            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
 
             The same format variables for ``filename`` are available. Setting this parameter to ``None``
             (the default) will use the same format string as ``filename``. It is sometimes helpful to deviate

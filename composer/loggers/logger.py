@@ -105,6 +105,8 @@ class Logger:
         Both ``file_path`` and ``artifact_name`` can be specified as format strings.
         See :func:`~.composer.utils.file_helpers.format_name_with_dist` for more information.
 
+        .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
+
         Args:
             log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
                 :class:`LogLevel`.
