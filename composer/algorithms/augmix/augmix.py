@@ -37,7 +37,7 @@ def augmix_image(img: ImgT,
     This function works on a single image or batch of images. See :class:`.AugMix` and
     the :doc:`Method Card </method_cards/augmix>` for details. This function only acts on a
     single image (or batch) per call and is unlikely to be used in a training loop.
-    Use :class:`~composer.algorithms.augmix.augmix.AugmentAndMixTransform` to use AugMix as
+    Use :class:`.AugmentAndMixTransform` to use AugMix as
     part of a :class:`torchvision.datasets.VisionDataset`\'s ``transform``.
 
     Example:
