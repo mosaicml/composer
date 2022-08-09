@@ -44,6 +44,7 @@ class TrainerMode(StringEnum):
     EVAL = 'eval'
     PREDICT = 'predict'
 
+
 class MemoryFormat(StringEnum):
     """Enum class to represent different memory formats.
 

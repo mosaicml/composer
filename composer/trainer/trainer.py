@@ -2144,7 +2144,7 @@ class Trainer:
 
         This method yields up to :attr:`.State.dataloader_len`` batches from the dataloader. In addition, if the
         profiler is enabled, the dataloader latency recorded via the :class:`.Marker` API.
-        
+
         Args:
             trainer_mode (TrainerMode): Specifies which mode the trainer is in.
         """
