@@ -20,8 +20,8 @@ class LoggerDestination(Callback, ABC):
     """Base class for logger destination.
 
     As this class extends :class:`~.callback.Callback`, logger destinations can run on any training loop
-    :class:`~composer.core.event.Event`. For example, it may be helpful to run on
-    :attr:`~composer.core.event.Event.EPOCH_END` to perform any flushing at the end of every epoch.
+    :class:`.Event`. For example, it may be helpful to run on
+    :attr:`.Event.EPOCH_END` to perform any flushing at the end of every epoch.
 
     Example:
         .. doctest::
@@ -51,7 +51,7 @@ class LoggerDestination(Callback, ABC):
 
             *   Use background thread(s) or process(s) to read from this queue to perform any I/O.
             *   Batch the data together and flush periodically on events, such as
-                :attr:`~composer.core.event.Event.BATCH_END` or :attr:`~composer.core.event.Event.EPOCH_END`.
+                :attr:`.Event.BATCH_END` or :attr:`.Event.EPOCH_END`.
 
                 .. seealso:: :class:`~composer.loggers.file_logger.FileLogger` as an example.
 

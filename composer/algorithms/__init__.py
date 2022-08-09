@@ -34,7 +34,7 @@ For example, a simple algorithm that shortens training:
         def apply(self, state: State, event: Event, logger: Logger):
             state.max_duration /= 2  # cut training time in half
 
-For more information about events, see :class:`~composer.core.event.Event`.
+For more information about events, see :class:`.Event`.
 """
 
 from composer.algorithms.alibi import Alibi

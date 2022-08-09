@@ -174,7 +174,7 @@ class AugMix(Algorithm):
     ``Dirichlet(alpha, alpha, ...)`` distribution. The coefficient for mixing the combined augmented image and the
     original image is drawn from a ``Beta(alpha, alpha)`` distribution, using the same ``alpha``.
 
-    This algorithm runs on on :attr:`~composer.core.event.Event.FIT_START` to insert a dataset transformation.
+    This algorithm runs on on :attr:`.Event.FIT_START` to insert a dataset transformation.
     It is a no-op if this algorithm already applied itself on the :attr:`State.train_dataloader.dataset`.
 
     See the :doc:`Method Card </method_cards/augmix>` for more details.

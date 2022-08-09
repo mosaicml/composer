@@ -109,7 +109,7 @@ class StochasticDepth(Algorithm):
     `Tensorflow/TPU repo <https://github.com/tensorflow/tpu>`_.
 
     Runs on :attr:`.Event.INIT`, as well as
-    :attr:`~composer.core.event.Event.BATCH_START` if ``drop_warmup > 0``.
+    :attr:`.Event.BATCH_START` if ``drop_warmup > 0``.
 
     .. note::
 

@@ -160,7 +160,7 @@ class ColOut(Algorithm):
     rows/columns dropped isn't too large, this does not significantly alter the content of the image, but reduces its
     size and provides extra variability.
 
-    If ``batch`` is True (the default), then this algorithm runs on :attr:`~composer.core.event.Event.AFTER_DATALOADER`
+    If ``batch`` is True (the default), then this algorithm runs on :attr:`.Event.AFTER_DATALOADER`
     to modify the batch.
 
     Otherwise, if ``batch=False`` (the default), this algorithm runs on :attr:`.Event.INIT` to insert
