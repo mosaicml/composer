@@ -76,11 +76,14 @@ def _main():
 
 def _mp_fn(index):
     _main()
+    import torch_xla.distributed.xla_multiprocessing as xmp
+    import torch_xla.core.xla_model as xm
 
+    xm.rendezvous('checking_out')
 
 if __name__ == '__main__':
     if os.getenv('XRT_TPU_CONFIG'):
         import torch_xla.distributed.xla_multiprocessing as xmp
-        xmp.spawn(_mp_fn, args=(), nprocs=8)
+        xmp.spawn(_mp_fn, args=(), nprocs=8, start_method='fork')
     else:
         _main()

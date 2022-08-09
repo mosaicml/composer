@@ -450,11 +450,13 @@ class TrainerHparams(hp.Hparams):
         if os.getenv('XRT_TPU_CONFIG') is not None:
             try:
                 import torch_xla.core.xla_model as xm
+                import torch_xla.distributed.xla_multiprocessing as xmp
             except ImportError as e:
                 raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]') from e
 
+            WRAPPED_MODEL = xmp.MpModelWrapper(model)
             xla_device = xm.xla_device()
-            model = model.to(xla_device)
+            model = WRAPPED_MODEL.to(xla_device)
 
         # Train dataloader
         train_dataloader = _initialize_dataloader(self.train_dataset, self.train_dataloader_label,

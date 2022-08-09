@@ -1695,7 +1695,7 @@ class Trainer:
 
                         for optimizer in self.state.optimizers:
                             total_loss = self._train_microbatches(microbatches)
-                            xm.optimizer_step(optimizer)
+                            xm.optimizer_step(optimizer, barrier=True)
                     else:
                         for optimizer in self.state.optimizers:
                             if use_grad_scaling:
