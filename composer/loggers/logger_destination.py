@@ -76,7 +76,7 @@ class LoggerDestination(Callback, ABC):
 
         Subclasses should implement this method to store logged files (e.g. copy it to another folder or upload it to
         an object store), then it should implement this method. However, not all loggers need to implement this method.
-        For example, the :class:`~composer.loggers.tqdm_logger.TQDMLogger` does not implement this method, as it cannot
+        For example, the :class:`.TQDMLogger` does not implement this method, as it cannot
         handle file artifacts.
 
         .. note::

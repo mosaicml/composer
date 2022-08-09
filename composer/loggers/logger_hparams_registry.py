@@ -46,10 +46,10 @@ class ObjectStoreLoggerHparams(hp.Hparams):
             .. seealso: :func:`composer.utils.import_helpers.import_object`
 
             Setting this parameter to ``None`` (the default) will log all artifacts.
-        object_name (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
-        num_concurrent_uploads (int, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
-        upload_staging_folder (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
-        use_procs (bool, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
+        object_name (str, optional): See :class:`.ObjectStoreLogger`.
+        num_concurrent_uploads (int, optional): See :class:`.ObjectStoreLogger`.
+        upload_staging_folder (str, optional): See :class:`.ObjectStoreLogger`.
+        use_procs (bool, optional): See :class:`.ObjectStoreLogger`.
     """
 
     hparams_registry = {

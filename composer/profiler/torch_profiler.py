@@ -100,7 +100,7 @@ class TorchProfiler(Callback):  # noqa: D101
             Whenever a trace file is saved, it is also logged as a file artifact according to this format string.
             The same format variables as for ``filename`` are available.
 
-            .. seealso:: :meth:`~composer.loggers.logger.Logger.file_artifact` for file artifact logging.
+            .. seealso:: :meth:`.Logger.file_artifact` for file artifact logging.
 
             Leading slashes (``'/'``) will be stripped.
 
@@ -124,7 +124,7 @@ class TorchProfiler(Callback):  # noqa: D101
             traces are not deleted from artifact stores.
 
             It can be useful to set this parameter to ``0`` when using an artifact logger such as the
-            :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`. This combination will minimize local
+            :class:`.ObjectStoreLogger`. This combination will minimize local
             disk usage by deleting trace files immediately after they have been uploaded to the object store.
 
     Attributes:
