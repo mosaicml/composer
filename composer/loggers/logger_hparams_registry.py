@@ -39,7 +39,7 @@ class ObjectStoreLoggerHparams(hp.Hparams):
         should_log_artifact (str, optional): The path to a filter function which returns whether an artifact should be
             logged. The path should be of the format ``path.to.module:filter_function_name``.
 
-            The function should take (:class:`~composer.core.state.State`, :class:`.LogLevel`, ``<artifact name>``).
+            The function should take (:class:`~composer.core.State`, :class:`.LogLevel`, ``<artifact name>``).
             The artifact name will be a string. The function should return a boolean indicating whether the artifact
             should be logged.
 
