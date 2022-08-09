@@ -51,20 +51,19 @@ def test_file_logger(dummy_state: State, tmp_path: pathlib.Path):
     log_destination.run_event(Event.EPOCH_END, dummy_state, logger)
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     logger.log_hyperparameters({'metric': 'fit'})  # should print
-    logger.log_metrics({'metric': 'epoch'})  # should print on batch level, since epoch calls are always printed
-    logger.log_metrics({'metric': 'batch'})  # should print on batch level, since we print every 3 steps
+    logger.log_metrics({'metric': 'epoch'}, step=1)  # should print on batch level, since epoch calls are always printed
+    logger.log_metrics({'metric': 'batch'}, step=2)  # should print on batch level, since we print every 3 steps
     dummy_state.timestamp = dummy_state.timestamp.to_next_epoch()
     log_destination.run_event(Event.EPOCH_END, dummy_state, logger)
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
-    logger.log_metrics({'metric': 'epoch1'})  # should print, since we log every 3 epochs
+    logger.log_metrics({'metric': 'epoch1'}, step=3)  # should print, since we log every 3 epochs
     dummy_state.timestamp = dummy_state.timestamp.to_next_epoch()
     log_destination.run_event(Event.EPOCH_END, dummy_state, logger)
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
     dummy_state.timestamp = dummy_state.timestamp.to_next_batch()
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
-    logger.log_metrics({'metric': 'epoch2'})  # should print on batch level, since epoch calls are always printed
-    logger.log_metrics({'metric': 'batch1'})  # should NOT print
+    logger.log_metrics({'metric': 'epoch2'}, step=4)  # should print on batch level, since epoch calls are always printed
     dummy_state.timestamp = dummy_state.timestamp.to_next_batch()
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
     dummy_state.timestamp = dummy_state.timestamp.to_next_epoch()
@@ -72,11 +71,11 @@ def test_file_logger(dummy_state: State, tmp_path: pathlib.Path):
     log_destination.close(dummy_state, logger)
     with open(log_file_name, 'r') as f:
         assert f.readlines() == [
-            '[batch=2]: { "metric": "fit", }\n',
-            '[batch=2]: { "metric": "epoch", }\n',
-            '[batch=2]: { "metric": "batch", }\n',
-            '[batch=2]: { "metric": "epoch1", }\n',
-            '[batch=3]: { "metric": "epoch2", }\n',
+            '[hyperparameter]: metric: "fit" \n',
+            '[metric][batch=1]: metric: "epoch" \n',
+            '[metric][batch=2]: metric: "batch" \n',
+            '[metric][batch=3]: metric: "epoch1" \n',
+            '[metric][batch=4]: metric: "epoch2" \n',
         ]
 
     # Flush interval is 1, so there should be one log_file call per LogLevel
