@@ -5,6 +5,7 @@
 
 import functools
 import textwrap
+import warnings
 from typing import Sequence
 
 import torch
@@ -16,6 +17,7 @@ from composer.loss import DiceLoss, soft_cross_entropy
 from composer.metrics import CrossEntropy, MIoU
 from composer.models.initializers import Initializer
 from composer.models.tasks import ComposerClassifier
+from composer.utils import dist
 
 __all__ = ['deeplabv3', 'composer_deeplabv3']
 
@@ -94,7 +96,12 @@ def deeplabv3(num_classes: int,
              https://download.openmmlab.com/mmcv/dist/{cu_version}/{torch_version}/index.html where {cu_version} and
              {torch_version} refer to your CUDA and PyTorch versions, respectively. To install mmsegmentation, please
              run pip install mmsegmentation==0.22.0 on command-line.""")) from e
-    norm_type = 'SyncBN' if sync_bn else 'BN'
+
+    world_size = dist.get_world_size()
+    if sync_bn and world_size == 1:
+        warnings.warn('sync_bn was true, but only one process is present for training. sync_bn will be ignored.')
+
+    norm_type = 'SyncBN' if sync_bn and world_size > 1 else 'BN'
     norm_cfg = {'type': norm_type, 'requires_grad': True}
     if use_plus:
         # mmseg config:
@@ -133,8 +140,20 @@ def deeplabv3(num_classes: int,
             else:
                 model.apply(initializer_fn)
 
-    if sync_bn:
-        model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+    if sync_bn and world_size > 1:
+        local_world_size = dist.get_local_world_size()
+
+        # List of ranks for each node, assumes that each node has the same number of ranks
+        num_nodes = world_size // local_world_size
+        process_group = None
+        if num_nodes > 1:
+            ranks_per_node = [
+                list(range(node * local_world_size, (node + 1) * local_world_size)) for node in range(num_nodes)
+            ]
+            process_groups = [torch.distributed.new_group(ranks) for ranks in ranks_per_node]
+            process_group = process_groups[dist.get_node_rank()]
+
+        model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model, process_group=process_group)
 
     return model
 
