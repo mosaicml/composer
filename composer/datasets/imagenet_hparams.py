@@ -186,7 +186,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 val_transforms: List[torch.nn.Module] = []
                 if val_resize_size > 0:
                     val_transforms.append(transforms.Resize(val_resize_size))
-                val_transforms += [transforms.CenterCrop(self.crop_size)]
+                val_transforms.append(transforms.CenterCrop(self.crop_size))
                 transformation = transforms.Compose(val_transforms)
                 split = 'val'
 
