@@ -213,7 +213,7 @@ class StreamingDataset(IterableDataset):
         shard_max_id = self.index.shard_ends[shard] - 1
         min_id = max(part_min_id, shard_min_id)
         max_id = min(part_max_id, shard_max_id)
-        new_ids = list(range(min_id, max_id+1))
+        new_ids = list(range(min_id, max_id + 1))
 
         with self._lock:
             # Extend and optionally reshuffle the remaining samples of any

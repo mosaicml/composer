@@ -26,7 +26,6 @@ class DeviceTPU(Device):
     When running on TPUVMs, you need to `export PJRT_DEVICE=TPU`.
     More details.
     """
-    dist_backend = 'xla-tpu'
 
     def __init__(self):
         try:

@@ -34,9 +34,8 @@ model:
       - bn_uniform
     num_classes: 1000
 max_duration: 90ep
-eval_interval: 10ep
-train_batch_size: 128
-eval_batch_size: 128
+train_batch_size: 2048
+eval_batch_size: 2048
 seed: 17
 dataloader:
   pin_memory: true
@@ -45,4 +44,3 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 grad_accum: 1
-precision: bf16
