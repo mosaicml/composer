@@ -15,7 +15,7 @@ from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
-__all__ = ['ChannelsLast', 'apply_channels_last']
+__all__ = ['ChannelsLast', 'apply_channels_last', 'remove_channels_last']
 
 
 def apply_channels_last(model: torch.nn.Module) -> None:
@@ -28,6 +28,18 @@ def apply_channels_last(model: torch.nn.Module) -> None:
         model (torch.nn.Module): The model or module to modify.
     """
     model.to(memory_format=torch.channels_last)  # type: ignore
+
+
+def remove_channels_last(model: torch.nn.Module) -> None:
+    """Changes the memory format of the model to `torch.channels_last <https://\\
+    pytorch.org/tutorials/intermediate/memory_format_tutorial.html>`_.
+
+    This usually yields improved GPU utilization.
+
+    Args:
+        model (torch.nn.Module): The model or module to modify.
+    """
+    model.to(memory_format=torch.contiguous_format)  # type: ignore
 
 
 class ChannelsLast(Algorithm):
