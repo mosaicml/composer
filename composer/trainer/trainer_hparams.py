@@ -85,7 +85,7 @@ def _initialize_dataloader(
             )
 
         train_device_batch_size = batch_size // dist.get_world_size()
-        if dataset_hparams.shuffle and subset_num_batches is not None:
+        if dataset_hparams.shuffle and subset_num_batches is not None and subset_num_batches != -1:
             warnings.warn(
                 (f'SubsetNumBatchesWarning: When specifying `subset_num_batches` for the {dataloader_label} dataset, '
                  f'dataset_hparams.shuffle should be set to False. '
