@@ -72,7 +72,8 @@ def composer_resnet(model_name: str,
         raise ValueError(f'Unrecognized loss function: {loss_name}. Please ensure the '
                          'specified loss function is present in composer.loss.loss.py')
 
-    if loss_name == 'binary_cross_entropy_with_logits':
+    if loss_name == 'binary_cross_entropy_with_logits' and (initializers is None or
+                                                            Initializer.LINEAR_LOG_CONSTANT_BIAS not in initializers):
         log.warning('UserWarning: Using `binary_cross_entropy_loss_with_logits` '
                     'without using `initializers.linear_log_constant_bias` can degrade '
                     'performance. '
