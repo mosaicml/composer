@@ -14,6 +14,7 @@ import pathlib
 import time
 import warnings
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
+import torch_xla.core.xla_model as xm
 
 import coolname
 import torch
@@ -193,7 +194,9 @@ def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
 
     # using int64 to prevent overflow
     rank_zero_seed = device.tensor_to_device(torch.tensor([seed], dtype=torch.int64))
-    dist.broadcast(rank_zero_seed, src=0)
+    #dist.broadcast(rank_zero_seed, src=0)
+    
+    #xm.broadcast(rank_zero_seed, src=0)
     rank_zero_seed = rank_zero_seed.item()
     assert isinstance(rank_zero_seed, int)
     seed = rank_zero_seed + dist.get_global_rank()
@@ -756,7 +759,8 @@ class Trainer:
         self._device = _get_device(device)
 
         # Distributed
-        if deepspeed_enabled or dist.get_world_size() > 1:
+        import torch_xla.core.xla_model as xm
+        if False:#deepspeed_enabled or xm.xrt_world_size() > 1:#dist.get_world_size() > 1:
             # deepspeed requires torch.distributed to be initialized, even if the world size is 1
             # distributed is always required with multi-rank training
             dist.initialize_dist(self._device, datetime.timedelta(seconds=dist_timeout))
@@ -1061,7 +1065,7 @@ class Trainer:
         reproducibility.seed_all(self.state.seed)
 
         # Move the model and optimizers to the specified device
-        if not self.deepspeed_enabled and dist.get_world_size() > 1:
+        if False:#not self.deepspeed_enabled and xm.xrt_world_size() > 1:#dist.get_world_size() > 1:
             # Only wrap the module if required
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
@@ -1135,7 +1139,8 @@ class Trainer:
         # Require all ranks to have local checkpoint if we wish to restore from it
         latest_checkpoint_exists = self._device.tensor_to_device(
             torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
-        dist.all_reduce(latest_checkpoint_exists, reduce_operation='MIN')
+        #dist.all_reduce(latest_checkpoint_exists, reduce_operation='MIN')
+        
         # If latest checkpoint is saved locally, change load_path to it
         if int(latest_checkpoint_exists.item()) == 1:
             return latest_checkpoint_path
