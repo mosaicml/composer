@@ -36,9 +36,9 @@ def _get_parser():
                                 Dataset to use. Default: cifar10"""))
     parser.add_argument('--remote',
                         type=str,
-                        default=None,
                         help=textwrap.dedent("""\
-                                Remote directory (S3 or local filesystem) where dataset is stored. Default: None"""))
+                                Remote directory (S3 or local filesystem) where dataset is stored., Example: s3://my-s3-bucket-name"""
+                                            ))
     parser.add_argument('--local',
                         type=str,
                         default=None,
@@ -104,8 +104,6 @@ def _parse_args():
     if args.datadir is not None:
         log.info(f'Will read from local directory: {args.datadir}.')
     else:
-        if args.remote is None:
-            args.remote = f's3://mosaicml-internal-dataset-{args.dataset}/mds/1/'
         if args.local is None:
             args.local = f'/tmp/mds-cache/mds-{args.dataset}/'
 
