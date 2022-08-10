@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""The :class:`~yahp.hparams.Hparams` used to construct the :class:`~composer.trainer.trainer.Trainer`."""
+"""The :class:`~yahp.hparams.Hparams` used to construct the :class:`.Trainer`."""
 
 from __future__ import annotations
 
@@ -231,17 +231,17 @@ class TrainerHparams(hp.Hparams):
         load_progress_bar (bool, optional): See :class:`.Trainer`.
         load_ignore_keys (List[str] | (Dict) -> None, optional): See :class:`.Trainer`.
 
-        save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_filename (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_artifact_name (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_folder (str, optional): See :class:`.CheckpointSaver`.
+        save_filename (str, optional): See :class:`.CheckpointSaver`.
+        save_artifact_name (str, optional): See :class:`.CheckpointSaver`.
         save_latest_filename (str, optional): See
-            :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_latest_artifact_name (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_overwrite (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_weights_only (bool, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+            :class:`.CheckpointSaver`.
+        save_latest_artifact_name (str, optional): See :class:`.CheckpointSaver`.
+        save_overwrite (str, optional): See :class:`.CheckpointSaver`.
+        save_weights_only (bool, optional): See :class:`.CheckpointSaver`.
         save_interval (str, optional): See
             :class:`~composer.callbacks.callback_hparams.CheckpointSaverHparams`.
-        save_num_checkpoints_to_keep (int, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_num_checkpoints_to_keep (int, optional): See :class:`.CheckpointSaver`.
         autoresume (bool, optional): See :class:`.Trainer`.
 
         deepspeed_config (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed

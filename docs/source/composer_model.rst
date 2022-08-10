@@ -190,7 +190,7 @@ Integrations
 TIMM
 ~~~~
 
-Integrate with your favorite `TIMM`_ models with our :func:`.composer_timm` class.
+Integrate with your favorite `TIMM`_ models with our :func:`.composer_timm` function.
 
 .. code:: python
 

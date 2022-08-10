@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""The :class:`~yahp.hparams.Hparams` used to construct the :class:`~composer.trainer.trainer.Trainer`."""
+"""The :class:`~yahp.hparams.Hparams` used to construct the :class:`.Trainer`."""
 
 from __future__ import annotations
 

@@ -170,8 +170,8 @@ Putting all the pieces together, our trainer looks something like this:
         engine.run_event("epoch_end")
 
 That's it! Mixup will automatically run on ``"after_dataloader"`` and ``"after_loss"``. And thanks to all of the events being present in the training loop, we can easily start using new algorithms as well!
-For more information on events, state, and engines, check out :class:`~composer.core.event.Event`,
-:class:`~composer.core.state.State`, and :class:`~composer.core.engine.Engine`.
+For more information on events, state, and engines, check out :class:`.Event`,
+:class:`~composer.core.State`, and :class:`.Engine`.
 
 For advanced experimentation, we recommend using the Composer :doc:`Trainer<../trainer/using_the_trainer>`.
 The trainer not only takes care of all the state management and event callbacks from above,
