@@ -86,10 +86,9 @@ def _initialize_dataloader(
 
         train_device_batch_size = batch_size // dist.get_world_size()
         if dataset_hparams.shuffle and subset_num_batches is not None and subset_num_batches != -1:
-            warnings.warn(
-                (f'SubsetNumBatchesWarning: When specifying `subset_num_batches` for the {dataloader_label} dataset, '
-                 f'dataset_hparams.shuffle should be set to False. '
-                 'Otherwise, each epoch may load a different subset of samples.'))
+            warnings.warn((f'SubsetNumBatchesWarning: When specifying `[train|eval]_subset_num_batches` for '
+                           f'the {dataloader_label} dataset, dataset_hparams.shuffle should be set to False. '
+                           'Otherwise, each epoch may load a different subset of samples.'))
         dataloader = dataset_hparams.initialize_object(train_device_batch_size, dataloader_hparams)
     return dataloader
 
