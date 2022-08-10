@@ -36,9 +36,9 @@ from composer.optim.optimizer_hparams_registry import OptimizerHparams, optimize
 from composer.optim.scheduler_hparams_registry import scheduler_registry
 from composer.profiler import Profiler
 from composer.trainer.ddp import DDPSyncStrategy
-from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
+from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceTPU
 from composer.trainer.devices.device_hparams_registry import device_registry
-from composer.trainer.trainer import Trainer
+from composer.trainer.trainer import Trainer,  _is_tpu_installed
 from composer.utils import MissingConditionalImportError, dist, reproducibility
 from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
 
@@ -452,14 +452,12 @@ class TrainerHparams(hp.Hparams):
 
         # The model
         model = self.model.initialize_object()
-        ## on tpus, the model needs to be transferred to the xla device before the optimizer is constructed
-        if True:#os.getenv('XRT_TPU_CONFIG') is not None:
-            try:
-                import torch_xla.core.xla_model as xm
-                import torch_xla.distributed.xla_multiprocessing as xmp
-            except ImportError as e:
-                raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]') from e
-
+        # on TPUs, model must be moved to device before optimizer creation
+        if isinstance(device, DeviceTPU):
+            if not _is_tpu_installed():
+                raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]')
+            import torch_xla.core.xla_model as xm
+            
             WRAPPED_MODEL = xmp.MpModelWrapper(model)
             xla_device = xm.xla_device()
             model = WRAPPED_MODEL.to(xla_device)
