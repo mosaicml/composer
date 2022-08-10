@@ -1073,7 +1073,7 @@ class Trainer:
         reproducibility.seed_all(self.state.seed)
 
         # Move the model and optimizers to the specified device
-        if False:#not self.deepspeed_enabled and xm.xrt_world_size() > 1:#dist.get_world_size() > 1:
+        if not self.deepspeed_enabled and dist.get_world_size() > 1 and not torch.cuda.is_available():
             # Only wrap the module if required
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
@@ -1147,6 +1147,8 @@ class Trainer:
         # Require all ranks to have local checkpoint if we wish to restore from it
         latest_checkpoint_exists = self._device.tensor_to_device(
             torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
+
+        ## todo: fix for tpu
         #dist.all_reduce(latest_checkpoint_exists, reduce_operation='MIN')
         
         # If latest checkpoint is saved locally, change load_path to it
