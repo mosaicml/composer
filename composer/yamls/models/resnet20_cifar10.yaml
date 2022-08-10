@@ -18,23 +18,24 @@ optimizers:
     momentum: 0.9
     weight_decay: 2.0e-3
 schedulers:
-  {}
-#  - multistep_with_warmup:
-#      t_warmup: "5ep"
-#      milestones:
-#        - "80ep"
-#        - "120ep"
-#      gamma: 0.1
+  - multistep_with_warmup:
+      t_warmup: "5ep"
+      milestones:
+        - "80ep"
+        - "120ep"
+      gamma: 0.1
 model:
   resnet_cifar:
     model_name: resnet_20
     initializers:
       - kaiming_normal
       - bn_uniform
-max_duration: 20ep
-train_batch_size: 512
-eval_batch_size: 50
-eval_interval: 20ep
+max_duration: 160ep
+train_batch_size: 1024
+eval_batch_size: 1000
+#train_subset_num_batches: 10
+#eval_subset_num_batches: 10
+eval_interval: 2ep
 seed: 17
 grad_accum: 1
 dataloader:
@@ -42,5 +43,5 @@ dataloader:
   timeout: 0
   prefetch_factor: 2
   persistent_workers: true
-  num_workers: 12
+  num_workers: 8
 precision: bf16
