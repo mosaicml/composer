@@ -85,7 +85,7 @@ def _initialize_dataloader(
             )
 
         import torch_xla.core.xla_model as xm
-        train_device_batch_size = batch_size // xm.xrt_world_size() #dist.get_world_size()
+        train_device_batch_size = batch_size // xm.xrt_world_size() #dist.
         if dataset_hparams.shuffle and subset_num_batches is not None:
             warnings.warn(
                 (f'SubsetNumBatchesWarning: When specifying `subset_num_batches` for the {dataloader_label} dataset, '
@@ -392,8 +392,13 @@ class TrainerHparams(hp.Hparams):
             if self.deterministic_mode and zero_stage > 0:
                 raise ValueError('Deepspeed with zero stage > 0 is not compatible with deterministic mode')
 
-        import torch_xla.core.xla_model as xm
-        world_size = xm.xrt_world_size()
+
+        if not torch.cuda.is_available():
+            if not _is_tpu_installed():
+                raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]')
+            import torch_xla.core.xla_model as xm
+            
+            world_size = xm.xrt_world_size()
 
         if self.train_batch_size is not None and self.train_batch_size % world_size != 0:
             raise ValueError(
@@ -436,11 +441,8 @@ class TrainerHparams(hp.Hparams):
 
         # Distributed
         # Initialized here so it is available within dataloaders
-        import torch_xla.core.xla_model as xm
-        '''
-        if xm.get_world_size() > 1:
+        if torch.cuda.is_available() and dist.get_world_size() > 1:
             dist.initialize_dist(device, datetime.timedelta(seconds=self.dist_timeout))
-        '''
 
         # Reproducibility
         seed = self.seed if self.seed else reproducibility.get_random_seed()
@@ -457,6 +459,8 @@ class TrainerHparams(hp.Hparams):
             if not _is_tpu_installed():
                 raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]')
             import torch_xla.core.xla_model as xm
+            import torch_xla.distributed.xla_multiprocessing as xmp
+
             
             WRAPPED_MODEL = xmp.MpModelWrapper(model)
             xla_device = xm.xla_device()

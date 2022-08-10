@@ -196,9 +196,9 @@ def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
 
     # using int64 to prevent overflow
     rank_zero_seed = device.tensor_to_device(torch.tensor([seed], dtype=torch.int64))
-    #dist.broadcast(rank_zero_seed, src=0)
+    if torch.cuda.is_available():
+        dist.broadcast(rank_zero_seed, src=0)
     
-    #xm.broadcast(rank_zero_seed, src=0)
     rank_zero_seed = rank_zero_seed.item()
     assert isinstance(rank_zero_seed, int)
     seed = rank_zero_seed + dist.get_global_rank()
