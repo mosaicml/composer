@@ -795,7 +795,7 @@ class Trainer:
         # Move the model and optimizers to the device
 
         if not deepspeed_enabled:
-            if os.getenv('XRT_TPU_CONFIG') is None:
+            if False:#os.getenv('XRT_TPU_CONFIG') is None:
                 model = self._device.module_to_device(model)
                 # Move any remaining optimizer parameters onto the device
                 # It is possible that optimizer initialize created some internal tensors on CPU
@@ -915,7 +915,7 @@ class Trainer:
                 except ImportError as e:
                     raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]') from e
 
-                self.state.train_dataloader = pl.MpDeviceLoader(self.state.train_dataloader, xm.xla_device())
+                self.state.train_dataloader = pl.MpDeviceLoader(self.state.dataloader, xm.xla_device())
 
             else:
                 self.state.train_dataloader = self.state.dataloader
@@ -1566,6 +1566,7 @@ class Trainer:
                     dist.all_reduce(total_loss, reduce_operation='SUM')
                     if isinstance(self._device, DeviceTPU):
                         full_loss = total_loss
+                        #self.logger.data_batch({'loss/train': full_loss})
                     else:
                         full_loss = total_loss.cpu().item()
                         self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})

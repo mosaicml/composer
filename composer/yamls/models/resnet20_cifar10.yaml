@@ -30,12 +30,10 @@ model:
     initializers:
       - kaiming_normal
       - bn_uniform
-max_duration: 160ep
+max_duration: 20ep
 train_batch_size: 1024
 eval_batch_size: 1000
-#train_subset_num_batches: 10
-#eval_subset_num_batches: 10
-eval_interval: 2ep
+eval_interval: 5ep
 seed: 17
 grad_accum: 1
 dataloader:
