@@ -182,10 +182,12 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 transformation = transforms.Compose(train_transforms)
                 split = 'train'
             else:
-                transformation = transforms.Compose([
-                    transforms.Resize(self.resize_size),
-                    transforms.CenterCrop(self.crop_size),
-                ])
+                val_resize_size = self.resize_size
+                val_transforms: List[torch.nn.Module] = []
+                if val_resize_size > 0:
+                    val_transforms.append(transforms.Resize(val_resize_size))
+                val_transforms += [transforms.CenterCrop(self.crop_size)]
+                transformation = transforms.Compose(val_transforms)
                 split = 'val'
 
             device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)

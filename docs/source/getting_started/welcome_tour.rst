@@ -68,7 +68,12 @@ We could add events to our training loop as follows:
     # <FIT_START>
     for epoch in range(NUM_EPOCHS):
         # <EPOCH_START>
-        for inputs, targets in dataloader:
+        while True:
+            # <BEFORE_DATALOADER>
+            batch = next(dataloader)
+            if batch is None:
+                break
+            inputs, targets = batch
             # <AFTER_DATALOADER>
 
             # <BATCH_START>
