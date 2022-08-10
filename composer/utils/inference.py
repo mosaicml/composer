@@ -228,7 +228,7 @@ def export_with_logger(
             export_for_inference(model=model,
                                  save_format=save_format,
                                  save_path=temp_local_save_path,
-                                 sample_input=(sample_input,),
+                                 sample_input=sample_input,
                                  transforms=transforms)
             logger.file_artifact(log_level=LogLevel.FIT, artifact_name=save_path, file_path=temp_local_save_path)
     else:
@@ -236,5 +236,5 @@ def export_with_logger(
                              save_format=save_format,
                              save_path=save_path,
                              save_object_store=save_object_store,
-                             sample_input=(sample_input,),
+                             sample_input=sample_input,
                              transforms=transforms)
