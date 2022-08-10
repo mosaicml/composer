@@ -1,6 +1,6 @@
 train_dataset:
   streaming_ade20k:
-    remote: s3://mosaicml-internal-dataset-ade20k/mds/1/
+    remote: your-bucket-here
     local: /tmp/mds-cache/mds-ade20k/
     split: train
     base_size: 512
@@ -12,7 +12,7 @@ train_dataset:
     shuffle: true
 val_dataset:
   streaming_ade20k:
-    remote: s3://mosaicml-internal-dataset-ade20k/mds/1/
+    remote: your-bucket-here
     local: /tmp/mds-cache/mds-ade20k/
     split: val
     base_size: 512

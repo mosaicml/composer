@@ -1,13 +1,13 @@
 train_dataset:
   streaming_cifar10:
-    remote: s3://mosaicml-internal-dataset-cifar10/mds/1/
+    remote: your-bucket-here
     local: /tmp/mds-cache/mds-cifar10/
     split: train
     shuffle: true
     drop_last: true
 val_dataset:
   streaming_cifar10:
-    remote: s3://mosaicml-internal-dataset-cifar10/mds/1/
+    remote: your-bucket-here
     local: /tmp/mds-cache/mds-cifar10/
     split: val
     shuffle: false
