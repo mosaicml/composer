@@ -80,4 +80,4 @@ loggers:
   # object_store:
   #  object_store_hparams:
   #    s3:
-  #      bucket: mosaicml-internal-checkpoints-bert
+  #      bucket:
