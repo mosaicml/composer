@@ -266,7 +266,6 @@ def train_finetune(
         ft_hparams.load_ignore_keys = load_ignore_keys
 
     # add finetune-specific tags to wandb if logger exists
-    # TODO(Evan): Use the config logging API in https://mosaicml.atlassian.net/browse/CO-586 to set tags and groups
     if ft_hparams.loggers:
         for logger in ft_hparams.loggers:
             if isinstance(logger, WandBLogger):
@@ -444,7 +443,6 @@ def run_pretrainer(training_scheme: str, file: str, finetune_hparams: GLUETraine
     if training_scheme == 'all':  # extract run_name from trainer args for finetuning
         # list and save checkpoint paths
         finetune_hparams.save_folder = save_folder
-        # TODO(Evan): After CO-819 is merged, query the object store to list all checkpoint objects
         finetune_hparams.finetune_ckpts = get_ckpt_names(hp, run_name, dataloader_len)
 
     # call via composer to ensure pretraining done distributedly across all available GPUs
