@@ -144,15 +144,12 @@ def deeplabv3(num_classes: int,
     if sync_bn and world_size > 1:
         local_world_size = dist.get_local_world_size()
 
-        # List of ranks for each node, assumes that each node has the same number of ranks
-        num_nodes = world_size // local_world_size
+        # Check for multinode, then only sync BatchNorm within each node node. Assumes same local world size across nodes
         process_group = None
-        if num_nodes > 1:
-            ranks_per_node = [
-                list(range(node * local_world_size, (node + 1) * local_world_size)) for node in range(num_nodes)
-            ]
-            process_groups = [torch_dist.new_group(ranks) for ranks in ranks_per_node]
-            process_group = process_groups[dist.get_node_rank()]
+        if world_size > local_world_size:
+            node_rank = dist.get_node_rank()
+            sync_ranks = list(range(node_rank * local_world_size, (node_rank + 1) * local_world_size))
+            process_group = torch_dist.new_group(sync_ranks)
 
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model, process_group=process_group)
 
