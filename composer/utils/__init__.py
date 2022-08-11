@@ -9,7 +9,7 @@ from composer.utils.file_helpers import (create_symlink_file, ensure_folder_has_
                                          ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time,
                                          get_file, is_tar)
 from composer.utils.import_helpers import MissingConditionalImportError, import_object
-from composer.utils.inference import export_for_inference
+from composer.utils.inference import export_for_inference, export_with_logger
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_collection
 from composer.utils.misc import is_model_deepspeed, is_notebook
 from composer.utils.object_store import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, S3ObjectStore,
@@ -38,6 +38,7 @@ __all__ = [
     'ensure_folder_is_empty',
     'ensure_folder_has_no_conflicting_files',
     'export_for_inference',
+    'export_with_logger',
     'format_name_with_dist',
     'format_name_with_dist_and_time',
     'is_tar',

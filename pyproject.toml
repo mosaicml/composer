@@ -95,8 +95,6 @@ filterwarnings = [
     'ignore:.*is deprecated and will be removed in Pillow 10.*:DeprecationWarning',
     # Ignore deprecation warnings in deepspeed. TODO: remove this when we upgrade to v0.6.1+ -- it has been fixed
     'ignore::DeprecationWarning:deepspeed.*:',
-    # Ignore malformed yaml warnings coming from yahp
-    'ignore:MalformedYAMLWarning:UserWarning',
     # Ingore validate is deprecated warnings. TODO(ravi) Need to manually remove on hparams.validate functionality
     'ignore:.*Instead, perform any validation directly in initialize_object\(\):DeprecationWarning',
     # Ignore a bug in the pytorch dataloader
@@ -115,6 +113,7 @@ filterwarnings = [
 [tool.coverage.run]
 parallel = true
 branch = true
+relative_files = true
 concurrency = ["thread"]
 include = [
     "composer/*"
