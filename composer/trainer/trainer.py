@@ -1712,7 +1712,7 @@ class Trainer:
                             self.state.scaler.step(optimizer)
                         else:
                             if isinstance(self._device, DeviceTPU):
-                                xm.optimizer_step(optimizer)
+                                xm.optimizer_step(optimizer, barrier=True)
                             else:
                                 optimizer.step()
 

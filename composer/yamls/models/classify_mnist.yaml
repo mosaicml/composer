@@ -28,6 +28,7 @@ model:
 max_duration: 10ep
 train_batch_size: 2048
 eval_batch_size: 1000
+eval_interval: 10ep
 seed: 17
 dataloader:
   pin_memory: true
@@ -36,3 +37,4 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 grad_accum: 1
+precision: bf16
