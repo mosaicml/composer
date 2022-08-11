@@ -133,7 +133,7 @@ FORMAT_NAME_WITH_DIST_TABLE = """
 | Variable               | Description                                           |
 +========================+=======================================================+
 | ``{run_name}``         | The name of the training run. See                     |
-|                        | :attr:`~composer.loggers.logger.Logger.run_name`.     |
+|                        | :attr:`.Logger.run_name`.                             |
 +------------------------+-------------------------------------------------------+
 | ``{rank}``             | The global rank, as returned by                       |
 |                        | :func:`~composer.utils.dist.get_global_rank`.         |
@@ -195,7 +195,7 @@ FORMAT_NAME_WITH_DIST_AND_TIME_TABLE = """
 | Variable                   | Description                                                |
 +============================+============================================================+
 | ``{run_name}``             | The name of the training run. See                          |
-|                            | :attr:`~composer.loggers.logger.Logger.run_name`.          |
+|                            | :attr:`.Logger.run_name`.                                  |
 +----------------------------+------------------------------------------------------------+
 | ``{rank}``                 | The global rank, as returned by                            |
 |                            | :func:`~composer.utils.dist.get_global_rank`.              |

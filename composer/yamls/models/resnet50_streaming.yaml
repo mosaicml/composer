@@ -1,6 +1,6 @@
 train_dataset:
   streaming_imagenet1k:
-    remote: s3://mosaicml-internal-dataset-imagenet1k/mds/1/
+    remote: your-bucket-here
     local: /tmp/mds-cache/mds-imagenet1k/
     split: train
     resize_size: -1
@@ -9,7 +9,7 @@ train_dataset:
     drop_last: true
 val_dataset:
   streaming_imagenet1k:
-    remote: s3://mosaicml-internal-dataset-imagenet1k/mds/1/
+    remote: your-bucket-here
     local: /tmp/mds-cache/mds-imagenet1k/
     split: val
     resize_size: 256

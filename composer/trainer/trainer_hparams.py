@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""The :class:`~yahp.hparams.Hparams` used to construct the :class:`~composer.trainer.trainer.Trainer`."""
+"""The :class:`~yahp.hparams.Hparams` used to construct the :class:`.Trainer`."""
 
 from __future__ import annotations
 
@@ -85,11 +85,10 @@ def _initialize_dataloader(
             )
 
         train_device_batch_size = batch_size // dist.get_world_size()
-        if dataset_hparams.shuffle and subset_num_batches is not None:
-            warnings.warn(
-                (f'SubsetNumBatchesWarning: When specifying `subset_num_batches` for the {dataloader_label} dataset, '
-                 f'dataset_hparams.shuffle should be set to False. '
-                 'Otherwise, each epoch may load a different subset of samples.'))
+        if dataset_hparams.shuffle and subset_num_batches is not None and subset_num_batches != -1:
+            warnings.warn((f'SubsetNumBatchesWarning: When specifying `[train|eval]_subset_num_batches` for '
+                           f'the {dataloader_label} dataset, dataset_hparams.shuffle should be set to False. '
+                           'Otherwise, each epoch may load a different subset of samples.'))
         dataloader = dataset_hparams.initialize_object(train_device_batch_size, dataloader_hparams)
     return dataloader
 
@@ -231,17 +230,17 @@ class TrainerHparams(hp.Hparams):
         load_progress_bar (bool, optional): See :class:`.Trainer`.
         load_ignore_keys (List[str] | (Dict) -> None, optional): See :class:`.Trainer`.
 
-        save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_filename (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_artifact_name (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_folder (str, optional): See :class:`.CheckpointSaver`.
+        save_filename (str, optional): See :class:`.CheckpointSaver`.
+        save_artifact_name (str, optional): See :class:`.CheckpointSaver`.
         save_latest_filename (str, optional): See
-            :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_latest_artifact_name (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_overwrite (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_weights_only (bool, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+            :class:`.CheckpointSaver`.
+        save_latest_artifact_name (str, optional): See :class:`.CheckpointSaver`.
+        save_overwrite (str, optional): See :class:`.CheckpointSaver`.
+        save_weights_only (bool, optional): See :class:`.CheckpointSaver`.
         save_interval (str, optional): See
             :class:`~composer.callbacks.callback_hparams.CheckpointSaverHparams`.
-        save_num_checkpoints_to_keep (int, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_num_checkpoints_to_keep (int, optional): See :class:`.CheckpointSaver`.
         autoresume (bool, optional): See :class:`.Trainer`.
 
         deepspeed_config (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed

@@ -3,7 +3,7 @@
 
 """Module for devices on which models run.
 
-Used by :class:`~composer.trainer.trainer.Trainer` in order to train on different devices such as GPU and CPU.
+Used by :class:`.Trainer` in order to train on different devices such as GPU and CPU.
 """
 
 from composer.trainer.devices.device import Device as Device

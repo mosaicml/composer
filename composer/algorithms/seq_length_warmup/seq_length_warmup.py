@@ -160,7 +160,7 @@ class SeqLengthWarmup(Algorithm):
     Tensors are either truncated (``truncate=True``) or reshaped to
     create new examples from the extra tokens (``truncate=False``).
 
-    This algorithm runs on :attr:`~composer.core.event.Event.AFTER_DATALOADER` to modify
+    This algorithm runs on :attr:`.Event.AFTER_DATALOADER` to modify
     the sequence length of a batch of data after the model and data have been moved to
     accelerators.
 

@@ -160,10 +160,10 @@ class ColOut(Algorithm):
     rows/columns dropped isn't too large, this does not significantly alter the content of the image, but reduces its
     size and provides extra variability.
 
-    If ``batch`` is True (the default), then this algorithm runs on :attr:`~composer.core.event.Event.AFTER_DATALOADER`
+    If ``batch`` is True (the default), then this algorithm runs on :attr:`.Event.AFTER_DATALOADER`
     to modify the batch.
 
-    Otherwise, if ``batch=False`` (the default), this algorithm runs on :attr:`~composer.core.event.Event.INIT` to insert
+    Otherwise, if ``batch=False`` (the default), this algorithm runs on :attr:`.Event.INIT` to insert
     a dataset transformation. It is a no-op if this algorithm already applied itself on the :attr:`State.train_dataloader.dataset`.
 
     See the :doc:`Method Card </method_cards/colout>` for more details.

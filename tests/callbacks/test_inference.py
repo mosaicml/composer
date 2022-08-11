@@ -23,7 +23,7 @@ from tests.common.datasets import RandomImageDataset
     [partial(composer_resnet, 'resnet18')],
 )
 def test_inference_callback_torchscript(model_cls):
-    with patch('composer.callbacks.export_for_inference.export_for_inference'):
+    with patch('composer.callbacks.export_for_inference.export_with_logger'):
         save_format = 'torchscript'
         model = model_cls()
 
@@ -41,10 +41,11 @@ def test_inference_callback_torchscript(model_cls):
             trainer.fit()
 
             # Assert export_for_inference utility called with expected inputs
-            export_for_inference.export_for_inference.assert_called_once_with(
+            export_for_inference.export_with_logger.assert_called_once_with(
                 model=model,
                 save_format=save_format,
                 save_path=save_path,
+                logger=trainer.logger,
                 save_object_store=None,
                 sample_input=(exp_for_inf_callback.sample_input,),
                 transforms=None)
@@ -55,7 +56,7 @@ def test_inference_callback_torchscript(model_cls):
     [partial(composer_resnet, 'resnet18')],
 )
 def test_inference_callback_onnx(model_cls):
-    with patch('composer.callbacks.export_for_inference.export_for_inference'):
+    with patch('composer.callbacks.export_for_inference.export_with_logger'):
         save_format = 'onnx'
         model = model_cls()
 
@@ -64,19 +65,18 @@ def test_inference_callback_onnx(model_cls):
             exp_for_inf_callback = ExportForInferenceCallback(save_format=save_format, save_path=str(save_path))
 
             # Construct the trainer and train
-            trainer = Trainer(
-                model=model,
-                callbacks=exp_for_inf_callback,
-                train_dataloader=DataLoader(RandomImageDataset(shape=(3, 224, 224))),
-                max_duration='1ba',
-            )
+            trainer = Trainer(model=model,
+                              callbacks=exp_for_inf_callback,
+                              train_dataloader=DataLoader(RandomImageDataset(shape=(3, 224, 224))),
+                              max_duration='1ba')
             trainer.fit()
 
             # Assert export_for_inference utility called with expected inputs
-            export_for_inference.export_for_inference.assert_called_once_with(
+            export_for_inference.export_with_logger.assert_called_once_with(
                 model=model,
                 save_format=save_format,
                 save_path=save_path,
+                logger=trainer.logger,
                 save_object_store=None,
                 sample_input=(exp_for_inf_callback.sample_input,),
                 transforms=None)

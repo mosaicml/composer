@@ -21,7 +21,7 @@ def cyclic_schedule(
     """Profiler schedule function for a cyclic profiling window.
 
     This function returns a schedule function that uses a cyclic profiling window. The resulting function can be
-    passed as the ``prof_schedule`` argument to the :class:`~composer.trainer.trainer.Trainer`.
+    passed as the ``prof_schedule`` argument to the :class:`.Trainer`.
 
     The cyclic window skips the first ``skip_first`` batches in every epoch. Then, it performs a cycle of
     skipping ``wait`` batches, warming up for ``warmup`` batches, and recording ``active`` batches.
@@ -39,7 +39,7 @@ def cyclic_schedule(
             Defaults to ``1``.
 
     Returns:
-        (State -> ProfilerAction): A ``prof_schedule`` for the :class:`~composer.trainer.trainer.Trainer`.
+        (State -> ProfilerAction): A ``prof_schedule`` for the :class:`.Trainer`.
     """
 
     def schedule(state: State):

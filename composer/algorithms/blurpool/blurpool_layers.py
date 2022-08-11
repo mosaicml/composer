@@ -96,7 +96,7 @@ def blurmax_pool2d(input: torch.Tensor,
     ``kernel_size``, then applies an anti-aliasing filter to smooth the maxes,
     and only then pools according to ``stride``.
 
-    See also: :func:`~blur_2d`.
+    See also: :func:`.blur_2d`.
 
     Args:
         input (torch.Tensor): A 4d tensor of shape NCHW
@@ -150,7 +150,7 @@ class BlurMaxPool2d(nn.Module):
     See the associated `paper <http://proceedings.mlr.press/v97/zhang19a.html>`_
     for more details, experimental results, etc.
 
-    See :func:`~blurmax_pool2d` for details.
+    See :func:`.blurmax_pool2d` for details.
     """
 
     # based on https://pytorch.org/docs/stable/_modules/torch/nn/modules/pooling.html#MaxPool2d # noqa
@@ -215,7 +215,7 @@ class BlurConv2d(nn.Module):
     See the associated `paper <http://proceedings.mlr.press/v97/zhang19a.html>`_
     for more details, experimental results, etc.
 
-    See also: :func:`~blur_2d`.
+    See also: :func:`.blur_2d`.
     """
 
     # based partially on https://pytorch.org/docs/stable/_modules/torch/nn/modules/conv.html#Conv2d
@@ -295,7 +295,7 @@ class BlurConv2d(nn.Module):
 
 
 class BlurPool2d(nn.Module):
-    """This module just calls :func:`~blur_2d` in ``forward`` using the provided arguments."""
+    """This module just calls :func:`.blur_2d` in ``forward`` using the provided arguments."""
 
     def __init__(self, stride: _size_2_t = 2, padding: _size_2_t = 1) -> None:
         super(BlurPool2d, self).__init__()
