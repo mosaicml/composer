@@ -95,7 +95,7 @@ def deeplabv3(num_classes: int,
                                                   replace_stride_with_dilation=[False, True, True])
     else:
         backbone = getattr(resnet, backbone_arch)(weights=backbone_weights,
-                                                  replace_stride_with_dilations=[False, True, True])
+                                                  replace_stride_with_dilation=[False, True, True])
 
     # specify which layers to extract activations from
     return_layers = {'layer1': 'layer1', 'layer4': 'layer4'} if use_plus else {'layer4': 'layer4'}
