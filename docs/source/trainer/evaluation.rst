@@ -83,6 +83,7 @@ since they are explicitly provided above.
 Note that a single :class:`.Evaluator` can be also be passed to ``eval_dataloader``.
 The evaluation logic when providing passing one or more :class:`.Evaluator` objects to ``eval_dataloader``
 follows the same basic pattern illustrated above with the following differences:
+
 - Each evaluation round, evaluation is performed separately for each evaluator provided.
 - For each evaluator, outputs from ``model.validate`` are used to compute the evaluator's metrics, not the metrics provided by the model.
 
