@@ -23,14 +23,13 @@
 /tests @mosaicml/composer-team-eng
 
 # Assigning domain-specific owners for certain portions of the repo so they will be
-# explicitely added in pull requests. Including @mosaicml/composer-team-eng
+# explicitly added in pull requests. Including @mosaicml/composer-team-eng
 # as an owner for all sections, so anyone on Composer Eng can approve any Composer PR
 # According to the CODEOWNER docs, the last match takes precedence, so @mosaicml/composer-team-eng
 # must be mentioned for each rule below.
 /composer/algorithms/ @mosaicml/composer-team-research @dskhudia @mosaicml/composer-team-eng
 /composer/cli/ @jbloxham @mvpatel2000 @mosaicml/composer-team-eng
-/composer/datasets/ @mosaicml/composer-team-research @mosaicml/composer-team-eng
-/composer/datasets/streaming/ @knighton @mosaicml/composer-team-eng
+/composer/datasets/ @knighton @mosaicml/composer-team-research @mosaicml/composer-team-eng
 /composer/functional/ @mosaicml/composer-team-research @dskhudia @mosaicml/composer-team-eng
 /composer/loggers/ @eracah @mosaicml/composer-team-eng
 /composer/loss/ @mosaicml/composer-team-research @mosaicml/composer-team-eng
