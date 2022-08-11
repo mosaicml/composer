@@ -230,10 +230,12 @@ def _is_tpu_installed() -> bool:
     else:
         return True
 
+
 if _is_tpu_installed():
     import torch_xla.core.xla_model as xm
     import torch_xla.distributed.parallel_loader as pl
     from torch_xla.amp import GradScaler as xla_grad_scaler
+
 
 class Trainer:
     """Train models with Composer algorithms.
@@ -805,7 +807,10 @@ class Trainer:
         # Move the model and optimizers to the device
 
         if not deepspeed_enabled:
-            if not isinstance(self._device, DeviceTPU):
+            if isinstance(self._device, DeviceTPU) and model.parameters().device is not xla:
+                # check if model is already on tpu
+                raise ValueError('the model needs to be on the tpu before the optimizer')
+            else:
                 model = self._device.module_to_device(model)
                 # Move any remaining optimizer parameters onto the device
                 # It is possible that optimizer initialize created some internal tensors on CPU
@@ -1557,12 +1562,8 @@ class Trainer:
 
                     # total_loss can be None if gradient scaling failed
                     dist.all_reduce(total_loss, reduce_operation='SUM')
-                    if isinstance(self._device, DeviceTPU):
-                        full_loss = total_loss.cpu().item()
-                        self.logger.data_batch({'loss/train': full_loss})
-                    else:
-                        full_loss = total_loss.cpu().item()
-                        self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
+                    full_loss = total_loss.cpu().item()
+                    self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
 
                 # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
                 # next batch's wall clock time. The time accumulation must be done here so schedulers
@@ -1726,7 +1727,7 @@ class Trainer:
             should_handle_cuda_oom = self._device.tensor_to_device(
                 torch.tensor([should_handle_cuda_oom], dtype=torch.uint8))
 
-            if type(self._device) != DeviceTPU:
+            if not isinstance(self._device, DeviceTPU):
                 dist.all_reduce(should_handle_cuda_oom, reduce_operation='MAX')
             if int(should_handle_cuda_oom.item()) == 1:
                 # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_timeout_error since

@@ -1,17 +1,17 @@
 train_dataset:
-  streaming_cifar10:
-    remote: s3://mosaicml-internal-dataset-cifar10/mds/1/
-    local: /tmp/mds-cache/mds-cifar10/
-    split: train
+  cifar10:
+    datadir: /datasets/CIFAR10
+    is_train: true
+    download: false
     shuffle: true
     drop_last: true
 val_dataset:
-  streaming_cifar10:
-    remote: s3://mosaicml-internal-dataset-cifar10/mds/1/
-    local: /tmp/mds-cache/mds-cifar10/
-    split: val
+  cifar10:
+    datadir: /datasets/CIFAR10
+    is_train: false
+    download: false
     shuffle: false
-    drop_last: true
+    drop_last: false
 optimizers:
   decoupled_sgdw:
     lr: 1.2
@@ -30,10 +30,9 @@ model:
     initializers:
       - kaiming_normal
       - bn_uniform
-max_duration: 20ep
+max_duration: 160ep
 train_batch_size: 1024
 eval_batch_size: 1000
-eval_interval: 5ep
 seed: 17
 grad_accum: 1
 dataloader:
@@ -42,4 +41,3 @@ dataloader:
   prefetch_factor: 2
   persistent_workers: true
   num_workers: 8
-precision: bf16
