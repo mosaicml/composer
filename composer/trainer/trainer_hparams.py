@@ -38,7 +38,7 @@ from composer.profiler import Profiler
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceTPU
 from composer.trainer.devices.device_hparams_registry import device_registry
-from composer.trainer.trainer import Trainer,  _is_tpu_installed
+from composer.trainer.trainer import Trainer, _is_tpu_installed
 from composer.utils import MissingConditionalImportError, dist, reproducibility
 from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
 
@@ -84,8 +84,7 @@ def _initialize_dataloader(
                 f'The batch size for {dataloader_label} must be specified if the {dataloader_label} dataset is specified'
             )
 
-        import torch_xla.core.xla_model as xm
-        train_device_batch_size = batch_size // xm.xrt_world_size() #dist.
+        train_device_batch_size = batch_size // dist.get_world_size()
         if dataset_hparams.shuffle and subset_num_batches is not None:
             warnings.warn(
                 (f'SubsetNumBatchesWarning: When specifying `subset_num_batches` for the {dataloader_label} dataset, '
@@ -129,8 +128,7 @@ def _initialize_eval_dataloader(
             dataloader_hparams,
         )
     if evaluators is not None:
-        import torch_xla.core.xla_model as xm
-        eval_device_batch_size = (eval_batch_size or 0) // xm.xrt_world_size()#dist.get_world_size()
+        eval_device_batch_size = (eval_batch_size or 0) // dist.get_world_size()
         eval_dataloader = [
             evaluator.initialize_object(model, eval_device_batch_size, dataloader_hparams) for evaluator in evaluators
         ]
@@ -392,13 +390,7 @@ class TrainerHparams(hp.Hparams):
             if self.deterministic_mode and zero_stage > 0:
                 raise ValueError('Deepspeed with zero stage > 0 is not compatible with deterministic mode')
 
-
-        if not torch.cuda.is_available():
-            if not _is_tpu_installed():
-                raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]')
-            import torch_xla.core.xla_model as xm
-            
-            world_size = xm.xrt_world_size()
+        world_size = dist.get_world_size()
 
         if self.train_batch_size is not None and self.train_batch_size % world_size != 0:
             raise ValueError(
@@ -441,7 +433,7 @@ class TrainerHparams(hp.Hparams):
 
         # Distributed
         # Initialized here so it is available within dataloaders
-        if torch.cuda.is_available() and dist.get_world_size() > 1:
+        if dist.get_world_size() > 1:
             dist.initialize_dist(device, datetime.timedelta(seconds=self.dist_timeout))
 
         # Reproducibility
@@ -461,7 +453,6 @@ class TrainerHparams(hp.Hparams):
             import torch_xla.core.xla_model as xm
             import torch_xla.distributed.xla_multiprocessing as xmp
 
-            
             WRAPPED_MODEL = xmp.MpModelWrapper(model)
             xla_device = xm.xla_device()
             model = WRAPPED_MODEL.to(xla_device)

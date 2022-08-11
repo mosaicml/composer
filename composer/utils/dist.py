@@ -453,15 +453,12 @@ def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool, shuffle: 
     Returns:
         torch.utils.data.distributed.DistributedSampler: The sampler.
     """
-    if not torch.cuda.is_available():
-        import torch_xla.core.xla_model as xm
-
     return torch.utils.data.DistributedSampler[int](
         dataset,
         drop_last=drop_last,
         shuffle=shuffle,
-        num_replicas=get_world_size() if torch.cuda.is_available() else xm.xrt_world_size(),
-        rank=get_global_rank() if torch.cuda.is_available() else xm.get_ordinal(),
+        num_replicas=get_world_size(),
+        rank=get_global_rank(),
     )
 
 

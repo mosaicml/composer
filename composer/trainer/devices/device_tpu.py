@@ -36,7 +36,7 @@ class DeviceTPU(Device):
         self._device = xm.xla_device()
 
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
-        
+
         return module.to(self._device)
 
     def tensor_to_device(self, tensor: torch.Tensor) -> torch.Tensor:

@@ -14,7 +14,6 @@ import pathlib
 import time
 import warnings
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
-import torch_xla.core.xla_model as xm
 
 import coolname
 import torch
@@ -196,9 +195,8 @@ def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
 
     # using int64 to prevent overflow
     rank_zero_seed = device.tensor_to_device(torch.tensor([seed], dtype=torch.int64))
-    if torch.cuda.is_available():
-        dist.broadcast(rank_zero_seed, src=0)
-    
+    dist.broadcast(rank_zero_seed, src=0)
+
     rank_zero_seed = rank_zero_seed.item()
     assert isinstance(rank_zero_seed, int)
     seed = rank_zero_seed + dist.get_global_rank()
@@ -225,6 +223,7 @@ def _generate_run_name() -> str:
     generated_run_name = run_name_list[0]
     return generated_run_name
 
+
 def _is_tpu_installed() -> bool:
     try:
         import torch_xla.core.xla_model as xm
@@ -233,11 +232,13 @@ def _is_tpu_installed() -> bool:
     else:
         return True
 
+
 if _is_tpu_installed():
     import torch_xla.core.xla_model as xm
-    from torch_xla.amp import GradScaler as xla_grad_scaler
     import torch_xla.distributed.parallel_loader as pl
-    
+    from torch_xla.amp import GradScaler as xla_grad_scaler
+
+
 class Trainer:
     """Train models with Composer algorithms.
 
@@ -774,7 +775,7 @@ class Trainer:
 
         # Distributed
 
-        if torch.cuda.is_available() and deepspeed_enabled or dist.get_world_size() > 1:
+        if deepspeed_enabled or dist.get_world_size() > 1:
             # deepspeed requires torch.distributed to be initialized, even if the world size is 1
             # distributed is always required with multi-rank training
             dist.initialize_dist(self._device, datetime.timedelta(seconds=dist_timeout))
@@ -809,7 +810,7 @@ class Trainer:
         # Move the model and optimizers to the device
 
         if not deepspeed_enabled:
-            if torch.cuda.is_available():
+            if not isinstance(self._device, DeviceTPU):
                 model = self._device.module_to_device(model)
                 # Move any remaining optimizer parameters onto the device
                 # It is possible that optimizer initialize created some internal tensors on CPU
@@ -1073,7 +1074,7 @@ class Trainer:
         reproducibility.seed_all(self.state.seed)
 
         # Move the model and optimizers to the specified device
-        if not self.deepspeed_enabled and dist.get_world_size() > 1 and not torch.cuda.is_available():
+        if not self.deepspeed_enabled and dist.get_world_size() > 1:
             # Only wrap the module if required
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
@@ -1148,9 +1149,7 @@ class Trainer:
         latest_checkpoint_exists = self._device.tensor_to_device(
             torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
 
-        ## todo: fix for tpu
-        #dist.all_reduce(latest_checkpoint_exists, reduce_operation='MIN')
-        
+        dist.all_reduce(latest_checkpoint_exists, reduce_operation='MIN')
         # If latest checkpoint is saved locally, change load_path to it
         if int(latest_checkpoint_exists.item()) == 1:
             return latest_checkpoint_path
@@ -1570,8 +1569,8 @@ class Trainer:
                     # total_loss can be None if gradient scaling failed
                     dist.all_reduce(total_loss, reduce_operation='SUM')
                     if isinstance(self._device, DeviceTPU):
-                        full_loss = total_loss
-                        #self.logger.data_batch({'loss/train': full_loss})
+                        full_loss = total_loss.cpu().item()
+                        self.logger.data_batch({'loss/train': full_loss})
                     else:
                         full_loss = total_loss.cpu().item()
                         self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
@@ -1700,8 +1699,7 @@ class Trainer:
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
                             total_loss = self.state.scaler.step(
-                                optimizer,
-                                closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
+                                optimizer, closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
                         else:
                             total_loss = optimizer.step(
                                 closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs).item())
@@ -2227,7 +2225,7 @@ class Trainer:
 
         if isinstance(self._device, DeviceTPU):
             return False
-        
+
         if self.state.precision != Precision.AMP:
             return True
 
