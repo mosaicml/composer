@@ -216,7 +216,7 @@ class Engine():
         if self.state.profiler is not None:
             name = f'event/{event.canonical_name}'
             if (event.is_before_event or event.is_after_event):
-                # if not part of an event pair (e.g. init or after dataloader), then don't record an event here
+                # if not part of an event pair (e.g. init), then don't record an event here
                 if event in _ALWAYS_RECORD_EVENTS:
                     actions = [ProfilerAction.ACTIVE, ProfilerAction.WARMUP, ProfilerAction.SKIP]
                 else:
@@ -242,6 +242,42 @@ class Engine():
             duration_marker.start()
 
         return traces
+
+    def run_marker_only_event(
+        self,
+        event: Union[Event, str],
+    ) -> None:
+        """Runs the marker for an event if the profiler is enabled.
+
+        This is primarily used to complete the dataloader marker at the end of the dataloader. In
+        this scenario, the dataloader marker has started from Event.BEFORE_DATALOADER, but
+        Event.AFTER_DATALOADER cannot be called as no batch was yielded from the dataloader.
+
+        Args:
+            event (Event | str): The current :class:`.Event`. It can be the enum member values or a
+                string with the event value.
+        """
+        duration_marker = None
+        event = Event(event)
+
+        if self._is_closed:
+            raise RuntimeError(('The engine was already closed and therefore cannot be used again. '
+                                'To fix, please create a new Engine (or Trainer)'))
+
+        if self.state.profiler is not None:
+            name = f'event/{event.canonical_name}'
+            if (event.is_before_event or event.is_after_event):
+                # if not part of an event pair (e.g. init), then don't record an event here
+                if event in _ALWAYS_RECORD_EVENTS:
+                    actions = [ProfilerAction.ACTIVE, ProfilerAction.WARMUP, ProfilerAction.SKIP]
+                else:
+                    actions = [ProfilerAction.ACTIVE, ProfilerAction.WARMUP]
+                duration_marker = self.state.profiler.marker(name, actions=actions)
+
+        if event.is_after_event and duration_marker is not None:
+            duration_marker.finish()
+        if event.is_before_event and duration_marker is not None:
+            duration_marker.start()
 
     def register_pass(self, algorithm_pass: passes.AlgorithmPass, index: int = -1):
         """Registers an algorithm pass with the Engine.

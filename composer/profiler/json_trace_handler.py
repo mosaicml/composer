@@ -125,7 +125,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
             are removed first. Set to ``-1`` to keep all traces locally. (default: ``-1``)
 
             Traces will be removed after they have been logged as a file artifact. For example, when this handler
-            is used in conjunction with the :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`, set this
+            is used in conjunction with the :class:`.ObjectStoreLogger`, set this
             parameter to ``0`` to immediately delete traces from the local disk after they have been uploaded to
             the object store.
 
