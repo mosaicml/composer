@@ -17,6 +17,24 @@ specified by the the :class:`.Trainer` parameter ``eval_interval``.
     )
 
 The metrics should be provided by :meth:`.ComposerModel.metrics`.
+For more information, see the "Metrics" section in :doc:`/composer_model.rst#metrics`.
+
+To provide a deeper intuition, here's pseudocode for the evaluation logic that occurs every ``eval_interval``:
+.. code:: python
+    metrics = model.metrics(train=False)
+
+    for batch in eval_dataloader:
+        outputs, targets = model.validate(batch)
+        metrics.update(outputs, targets)  # implements the torchmetrics interface
+
+    metrics.compute()
+
+- The trainer iterates over ``eval_dataloader`` and passes each batch to the model's :meth:`.ComposerModel.validate` method.
+- Outputs of ``model.validate`` are used to update ``metrics`` (a :class:`torchmetrics.Metric` or :class:`torchmetrics.MetricCollection` returned by :meth:`.ComposerModel.metrics <model.metrics(train=False)>`).
+- Finally, metrics over the whole validation dataset are computed.
+
+Note that the tuple returned by :meth:`.ComposerModel.validate` provide the positional arguments to ``metrics.update``.
+Please keep this in mind when using custom models and/or metrics.
 
 Multiple Datasets
 -----------------
@@ -59,3 +77,11 @@ can be specified as in the following example:
 
 In this case, the metrics from :meth:`.ComposerModel.metrics` will be ignored
 since they are explicitly provided above.
+
+Note that a single :class:`.Evaluator` can be also be passed to ``eval_dataloader``.
+The evaluation logic when providing passing one or more :class:`.Evaluator` objects to ``eval_dataloader``
+follows the same basic pattern illustrated above with the following differences:
+- Each evaluation round, evaluation is performed separately for each evaluator provided.
+- For each evaluator, outputs from ``model.validate`` are used to compute the evaluator's metrics, not the metrics provided by the model.
+
+As before, you will need to ensure that the outputs of :meth:`.ComposerModel.validate` are consumable by ``metrics`` for each evaluator.
