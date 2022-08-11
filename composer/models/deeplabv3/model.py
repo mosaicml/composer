@@ -9,6 +9,7 @@ import warnings
 from typing import Sequence
 
 import torch
+import torch.distributed as torch_dist
 import torch.nn.functional as F
 from torchmetrics import MetricCollection
 from torchvision.models import _utils, resnet
@@ -150,7 +151,7 @@ def deeplabv3(num_classes: int,
             ranks_per_node = [
                 list(range(node * local_world_size, (node + 1) * local_world_size)) for node in range(num_nodes)
             ]
-            process_groups = [torch.distributed.new_group(ranks) for ranks in ranks_per_node]
+            process_groups = [torch_dist.new_group(ranks) for ranks in ranks_per_node]
             process_group = process_groups[dist.get_node_rank()]
 
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model, process_group=process_group)
