@@ -144,7 +144,7 @@ def deeplabv3(num_classes: int,
             initializer_fn = Initializer(initializer).get_initializer()
 
             # Only apply initialization to classifier head if pre-trained weights are used
-            if backbone_weights is None:
+            if not backbone_weights is None:
                 model.classifier.apply(initializer_fn)
             else:
                 model.apply(initializer_fn)
