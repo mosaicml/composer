@@ -170,10 +170,9 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             if self.is_train:
                 # include fixed-size resize before RandomResizedCrop in training only
                 # if requested (by specifying a size > 0)
-                train_resize_size = self.resize_size
                 train_transforms: List[torch.nn.Module] = []
-                if train_resize_size > 0:
-                    train_transforms.append(transforms.Resize(train_resize_size))
+                if self.resize_size > 0:
+                    train_transforms.append(transforms.Resize(self.resize_size))
                 # always include RandomResizedCrop and RandomHorizontalFlip
                 train_transforms += [
                     transforms.RandomResizedCrop(self.crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
@@ -182,10 +181,11 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 transformation = transforms.Compose(train_transforms)
                 split = 'train'
             else:
-                transformation = transforms.Compose([
-                    transforms.Resize(self.resize_size),
-                    transforms.CenterCrop(self.crop_size),
-                ])
+                val_transforms: List[torch.nn.Module] = []
+                if self.resize_size > 0:
+                    val_transforms.append(transforms.Resize(self.resize_size))
+                val_transforms.append(transforms.CenterCrop(self.crop_size))
+                transformation = transforms.Compose(val_transforms)
                 split = 'val'
 
             device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
