@@ -114,7 +114,7 @@ class SAM(Algorithm):
     by wrapping an existing optimizer with a :class:`.SAMOptimizer`. SAM can improve model generalization
     and provide robustness to label noise.
 
-    Runs on :attr:`~composer.core.event.Event.INIT`.
+    Runs on :attr:`.Event.INIT`.
 
     Args:
         rho (float, optional): The neighborhood size parameter of SAM. Must be greater than 0.

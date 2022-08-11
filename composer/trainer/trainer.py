@@ -31,7 +31,7 @@ from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Eve
                            ensure_data_spec, ensure_evaluator, ensure_time)
 from composer.core.precision import get_precision_context
 from composer.core.time import TimeUnit
-from composer.core.types import Batch, PyTorchScheduler
+from composer.core.types import Batch, PyTorchScheduler, TrainerMode
 from composer.loggers import Logger, LoggerDestination, LogLevel, ProgressBarLogger
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
@@ -566,7 +566,7 @@ class Trainer:
             This parameter has no effect if ``save_folder`` is ``None``.
             (default: ``"{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}"``)
 
-            .. seealso:: :class:`~.CheckpointSaver`
+            .. seealso:: :class:`~.CheckpointSaver` and :doc:`Artifact Logging</trainer/artifact_logging>` notes.
         save_latest_filename (str, optional): A format string for the name of a symlink
             (relative to ``save_folder``) that points to the last saved checkpoint.
             This parameter has no effect if ``save_folder`` is ``None``.
@@ -577,7 +577,7 @@ class Trainer:
             This parameter has no effect if ``save_folder``, ``save_latest_filename``, or ``save_artifact_name`` are ``None``.
             To disable symlinking in logger, set this or ``save_latest_filename`` to ``None``. (default: ``"{run_name}/checkpoints/latest-rank{rank}"``)
 
-            .. seealso:: :class:`~.CheckpointSaver`
+            .. seealso:: :class:`~.CheckpointSaver` and :doc:`Artifact Logging</trainer/artifact_logging>` notes.
         save_overwrite (bool, optional): Whether existing checkpoints should be overridden.
             This parameter has no effect if ``save_folder`` is None. (default: ``False``)
 
@@ -595,7 +595,7 @@ class Trainer:
             are removed first. Set to ``-1`` to keep all checkpoints locally. (default: ``-1``)
 
             Checkpoints will be removed after they have been logged as a file artifact. For example, when this callback
-            is used in conjunction with the :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`, set this
+            is used in conjunction with the :class:`.ObjectStoreLogger`, set this
             parameter to ``0`` to immediately delete checkpoints from the local disk after they have been uploaded to
             the object store.
 
@@ -1517,7 +1517,7 @@ class Trainer:
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                 dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
 
-            for batch_idx, self.state.batch in enumerate(self._iter_dataloader()):
+            for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
 
                 # if resuming, skip dataloader forward to the minibatch index
                 if batch_idx < int(self.state.timestamp.batch_in_epoch):
@@ -1755,7 +1755,8 @@ class Trainer:
                     warnings.warn(
                         RuntimeWarning('CUDA out of memory detected. Gradient Accumulation '
                                        f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
-                                       'and the batch will be retrained.'))
+                                       'and the batch will be retrained with a '
+                                       f'micro-batchsize of {device_batch_size // self.state.grad_accum}'))
                     # Empty cache if on GPU, which will help reduce fragmentation
                     if isinstance(self._device, DeviceGPU):
                         torch.cuda.empty_cache()
@@ -1981,7 +1982,7 @@ class Trainer:
 
             self.engine.run_event(Event.PREDICT_START)
 
-            for self.state.batch in self._iter_dataloader():
+            for self.state.batch in self._iter_dataloader(TrainerMode.PREDICT):
                 # Move the batch onto the device
                 self.state.batch = self._device.batch_to_device(self.state.batch)
 
@@ -2103,7 +2104,7 @@ class Trainer:
                 # The epoch provided to `set_epoch` need not be sequential, so this is fine.
                 dataloader.sampler.set_epoch(int(self.state.timestamp.batch))
 
-            for self.state.batch in self._iter_dataloader():
+            for self.state.batch in self._iter_dataloader(TrainerMode.EVAL):
                 self.state.batch = self._device.batch_to_device(self.state.batch)
                 if data_spec.device_transforms is not None:
                     self.state.batch = data_spec.device_transforms(self.state.batch)
@@ -2186,15 +2187,15 @@ class Trainer:
                                f'Potentially your hardware does not support Precision {precision}.')
         return use_grad_scaling
 
-    def _iter_dataloader(self):
+    def _iter_dataloader(self, trainer_mode: TrainerMode):
         """Helper method to iterate over the dataloader.
 
         This method yields up to :attr:`.State.dataloader_len`` batches from the dataloader. In addition, if the
         profiler is enabled, the dataloader latency recorded via the :class:`.Marker` API.
+
+        Args:
+            trainer_mode (TrainerMode): Specifies which mode the trainer is in.
         """
-        marker = None
-        if self.state.profiler is not None:
-            marker = self.state.profiler.marker(f'dataloader/{self.state.dataloader_label}', categories=['dataloader'])
         assert self.state.dataloader is not None, 'the dataloader should be set before calling this method'
 
         if self.state.dataloader_len is None:
@@ -2203,15 +2204,21 @@ class Trainer:
             dataloader_iter = itertools.islice(self.state.dataloader, int(self.state.dataloader_len))
 
         while True:
-            if marker is not None:
-                marker.start()
             try:
+                # [BEFORE/AFTER]_DATALOADER only runs while training
+                if trainer_mode == TrainerMode.TRAIN:
+                    self.engine.run_event(Event.BEFORE_DATALOADER)
                 batch = next(dataloader_iter)
             except StopIteration:
+                # [BEFORE/AFTER]_DATALOADER only runs while training
+                if trainer_mode == TrainerMode.TRAIN:
+                    # Event.AFTER_DATALOADER is normally called in the train loop. However, if we
+                    # encounter StopIteration, the train loop will not run. Accordingly, we need to
+                    # explicitly call the engine to run marker.finish() for the dataloader marker.
+                    # Otherwise, we will encounter an error at the start of the next epoch when
+                    # Event.BEFORE_DATALOADER tries to start an unfinished marker.
+                    self.engine.run_marker_only_event(Event.AFTER_DATALOADER)
                 break
-            finally:
-                if marker is not None:
-                    marker.finish()
             yield batch
 
     def _use_closures(self) -> bool:

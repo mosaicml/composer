@@ -181,7 +181,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             After the checkpoint is saved, it will be periodically logged as a file artifact.
             The artifact name will be determined by this format string.
 
-            .. seealso:: :meth:`.Logger.log_file_artifact` for file artifact logging.
+            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
 
             The same format variables for ``filename`` are available.
 
@@ -230,7 +230,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             Whenever a new checkpoint is saved, a symlink artifact is created or updated to point to the latest checkpoint's ``artifact_name``.
             The artifact name will be determined by this format string. This parameter has no effect if ``latest_filename`` or ``artifact_name`` is ``None``.
 
-            .. seealso:: :func:`.write_symlink` for symlink artifact logging.
+            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
 
             The same format variables for ``filename`` are available.
 

@@ -20,8 +20,8 @@ class LoggerDestination(Callback, ABC):
     """Base class for logger destination.
 
     As this class extends :class:`~.callback.Callback`, logger destinations can run on any training loop
-    :class:`~composer.core.event.Event`. For example, it may be helpful to run on
-    :attr:`~composer.core.event.Event.EPOCH_END` to perform any flushing at the end of every epoch.
+    :class:`.Event`. For example, it may be helpful to run on
+    :attr:`.Event.EPOCH_END` to perform any flushing at the end of every epoch.
 
     Example:
         .. doctest::
@@ -51,7 +51,7 @@ class LoggerDestination(Callback, ABC):
 
             *   Use background thread(s) or process(s) to read from this queue to perform any I/O.
             *   Batch the data together and flush periodically on events, such as
-                :attr:`~composer.core.event.Event.BATCH_END` or :attr:`~composer.core.event.Event.EPOCH_END`.
+                :attr:`.Event.BATCH_END` or :attr:`.Event.EPOCH_END`.
 
                 .. seealso:: :class:`~composer.loggers.file_logger.FileLogger` as an example.
 
@@ -76,7 +76,7 @@ class LoggerDestination(Callback, ABC):
 
         Subclasses should implement this method to store logged files (e.g. copy it to another folder or upload it to
         an object store), then it should implement this method. However, not all loggers need to implement this method.
-        For example, the :class:`~composer.loggers.tqdm_logger.TQDMLogger` does not implement this method, as it cannot
+        For example, the :class:`.TQDMLogger` does not implement this method, as it cannot
         handle file artifacts.
 
         .. note::
@@ -89,6 +89,8 @@ class LoggerDestination(Callback, ABC):
                 copy the file to a temporary directory. Otherwise, the original file may no longer exist, or the logged
                 artifact can be corrupted (e.g., if the logger destination is reading from file while the training loop
                 is writing to it).
+
+        .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
 
         Args:
             state (State): The training state.

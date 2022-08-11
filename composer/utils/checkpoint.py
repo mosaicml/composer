@@ -113,7 +113,7 @@ def load_checkpoint(
             Then, ``path`` should be set to ``my_model/ep1-rank{rank}.tar``, and all ranks will load the
             correct state.
 
-        state (State): The :class:`~composer.core.state.State` to load the checkpoint into.
+        state (State): The :class:`~composer.core.State` to load the checkpoint into.
         object_store (Union[ObjectStore, LoggerDestination], optional): If the ``path`` is in an object store
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.ObjectStore` or :class:`~.LoggerDestination` which will be used

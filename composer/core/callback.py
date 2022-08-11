@@ -125,8 +125,8 @@ class Callback(Serializable, abc.ABC):
         del state, logger  # unused
         pass
 
-    def batch_start(self, state: State, logger: Logger) -> None:
-        """Called on the :attr:`.Event.BATCH_START` event.
+    def before_dataloader(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`.Event.BEFORE_DATALOADER` event.
 
         Args:
             state (State): The training state.
@@ -137,6 +137,16 @@ class Callback(Serializable, abc.ABC):
 
     def after_dataloader(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`.Event.AFTER_DATALOADER` event.
+
+        Args:
+            state (State): The training state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def batch_start(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`.Event.BATCH_START` event.
 
         Args:
             state (State): The training state.

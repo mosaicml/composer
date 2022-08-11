@@ -32,6 +32,19 @@ PyTorchScheduler = torch.optim.lr_scheduler._LRScheduler
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
 
 
+class TrainerMode(StringEnum):
+    """Enum to represent which mode the Trainer is in.
+
+    Attributes:
+        TRAIN: In training mode.
+        EVAL: In evaluation mode.
+        PREDICT: In predict mode.
+    """
+    TRAIN = 'train'
+    EVAL = 'eval'
+    PREDICT = 'predict'
+
+
 class MemoryFormat(StringEnum):
     """Enum class to represent different memory formats.
 

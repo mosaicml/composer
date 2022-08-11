@@ -151,7 +151,7 @@ class Profiler:
 
         .. note::
 
-            The :class:`~composer.trainer.trainer.Trainer` automatically invokes this method.
+            The :class:`.Trainer` automatically invokes this method.
 
         Args:
             state (State): The training state.

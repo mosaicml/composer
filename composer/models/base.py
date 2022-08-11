@@ -54,7 +54,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
     Attributes:
         logger (Optional[Logger]): The training :class:`.Logger`.
-            The trainer sets the :class:`.Logger` on the:attr:`~composer.core.event.Event.INIT` event.
+            The trainer sets the :class:`.Logger` on the:attr:`.Event.INIT` event.
     """
 
     def __init__(self) -> None:
