@@ -31,7 +31,7 @@ def test_model_registry(model_name, request):
         model_hparams.model_name = 'resnet50'
 
     if model_name == 'deeplabv3':
-        model_hparams.is_backbone_pretrained = False
+        model_hparams.backbone_weights = None
 
     if model_name == 'timm':
         model_hparams.model_name = 'resnet18'
