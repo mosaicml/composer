@@ -17,10 +17,11 @@ specified by the the :class:`.Trainer` parameter ``eval_interval``.
     )
 
 The metrics should be provided by :meth:`.ComposerModel.metrics`.
-For more information, see the "Metrics" section in :doc:`/composer_model.rst#metrics`.
+For more information, see the "Metrics" section in :doc:`/composer_model`.
 
 To provide a deeper intuition, here's pseudocode for the evaluation logic that occurs every ``eval_interval``:
 .. code:: python
+
     metrics = model.metrics(train=False)
 
     for batch in eval_dataloader:
