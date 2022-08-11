@@ -178,7 +178,6 @@ def _get_device(device: Optional[Union[str, Device]]):
             device = DeviceTPU()
         else:
             raise ValueError(f'device ({device}) must be one of (cpu, gpu, tpu).')
-
     return device
 
 
@@ -196,7 +195,6 @@ def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
     # using int64 to prevent overflow
     rank_zero_seed = device.tensor_to_device(torch.tensor([seed], dtype=torch.int64))
     dist.broadcast(rank_zero_seed, src=0)
-
     rank_zero_seed = rank_zero_seed.item()
     assert isinstance(rank_zero_seed, int)
     seed = rank_zero_seed + dist.get_global_rank()
@@ -232,12 +230,10 @@ def _is_tpu_installed() -> bool:
     else:
         return True
 
-
 if _is_tpu_installed():
     import torch_xla.core.xla_model as xm
     import torch_xla.distributed.parallel_loader as pl
     from torch_xla.amp import GradScaler as xla_grad_scaler
-
 
 class Trainer:
     """Train models with Composer algorithms.
@@ -774,7 +770,6 @@ class Trainer:
         self._device = _get_device(device)
 
         # Distributed
-
         if deepspeed_enabled or dist.get_world_size() > 1:
             # deepspeed requires torch.distributed to be initialized, even if the world size is 1
             # distributed is always required with multi-rank training
@@ -820,10 +815,8 @@ class Trainer:
         # Grad Accum
         self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
         grad_accum = _get_initial_grad_accum(grad_accum)
-
         if self.adaptive_gradient_accumulation and isinstance(self._device, DeviceTPU):
             raise NotImplementedError(f'grad_accum=auto not supported on TPUs.')
-
         # Dynamic time estimate for forward and backward pass. Used for monitored_barrier to avoid deadlocks
         self.batch_compute_time = 300
 
@@ -925,7 +918,6 @@ class Trainer:
                                       train_subset_num_batches)
             if isinstance(self._device, DeviceTPU):
                 self.state.train_dataloader = pl.MpDeviceLoader(self.state.dataloader, xm.xla_device())
-
             else:
                 self.state.train_dataloader = self.state.dataloader
         self.train_metrics = _get_training_metrics(model) if compute_training_metrics else None
@@ -975,7 +967,6 @@ class Trainer:
         self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, ensure_tuple(algorithms)))
         self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, ensure_tuple(algorithms)))
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
-
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
             try:
@@ -1148,7 +1139,6 @@ class Trainer:
         # Require all ranks to have local checkpoint if we wish to restore from it
         latest_checkpoint_exists = self._device.tensor_to_device(
             torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
-
         dist.all_reduce(latest_checkpoint_exists, reduce_operation='MIN')
         # If latest checkpoint is saved locally, change load_path to it
         if int(latest_checkpoint_exists.item()) == 1:
@@ -1384,7 +1374,6 @@ class Trainer:
 
             # update scaler since precision was provided
             self.state.scaler = ClosureGradScaler() if self._use_closures() else cuda_grad_scaler()
-
         self._train_loop()
 
     def close(self):
@@ -1713,7 +1702,6 @@ class Trainer:
                                 xm.optimizer_step(optimizer, barrier=True)
                             else:
                                 optimizer.step()
-
             except RuntimeError as e:
                 if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
