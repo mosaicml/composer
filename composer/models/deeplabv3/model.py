@@ -144,10 +144,10 @@ def deeplabv3(num_classes: int,
             initializer_fn = Initializer(initializer).get_initializer()
 
             # Only apply initialization to classifier head if pre-trained weights are used
-            if not backbone_weights is None:
-                model.classifier.apply(initializer_fn)
-            else:
+            if backbone_weights is None:
                 model.apply(initializer_fn)
+            else:
+                model.classifier.apply(initializer_fn)
 
     if sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
