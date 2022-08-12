@@ -1429,7 +1429,6 @@ class Trainer:
         # Batch time should be the value from rank 0
         sample_token_tensor = self._device.tensor_to_device(torch.tensor([num_samples, num_tokens], dtype=torch.int))
         dist.all_reduce(sample_token_tensor, reduce_operation='SUM')
-        dist.broadcast(batch_time.total_seconds(), src=0)
         batch_time_tensor = self._device.tensor_to_device(
             torch.tensor([batch_time.total_seconds()], dtype=torch.float32))
         dist.broadcast(batch_time_tensor, src=0)
