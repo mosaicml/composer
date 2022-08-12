@@ -1478,8 +1478,6 @@ class Trainer:
 
         self.engine.run_event(Event.FIT_START)
 
-        self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
-
         use_grad_scaling = self._use_grad_scaling(self.state.precision, self.state.scaler)
 
         self._spin_dataloaders()
