@@ -271,17 +271,17 @@ engineering. We currently support the ``cpu``, ``gpu`` and ``tpu`` devices.
         device='cpu'
     )
 
-TRaining on TPU
-~~~~~~~~~~~~~~~
-
-Now you can also use composer to train your model on single core ``tpus``
+Training on TPU (beta)
+~~~~~~~~~~~~~~~~~~~~~~
+Beta support: train your models on **single core** ``tpus``
 in ``bf16`` precision. You will need to have ``torch_xla`` installed using
 instructions here https://github.com/pytorch/xla.
 
-.. testcode::
+.. code::
 
     from composer import Trainer
 
+    ## The user needs to first move the model to the xla device before sending it to the trainer.
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
@@ -289,7 +289,8 @@ instructions here https://github.com/pytorch/xla.
 	max_duration='2ep',
 	device='tpu'
     )
-    
+.. note:: We will add multi-core support in future releases.
+	  
 Distributed Training
 ~~~~~~~~~~~~~~~~~~~~
 

@@ -20,7 +20,7 @@ import torch
 import torch.distributed
 import torch.nn as nn
 import torch.utils.data
-from torch.cuda.amp.grad_scaler import GradScaler as cuda_grad_scaler
+from torch.cuda.amp.grad_scaler import GradScaler
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric, MetricCollection
@@ -1010,7 +1010,7 @@ class Trainer:
         # surpressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
-        self.state.scaler = ClosureGradScaler() if self._use_closures() else cuda_grad_scaler()
+        self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
 
         # Load Checkpoint
         self._rng_state = None
@@ -1380,7 +1380,7 @@ class Trainer:
             self.state.precision = precision
 
             # update scaler since precision was provided
-            self.state.scaler = ClosureGradScaler() if self._use_closures() else cuda_grad_scaler()
+            self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
         self._train_loop()
 
     def close(self):
@@ -1480,7 +1480,7 @@ class Trainer:
         if isinstance(self._device, DeviceTPU):
             self.state.scaler = xla_grad_scaler()
         else:
-            self.state.scaler = ClosureGradScaler() if self._use_closures() else cuda_grad_scaler()
+            self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
 
         use_grad_scaling = self._use_grad_scaling(self.state.precision, self.state.scaler)
 
@@ -2151,7 +2151,7 @@ class Trainer:
         if original_num_batches is not None:
             self.state.dataloader_len = original_num_batches
 
-    def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[cuda_grad_scaler]) -> bool:
+    def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[GradScaler]) -> bool:
         """Determines based on precision when to use grad scaling.
 
         By default, the pytorch GradScaler is a no-op if running on
