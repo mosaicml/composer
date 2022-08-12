@@ -41,7 +41,7 @@ from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _par
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
-from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS
+from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed, map_collection,
                             reproducibility)
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
@@ -174,8 +174,14 @@ def _get_device(device: Optional[Union[str, Device]]):
             device = DeviceGPU()
         elif device.lower() == 'mps':
             device = DeviceMPS()
+        elif device.lower() == 'tpu':
+            if not _is_tpu_installed():
+                raise ImportError(
+                    'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla'
+                )
+            device = DeviceTPU()
         else:
-            raise ValueError(f'device ({device}) must be one of (cpu, gpu, mps).')
+            raise ValueError(f'device ({device}) must be one of (cpu, gpu, mps, tpu).')
     return device
 
 
@@ -218,6 +224,21 @@ def _generate_run_name() -> str:
     dist.broadcast_object_list(run_name_list)
     generated_run_name = run_name_list[0]
     return generated_run_name
+
+
+def _is_tpu_installed() -> bool:
+    try:
+        import torch_xla.core.xla_model as xm
+        del xm
+    except ImportError:
+        return False
+    else:
+        return True
+
+
+if _is_tpu_installed():
+    import torch_xla.core.xla_model as xm
+    import torch_xla.distributed.parallel_loader as pl
 
 
 class Trainer:
@@ -788,16 +809,24 @@ class Trainer:
             raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
         # Move the model and optimizers to the device
+
         if not deepspeed_enabled:
-            model = self._device.module_to_device(model)
-            # Move any remaining optimizer parameters onto the device
-            # It is possible that optimizer initialize created some internal tensors on CPU
-            # that need to be moved onto GPU.
+            # check if model is already on tpu
+            if isinstance(self._device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
+                raise ValueError(
+                    'Use model.to(xm.xla_device()) to set the model to the TPU before providing to the trainer.')
+            else:
+                model = self._device.module_to_device(model)
+                # Move any remaining optimizer parameters onto the device
+                # It is possible that optimizer initialize created some internal tensors on CPU
+                # that need to be moved onto GPU.
             optimizers = map_collection(optimizers, self._device.optimizer_to_device)
 
         # Grad Accum
         self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
         grad_accum = _get_initial_grad_accum(grad_accum)
+        if self.adaptive_gradient_accumulation and isinstance(self._device, DeviceTPU):
+            raise NotImplementedError(f'grad_accum=auto not supported on TPUs.')
         # Dynamic time estimate for forward and backward pass. Used for monitored_barrier to avoid deadlocks
         self.batch_compute_time = 300
 
@@ -897,7 +926,10 @@ class Trainer:
         if self._train_data_spec is not None:
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label,
                                       train_subset_num_batches)
-            self.state.train_dataloader = self.state.dataloader
+            if isinstance(self._device, DeviceTPU):
+                self.state.train_dataloader = pl.MpDeviceLoader(self.state.dataloader, xm.xla_device())
+            else:
+                self.state.train_dataloader = self.state.dataloader
         self.train_metrics = _get_training_metrics(model) if compute_training_metrics else None
 
         # Max Duration
@@ -938,13 +970,13 @@ class Trainer:
                 raise ValueError('Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.')
             if eval_interval != 1:
                 raise ValueError('Specifying `eval_interval` without an `eval_dataloader` has no effect.')
+
         self.state.evaluators = evaluators
 
         # Some algorithms require specific settings
         self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, ensure_tuple(algorithms)))
         self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, ensure_tuple(algorithms)))
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
-
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
             try:
@@ -1352,7 +1384,6 @@ class Trainer:
 
             # update scaler since precision was provided
             self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
-
         self._train_loop()
 
     def close(self):
@@ -1667,7 +1698,10 @@ class Trainer:
                         if use_grad_scaling:
                             self.state.scaler.step(optimizer)
                         else:
-                            optimizer.step()
+                            if isinstance(self._device, DeviceTPU):
+                                xm.optimizer_step(optimizer, barrier=True)
+                            else:
+                                optimizer.step()
             except RuntimeError as e:
                 if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
@@ -1691,8 +1725,9 @@ class Trainer:
             # Propagate across all ranks if any rank hit CUDA OOM
             should_handle_cuda_oom = self._device.tensor_to_device(
                 torch.tensor([should_handle_cuda_oom], dtype=torch.uint8))
-            dist.all_reduce(should_handle_cuda_oom, reduce_operation='MAX')
-            # Check if any rank hit CUDA OOM
+
+            if not isinstance(self._device, DeviceTPU):
+                dist.all_reduce(should_handle_cuda_oom, reduce_operation='MAX')
             if int(should_handle_cuda_oom.item()) == 1:
                 # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_timeout_error since
                 # it is likely transient, e.g. timeout because certain ranks OOMed and didn't reach barrier.
@@ -2186,6 +2221,9 @@ class Trainer:
         with the _step_supports_amp_closure flag.
         """
         if self.deepspeed_enabled:
+            return False
+
+        if isinstance(self._device, DeviceTPU):
             return False
 
         if self.state.precision != Precision.AMP:

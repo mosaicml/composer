@@ -13,6 +13,7 @@ from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.devices.device_mps import DeviceMPS
+from composer.trainer.devices.device_tpu import DeviceTPU
 
 __all__ = ['device_registry']
 
@@ -20,4 +21,5 @@ device_registry: Dict[str, Union[Type[Device], Type[hp.Hparams]]] = {
     'gpu': DeviceGPU,
     'cpu': DeviceCPU,
     'mps': DeviceMPS,
+    'tpu': DeviceTPU,
 }
