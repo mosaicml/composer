@@ -66,7 +66,7 @@ def get_precision_context(precision: Union[str, Precision]) -> Generator[None, N
                 yield
         else:
             import os
-            os.environ["XLA_USE_BF16"] = "1"
+            os.environ['XLA_USE_BF16'] = '1'
             yield
     else:
         raise ValueError(f'Unsupported precision: {precision}')

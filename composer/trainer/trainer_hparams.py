@@ -448,7 +448,9 @@ class TrainerHparams(hp.Hparams):
         # on TPUs, model must be moved to device before optimizer creation
         if isinstance(device, DeviceTPU):
             if not _is_tpu_installed():
-                raise ImportError("Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla")
+                raise ImportError(
+                    'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla'
+                )
             import torch_xla.core.xla_model as xm
             import torch_xla.distributed.xla_multiprocessing as xmp
 

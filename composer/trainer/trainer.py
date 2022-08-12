@@ -174,7 +174,9 @@ def _get_device(device: Optional[Union[str, Device]]):
             device = DeviceGPU()
         elif device.lower() == 'tpu':
             if not _is_tpu_installed:
-                raise ImportError('Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla')
+                raise ImportError(
+                    'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla'
+                )
             device = DeviceTPU()
         else:
             raise ValueError(f'device ({device}) must be one of (cpu, gpu, tpu).')
@@ -222,7 +224,6 @@ def _generate_run_name() -> str:
     return generated_run_name
 
 
-
 def _is_tpu_installed() -> bool:
     try:
         import torch_xla.core.xla_model as xm
@@ -231,6 +232,7 @@ def _is_tpu_installed() -> bool:
         return False
     else:
         return True
+
 
 if _is_tpu_installed():
     import torch_xla.core.xla_model as xm
