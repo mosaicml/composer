@@ -6,11 +6,13 @@
 import functools
 import textwrap
 import warnings
-from typing import Sequence
+from typing import Optional, Sequence
 
 import torch
 import torch.distributed as torch_dist
 import torch.nn.functional as F
+import torchvision
+from packaging import version
 from torchmetrics import MetricCollection
 from torchvision.models import _utils, resnet
 
@@ -44,8 +46,7 @@ class SimpleSegmentationModel(torch.nn.Module):
 
 def deeplabv3(num_classes: int,
               backbone_arch: str = 'resnet101',
-              is_backbone_pretrained: bool = True,
-              backbone_url: str = '',
+              backbone_weights: Optional[str] = None,
               sync_bn: bool = True,
               use_plus: bool = True,
               initializers: Sequence[Initializer] = ()):
@@ -53,14 +54,15 @@ def deeplabv3(num_classes: int,
 
     Args:
         num_classes (int): Number of classes in the segmentation task.
-        backbone_arch (str, optional): The architecture to use for the backbone. Must be either [``'resnet50'``, ``'resnet101'``].
-            Default: ``'resnet101'``.
-        is_backbone_pretrained (bool, optional): If ``True``, use pretrained weights for the backbone. Default: ``True``.
-        backbone_url (str, optional): Url used to download model weights. If empty, the PyTorch url will be used.
-            Default: ``''``.
-        sync_bn (bool, optional): If ``True``, replace all BatchNorm layers with SyncBatchNorm layers. Default: ``True``.
+        backbone_arch (str, optional): The architecture to use for the backbone. Must be either
+            [``'resnet50'``, ``'resnet101'``]. Default: ``'resnet101'``.
+        backbone_weights (str, optional): If specified, the PyTorch pre-trained weights to load for the backbone.
+            Currently, only ['IMAGENET1K_V1', 'IMAGENET1K_V2'] are supported. Default: ``None``.
+        sync_bn (bool, optional): If ``True``, replace all BatchNorm layers with SyncBatchNorm layers.
+            Default: ``True``.
         use_plus (bool, optional): If ``True``, use DeepLabv3+ head instead of DeepLabv3. Default: ``True``.
-        initializers (Sequence[Initializer], optional): Initializers for the model. ``[]`` for no initialization. Default: ``()``.
+        initializers (Sequence[Initializer], optional): Initializers for the model. ``()`` for no initialization.
+            Default: ``()``.
 
     Returns:
         deeplabv3: A DeepLabV3 :class:`torch.nn.Module`.
@@ -71,7 +73,7 @@ def deeplabv3(num_classes: int,
 
         from composer.models.deeplabv3.deeplabv3 import deeplabv3
 
-        pytorch_model = deeplabv3(num_classes=150, backbone_arch='resnet101', is_backbone_pretrained=False)
+        pytorch_model = deeplabv3(num_classes=150, backbone_arch='resnet101', backbone_weights=None)
     """
 
     # check that the specified architecture is in the resnet module
@@ -79,10 +81,24 @@ def deeplabv3(num_classes: int,
         raise ValueError(f'backbone_arch must be part of the torchvision resnet module, got value: {backbone_arch}')
 
     # change the model weight url if specified
-    if backbone_url:
-        resnet.model_urls[backbone_arch] = backbone_url
-    backbone = getattr(resnet, backbone_arch)(pretrained=is_backbone_pretrained,
-                                              replace_stride_with_dilation=[False, True, True])
+    if version.parse(torchvision.__version__) < version.parse('0.13.0'):
+        pretrained = False
+        if backbone_weights:
+            pretrained = True
+            if backbone_weights == 'IMAGENET1K_V1':
+                resnet.model_urls[backbone_arch] = 'https://download.pytorch.org/models/resnet101-63fe2227.pth'
+            elif backbone_weights == 'IMAGENET1K_V2':
+                resnet.model_urls[backbone_arch] = 'https://download.pytorch.org/models/resnet101-cd907fc2.pth'
+            else:
+                ValueError(
+                    textwrap.dedent(f"""\
+                        `backbone_weights` must be either "IMAGENET1K_V1" or "IMAGENET1K_V2"
+                        if torchvision.__version__ < 0.13.0. `backbone_weights` was {backbone_weights}."""))
+        backbone = getattr(resnet, backbone_arch)(pretrained=pretrained,
+                                                  replace_stride_with_dilation=[False, True, True])
+    else:
+        backbone = getattr(resnet, backbone_arch)(weights=backbone_weights,
+                                                  replace_stride_with_dilation=[False, True, True])
 
     # specify which layers to extract activations from
     return_layers = {'layer1': 'layer1', 'layer4': 'layer4'} if use_plus else {'layer4': 'layer4'}
@@ -136,10 +152,10 @@ def deeplabv3(num_classes: int,
             initializer_fn = Initializer(initializer).get_initializer()
 
             # Only apply initialization to classifier head if pre-trained weights are used
-            if is_backbone_pretrained:
-                model.classifier.apply(initializer_fn)
-            else:
+            if backbone_weights is None:
                 model.apply(initializer_fn)
+            else:
+                model.classifier.apply(initializer_fn)
 
     if sync_bn and world_size > 1:
         local_world_size = dist.get_local_world_size()
@@ -161,8 +177,7 @@ def deeplabv3(num_classes: int,
 
 def composer_deeplabv3(num_classes: int,
                        backbone_arch: str = 'resnet101',
-                       is_backbone_pretrained: bool = True,
-                       backbone_url: str = '',
+                       backbone_weights: Optional[str] = None,
                        sync_bn: bool = True,
                        use_plus: bool = True,
                        ignore_index: int = -1,
@@ -179,10 +194,8 @@ def composer_deeplabv3(num_classes: int,
         num_classes (int): Number of classes in the segmentation task.
         backbone_arch (str, optional): The architecture to use for the backbone. Must be either
             [``'resnet50'``, ``'resnet101'``]. Default: ``'resnet101'``.
-        is_backbone_pretrained (bool, optional): If ``True``, use pretrained weights for the backbone.
-            Default: ``True``.
-        backbone_url (str, optional): Url used to download model weights. If empty, the PyTorch url will be used.
-            Default: ``''``.
+        backbone_weights (str, optional): If specified, the PyTorch pre-trained weights to load for the backbone.
+            Currently, only ['IMAGENET1K_V1', 'IMAGENET1K_V2'] are supported. Default: ``None``.
         sync_bn (bool, optional): If ``True``, replace all BatchNorm layers with SyncBatchNorm layers.
             Default: ``True``.
         use_plus (bool, optional): If ``True``, use DeepLabv3+ head instead of DeepLabv3. Default: ``True``.
@@ -202,12 +215,11 @@ def composer_deeplabv3(num_classes: int,
 
         from composer.models import composer_deeplabv3
 
-        model = composer_deeplabv3(num_classes=150, backbone_arch='resnet101', is_backbone_pretrained=False)
+        model = composer_deeplabv3(num_classes=150, backbone_arch='resnet101', backbone_weights=None)
     """
 
     model = deeplabv3(backbone_arch=backbone_arch,
-                      is_backbone_pretrained=is_backbone_pretrained,
-                      backbone_url=backbone_url,
+                      backbone_weights=backbone_weights,
                       use_plus=use_plus,
                       num_classes=num_classes,
                       sync_bn=sync_bn,
