@@ -231,6 +231,7 @@ class StreamingDataset(IterableDataset, DataloaderState):
 
         self._shuffle_index = 0
         self._batch_count = 0
+        self._restored_batch_count = 0
         self._shuffle_buffer_size = self._parse_shuffle_buffer_size(shuffle_buffer_size)
         self._cipher_key = None
         N = self.index.num_shards
@@ -257,7 +258,7 @@ class StreamingDataset(IterableDataset, DataloaderState):
         return {'batch_count': self._batch_count, 'cipher_key': self._cipher_key}
 
     def load_state_dict(self, state):
-        self._batch_count = state['batch_count']
+        self._restored_batch_count = state['batch_count']
         self._cipher_key = state['cipher_key']
         N = self.index.num_shards
         self._shard_shuffle_indices = np.array([encrypt(self._cipher_key, v, N) for v in range(N)])
@@ -295,13 +296,15 @@ class StreamingDataset(IterableDataset, DataloaderState):
             self._download_status = _DownloadStatus.IN_PROGRESS
 
         N = self.index.num_shards
-        current_shard = self.index.sample_shards[self._batch_count]
-        current_shard_index = current_shard
+        current_shard_id = self.index.sample_shards[self._restored_batch_count]
+        current_shard_index = current_shard_id
+
         if self.shuffle:
             if self._cipher_key is None:
                 raise ValueError('shuffling is on but no seed was specified')
-            current_shard_index = decrypt(self._cipher_key, current_shard, N)
-        current_shard_index -= current_shard_index % self._shuffle_buffer_size
+            current_shard_index = decrypt(self._cipher_key, current_shard_id, N)
+            current_shard_index -= current_shard_index % self._shuffle_buffer_size
+
         shard_ids = self._shard_shuffle_indices[current_shard_index:]
 
         for shard_id in shard_ids:
@@ -316,7 +319,8 @@ class StreamingDataset(IterableDataset, DataloaderState):
         with self._lock:
             self._download_status = _DownloadStatus.DONE
 
-    def shuffle_sample(self, idx):
+    def _shuffle_sample(self, idx):
+        """ Permutes the space of samples in the following way:  """
         if self._cipher_key is None:
             raise ValueError('shuffling is on but no seed was specified')
         num_workers = dist.get_local_world_size()
@@ -411,8 +415,11 @@ class StreamingDataset(IterableDataset, DataloaderState):
         Thread(target=self.download, daemon=True).start()
         #raise ValueError(np.array([self.shuffle_sample(ix) for ix in np.arange(self.index.total_samples)]))
         while self._batch_count < self.index.total_samples:
+            if self._batch_count < self._restored_batch_count:
+                self._batch_count += 1
+                yield None
             try:
-                idx = self.shuffle_sample(self._batch_count) if self.shuffle else self._batch_count
+                idx = self._shuffle_sample(self._batch_count) if self.shuffle else self._batch_count
                 yield self[idx]
                 self._batch_count += 1
             except FileNotFoundError as e:

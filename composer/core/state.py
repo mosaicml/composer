@@ -458,6 +458,11 @@ class State(Serializable):
                 if self.is_model_ddp:
                     torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state, 'module.')
                 serialized_value = model_state
+            elif attribute_name == 'dataloader_state':
+                dataloader_state = attribute_value.state_dict()
+                # patch this value to be resilient to prefetching:
+                dataloader_state['batch_count'] = self.timestamp.batch_in_epoch
+                serialized_value = dataloader_state
             else:
                 if attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                     serialized_value = {
