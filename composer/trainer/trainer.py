@@ -41,7 +41,7 @@ from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _par
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
-from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceTPU
+from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed, map_collection,
                             reproducibility)
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
@@ -172,14 +172,16 @@ def _get_device(device: Optional[Union[str, Device]]):
             device = DeviceCPU()
         elif device.lower() == 'gpu':
             device = DeviceGPU()
+        elif device.lower() == 'mps':
+            device = DeviceMPS()
         elif device.lower() == 'tpu':
-            if not _is_tpu_installed:  # type: ignore
+            if not _is_tpu_installed():
                 raise ImportError(
                     'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla'
                 )
             device = DeviceTPU()
         else:
-            raise ValueError(f'device ({device}) must be one of (cpu, gpu, tpu).')
+            raise ValueError(f'device ({device}) must be one of (cpu, gpu, mps, tpu).')
     return device
 
 
@@ -1458,9 +1460,8 @@ class Trainer:
         # Batch time should be the value from rank 0
         sample_token_tensor = self._device.tensor_to_device(torch.tensor([num_samples, num_tokens], dtype=torch.int))
         dist.all_reduce(sample_token_tensor, reduce_operation='SUM')
-
         batch_time_tensor = self._device.tensor_to_device(
-            torch.tensor([batch_time.total_seconds()], dtype=torch.float64))
+            torch.tensor([batch_time.total_seconds()], dtype=torch.float32))
         dist.broadcast(batch_time_tensor, src=0)
         batch_time = datetime.timedelta(seconds=batch_time_tensor[0].cpu().item())
 
@@ -2112,7 +2113,12 @@ class Trainer:
 
                 # Run in same precision context to avoid NaNs
                 with get_precision_context(self.state.precision):
-                    metrics.update(self.state.outputs, targets)
+                    if isinstance(self._device, DeviceMPS):
+                        # torchmetrics math has numerical errors on M1 devices
+                        # running the compute on CPU instead
+                        metrics.update(self.state.outputs.cpu(), targets.cpu())
+                    else:
+                        metrics.update(self.state.outputs, targets)
 
                 now = datetime.datetime.now()
                 batch_time = now - last_wct

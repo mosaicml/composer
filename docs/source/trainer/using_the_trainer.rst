@@ -271,6 +271,23 @@ engineering. We currently support the ``cpu``, ``gpu`` and ``tpu`` devices.
         device='cpu'
     )
 
+Training on M1 chips (beta)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To train models on Apple M-series chips, we support ``device='mps'``. Note
+that this requires having ``torch >= 1.12`` installed, as well as Mac OSX 12.3+.
+
+For more details, see: `Pytorch Release Blog <https://pytorch.org/blog/pytorch-1.12-released/#prototype-introducing-accelerated-pytorch-training-on-mac>`__.
+
+.. code:: python
+
+    from composer import Trainer
+
+    trainer = Trainer(
+        ...,
+        device='mps',
+    )
+
 Training on TPU (beta)
 ~~~~~~~~~~~~~~~~~~~~~~
 Beta support: train your models on **single core** ``tpus``
@@ -289,6 +306,7 @@ instructions here https://github.com/pytorch/xla.
 	max_duration='2ep',
 	device='tpu'
     )
+
 .. note:: We will add multi-core support in future releases.
 
 Distributed Training
