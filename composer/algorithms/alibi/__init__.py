@@ -8,7 +8,6 @@ attention scores proportionally to each token pair's distance.
 See the :doc:`Method Card </method_cards/alibi>` for more details.
 """
 
-from composer.algorithms.alibi import _gpt2_alibi as _gpt2_alibi
 from composer.algorithms.alibi.alibi import Alibi, apply_alibi
 
-__all__ = ["Alibi", "apply_alibi"]
+__all__ = ['Alibi', 'apply_alibi']

@@ -14,7 +14,7 @@ val_dataset:
     final_size: 512
     drop_last: false
     shuffle: false
-optimizer:
+optimizers:
   sgd:
     lr: 0.01
     momentum: 0.9
@@ -40,8 +40,6 @@ max_duration: 127ep
 train_batch_size: 16
 eval_batch_size: 16
 seed: 17
-device:
-  gpu: {}
 dataloader:
   pin_memory: true
   timeout: 0
@@ -49,5 +47,4 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 grad_accum: 1
-precision: amp
 dist_timeout: 60

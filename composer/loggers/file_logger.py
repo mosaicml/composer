@@ -16,10 +16,10 @@ from composer.loggers.logger import Logger, LogLevel, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils.file_helpers import FORMAT_NAME_WITH_DIST_TABLE, format_name_with_dist
 
-__all__ = ["FileLogger"]
+__all__ = ['FileLogger']
 
 
-class FileLogger(LoggerDestination):
+class FileLogger(LoggerDestination):  # noqa: D101
     __doc__ = f"""Log data to a file.
 
     Example usage:
@@ -45,7 +45,7 @@ class FileLogger(LoggerDestination):
 
             trainer.engine.close()
 
-            path = os.path.join(trainer.logger.run_name, "logs-rank0.txt")
+            path = os.path.join(trainer.state.run_name, "logs-rank0.txt")
             try:
                 os.remove(file_logger.filename)
             except FileNotFoundError as e:
@@ -85,7 +85,7 @@ class FileLogger(LoggerDestination):
             The logfile will be periodically logged (according to the ``flush_interval``) as a file artifact.
             The artifact name will be determined by this format string.
 
-            .. seealso:: :meth:`~composer.loggers.logger.Logger.log_file_artifact` for file artifact logging.
+            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
 
             The same format variables for ``filename`` are available. Setting this parameter to ``None``
             (the default) will use the same format string as ``filename``. It is sometimes helpful to deviate
@@ -113,11 +113,12 @@ class FileLogger(LoggerDestination):
             :attr:`~.LogLevel.EPOCH`, then the logfile will be flushed every n epochs.  If
             the ``log_level`` is :attr:`~.LogLevel.BATCH`, then the logfile will be
             flushed every n batches. Default: ``100``.
+        overwrite (bool, optional): Whether to overwrite an existing logfile. (default: ``False``)
     """
 
     def __init__(
         self,
-        filename: str = "{run_name}/logs-rank{rank}.txt",
+        filename: str = '{run_name}/logs-rank{rank}.txt',
         artifact_name: Optional[str] = None,
         *,
         capture_stdout: bool = True,
@@ -148,10 +149,10 @@ class FileLogger(LoggerDestination):
         self._closed = False
 
         if capture_stdout:
-            sys.stdout.write = self._get_new_writer("[stdout]: ", sys.stdout.write)
+            sys.stdout.write = self._get_new_writer('[stdout]: ', sys.stdout.write)
 
         if capture_stderr:
-            sys.stderr.write = self._get_new_writer("[stderr]: ", sys.stderr.write)
+            sys.stderr.write = self._get_new_writer('[stderr]: ', sys.stderr.write)
 
     def _get_new_writer(self, prefix: str, original_writer: Callable[[str], int]):
         """Returns a writer that intercepts calls to the ``original_writer``."""
@@ -167,7 +168,7 @@ class FileLogger(LoggerDestination):
     def filename(self) -> str:
         """The filename for the logfile."""
         if self._run_name is None:
-            raise RuntimeError("The run name is not set. The engine should have been set on Event.INIT")
+            raise RuntimeError('The run name is not set. The engine should have been set on Event.INIT')
         name = format_name_with_dist(self.filename_format, run_name=self._run_name)
 
         return name
@@ -176,10 +177,10 @@ class FileLogger(LoggerDestination):
     def artifact_name(self) -> str:
         """The artifact name for the logfile."""
         if self._run_name is None:
-            raise RuntimeError("The run name is not set. The engine should have been set on Event.INIT")
+            raise RuntimeError('The run name is not set. The engine should have been set on Event.INIT')
         name = format_name_with_dist(self.artifact_name_format, run_name=self._run_name)
 
-        name.lstrip("/")
+        name.lstrip('/')
 
         return name
 
@@ -206,7 +207,7 @@ class FileLogger(LoggerDestination):
             if self.log_level > LogLevel.BATCH:
                 return True
             return self.is_batch_interval
-        raise ValueError(f"Unknown log level: {log_level}")
+        raise ValueError(f'Unknown log level: {log_level}')
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         if not self._will_log(log_level):
@@ -214,15 +215,15 @@ class FileLogger(LoggerDestination):
         data_str = format_log_data_value(data)
         self.write(
             f'[{log_level.name}][batch={int(state.timestamp.batch)}]: ',
-            data_str + "\n",
+            data_str + '\n',
         )
 
     def init(self, state: State, logger: Logger) -> None:
-        del state  # unused
+        del logger  # unused
         self._is_newline = True
-        self._run_name = logger.run_name
+        self._run_name = state.run_name
         if self.file is not None:
-            raise RuntimeError("The file logger is already initialized")
+            raise RuntimeError('The file logger is already initialized')
         file_dirname = os.path.dirname(self.filename)
         if file_dirname:
             os.makedirs(file_dirname, exist_ok=True)
@@ -249,7 +250,7 @@ class FileLogger(LoggerDestination):
 
         .. note::
 
-            If the ``write`` occurs before the :attr:`~composer.core.event.Event.INIT` event,
+            If the ``write`` occurs before the :attr:`.Event.INIT` event,
             the write will be enqueued, as the file is not yet open.
 
         Args:
@@ -264,7 +265,7 @@ class FileLogger(LoggerDestination):
                 if line == os.linesep:
                     formatted_lines.append(line)
                 else:
-                    formatted_lines.append(f"{prefix}{line}")
+                    formatted_lines.append(f'{prefix}{line}')
                 self._is_newline = False
             else:
                 # Otherwise, append the line without the prefix

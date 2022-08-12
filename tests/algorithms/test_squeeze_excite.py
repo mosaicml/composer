@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 import torch
 
-from composer.algorithms import SqueezeExcite, SqueezeExciteConv2d, SqueezeExciteHparams
+from composer.algorithms import SqueezeExcite, SqueezeExciteConv2d
 from composer.core import Event, State
 from composer.functional import apply_squeeze_excite as apply_se
 from composer.loggers import Logger
@@ -54,13 +54,6 @@ def test_se_logging(state: State, empty_logger: Logger):
     logger_mock.data_fit.assert_called_once_with({
         'squeeze_excite/num_squeeze_excite_layers': conv_count,
     })
-
-
-def test_se_hparams():
-    hparams = SqueezeExciteHparams()
-    algorithm = hparams.initialize_object()
-
-    assert isinstance(algorithm, SqueezeExcite)
 
 
 def test_se_forward_shape(state: State):

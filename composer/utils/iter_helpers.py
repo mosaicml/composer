@@ -6,12 +6,12 @@
 # All methods signatures must be defined in there.
 
 """Utilities for iterating over collections."""
-import contextlib
-from collections.abc import Sequence
+import collections.abc
+import io
 
 
 def map_collection(collection, map_fn):
-    """Apply ``map_fn`` on each element in ``collection``.
+    """Applies ``map_fn`` on each element in ``collection``.
 
     * If ``collection`` is a tuple or list of elements, ``map_fn`` is applied on each element,
       and a tuple or list, respectively, containing mapped values is returned.
@@ -54,37 +54,69 @@ def ensure_tuple(x):
         tuple: A tuple of ``x``.
     """
     if x is None:
-        return tuple()
+        return ()
     if isinstance(x, (str, bytes, bytearray)):
         return (x,)
-    if isinstance(x, Sequence):
+    if isinstance(x, collections.abc.Sequence):
         return tuple(x)
     if isinstance(x, dict):
         return tuple(x.values())
     return (x,)
 
 
-def iterate_with_pbar(iterator, progress_bar=None):
-    """Iterate over a batch iterator and update a :class:`tqdm.tqdm` progress bar by the batch size on each step.
+class IteratorFileStream(io.RawIOBase):
+    """Class used to convert iterator of bytes into a file-like binary stream object.
 
-    This function iterates over ``iterator``, which is expected to yield batches of elements.
-    On each step, the batch is yielded back to the caller, and the ``progress_bar`` is updated by the
-    **length** of each batch.
+    Original implementation found `here <https://stackoverflow.com/questions/6657820/how-to-convert-an-iterable-to-a-stream/20260030#20260030>`_.
 
-    .. note::
+    .. note
 
-        It is expected that the ``progress_bar = tqdm.tqdm(total=sum(len(x) for x in iterator))``.
+        A usage example ``f = io.BufferedReader(IteratorFileStream(iterator), buffer_size=buffer_size)``
 
     Args:
-        iterator (Iterator[TSized]): An iterator that yields batches of elements.
-        progress_bar (Optional[tqdm.tqdm], optional): A :class:`tqdm.tqdm` progress bar.
-            If ``None`` (the default), then this function simply yields from ``iterator``.
-
-    Yields:
-        Iterator[TSized]: The elements of ``iterator``.
+        iterator: An iterator over bytes objects
     """
-    with progress_bar if progress_bar is not None else contextlib.nullcontext(None) as pb:
-        for x in iterator:
-            yield x
-            if pb is not None:
-                pb.update(len(x))
+
+    def __init__(self, iterator):
+        self.leftover = None
+        self.iterator = iterator
+
+    def readinto(self, b):
+        try:
+            l = len(b)  # max bytes to read
+            if self.leftover:
+                chunk = self.leftover
+            else:
+                chunk = next(self.iterator)
+            output, self.leftover = chunk[:l], chunk[l:]
+            b[:len(output)] = output
+            return len(output)
+        except StopIteration:
+            return 0  #EOF
+
+    def readable(self):
+        return True
+
+
+def iterate_with_callback(iterator, total_len, callback=None):
+    """Invoke ``callback`` after each chunk is yielded from ``iterator``.
+
+    Args:
+        iterator (Iterator): The iterator, which should yield chunks of data.
+        total_len (int): The total length of the iterator.
+        callback (Callable[[int, int], None], optional): The callback to invoke after
+            each chunk of data is yielded back to the caller. Defaults to None, for no callback.
+
+            It is called with the cumulative size of all chunks yielded thus far and the ``total_len``.
+    """
+    current_len = 0
+
+    if callback is not None:
+        # Call the callback for any initialization
+        callback(current_len, total_len)
+
+    for chunk in iterator:
+        current_len += len(chunk)
+        yield chunk
+        if callback is not None:
+            callback(current_len, total_len)

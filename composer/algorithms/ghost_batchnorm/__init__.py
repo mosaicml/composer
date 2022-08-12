@@ -10,4 +10,4 @@ See :class:`~composer.algorithms.GhostBatchNorm` or the :doc:`Method Card </meth
 from composer.algorithms.ghost_batchnorm.ghost_batchnorm import GhostBatchNorm as GhostBatchNorm
 from composer.algorithms.ghost_batchnorm.ghost_batchnorm import apply_ghost_batchnorm as apply_ghost_batchnorm
 
-__all__ = ["GhostBatchNorm", "apply_ghost_batchnorm"]
+__all__ = ['GhostBatchNorm', 'apply_ghost_batchnorm']

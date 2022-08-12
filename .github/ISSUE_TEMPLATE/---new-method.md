@@ -16,7 +16,7 @@ assignees: ''
 
 ## Attribution
 
-<!-- Who are the authors that we should credit and/or contact for this method? --> 
+<!-- Who are the authors that we should credit and/or contact for this method? -->
 
 ## [Optional] Implementation
 

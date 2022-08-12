@@ -14,41 +14,71 @@ The hypothesis behind Layer Freezing is that early layers may learn their featur
 
 ## How to Use
 
-<!--### Functional Interface
-
-TODO(CORY): FIX
+### Functional Interface
 
 ```python
+# Run the layer freezing algorithm using the Composer functional API
+import torch
+import torch.nn.functional as F
+
+from composer import functional as cf
+
 def training_loop(model, train_loader):
-  opt = torch.optim.Adam(model.parameters())
-  loss_fn = F.cross_entropy
-  model.train()
-  
-  for epoch in range(num_epochs):
-      for X, y in train_loader:
-          y_hat = model(X)
-          loss = loss_fn(y_hat, y)
-          loss.backward()
-          opt.step()
-          opt.zero_grad()
+    opt = torch.optim.Adam(model.parameters())
+    loss_fn = F.cross_entropy
+    model.train()
+
+    for epoch in range(num_epochs):
+        for X, y in train_loader:
+            y_hat = model(X)
+            loss = loss_fn(y_hat, y)
+            loss.backward()
+            opt.step()
+            opt.zero_grad()
+
+        # Applying layer freezing at the end of the epoch
+        freeze_depth, feeze_level = freeze_layers(
+                                        model=model,
+                                        optimizers=opt,
+                                        current_duration=epoch/num_epochs,
+                                        freeze_start=0.0,
+                                        freeze_level=1.0
+                                    )
 ```
 
 ### Composer Trainer
 
-TODO(CORY): Verify and provide commentary and/or comments
-
+<!--pytest.mark.gpu-->
+<!--
 ```python
-from composer.algorithms import XXX
+from torch.utils.data import DataLoader
+from tests.common import RandomClassificationDataset, SimpleModel
+
+model = SimpleModel()
+train_dataloader = DataLoader(RandomClassificationDataset())
+eval_dataloader = DataLoader(RandomClassificationDataset())
+```
+-->
+<!--pytest-codeblocks:cont-->
+```python
+# Instantiate the algorithm and pass it into the Trainer
+# The trainer will automatically run it at the appropriate points in the training loop
+
+from composer.algorithms import LayerFreezing
 from composer.trainer import Trainer
 
-trainer = Trainer(model=model,
-                  train_dataloader=train_dataloader,
-                  max_duration='1ep',
-                  algorithms=[
-                  ])
+layer_freezing_algorithm = LayerFreezing(freeze_start=0.0, freeze_level=1.0)
+
+trainer = Trainer(
+    model=model,
+    train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
+    max_duration='1ep',
+    algorithms=[layer_freezing_algorithm]
+)
 
 trainer.fit()
-```-->
+```
 
 ### Implementation Details
 

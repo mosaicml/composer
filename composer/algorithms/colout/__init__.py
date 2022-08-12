@@ -11,4 +11,4 @@ from composer.algorithms.colout.colout import ColOut as ColOut
 from composer.algorithms.colout.colout import ColOutTransform as ColOutTransform
 from composer.algorithms.colout.colout import colout_batch as colout_batch
 
-__all__ = ["ColOut", "ColOutTransform", "colout_batch"]
+__all__ = ['ColOut', 'ColOutTransform', 'colout_batch']

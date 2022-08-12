@@ -1,11 +1,12 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""The :class:`StreamingDatsetIndex` format that defines shard/sample metadata for :class:`StreamingDataset`.
-"""
+"""The :class:`StreamingDatsetIndex` format that defines shard/sample metadata for :class:`StreamingDataset`."""
 
 import math
+from gzip import GzipFile
 from io import BufferedIOBase, BufferedReader, BufferedWriter, BytesIO
+from os.path import splitext
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -14,33 +15,65 @@ from numpy.typing import NDArray
 from composer.datasets.streaming.world import World
 
 __all__ = [
-    "get_index_basename",
-    "get_shard_basename",
-    "sample_dict_to_bytes",
-    "bytes_to_sample_dict",
-    "StreamingDatasetIndex",
+    'get_index_basename',
+    'get_shard_basename',
+    'sample_dict_to_bytes',
+    'bytes_to_sample_dict',
+    'StreamingDatasetIndex',
 ]
 
 
-def get_index_basename() -> str:
+def split_compression_suffix(local_path: str) -> Tuple[str, Optional[str]]:
+    """Splits the compression suffix from a path
+
+    Args:
+        local_path (str): path to a (potentially) compressed file
+
+    Returns:
+        Tuple[str, str]: tuple containing decompressed filename and compression suffix, if one exists
+    """
+    decompressed_path, ext = splitext(local_path)
+    if ext in ['.mds', '.txt', '.old']:
+        return local_path, None
+
+    return decompressed_path, ext[1:]
+
+
+def get_compression_scheme_basename() -> str:
     """Get the basename for a streaming dataset index.
 
     Returns:
         str: Basename of file.
     """
-    return 'index.mds'
+    return 'compression.txt'
 
 
-def get_shard_basename(shard: int) -> str:
-    """Get the basename for a streaming dataset shard.
+def get_index_basename(compression_name: Optional[str] = None) -> str:
+    """Get the basename for a streaming dataset index.
 
     Args:
-        shard (int): Shard index.
+        compression_name (Optional[str]): compression extension of index file
 
     Returns:
         str: Basename of file.
     """
-    return f'{shard:06}.mds'
+    compression_name = '.' + compression_name if compression_name is not None else ''
+    return f'index.mds{compression_name}'
+
+
+def get_shard_basename(shard: int, compression_name: Optional[str] = None) -> str:
+    """Get the basename for a streaming dataset shard.
+
+    Args:
+        shard (int): Shard index.
+        compression_name (Optional[str]): compression extension of shard file
+
+    Returns:
+        str: Basename of file.
+        compression_name (Optional[str]): the compression scheme
+    """
+    compression_name = '.' + compression_name if compression_name is not None else ''
+    return f'{shard:06}.mds{compression_name}'
 
 
 def sample_dict_to_bytes(obj: Dict[str, bytes], keys: List[str]) -> bytes:
@@ -67,7 +100,8 @@ def bytes_to_sample_dict(data: bytes, keys: List[str]) -> Dict[str, bytes]:
 
     Args:
         data (bytes): The encoded sample data.
-        keys (List[str]): The field names. Must be in the same order as the ``keys`` used when calling :func:`.sample_dict_to_bytes`.
+        keys (List[str]): The field names. Must be in the same order as the ``keys`` used when calling
+            :func:`.sample_dict_to_bytes`.
 
     Returns:
         Dict[str, bytes]: The decoded sample dict.
@@ -83,7 +117,7 @@ def bytes_to_sample_dict(data: bytes, keys: List[str]) -> Dict[str, bytes]:
     return dict(zip(keys, values))
 
 
-def read_array(fp: BufferedIOBase, count: int, dtype: type) -> np.ndarray:
+def read_array(fp: Union[BufferedIOBase, GzipFile], count: int, dtype: type) -> np.ndarray:
     """Load the count items from the file handle, advancing its position.
 
     Args:
@@ -102,13 +136,11 @@ def read_array(fp: BufferedIOBase, count: int, dtype: type) -> np.ndarray:
 class StreamingDatasetIndex(object):
     """Streaming Dataset index file, containing all the info about shards and samples.
 
-    The shards are binary buffers with samples concatenated together. All the
-    offset info across the whole dataset is contained in the index file. Workers
-    read this file to calculate how much of which shards their slice is.
+    The shards are binary buffers with samples concatenated together. All the offset info across the whole dataset is
+    contained in the index file. Workers read this file to calculate how much of which shards their slice is.
 
-    Each sample is a dict of str to bytes. All samples must contain the same
-    dict keys (fields). These strings are stored in the index file for
-    efficiency.
+    Each sample is a dict of str to bytes. All samples must contain the same dict keys (fields). These strings are
+    stored in the index file for efficiency.
 
     Args:
         samples_per_shard (NDArray[np.int64]): Number of samples of each shard.
@@ -151,7 +183,7 @@ class StreamingDatasetIndex(object):
         return cls.load(fp)
 
     @classmethod
-    def load(cls, fp: Union[BufferedReader, BytesIO]):
+    def load(cls, fp: Union[BufferedReader, BytesIO, GzipFile]):
         """Load a StreamingDatasetIndex from a file handle.
 
         Args:
@@ -226,7 +258,7 @@ class StreamingDatasetIndex(object):
         field_bytes = b''.join([field.encode('utf-8') for field in self.fields])
         return array_bytes + field_bytes
 
-    def dump(self, fp: BufferedWriter) -> None:
+    def dump(self, fp: Union[BufferedWriter, GzipFile]) -> None:
         """Dump a StreamingDatasetIndex to the file.
 
         Args:
@@ -258,29 +290,58 @@ class StreamingDatasetIndex(object):
         sample_shard_offsets = sample_begins - sample_shard_begins
         return sample_shards, sample_shard_offsets
 
-    def get_partition(self, world: World, batch_size: Optional[int] = None) -> Tuple[List[int], int, int]:
+    def get_partition(self, world: World, batch_size: Optional[int] = None) -> Tuple[List[int], List[int], int, int]:
         """Get the shards and sample range of a given partition of the dataset.
+
+        When ``batch_size`` is provided, worker indices will be constructed so that there is at most one incomplete
+        batch at the end of each epoch. For example, if the DataLoader is reading over::
+
+            samples: [0, 1, 2, 3, 4, 5, 6, 7]
+            num_workers: 3
+            batch_size: 2
+            drop_last: True
+
+        but ``batch_size`` is not hinted to the StreamingDataset ahead of time, then the samples will by default be
+        assigned like::
+
+            worker 0: [0, 1, 2]
+            worker 1: [3, 4, 5]
+            worker 2: [6, 7]
+
+        and will be read as batches like (with samples [2] and [5] dropped as incomplete)::
+
+            batch 0: [0, 1]
+            batch 1: [3, 4]
+            batch 2: [6, 7]
+
+        The above is suboptimal because we could have dropped no samples. So when ``batch_size`` is provided as a hint,
+        we assign samples like this::
+
+            worker 0: [0, 1, 2, 3]
+            worker 1: [4, 5]
+            worker 2: [6, 7]
+
+        which will be read as batches like::
+
+            batch 0: [0, 1]
+            batch 1: [4, 5]
+            batch 2: [6, 7]
+            batch 3: [2, 3]
 
         Args:
             world (World): Context about workers, devices, and nodes.
             batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader.
-                                    Worker indices will be constructed so that there is at most 1 incomplete batch at the end of each epoch.
-                                    E.g. if the DataLoader is reading over (samples=[0, 1, 2, 3, 4, 5, 6, 7], num_workers=3, batch_size=2, drop_last=True)
-                                    but `batch_size` is not hinted to the StreamingDataset ahead of time
-                                    then the samples will by default be assigned like: w0: [0, 1, 2], w1: [3, 4, 5], w2: [6, 7]
-                                    and will be read as batches: [0, 1], [3, 4], [6, 7] (with batches [2] and [5] dropped as incomplete)
-                                    but this is suboptimal because we could have dropped no samples.
-                                    So when `batch_size` is provided as a hint, we assign samples like this: w0: [0, 1, 2, 3], w1: [4, 5], w2: [6, 7]
-                                    which will be read as batches: [0, 1], [4, 5], [6, 7], [2, 3]
 
         Returns:
-            shards (Sequence[int]): The shards that this partition overlaps.
+            shards (List[int]): The shards that this partition overlaps.
+            shards_to_download (List[int]): The shards that this worker should download (subset of ``shards``).
             min_id (int): The lowest sample ID of this partition.
             max_id (int): The highest sample ID of this partition.
         """
-
         global_device = world.global_device
         global_num_devices = world.global_num_devices
+        node_worker = world.node_worker
+        node_num_workers = world.node_num_workers
         device_worker = world.device_worker
         device_num_workers = world.device_num_workers
 
@@ -303,7 +364,7 @@ class StreamingDatasetIndex(object):
         expected_device_samples = math.ceil(self.total_samples / global_num_devices)
         if device_samples < expected_device_samples:
             if device_samples != expected_device_samples - 1:
-                raise RuntimeError("Found device partition with incorrect # samples")
+                raise RuntimeError('Found device partition with incorrect # samples')
             device_min_id -= 1
             device_samples += 1
 
@@ -331,4 +392,14 @@ class StreamingDatasetIndex(object):
         min_shard = self.sample_shards[worker_min_id]
         max_shard = self.sample_shards[worker_max_id]
         shards = list(range(min_shard, max_shard + 1))
-        return shards, worker_min_id, worker_max_id
+
+        # Ensure that each shard only gets downloaded by 1 worker, so there are no race conditions.
+        # To do this, we skip downloading the last shard (likely overlapped with next worker) unless:
+        # - you are the last worker on your node (no files shared across nodes so you have to download it again!)
+        # - you are downloading the last sample of the shard (no overlap with next worker)
+        if ((node_worker + 1 == node_num_workers) or
+            (worker_max_id + 1 < self.total_samples and self.sample_shards[worker_max_id + 1] != max_shard)):
+            shards_to_download = shards
+        else:
+            shards_to_download = shards[:-1]
+        return shards, shards_to_download, worker_min_id, worker_max_id

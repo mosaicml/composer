@@ -32,7 +32,7 @@ def test_random_resize(sample_pair, size):
         assert resized_img.size[1] >= size[1] // 2 and resized_img.size[1] <= size[1] * 2
 
 
-@pytest.mark.parametrize("crop_size", [(8, 8), (32, 32)])
+@pytest.mark.parametrize('crop_size', [(8, 8), (32, 32)])
 def test_random_crop(sample_pair, crop_size):
     random_crop_transform = RandomCropPair(crop_size)
     image, target = random_crop_transform(sample_pair)
@@ -57,7 +57,7 @@ def test_random_hflip(sample_pair):
     assert np.allclose(new_image, old_image) and np.allclose(new_target, old_target)
 
 
-@pytest.mark.parametrize("pad_size", [(32, 32), (8, 8)])
+@pytest.mark.parametrize('pad_size', [(32, 32), (8, 8)])
 def test_pad_transform(sample_pair, pad_size):
     image = sample_pair[0]
     pad_transform = PadToSize(size=pad_size, fill=255)

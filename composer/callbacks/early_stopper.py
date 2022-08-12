@@ -17,50 +17,53 @@ from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
-__all__ = ["EarlyStopper"]
+__all__ = ['EarlyStopper']
 
 
 class EarlyStopper(Callback):
-    """This callback tracks a training or evaluation metric and halts training if the metric does not
-    improve within a given interval.
+    """Track a metric and halt training if it does not improve within a given interval.
 
-    Example
+    Example:
+        .. doctest::
 
-    .. doctest::
-
-        >>> from composer.callbacks.early_stopper import EarlyStopper
-        >>> from torchmetrics.classification.accuracy import Accuracy
-        >>> # constructing trainer object with this callback
-        >>> early_stopper = EarlyStopper("Accuracy", "my_evaluator", patience=1)
-        >>> evaluator = Evaluator(
-        ...     dataloader = eval_dataloader,
-        ...     label = 'my_evaluator',
-        ...     metrics = Accuracy()
-        ... )
-        >>> trainer = Trainer(
-        ...     model=model,
-        ...     train_dataloader=train_dataloader,
-        ...     eval_dataloader=evaluator,
-        ...     optimizers=optimizer,
-        ...     max_duration="1ep",
-        ...     callbacks=[early_stopper],
-        ... )
+            >>> from composer import Evaluator, Trainer
+            >>> from composer.callbacks.early_stopper import EarlyStopper
+            >>> from torchmetrics.classification.accuracy import Accuracy
+            >>> # constructing trainer object with this callback
+            >>> early_stopper = EarlyStopper("Accuracy", "my_evaluator", patience=1)
+            >>> evaluator = Evaluator(
+            ...     dataloader = eval_dataloader,
+            ...     label = 'my_evaluator',
+            ...     metrics = Accuracy()
+            ... )
+            >>> trainer = Trainer(
+            ...     model=model,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=evaluator,
+            ...     optimizers=optimizer,
+            ...     max_duration="1ep",
+            ...     callbacks=[early_stopper],
+            ... )
 
     Args:
         monitor (str): The name of the metric to monitor.
-        dataloader_label (str): The label of the dataloader or evaluator associated with the tracked metric. If 
-            monitor is in an Evaluator, the dataloader_label field should be set to the Evaluator's label. If 
-            monitor is a training metric or an ordinary evaluation metric not in an Evaluator, dataloader_label
-            should be set to 'train' or 'eval' respectively.
-        comp (Union[str, Callable[[Any, Any], Any]], optional): A comparison operator to measure change of the monitored metric. The comparison
-            operator will be called ``comp(current_value, prev_best)``. For metrics where the optimal value is low
-            (error, loss, perplexity), use a less than operator and for metrics like accuracy where the optimal value
+        dataloader_label (str): The label of the dataloader or evaluator associated with the tracked metric.
+
+            If ``monitor`` is in an :class:`.Evaluator`, the ``dataloader_label`` field should be set to the label of the
+            :class:`.Evaluator`.
+
+            If monitor is a training metric or an ordinary evaluation metric not in an :class:`.Evaluator`,
+            the ``dataloader_label`` should be set to the dataloader label, which defaults to ``'train'`` or
+            ``'eval'``, respectively.
+        comp (str | (Any, Any) -> Any, optional): A comparison operator to measure change of the monitored metric.
+            The comparison operator will be called ``comp(current_value, prev_best)``. For metrics where the optimal value is low
+            (error, loss, perplexity), use a less than operator, and for metrics like accuracy where the optimal value
             is higher, use a greater than operator. Defaults to :func:`torch.less` if loss, error, or perplexity are substrings
-            of the monitored metric, otherwise defaults to :func:`torch.greater`
-        min_delta (float, optional): An optional float that requires a new value to exceed the best value by at
-            least that amount. Defaults to 0.
-        patience (int | str | Time, optional): The interval of time the monitored metric can not improve without stopping
-            training. Defaults to 1 epoch. If patience is an integer, it is interpreted as the number of epochs.
+            of the monitored metric, otherwise defaults to :func:`torch.greater`.
+        min_delta (float, optional): An optional float that requires a new value to exceed the best value by at least that amount.
+            Default: ``0.0``.
+        patience (Time | int | str, optional): The interval of time the monitored metric can not improve without stopping
+            training. Default: 1 epoch. If patience is an integer, it is interpreted as the number of epochs.
     """
 
     def __init__(
@@ -80,16 +83,16 @@ class EarlyStopper(Callback):
         if callable(comp):
             self.comp_func = comp
         if isinstance(comp, str):
-            if comp.lower() in ("greater", "gt"):
+            if comp.lower() in ('greater', 'gt'):
                 self.comp_func = torch.greater
-            elif comp.lower() in ("less", "lt"):
+            elif comp.lower() in ('less', 'lt'):
                 self.comp_func = torch.less
             else:
                 raise ValueError(
                     "Unrecognized comp string. Use the strings 'gt', 'greater', 'lt' or 'less' or a callable comparison operator"
                 )
         if comp is None:
-            if any(substr in monitor.lower() for substr in ["loss", "error", "perplexity"]):
+            if any(substr in monitor.lower() for substr in ['loss', 'error', 'perplexity']):
                 self.comp_func = torch.less
             else:
                 self.comp_func = torch.greater
@@ -104,7 +107,7 @@ class EarlyStopper(Callback):
         else:
             self.patience = patience
             if self.patience.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH):
-                raise ValueError("If `patience` is an instance of Time, it must have units of EPOCH or BATCH.")
+                raise ValueError('If `patience` is an instance of Time, it must have units of EPOCH or BATCH.')
 
     def _get_monitored_metric(self, state: State):
         if self.dataloader_label in state.current_metrics:
@@ -134,7 +137,7 @@ class EarlyStopper(Callback):
             if state.timestamp.batch - self.best_occurred.batch > self.patience:
                 state.max_duration = state.timestamp.batch
         else:
-            raise ValueError(f"The units of `patience` should be EPOCH or BATCH.")
+            raise ValueError(f'The units of `patience` should be EPOCH or BATCH.')
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if self.dataloader_label == state.dataloader_label:

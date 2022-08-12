@@ -8,68 +8,20 @@ COCO is a large-scale object detection, segmentation, and captioning dataset. Pl
 """
 import json
 import os
-from dataclasses import dataclass
 from io import BytesIO
 from typing import Any, Callable, Optional, Sequence
 
 import numpy as np
 import torch
-import yahp as hp
 from PIL import Image
 from torch.utils.data import Dataset
+from torchvision.datasets import VisionDataset
 
-from composer.core import DataSpec
 from composer.core.types import Batch
-from composer.datasets.dataloader import DataLoaderHparams
-from composer.datasets.hparams import DatasetHparams
 from composer.datasets.streaming import StreamingDataset
 from composer.models.ssd.utils import SSDTransformer, dboxes300_coco
-from composer.utils import dist
 
-__all__ = ["COCODatasetHparams", "COCODetection", "StreamingCOCO", "StreamingCOCOHparams"]
-
-
-@dataclass
-class COCODatasetHparams(DatasetHparams):
-    """Defines an instance of the COCO Dataset."""
-
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
-
-        if self.datadir is None:
-            raise ValueError("datadir is required.")
-
-        dboxes = dboxes300_coco()
-
-        input_size = 300
-        train_trans = SSDTransformer(dboxes, (input_size, input_size), val=False, num_cropping_iterations=1)
-        val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
-        data = self.datadir
-
-        val_annotate = os.path.join(data, "annotations/instances_val2017.json")
-        val_coco_root = os.path.join(data, "val2017")
-
-        train_annotate = os.path.join(data, "annotations/instances_train2017.json")
-        train_coco_root = os.path.join(data, "train2017")
-
-        train_coco = COCODetection(train_coco_root, train_annotate, train_trans)
-        val_coco = COCODetection(val_coco_root, val_annotate, val_trans)
-
-        if self.is_train:
-            return DataSpec(dataloader=dataloader_hparams.initialize_object(
-                dataset=train_coco,
-                batch_size=batch_size,
-                sampler=dist.get_sampler(train_coco, drop_last=self.drop_last, shuffle=self.shuffle),
-                drop_last=self.drop_last,
-            ),
-                            split_batch=split_dict_fn)
-        else:
-            return DataSpec(dataloader=dataloader_hparams.initialize_object(
-                dataset=val_coco,
-                drop_last=self.drop_last,
-                batch_size=batch_size,
-                sampler=None,
-            ),
-                            split_batch=split_dict_fn)
+__all__ = ['COCODetection', 'StreamingCOCO']
 
 
 class COCODetection(Dataset):
@@ -96,26 +48,26 @@ class COCODetection(Dataset):
         self.label_info = {}
         # 0 stands for the background
         cnt = 0
-        self.label_info[cnt] = "background"
-        for cat in self.data["categories"]:
+        self.label_info[cnt] = 'background'
+        for cat in self.data['categories']:
             cnt += 1
-            self.label_map[cat["id"]] = cnt
-            self.label_info[cnt] = cat["name"]
+            self.label_map[cat['id']] = cnt
+            self.label_info[cnt] = cat['name']
 
         # build inference for images
-        for img in self.data["images"]:
-            img_id = img["id"]
-            img_name = img["file_name"]
-            img_size = (img["height"], img["width"])
+        for img in self.data['images']:
+            img_id = img['id']
+            img_name = img['file_name']
+            img_size = (img['height'], img['width'])
             if img_id in self.images:
-                raise Exception("dulpicated image record")
+                raise Exception('dulpicated image record')
             self.images[img_id] = (img_name, img_size, [])
 
         # read bboxes
-        for bboxes in self.data["annotations"]:
-            img_id = bboxes["image_id"]
-            bbox = bboxes["bbox"]
-            bbox_label = self.label_map[bboxes["category_id"]]
+        for bboxes in self.data['annotations']:
+            img_id = bboxes['image_id']
+            bbox = bboxes['bbox']
+            bbox_label = self.label_map[bboxes['category_id']]
             self.images[img_id][2].append((bbox, bbox_label))
 
         for k, v in list(self.images.items()):
@@ -138,7 +90,7 @@ class COCODetection(Dataset):
         fn = img_data[0]
         img_path = os.path.join(self.img_folder, fn)
 
-        img = Image.open(img_path).convert("RGB")
+        img = Image.open(img_path).convert('RGB')
 
         htot, wtot = img_data[1]
         bbox_sizes = []
@@ -182,7 +134,7 @@ def split_dict_fn(batch: Batch, num_microbatches: int) -> Sequence[Batch]:  #typ
             ))  #type: ignore
 
 
-class StreamingCOCO(StreamingDataset):
+class StreamingCOCO(StreamingDataset, VisionDataset):
     """
     Implementation of the COCO dataset using StreamingDataset.
 
@@ -239,10 +191,11 @@ class StreamingCOCO(StreamingDataset):
         # Define custom transforms
         dboxes = dboxes300_coco()
         input_size = 300
-        if split == "train":
-            self.transform = SSDTransformer(dboxes, (input_size, input_size), val=False, num_cropping_iterations=1)
+        if split == 'train':
+            transform = SSDTransformer(dboxes, (input_size, input_size), val=False, num_cropping_iterations=1)
         else:
-            self.transform = SSDTransformer(dboxes, (input_size, input_size), val=True)
+            transform = SSDTransformer(dboxes, (input_size, input_size), val=True)
+        VisionDataset.__init__(self, root=local, transform=transform)
 
     def __getitem__(self, idx: int) -> Any:
         x = super().__getitem__(idx)
@@ -252,40 +205,6 @@ class StreamingCOCO(StreamingDataset):
         wtot = x['wtot']
         bbox_sizes = x['bbox_sizes']
         bbox_labels = x['bbox_labels']
-        if self.transform:
-            img, (htot, wtot), bbox_sizes, bbox_labels = self.transform(img, (htot, wtot), bbox_sizes, bbox_labels)
+        assert self.transform is not None, 'transform set in __init__'
+        img, (htot, wtot), bbox_sizes, bbox_labels = self.transform(img, (htot, wtot), bbox_sizes, bbox_labels)
         return img, img_id, (htot, wtot), bbox_sizes, bbox_labels
-
-
-@dataclass
-class StreamingCOCOHparams(DatasetHparams):
-    """DatasetHparams for creating an instance of StreamingCOCO.
-
-    Args:
-        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-            Default: ``'s3://mosaicml-internal-dataset-coco/mds/1/```
-        local (str): Local filesystem directory where dataset is cached during operation.
-            Default: ``'/tmp/mds-cache/mds-coco/```
-        split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
-    """
-
-    remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
-                              default='s3://mosaicml-internal-dataset-coco/mds/1/')
-    local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
-                             default='/tmp/mds-cache/mds-coco/')
-    split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')
-
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
-        dataset = StreamingCOCO(remote=self.remote,
-                                local=self.local,
-                                split=self.split,
-                                shuffle=self.shuffle,
-                                batch_size=batch_size)
-        return DataSpec(dataloader=dataloader_hparams.initialize_object(
-            dataset=dataset,
-            drop_last=self.drop_last,
-            batch_size=batch_size,
-            sampler=None,
-            collate_fn=None,
-        ),
-                        split_batch=split_dict_fn)

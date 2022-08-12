@@ -17,7 +17,7 @@ from composer.utils.import_helpers import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
 
-__all__ = ["UNet"]
+__all__ = ['UNet']
 
 
 class UNet(ComposerModel):
@@ -37,9 +37,9 @@ class UNet(ComposerModel):
         try:
             from monai.losses import DiceLoss
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group="unet",
-                                                conda_package="monai",
-                                                conda_channel="conda-forge") from e
+            raise MissingConditionalImportError(extra_deps_group='unet',
+                                                conda_package='monai',
+                                                conda_channel='conda-forge') from e
 
         self.module = self.build_nnunet()
 
@@ -87,7 +87,7 @@ class UNet(ComposerModel):
         return torch.transpose(preds, 0, 1).unsqueeze(0)
 
     def validate(self, batch: Any) -> Tuple[Any, Any]:
-        assert self.training is False, "For validation, model must be in eval mode"
+        assert self.training is False, 'For validation, model must be in eval mode'
         image, target = batch
         pred = self.inference2d(image)
         return pred, target[:, 0].long()  # type: ignore
@@ -101,7 +101,7 @@ class UNet(ComposerModel):
                           strides=strides,
                           dimension=2,
                           residual=True,
-                          normalization_layer="batch",
+                          normalization_layer='batch',
                           negative_slope=0.01)
 
         return model

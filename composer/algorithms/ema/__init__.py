@@ -9,4 +9,4 @@ See the :doc:`Method Card </method_cards/ema>` for more details.
 from composer.algorithms.ema.ema import EMA as EMA
 from composer.algorithms.ema.ema import compute_ema as compute_ema
 
-__all__ = ["EMA", "compute_ema"]
+__all__ = ['EMA', 'compute_ema']

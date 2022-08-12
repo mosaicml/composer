@@ -25,12 +25,14 @@ from composer.utils import dist, ensure_folder_is_empty
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
                                          format_name_with_dist, format_name_with_dist_and_time)
 
-__all__ = ["JSONTraceHandler"]
+__all__ = ['JSONTraceHandler']
 
 
-class JSONTraceHandler(TraceHandler):
-    __doc__ = f"""Records trace events in `JSON trace format <https://\\
-    docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_.
+class JSONTraceHandler(TraceHandler):  # noqa: D101
+    __doc__ = f"""Records trace events in Chrome JSON trace format.
+
+    See `this document <https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_
+    for more information.
 
     Traces are output to ``output_directory``.  Traces can be visualized using the Chrome Trace Viewer.
     To view in a Google Chrome browser, navigate to ``chrome://tracing`` and load the JSON trace file.
@@ -58,7 +60,7 @@ class JSONTraceHandler(TraceHandler):
 
             Consider the following scenario, where:
 
-            *   The :attr:`~.Logger.run_name` is ``'awesome-training-run'``
+            *   The :attr:`~.State.run_name` is ``'awesome-training-run'``
             *   The default ``trace_folder='{{run_name}}/traces'`` is used.
             *   The default ``name='ep{{epoch}}-ba{{batch}}-rank{{rank}}.json'`` is used.
             *   The current epoch count is ``1``.
@@ -77,7 +79,7 @@ class JSONTraceHandler(TraceHandler):
             Whenever a trace file is saved, it is also logged as a file artifact according to this format string.
             The same format variables as for ``filename`` are available.
 
-            .. seealso:: :meth:`~composer.loggers.logger.Logger.file_artifact` for file artifact logging.
+            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
 
             Leading slashes (``'/'``) will be stripped.
 
@@ -123,7 +125,7 @@ class JSONTraceHandler(TraceHandler):
             are removed first. Set to ``-1`` to keep all traces locally. (default: ``-1``)
 
             Traces will be removed after they have been logged as a file artifact. For example, when this handler
-            is used in conjunction with the :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`, set this
+            is used in conjunction with the :class:`.ObjectStoreLogger`, set this
             parameter to ``0`` to immediately delete traces from the local disk after they have been uploaded to
             the object store.
 
@@ -166,8 +168,8 @@ class JSONTraceHandler(TraceHandler):
         self._save_at_batch_end = False
 
     def init(self, state: State, logger: Logger) -> None:
-        del state  # unused
-        trace_folder = format_name_with_dist(self.folder, run_name=logger.run_name)
+        del logger  # unused
+        trace_folder = format_name_with_dist(self.folder, run_name=state.run_name)
 
         os.makedirs(trace_folder, exist_ok=True)
         if not self.overwrite:
@@ -177,7 +179,7 @@ class JSONTraceHandler(TraceHandler):
         if self.merged_trace_filename is not None:
             merged_trace_filename = os.path.join(
                 trace_folder,
-                format_name_with_dist(self.merged_trace_filename, logger.run_name),
+                format_name_with_dist(self.merged_trace_filename, state.run_name),
             )
             merged_trace_dirname = os.path.dirname(merged_trace_filename)
             if merged_trace_dirname:
@@ -186,47 +188,48 @@ class JSONTraceHandler(TraceHandler):
         dist.barrier()
 
     def batch_start(self, state: State, logger: Logger) -> None:
+        del logger  # unusued
         if state.profiler is None:
-            raise RuntimeError(("The Composer Profiler was not enabled, which is required to use the "
-                                f"{type(self).__name__}. To enable, set the `prof_schedule` argument of the Trainer."))
+            raise RuntimeError(('The Composer Profiler was not enabled, which is required to use the '
+                                f'{type(self).__name__}. To enable, set the `prof_schedule` argument of the Trainer.'))
         if state.profiler.schedule(state) != ProfilerAction.SKIP and not self._is_trace_active:
             # Starting a new profiling cycle
             wall_clock_ns = time.time_ns()
             self._record_event(
-                name="process_name",
-                ph="M",  # metadata
+                name='process_name',
+                ph='M',  # metadata
                 wall_clock_ns=wall_clock_ns,
                 tid=os.getpid(),
                 pid=dist.get_global_rank(),
-                args={"name": f"Rank {dist.get_global_rank()} training loop process"})
+                args={'name': f'Rank {dist.get_global_rank()} training loop process'})
             self._record_event(
-                name="thread_name",
-                ph="M",  # metadata
+                name='thread_name',
+                ph='M',  # metadata
                 wall_clock_ns=wall_clock_ns,
                 tid=os.getpid(),
                 pid=dist.get_global_rank(),
-                args={"name": f"Training Loop"})
+                args={'name': f'Training Loop'})
             self._record_event(
-                name="thread_sort_index",
-                ph="M",  # metadata
+                name='thread_sort_index',
+                ph='M',  # metadata
                 wall_clock_ns=wall_clock_ns,
                 tid=os.getpid(),
                 pid=dist.get_global_rank(),
-                args={"sort_index": 0})  # training loop thread should be first
+                args={'sort_index': 0})  # training loop thread should be first
             self._record_event(
-                name="global_rank",
-                ph="M",  # metadata
+                name='global_rank',
+                ph='M',  # metadata
                 wall_clock_ns=wall_clock_ns,
                 tid=os.getpid(),
                 pid=dist.get_global_rank(),
-                args={"value": dist.get_global_rank()})
+                args={'value': dist.get_global_rank()})
             self._record_event(
-                name="process_sort_index",
-                ph="M",  # metadata
+                name='process_sort_index',
+                ph='M',  # metadata
                 wall_clock_ns=wall_clock_ns,
                 tid=os.getpid(),
                 pid=dist.get_global_rank(),
-                args={"sort_index": dist.get_global_rank()})  # sort index for processes should be the global rank
+                args={'sort_index': dist.get_global_rank()})  # sort index for processes should be the global rank
             # Synchronize the clocks
             # Each rank will record a timestamp at approxmately the same real world time
             clock_sync_a = time.time_ns()
@@ -236,20 +239,20 @@ class JSONTraceHandler(TraceHandler):
             clock_sync_b = time.time_ns()
             clock_sync_error_bound = clock_sync_b - clock_sync_a
             self._record_event(
-                name="clock_sync_timestamp_us",
-                ph="M",  # metadata
+                name='clock_sync_timestamp_us',
+                ph='M',  # metadata
                 wall_clock_ns=wall_clock_ns,
                 tid=os.getpid(),
                 pid=dist.get_global_rank(),
-                args={"value": clock_sync_time_ns // 1000})
+                args={'value': clock_sync_time_ns // 1000})
 
             self._record_event(
-                name="clock_sync_error_bound",
-                ph="M",  # metadata
+                name='clock_sync_error_bound',
+                ph='M',  # metadata
                 wall_clock_ns=wall_clock_ns,
                 tid=os.getpid(),
                 pid=dist.get_global_rank(),
-                args={"value": clock_sync_error_bound // 1000})
+                args={'value': clock_sync_error_bound // 1000})
 
             self._is_trace_active = True
 
@@ -259,13 +262,13 @@ class JSONTraceHandler(TraceHandler):
     def batch_end(self, state: State, logger: Logger) -> None:
         assert state.profiler is not None
         timestamp = state.timestamp
-        trace_folder = format_name_with_dist(self.folder, run_name=logger.run_name)
+        trace_folder = format_name_with_dist(self.folder, run_name=state.run_name)
         if self._save_at_batch_end:
             # no longer active, but was previously active.
             # Epty the queue and save the trace file
             trace_filename = os.path.join(
                 trace_folder,
-                format_name_with_dist_and_time(self.filename, logger.run_name, timestamp),
+                format_name_with_dist_and_time(self.filename, state.run_name, timestamp),
             )
             trace_dirname = os.path.dirname(trace_filename)
             if trace_dirname:
@@ -279,13 +282,13 @@ class JSONTraceHandler(TraceHandler):
                     except queue.Empty:
                         break
                     if not is_first_line:
-                        s = ",\n" + s
+                        s = ',\n' + s
                     is_first_line = False
                     f.write(s)
                 f.write('\n]\n')
 
             if self.artifact_name is not None:
-                artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name, timestamp)
+                artifact_name = format_name_with_dist_and_time(self.artifact_name, state.run_name, timestamp)
                 logger.file_artifact(LogLevel.BATCH,
                                      artifact_name=artifact_name,
                                      file_path=trace_filename,
@@ -306,7 +309,7 @@ class JSONTraceHandler(TraceHandler):
                     trace_folder,
                     format_name_with_dist(
                         self.merged_trace_filename,
-                        logger.run_name,
+                        state.run_name,
                     ),
                 )
                 merged_trace_dirname = os.path.dirname(merged_trace_filename)
@@ -315,7 +318,7 @@ class JSONTraceHandler(TraceHandler):
 
                 if os.path.exists(merged_trace_filename):
                     # Include the existing merged trace in the new trace
-                    with tempfile.NamedTemporaryFile("x+", delete=False) as f:
+                    with tempfile.NamedTemporaryFile('x+', delete=False) as f:
                         merge_traces(f.name, merged_trace_filename, *trace_files_to_merge)
                         os.rename(f.name, merged_trace_filename)
                 else:
@@ -325,7 +328,7 @@ class JSONTraceHandler(TraceHandler):
                 if self.merged_trace_artifact_name is not None:
                     merged_trace_artifact_name = format_name_with_dist(
                         self.merged_trace_artifact_name,
-                        logger.run_name,
+                        state.run_name,
                     )
                     logger.file_artifact(
                         LogLevel.BATCH,
@@ -355,13 +358,13 @@ class JSONTraceHandler(TraceHandler):
         timestamp: Timestamp,
         wall_clock_time_ns: int,
     ) -> None:
-        ph = "B" if is_start else "E"
+        ph = 'B' if is_start else 'E'
         args = {}
-        args["epoch"] = timestamp.epoch.value
-        args["batch"] = timestamp.batch.value
+        args['epoch'] = timestamp.epoch.value
+        args['batch'] = timestamp.batch.value
         self._record_event(
             name=name,
-            categories=",".join(categories),
+            categories=','.join(categories),
             ph=ph,
             wall_clock_ns=wall_clock_time_ns,
             pid=dist.get_global_rank(),
@@ -377,24 +380,24 @@ class JSONTraceHandler(TraceHandler):
         wall_clock_time_ns: int,
     ) -> None:
         args = {}
-        args["epoch"] = timestamp.epoch.value
-        args["batch"] = timestamp.batch.value
+        args['epoch'] = timestamp.epoch.value
+        args['batch'] = timestamp.batch.value
         self._record_event(
             name=name,
-            categories=",".join(categories),
-            ph="i",
+            categories=','.join(categories),
+            ph='i',
             wall_clock_ns=wall_clock_time_ns,
             args=args,
             pid=dist.get_global_rank(),
             tid=os.getpid(),
-            s="p",  # mark instant event for at process level
+            s='p',  # mark instant event for at process level
         )
 
     def process_counter_event(self, name: str, categories: Union[List[str], Tuple[str, ...]], timestamp: Timestamp,
                               wall_clock_time_ns: int, values: Dict[str, Union[int, float]]) -> None:
         self._record_event(
             name=name,
-            categories=",".join(categories),
+            categories=','.join(categories),
             ph='C',  # counter event
             wall_clock_ns=wall_clock_time_ns,
             pid=dist.get_global_rank(),
@@ -402,7 +405,7 @@ class JSONTraceHandler(TraceHandler):
             args=values,
         )
 
-    def _record_event(self, name: str, ph: str, wall_clock_ns: int, pid: int, tid: int, categories: str = "", **kwargs):
+    def _record_event(self, name: str, ph: str, wall_clock_ns: int, pid: int, tid: int, categories: str = '', **kwargs):
         """Helper function to record an event in the trace.
 
         Args:
@@ -427,19 +430,19 @@ class JSONTraceHandler(TraceHandler):
             kwargs: Any extra info to record with the event, such as event specific fields.
         """
         data = {
-            "name": name,
-            "cat": categories,
-            "ph": ph,
-            "ts": wall_clock_ns // 1000,  # tracing clock timestamp, in microseconds
-            "pid": pid,
-            "tid": tid,
+            'name': name,
+            'cat': categories,
+            'ph': ph,
+            'ts': wall_clock_ns // 1000,  # tracing clock timestamp, in microseconds
+            'pid': pid,
+            'tid': tid,
             **kwargs,
         }
         entry = json.dumps(data, indent=None)
         self._queue.put_nowait(entry)
 
     def process_chrome_json_trace_file(self, filepath: pathlib.Path) -> None:
-        with (gzip.open(filepath, 'rt') if str(filepath).endswith('.gz') else open(filepath, "r")) as f:
+        with (gzip.open(filepath, 'rt') if str(filepath).endswith('.gz') else open(filepath, 'r')) as f:
             # It may be an incomplete trace file that is missing the closing ] bracket, as is permitted
             # in the chrome json format spec
             trace_data_str = f.read().strip()
@@ -448,12 +451,12 @@ class JSONTraceHandler(TraceHandler):
             trace_data = json.loads(trace_data_str)
 
         if isinstance(trace_data, dict):
-            event_list = trace_data["traceEvents"]
+            event_list = trace_data['traceEvents']
         else:
             event_list = trace_data
 
         if not isinstance(event_list, list):
-            raise TypeError("A trace file should either be a dict or a list")
+            raise TypeError('A trace file should either be a dict or a list')
 
         for entry in event_list:
             entry['pid'] = dist.get_global_rank()  # override the PID to the global rank

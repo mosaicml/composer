@@ -1,22 +1,23 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
 import os
 import subprocess
 import sys
 import textwrap
-from typing import List, Sequence
+from typing import List
 from unittest.mock import Mock
 
 import pytest
 
 import composer
-from composer.algorithms import SelectiveBackprop
 from composer.core import Engine, Event
 from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.state import State
 from composer.loggers import Logger
+from tests.common.events import EventCounterCallback
 
 
 @pytest.fixture
@@ -25,6 +26,7 @@ def always_match_algorithms():
         Mock(**{
             'match.return.value': True,
             'apply.return_value': n,  # return encodes order
+            'interpolate_loss': False,
         }) for n in range(5)
     ]
 
@@ -79,55 +81,6 @@ class TestAlgorithms:
         assert all([tr.run is False for tr in trace.values()])
 
 
-@pytest.mark.parametrize('event', [
-    Event.EPOCH_START,
-    Event.BEFORE_LOSS,
-    Event.BEFORE_BACKWARD,
-])
-def test_engine_lifo_first_in(event: Event, dummy_state: State, dummy_logger: Logger,
-                              always_match_algorithms: List[Algorithm]):
-    dummy_state.algorithms = always_match_algorithms
-    trace = run_event(event, dummy_state, dummy_logger)
-    order = [tr.order for tr in trace.values()]
-    expected_order = [tr.exit_code for tr in trace.values()]  # use exit_code to uniquely label algos
-
-    assert order == expected_order
-
-
-@pytest.mark.parametrize('event', [
-    Event.AFTER_LOSS,
-    Event.AFTER_BACKWARD,
-    Event.BATCH_END,
-])
-def test_engine_lifo_last_out(event: Event, dummy_state: State, always_match_algorithms: List[Algorithm],
-                              dummy_logger: Logger):
-    dummy_state.algorithms = always_match_algorithms
-    trace = run_event(event, dummy_state, dummy_logger)
-    order = [tr.order for tr in trace.values()]
-    expected_order = list(reversed([tr.exit_code for tr in trace.values()]))
-
-    assert order == expected_order
-
-
-def test_engine_with_selective_backprop(always_match_algorithms: Sequence[Algorithm], dummy_logger: Logger,
-                                        dummy_state: State):
-    sb = SelectiveBackprop(start=0.5, end=0.9, keep=0.5, scale_factor=0.5, interrupt=2)
-    sb.apply = Mock(return_value='sb')
-    sb.match = Mock(return_value=True)
-
-    event = Event.INIT  # doesn't matter for this test
-
-    algorithms = list(always_match_algorithms[0:2]) + [sb] + list(always_match_algorithms[2:])
-    dummy_state.algorithms = algorithms
-
-    trace = run_event(event, dummy_state, dummy_logger)
-
-    expected = ['sb', 0, 1, 2, 3, 4]
-    actual = [tr.exit_code for tr in trace.values()]
-
-    assert actual == expected
-
-
 def test_engine_is_dead_after_close(dummy_state: State, dummy_logger: Logger):
     # Create the trainer and run an event
     engine = Engine(dummy_state, dummy_logger)
@@ -144,6 +97,10 @@ def test_engine_is_dead_after_close(dummy_state: State, dummy_logger: Logger):
 class IsClosedCallback(Callback):
 
     def __init__(self) -> None:
+        self.is_closed = True
+
+    def init(self, state: State, logger: Logger) -> None:
+        assert self.is_closed
         self.is_closed = False
 
     def close(self, state: State, logger: Logger) -> None:
@@ -160,11 +117,62 @@ def test_engine_closes_on_del(dummy_state: State, dummy_logger: Logger):
     # Assert that there is just 2 -- once above, and once as the arg temp reference
     assert sys.getrefcount(engine) == 2
 
-    # Implicitely close the engine
+    # Implicitly close the engine
     del engine
 
     # Assert it is closed
     assert is_closed_callback.is_closed
+
+
+class DummyTrainer:
+    """Helper to simulate what the trainer does w.r.t. events"""
+
+    def __init__(self, state: State, logger: Logger) -> None:
+        self.engine = Engine(state, logger)
+        self.engine.run_event(Event.INIT)
+
+    def close(self):
+        self.engine.close()
+
+
+def test_engine_triggers_close_only_once(dummy_state: State, dummy_logger: Logger):
+    # Create the trainer and run an event
+    is_closed_callback = IsClosedCallback()
+    dummy_state.callbacks.append(is_closed_callback)
+
+    # Create the trainer
+    trainer = DummyTrainer(dummy_state, dummy_logger)
+
+    # Close the trainer
+    trainer.close()
+
+    # Assert it is closed
+    assert is_closed_callback.is_closed
+
+    # Create a new trainer with the same callback. Should implicitly trigger __del__ AFTER
+    # AFTER DummyTrainer was constructed
+    trainer = DummyTrainer(dummy_state, dummy_logger)
+
+    # Assert it is open
+    assert not is_closed_callback.is_closed
+
+
+def test_engine_errors_if_previous_trainer_was_not_closed(dummy_state: State, dummy_logger: Logger):
+    # Create the trainer and run an event
+    is_closed_callback = IsClosedCallback()
+    dummy_state.callbacks.append(is_closed_callback)
+
+    # Create the trainer
+    _ = DummyTrainer(dummy_state, dummy_logger)
+
+    # Assert the callback is open
+    assert not is_closed_callback.is_closed
+
+    # Create a new trainer with the same callback. Should raise an exception
+    # because trainer.close() was not called before
+    with pytest.raises(RuntimeError,
+                       match=r'Cannot create a new trainer with an open callback or logger from a previous trainer'):
+        DummyTrainer(dummy_state, dummy_logger)
 
 
 def check_output(proc: subprocess.CompletedProcess):
@@ -184,8 +192,7 @@ def check_output(proc: subprocess.CompletedProcess):
     raise RuntimeError(error_msg)
 
 
-@pytest.mark.timeout(30)
-@pytest.mark.parametrize("exception", [True, False])
+@pytest.mark.parametrize('exception', [True, False])
 def test_engine_closes_on_atexit(exception: bool):
     # Running this test via a subprocess, as atexit() must trigger
 
@@ -208,12 +215,31 @@ def test_engine_closes_on_atexit(exception: bool):
     """)
     if exception:
         # Should raise an exception, since no dataloader was provided
-        code += "trainer.fit()"
+        code += 'trainer.fit()'
 
-    git_root_dir = os.path.join(os.path.dirname(composer.__file__), "..")
-    proc = subprocess.run(["python", "-c", code], cwd=git_root_dir, text=True, capture_output=True)
+    git_root_dir = os.path.join(os.path.dirname(composer.__file__), '..')
+    proc = subprocess.run(['python', '-c', code], cwd=git_root_dir, text=True, capture_output=True)
     if exception:
         # manually validate that there was no a conditional import exception
-        assert "ImportError: sys.meta_path is None, Python is likely shutting down" not in proc.stderr
+        assert 'ImportError: sys.meta_path is None, Python is likely shutting down' not in proc.stderr
     else:
         check_output(proc)
+
+
+def test_logging(caplog: pytest.LogCaptureFixture, dummy_state: State, dummy_logger: Logger):
+    """Test that engine logs statements as expected"""
+    caplog.set_level(logging.DEBUG, logger=Engine.__module__)
+    # Include a callback, since most logging happens around callback events
+    dummy_state.callbacks = [EventCounterCallback()]
+    engine = Engine(dummy_state, dummy_logger)
+    engine.run_event('INIT')
+    engine.close()
+
+    # Validate that we have the expected log entries
+    assert caplog.record_tuples == [
+        ('composer.core.engine', 10, '[ep=0][ba=0][event=INIT]: Running event'),
+        ('composer.core.engine', 10, '[ep=0][ba=0][event=INIT]: Running callback EventCounterCallback'),
+        ('composer.core.engine', 10, 'Closing the engine'),
+        ('composer.core.engine', 10, 'Closing callback EventCounterCallback'),
+        ('composer.core.engine', 10, 'Post-closing callback EventCounterCallback'),
+    ]

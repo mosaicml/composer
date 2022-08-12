@@ -16,7 +16,7 @@ The number of training steps to perform is an important hyperparameter to tune w
 appears implicitly throughout the deep learning literature. One example of a systematic study of this approach is the
 *scan-SGD* technique in
 [How Important is Importance Sampling for Deep Budgeted Training](https://openreview.net/forum?id=TqQ0oOzJlai) by
-Eric Arazo, Diego Ortega, Paul Albert, Noel O'Connor, and Kevin McGuinness. Posted to OpenReview in 2020. 
+Eric Arazo, Diego Ortega, Paul Albert, Noel O'Connor, and Kevin McGuinness. Posted to OpenReview in 2020.
 
 ## Hyperparameters
 
@@ -60,6 +60,7 @@ Scale schedule supports all Composer Schedulers:
     CosineAnnealingWithWarmupScheduler
     CosineAnnealingWarmRestartsScheduler
     PolynomialScheduler
+    PolynomialWithWarmupScheduler
 ```
 
 ```{eval-rst}

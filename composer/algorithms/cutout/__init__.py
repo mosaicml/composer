@@ -10,4 +10,4 @@ See the :doc:`Method Card </method_cards/cutout>` for more details.
 from composer.algorithms.cutout.cutout import CutOut as CutOut
 from composer.algorithms.cutout.cutout import cutout_batch as cutout_batch
 
-__all__ = ["CutOut", "cutout_batch"]
+__all__ = ['CutOut', 'cutout_batch']

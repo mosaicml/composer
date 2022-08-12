@@ -13,7 +13,7 @@ import torch.nn as nn
 
 from composer.models.ssd.base_model import ResNet34
 
-__all__ = ["SSD300"]
+__all__ = ['SSD300']
 
 
 class SSD300(nn.Module):

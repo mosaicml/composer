@@ -14,13 +14,13 @@ from composer.core.state import State
 from composer.core.time import Timestamp
 from composer.profiler.trace_handler import TraceHandler
 
-__all__ = ["Marker"]
+__all__ = ['Marker']
 
 
 class Marker:
     """Profiler Marker.
 
-    Used by the :class:`~composer.core.engine.Engine` to measure the duration of :class:`~composer.core.event.Event` during training.
+    Used by the :class:`.Engine` to measure the duration of :class:`.Event` during training.
 
     .. note::
 
@@ -118,7 +118,7 @@ class Marker:
     def start(self) -> None:
         """Record the start of a duration event.
 
-        To record the duration of an event, invoke :meth:`.Marker.start` followed by :meth:`.Marker.finish`\\:
+        To record the duration of an event, invoke :meth:`.Marker.start` followed by :meth:`.Marker.finish`.
 
         .. testsetup::
 
@@ -138,7 +138,7 @@ class Marker:
         """
         if self._started:
             raise RuntimeError(
-                f"Attempted to start profiler event {self.name}; however, this marker is already started")
+                f'Attempted to start profiler event {self.name}; however, this marker is already started')
 
         self._recorded_start = self.should_record(self.state)
         if self._recorded_start:
@@ -162,7 +162,7 @@ class Marker:
         """
         if not self._started:
             raise RuntimeError(
-                f"Attempted to finish profiler event {self.name}; however, this profiler event is not yet started")
+                f'Attempted to finish profiler event {self.name}; however, this profiler event is not yet started')
 
         wall_clock_time = time.time_ns()
         self._record_duration_event(

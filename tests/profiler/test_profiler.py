@@ -9,7 +9,7 @@ from composer.core import State
 from composer.profiler import Profiler, ProfilerAction, SystemProfiler, TorchProfiler, cyclic_schedule
 
 
-@pytest.mark.parametrize("repeat", [1, 0])
+@pytest.mark.parametrize('repeat', [1, 0])
 def test_cyclic_schedule(dummy_state: State, repeat: int):
     # tests that get_action works correctly given the state
     skip_first = 1
@@ -65,9 +65,9 @@ def test_marker(dummy_state: State):
     )
     profiler.bind_to_state(dummy_state)
     dummy_state.profiler = profiler
-    marker = profiler.marker("name",
+    marker = profiler.marker('name',
                              actions=[ProfilerAction.SKIP, ProfilerAction.WARMUP, ProfilerAction.ACTIVE],
-                             categories=["cat1"])
+                             categories=['cat1'])
     marker.start()  # call #1
     with pytest.raises(RuntimeError):
         marker.start()  # cannot call start twice without finishing
@@ -80,9 +80,9 @@ def test_marker(dummy_state: State):
 
     @marker
     def func_to_profile(foo: str):
-        assert foo == "hi"
+        assert foo == 'hi'
 
-    func_to_profile(foo="hi")  # call 5 and 6
+    func_to_profile(foo='hi')  # call 5 and 6
 
     @marker()
     def func_to_profile2(bar: int):

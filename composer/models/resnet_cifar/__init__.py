@@ -6,10 +6,10 @@
 See the :doc:`Model Card </model_cards/cifar_resnet>` for more details.
 """
 
-from composer.models.resnet_cifar.model import ComposerResNetCIFAR as ComposerResNetCIFAR
+from composer.models.resnet_cifar.model import composer_resnet_cifar as composer_resnet_cifar
 from composer.models.resnet_cifar.resnet_cifar_hparams import ResNetCIFARHparams as ResNetCIFARHparams
 
-__all__ = ["ComposerResNetCIFAR", "ResNetCIFARHparams"]
+__all__ = ['composer_resnet_cifar', 'ResNetCIFARHparams']
 
 _metadata = {
     'resnet9': {

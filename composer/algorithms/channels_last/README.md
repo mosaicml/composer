@@ -17,7 +17,7 @@ This is a systems-level method that does not change the math or outcome of train
 ### Functional Interface
 
 ```python
-# Run the Channels Last algorithm directly on the model using the Composer functional API 
+# Run the Channels Last algorithm directly on the model using the Composer functional API
 
 import composer.functional as cf
 
@@ -27,7 +27,7 @@ def training_loop(model, train_loader):
     opt = torch.optim.Adam(model.parameters())
     loss_fn = F.cross_entropy
     model.train()
-  
+
     for epoch in range(num_epochs):
         for X, y in train_loader:
             y_hat = model(X)
@@ -39,6 +39,18 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
+<!--pytest.mark.gpu-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomClassificationDataset, SimpleModel
+
+model = SimpleModel()
+train_dataloader = DataLoader(RandomClassificationDataset())
+eval_dataloader = DataLoader(RandomClassificationDataset())
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
@@ -51,6 +63,7 @@ channels_last = ChannelsLast()
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
     max_duration='1ep',
     algorithms=[channels_last]
 )
@@ -76,7 +89,7 @@ If the model weights are instead initialized in NHWC format, PyTorch will automa
 We currently implement this method by casting the user’s model to channels-last format (no changes to the dataloader are necessary). When the first convolution operation receives its input activation, it will automatically convert it to NHWC format, after which the memory format will persist for the remainder of the network (or until it reaches a layer that cannot support having channels last).
 
 > ❗ Overhead from Operations Incompatible with Channels Last Memory Format
-> 
+>
 > If a model has layers that cannot support the channels last memory format, there will be overhead due to PyTorch switching activation tensors back and forth between NCHW and NHWC memory formats. We believe this problem currently affects placing channels last on UNet.
 
 ## Attribution

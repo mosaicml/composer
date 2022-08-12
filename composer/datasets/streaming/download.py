@@ -4,60 +4,65 @@
 """Download handling for :class:`StreamingDataset`.
 """
 
+import gzip
 import os
 import shutil
-import tempfile
-import textwrap
-from time import sleep, time
-from urllib.parse import urlparse
+import time
+import urllib.parse
+from typing import Optional
 
-__all__ = ["safe_download"]
+from composer.datasets.streaming.format import split_compression_suffix
+from composer.utils import get_file
+from composer.utils.object_store.object_store import ObjectStore
+from composer.utils.object_store.s3_object_store import S3ObjectStore
+from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 
-
-def wait_for_download(local: str, timeout: float = 60) -> None:
-    """Block until another worker's shard download completes.
-
-    Args:
-        local (str): Path to file.
-        timeout (float): How long to wait before raising an exception. Default: 60 sec.
-    """
-    start_time = time()
-    while True:
-        if os.path.exists(local):
-            return
-        elapsed = time() - start_time
-        if elapsed > timeout:
-            raise TimeoutError(f'Waited too long (more than {timeout:.3f} sec) for download')
-        sleep(0.1)
+__all__ = ['download_or_wait', 'get_object_store']
 
 
-def download_from_s3(remote: str, local: str, timeout: float) -> None:
-    """Download a file from remote to local.
+def download_from_http(remote: str, local: str) -> None:
+    """Download a file from a http/https remote to local."""
+    get_file(path=remote, destination=local, overwrite=True)
+
+
+def get_object_store(remote: str) -> ObjectStore:
+    """Use the correct download handler to download the file
 
     Args:
-        remote (str): Remote path (S3).
-        local (str): Local path (local filesystem).
-        timeout (float): How long to wait for shard to download before raising an exception.
+        remote (Optional[str]): Remote path (local filesystem).
+        timeout (float): How long to wait for file to download before raising an exception.
     """
-    try:
-        import boto3  # type: ignore (third-party)
-        from botocore.config import Config  # type: ignore (third-party)
-    except ImportError as e:
-        raise ImportError(
-            textwrap.dedent("""\
-            Composer was installed without streaming support. To use streaming with Composer, run: `pip install mosaicml
-            [streaming]` if using pip or `conda install -c conda-forge monai` if using Anaconda""")) from e
+    if remote.startswith('s3://'):
+        return _get_s3_object_store(remote)
+    elif remote.startswith('sftp://'):
+        return _get_sftp_object_store(remote)
+    else:
+        raise ValueError('unsupported upload scheme')
 
-    obj = urlparse(remote)
+
+def _get_s3_object_store(remote: str) -> S3ObjectStore:
+    obj = urllib.parse.urlparse(remote)
     if obj.scheme != 's3':
         raise ValueError(f"Expected obj.scheme to be 's3', got {obj.scheme} for remote={remote}")
+    bucket = obj.netloc
+    object_store = S3ObjectStore(bucket=bucket)
+    return object_store
 
-    # We don't know how much of total 'timeout' to assign to connect vs. read
-    # So we allow both connect and read to take up to 'timeout' seconds
-    # And if the overall time is greater than 'timeout', our parent `download` function will catch it.
-    config = Config(connect_timeout=timeout, read_timeout=timeout, retries={'total_max_attempts': 5})
-    s3 = boto3.client('s3', config=config)
-    s3.download_file(obj.netloc, obj.path[1:], local)
+
+def _get_sftp_object_store(remote: str) -> SFTPObjectStore:
+    # Get SSH key file if specified
+    key_filename = os.environ.get('COMPOSER_SFTP_KEY_FILE', None)
+    known_hosts_filename = os.environ.get('COMPOSER_SFTP_KNOWN_HOSTS_FILE', None)
+
+    object_store = SFTPObjectStore(
+        host=remote,
+        known_hosts_filename=known_hosts_filename,
+        key_filename=key_filename,
+    )
+    return object_store
+
+
+__all__ = ['download_or_wait']
 
 
 def download_from_local(remote: str, local: str) -> None:
@@ -67,85 +72,89 @@ def download_from_local(remote: str, local: str) -> None:
         remote (str): Remote path (local filesystem).
         local (str): Local path (local filesystem).
     """
-    shutil.copy(remote, local)
+    local_tmp = local + '.tmp'
+    if os.path.exists(local_tmp):
+        os.remove(local_tmp)
+    shutil.copy(remote, local_tmp)
+    os.rename(local_tmp, local)
 
 
-def download(remote: str, local: str, timeout: float) -> None:
-    """Download a file from remote to local.
+def dispatch_download(remote: Optional[str], local: str):
+    """Use the correct download handler to download the file
 
     Args:
-        remote (str): Remote path (S3 or local filesystem).
+        remote (Optional[str]): Remote path (local filesystem).
         local (str): Local path (local filesystem).
-        timeout (float): How long to wait for shard to download before raising an exception.
+        timeout (float): How long to wait for file to download before raising an exception.
     """
+
+    local_decompressed, compression_scheme = split_compression_suffix(local)
+    if os.path.exists(local_decompressed):
+        return
+
     local_dir = os.path.dirname(local)
     os.makedirs(local_dir, exist_ok=True)
-    start_time = time()
 
-    if remote.startswith('s3://'):
-        download_from_s3(remote, local, timeout=timeout)
+    if not remote:
+        raise ValueError('In the absence of local dataset, path to remote dataset must be provided')
+    elif remote.startswith('s3://') or remote.startswith('sftp://'):
+        url = urllib.parse.urlsplit(remote)
+        remote_path = url.path.strip('/')
+        object_store = get_object_store(remote)
+        object_store.download_object(remote_path, local)
+    elif remote.startswith('http://'):
+        download_from_http(remote, local)
     else:
         download_from_local(remote, local)
 
-    elapsed = time() - start_time
-    if elapsed > timeout:
-        raise TimeoutError(f'Waited too long (more than {timeout:.3f} sec) for download')
+    if compression_scheme is not None:
+        tempfile = local_decompressed + '.tmp'
+        if compression_scheme == 'gz':
+            with gzip.open(local, 'rb') as gzipfile:
+                with open(tempfile, 'xb') as dest_file:
+                    shutil.copyfileobj(gzipfile, dest_file)
+        else:
+            raise NotImplementedError
+        os.rename(tempfile, local_decompressed)
+        os.remove(local)
 
 
-def safe_download(remote: str, local: str, timeout: float = 60) -> None:
-    """Safely downloads a file from remote to local.
-       Handles multiple threads attempting to download the same shard.
-       Gracefully deletes stale tmp files from crashed runs.
+def download_or_wait(remote: Optional[str],
+                     local: str,
+                     wait: bool = False,
+                     max_retries: int = 2,
+                     timeout: float = 60) -> None:
+    """Downloads a file from remote to local, or waits for it to be downloaded.
 
+    Does not do any thread safety checks, so we assume the calling function is using ``wait`` correctly.
 
     Args:
-        remote (str): Remote path (S3 or local filesystem).
+        remote (Optional[str]): Remote path (S3, SFTP, or local filesystem).
         local (str): Local path (local filesystem).
-        timeout (float): How long to wait for shard to download before raising an exception. Default: 60 sec.
+        wait (bool, default False): If ``true``, then do not actively download the file, but instead wait (up to
+            ``timeout`` seconds) for the file to arrive.
+        max_retries (int, default 2): Number of download re-attempts before giving up.
+        timeout (float, default 60): How long to wait for file to download before raising an exception.
     """
-    # If we already have the file cached locally, we are done.
-    if os.path.exists(local):
-        return
-
-    # Check if there is a tmp file.
-    local_tmp = local + '.tmp'
-    if os.path.exists(local_tmp):
-        # Get tmp file created time
-        local_tmp_create_time = os.path.getctime(local_tmp)
-
-        # Get current disk time, more consistent than system time
-        with tempfile.NamedTemporaryFile() as f:
-            current_disk_time = os.path.getctime(f.name)
-
-        if current_disk_time - local_tmp_create_time < timeout + 1:  # 1s buffer to avoid race condition
-            # If the tmp file is recent, it is either (1) from a very recent crashed run, or (2) another thread is actively downloading it.
-            # So we wait but don't error out, in case we are in situation (1)
-            try:
-                wait_for_download(local, timeout)
-                return
-            except TimeoutError:
-                pass
-
-        # The tmp file is old, it is either (1) from a crashed run or (2) another thread is downloading it but is taking too long, and will timeout.
-        # Let's delete the tmp file. If situation (1), this is safe. If situation (2), the other thread is expected to crash with a TimeoutError anyways, so this is fine.
+    local_decompressed, _ = split_compression_suffix(local)
+    last_error = None
+    error_msgs = []
+    for _ in range(1 + max_retries):
         try:
-            os.remove(local_tmp)
-        except OSError:
-            # This occurs if another download thread got to the delete first.
-            pass
-
-    # There is no tmp file, so attempt to make it.
-    # If this fails, another download thread beat us to it, so wait.
-    local_dir = os.path.dirname(local)
-    os.makedirs(local_dir, exist_ok=True)
-    try:
-        with open(local_tmp, 'xb') as out:
-            out.write(b'')
-    except FileExistsError:
-        # If we run out of time here, we know a download thread was active and exceeded timeout, so we should error out.
-        wait_for_download(local, timeout)
-        return
-
-    # We succesfully created the tmp file. Perform the download and rename.
-    download(remote, local_tmp, timeout)
-    os.rename(local_tmp, local)
+            if wait:
+                start = time.time()
+                while not os.path.exists(local_decompressed):
+                    if time.time() - start > timeout:
+                        raise TimeoutError(f'Waited longer than {timeout}s for other worker to download {local}.')
+                    time.sleep(0.25)
+            else:
+                dispatch_download(remote, local)
+            break
+        except FileNotFoundError:
+            raise  # bubble up file not found error
+        except Exception as e:  # Retry for all causes of failure.
+            error_msgs.append(e)
+            last_error = e
+            continue
+    if len(error_msgs) > max_retries:
+        raise RuntimeError(f'Failed to download {remote} -> {local}. Got errors:\n{error_msgs}') from last_error

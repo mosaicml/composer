@@ -13,9 +13,9 @@ from torch.optim import Optimizer
 
 from composer.core.serializable import Serializable
 
-__all__ = ["Device", "T_nnModule"]
+__all__ = ['Device', 'T_nnModule']
 
-T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
+T_nnModule = TypeVar('T_nnModule', bound=torch.nn.Module)
 T_Batch = TypeVar('T_Batch')
 
 
@@ -29,7 +29,7 @@ class Device(Serializable, ABC):
             for details.
     """
 
-    dist_backend: str
+    dist_backend: str = ''
 
     @abstractmethod
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
@@ -56,9 +56,10 @@ class Device(Serializable, ABC):
         pass
 
     def batch_to_device(self, batch: T_Batch) -> T_Batch:
-        """Invoked by the :class:`.Trainer` move all tensors items in a batch to device. Supports nested sequences and
-        mappings of tensors. Ignores non-tensor items. Preserves sequence and types when possible, otherwise converts
-        sequences to lists. Converts mappings to dictionaries.
+        """Invoked by the :class:`.Trainer` move all tensors items in a batch to device.
+
+        Supports nested sequences and mappings of tensors. Ignores non-tensor items. Preserves sequence and mapping types
+        when possible; otherwise, sequences are converted to lists, and mappings are converted to dictionaries.
 
         Args:
             batch (Any): The batch to move to the device.

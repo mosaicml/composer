@@ -42,7 +42,7 @@ def training_loop(model, train_loader):
     loss_fn = F.cross_entropy
     model.train()
 
-    for epoch in range(10):
+    for epoch in range(1):
         for X, y in train_loader:
             y_hat = model(X)
             loss = loss_fn(y_hat, y)
@@ -53,6 +53,18 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
+<!--pytest.mark.gpu-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomClassificationDataset, SimpleModel
+
+model = SimpleModel()
+train_dataloader = DataLoader(RandomClassificationDataset())
+eval_dataloader = DataLoader(RandomClassificationDataset())
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate point in the training loop
@@ -60,24 +72,24 @@ def training_loop(model, train_loader):
 from composer.algorithms import Factorize
 from composer.trainer import Trainer
 
-def train_model(model, train_dataloader):
-    factorize = Factorize(
-        factorize_convs=True,
-        factorize_linears=True,
-        min_channels=256,
-        latent_channels=0.25,
-        min_features=256,
-        latent_features=128
-    )
+factorize = Factorize(
+    factorize_convs=True,
+    factorize_linears=True,
+    min_channels=256,
+    latent_channels=0.25,
+    min_features=256,
+    latent_features=128
+)
 
-    trainer = Trainer(
-        model=model,
-        train_dataloader=train_dataloader,
-        max_duration='10ep',
-        algorithms=[factorize]
-    )
+trainer = Trainer(
+    model=model,
+    train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
+    max_duration='10ep',
+    algorithms=[factorize]
+)
 
-    trainer.fit()
+trainer.fit()
 ```
 
 ## Suggested Hyperparameters

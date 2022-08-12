@@ -1,15 +1,17 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Events represent specific points in the training loop where an :class:`~.core.Algorithm` and :class:`~.core.Callback`
-can run."""
+"""Training Loop Events."""
 from composer.utils.string_enum import StringEnum
 
-__all__ = ["Event"]
+__all__ = ['Event']
 
 
 class Event(StringEnum):
-    """Enum to represent events in the training loop.
+    """Enum to represent training loop events.
+
+    Events mark specific points in the training loop where an :class:`~.core.Algorithm` and :class:`~.core.Callback`
+    can run.
 
     The following pseudocode shows where each event fires in the training loop:
 
@@ -19,7 +21,11 @@ class Event(StringEnum):
         # <FIT_START>
         for epoch in range(NUM_EPOCHS):
             # <EPOCH_START>
-            for batch in dataloader:
+            while True:
+                # <BEFORE_DATALOADER>
+                batch = next(dataloader)
+                if batch is None:
+                    break
                 # <AFTER_DATALOADER>
 
                 # <BATCH_START>
@@ -83,6 +89,7 @@ class Event(StringEnum):
         FIT_START: Invoked at the beginning of each call to :meth:`.Trainer.fit`. Dataset transformations typically
             occur here.
         EPOCH_START: Start of an epoch.
+        BEFORE_DATALOADER: Immediately before the dataloader is called.
         AFTER_DATALOADER: Immediately after the dataloader is called.  Typically used for on-GPU dataloader transforms.
         BATCH_START: Start of a batch.
         BEFORE_TRAIN_BATCH: Before the forward-loss-backward computation for a training batch. When using gradient
@@ -106,7 +113,7 @@ class Event(StringEnum):
             event allows the checkpoint saver to use the results from any batch-wise evaluation to determine whether
             a checkpoint should be saved.
         EPOCH_END: End of an epoch.
-        EPOCH_CHECKPOINT: After :attr:`.Event.EPOCH_END` and any epoch-wise evaluation. Saving checkpoints at this event allows
+        EPOCH_CHECKPOINT: After :attr:`.Event.EPOCH_END` and any epoch-wise evaluation. Saving checkpoints at this
             event allows the checkpoint saver to use the results from any epoch-wise evaluation to determine whether
             a checkpointshould be saved.
         FIT_END: Invoked at the end of each call to :meth:`.Trainer.fit`. This event exists primarily for logging information
@@ -121,60 +128,67 @@ class Event(StringEnum):
         EVAL_END: End of evaluation through the validation dataset.
     """
 
-    INIT = "init"
-    FIT_START = "fit_start"
+    INIT = 'init'
+    FIT_START = 'fit_start'
 
-    EPOCH_START = "epoch_start"
+    EPOCH_START = 'epoch_start'
 
-    AFTER_DATALOADER = "after_dataloader"
+    BEFORE_DATALOADER = 'before_dataloader'
+    AFTER_DATALOADER = 'after_dataloader'
 
-    BATCH_START = "batch_start"
+    BATCH_START = 'batch_start'
 
-    BEFORE_TRAIN_BATCH = "before_train_batch"
+    BEFORE_TRAIN_BATCH = 'before_train_batch'
 
-    BEFORE_FORWARD = "before_forward"
-    AFTER_FORWARD = "after_forward"
+    BEFORE_FORWARD = 'before_forward'
+    AFTER_FORWARD = 'after_forward'
 
-    BEFORE_LOSS = "before_loss"
-    AFTER_LOSS = "after_loss"
+    BEFORE_LOSS = 'before_loss'
+    AFTER_LOSS = 'after_loss'
 
-    BEFORE_BACKWARD = "before_backward"
-    AFTER_BACKWARD = "after_backward"
+    BEFORE_BACKWARD = 'before_backward'
+    AFTER_BACKWARD = 'after_backward'
 
-    AFTER_TRAIN_BATCH = "after_train_batch"
+    AFTER_TRAIN_BATCH = 'after_train_batch'
 
-    BATCH_END = "batch_end"
-    BATCH_CHECKPOINT = "batch_checkpoint"
+    BATCH_END = 'batch_end'
+    BATCH_CHECKPOINT = 'batch_checkpoint'
 
-    EPOCH_END = "epoch_end"
-    EPOCH_CHECKPOINT = "epoch_checkpoint"
+    EPOCH_END = 'epoch_end'
+    EPOCH_CHECKPOINT = 'epoch_checkpoint'
 
-    FIT_END = "fit_end"
+    FIT_END = 'fit_end'
 
-    EVAL_START = "eval_start"
-    EVAL_BATCH_START = "eval_batch_start"
-    EVAL_BEFORE_FORWARD = "eval_before_forward"
-    EVAL_AFTER_FORWARD = "eval_after_forward"
-    EVAL_BATCH_END = "eval_batch_end"
-    EVAL_END = "eval_end"
+    EVAL_START = 'eval_start'
+    EVAL_BATCH_START = 'eval_batch_start'
+    EVAL_BEFORE_FORWARD = 'eval_before_forward'
+    EVAL_AFTER_FORWARD = 'eval_after_forward'
+    EVAL_BATCH_END = 'eval_batch_end'
+    EVAL_END = 'eval_end'
 
-    PREDICT_START = "predict_start"
-    PREDICT_BATCH_START = "predict_batch_start"
-    PREDICT_BEFORE_FORWARD = "predict_before_forward"
-    PREDICT_AFTER_FORWARD = "predict_after_forward"
-    PREDICT_BATCH_END = "predict_batch_end"
-    PREDICT_END = "predict_end"
+    PREDICT_START = 'predict_start'
+    PREDICT_BATCH_START = 'predict_batch_start'
+    PREDICT_BEFORE_FORWARD = 'predict_before_forward'
+    PREDICT_AFTER_FORWARD = 'predict_after_forward'
+    PREDICT_BATCH_END = 'predict_batch_end'
+    PREDICT_END = 'predict_end'
 
     @property
     def is_before_event(self) -> bool:
-        """Whether the event is a 'before_*' event (e.g., :attr:`~Event.BEFORE_LOSS`) and has a corresponding 'after_*'
-        (.e.g., :attr:`~Event.AFTER_LOSS`)."""
+        """Whether the event is an "before" event.
+
+        An "before" event (e.g., :attr:`~Event.BEFORE_LOSS`) has a corresponding "after" event
+        (.e.g., :attr:`~Event.AFTER_LOSS`).
+        """
         return self in _BEFORE_EVENTS
 
     @property
     def is_after_event(self) -> bool:
-        """Whether the event is an 'after_*' event (e.g., :attr:`~Event.AFTER_LOSS`) and has a corresponding 'before_*'
-        (.e.g., :attr:`~Event.BEFORE_LOSS`)."""
+        """Whether the event is an "after" event.
+
+        An "after" event (e.g., :attr:`~Event.AFTER_LOSS`) has a corresponding "before" event
+        (.e.g., :attr:`~Event.BEFORE_LOSS`).
+        """
         return self in _AFTER_EVENTS
 
     @property
@@ -193,17 +207,27 @@ class Event(StringEnum):
             str: The canonical name of the event.
         """
         name: str = self.value
-        name = name.replace("before_", "")
-        name = name.replace("after_", "")
-        name = name.replace("_start", "")
-        name = name.replace("_end", "")
+        name = name.replace('before_', '')
+        name = name.replace('after_', '')
+        name = name.replace('_start', '')
+        name = name.replace('_end', '')
         return name
 
+    @property
+    def is_predict(self) -> bool:
+        """Whether the event is during the predict loop."""
+        return self.value.startswith('predict')
 
-_BEFORE_EVENTS = (Event.FIT_START, Event.EPOCH_START, Event.BATCH_START, Event.BEFORE_TRAIN_BATCH, Event.BEFORE_FORWARD,
-                  Event.BEFORE_LOSS, Event.BEFORE_BACKWARD, Event.EVAL_START, Event.EVAL_BATCH_START,
-                  Event.EVAL_BEFORE_FORWARD, Event.PREDICT_START, Event.PREDICT_BATCH_START,
-                  Event.PREDICT_BEFORE_FORWARD)
-_AFTER_EVENTS = (Event.EPOCH_END, Event.BATCH_END, Event.AFTER_TRAIN_BATCH, Event.AFTER_FORWARD, Event.AFTER_LOSS,
-                 Event.AFTER_BACKWARD, Event.EVAL_END, Event.EVAL_BATCH_END, Event.EVAL_AFTER_FORWARD, Event.FIT_END,
-                 Event.PREDICT_END, Event.PREDICT_BATCH_END, Event.PREDICT_AFTER_FORWARD)
+    @property
+    def is_eval(self) -> bool:
+        """Whether the event is during the eval loop."""
+        return self.value.startswith('eval')
+
+
+_BEFORE_EVENTS = (Event.FIT_START, Event.EPOCH_START, Event.BEFORE_DATALOADER, Event.BATCH_START,
+                  Event.BEFORE_TRAIN_BATCH, Event.BEFORE_FORWARD, Event.BEFORE_LOSS, Event.BEFORE_BACKWARD,
+                  Event.EVAL_START, Event.EVAL_BATCH_START, Event.EVAL_BEFORE_FORWARD, Event.PREDICT_START,
+                  Event.PREDICT_BATCH_START, Event.PREDICT_BEFORE_FORWARD)
+_AFTER_EVENTS = (Event.EPOCH_END, Event.BATCH_END, Event.AFTER_DATALOADER, Event.AFTER_TRAIN_BATCH, Event.AFTER_FORWARD,
+                 Event.AFTER_LOSS, Event.AFTER_BACKWARD, Event.EVAL_END, Event.EVAL_BATCH_END, Event.EVAL_AFTER_FORWARD,
+                 Event.FIT_END, Event.PREDICT_END, Event.PREDICT_BATCH_END, Event.PREDICT_AFTER_FORWARD)

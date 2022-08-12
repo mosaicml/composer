@@ -15,7 +15,7 @@ from torchvision.datasets import VisionDataset
 from composer.core.types import MemoryFormat
 from composer.utils.string_enum import StringEnum
 
-__all__ = ["SyntheticDataType", "SyntheticDataLabelType", "SyntheticBatchPairDataset", "SyntheticPILDataset"]
+__all__ = ['SyntheticDataType', 'SyntheticDataLabelType', 'SyntheticBatchPairDataset', 'SyntheticPILDataset']
 
 
 class SyntheticDataType(StringEnum):
@@ -27,8 +27,8 @@ class SyntheticDataType(StringEnum):
             separability.
     """
 
-    GAUSSIAN = "gaussian"
-    SEPARABLE = "separable"
+    GAUSSIAN = 'gaussian'
+    SEPARABLE = 'separable'
 
 
 class SyntheticDataLabelType(StringEnum):
@@ -38,8 +38,8 @@ class SyntheticDataLabelType(StringEnum):
         CLASSIFICATION_INT: Class labels are ints.
         CLASSIFICATION_ONE_HOT: Class labels are one-hot vectors.
     """
-    CLASSIFICATION_INT = "classification_int"
-    CLASSIFICATION_ONE_HOT = "classification_one_hot"
+    CLASSIFICATION_INT = 'classification_int'
+    CLASSIFICATION_ONE_HOT = 'classification_one_hot'
 
 
 class SyntheticBatchPairDataset(torch.utils.data.Dataset):
@@ -76,7 +76,7 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
                  label_type: Union[str, SyntheticDataLabelType] = SyntheticDataLabelType.CLASSIFICATION_INT,
                  num_classes: Optional[int] = None,
                  label_shape: Optional[Sequence[int]] = None,
-                 device: str = "cpu",
+                 device: str = 'cpu',
                  memory_format: Union[str, MemoryFormat] = MemoryFormat.CONTIGUOUS_FORMAT,
                  transform: Optional[Callable] = None):
         self.total_dataset_size = total_dataset_size
@@ -102,7 +102,7 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
                                label_shape: Optional[Sequence[int]]):
         if label_type == SyntheticDataLabelType.CLASSIFICATION_INT or label_type == SyntheticDataLabelType.CLASSIFICATION_ONE_HOT:
             if num_classes is None or num_classes <= 0:
-                raise ValueError("classification label_types require num_classes > 0")
+                raise ValueError('classification label_types require num_classes > 0')
 
     def __len__(self) -> int:
         return self.total_dataset_size
@@ -133,14 +133,14 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
                     label_batch_shape = (self.num_unique_samples_to_create,)
                 input_target = torch.randint(0, self.num_classes, label_batch_shape, device=self.device)
             else:
-                raise ValueError(f"Unsupported label type {self.data_type}")
+                raise ValueError(f'Unsupported label type {self.data_type}')
 
             # If separable, force the positive examples to have a higher mean than the negative examples
             if self.data_type == SyntheticDataType.SEPARABLE:
                 assert self.label_type == SyntheticDataLabelType.CLASSIFICATION_INT, \
-                    "SyntheticDataType.SEPARABLE requires integer classes."
+                    'SyntheticDataType.SEPARABLE requires integer classes.'
                 assert torch.max(input_target) == 1 and torch.min(input_target) == 0, \
-                    "SyntheticDataType.SEPARABLE only supports binary labels"
+                    'SyntheticDataType.SEPARABLE only supports binary labels'
                 # Make positive examples have mean = 3 and negative examples have mean = -3
                 # so they are easier to separate with a classifier
                 input_data[input_target == 0] -= 3
@@ -187,7 +187,7 @@ class SyntheticPILDataset(VisionDataset):
                  num_classes: Optional[int] = None,
                  label_shape: Optional[Sequence[int]] = None,
                  transform: Optional[Callable] = None):
-        super().__init__(root="", transform=transform)
+        super().__init__(root='', transform=transform)
         self._dataset = SyntheticBatchPairDataset(
             total_dataset_size=total_dataset_size,
             data_shape=data_shape,
@@ -208,7 +208,7 @@ class SyntheticPILDataset(VisionDataset):
 
         # Shift and scale to be [0, 255]
         input_data = (input_data - input_data.min())
-        input_data = (input_data * (255 / input_data.max())).astype("uint8")
+        input_data = (input_data * (255 / input_data.max())).astype('uint8')
 
         sample = Image.fromarray(input_data)
         if self.transform is not None:

@@ -21,7 +21,7 @@ import torch.utils.data
 
 from composer.utils.string_enum import StringEnum
 
-__all__ = ["Batch", "PyTorchScheduler", "JSON", "MemoryFormat", "BreakEpochException"]
+__all__ = ['Batch', 'PyTorchScheduler', 'JSON', 'MemoryFormat']
 
 Batch = Any
 
@@ -32,13 +32,17 @@ PyTorchScheduler = torch.optim.lr_scheduler._LRScheduler
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
 
 
-class BreakEpochException(Exception):
-    """Raising this exception will immediately end the current epoch.
+class TrainerMode(StringEnum):
+    """Enum to represent which mode the Trainer is in.
 
-    If you're wondering whether you should use this, the answer is no.
+    Attributes:
+        TRAIN: In training mode.
+        EVAL: In evaluation mode.
+        PREDICT: In predict mode.
     """
-
-    pass
+    TRAIN = 'train'
+    EVAL = 'eval'
+    PREDICT = 'predict'
 
 
 class MemoryFormat(StringEnum):
@@ -57,7 +61,7 @@ class MemoryFormat(StringEnum):
         PRESERVE_FORMAT: A way to tell operations to make the output tensor to have the same memory format as the input
             tensor.
     """
-    CONTIGUOUS_FORMAT = "contiguous_format"
-    CHANNELS_LAST = "channels_last"
-    CHANNELS_LAST_3D = "channels_last_3d"
-    PRESERVE_FORMAT = "preserve_format"
+    CONTIGUOUS_FORMAT = 'contiguous_format'
+    CHANNELS_LAST = 'channels_last'
+    CHANNELS_LAST_3D = 'channels_last_3d'
+    PRESERVE_FORMAT = 'preserve_format'

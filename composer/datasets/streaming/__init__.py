@@ -20,7 +20,7 @@ A brief list of improvements:
 * (TODO) Shuffling is perfect, i.e. random access (per-worker), in all subsequent epochs.
 """
 
-from composer.datasets.streaming.dataset import StreamingDataset, StreamingImageClassDataset
+from composer.datasets.streaming.dataset import StreamingDataset
 from composer.datasets.streaming.writer import StreamingDatasetWriter
 
-__all__ = ['StreamingDataset', 'StreamingImageClassDataset', 'StreamingDatasetWriter']
+__all__ = ['StreamingDataset', 'StreamingDatasetWriter']

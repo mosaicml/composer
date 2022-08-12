@@ -1,17 +1,16 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Callbacks that run at each training loop :class:`~composer.core.event.Event`.
+"""Callbacks that run at each training loop :class:`.Event`.
 
-Each callback inherits from the :class:`~composer.core.callback.Callback` base class. See detailed description and
-examples for writing your own callbacks at the :class:`~composer.core.callback.Callback` base class.
+Each callback inherits from the :class:`.Callback` base class. See detailed description and
+examples for writing your own callbacks at the :class:`.Callback` base class.
 """
-from composer.callbacks.callback_hparams import (CallbackHparams, CheckpointSaverHparams, EarlyStopperHparams,
-                                                 GradMonitorHparams, LRMonitorHparams, MemoryMonitorHparams,
-                                                 MLPerfCallbackHparams, SpeedMonitorHparams, ThresholdStopperHparams)
 from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.callbacks.early_stopper import EarlyStopper
+from composer.callbacks.export_for_inference import ExportForInferenceCallback
 from composer.callbacks.grad_monitor import GradMonitor
+from composer.callbacks.image_visualizer import ImageVisualizer
 from composer.callbacks.lr_monitor import LRMonitor
 from composer.callbacks.memory_monitor import MemoryMonitor
 from composer.callbacks.mlperf import MLPerfCallback
@@ -19,23 +18,14 @@ from composer.callbacks.speed_monitor import SpeedMonitor
 from composer.callbacks.threshold_stopper import ThresholdStopper
 
 __all__ = [
-    "GradMonitor",
-    "LRMonitor",
-    "MemoryMonitor",
-    "SpeedMonitor",
-    "CheckpointSaver",
-    "MLPerfCallback",
-    "EarlyStopper",
-    "ThresholdStopper",
-    # hparams objects
-    "CallbackHparams",
-    "CheckpointSaverHparams",
-    "EarlyStopperHparams",
-    "GradMonitorHparams",
-    "LRMonitorHparams",
-    "MemoryMonitorHparams",
-    "SpeedMonitorHparams",
-    "MLPerfCallbackHparams",
-    "EarlyStopperHparams",
-    "ThresholdStopperHparams",
+    'GradMonitor',
+    'LRMonitor',
+    'MemoryMonitor',
+    'SpeedMonitor',
+    'CheckpointSaver',
+    'MLPerfCallback',
+    'EarlyStopper',
+    'ExportForInferenceCallback',
+    'ThresholdStopper',
+    'ImageVisualizer',
 ]

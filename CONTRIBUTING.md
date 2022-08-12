@@ -18,6 +18,7 @@ To set up the development environment in your local box, run the commands below.
 
 1\. Install the dependencies needed for testing and linting the code:
 
+<!--pytest.mark.skip-->
 ```bash
 pip install -e '.[dev]'
 ```
@@ -25,11 +26,12 @@ pip install -e '.[dev]'
 2\. Configure [pre-commit](https://pre-commit.com/), which automatically formats code before
 each commit:
 
+<!--pytest.mark.skip-->
 ```bash
 pre-commit install
 ```
 
-## Submitting a contribution
+## Submitting a Contribution
 
 To submit a contribution:
 
@@ -37,6 +39,7 @@ To submit a contribution:
 
 2\. Clone your fork locally and add the mosaicml repo as a remote repository:
 
+<!--pytest.mark.skip-->
 ```bash
 git clone git@github.com:<github_id>/composer.git
 cd composer
@@ -45,11 +48,16 @@ git remote add upstream https://github.com/mosaicml/composer.git
 
 3\. Create a branch and make your proposed changes.
 
+<!--pytest.mark.skip-->
 ```bash
 git checkout -b cool-new-feature
 ```
 
 4\. When you are ready, submit a pull request into the composer repository! If merged, we'll reach out to send you some free swag :)
+
+## Configuring README Code Snippets
+
+Composer uses [pytest-codeblocks](https://github.com/nschloe/pytest-codeblocks) to test all example code snippets. The pytest-codeblocks repository explains how to annotate code snippets, which supports most `pytest` configurations. For example, if a test requires model training, the GPU mark (`<!--pytest.mark.skip-->`) should be applied.
 
 ## Running Tests
 
@@ -66,13 +74,14 @@ Some of our checks test distributed training as well. To test these, run:
 
 These tests run with the `composer` launcher. We also support `WORLD_SIZE=1`, which would run the tests with the `composer` launcher on a single device.
 
-See the [Makefile](https://github.com/mosaicml/composer/blob/dev/Makefile) for more information.
+See the [Makefile](/Makefile) for more information.
+
+If you want to run pre-commit hooks manually, which check for code formatting and type annotations, run `pre-commit run --all-files`
 
 ## Code Style & Typing
 
-Follow Google's
-[Python Style Guide](https://google.github.io/styleguide/pyguide.html) for how to format and structure code.
-Many of these guidelines are already taken care of by the pre commit hooks.
+See the [Composer Style Guide](/STYLE_GUIDE.md) for guidelines on how to structure and format your code.
 
 Composer aims to annotate all functions with type annotations (introduced in
-[PEP 526](https://www.python.org/dev/peps/pep-0526/)). Don't worry if you are not a Python typing expert; put in the pull request, and we'll help you with getting the code into shape.
+[PEP 526](https://www.python.org/dev/peps/pep-0526/)). Don't worry if you are not a Python typing expert;
+put in the pull request, and we'll help you with getting the code into shape.

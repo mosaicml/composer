@@ -1,19 +1,19 @@
 :orphan:
 
-##################
+#################
 Dataset/Task Name
-##################
+#################
 .. Based, in part, on [Datasheets for Datasets](https://arxiv.org/pdf/1803.09010.pdf) by Gebru et al.
 
 TLDR
-=======
-.. 
+====
+..
         TLDR about the dataset name, kind of data, tasks associated with it, and number of examples.
 
         *E.g., ImageNet is a dataset of natural images for 1000-way classification consisting of 1.2M training examples and 50K validation examples at about resolution 224x224.*
 
 Attribution
-============
+===========
 **Created By:** _______
 
 .. Who created the dataset (which team, research group) and on behalf of which entity (company, institution, organization)? Provide any links or citations as appropriate.
@@ -23,34 +23,34 @@ Attribution
 .. Under what license is the dataset available?*
 
 Using the Dataset
-==================
+=================
 
 Obtaining the Dataset
------------------------
+---------------------
 
 The dataset can be obtained from _________.
 
 .. URL, library, or other description of where to get it.
 
 Expected Format
-----------------
+---------------
 
 The Composer library expects this dataset to be stored as ________.
 
 .. What format does the Composer library expect this data to be stored in? E.g. JPEGs in folders for each class, TFRecords with a particular schema, etc.
 
 Steps to Obtain and Prepare Dataset
-------------------------------------
+-----------------------------------
 
 .. A list of step-by-step instructions necessary to obtain this dataset and place it in the right format or a link to such a guide that is available elsewhere.
 
 Performance Considerations:
-----------------------------
+---------------------------
 
 .. A list of performance considerations in order to use this dataset efficiently. E.g., the cost of loading the data for the first time, recommended storage medium, sensitivity of performance to memory size and disk throughput, costs associated with data augmentation, recommended batching strategies, etc.
 
 Technical Specifications
-=========================
+========================
 
 **Kind of Data: _____**
 

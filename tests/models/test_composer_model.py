@@ -20,14 +20,14 @@ def test_composermodel_torchscriptable(model):
 def test_model_access_to_logger(dummy_train_dataloader: Iterable):
     model = SimpleModel(num_features=1, num_classes=1)
     assert model.logger is None
-    trainer = Trainer(model=model, max_duration="1ep", train_dataloader=dummy_train_dataloader)
+    trainer = Trainer(model=model, max_duration='1ep', train_dataloader=dummy_train_dataloader)
     assert model.logger is trainer.logger
 
 
 def test_model_deepcopy(dummy_train_dataloader: Iterable):
     model = SimpleModel(num_features=1, num_classes=1)
     assert model.logger is None
-    trainer = Trainer(model=model, max_duration="1ep", train_dataloader=dummy_train_dataloader)
+    trainer = Trainer(model=model, max_duration='1ep', train_dataloader=dummy_train_dataloader)
     assert model.logger is not None
     copied_model = copy.deepcopy(trainer.state.model)
     assert copied_model.logger is model.logger
@@ -37,7 +37,7 @@ def test_model_deepcopy(dummy_train_dataloader: Iterable):
 def test_model_copy(dummy_train_dataloader: Iterable):
     model = SimpleModel(num_features=1, num_classes=1)
     assert model.logger is None
-    trainer = Trainer(model=model, max_duration="1ep", train_dataloader=dummy_train_dataloader)
+    trainer = Trainer(model=model, max_duration='1ep', train_dataloader=dummy_train_dataloader)
     assert model.logger is not None
     copied_model = copy.copy(trainer.state.model)
     assert copied_model.logger is model.logger
@@ -47,7 +47,7 @@ def test_model_copy(dummy_train_dataloader: Iterable):
 def test_model_pickle(dummy_train_dataloader: Iterable):
     model = SimpleModel(num_features=1, num_classes=1)
     assert model.logger is None
-    trainer = Trainer(model=model, max_duration="1ep", train_dataloader=dummy_train_dataloader)
+    trainer = Trainer(model=model, max_duration='1ep', train_dataloader=dummy_train_dataloader)
     assert model.logger is not None
     pickled_model = pickle.dumps(trainer.state.model)
     restored_model = pickle.loads(pickled_model)

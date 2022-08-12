@@ -5,4 +5,4 @@
 
 from composer.models.tasks.classification import ComposerClassifier as ComposerClassifier
 
-__all__ = ["ComposerClassifier"]
+__all__ = ['ComposerClassifier']

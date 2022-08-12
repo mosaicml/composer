@@ -1,13 +1,18 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Profiling Example.
+
+For a walk-through of this example, please see the `profiling guide</trainer/performance_tutorials/profiling>`_.
+"""
+
 # [imports-start]
 import torch
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 from composer import Trainer
-from composer.models import MNIST_Classifier
+from composer.models import mnist_model
 from composer.profiler import JSONTraceHandler, cyclic_schedule
 from composer.profiler.profiler import Profiler
 
@@ -16,7 +21,7 @@ from composer.profiler.profiler import Profiler
 # [dataloader-start]
 # Specify Dataset and Instantiate DataLoader
 batch_size = 2048
-data_directory = "~/datasets"
+data_directory = '~/datasets'
 
 mnist_transforms = transforms.Compose([transforms.ToTensor()])
 
@@ -33,23 +38,23 @@ train_dataloader = DataLoader(
 # [dataloader-end]
 
 # Instantiate Model
-model = MNIST_Classifier(num_classes=10)
+model = mnist_model(num_classes=10)
 
 # [trainer-start]
 # Instantiate the trainer
-composer_trace_dir = "composer_profiler"
-torch_trace_dir = "torch_profiler"
+composer_trace_dir = 'composer_profiler'
+torch_trace_dir = 'torch_profiler'
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   eval_dataloader=train_dataloader,
                   max_duration=2,
-                  device="gpu" if torch.cuda.is_available() else "cpu",
+                  device='gpu' if torch.cuda.is_available() else 'cpu',
                   eval_interval=0,
-                  precision="amp" if torch.cuda.is_available() else "fp32",
+                  precision='amp' if torch.cuda.is_available() else 'fp32',
                   train_subset_num_batches=16,
                   profiler=Profiler(
-                      trace_handlers=JSONTraceHandler(folder=composer_trace_dir, overwrite=True),
+                      trace_handlers=[JSONTraceHandler(folder=composer_trace_dir, overwrite=True)],
                       schedule=cyclic_schedule(
                           wait=0,
                           warmup=1,

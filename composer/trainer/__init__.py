@@ -5,8 +5,5 @@
 
 from composer.trainer import devices as devices
 from composer.trainer.trainer import Trainer
-from composer.trainer.trainer_hparams import EvalHparams, ExperimentHparams, FitHparams, TrainerHparams
 
-load = TrainerHparams.load
-
-__all__ = ["Trainer", "TrainerHparams", "ExperimentHparams", "FitHparams", "EvalHparams"]
+__all__ = ['Trainer']

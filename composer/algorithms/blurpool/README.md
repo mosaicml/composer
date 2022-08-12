@@ -50,6 +50,21 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
+<!--pytest.mark.gpu-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomImageDataset
+
+from composer.models import composer_resnet
+
+model = composer_resnet('resnet50')
+
+train_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
+eval_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate point in the training loop
@@ -57,14 +72,16 @@ def training_loop(model, train_loader):
 from composer.algorithms import BlurPool
 from composer.trainer import Trainer
 
-def train_model(model, train_dataloader):
-    blurpool = BlurPool(replace_convs=True,
-                        replace_maxpools=True)
-    trainer = Trainer(model=model,
-                      train_dataloader=train_dataloader,
-                      max_duration='10ep',
-                      algorithms=[blurpool])
-    trainer.fit()
+blurpool = BlurPool(replace_convs=True,
+                    replace_maxpools=True)
+
+trainer = Trainer(model=model,
+                    train_dataloader=train_dataloader,
+                    eval_dataloader=eval_dataloader,
+                    max_duration='1ep',
+                    algorithms=[blurpool])
+
+trainer.fit()
 ```
 
 ### Implementation Details
@@ -74,7 +91,7 @@ For max pooling, it replaces `torch.nn.MaxPool2d` instances with instances of a 
 
 🚧 Implementation Note
 >
-> Blurpool does not replace strided convolutions with fewer than `min_channels` input channels, which by default is set to `16`. This is a heuristic used to avoid blurpooling the network's input. Doing so is undesirable since it amounts to downsampling the input by more than the amount specified in the preprocessing pipeline. 
+> Blurpool does not replace strided convolutions with fewer than `min_channels` input channels, which by default is set to `16`. This is a heuristic used to avoid blurpooling the network's input. Doing so is undesirable since it amounts to downsampling the input by more than the amount specified in the preprocessing pipeline.
 
 ## Suggested Hyperparameters
 
@@ -113,4 +130,4 @@ BlurPool tends to compose well with other methods. We are not aware of an exampl
 
 [*Making Convolutional Networks Shift-Invariant Again*](https://proceedings.mlr.press/v97/zhang19a.html) by Richard Zhang in ICML 2019.
 
-*The Composer implementation of this method and the accompanying documentation were produced by Davis Blalock at MosaicML. We thank Richard Zhang for helpful discussion*
+*The Composer implementation of this method and the accompanying documentation were produced by Davis Blalock at MosaicML. We thank Richard Zhang for helpful discussion.*

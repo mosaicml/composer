@@ -23,7 +23,7 @@ def _input_image(img_type: str, dtype: torch.dtype) -> AnyImage:
 
     if img_type == 'pillow':
         ints = rng.integers(256, size=(H, W, C)).astype(np.uint8)
-        return fromarray(ints, mode="RGB")
+        return fromarray(ints, mode='RGB')
     elif dtype == torch.uint8:
         if img_type == 'single_tensor':
             return torch.randint(256, size=(C, H, W)).to(dtype=torch.uint8)
@@ -33,7 +33,7 @@ def _input_image(img_type: str, dtype: torch.dtype) -> AnyImage:
             return torch.rand(size=(C, H, W)).to(dtype=dtype)
         return torch.rand(size=(N, C, H, W)).to(dtype=dtype)
     else:
-        raise ValueError(f"Invalid dtype: {dtype}")
+        raise ValueError(f'Invalid dtype: {dtype}')
 
 
 def _input_output_pair(img_type: str, img_dtype: torch.dtype, f_aug: InputAugFunction) -> Tuple[AnyImage, AnyImage]:

@@ -22,22 +22,22 @@ from composer.utils import dist
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
                                          ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time)
 
-__all__ = ["TorchProfiler"]
+__all__ = ['TorchProfiler']
 
 
-class TorchProfiler(Callback):
+class TorchProfiler(Callback):  # noqa: D101
     __doc__ = f"""Profile the execution using the :class:`PyTorch Profiler <torch.profiler.profile>`.
 
     Profiling results are stored in TensorBoard format in the directory specified by ``folder``.
 
     .. note::
 
-        The Composer :class:`~composer.trainer.trainer.Trainer` automatically creates an instance of this
+        The Composer :class:`.Trainer` automatically creates an instance of this
         :class:`.TorchProfiler` callback whenever any of the PyTorch Profiler arguments
         (``torch_prof_record_shapes``, ``torch_prof_profile_memory``, ``torch_prof_with_stack``, or
         ``torch_prof_with_flops``) are enabled.
 
-        When using the Composer :class:`~composer.trainer.trainer.Trainer`, one does not need to directly create an
+        When using the Composer :class:`.Trainer`, one does not need to directly create an
         instance of this :class:`.TorchProfiler` callback.
 
 
@@ -81,7 +81,7 @@ class TorchProfiler(Callback):
 
             Consider the following scenario, where:
 
-            *   The :attr:`~.Logger.run_name` is ``'awesome-training-run'``.
+            *   The :attr:`~.State.run_name` is ``'awesome-training-run'``.
             *   The default ``trace_folder='{{run_name}}/torch_traces'`` is used.
             *   The default ``name='rank{{rank}}.{{batch}}.pt.trace.json'`` is used.
             *   The current epoch count is ``1``.
@@ -100,7 +100,7 @@ class TorchProfiler(Callback):
             Whenever a trace file is saved, it is also logged as a file artifact according to this format string.
             The same format variables as for ``filename`` are available.
 
-            .. seealso:: :meth:`~composer.loggers.logger.Logger.file_artifact` for file artifact logging.
+            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
 
             Leading slashes (``'/'``) will be stripped.
 
@@ -124,7 +124,7 @@ class TorchProfiler(Callback):
             traces are not deleted from artifact stores.
 
             It can be useful to set this parameter to ``0`` when using an artifact logger such as the
-            :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`. This combination will minimize local
+            :class:`.ObjectStoreLogger`. This combination will minimize local
             disk usage by deleting trace files immediately after they have been uploaded to the object store.
 
     Attributes:
@@ -155,10 +155,10 @@ class TorchProfiler(Callback):
         self.overwrite = overwrite
         self.folder = folder
         if use_gzip and not filename.endswith('.gz'):
-            filename += ".gz"
+            filename += '.gz'
         self.filename = filename
         if use_gzip and artifact_name is not None and not artifact_name.endswith('.gz'):
-            artifact_name += ".gz"
+            artifact_name += '.gz'
         self.artifact_name = artifact_name
         self.record_shapes = record_shapes
         self.profile_memory = profile_memory
@@ -170,10 +170,10 @@ class TorchProfiler(Callback):
 
     def init(self, state: State, logger: Logger) -> None:
         if state.profiler is None:
-            raise RuntimeError(("The Composer Profiler was not enabled, which is required to use the "
-                                f"{type(self).__name__}. To enable, set the `prof_schedule` argument of the Trainer."))
+            raise RuntimeError(('The Composer Profiler was not enabled, which is required to use the '
+                                f'{type(self).__name__}. To enable, set the `prof_schedule` argument of the Trainer.'))
 
-        folder_name = format_name_with_dist(self.folder, logger.run_name)
+        folder_name = format_name_with_dist(self.folder, state.run_name)
         os.makedirs(folder_name, exist_ok=True)
         if not self.overwrite:
             ensure_folder_is_empty(folder_name)
@@ -191,7 +191,7 @@ class TorchProfiler(Callback):
                 return TorchProfilerAction.RECORD
             if composer_profiler_action == ProfilerAction.WARMUP:
                 return TorchProfilerAction.WARMUP
-            assert composer_profiler_action == ProfilerAction.SKIP, f"unexpected action: {composer_profiler_action}"
+            assert composer_profiler_action == ProfilerAction.SKIP, f'unexpected action: {composer_profiler_action}'
             return TorchProfilerAction.NONE
 
         def handler_fn(prof: torch.profiler.profiler.profile):
@@ -202,7 +202,7 @@ class TorchProfiler(Callback):
 
             trace_file_name = os.path.join(
                 folder_name,
-                format_name_with_dist_and_time(self.filename, run_name=logger.run_name, timestamp=timestamp),
+                format_name_with_dist_and_time(self.filename, run_name=state.run_name, timestamp=timestamp),
             )
             trace_file_dirname = os.path.dirname(trace_file_name)
             if trace_file_dirname:
@@ -211,7 +211,7 @@ class TorchProfiler(Callback):
             state.profiler.record_chrome_json_trace_file(trace_file_name)
             if self.artifact_name is not None:
                 trace_artifact_name = format_name_with_dist_and_time(self.artifact_name,
-                                                                     run_name=logger.run_name,
+                                                                     run_name=state.run_name,
                                                                      timestamp=timestamp)
                 trace_artifact_name = trace_artifact_name.lstrip('/')
                 logger.file_artifact(LogLevel.BATCH,
@@ -242,13 +242,13 @@ class TorchProfiler(Callback):
     def batch_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         assert self.profiler is not None
-        self.profiler.add_metadata_json("global_rank", json.dumps(dist.get_global_rank()))
+        self.profiler.add_metadata_json('global_rank', json.dumps(dist.get_global_rank()))
         self.profiler.step()
 
     def batch_start(self, state: State, logger: Logger) -> None:
         del state  # unused
         assert self.profiler is not None
-        logger.data_batch({"profiler/state": self.profiler.current_action.name})
+        logger.data_batch({'profiler/state': self.profiler.current_action.name})
 
     def close(self, state: State, logger: Logger) -> None:
         del state, logger  # unused

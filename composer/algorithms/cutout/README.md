@@ -42,11 +42,23 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
+<!--pytest.mark.gpu-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomClassificationDataset, SimpleModel
+
+model = SimpleModel()
+train_dataloader = DataLoader(RandomClassificationDataset())
+eval_dataloader = DataLoader(RandomClassificationDataset())
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
 
-from composer.algorithms import Cutout
+from composer.algorithms import CutOut
 from composer.trainer import Trainer
 
 cutout = CutOut(num_holes=1, length=0.5)
@@ -54,6 +66,7 @@ cutout = CutOut(num_holes=1, length=0.5)
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
     max_duration='1ep',
     algorithms=[cutout]
 )
@@ -63,7 +76,7 @@ trainer.fit()
 
 ### Implementation Details
 
-CutOut randomly selects `num_holes` square regions (which are possibly overlapping) with side length `length` and uses them to generate a binary mask for the image where the points within any hole are set to 0 and the remaining points are set to 1. 
+CutOut randomly selects `num_holes` square regions (which are possibly overlapping) with side length `length` and uses them to generate a binary mask for the image where the points within any hole are set to 0 and the remaining points are set to 1.
 This mask is then multiplied element-wise with the image in order to set the pixel value of any pixel value within a hole to 0.
 
 CutOut is implemented following the [original paper](https://arxiv.org/abs/1708.04552). However, our implementation currently differs in that CutOut operates on a batch of data and runs on device to avoid potential CPU bottlenecks.

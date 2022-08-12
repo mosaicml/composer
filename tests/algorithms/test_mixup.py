@@ -4,7 +4,7 @@
 import pytest
 import torch
 
-from composer.algorithms import MixUpHparams
+from composer.algorithms import MixUp
 from composer.algorithms.mixup.mixup import _gen_mixing_coef, mixup_batch
 from composer.core import Event
 from composer.models import ComposerClassifier
@@ -28,10 +28,10 @@ def validate_mixup_batch(x, y, indices, x_mix, y_perm, mixing):
         j = indices[i]
         # Check the input data
         x_mix_test = (1 - mixing) * x[i] + mixing * x[j]
-        torch.testing.assert_allclose(x_mix_test, x_mix[i])
+        torch.testing.assert_close(x_mix_test, x_mix[i])
         # Check the label
         perm_label = y[j]
-        torch.testing.assert_allclose(perm_label, y_perm[i])
+        torch.testing.assert_close(perm_label, y_perm[i])
 
 
 @pytest.mark.parametrize('alpha', [.2, 1])
@@ -55,7 +55,7 @@ class TestMixUp:
         # Generate fake data
         x_fake, y_fake, _ = fake_data
 
-        algorithm = MixUpHparams(alpha=alpha, interpolate_loss=interpolate_loss).initialize_object()
+        algorithm = MixUp(alpha=alpha, interpolate_loss=interpolate_loss)
         state = minimal_state
         state.model = ComposerClassifier(torch.nn.Flatten())
         state.batch = (x_fake, y_fake)

@@ -23,21 +23,19 @@ from torch.optim.lr_scheduler import LambdaLR
 from composer.core import State, Time, TimeUnit
 from composer.core.types import PyTorchScheduler
 
-try:
-    from typing import Protocol
-except ImportError:
-    Protocol = object  # Protocol is not available in python 3.7
-
 if TYPE_CHECKING:
     from typing import Protocol
+else:
+    # subclasses of Protocol cannot be instantiated in Python 3.8
+    Protocol = object
 
 log = logging.getLogger(__name__)
 
 __all__ = [
-    "ComposerScheduler", "compile_composer_scheduler", "StepScheduler", "MultiStepScheduler", "ConstantScheduler",
-    "LinearScheduler", "ExponentialScheduler", "CosineAnnealingScheduler", "CosineAnnealingWarmRestartsScheduler",
-    "PolynomialScheduler", "MultiStepWithWarmupScheduler", "LinearWithWarmupScheduler",
-    "CosineAnnealingWithWarmupScheduler"
+    'ComposerScheduler', 'compile_composer_scheduler', 'StepScheduler', 'MultiStepScheduler', 'ConstantScheduler',
+    'LinearScheduler', 'ExponentialScheduler', 'CosineAnnealingScheduler', 'CosineAnnealingWarmRestartsScheduler',
+    'PolynomialScheduler', 'MultiStepWithWarmupScheduler', 'ConstantWithWarmupScheduler', 'LinearWithWarmupScheduler',
+    'CosineAnnealingWithWarmupScheduler', 'PolynomialWithWarmupScheduler'
 ]
 
 
@@ -85,7 +83,7 @@ class ComposerScheduler(Protocol):
 
     The constructions of ``ten_epoch_decay_scheduler`` in each of the examples above are equivalent. Note that neither
     scheduler uses the ``scale_schedule_ratio`` parameter. As long as this parameter is not used when initializing
-    :class:`~composer.trainer.trainer.Trainer`, it is not required that any schedulers implement that parameter.
+    :class:`.Trainer`, it is not required that any schedulers implement that parameter.
 
     .. automethod:: __call__
     """
@@ -131,21 +129,20 @@ def _convert_time(time: Union[str, Time[int], Time[float]], state: State, ssr: f
     if isinstance(time, str):
         time = Time.from_timestring(time)
 
-    assert state.max_duration is not None, "max_duration should be set whenever schedulers are invoked"
+    assert state.max_duration is not None, 'max_duration should be set whenever schedulers are invoked'
 
     if time.unit == TimeUnit.DURATION:
-        if state.dataloader_len is None:
-            raise RuntimeError("Cannot convert time, as state.dataloader_len is None.")
         if state.max_duration.unit == TimeUnit.EPOCH:
+            if state.dataloader_len is None:
+                raise RuntimeError('Cannot convert time, as state.dataloader_len is None.')
             return Time(int(time.value * int(state.dataloader_len) * state.max_duration.value), TimeUnit.BATCH)
         return Time(int(time.value * state.max_duration.value), state.max_duration.unit)
-
-    if time.unit == TimeUnit.EPOCH:
+    elif time.unit == TimeUnit.EPOCH:
         # Epochs do not provide sufficient granularity for SSR scaling
         # e.g. if max_duration = 1ep, then any SSR would result in a new duration of 0.
         # so, convert the time into batches
         if state.dataloader_len is None:
-            raise RuntimeError("Cannot convert time, as state.dataloader_len is None.")
+            raise RuntimeError('Cannot convert time, as state.dataloader_len is None.')
         time = Time(value=time.value * int(state.dataloader_len), unit=TimeUnit.BATCH)
 
     return Time(value=int(time.value * ssr), unit=time.unit)
@@ -166,10 +163,9 @@ def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: 
     Returns:
         compiled_scheduler (PyTorchScheduler): The scheduler, in a form compatible with PyTorch scheduler interfaces.
     """
-
     optimizers = state.optimizers
     if len(optimizers) != 1:
-        raise NotImplementedError("Providing functional schedulers is unsupported with multiple optimizers.")
+        raise NotImplementedError('Providing functional schedulers is unsupported with multiple optimizers.')
     optimizer = optimizers[0]
 
     scheduler_sig = inspect.signature(scheduler)
@@ -284,7 +280,7 @@ class ConstantScheduler(ComposerScheduler):
         t_max (str | Time): Duration of this scheduler. Default = ``"1dur"``.
     """
 
-    def __init__(self, alpha: float = 1.0, t_max: Union[str, Time] = "1dur") -> None:
+    def __init__(self, alpha: float = 1.0, t_max: Union[str, Time] = '1dur') -> None:
         self.alpha = alpha
         self.t_max = t_max
 
@@ -330,7 +326,7 @@ class LinearScheduler(ComposerScheduler):
         t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
     """
 
-    def __init__(self, alpha_i: float = 1.0, alpha_f: float = 0.0, t_max: Union[str, Time] = "1dur"):
+    def __init__(self, alpha_i: float = 1.0, alpha_f: float = 0.0, t_max: Union[str, Time] = '1dur'):
         self.alpha_i = alpha_i
         self.alpha_f = alpha_f
         self.t_max = Time.from_timestring(t_max) if isinstance(t_max, str) else t_max
@@ -365,7 +361,7 @@ class ExponentialScheduler(ComposerScheduler):
         gamma (float): Multiplicative decay factor.
     """
 
-    def __init__(self, gamma: float, decay_period: Union[str, Time] = "1ep"):
+    def __init__(self, gamma: float, decay_period: Union[str, Time] = '1ep'):
         self.gamma = gamma
         self.decay_period = decay_period
 
@@ -382,7 +378,6 @@ def _cosine_anneal(x: float, min_y: float = 0.0, max_y: float = 1.0) -> float:
     Curve is cos(x) on domain [0, pi], stretched to the domain [0, 1] and range [min_y, max_y]. Additionally, param x is
     clipped to the interval [0, 1]
     """
-
     x = min(max(x, 0.0), 1.0)
     return min_y + (max_y - min_y) * (1 + math.cos(x * math.pi)) / 2
 
@@ -411,7 +406,7 @@ class CosineAnnealingScheduler(ComposerScheduler):
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
     """
 
-    def __init__(self, t_max: Union[str, Time] = "1dur", alpha_f: float = 0.0):
+    def __init__(self, t_max: Union[str, Time] = '1dur', alpha_f: float = 0.0):
         self.t_max = t_max
         self.alpha_f = alpha_f
 
@@ -465,7 +460,7 @@ class CosineAnnealingWarmRestartsScheduler(ComposerScheduler):
         while current_interval_end <= state.timestamp.get(current_interval_end.unit):
             if current_interval_len.value == 0:
                 raise ValueError(
-                    "Interval between restarts for cosine annealing/warm restarts scheduler has decayed to 0.")
+                    'Interval between restarts for cosine annealing/warm restarts scheduler has decayed to 0.')
 
             current_interval_len = Time(value=int(self.t_mult * current_interval_len.value),
                                         unit=current_interval_len.unit)
@@ -501,7 +496,7 @@ class PolynomialScheduler(ComposerScheduler):
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
     """
 
-    def __init__(self, power: float, t_max: Union[str, Time] = "1dur", alpha_f: float = 0.0):
+    def __init__(self, power: float, t_max: Union[str, Time] = '1dur', alpha_f: float = 0.0):
         self.t_max = t_max
         self.power = power
         self.alpha_f = alpha_f
@@ -541,19 +536,25 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
         rate multiplier until the warmup has completed.
 
     .. warning::
-        Initial warmup time is **not** scaled according to any provided scale schedule ratio! However, the milestones
-        will still be scaled accordingly.
+            By default, initial warmup time is **not** scaled according to any provided scale schedule ratio.
+            To change this behavior, set ``scale_warmup=True``.
 
     Args:
         t_warmup (str | Time): Warmup time.
         milestones (List[str | Time]): Times at which the learning rate should change.
         gamma (float): Multiplicative decay factor. Default = ``0.1``.
+        scale_warmup (float): SSR also scales the warmup period. Default = ``False``.
     """
 
-    def __init__(self, t_warmup: Union[str, Time], milestones: List[Union[str, Time]], gamma: float = 0.1):
+    def __init__(self,
+                 t_warmup: Union[str, Time],
+                 milestones: List[Union[str, Time]],
+                 gamma: float = 0.1,
+                 scale_warmup: bool = False):
         self.t_warmup = t_warmup
         self.milestones = milestones
         self.gamma = gamma
+        self.scale_warmup = scale_warmup
         self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=t_warmup)
         self.step_scheduler = MultiStepScheduler(milestones=milestones, gamma=gamma)
 
@@ -567,9 +568,60 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
                 same unit as the trainer's max_duration parameter."""))
 
         if state.timestamp < t_warmup:
+            if self.scale_warmup:
+                return self.warmup_scheduler(state, ssr)
             return self.warmup_scheduler(state)
 
         return self.step_scheduler(state, ssr)
+
+
+class ConstantWithWarmupScheduler(ComposerScheduler):
+    r"""Maintains a fixed learning rate, with an initial warmup.
+
+    This scheduler is based on  :class:`~torch.optim.lr_scheduler.ConstantLR` from PyTorch, with an added warmup.
+
+    Starts with a linear warmup over ``t_warmup`` time, then simply maintains a learning rate factor of 1 for the entire training
+    duration. However, both the factor and the duration of this scheduler can be configured.
+
+    Specifically, the learning rate multiplier :math:`\alpha` can be expressed as:
+
+    .. math::
+        \alpha(t) = \begin{cases}
+        t / t_{warmup}, & \text{if } t < t_{warmup} \\
+        \alpha, & \text{if } t < t_{max} \\
+        1.0 & \text{otherwise} \end{cases}
+
+    Where :math:`\alpha` represents the learning rate multiplier to maintain while this scheduler is active, and
+    :math:`t_{max}` represents the duration of this scheduler.
+
+    .. warning::
+            By default, initial warmup time is **not** scaled according to any provided scale schedule ratio.
+            To change this behavior, set ``scale_warmup=True``.
+
+    Args:
+        t_warmup (str | Time): Warmup time.
+        alpha (float): Learning rate multiplier to maintain while this scheduler is active. Default = ``1.0``.
+        t_max (str | Time): Duration of this scheduler. Default = ``"1dur"``.
+        scale_warmup (float): SSR also scales the warmup period. Default = ``False``.
+    """
+
+    def __init__(self,
+                 t_warmup: Union[str, Time],
+                 alpha: float = 1.0,
+                 t_max: Union[str, Time] = '1dur',
+                 scale_warmup: bool = False) -> None:
+        self.t_warmup = t_warmup
+        self.alpha = alpha
+        self.t_max = t_max
+        self.scale_warmup = scale_warmup
+        self.scheduler = LinearWithWarmupScheduler(t_warmup=t_warmup,
+                                                   alpha_i=alpha,
+                                                   alpha_f=alpha,
+                                                   t_max=t_max,
+                                                   scale_warmup=scale_warmup)
+
+    def __call__(self, state: State, ssr: float = 1.0) -> float:
+        return self.scheduler(state, ssr)
 
 
 class LinearWithWarmupScheduler(ComposerScheduler):
@@ -597,27 +649,31 @@ class LinearWithWarmupScheduler(ComposerScheduler):
     and :math:`\alpha_f` represents the learning rate multiplier to decay to, and :math:`t_{max}` represents the duration
     of this scheduler.
 
+
     .. warning::
-        Initial warmup time is **not** scaled according to any provided scale schedule ratio! However, the duration of
-        the scheduler is still scaled accordingly. To achieve this, after warmup, the scheduler's "pace" will be
-        slightly distorted from what would otherwise be expected.
+        By default, the initial warmup time is **not** scaled according to any provided scale schedule ratio! However, the duration of
+        the scheduler is still scaled accordingly. To achieve this, after warmup, the scheduler's "slope" will be
+        slightly distorted from what would otherwise be expected. To scale the entire schedule, set ``scale_warmup=True``.
 
     Args:
         t_warmup (str | Time): Warmup time.
         alpha_i (float): Initial learning rate multiplier. Default = ``1.0``.
         alpha_f (float): Final learning rate multiplier. Default = ``0.0``.
         t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
+        scale_warmup (float): SSR also scales the warmup period. Default = ``False``.
     """
 
     def __init__(self,
                  t_warmup: Union[str, Time],
                  alpha_i: float = 1.0,
                  alpha_f: float = 0.0,
-                 t_max: Union[str, Time] = "1dur"):
+                 t_max: Union[str, Time] = '1dur',
+                 scale_warmup: bool = False):
         self.t_warmup = t_warmup
         self.alpha_i = alpha_i
         self.alpha_f = alpha_f
         self.t_max = t_max
+        self.scale_warmup = scale_warmup
         self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=alpha_i, t_max=t_warmup)
 
     def __call__(self, state: State, ssr: float = 1.0):
@@ -630,11 +686,14 @@ class LinearWithWarmupScheduler(ComposerScheduler):
                 same unit as the trainer's max_duration parameter."""))
 
         if state.timestamp < t_warmup:
+            if self.scale_warmup:
+                return self.warmup_scheduler(state, ssr)
             return self.warmup_scheduler(state)
 
         t_max = _convert_time(self.t_max, state, ssr=ssr)
         current_time = state.timestamp.get(t_warmup.unit)
-        frac_of_total = min(1.0, ((current_time - t_warmup) / (t_max - t_warmup)).value)
+        frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value if (t_max > t_warmup) else 0.0
+        frac_of_total = min(1.0, frac_of_total)
 
         current_factor = self.alpha_i + frac_of_total * (self.alpha_f - self.alpha_i)
 
@@ -664,20 +723,25 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
     :math:`\alpha_f` represents the learning rate multiplier to decay to.
 
     .. warning::
-        Initial warmup time is **not** scaled according to any provided scale schedule ratio! However, the duration of
-        the scheduler is still scaled accordingly. To achieve this, after warmup, the scheduler's "pace" will be
-        slightly distorted from what would otherwise be expected.
+            By default, initial warmup time is **not** scaled according to any provided scale schedule ratio.
+            To change this behavior, set ``scale_warmup=True``.
 
     Args:
         t_warmup (str | Time): Warmup time.
         t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
+        scale_warmup (float): SSR also scales the warmup period. Default = ``False``.
     """
 
-    def __init__(self, t_warmup: Union[str, Time], t_max: Union[str, Time] = "1dur", alpha_f: float = 0.0):
+    def __init__(self,
+                 t_warmup: Union[str, Time],
+                 t_max: Union[str, Time] = '1dur',
+                 alpha_f: float = 0.0,
+                 scale_warmup: bool = False):
         self.t_warmup = t_warmup
         self.t_max = t_max
         self.alpha_f = alpha_f
+        self.scale_warmup = scale_warmup
         self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=t_warmup)
 
     def __call__(self, state: State, ssr: float = 1.0):
@@ -690,10 +754,85 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
                 same unit as the trainer's max_duration parameter."""))
 
         if state.timestamp < t_warmup:
+            if self.scale_warmup:
+                return self.warmup_scheduler(state, ssr)
             return self.warmup_scheduler(state)
 
         t_max = _convert_time(self.t_max, state, ssr=ssr)
         current_time = state.timestamp.get(t_warmup.unit)
-        frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value
+        frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value if (t_max > t_warmup) else 0.0
+        frac_of_total = min(1.0, frac_of_total)
 
         return _cosine_anneal(x=frac_of_total, min_y=self.alpha_f)
+
+
+class PolynomialWithWarmupScheduler(ComposerScheduler):
+    r"""Decays the learning rate according to a power of the fraction of training time left, with an initial warmup.
+
+    .. seealso::
+        This scheduler is based on :class:`~.PolynomialScheduler`, with an added warmup.
+
+    Specifically, the learning rate multiplier :math:`\alpha` can be expressed as:
+
+    .. math::
+        \alpha(t) = \begin{cases}
+            t / t_{warmup}, & \text{if } t < t_{warmup} \\
+            \alpha_f + (1 - \alpha_f) \times (1 - \tau_w) ^ {\kappa} & \text{otherwise}
+        \end{cases}
+
+    Given :math:`\tau_w`, the fraction of post-warmup time elpased (clipped to the interval :math:`[0, 1]`), as:
+
+    .. math::
+       \tau_w = (t - t_{warmup}) / t_{max}
+
+    Where :math:`\kappa` represents the exponent to be used for the proportionality relationship,
+    :math:`t_{warmup}` represents the warmup time, :math:`t_{max}` represents the duration of this scheduler, and
+    :math:`\alpha_f` represents the learning rate multiplier to decay to.
+
+    .. warning::
+            By default, initial warmup time is **not** scaled according to any provided scale schedule ratio.
+            To change this behavior, set ``scale_warmup=True``.
+
+    Args:
+        t_warmup (str | Time): Warmup time.
+        power (float): The exponent to be used for the proportionality relationship. Default = ``2.0``.
+        t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
+        alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
+        scale_warmup (float): SSR also scales the warmup period. Default = ``False``.
+    """
+
+    def __init__(self,
+                 t_warmup: Union[str, Time],
+                 power: float = 2.0,
+                 t_max: Union[str, Time] = '1dur',
+                 alpha_f: float = 0.0,
+                 scale_warmup: bool = False):
+        self.t_warmup = t_warmup
+        self.power = power
+        self.t_max = t_max
+        self.alpha_f = alpha_f
+        self.scale_warmup = scale_warmup
+        self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=t_warmup)
+
+    def __call__(self, state: State, ssr: float = 1.0):
+        t_warmup = _convert_time(self.t_warmup, state)
+        if t_warmup.value == 0:
+            warnings.warn(
+                textwrap.dedent("""\
+                The warmup duration is 0. If you specified warmup as a fraction of total
+                training duration, take note that the warmup duration is calculated in the
+                same unit as the trainer's max_duration parameter."""))
+
+        if state.timestamp < t_warmup:
+            if self.scale_warmup:
+                return self.warmup_scheduler(state, ssr)
+            return self.warmup_scheduler(state)
+
+        t_max = _convert_time(self.t_max, state, ssr=ssr)
+        current_time = state.timestamp.get(t_warmup.unit)
+        frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value if (t_max > t_warmup) else 0.0
+        frac_of_total = min(1.0, frac_of_total)
+
+        coeff = (1 - frac_of_total)**self.power
+        current_factor = self.alpha_f + coeff * (1.0 - self.alpha_f)
+        return current_factor

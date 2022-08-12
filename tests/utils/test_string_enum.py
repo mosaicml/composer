@@ -13,39 +13,39 @@ def test_string_enum_invalid_name():
     with pytest.raises(ValueError):
         # names must be uppercase
         class TestStringEnum(StringEnum):
-            names_must_be_uppercase = "names_must_be_uppercase"
+            names_must_be_uppercase = 'names_must_be_uppercase'
 
 
 def test_string_enum_invalid_value():
     with pytest.raises(ValueError):
 
         class TestStringEnum(StringEnum):
-            VALUES_MUST_BE_LOWERCASE = "VALUES_MUST_BE_LOWERCASE"
+            VALUES_MUST_BE_LOWERCASE = 'VALUES_MUST_BE_LOWERCASE'
 
 
 def test_string_enum_comparision():
 
     class TestStringEnum(StringEnum):
-        HELLO_WORLD = "hello_world"
+        HELLO_WORLD = 'hello_world'
 
     with pytest.warns(UserWarning):
-        assert TestStringEnum.HELLO_WORLD == "hello_world"
+        assert TestStringEnum.HELLO_WORLD == 'hello_world'
 
     with pytest.warns(UserWarning):
-        assert TestStringEnum.HELLO_WORLD == "HeLlO_WoRlD"
+        assert TestStringEnum.HELLO_WORLD == 'HeLlO_WoRlD'
 
 
 def test_missing():
 
     class TestStringEnum(StringEnum):
-        HELLO_WORLD = "hello_world"
+        HELLO_WORLD = 'hello_world'
 
     real_val = TestStringEnum.HELLO_WORLD
     assert real_val == TestStringEnum(real_val)
-    assert real_val == TestStringEnum("HeLlO_WoRlD")
+    assert real_val == TestStringEnum('HeLlO_WoRlD')
 
     with pytest.raises(ValueError):
-        TestStringEnum("unknown_name")
+        TestStringEnum('unknown_name')
 
     with pytest.raises(TypeError):
         TestStringEnum(object())

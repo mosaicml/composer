@@ -16,7 +16,7 @@ The scaling law that we use to choose the members of this model family is descri
 
 ## Architecture
 
-GPT-2 consists of a a decoder-only Transformer parameterized by $n_{layer}$, $d_{model}$, $d_{ff}$, $d_{attn}$ and $n_{heads}$. The parameters for each model family member can be seen below:
+GPT-2 consists of a decoder-only Transformer parameterized by $n_{layer}$, $d_{model}$, $d_{ff}$, $d_{attn}$ and $n_{heads}$. The parameters for each model family member can be seen below:
 
 | Name       | $n_{layer}$ | $d_{model}$ | $d_{ff}$ | $d_{attn}$ | $n_{heads}$ |
 |------------|-------------|-------------|----------|------------|-------------|

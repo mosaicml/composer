@@ -1,6 +1,0 @@
-factorize_convs: True
-factorize_linears: True
-min_channels: 512
-latent_channels: 0.25
-min_features: 512
-latent_features: 0.25

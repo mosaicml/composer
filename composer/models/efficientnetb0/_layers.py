@@ -13,8 +13,9 @@ def round_channels(
     divisor: int = 8,
     min_value: Optional[int] = None,
 ) -> int:
-    """Round number of channels after scaling with width multiplier. This function ensures that channel integers halfway
-    inbetween divisors is rounded up.
+    """Round number of channels after scaling with width multiplier.
+
+    This function ensures that channel integers halfway in-between divisors is rounded up.
 
     Args:
         channels (float): Number to round.
@@ -23,7 +24,6 @@ def round_channels(
         min_value (int, optional): Minimum value the output can be. If not specified, defaults
             to the ``divisor``.
     """
-
     if not width_multiplier:
         return int(channels)
     channels *= width_multiplier
@@ -37,7 +37,6 @@ def round_channels(
 
 def calculate_same_padding(kernel_size, dilation, stride):
     """Calculates the amount of padding to use to get the "SAME" functionality in Tensorflow."""
-
     return ((stride - 1) + dilation * (kernel_size - 1)) // 2
 
 
@@ -49,7 +48,6 @@ def drop_connect(inputs: torch.Tensor, drop_connect_rate: float, training: bool)
         drop_connect_rate (float): Probability of droppping each sample.
         training (bool): Whether or not the model is training
     """
-
     if not training:
         return inputs
 
@@ -175,24 +173,26 @@ class DepthwiseSeparableConv(nn.Module):
 
 
 class MBConvBlock(nn.Module):
-    """Mobile Inverted Residual Bottleneck Block as defined in
+    """Mobile Inverted Residual Bottleneck Block.
+
+    This block is implemented as as defined in
     `MobileNetV2: Inverted Residuals and Linear Bottlenecks <https://arxiv.org/abs/1801.04381>`_ (Sandler et al, 2018).
 
-        Args:
-            in_channels (int): Number of channels in the input tensor.
-            out_channels (int): Number of channels in the output tensor.
-            kernel_size (int): Size of the convolving kernel.
-            stride (int): Stride of the convolution.
-            expand_ratio (int): How much to expand the input channels for the
-                depthwise convolution.
-            se_ratio (float): How much to scale `in_channels` for the hidden layer
-                dimensionality of the squeeze-excite module.
-            drop_connect_rate (float): Probability of dropping a sample before the
-                identity connection, provides regularization similar to stochastic
-                depth.
-            act_layer (torch.nn.Module): Activation layer to use in block.
-            norm_kwargs (dict): Normalization layer's keyword arguments.
-            norm_layer (torch.nn.Module): Normalization layer to use in block.
+    Args:
+        in_channels (int): Number of channels in the input tensor.
+        out_channels (int): Number of channels in the output tensor.
+        kernel_size (int): Size of the convolving kernel.
+        stride (int): Stride of the convolution.
+        expand_ratio (int): How much to expand the input channels for the
+            depthwise convolution.
+        se_ratio (float): How much to scale `in_channels` for the hidden layer
+            dimensionality of the squeeze-excite module.
+        drop_connect_rate (float): Probability of dropping a sample before the
+            identity connection, provides regularization similar to stochastic
+            depth.
+        act_layer (torch.nn.Module): Activation layer to use in block.
+        norm_kwargs (dict): Normalization layer's keyword arguments.
+        norm_layer (torch.nn.Module): Normalization layer to use in block.
     """
 
     def __init__(self,

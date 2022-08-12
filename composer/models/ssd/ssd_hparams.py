@@ -9,7 +9,7 @@ import yahp as hp
 
 from composer.models.model_hparams import ModelHparams
 
-__all__ = ["SSDHparams"]
+__all__ = ['SSDHparams']
 
 
 @dataclass
@@ -25,26 +25,26 @@ class SSDHparams(ModelHparams):
     """
 
     input_size: int = hp.optional(
-        doc="input size",
+        doc='input size',
         default=300,
     )
     num_classes: int = hp.optional(
-        doc="num_classes",
+        doc='num_classes',
         default=80,
     )
 
     overlap_threshold: float = hp.optional(
-        doc="threshold",
+        doc='threshold',
         default=0.5,
     )
 
     nms_max_detections: int = hp.optional(
-        doc="nms max dets",
+        doc='nms max dets',
         default=200,
     )
     data: str = hp.optional(
-        doc="data",
-        default="/localdisk/coco",
+        doc='data',
+        default='/localdisk/coco',
     )
 
     def initialize_object(self):

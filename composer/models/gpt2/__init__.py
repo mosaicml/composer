@@ -9,9 +9,9 @@ See the :doc:`Model Card </model_cards/GPT2>` for more details.
 """
 
 from composer.models.gpt2.gpt2_hparams import GPT2Hparams as GPT2Hparams
-from composer.models.gpt2.model import GPT2Model as GPT2Model
+from composer.models.gpt2.model import create_gpt2 as create_gpt2
 
-__all__ = ["GPT2Model", "GPT2Hparams"]
+__all__ = ['create_gpt2', 'GPT2Hparams']
 
 _metadata = {
     'gpt2': {

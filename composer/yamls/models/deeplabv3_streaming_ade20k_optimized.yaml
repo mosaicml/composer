@@ -1,6 +1,6 @@
 train_dataset:
   streaming_ade20k:
-    remote: s3://mosaicml-internal-dataset-ade20k/mds/1/
+    remote: your-bucket-here
     local: /tmp/mds-cache/mds-ade20k/
     split: train
     base_size: 512
@@ -12,7 +12,7 @@ train_dataset:
     shuffle: true
 val_dataset:
   streaming_ade20k:
-    remote: s3://mosaicml-internal-dataset-ade20k/mds/1/
+    remote: your-bucket-here
     local: /tmp/mds-cache/mds-ade20k/
     split: val
     base_size: 512
@@ -20,11 +20,11 @@ val_dataset:
     ignore_background: true
     drop_last: false
     shuffle: false
-optimizer:
+optimizers:
   decoupled_sgdw:
-    lr: 0.01
+    lr: 0.08
     momentum: 0.9
-    weight_decay: 2.0e-5
+    weight_decay: 5.0e-5
     dampening: 0
     nesterov: false
 schedulers:
@@ -40,13 +40,11 @@ model:
     is_backbone_pretrained: true
     backbone_url: https://download.pytorch.org/models/resnet101-cd907fc2.pth
     use_plus: true
-    sync_bn: true
+    sync_bn: false
 max_duration: 128ep
-train_batch_size: 32
-eval_batch_size: 32
+train_batch_size: 128
+eval_batch_size: 128
 seed: 17
-device:
-  gpu: {}
 dataloader:
   pin_memory: true
   timeout: 0
@@ -54,5 +52,4 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 grad_accum: 1
-precision: amp
 dist_timeout: 60

@@ -10,7 +10,7 @@ val_dataset:
     datadir: /datasets/01_2d
     shuffle: false
     drop_last: false
-optimizer:
+optimizers:
   radam:
     lr: 0.001
     betas: [0.9, 0.999]
@@ -28,12 +28,9 @@ train_batch_size: 64
 eval_batch_size: 8
 seed: 0
 grad_accum: 1
-device:
-  gpu: {}
 dataloader:
   pin_memory: true
   timeout: 0
   prefetch_factor: 2
   persistent_workers: true
   num_workers: 8
-precision: amp

@@ -5,30 +5,35 @@
 from composer.models.efficientnetb0.efficientnets import EfficientNet
 from composer.models.tasks import ComposerClassifier
 
-__all__ = ["EfficientNetB0"]
+__all__ = ['composer_efficientnetb0']
 
 
-class EfficientNetB0(ComposerClassifier):
-    """A :class:`.ComposerClassifier` wrapper around the EfficientNet-b0 architecture. From `Rethinking Model Scaling
-    for Convolutional Neural Networks <https://arxiv.org/abs/1905.11946>`_ (Tan et al, 2019).
+def composer_efficientnetb0(num_classes: int = 1000, drop_connect_rate: float = 0.2) -> ComposerClassifier:
+    """Helper function to create a :class:`.ComposerClassifier` with an EfficientNet-b0 architecture.
+
+    See `Rethinking Model Scaling for Convolutional Neural Networks <https://arxiv.org/abs/1905.11946>`_
+        (Tan et al, 2019) for more details.
 
     Args:
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``1000``.
-        drop_connect_rate (float, optional): Probability of dropping a sample within a block before identity connection. Default: ``0.2``.
+        drop_connect_rate (float, optional): Probability of dropping a sample within a block before identity
+            connection. Default: ``0.2``.
+
+    Returns:
+        ComposerModel: instance of :class:`.ComposerClassifier` with a EfficientNet-B0 model.
+
 
     Example:
 
     .. testcode::
 
-        from composer.models import EfficientNetB0
+        from composer.models import composer_efficientnetb0
 
-        model = EfficientNetB0()  # creates EfficientNet-b0 for image classification
+        model = composer_efficientnetb0()  # creates EfficientNet-b0 for image classification
     """
+    model = EfficientNet.get_model_from_name(model_name='efficientnet-b0',
+                                             num_classes=num_classes,
+                                             drop_connect_rate=drop_connect_rate)
 
-    def __init__(self, num_classes: int = 1000, drop_connect_rate: float = 0.2) -> None:
-        model = EfficientNet.get_model_from_name(
-            "efficientnet-b0",
-            num_classes,
-            drop_connect_rate,
-        )
-        super().__init__(module=model)
+    composer_model = ComposerClassifier(module=model)
+    return composer_model

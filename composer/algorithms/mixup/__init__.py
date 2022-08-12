@@ -11,4 +11,4 @@ See the :doc:`Method Card </method_cards/mixup>` for more details.
 from composer.algorithms.mixup.mixup import MixUp as MixUp
 from composer.algorithms.mixup.mixup import mixup_batch as mixup_batch
 
-__all__ = ["MixUp", "mixup_batch"]
+__all__ = ['MixUp', 'mixup_batch']

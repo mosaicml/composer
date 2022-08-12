@@ -18,9 +18,18 @@ from composer.profiler.torch_profiler import TorchProfiler
 from composer.profiler.trace_handler import TraceHandler
 from composer.utils.iter_helpers import ensure_tuple
 
-__all__ = ["Profiler"]
+__all__ = ['Profiler']
 
 log = logging.getLogger(__name__)
+
+try:
+    import yahp
+    del yahp
+except ImportError:
+    profiler_scheduler_registry = {}
+    trace_handler_registry = {}
+else:
+    from composer.profiler.profiler_hparams import profiler_scheduler_registry, trace_handler_registry
 
 
 class Profiler:
@@ -82,10 +91,15 @@ class Profiler:
         torch_prof_num_traces_to_keep (int, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
     """
 
+    hparams_registry = {
+        'schedule': profiler_scheduler_registry,
+        'trace_handlers': trace_handler_registry,
+    }
+
     def __init__(
         self,
         schedule: Callable[[State], ProfilerAction],
-        trace_handlers: Union[TraceHandler, Sequence[TraceHandler]],
+        trace_handlers: List[TraceHandler],
         sys_prof_cpu: bool = True,
         sys_prof_memory: bool = False,
         sys_prof_disk: bool = False,
@@ -137,7 +151,7 @@ class Profiler:
 
         .. note::
 
-            The :class:`~composer.trainer.trainer.Trainer` automatically invokes this method.
+            The :class:`.Trainer` automatically invokes this method.
 
         Args:
             state (State): The training state.
@@ -157,8 +171,10 @@ class Profiler:
         self._trace_handlers[:] = ensure_tuple(trace_handlers)
 
     def record_chrome_json_trace_file(self, filepath: Union[str, pathlib.Path]):
-        """Record trace events in `Chrome JSON format <https://\\
-        docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_ in the trace handlers.
+        """Record trace events in Chrome JSON format in the trace handlers.
+
+        See `this document <https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_
+        for more information about Chrome JSON format.
 
         .. note::
 
@@ -228,7 +244,7 @@ class Profiler:
             Marker: Marker instance.
         """
         if self.state is None:
-            raise RuntimeError("Profiler.bind_to_state() must be invoked before the Profiler can be used.")
+            raise RuntimeError('Profiler.bind_to_state() must be invoked before the Profiler can be used.')
         if name not in self._names_to_markers:
 
             def should_record(state: State) -> bool:

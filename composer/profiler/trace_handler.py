@@ -12,7 +12,7 @@ from typing import Dict, List, Tuple, Union
 from composer.core.callback import Callback
 from composer.core.time import Timestamp
 
-__all__ = ["TraceHandler"]
+__all__ = ['TraceHandler']
 
 
 class TraceHandler(Callback, abc.ABC):
@@ -21,7 +21,7 @@ class TraceHandler(Callback, abc.ABC):
     Subclasses should implement :meth:`process_duration_event`, :meth:`process_instant_event`,
     :meth:`process_counter_event`, and :meth:`process_chrome_json_trace_file` to record trace events.
 
-    Since :class:`TraceHandler` subclasses :class:`~composer.core.callback.Callback`, a trace handler can run on any
+    Since :class:`TraceHandler` subclasses :class:`.Callback`, a trace handler can run on any
     :class:`.Event` (such as on :attr:`.Event.INIT` to open files or on :attr:`.Event.BATCH_END` to periodically dump
     data to files) and use :meth:`.Callback.close` to perform any cleanup.
     """
@@ -90,8 +90,10 @@ class TraceHandler(Callback, abc.ABC):
         pass
 
     def process_chrome_json_trace_file(self, filepath: pathlib.Path) -> None:
-        """Invoked when there are events in `Chrome JSON format <https://\\
-        docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_ to record.
+        """Invoked when there are events in Chrome JSON format to record.
+
+        See `this document <https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_
+        for more information.
 
         Args:
             filepath (pathlib.Path): The filepath to a Chrome JSON trace file.

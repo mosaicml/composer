@@ -53,6 +53,18 @@ dataset = VisionDataset("data_path", transform=composed)
 
 ### Composer Trainer
 
+<!--pytest.mark.gpu-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomClassificationDataset, SimpleModel
+
+model = SimpleModel()
+train_dataloader = DataLoader(RandomClassificationDataset())
+eval_dataloader = DataLoader(RandomClassificationDataset())
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
@@ -69,6 +81,7 @@ colout = ColOut(
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
     max_duration='1ep',
     algorithms=[colout]
 )
@@ -79,7 +92,7 @@ trainer.fit()
 ### Implementation Details
 
 ColOut currently has two implementations.
-One implementation, accessed by passing `batch=False`, acts as an additional data augmentation for use in PyTorch dataloaders. It runs on the CPU and applies ColOut independently to each training example. 
+One implementation, accessed by passing `batch=False`, acts as an additional data augmentation for use in PyTorch dataloaders. It runs on the CPU and applies ColOut independently to each training example.
 A second implementation, accessed by passing `batch=True`, runs immediately before the training example is provided to the model. It runs on the GPU and drops the same rows and columns for all training examples in a mini-batch.
 
 ## Suggested Hyperparameters

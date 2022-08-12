@@ -11,7 +11,7 @@ Sequence Length Warmup linearly increases the sequence length (number of tokens 
 |:--|
 |*The sequence length used to train a model over the course of training. It increases linearly over the first 30% of training before reaching its full value for the remainder of training.*|
 
-<!--## How to Use
+## How to Use
 
 ### Functional Interface
 
@@ -41,13 +41,25 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
+<!--pytest.mark.gpu-->
+<!--
+```python
+from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker
+
+synthetic_config = make_dataset_configs(model_family=['bert'])[0]
+_, model, train_dataloader = synthetic_hf_state_maker(synthetic_config)
+_, _, eval_dataloader = synthetic_hf_state_maker(synthetic_config)
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 from composer.trainer import Trainer
 from composer.algorithms import SeqLengthWarmup
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
-                  max_duration='1ep',
+                  eval_dataloader=eval_dataloader,
+                  max_duration='250ep',
                   algorithms=[SeqLengthWarmup()])
 
 trainer.fit()
@@ -55,7 +67,7 @@ trainer.fit()
 
 ### Implementation Details
 
-We implement this as a pre-processing step during the forward pass when training the model.-->
+We implement this as a pre-processing step during the forward pass when training the model.
 
 ## Suggested Hyperparameters
 
@@ -69,10 +81,10 @@ Typically, sequences in language modeling tasks are sentences, so Sequence Lengt
 Note that our implementation of Sequence Length Warmup (which follows that of [Li et al., 2021](https://arxiv.org/abs/2108.06084)) creates short sentences by truncating or segmenting longer sentences; it does not explicitly train on shorter sentences.
 
 > 🚧 Sequence Length Warmup Truncates or Segments Sentences to Create Shorter Ones
-> 
+>
 > To create shorter sentences, Sequence Length Warmup truncates longer sentences or breaks them into shorter segments.
 > It does not explicitly train on only the shortest sentences in the corpus.
-> This design decision is in line with [Li et al., 2021](https://arxiv.org/abs/2108.06084), whose implementation was the basis for ours. 
+> This design decision is in line with [Li et al., 2021](https://arxiv.org/abs/2108.06084), whose implementation was the basis for ours.
 
 As the name suggests, Sequence Length Warmup starts by training on shorter sentences (determined by the `min_seq_length` hyperparameter) and linearly increases sentence length to the full value (determined by the `max_seq_length` hyperparameter) over the course of the beginning of training (the fraction of training specified by the `duration` hyperparameter).
 After this point, the model is trained exclusively on sentences of up to `max_seq_length`.
@@ -81,7 +93,7 @@ Our experiments found that Sequence Length Warmup could speed up training by a f
 [Li et al., 2021](https://arxiv.org/abs/2108.06084) claim that Sequence Length Warmup also reduces the outliers in Adam’s variance term, which makes training more stable and permits training on larger batch sizes and larger learning rates without divergence.
 
 > ✅ Sequence Length Warmup's Tradeoff Between Quality and Training Speed
-> 
+>
 > In our experiments, Sequence Length Warmup improves the attainable tradeoffs between training speed and the final quality of the trained model.
 
 One of the key design decisions when performing Sequence Length Warmup is the manner in which the sentences are shortened to the appropriate length. There are two options for doing this:

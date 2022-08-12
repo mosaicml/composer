@@ -3,63 +3,54 @@
 
 """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.GPT2Model`."""
 
-import dataclasses
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import Dict, Optional
 
-from composer.models.transformer_hparams import TransformerHparams
-from composer.utils.import_helpers import MissingConditionalImportError
+import yahp as hp
 
-if TYPE_CHECKING:
-    from composer.models.transformer_shared import ComposerTransformer
+from composer.core.types import JSON
+from composer.models.model_hparams import ModelHparams
 
-__all__ = ["GPT2Hparams"]
+__all__ = ['GPT2Hparams']
 
 
-@dataclasses.dataclass
-class GPT2Hparams(TransformerHparams):
+@dataclass
+class GPT2Hparams(ModelHparams):
     """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.GPT2Model`.
 
     Args:
-        pretrained_model_name (str): Pretrained model name to pull from Hugging Face Model Hub.
-        model_config (Dict[str, JSON]): A dictionary providing a HuggingFace model configuration.
-        tokenizer_name (Optional[str]): The tokenizer used for this model,
-            necessary to assert required model inputs.
+        model_config (Dict[str, JSON], optional ): A dictionary providing a HuggingFace model configuration.
+        pretrained_model_name (str, optional): Pretrained model name to pull from Hugging Face Model Hub.
         use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights. Default: ``False``.
+        tokenizer_name (str, optional): The tokenizer used for this model,
+            necessary to assert required model inputs. Default ``None``.
         gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
     """
+    model_config: Optional[Dict[str,
+                                JSON]] = hp.optional(doc='A dictionary providing a HuggingFace model configuration.',
+                                                     default_factory=dict)
+    pretrained_model_name: Optional[str] = hp.optional(doc='Pretrained model name to pull from Hugging Face Model Hub.',
+                                                       default=None)
+    use_pretrained: Optional[bool] = hp.optional('Whether to initialize the model with the pretrained weights.',
+                                                 default=False)
+    tokenizer_name: Optional[str] = hp.optional(
+        'The tokenizer used for this model, necessary to assert required model inputs.', default=None)
+    gradient_checkpointing: Optional[bool] = hp.optional('Whether to enable gradient checkpointing.', default=False)
 
-    def initialize_object(self) -> "ComposerTransformer":
-        try:
-            import transformers
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+    def initialize_object(self):
+        from composer.models.gpt2.model import create_gpt2
 
-        from composer.models.gpt2.model import GPT2Model
-        self.validate()
+        # user must specify one of either config or the pretrained model
+        if not self.pretrained_model_name and self.model_config == {}:
+            raise Exception('One of pretrained_model_name or model_config needed.')
 
-        if self.model_config:
-            config = transformers.GPT2Config.from_dict(self.model_config)
-        elif self.pretrained_model_name is not None:
-            # TODO (Moin): verify that the config is an appropriate instance of GPT2!
-            config = transformers.GPT2Config.from_pretrained(self.pretrained_model_name)
-        else:
-            raise ValueError('One of pretrained_model_name or model_config needed.')
+        if self.use_pretrained and self.model_config:
+            raise Exception('A model cannot load pretrained weights from configuration.')
 
-        # setup the tokenizer in the hparams interface
-        if self.tokenizer_name is not None:
-            tokenizer = transformers.GPT2Tokenizer.from_pretrained(self.tokenizer_name)
-        else:
-            tokenizer = None
-
-        if self.use_pretrained:
-            assert transformers.AutoModelForCausalLM.from_pretrained is not None, "from_pretrained should not be None"
-            model = transformers.AutoModelForCausalLM.from_pretrained(self.pretrained_model_name)
-        else:
-            model = transformers.AutoModelForCausalLM.from_config(config)  #type: ignore (thirdparty)
-
-        return GPT2Model(
-            module=model,
-            config=config,  #type: ignore (thirdparty)
-            tokenizer=tokenizer,
+        return create_gpt2(
+            model_config=self.model_config,  #type: ignore (thirdparty)
+            pretrained_model_name=self.pretrained_model_name,
+            use_pretrained=self.use_pretrained,
+            tokenizer_name=self.tokenizer_name,
             gradient_checkpointing=self.gradient_checkpointing,
         )

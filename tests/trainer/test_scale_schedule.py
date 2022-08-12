@@ -12,15 +12,16 @@ from torch.optim.lr_scheduler import ExponentialLR
 from composer.core import Callback, State, TimeUnit
 from composer.core.types import PyTorchScheduler
 from composer.loggers.logger import Logger
-from composer.optim import MultiStepSchedulerHparams, SGDHparams
-from composer.trainer import TrainerHparams
+from composer.optim import MultiStepScheduler
+from composer.optim.optimizer_hparams_registry import SGDHparams
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
+from composer.trainer.trainer_hparams import TrainerHparams
 from tests.common.models import SimpleModel
 
 
 @pytest.fixture
 def optimizer():
-    return torch.optim.SGD(SimpleModel().parameters(), lr=1)
+    return torch.optim.SGD(SimpleModel().parameters(), lr=1.0)
 
 
 def flatten(lst: list):
@@ -28,7 +29,7 @@ def flatten(lst: list):
 
 
 @pytest.mark.parametrize('ssr', [0.5, 0.75, 1.0])
-@pytest.mark.filterwarnings(r"ignore:.*Detected call of \`lr_schedule.*:UserWarning")
+@pytest.mark.filterwarnings(r'ignore:.*Detected call of \`lr_schedule.*:UserWarning')
 class TestScaleSchedule():
 
     @staticmethod
@@ -36,7 +37,7 @@ class TestScaleSchedule():
         scale_pytorch_scheduler(scheduler, ssr)
         for epoch in range(epochs):
             for param_group in optimizer.param_groups:
-                torch.testing.assert_allclose(targets[epoch], param_group['lr'])
+                torch.testing.assert_close(targets[epoch], param_group['lr'])
             scheduler.step()
 
     def test_scale_schedule_step_lr(self, optimizer: Optimizer, ssr: float):
@@ -99,16 +100,16 @@ class CheckScaleSchedule(Callback):
 @pytest.mark.parametrize('ssr', [0.5, 0.75, 1.0])
 class TestScaleScheduleTrainer():
 
-    @pytest.mark.filterwarnings(r"ignore:.*Detected call of \`lr_schedule.*:UserWarning")
+    @pytest.mark.filterwarnings(r'ignore:.*Detected call of \`lr_schedule.*:UserWarning')
     def test_epochs_scaled(
         self,
         ssr: float,
         composer_trainer_hparams: TrainerHparams,
     ):
 
-        composer_trainer_hparams.optimizer = SGDHparams(lr=1.0)
+        composer_trainer_hparams.optimizers = SGDHparams(lr=1.0)
         composer_trainer_hparams.max_duration = '10ep'
-        composer_trainer_hparams.schedulers = [MultiStepSchedulerHparams(milestones=['30ba', '50ba'], gamma=0.1)]
+        composer_trainer_hparams.schedulers = [MultiStepScheduler(milestones=['30ba', '50ba'], gamma=0.1)]
 
         composer_trainer_hparams.scale_schedule_ratio = ssr
         trainer = composer_trainer_hparams.initialize_object()

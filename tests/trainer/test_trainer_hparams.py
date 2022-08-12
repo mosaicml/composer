@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 from __future__ import annotations
 
 import typing
@@ -5,9 +8,10 @@ from typing import TYPE_CHECKING, Callable, Type
 
 import pytest
 
-from composer.datasets.dataloader import DataLoaderHparams
-from composer.trainer import EvalHparams, ExperimentHparams, FitHparams, Trainer, TrainerHparams
-from composer.trainer.trainer_hparams import EvalKwargs, FitKwargs
+from composer.datasets.dataset_hparams import DataLoaderHparams
+from composer.trainer import Trainer
+from composer.trainer.trainer_hparams import (EvalHparams, EvalKwargs, ExperimentHparams, FitHparams, FitKwargs,
+                                              TrainerHparams)
 from tests.common import SimpleModelHparams
 from tests.common.datasets import RandomClassificationDatasetHparams
 
@@ -15,7 +19,7 @@ if TYPE_CHECKING:
     from typing import TypedDict
 
 
-@pytest.mark.parametrize("method,typeddict_cls", [[Trainer.fit, FitKwargs], [Trainer.eval, EvalKwargs]])
+@pytest.mark.parametrize('method,typeddict_cls', [[Trainer.fit, FitKwargs], [Trainer.eval, EvalKwargs]])
 def test_kwargs_match_signature(method: Callable, typeddict_cls: Type[TypedDict]):
     assert typing.get_type_hints(method) == typing.get_type_hints(typeddict_cls)
 

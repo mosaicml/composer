@@ -10,8 +10,8 @@ from torch.nn.functional import cross_entropy
 from composer.metrics.nlp import BinaryF1Score, LanguageCrossEntropy, MaskedAccuracy
 
 
-@pytest.mark.parametrize("ignore_index", [-100])
-@pytest.mark.parametrize("num_classes", [2, 3, 4, 5])
+@pytest.mark.parametrize('ignore_index', [-100])
+@pytest.mark.parametrize('num_classes', [2, 3, 4, 5])
 def test_masked_accuracy(ignore_index, num_classes):
     """Sanity check to make sure that masked accuracy has reasonable performance.
 
@@ -44,11 +44,11 @@ def test_masked_accuracy(ignore_index, num_classes):
     assert abs(final_acc - (1.0 / num_classes)) < 0.02
 
 
-@pytest.mark.parametrize("ignore_index", [-100])
-@pytest.mark.parametrize("batch_size", [1e2, 1e3])
-@pytest.mark.parametrize("sequence_length", [128])
-@pytest.mark.parametrize("num_classes", [2, 10])
-@pytest.mark.parametrize("minibatch_size", [56, 256, 768])
+@pytest.mark.parametrize('ignore_index', [-100])
+@pytest.mark.parametrize('batch_size', [1e2, 1e3])
+@pytest.mark.parametrize('sequence_length', [128])
+@pytest.mark.parametrize('num_classes', [2, 10])
+@pytest.mark.parametrize('minibatch_size', [56, 256, 768])
 def test_cross_entropy(batch_size: float, ignore_index: int, sequence_length: int, num_classes: int,
                        minibatch_size: int):
     """Sanity check to make sure that batched CrossEntropyLoss matches the expected performance.
@@ -90,8 +90,8 @@ def test_cross_entropy(batch_size: float, ignore_index: int, sequence_length: in
     assert torch.isclose(correct_loss, torchmetrics_loss)
 
 
-@pytest.mark.parametrize("batch_size", [1e2, 1e3, 1e4])
-@pytest.mark.parametrize("minibatch_size", [256, 768])
+@pytest.mark.parametrize('batch_size', [1e2, 1e3, 1e4])
+@pytest.mark.parametrize('minibatch_size', [256, 768])
 def test_binary_f1(batch_size, minibatch_size):
     """Sanity check to make sure that BinaryF1 TorchMetrics implementation matches the sklearn implementation.
 
@@ -101,7 +101,7 @@ def test_binary_f1(batch_size, minibatch_size):
         batch_size (int): how many samples are in each batch
         minibatch_size (int): the minibatch size to simulate for model predictions
     """
-    pytest.importorskip("sklearn", reason="sklearn is an optional dependency")
+    pytest.importorskip('sklearn', reason='sklearn is an optional dependency')
     from sklearn.metrics import f1_score
 
     batch_size = int(batch_size)
