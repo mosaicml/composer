@@ -11,7 +11,7 @@ Stochastic Weight Averaging (SWA) maintains a running average of the weights tow
 |*Visualization of SWA from an extensive [PyTorch blogpost about SWA](https://pytorch.org/blog/stochastic-weight-averaging-in-pytorch/).*|
 
 
-## How to Use
+## How to  Use
 
 ### Composer Trainer
 
