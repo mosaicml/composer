@@ -36,7 +36,7 @@ from composer.optim.optimizer_hparams_registry import OptimizerHparams, optimize
 from composer.optim.scheduler_hparams_registry import scheduler_registry
 from composer.profiler import Profiler
 from composer.trainer.ddp import DDPSyncStrategy
-from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS
+from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.trainer.devices.device_hparams_registry import device_registry
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, reproducibility

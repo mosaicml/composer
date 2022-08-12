@@ -13,31 +13,30 @@ import torch.utils.data
 
 from composer.trainer.devices.device import Device
 
-__all__ = ["DeviceMPS"]
+__all__ = ['DeviceMPS']
 
-T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
+T_nnModule = TypeVar('T_nnModule', bound=torch.nn.Module)
 
 
 class DeviceMPS(Device):
-    """An extension of :class:`~composer.trainer.devices.device.Device` for MPS,
-    which is Apple's backend for training models on M1 chips.
+    """Device to support MPS, for training on Apple's M-series chips.
 
     This class takes no arguments.
     """
-    dist_backend = ""
+    dist_backend = ''
 
     def __init__(self):
-        self._device = torch.device("mps")
+        self._device = torch.device('mps')
 
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
         return module.to(self._device)
 
     def tensor_to_device(self, tensor: torch.Tensor) -> torch.Tensor:
-        return tensor.to(self._device, non_blocking=True)
+        return tensor.to(self._device)
 
     def state_dict(self) -> Dict[str, Any]:
         return {}
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
         if len(state) != 0:
-            raise ValueError("MPS device has no state.")
+            raise ValueError('MPS device has no state.')
