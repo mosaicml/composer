@@ -237,7 +237,6 @@ def _is_tpu_installed() -> bool:
 if _is_tpu_installed():
     import torch_xla.core.xla_model as xm
     import torch_xla.distributed.parallel_loader as pl
-    from torch_xla.amp import GradScaler as xla_grad_scaler
 
 
 class Trainer:
@@ -1479,10 +1478,7 @@ class Trainer:
 
         self.engine.run_event(Event.FIT_START)
 
-        if isinstance(self._device, DeviceTPU):
-            self.state.scaler = xla_grad_scaler()
-        else:
-            self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
+        self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
 
         use_grad_scaling = self._use_grad_scaling(self.state.precision, self.state.scaler)
 
