@@ -448,13 +448,11 @@ class TrainerHparams(hp.Hparams):
         # on TPUs, model must be moved to device before optimizer creation
         if isinstance(device, DeviceTPU):
             if not _is_tpu_installed():
-                raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]')
+                raise ImportError("Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla")
             import torch_xla.core.xla_model as xm
             import torch_xla.distributed.xla_multiprocessing as xmp
 
-            WRAPPED_MODEL = xmp.MpModelWrapper(model)
-            xla_device = xm.xla_device()
-            model = WRAPPED_MODEL.to(xla_device)
+            model = xmp.MpModelWrapper(model).to(xm.xla_device())
 
         # Train dataloader
         train_dataloader = _initialize_dataloader(self.train_dataset, self.train_dataloader_label,

@@ -4,7 +4,6 @@
 """Enum class for the numerical precision to be used by the model."""
 
 import contextlib
-import os
 from typing import Generator, Union
 
 import torch

@@ -105,7 +105,7 @@ def _get_training_metrics(model: ComposerModel):
 def _validate_precision(precision: Precision, device: Device, deepspeed_enabled: bool):
     if isinstance(device, DeviceCPU) and precision != Precision.FP32:
         raise ValueError(f'{precision} is not supproted for CPU training.')
-    if not deepspeed_enabled and precision == Precision.FP16 and not isinstance(device, DeviceTPU):
+    if not deepspeed_enabled and precision == Precision.FP16:
         raise ValueError('FP16 precision is only supported when training with DeepSpeed.')
 
 
@@ -174,7 +174,7 @@ def _get_device(device: Optional[Union[str, Device]]):
             device = DeviceGPU()
         elif device.lower() == 'tpu':
             if not _is_tpu_installed:
-                raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]')
+                raise ImportError("Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla")
             device = DeviceTPU()
         else:
             raise ValueError(f'device ({device}) must be one of (cpu, gpu, tpu).')
