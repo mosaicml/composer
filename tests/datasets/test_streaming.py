@@ -427,3 +427,32 @@ def test_compression(compressed_remote_local: Tuple[str, str, str], compression:
 
     dcmp = dircmp(remote, local)
     check_for_diff_files(dcmp)
+
+
+def test_cipher_shuffle(remote_local: Tuple[str, str]):
+    remote, local = remote_local
+    num_samples = 31
+    shard_size_limit = 1 << 6
+    shuffle = True
+    samples, decoders = get_fake_samples_decoders(num_samples)
+
+    write_synthetic_streaming_dataset(dirname=remote,
+                                      samples=samples,
+                                      shard_size_limit=shard_size_limit,
+                                      compression=None)
+    dataset = StreamingDataset(remote=remote,
+                               local=local,
+                               shuffle=shuffle,
+                               decoders=decoders,
+                               shuffle_buffer_size='15shards')
+
+    unique_set = []
+    assert len(dataset) == num_samples
+
+    for datum in dataset:
+        if datum['uid'] in unique_set:
+            nominal_order = [dataset.shuffle_sample(ix) for ix in range(len(dataset))]
+            raise ValueError(
+                f"Duplicate UID: {datum['uid']}, full order: {unique_set}, nominal order: {nominal_order}, shard order: {dataset._shard_shuffle_indices}, samples per shard: {dataset.index.samples_per_shard}"
+            )
+        unique_set.append(datum['uid'])
