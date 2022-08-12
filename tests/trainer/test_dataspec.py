@@ -27,6 +27,7 @@ class TestDefaultGetNumSamples:
         (torch.rand(N, 8), torch.rand(N, 64)),  # tuple
         [torch.rand(N, 8), torch.rand(N, 64)],  # list
         torch.rand(N, 8),  # tensor
+        torch.rand(N, 8, 4, 2),  # 4-dim tensor
     ])
     # yapf: enable
     def test_num_samples_infer(self, batch: Any, dataspec: DataSpec):
