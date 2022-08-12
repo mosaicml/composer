@@ -11,7 +11,6 @@ from typing import Any, Dict, TypeVar
 import torch
 
 from composer.trainer.devices.device import Device
-from composer.utils import MissingConditionalImportError
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +27,7 @@ class DeviceTPU(Device):
     """
 
     def __init__(self):
-        try:
-            import torch_xla.core.xla_model as xm
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='tpu', conda_package='torch_xla[tpuvm]') from e
+        import torch_xla.core.xla_model as xm
 
         self._device = xm.xla_device()
 

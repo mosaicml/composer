@@ -174,7 +174,8 @@ def _get_device(device: Optional[Union[str, Device]]):
             device = DeviceGPU()
         elif device.lower() == 'tpu':
             if not _is_tpu_installed:
-                raise ImportError("Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla")
+                raise ImportError('
+Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla')
             device = DeviceTPU()
         else:
             raise ValueError(f'device ({device}) must be one of (cpu, gpu, tpu).')
@@ -226,9 +227,11 @@ def _generate_run_name() -> str:
 def _is_tpu_installed() -> bool:
     try:
         import torch_xla.core.xla_model as xm
+        del xm
     except ImportError:
         return False
-    return True
+    else:
+        return True
 
 if _is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -808,7 +811,8 @@ class Trainer:
         if not deepspeed_enabled:
             # check if model is already on tpu
             if isinstance(self._device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
-                raise ValueError('the model needs to be on tpu before optimizer')
+                raise ValueError(
+                    'Use model.to(xm.xla_device()) to set the model to the TPU before providing to the trainer.')
             else:
                 model = self._device.module_to_device(model)
                 # Move any remaining optimizer parameters onto the device
