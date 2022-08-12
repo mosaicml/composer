@@ -2078,7 +2078,12 @@ class Trainer:
 
                 # Run in same precision context to avoid NaNs
                 with get_precision_context(self.state.precision):
-                    metrics.update(self.state.outputs, targets)
+                    if isinstance(self._device, DeviceMPS):
+                        # torchmetrics math has numerical errors on M1 devices
+                        # running the compute on CPU instead
+                        metrics.update(self.state.outputs.cpu(), targets.cpu())
+                    else:
+                        metrics.update(self.state.outputs, targets)
 
                 now = datetime.datetime.now()
                 batch_time = now - last_wct
