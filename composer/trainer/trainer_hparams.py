@@ -36,9 +36,9 @@ from composer.optim.optimizer_hparams_registry import OptimizerHparams, optimize
 from composer.optim.scheduler_hparams_registry import scheduler_registry
 from composer.profiler import Profiler
 from composer.trainer.ddp import DDPSyncStrategy
-from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
+from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceTPU
 from composer.trainer.devices.device_hparams_registry import device_registry
-from composer.trainer.trainer import Trainer
+from composer.trainer.trainer import Trainer, _is_tpu_installed
 from composer.utils import dist, reproducibility
 from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
 
@@ -445,6 +445,16 @@ class TrainerHparams(hp.Hparams):
 
         # The model
         model = self.model.initialize_object()
+        # on TPUs, model must be moved to device before optimizer creation
+        if isinstance(device, DeviceTPU):
+            if not _is_tpu_installed():
+                raise ImportError(
+                    'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla'
+                )
+            import torch_xla.core.xla_model as xm
+            import torch_xla.distributed.xla_multiprocessing as xmp
+
+            model = xmp.MpModelWrapper(model).to(xm.xla_device())
 
         # Train dataloader
         train_dataloader = _initialize_dataloader(self.train_dataset, self.train_dataloader_label,
