@@ -135,7 +135,7 @@ def configure_model_hparams_for_synthetic(model_hparams: ModelHparams) -> None:
 
     # configure DeepLabV3 models for synthetic testing
     if isinstance(model_hparams, DeepLabV3Hparams):
-        model_hparams.is_backbone_pretrained = False  # prevent downloading pretrained weights during test
+        model_hparams.backbone_weights = None  # prevent downloading pretrained weights during test
         model_hparams.sync_bn = False  # sync_bn throws an error when run on CPU
 
 
