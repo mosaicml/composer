@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""The GPU device used for training."""
+"""The Apple M-series device used for training."""
 
 from __future__ import annotations
 
