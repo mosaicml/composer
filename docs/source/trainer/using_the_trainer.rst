@@ -271,6 +271,15 @@ engineering. We currently support the ``cpu`` and ``gpu`` devices.
         device='cpu'
     )
 
+Training on M1 chips (beta)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To train models on Apple M-series chips, we support ``device='mps'``. Note
+that this requires having ``torch >= 1.12`` installed, as well as Mac OSX 12.3+.
+
+For more details, see: `Pytorch Release Blog <https://pytorch.org/blog/pytorch-1.12-released/#prototype-introducing-accelerated-pytorch-training-on-mac>`__.
+
+
 Distributed Training
 ~~~~~~~~~~~~~~~~~~~~
 
