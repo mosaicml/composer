@@ -279,6 +279,14 @@ that this requires having ``torch >= 1.12`` installed, as well as Mac OSX 12.3+.
 
 For more details, see: `Pytorch Release Blog <https://pytorch.org/blog/pytorch-1.12-released/#prototype-introducing-accelerated-pytorch-training-on-mac>`__.
 
+.. code:: python
+
+    from composer import Trainer
+
+    trainer = Trainer(
+        ...,
+        device='mps',
+    )
 
 Distributed Training
 ~~~~~~~~~~~~~~~~~~~~
