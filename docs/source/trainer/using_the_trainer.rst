@@ -290,7 +290,7 @@ instructions here https://github.com/pytorch/xla.
 	device='tpu'
     )
 .. note:: We will add multi-core support in future releases.
-	  
+
 Distributed Training
 ~~~~~~~~~~~~~~~~~~~~
 

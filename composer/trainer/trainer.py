@@ -173,7 +173,7 @@ def _get_device(device: Optional[Union[str, Device]]):
         elif device.lower() == 'gpu':
             device = DeviceGPU()
         elif device.lower() == 'tpu':
-            if not _is_tpu_installed:
+            if not _is_tpu_installed:  # type: ignore
                 raise ImportError(
                     'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla'
                 )
