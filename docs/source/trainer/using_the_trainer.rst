@@ -78,9 +78,14 @@ objects.
 
     trainer.fit()
 
+When training is complete, metrics can be accessed from the trainer state.
+
+.. code:: python
+
+    print(trainer.state.current_metrics)
+
 In the background, we automatically add the :class:`.ProgressBarLogger` to log
 training progress to the console.
-
 
 A few tips and tricks for using our Trainer:
 
