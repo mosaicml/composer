@@ -48,8 +48,12 @@ def _get_base_image(cuda_version: str):
 def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     if not use_cuda:
         return ''
-    if pytorch_version in ('1.10.2', '1.11.0', '1.12.0'):
+    if pytorch_version == '1.10.2':
         return '11.3.1'
+    if pytorch_version == '1.11.0':
+        return '11.5.2'
+    if pytorch_version == '1.12.0':
+        return '11.6.2'
     raise ValueError(f'Invalid pytorch_version: {str}')
 
 
@@ -155,7 +159,7 @@ def _main():
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
-    composer_versions = ['', '==0.8.1', 'GIT_COMMIT']  # Only build images for the latest composer version
+    composer_versions = ['', '==0.8.2', 'GIT_COMMIT']  # Only build images for the latest composer version
     composer_python_versions = ['3.9']  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):

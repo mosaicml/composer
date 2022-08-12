@@ -65,7 +65,9 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    examples/streaming_dataloader_facesynthetics.ipynb
    examples/auto_grad_accum.ipynb
    examples/checkpoint_autoresume.ipynb
+   examples/training_without_local_storage.ipynb
    examples/exporting_for_inference.ipynb
+   examples/glue/glue_entrypoint.ipynb
 
 .. toctree::
    :hidden:
@@ -89,6 +91,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    trainer/events.rst
    trainer/checkpointing.rst
    trainer/logging.rst
+   trainer/artifact_logging.rst
    trainer/callbacks.rst
    trainer/performance.rst
 

@@ -32,6 +32,9 @@ function cleanup()
     # Combine the coverage reports
     python -m coverage combine
     python -m coverage xml -o build/output/build${BUILD_NUMBER}.coverage.xml
+
+    # Move the raw merged .coverage file into the build artifact folder
+    mv .coverage ${BUILD_DIR}/.coverage.${BUILD_NUMBER}
 }
 
 trap cleanup EXIT
@@ -42,13 +45,11 @@ COMMON_ARGS="-v -m '$MARKERS' --s3_bucket '$S3_BUCKET' --sftp_uri '$SFTP_URI'"
 # Run pytest with coverage, and store the junit output
 make test \
     PYTEST="coverage run -m pytest" \
-    DURATION=all \
     EXTRA_ARGS="--codeblocks --junitxml ${BUILD_DIR}/build${BUILD_NUMBER}_nproc0.junit.xml $COMMON_ARGS"
 
 RANK_ARG='\$${RANK}' # escape RANK from the makefile and the makefile shell command
 make test-dist \
     PYTEST="coverage run -m pytest" \
-    DURATION=all \
     WORLD_SIZE=2 \
     EXTRA_LAUNCHER_ARGS="--stdout ${BUILD_DIR}/build${BUILD_NUMBER}_nproc2_rank{rank}.stdout.txt \
         --stderr ${BUILD_DIR}/build${BUILD_NUMBER}_nproc2_rank{rank}.stderr.txt" \

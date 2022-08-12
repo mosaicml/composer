@@ -39,17 +39,17 @@ class ObjectStoreLoggerHparams(hp.Hparams):
         should_log_artifact (str, optional): The path to a filter function which returns whether an artifact should be
             logged. The path should be of the format ``path.to.module:filter_function_name``.
 
-            The function should take (:class:`~composer.core.state.State`, :class:`.LogLevel`, ``<artifact name>``).
+            The function should take (:class:`~composer.core.State`, :class:`.LogLevel`, ``<artifact name>``).
             The artifact name will be a string. The function should return a boolean indicating whether the artifact
             should be logged.
 
             .. seealso: :func:`composer.utils.import_helpers.import_object`
 
             Setting this parameter to ``None`` (the default) will log all artifacts.
-        object_name (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
-        num_concurrent_uploads (int, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
-        upload_staging_folder (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
-        use_procs (bool, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
+        object_name (str, optional): See :class:`.ObjectStoreLogger`.
+        num_concurrent_uploads (int, optional): See :class:`.ObjectStoreLogger`.
+        upload_staging_folder (str, optional): See :class:`.ObjectStoreLogger`.
+        use_procs (bool, optional): See :class:`.ObjectStoreLogger`.
     """
 
     hparams_registry = {

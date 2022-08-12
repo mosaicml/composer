@@ -9,7 +9,6 @@ import datetime
 import logging
 import os
 import signal
-import socket
 import subprocess
 import sys
 import tempfile
@@ -23,6 +22,7 @@ import psutil
 import torch
 
 import composer
+from composer.utils.misc import get_free_tcp_port
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
@@ -132,15 +132,6 @@ def _get_parser():
     return parser
 
 
-def _get_free_tcp_port() -> int:
-    # from https://www.programcreek.com/python/?CodeExample=get+free+port
-    tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tcp.bind(('', 0))
-    _, port = tcp.getsockname()
-    tcp.close()
-    return port
-
-
 def _parse_args():
     parser = _get_parser()
 
@@ -232,7 +223,7 @@ def _parse_args():
             warnings.warn('AutoSelectPortWarning: The distributed key-value port was auto-selected. '
                           'This may lead to race conditions when launching multiple training processes simultaneously. '
                           'To eliminate this race condition, explicitly specify a port with --master_port PORT_NUMBER')
-            args.master_port = _get_free_tcp_port()
+            args.master_port = get_free_tcp_port()
 
     return args
 

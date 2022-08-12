@@ -62,6 +62,9 @@ if sys.path[0] != _repo_root:
 
 from tests.common import SimpleModel
 
+# Disable wandb
+os.environ['WANDB_MODE'] = 'disabled'
+
 
 def _make_synthetic_bert_state():
     from tests.fixtures.synthetic_hf_state import make_synthetic_bert_dataloader, make_synthetic_bert_model

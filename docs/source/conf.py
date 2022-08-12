@@ -334,7 +334,7 @@ def add_module_summary_tables(
     attributes: List[Tuple[str, object]] = []
     if len(lines) == 0:
         # insert a stub docstring so it doesn't start with functions/exceptions/classes/attributes
-        lines.append(name)
+        lines.append(f'Module :mod:`~{name}`.')
 
     if what == 'module':
 

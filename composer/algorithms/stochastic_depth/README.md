@@ -11,7 +11,6 @@
 ### Functional Interface
 
 <!--pytest.mark.gpu-->
-<!--pytest.mark.timeout(15)-->
 <!--
 ```python
 from torch.utils.data import DataLoader
@@ -64,7 +63,6 @@ for epoch in range(1):
 ### Composer Trainer
 
 <!--pytest.mark.gpu-->
-<!--pytest.mark.timeout(15)-->
 <!--
 ```python
 from torch.utils.data import DataLoader
