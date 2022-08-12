@@ -621,11 +621,10 @@ class Trainer:
 
             To use DeepSpeed with default values, set to the empty dictionary ``{}``.
             To disable DeepSpeed (the default), set to ``None``.
-        device (Device | str, optional): The device to use for training, which can be ``'cpu'`` or ``'gpu'``.
-            (default: ``None``)
+        device (Device | str, optional): The device to use for training, which supports ``'cpu'``, ``'gpu'``,
+            ``'tpu'``, and ``'mps'``. (default: ``None``)
 
-            The default behavior sets the device to ``'gpu'`` if CUDA is available; otherwise, it sets the device to
-            ``'cpu'``.
+            The default behavior sets the device to ``'gpu'`` if CUDA is available, and otherwise ``'cpu'``.
         precision (Precision | str, optional): Numerical precision to use for training. One of ``fp32``, ``fp16``
             or ``amp`` (recommended). (default: ``Precision.FP32`` if training on CPU; ``Precision.AMP`` if training
             on GPU)
