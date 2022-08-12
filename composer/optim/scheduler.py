@@ -83,7 +83,7 @@ class ComposerScheduler(Protocol):
 
     The constructions of ``ten_epoch_decay_scheduler`` in each of the examples above are equivalent. Note that neither
     scheduler uses the ``scale_schedule_ratio`` parameter. As long as this parameter is not used when initializing
-    :class:`~composer.trainer.trainer.Trainer`, it is not required that any schedulers implement that parameter.
+    :class:`.Trainer`, it is not required that any schedulers implement that parameter.
 
     .. automethod:: __call__
     """

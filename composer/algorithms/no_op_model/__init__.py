@@ -4,7 +4,7 @@
 """Replaces model with a dummy model of type :class:`NoOpModelClass`.
 
 The algorithm runs on :attr:`Event.INIT`. It replaces the model in the state with
-a :class:`~composer.algorithms.no_op_model.no_op_model.NoOpModelClass` and then updates the parameters in the optimizer
+a :class:`.NoOpModelClass` and then updates the parameters in the optimizer
 through module surgery.
 
 A dummy model can helpful for profiling the dataloader by eliminating the work

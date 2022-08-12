@@ -21,7 +21,7 @@ class TraceHandler(Callback, abc.ABC):
     Subclasses should implement :meth:`process_duration_event`, :meth:`process_instant_event`,
     :meth:`process_counter_event`, and :meth:`process_chrome_json_trace_file` to record trace events.
 
-    Since :class:`TraceHandler` subclasses :class:`~composer.core.callback.Callback`, a trace handler can run on any
+    Since :class:`TraceHandler` subclasses :class:`.Callback`, a trace handler can run on any
     :class:`.Event` (such as on :attr:`.Event.INIT` to open files or on :attr:`.Event.BATCH_END` to periodically dump
     data to files) and use :meth:`.Callback.close` to perform any cleanup.
     """

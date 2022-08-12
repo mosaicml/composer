@@ -187,6 +187,10 @@ class WandBLogger(LoggerDestination):
             artifact.add_file(os.path.abspath(file_path))
             wandb.log_artifact(artifact, aliases=aliases)
 
+    def can_log_file_artifacts(self) -> bool:
+        """Whether the logger supports logging file artifacts."""
+        return True
+
     def get_file_artifact(
         self,
         artifact_name: str,
