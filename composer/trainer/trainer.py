@@ -222,14 +222,13 @@ def _generate_run_name() -> str:
     return generated_run_name
 
 
+
 def _is_tpu_installed() -> bool:
     try:
         import torch_xla.core.xla_model as xm
     except ImportError:
         return False
-    else:
-        return True
-
+    return True
 
 if _is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -808,7 +807,7 @@ class Trainer:
 
         if not deepspeed_enabled:
             # check if model is already on tpu
-            if isinstance(self._device, DeviceTPU) and bool(model.cpu()):
+            if isinstance(self._device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
                 raise ValueError('the model needs to be on tpu before optimizer')
             else:
                 model = self._device.module_to_device(model)
