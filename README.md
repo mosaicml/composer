@@ -349,8 +349,8 @@ Here's some resources actively maintained by the Composer community to help you 
     <td>An interactive Colab Notebook aimed at teaching users about building speedup methods on top of Composer</td>
   </tr>
   <tr>
-    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/nlp_models.ipynb" target="_blank" rel="noopener noreferrer">Training BERTs with Composer</a></td>
-    <td>An interactive Colab Notebook aimed at helping users learn how to train BERT models with Composer!</td>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/huggingface_models.ipynb" target="_blank" rel="noopener noreferrer">Training BERTs with Composer and 🤗 </a></td>
+    <td>An interactive Colab Notebook aimed at helping users learn how to train BERT models with Composer and 🤗!</td>
   </tr>
   <tr>
     <td><a href="https://mosaicml.com/jobs" target="_blank" rel="noopener noreferrer">We're Hiring!</a></td>
