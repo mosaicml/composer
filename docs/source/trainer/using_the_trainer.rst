@@ -257,7 +257,7 @@ Training on GPU
 
 Control which device you use for training with the ``device`` parameter,
 and we will handle the data movement and other systems-related
-engineering. We currently support the ``cpu`` and ``gpu`` devices.
+engineering. We currently support the ``cpu``, ``gpu`` and ``tpu`` devices.
 
 .. testcode::
 
@@ -271,6 +271,25 @@ engineering. We currently support the ``cpu`` and ``gpu`` devices.
         device='cpu'
     )
 
+TRaining on TPU
+~~~~~~~~~~~~~~~
+
+Now you can also use composer to train your model on single core ``tpus``
+in ``bf16`` precision. You will need to have ``torch_xla`` installed using
+instructions here https://github.com/pytorch/xla.
+
+.. testcode::
+
+    from composer import Trainer
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+	max_duration='2ep',
+	device='tpu'
+    )
+    
 Distributed Training
 ~~~~~~~~~~~~~~~~~~~~
 
