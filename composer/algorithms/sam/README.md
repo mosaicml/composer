@@ -2,7 +2,7 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
-`Computer Vision`
+`Computer Vision`, `Changes the Training Algorithm`
 
 Sharpness-Aware Minimization (SAM) is an optimization algorithm that minimizes both the loss and the sharpness of the loss. It finds parameters that lie in a _neighborhood_ of low loss. The authors find that this improves model generalization, and we do as well.
 
@@ -77,7 +77,10 @@ In our experiments we used a value of `interval=10` to limit SAM’s impact on t
 >
 > In our experiments, SAM improves the attainable tradeoffs between training speed and the final quality of the trained model.
 > Although it causes a reduction in training throughput, the `interval` hyperparameter can be used to minimize the extent of this reduction.
-> The corresponding accuracy increases were a worthwhile tradeoff for the throughput reduction in our experiments on ResNets on ImageNet.
+> The corresponding accuracy increases were a worthwhile tradeoff for the throughput
+> reduction in our experiments on ResNets on ImageNet. We did not find SAM to be
+> beneficial when the model only sees training samples once or a few times (e.g. most NLP
+> training regimes).
 
 Foret et al. introduced SAM on CNNs for image classification tasks.
 These results have been replicated and/or extended by [Brock et al., (2021)](https://arxiv.org/abs/2102.06171) and MosaicML and extended to vision transformers by [Chen et al., (2021)](https://arxiv.org/abs/2106.01548). As a generic optimization algorithm, SAM should be applicable across all models and tasks.

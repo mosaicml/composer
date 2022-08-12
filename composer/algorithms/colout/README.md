@@ -2,7 +2,7 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
-`Computer Vision`
+`Computer Vision`, `Changes the Training Algorithm`
 
 ColOut is a data augmentation technique that drops a fraction of the rows or columns of an input image for a computer vision model.
 If the fraction of rows/columns dropped isn't too large, the image content is not significantly altered but the image size is reduced, speeding up training.
@@ -110,11 +110,6 @@ The variability induced by randomly dropping rows and columns can negatively aff
 > On ResNet-50 applied to ImageNet and ResNet-56 applied to CIFAR-10, we found this tradeoff to be worthwhile: it is a pareto improvement over the standard versions of those benchmarks.
 > We also found it to be worthwhile in composition with other methods.
 > We recommend that you carefully evaluate whether ColOut is also a pareto improvement in the context of your application.
-
-ColOut currently has two implementations.
-One implementation, accessed by passing `batch=False`, acts as an additional data augmentation for use in PyTorch dataloaders. It runs on the CPU and applies ColOut independently to each training example.
-A second implementation, accessed by passing `batch=True`, runs immediately before the training example is provided to the model. It runs on the GPU and drops the same rows and columns for all training examples in a mini-batch.
-The GPU-based, batch-wise implementation suffers a drop in validation accuracy compared to the CPU-based example-wise implementation (0.2% on CIFAR-10 and 0.1% on ImageNet)
 
 > 🚧 CPU/GPU Tradeoff
 >

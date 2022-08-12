@@ -2,10 +2,11 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
-`Computer Vision`
+`Computer Vision`, `Changes the Training Algorithm`
 
 CutMix is a data augmentation technique that modifies images by cutting out a small patch and replacing it with a different image.
-It is a regularization technique that improves the generalization accuracy of models for computer vision.
+It is a regularization technique that can improve the generalization accuracy of computer
+vision models.
 
 | ![CutMix](https://storage.googleapis.com/docs.mosaicml.com/images/methods/cutmix.png) |
 |:--:
@@ -101,7 +102,7 @@ CutMix is intended to improve generalization performance, and we empirically fou
 
 > 🚧 Composing Regularization Methods
 >
-> As general rule, composing regularization methods may lead to diminishing returns in quality improvements. CutMix is one such regularization method.
+> As general rule, composing regularization methods may lead to diminishing returns in quality improvements. CutMix is one such regularization method. We do not see improvements when combining CutMix with other regularization and augmentation methods such as Mixup and Label Smoothing.
 
 Data augmentation techniques can sometimes put additional load on the CPU, potentially to the point where the CPU becomes a bottleneck for training.
 To prevent this from happening, our implementation of CutMix (1) takes place on the GPU and (2) uses the same patch and interpolation for all examples in the minibatch.

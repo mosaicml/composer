@@ -2,7 +2,7 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
-`Computer Vision`
+`Computer Vision`, `Changes the Training Algorithm`
 
 Cutout is a data augmentation technique that masks one or more square regions of an input image, replacing them with gray boxes.
 It is a regularization technique that improves the accuracy of models for computer vision.
@@ -97,7 +97,7 @@ To ease implementation, we went with a simple binary mask, in which the regions 
 We found Cutout to be an effective way of improving accuracy for ResNets trained on CIFAR-10 and ImageNet in the absence of robust hyperparameter tuning and other regularizers.
 As we improved our training methodology through improved hyperparameters and by adding other regularization techniques, the benefits of Cutout diminished to the point of becoming negligible.
 
-> 🚧 Cutout Provided Limited Benefits in Our Experiments
+> ❗ Cutout Provided Limited Benefits in Our Experiments
 >
 > In our experiments on ResNets for CIFAR-10 and ImageNet, Cutout provided little or no improvements in accuracy when the models were well-tuned and when we combined it with other regularization methods.
 > It is possible that Cutout may still be helpful for other models and tasks and in settings that are less well-tuned.

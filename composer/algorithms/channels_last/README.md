@@ -2,7 +2,7 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
-`Computer Vision`
+`Computer Vision`, `Mathematically Equivalent`
 
 Channels Last improves the throughput of convolution operations in networks for computer vision by changing the memory format of activation and weight tensors to contain channels as their last dimension (i.e., NHWC format) rather than the default format in which the height and width are the last dimensions (i.e., NCHW format).
 NVIDIA GPUs natively perform convolution operations in NHWC format, so storing the tensors this way eliminates transpositions that would otherwise need to take place, increasing throughput.
@@ -87,6 +87,11 @@ Every time a convolution operation is called by a layer like `torch.nn.Conv2D`, 
 If the model weights are instead initialized in NHWC format, PyTorch will automatically convert the first input activation tensor to NHWC to match, and it will persist the memory format across all subsequent activations and gradients. This means that convolution operations no longer need to perform transposes, speeding up training.
 
 We currently implement this method by casting the user’s model to channels-last format (no changes to the dataloader are necessary). When the first convolution operation receives its input activation, it will automatically convert it to NHWC format, after which the memory format will persist for the remainder of the network (or until it reaches a layer that cannot support having channels last).
+
+> ✅ Channels Last Improves Training Speed
+>
+> In our experiments, Channels Last improves the attainable tradeoffs between training speed and the final quality of the trained model.
+> We recommend Channels Last for training convolutional networks.
 
 > ❗ Overhead from Operations Incompatible with Channels Last Memory Format
 >

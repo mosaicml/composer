@@ -2,6 +2,8 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
+`Computer Vision`, `Changes the Training Algorithm`
+
 Adds a channel-wise attention operator in CNNs. Attention coefficients are produced by a small, trainable MLP that uses the channels' globally pooled activations as input. It requires more work on each forward pass, slowing down training and inference, but leads to higher quality models.
 
 | ![Squeeze-Excite](https://storage.googleapis.com/docs.mosaicml.com/images/methods/squeeze-and-excitation.png) |

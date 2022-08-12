@@ -2,7 +2,7 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
-`Computer Vision`
+`Computer Vision`, `Changes the Training Algorithm`
 
 Label smoothing modifies the target distribution for a task by interpolating between the target distribution and another distribution that usually has higher entropy (e.g., the uniform distribution). This typically reduces a model’s confidence in its outputs and serves as a form of regularization.
 
@@ -93,13 +93,18 @@ The only hyperparameter for Label Smoothing is `smoothing`, a value between 0.0 
 
 Label smoothing replaces the one-hot encoded label with a combination of the true label and the uniform distribution.
 
-> ❗ Label Smoothing Produces a Full Distribution, Not a Target Index
+> ✅ Label Smoothing Improves the Tradeoff Between Quality and Training Speed
+>
+> In our experiments, Label Smoothing improves the attainable tradeoffs between training speed and the final quality of the trained model.
+> We recommend Label Smoothing for image classification tasks.
+
+> 🚧 Label Smoothing Produces a Full Distribution, Not a Target Index
 >
 > Many classification tasks represent the target value using the index of the target value rather than the full one-hot encoding of the label value.
 > Label smoothing turns each label into a dense distribution (if it has not already been converted into a distribution).
 > The loss function used for the model must be able to accept this dense distribution as the target.
 
-> ❗ Label Smoothing May Interact with Other Methods that Modify Targets
+> 🚧 Label Smoothing May Interact with Other Methods that Modify Targets
 >
 > This method interacts with other methods (such as MixUp) that alter the targets.
 > While such methods may still compose well with label smoothing in terms of improved accuracy, it is important to ensure that the implementations of these methods compose.

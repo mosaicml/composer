@@ -1,22 +1,18 @@
 # 🧊 Stochastic Depth (Block)
 
+ `Changes the Training Algorithm`
+
 AKA: Progressive Layer Dropping
+
+Block-wise stochastic depth assigns every residual block a probability of dropping the
+transformation function, leaving only the skip connection, to regularize and reduce the
+amount of computation.
 
 ![block_wise_stochastic_depth.png](https://storage.googleapis.com/docs.mosaicml.com/images/methods/block_wise_stochastic_depth.png)
 
-From *[Deep Networks with Stochastic Depth](https://arxiv.org/abs/1603.09382)* by Huang et al. 2016
+From *[Deep Networks with Stochastic Depth](https://arxiv.org/abs/1603.09382)* by Huang et
+al. 2016
 
-Tags: `Method`,`NLP`, `Networks with Residual Connections`, `Vision`,`Regularization`, `Speedup`,`Decreased GPU Throughput`, `Decreased Wall Clock Time`, `Reduced GPU Memory Usage`
-
-## TL;DR
-
-Block-wise stochastic depth assigns every residual block a probability of dropping the transformation function, leaving only the skip connection, to regularize and reduce the amount of computation.
-
-## Attribution
-
-*[Deep Networks with Stochastic Depth](https://arxiv.org/abs/1603.09382)* by Gao Huang, Yu Sun, Zhuang Liu, Daniel Sedra, and Killian Weinberger. Published in ECCV in 2016.
-
-*[Accelerating Training of Transformer-Based Language Models with Progressive Layer Dropping](https://arxiv.org/abs/2010.13369)* by Minjia Zhang and Yuxiong He. Published in NeurIPS 2020.
 
 ## Applicable Settings
 
@@ -78,3 +74,9 @@ Stochastic depth decreases forward and backward pass time, increasing GPU throug
 .. autofunction:: composer.algorithms.stochastic_depth.apply_stochastic_depth
     :noindex:
 ```
+
+## Attribution
+
+*[Deep Networks with Stochastic Depth](https://arxiv.org/abs/1603.09382)* by Gao Huang, Yu Sun, Zhuang Liu, Daniel Sedra, and Killian Weinberger. Published in ECCV in 2016.
+
+*[Accelerating Training of Transformer-Based Language Models with Progressive Layer Dropping](https://arxiv.org/abs/2010.13369)* by Minjia Zhang and Yuxiong He. Published in NeurIPS 2020.

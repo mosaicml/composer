@@ -155,6 +155,11 @@ Data augmentation techniques can sometimes put additional load on the CPU, poten
 To prevent this from happening for MixUp, our implementation of MixUp (1) occurs on the GPU and (2) uses the same `t` for all examples in the minibatch.
 Doing so avoids putting additional work on the CPU (since augmentation occurs on the GPU) and minimizes additional work on the GPU (since all images are handled uniformly within a batch).
 
+> ✅ MixUp Improves the Tradeoff Between Quality and Training Speed
+>
+> In our experiments, MixUp improves the attainable tradeoffs between training speed and the final quality of the trained model.
+> We recommend MixUp for image classification tasks.
+
 > 🚧 MixUp Requires a Small Amount of Additional GPU Compute and Memory
 >
 > MixUp requires a small amount of additional GPU compute and memory to produce the mixed-up batch.
@@ -169,7 +174,13 @@ Doing so avoids putting additional work on the CPU (since augmentation occurs on
 
 >❗ When `interpolate_loss=True` MixUp interpolates the loss rather than the targets.
 >
-> This is fine for loss functions that are linear in the targets, such as cross entropy, but may produce unexpected results for other loss functions.
+> This is fine for loss functions that are linear in the targets, such as cross entropy,
+> but may produce unexpected results for other loss functions.
+
+> 🚧 MixUp May Interact with Other Methods that Modify Targets
+>
+> This method interacts with other methods (such as Label Smoothing) that alter the targets.
+> While such methods may still compose well with label smoothing in terms of improved accuracy, it is important to ensure that the implementations of these methods compose.
 
 > 🚧 Composing Regularization Methods
 >

@@ -1,22 +1,14 @@
 # ⚖️ Scale Schedule
 
-![scale_schedule.png](https://storage.googleapis.com/docs.mosaicml.com/images/methods/scale_schedule.png)
-
-Tags: `Best Practice`, `Speedup`
-
-## TL;DR
+`Changes the Training Algorithm`
 
 Scale Schedule changes the number of training steps by a dilation factor and dilating learning rate changes
 accordingly. Doing so varies the training budget, making it possible to explore tradeoffs between cost (measured in
 time or money) and the quality of the final model.
 
-## Attribution
-
-The number of training steps to perform is an important hyperparameter to tune when developing a model. This technique
-appears implicitly throughout the deep learning literature. One example of a systematic study of this approach is the
-*scan-SGD* technique in
-[How Important is Importance Sampling for Deep Budgeted Training](https://openreview.net/forum?id=TqQ0oOzJlai) by
-Eric Arazo, Diego Ortega, Paul Albert, Noel O'Connor, and Kevin McGuinness. Posted to OpenReview in 2020.
+| ![scale_schedule.png](https://storage.googleapis.com/docs.mosaicml.com/images/methods/scale_schedule.png) |
+|:--|
+|*Scale schedule scales the learning rate decay schedule.*|
 
 ## Hyperparameters
 
@@ -114,3 +106,11 @@ cost.
 
 As general rule, scale schedule can be applied in conjunction with any method. If other methods also perform actions
 according to a schedule, it is important to modify their schedules to coincide with the altered number of epochs.
+
+## Attribution
+
+The number of training steps to perform is an important hyperparameter to tune when developing a model. This technique
+appears implicitly throughout the deep learning literature. One example of a systematic study of this approach is the
+*scan-SGD* technique in
+[_How Important is Importance Sampling for Deep Budgeted Training_](https://openreview.net/forum?id=TqQ0oOzJlai) by
+Eric Arazo, Diego Ortega, Paul Albert, Noel O'Connor, and Kevin McGuinness. Posted to OpenReview in 2020.

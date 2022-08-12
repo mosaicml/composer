@@ -2,7 +2,7 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Attribution\]](#attribution)
 
- `Computer Vision`, `Natural Language Processing`
+ `Computer Vision`, `Natural Language Processing`, `Changes the Training Algorithm`
 
 Gradient Clipping is a technique used to stabilize the training of neural networks. It was
 originally invented to solve the problem of vanishing and exploding gradients in [training](https://www.fit.vut.cz/study/phd-thesis/283/.en) [recurrent neural networks](https://arxiv.org/abs/1211.5063), but it has also shown to be useful for [transformers](https://arxiv.org/abs/1909.05858v2) and [convolutional](https://arxiv.org/abs/1512.00567v3) [neural networks](https://arxiv.org/abs/2102.06171).

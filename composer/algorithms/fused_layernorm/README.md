@@ -3,7 +3,7 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
- `Natural Language Processing`
+ `Natural Language Processing`, `Mathematically Equivalent`
 
 Fused LayerNorm replaces implementations of `torch.nn.LayerNorm` with a `apex.normalization.fused_layer_norm`. The fused kernel provides increased GPU utilization.
 
@@ -73,7 +73,13 @@ Fused LayerNorm does not have any hyperparameters. It utilizes the existing `nor
 
 APEX's FusedLayerNorm achieves a substantial speedup over PyTorch by doing a few things:
 1. Instead of a naive implementation, which requires two passes over the input in order to estimate variances, it uses [Welford's Online Algorithm](https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm) to estimate the variances in a single step, creating a substantive wall-clock speedup.
-2. Instead of requiring multiple CUDA kernel launches, it computes everything in a single kernel launch, therefore improving GPU utilization.
+2. Instead of requiring multiple CUDA kernel launches, it computes everything in a single
+   kernel launch, therefore improving GPU utilization.
+
+> ✅ Fused LayerNorm Improves Training Speed
+>
+> In our experiments, Fused LayerNorm improves the attainable tradeoffs between training speed and the final quality of the trained model.
+> We recommend using Fused LayerNorm.
 
 ## Attribution
 

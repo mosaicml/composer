@@ -108,9 +108,10 @@ Based on ResNet-50 experiments, we have not observed Factorize to ever be helpfu
 Even with conservative settings like `min_channels=512`, `latent_channels=128`, we observe over a 1% accuracy loss and only a small (<5%) throughput increase.
 We have provided this implementation and method card for informational purposes, since factorization is a popular technique in the research literature.
 
-> ❗ There is No Evidence that Factorization Improves Accuracy or Efficiency
+> ❗ Factorize Did Not Improve Efficiency in Our Experiments
 >
-> We have only found Factorize to hurt accuracy and reduce throughput.
+> Factorize provided no improvements in (and often decreased) accuracy, and provided very modest throughput increases in our experiments.
+> It is possible that Factorize may still be helpful in other settings.
 
 At present, only factorization before training is supported. This is because of limitations of PyTorch Distributed Data Parallel.
 We hope to allow factorization during training in the future.

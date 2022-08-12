@@ -2,7 +2,7 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
-`Computer Vision`
+`Computer Vision`, `Changes the Training Algorithm`
 
 During training, BatchNorm normalizes each batch of inputs to have a mean of 0 and variance of 1.
 Ghost BatchNorm instead splits the batch into multiple "ghost" batches, each containing `ghost_batch_size` samples, and normalizes each one to have a mean of 0 and variance of 1.
@@ -93,16 +93,12 @@ The Composer implementation of GhostBatchNorm uses model surgery to replace `Bat
 
 Each of the above `GhostBatchNorm` layers works by splitting an input batch into equal-sized chunks along the sample dimension and feeding each group into a normal BatchNorm module of the original type. The normal batchnorm uses a modified momentum for its running mean and variance equal to `float(original_momentum) / num_chunks`.
 
->❗ Running Mean and Variances Are Calculated Differently than BatchNorm
+> 🚧 Running Mean and Variances Are Calculated Differently than BatchNorm
 >
 > This yields slightly different mean and variance statistics compared to using a normal BatchNorm module.
 > The difference stems from the moving average over a sequence of groups not being equal to the true average of the groups.
 
 For small ghost batch sizes, this method might run more slowly than normal batch normalization. This is because our implementation uses a number of operations proportional to the number of ghost batches, and each PyTorch operation has a small amount of overhead. This overhead is inconsequential when doing large chunks of “work” per operation (i.e., operating on large inputs), but can matter when the inputs are small.
-
->❗ Ghost BatchNorm Slows Down Training
->
-> We observed throughput decreases of around 5% fewer samles per second for ResNet-50 on ImageNet.
 
 This method may either help or harm the model’s accuracy. There is some evidence that it is more likely to help when using batch sizes in the thousands.
 The original paper on Ghost BatchNorm reports a 0-3% accuracy change across a number of models and small-scale datasets. For ResNet-50 on ImageNet, we found Top-1 accuracy changes between -.3% to +.3%.

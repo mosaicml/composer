@@ -3,7 +3,7 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
- `Computer Vision`
+ `Computer Vision`, `Changes the Training Algorithm`
 
 Progressive Resizing works by initially training on images that have been downsampled to a smaller size. It slowly grows the images back to their full size by a set point in training and uses full-size images for the remainder of training. Progressive resizing reduces costs during the early phase of training when the network may learn coarse-grained features that do not require details lost by reducing image resolution.
 

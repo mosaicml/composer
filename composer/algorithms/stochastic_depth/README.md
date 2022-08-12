@@ -2,7 +2,7 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
- `Computer Vision`
+ `Computer Vision`, `Changes the Training Algorithm`
 
  Sample-wise stochastic depth is a regularization technique for networks with residual connections that probabilistically drops samples after the transformation function in each residual block. This means that different samples go through different combinations of blocks.
 

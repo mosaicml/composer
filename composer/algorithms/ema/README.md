@@ -2,6 +2,8 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
+`Changes the Training Algorithm`
+
 Exponential Moving Average (EMA) is a model averaging technique that maintains an exponentially weighted moving average of the model parameters during training. The averaged parameters are used for model evaluation. EMA typically results in less noisy validation metrics over the course of training, and sometimes increased generalization.
 
 ## How to Use
@@ -84,9 +86,20 @@ Our implementation of EMA also provides the option to use the EMA weights as the
 
 ## Technical Details
 
+> ✅ EMA Improves the Tradeoff Between Quality and Training Speed
+>
+> In our experiments, EMA improves the attainable tradeoffs between training speed and the final quality of the trained model.
+> We recommend EMA for training convolutional networks.
+
 >  ✅ EMA should result in less noisy validation metrics during training
 >
-> If evalutation metrics are computed over the course of training, EMA should result in these metrics being smoother and less noisy due to averaging.
+> If evalutation metrics are computed over the course of training, EMA should result in
+> these metrics being smoother and less noisy due to averaging.
+
+> 🚧 Composing Model-Averaging Methods
+>
+> As a general rule, model-averaging methods do not compose well. We recommend using one
+> of EMA or SWA, but not both.
 
 > ❗ EMA increases memory consumption
 >
