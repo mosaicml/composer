@@ -33,7 +33,7 @@ pretrain_hparams:
         label: bert_pre_training
         eval_dataset:
           streaming_c4:
-            remote: my-s3-bucket-name
+            remote: s3://allenai-c4/mds/1/
             local: /tmp/mds-cache/mds-c4/
             split: val
             shuffle: false
