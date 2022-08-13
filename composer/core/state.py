@@ -107,11 +107,8 @@ class State(Serializable):
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
             microbatch between :attr:`.Event.BATCH_START` and :attr:`.Event.BATCH_END`.
-        train_metrics (Dict[str, MetricInterface]): TODO: docs
-        eval_metrics (Dict[str, Dict[str, MetricInterface]]):
-        current_metrics (Dict[str, Dict[str, Any]]): The current computed metrics, organized by dataloader label
-            and then by metric name. The train dataloader is labeled ``'train'``. If not using an :class:`.Evaluator`,
-            the eval dataloader is labeled ``'eval'``. Otherwise, the evaluator label is used.
+        train_metrics (Dict[str, MetricInterface]): The current raw train metrics, organized by metric name. ``train_metrics`` will be deep-copied to
+            ensure that each evaluator updates only its ``train_metrics``.
 
             For example:
 
@@ -122,8 +119,26 @@ class State(Serializable):
             ...     eval_dataloader=eval_dataloader,
             ... )
             >>> trainer.fit()
-            >>> trainer.state.current_metrics
-            {'train': {'Accuracy': tensor(...)}, 'eval': {'CrossEntropy': tensor(...), 'Accuracy': tensor(...)}}
+            >>> trainer.state.train_metrics
+            {'Accuracy': Accuracy()}}
+
+        eval_metrics (Dict[str, Dict[str, MetricInterface]]): The current raw evaluation metrics, organized
+            by dataloader label and then by metric name. If not using an :class:`.Evaluator`,
+            the eval dataloader is labeled ``'eval'``. Otherwise, the evaluator label is used.
+            ``eval_metrics`` will be deep-copied to ensure that each evaluator updates only its ``eval_metrics``.
+
+            For example:
+            >>> from torchmetrics import Accuracy
+            >>> from composer.metrics.metrics import CrossEntropy
+            >>> trainer = Trainer(
+            ...     ...,
+            ...     compute_training_metrics=True,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=eval_dataloader,
+            ... )
+            >>> trainer.fit()
+            >>> trainer.state.eval_metrics
+            {'eval': {'CrossEntropy': CrossEntropy(), 'Accuracy': Accuracy()}}
 
             Or, when using an :class:`.Evaluator`:
 
@@ -139,13 +154,13 @@ class State(Serializable):
             ...     compute_training_metrics=True,
             ...     train_dataloader=train_dataloader,
             ...     eval_dataloader=[
-            ...         Evaluator(label='eval1', dataloader=eval_1_dl, metrics=Accuracy()),
-            ...         Evaluator(label='eval2', dataloader=eval_2_dl, metrics=Accuracy()),
+            ...         Evaluator(label='eval1', dataloader=eval_1_dl, metric_names=['Accuracy']),
+            ...         Evaluator(label='eval2', dataloader=eval_2_dl, metric_names=['Accuracy']),
             ...     ],
             ... )
             >>> trainer.fit()
-            >>> trainer.state.current_metrics
-            {'train': {'Accuracy': tensor(...)}, 'eval1': {'Accuracy': tensor(...)}, 'eval2': {'Accuracy': tensor(...)}}
+            >>> trainer.state.eval_metrics
+            {'eval1': {'Accuracy': Accuracy()}, 'eval2': {'Accuracy': Accuracy()}}
         eval_timestamp (Timestamp): The timestamp for the current evaluation dataloader. This timestamp is reset
             before the dataloader is evaluated. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
             ``0``.
@@ -299,7 +314,7 @@ class State(Serializable):
             'scaler',
             'timestamp',
             'rank_zero_seed',
-            'train_metrics'
+            'train_metrics',
             'eval_metrics',
             'run_name',
         ]
@@ -518,7 +533,7 @@ class State(Serializable):
 
         By default, the training dataloader is called ``'train'``. The evaluator dataloader
         is called ``'eval'``, or when multiple evaluators are used, the name of the evaluator.
-        However, the dataloader label can be explicitely specified in :meth:`.Trainer.fit`
+        However, the dataloader label can be explicitly specified in :meth:`.Trainer.fit`
         and :meth:`.Trainer.eval`.
 
         Returns:

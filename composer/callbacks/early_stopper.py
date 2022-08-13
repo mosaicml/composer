@@ -28,13 +28,12 @@ class EarlyStopper(Callback):
 
         >>> from composer import Evaluator, Trainer
         >>> from composer.callbacks.early_stopper import EarlyStopper
-        >>> from torchmetrics.classification.accuracy import Accuracy
         >>> # constructing trainer object with this callback
         >>> early_stopper = EarlyStopper("Accuracy", "my_evaluator", patience=1)
         >>> evaluator = Evaluator(
         ...     dataloader = eval_dataloader,
         ...     label = 'my_evaluator',
-        ...     metrics = Accuracy()
+        ...     metric_names = ['Accuracy']
         ... )
         >>> trainer = Trainer(
         ...     model=model,
@@ -110,9 +109,12 @@ class EarlyStopper(Callback):
                 raise ValueError('If `patience` is an instance of Time, it must have units of EPOCH or BATCH.')
 
     def _get_monitored_metric(self, state: State):
-        if self.dataloader_label in state.current_metrics:
-            if self.monitor in state.current_metrics[self.dataloader_label]:
-                return state.current_metrics[self.dataloader_label][self.monitor]
+        if self.dataloader_label == 'train':
+            if self.monitor in state.train_metrics:
+                return state.train_metrics[self.monitor].compute()
+        else:
+            if self.monitor in state.eval_metrics[self.dataloader_label]:
+                return state.eval_metrics[self.dataloader_label][self.monitor].compute()
         raise ValueError(f"Couldn't find the metric {self.monitor} with the dataloader label {self.dataloader_label}."
                          "Check that the dataloader_label is set to 'eval', 'train' or the evaluator name.")
 
