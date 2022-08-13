@@ -120,7 +120,6 @@ class CheckBatch0(Callback):
             )
 
 
-@pytest.mark.timeout(90)
 @pytest.mark.parametrize('device,deepspeed', [
     pytest.param('cpu', False, id='cpu'),
     pytest.param('gpu', False, id='gpu', marks=pytest.mark.gpu),

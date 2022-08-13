@@ -34,7 +34,7 @@ def training_loop(model, train_loader):
     loss_fn = F.cross_entropy
     model.train()
 
-    for epoch in range(10):
+    for epoch in range(1):
         for X, y in train_loader:
             y_hat = model(X)
             loss = loss_fn(y_hat, y)
@@ -45,8 +45,18 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
-<!-- TODO: Address timeouts -->
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.gpu-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomImageDataset, SimpleConvModel
+
+model = SimpleConvModel()
+train_dataloader = DataLoader(RandomImageDataset())
+eval_dataloader = DataLoader(RandomImageDataset())
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate point in the training loop
@@ -62,6 +72,7 @@ algo = SqueezeExcite(
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
     max_duration='10ep',
     algorithms=[algo]
 )

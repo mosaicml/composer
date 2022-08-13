@@ -68,6 +68,9 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         if self.max_resize_scale < self.min_resize_scale:
             raise ValueError('max_resize_scale cannot be less than min_resize_scale')
 
+        if self.final_size is not None and self.final_size <= 0:
+            raise ValueError('self.final_size cannot be zero or negative.')
+
     def initialize_object(self, batch_size, dataloader_hparams) -> DataSpec:
         self.validate()
 

@@ -85,7 +85,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
             The logfile will be periodically logged (according to the ``flush_interval``) as a file artifact.
             The artifact name will be determined by this format string.
 
-            .. seealso:: :meth:`~composer.loggers.logger.Logger.log_file_artifact` for file artifact logging.
+            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
 
             The same format variables for ``filename`` are available. Setting this parameter to ``None``
             (the default) will use the same format string as ``filename``. It is sometimes helpful to deviate
@@ -250,7 +250,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
 
         .. note::
 
-            If the ``write`` occurs before the :attr:`~composer.core.event.Event.INIT` event,
+            If the ``write`` occurs before the :attr:`.Event.INIT` event,
             the write will be enqueued, as the file is not yet open.
 
         Args:

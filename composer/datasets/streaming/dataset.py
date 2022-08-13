@@ -139,25 +139,22 @@ class StreamingDataset(IterableDataset):
         self.batch_size = batch_size
 
         self.compression_scheme = None
-        if remote is not None and dist.get_global_rank() == 0:
+        if remote is not None:
             try:
-                compression_local = self._download_file(get_compression_scheme_basename())
+                compression_local = self._download_file(get_compression_scheme_basename(),
+                                                        wait=(dist.get_local_rank() != 0),
+                                                        local_basename=get_compression_scheme_basename() + '.old')
                 with open(compression_local, 'r') as fp:
                     compression_scheme = fp.read().rstrip()
                     self.compression_scheme = compression_scheme if compression_scheme != '' else None
                     if remote == local and self.compression_scheme is not None:
                         raise DatasetCompressionException('cannot decompress when remote == local')
 
-                # remove compression metadata file, since local dataset is decompressed.
-                os.remove(compression_local)
-
             except FileNotFoundError:
+                compression_local = os.path.join(self.local, get_compression_scheme_basename() + '.old')
+                with open(compression_local, 'x') as fp:
+                    fp.write('')
                 pass
-
-        # Broadcast compression scheme to all ranks
-        compression_scheme_list = [self.compression_scheme]
-        dist.broadcast_object_list(compression_scheme_list)
-        self.compression_scheme = compression_scheme_list[0]
 
         # Load the index file containing the shard metadata
         # This file contains the shard and offset in bytes of each sample (for direct access).
@@ -175,7 +172,7 @@ class StreamingDataset(IterableDataset):
         self._download_status = _DownloadStatus.NOT_STARTED
         self._download_exception: Exception
 
-    def _download_file(self, basename: str, wait: bool = False) -> str:
+    def _download_file(self, basename: str, wait: bool = False, local_basename: Optional[str] = None) -> str:
         """Safely download a file from remote to local cache.
 
         Args:
@@ -185,11 +182,12 @@ class StreamingDataset(IterableDataset):
         Returns:
             str: Local cache filename.
         """
+        local_basename = local_basename if local_basename is not None else basename
         if self.remote is None:
             remote = self.remote
         else:
             remote = os.path.join(self.remote, basename)
-        local = os.path.join(self.local, basename)
+        local = os.path.join(self.local, local_basename)
         download_or_wait(remote=remote, local=local, wait=wait, max_retries=self.max_retries, timeout=self.timeout)
         local, _ = split_compression_suffix(local)
         return local

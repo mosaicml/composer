@@ -55,6 +55,7 @@ class TensorboardLogger(LoggerDestination):
         self.flush_interval = flush_interval
         self.rank_zero_only = rank_zero_only
         self.writer: Optional[SummaryWriter] = None
+        self.run_name: Optional[str] = None
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         del log_level
@@ -75,17 +76,25 @@ class TensorboardLogger(LoggerDestination):
                 pass
 
     def init(self, state: State, logger: Logger) -> None:
-        from torch.utils.tensorboard import SummaryWriter
+        self.run_name = state.run_name
 
-        # We set the log_dir to a constant, so all runs can be co-located together.
+        # We fix the log_dir, so all runs are co-located.
         if self.log_dir is None:
             self.log_dir = 'tensorboard_logs'
 
+        self._initialize_summary_writer()
+
+    def _initialize_summary_writer(self):
+        from torch.utils.tensorboard import SummaryWriter
+
+        assert self.run_name is not None
+        assert self.log_dir is not None
         # We name the child directory after the run_name to ensure the run_name shows up
         # in the Tensorboard GUI.
-        summary_writer_log_dir = Path(self.log_dir) / state.run_name
+        summary_writer_log_dir = Path(self.log_dir) / self.run_name
 
-        # To disable automatic flushing we set flushing to once a year ;)
+        # Disable SummaryWriter's internal flushing to avoid file corruption while
+        # file staged for upload to an ObjectStore.
         flush_secs = 365 * 3600 * 24
         self.writer = SummaryWriter(log_dir=summary_writer_log_dir, flush_secs=flush_secs)
 
@@ -100,8 +109,6 @@ class TensorboardLogger(LoggerDestination):
         self._flush(logger)
 
     def fit_end(self, state: State, logger: Logger) -> None:
-        # Flush the file on fit_end, in case if was not flushed on epoch_end and the trainer is re-used
-        # (which would defer when `self.close()` would be invoked)
         self._flush(logger)
 
     def _flush(self, logger: Logger):
@@ -109,17 +116,27 @@ class TensorboardLogger(LoggerDestination):
         if self.rank_zero_only and dist.get_global_rank() != 0:
             return
 
-        assert self.writer is not None
+        if self.writer is None:
+            return
+        # Skip if no writes occurred since last flush.
+        if not self.writer.file_writer:
+            return
+
         self.writer.flush()
 
-        assert self.writer.file_writer is not None
         file_path = self.writer.file_writer.event_writer._file_name
+        event_file_name = Path(file_path).stem
 
-        logger.file_artifact(
-            LogLevel.FIT,
-            # For a file to be readable by Tensorboard, it must start with
-            # 'events.out.tfevents'. Child directory is named after run_name, so the logs
-            # are named properly in the Tensorboard GUI.
-            artifact_name='tensorboard_logs/{run_name}/events.out.tfevents-{run_name}-{rank}',
-            file_path=file_path,
-            overwrite=True)
+        logger.file_artifact(LogLevel.FIT,
+                             artifact_name=('tensorboard_logs/{run_name}/' +
+                                            f'{event_file_name}-{dist.get_global_rank()}'),
+                             file_path=file_path,
+                             overwrite=True)
+
+        # Close writer, which creates new log file.
+        self.writer.close()
+
+    def close(self, state: State, logger: Logger) -> None:
+        del state  # unused
+        self._flush(logger)
+        self.writer = None

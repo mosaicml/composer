@@ -7,30 +7,28 @@ train_dataset:
     shuffle: false
     drop_last: false
 evaluators:
-  - evaluator:
-      label: glue_mnli
-      eval_dataset:
-        glue:
-          task: mnli
-          tokenizer_name: bert-base-uncased
-          split: validation_matched
-          max_seq_length: 256
-          shuffle: false
-          drop_last: false
-      metric_names:
-        - Accuracy
-  - evaluator:
-      label: glue_mnli_mismatched
-      eval_dataset:
-        glue:
-          task: mnli
-          tokenizer_name: bert-base-uncased
-          split: validation_mismatched
-          max_seq_length: 256
-          shuffle: false
-          drop_last: false
-      metric_names:
-        - Accuracy
+  - label: glue_mnli
+    eval_dataset:
+      glue:
+        task: mnli
+        tokenizer_name: bert-base-uncased
+        split: validation_matched
+        max_seq_length: 256
+        shuffle: false
+        drop_last: false
+    metric_names:
+      - Accuracy
+  - label: glue_mnli_mismatched
+    eval_dataset:
+      glue:
+        task: mnli
+        tokenizer_name: bert-base-uncased
+        split: validation_mismatched
+        max_seq_length: 256
+        shuffle: false
+        drop_last: false
+    metric_names:
+      - Accuracy
 model:
   bert_classification:
     num_labels: 3

@@ -17,7 +17,6 @@ from tests.metrics import MetricSetterCallback
 
 
 @device('cpu', 'gpu')
-@pytest.mark.timeout(10)
 @pytest.mark.parametrize('metric_sequence', [[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], [0.1, 0.2]])
 @pytest.mark.parametrize('unit', [TimeUnit.EPOCH, TimeUnit.BATCH])
 def test_early_stopper(metric_sequence: List[float], unit: TimeUnit, device: str):

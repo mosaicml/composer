@@ -10,8 +10,9 @@ import composer.callbacks
 import composer.loggers
 import composer.profiler
 from composer import Callback
-from composer.callbacks import EarlyStopper, MemoryMonitor, SpeedMonitor, ThresholdStopper
+from composer.callbacks import EarlyStopper, ImageVisualizer, MemoryMonitor, SpeedMonitor, ThresholdStopper
 from composer.callbacks.callback_hparams_registry import callback_registry
+from composer.callbacks.export_for_inference import ExportForInferenceCallback
 from composer.callbacks.mlperf import MLPerfCallback
 from composer.loggers import ObjectStoreLogger, TensorboardLogger, WandBLogger
 from composer.loggers.logger_destination import LoggerDestination
@@ -70,6 +71,10 @@ _callback_kwargs: Dict[Union[Type[Callback], Type[hp.Hparams]], Dict[str, Any],]
         'monitor': 'Accuracy',
         'dataloader_label': 'train',
     },
+    ExportForInferenceCallback: {
+        'save_format': 'torchscript',
+        'save_path': '/tmp/model.pth',
+    },
     MLPerfCallback: {
         'root_folder': '.',
         'index': 0,
@@ -116,6 +121,7 @@ _callback_marks: Dict[Union[Type[Callback], Type[hp.Hparams]], List[pytest.MarkD
             # post_close might not be called if being used outside of the trainer
             r'ignore:Implicitly cleaning up:ResourceWarning',),
     ],
+    ImageVisualizer: [pytest.mark.skipif(not _WANDB_INSTALLED, reason='Wandb is optional')],
 }
 
 
