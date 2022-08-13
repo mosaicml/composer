@@ -11,13 +11,13 @@ import itertools
 import logging
 import os
 import pathlib
+import re
 import time
 import warnings
 from copy import deepcopy
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
 
 import coolname
-import regex as re
 import torch
 import torch.distributed
 import torch.nn as nn
