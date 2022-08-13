@@ -125,7 +125,7 @@ class RandAugment(Algorithm):
     """Randomly applies a sequence of image data augmentations to an image.
 
     This algorithm (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_) runs on
-    :attr:`~composer.core.event.Event.INIT` to insert a dataset
+    :attr:`.Event.INIT` to insert a dataset
     transformation. It is a no-op if this algorithm already applied itself on the
     :attr:`.State.train_dataloader.dataset`.
 

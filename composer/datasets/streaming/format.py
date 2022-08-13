@@ -4,7 +4,9 @@
 """The :class:`StreamingDatsetIndex` format that defines shard/sample metadata for :class:`StreamingDataset`."""
 
 import math
+from gzip import GzipFile
 from io import BufferedIOBase, BufferedReader, BufferedWriter, BytesIO
+from os.path import splitext
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -21,25 +23,57 @@ __all__ = [
 ]
 
 
-def get_index_basename() -> str:
+def split_compression_suffix(local_path: str) -> Tuple[str, Optional[str]]:
+    """Splits the compression suffix from a path
+
+    Args:
+        local_path (str): path to a (potentially) compressed file
+
+    Returns:
+        Tuple[str, str]: tuple containing decompressed filename and compression suffix, if one exists
+    """
+    decompressed_path, ext = splitext(local_path)
+    if ext in ['.mds', '.txt', '.old']:
+        return local_path, None
+
+    return decompressed_path, ext[1:]
+
+
+def get_compression_scheme_basename() -> str:
     """Get the basename for a streaming dataset index.
 
     Returns:
         str: Basename of file.
     """
-    return 'index.mds'
+    return 'compression.txt'
 
 
-def get_shard_basename(shard: int) -> str:
-    """Get the basename for a streaming dataset shard.
+def get_index_basename(compression_name: Optional[str] = None) -> str:
+    """Get the basename for a streaming dataset index.
 
     Args:
-        shard (int): Shard index.
+        compression_name (Optional[str]): compression extension of index file
 
     Returns:
         str: Basename of file.
     """
-    return f'{shard:06}.mds'
+    compression_name = '.' + compression_name if compression_name is not None else ''
+    return f'index.mds{compression_name}'
+
+
+def get_shard_basename(shard: int, compression_name: Optional[str] = None) -> str:
+    """Get the basename for a streaming dataset shard.
+
+    Args:
+        shard (int): Shard index.
+        compression_name (Optional[str]): compression extension of shard file
+
+    Returns:
+        str: Basename of file.
+        compression_name (Optional[str]): the compression scheme
+    """
+    compression_name = '.' + compression_name if compression_name is not None else ''
+    return f'{shard:06}.mds{compression_name}'
 
 
 def sample_dict_to_bytes(obj: Dict[str, bytes], keys: List[str]) -> bytes:
@@ -83,7 +117,7 @@ def bytes_to_sample_dict(data: bytes, keys: List[str]) -> Dict[str, bytes]:
     return dict(zip(keys, values))
 
 
-def read_array(fp: BufferedIOBase, count: int, dtype: type) -> np.ndarray:
+def read_array(fp: Union[BufferedIOBase, GzipFile], count: int, dtype: type) -> np.ndarray:
     """Load the count items from the file handle, advancing its position.
 
     Args:
@@ -149,7 +183,7 @@ class StreamingDatasetIndex(object):
         return cls.load(fp)
 
     @classmethod
-    def load(cls, fp: Union[BufferedReader, BytesIO]):
+    def load(cls, fp: Union[BufferedReader, BytesIO, GzipFile]):
         """Load a StreamingDatasetIndex from a file handle.
 
         Args:
@@ -224,7 +258,7 @@ class StreamingDatasetIndex(object):
         field_bytes = b''.join([field.encode('utf-8') for field in self.fields])
         return array_bytes + field_bytes
 
-    def dump(self, fp: BufferedWriter) -> None:
+    def dump(self, fp: Union[BufferedWriter, GzipFile]) -> None:
         """Dump a StreamingDatasetIndex to the file.
 
         Args:

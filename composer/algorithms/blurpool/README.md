@@ -50,8 +50,21 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
-<!-- TODO: Address timeouts -->
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.gpu-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomImageDataset
+
+from composer.models import composer_resnet
+
+model = composer_resnet('resnet50')
+
+train_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
+eval_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate point in the training loop
@@ -64,7 +77,8 @@ blurpool = BlurPool(replace_convs=True,
 
 trainer = Trainer(model=model,
                     train_dataloader=train_dataloader,
-                    max_duration='10ep',
+                    eval_dataloader=eval_dataloader,
+                    max_duration='1ep',
                     algorithms=[blurpool])
 
 trainer.fit()
@@ -116,4 +130,4 @@ BlurPool tends to compose well with other methods. We are not aware of an exampl
 
 [*Making Convolutional Networks Shift-Invariant Again*](https://proceedings.mlr.press/v97/zhang19a.html) by Richard Zhang in ICML 2019.
 
-*The Composer implementation of this method and the accompanying documentation were produced by Davis Blalock at MosaicML. We thank Richard Zhang for helpful discussion*
+*The Composer implementation of this method and the accompanying documentation were produced by Davis Blalock at MosaicML. We thank Richard Zhang for helpful discussion.*

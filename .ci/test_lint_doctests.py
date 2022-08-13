@@ -32,7 +32,6 @@ def check_output(proc: subprocess.CompletedProcess):
     raise RuntimeError(error_msg)
 
 
-@pytest.mark.timeout(0)
 def test_run_pre_commit_hooks():
     composer_root = os.path.join(os.path.dirname(__file__), '..')
     check_output(
@@ -44,7 +43,6 @@ def test_run_pre_commit_hooks():
         ))
 
 
-@pytest.mark.timeout(0)
 def test_run_doctests():
     docs_folder = pathlib.Path(os.path.dirname(__file__)) / '..' / 'docs'
     api_reference_folder = docs_folder / 'source' / 'api_reference'
@@ -56,7 +54,6 @@ def test_run_doctests():
     check_output(subprocess.run(['make', 'doctest'], cwd=docs_folder, capture_output=True, text=True))
 
 
-@pytest.mark.timeout(30)
 def test_docker_build_matrix():
     """Test that the docker build matrix is up to date."""
     docker_folder = pathlib.Path(os.path.dirname(__file__)) / '..' / 'docker'
@@ -89,21 +86,27 @@ def test_release_tests_reflect_readme(example: int):
     example_code_lines = []
     found_begin = False
     started = False
-    for l in readme_lines:
-        if f'begin_example_{example}' in l:
+    for i, line in enumerate(readme_lines):
+        if f'begin_example_{example}' in line:
             found_begin = True
             continue
-        if found_begin:
-            # wait until we get the ```python
-            if l == '```python\n':
+        # Wait until we get the ```python for start of code snippet
+        if found_begin and not started:
+            if line == '```python\n':
                 started = True
-        if started:
-            example_code_lines.append(l)
-        if started and l == '```\n':
-            break
+        # Reached end of code snippet
+        elif started and line == '```\n':
+            # Code snippet continues
+            if i + 2 < len(readme_lines) and '-->\n' == readme_lines[
+                    i + 1] and '<!--pytest-codeblocks:cont-->\n' == readme_lines[i + 2]:
+                started = False
+            # Code snippet ends
+            else:
+                break
+        # Add line
+        elif started:
+            example_code_lines.append(line)
 
-    # chop of the first and last lines -- they're ```python and ``` to start and end the code blocks
-    example_code_lines = example_code_lines[1:-1]
     example_file = pathlib.Path(os.path.dirname(__file__)) / 'release_tests' / f'example_{example}.py'
     with open(example_file, 'r') as f:
         assert f.readlines() == example_code_lines

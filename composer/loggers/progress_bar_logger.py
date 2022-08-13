@@ -82,7 +82,8 @@ class _ProgressBar:
                 self.pbar.refresh()
             # Create a newline that will not be erased by leave=False. This allows for the finished pbar to be cached in the terminal
             # This emulates `leave=True` without progress bar jumping
-            print('', file=self.file, flush=True)
+            if not self.file.closed:
+                print('', file=self.file, flush=True)
             self.pbar.close()
 
     def state_dict(self) -> Dict[str, Any]:

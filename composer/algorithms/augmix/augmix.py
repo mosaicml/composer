@@ -37,7 +37,7 @@ def augmix_image(img: ImgT,
     This function works on a single image or batch of images. See :class:`.AugMix` and
     the :doc:`Method Card </method_cards/augmix>` for details. This function only acts on a
     single image (or batch) per call and is unlikely to be used in a training loop.
-    Use :class:`~composer.algorithms.augmix.augmix.AugmentAndMixTransform` to use AugMix as
+    Use :class:`.AugmentAndMixTransform` to use AugMix as
     part of a :class:`torchvision.datasets.VisionDataset`\'s ``transform``.
 
     Example:
@@ -174,7 +174,7 @@ class AugMix(Algorithm):
     ``Dirichlet(alpha, alpha, ...)`` distribution. The coefficient for mixing the combined augmented image and the
     original image is drawn from a ``Beta(alpha, alpha)`` distribution, using the same ``alpha``.
 
-    This algorithm runs on on :attr:`~composer.core.event.Event.FIT_START` to insert a dataset transformation.
+    This algorithm runs on on :attr:`.Event.FIT_START` to insert a dataset transformation.
     It is a no-op if this algorithm already applied itself on the :attr:`State.train_dataloader.dataset`.
 
     See the :doc:`Method Card </method_cards/augmix>` for more details.

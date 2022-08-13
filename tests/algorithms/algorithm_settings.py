@@ -20,7 +20,7 @@ from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, Channel
                                  Factorize, FusedLayerNorm, GatedLinearUnits, GhostBatchNorm, GradientClipping,
                                  LabelSmoothing, LayerFreezing, MixUp, NoOpModel, ProgressiveResizing, RandAugment,
                                  SelectiveBackprop, SeqLengthWarmup, SqueezeExcite, StochasticDepth)
-from composer.models import ComposerResNet
+from composer.models import composer_resnet
 from composer.models.base import ComposerModel
 from tests import common
 from tests.fixtures.synthetic_hf_state import (make_synthetic_bert_dataloader, make_synthetic_bert_model,
@@ -53,7 +53,7 @@ simple_vision_pil_settings = {
 }
 
 simple_resnet_settings = {
-    'model': (ComposerResNet, {
+    'model': (composer_resnet, {
         'model_name': 'resnet18',
         'num_classes': 2
     }),
@@ -86,9 +86,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     CutMix: {
         'model': common.SimpleConvModel,
         'dataset': common.RandomImageDataset,
-        'kwargs': {
-            'num_classes': 2
-        }
+        'kwargs': {}
     },
     CutOut: simple_vision_settings,
     EMA: {
@@ -102,7 +100,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     FusedLayerNorm: simple_bert_settings,
     GatedLinearUnits: simple_bert_settings,
     GhostBatchNorm: {
-        'model': (ComposerResNet, {
+        'model': (composer_resnet, {
             'model_name': 'resnet18',
             'num_classes': 2
         }),
@@ -124,7 +122,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     SeqLengthWarmup: None,  # NLP settings needed
     SqueezeExcite: simple_resnet_settings,
     StochasticDepth: {
-        'model': (ComposerResNet, {
+        'model': (composer_resnet, {
             'model_name': 'resnet50',
             'num_classes': 2
         }),
@@ -209,12 +207,14 @@ def get_algs_with_marks():
         marks = []
         settings = _settings[alg_cls]
 
-        if alg_cls in (CutMix, MixUp, LabelSmoothing):
-            # see: https://github.com/mosaicml/composer/issues/362
-            pytest.importorskip('torch', minversion='1.10', reason='Pytorch 1.10 required.')
-
         if alg_cls in (Alibi, GatedLinearUnits, SeqLengthWarmup):
-            pytest.importorskip('transformers')
+            try:
+                import transformers
+                transformers_available = True
+                del transformers
+            except ImportError:
+                transformers_available = False
+            marks.append(pytest.mark.skipif(not transformers_available, reason='transformers not available'))
 
         if alg_cls == SWA:
             # TODO(matthew): Fix

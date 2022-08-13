@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.Timm`."""
+"""`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :func:`.composer_timm`."""
 
 import textwrap
 from dataclasses import dataclass
@@ -10,7 +10,7 @@ from typing import Optional
 import yahp as hp
 
 from composer.models.model_hparams import ModelHparams
-from composer.models.timm.model import Timm
+from composer.models.timm.model import composer_timm
 from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['TimmHparams']
@@ -18,7 +18,7 @@ __all__ = ['TimmHparams']
 
 @dataclass
 class TimmHparams(ModelHparams):
-    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.Timm`.
+    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :func:`.composer_timm`.
 
     Args:
         model_name (str): timm model name e.g: ``"resnet50"``. List of models can be found at
@@ -62,12 +62,12 @@ class TimmHparams(ModelHparams):
     def initialize_object(self):
         if self.model_name is None:
             raise ValueError('model_name must be specified')
-        return Timm(model_name=self.model_name,
-                    pretrained=self.pretrained,
-                    num_classes=self.num_classes,
-                    drop_rate=self.drop_rate,
-                    drop_path_rate=self.drop_path_rate,
-                    drop_block_rate=self.drop_block_rate,
-                    global_pool=self.global_pool,
-                    bn_momentum=self.bn_momentum,
-                    bn_eps=self.bn_eps)
+        return composer_timm(model_name=self.model_name,
+                             pretrained=self.pretrained,
+                             num_classes=self.num_classes,
+                             drop_rate=self.drop_rate,
+                             drop_path_rate=self.drop_path_rate,
+                             drop_block_rate=self.drop_block_rate,
+                             global_pool=self.global_pool,
+                             bn_momentum=self.bn_momentum,
+                             bn_eps=self.bn_eps)

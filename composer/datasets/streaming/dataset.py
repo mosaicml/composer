@@ -15,12 +15,17 @@ import numpy as np
 from torch.utils.data import IterableDataset
 
 from composer.datasets.streaming.download import download_or_wait
-from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict, get_index_basename,
-                                                get_shard_basename)
+from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict,
+                                                get_compression_scheme_basename, get_index_basename, get_shard_basename,
+                                                split_compression_suffix)
 from composer.datasets.streaming.world import get_world
 from composer.utils import dist
 
 __all__ = ['StreamingDataset']
+
+
+class DatasetCompressionException(Exception):
+    pass
 
 
 class _DownloadStatus(enum.IntEnum):
@@ -133,10 +138,28 @@ class StreamingDataset(IterableDataset):
         self.timeout = timeout
         self.batch_size = batch_size
 
+        self.compression_scheme = None
+        if remote is not None:
+            try:
+                compression_local = self._download_file(get_compression_scheme_basename(),
+                                                        wait=(dist.get_local_rank() != 0),
+                                                        local_basename=get_compression_scheme_basename() + '.old')
+                with open(compression_local, 'r') as fp:
+                    compression_scheme = fp.read().rstrip()
+                    self.compression_scheme = compression_scheme if compression_scheme != '' else None
+                    if remote == local and self.compression_scheme is not None:
+                        raise DatasetCompressionException('cannot decompress when remote == local')
+
+            except FileNotFoundError:
+                compression_local = os.path.join(self.local, get_compression_scheme_basename() + '.old')
+                with open(compression_local, 'x') as fp:
+                    fp.write('')
+                pass
+
         # Load the index file containing the shard metadata
         # This file contains the shard and offset in bytes of each sample (for direct access).
         # Only local device 0 on each node downloads the index. All other devices wait.
-        index_basename = get_index_basename()
+        index_basename = get_index_basename(self.compression_scheme)
         index_local = self._download_file(index_basename, wait=(dist.get_local_rank() != 0))
         with open(index_local, 'rb') as fp:
             self.index = StreamingDatasetIndex.load(fp)
@@ -149,7 +172,7 @@ class StreamingDataset(IterableDataset):
         self._download_status = _DownloadStatus.NOT_STARTED
         self._download_exception: Exception
 
-    def _download_file(self, basename: str, wait: bool = False) -> str:
+    def _download_file(self, basename: str, wait: bool = False, local_basename: Optional[str] = None) -> str:
         """Safely download a file from remote to local cache.
 
         Args:
@@ -159,12 +182,14 @@ class StreamingDataset(IterableDataset):
         Returns:
             str: Local cache filename.
         """
+        local_basename = local_basename if local_basename is not None else basename
         if self.remote is None:
             remote = self.remote
         else:
             remote = os.path.join(self.remote, basename)
-        local = os.path.join(self.local, basename)
+        local = os.path.join(self.local, local_basename)
         download_or_wait(remote=remote, local=local, wait=wait, max_retries=self.max_retries, timeout=self.timeout)
+        local, _ = split_compression_suffix(local)
         return local
 
     def _insert_shard_samples(self, shard: int, part_min_id: int, part_max_id: int) -> None:
@@ -235,7 +260,7 @@ class StreamingDataset(IterableDataset):
             # If this worker is in charge of downloading the shard, download it.
             # Otherwise, wait until shard gets downloaded by another worker on this node
             # This produces deterministic sample order.
-            basename = get_shard_basename(shard)
+            basename = get_shard_basename(shard, compression_name=self.compression_scheme)
             try:
                 self._download_file(basename, wait=(shard not in part_shards_to_download))
             except Exception as e:

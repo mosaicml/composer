@@ -76,7 +76,6 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
     return cell_source
 
 
-@pytest.mark.timeout(120)
 @pytest.mark.parametrize('notebook', [_to_pytest_param(notebook) for notebook in NOTEBOOKS])
 @device('cpu', 'gpu')
 @pytest.mark.daily

@@ -1,11 +1,40 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-# _attn is used by the yaml codepath, even though it is private
-# pyright: reportUnusedFunction=none
+from types import MethodType
 from typing import Tuple
 
 import torch
+from transformers.models.gpt2.modeling_gpt2 import GPT2Attention, GPT2Model
+
+from composer.algorithms.alibi.attention_surgery_functions.utils import (policy_registry, register_alibi,
+                                                                         zero_and_freeze_expand_position_embeddings)
+
+
+@policy_registry.register(GPT2Model)
+def gpt2_embedding_converter(module: torch.nn.Module, module_index: int, max_sequence_length: int) -> torch.nn.Module:
+    """Removes positional embeddings."""
+    assert isinstance(module, GPT2Model)
+    del module_index  # unused
+
+    zero_and_freeze_expand_position_embeddings(module, max_sequence_length, position_embedding_attribute='wpe')
+    return module
+
+
+@policy_registry.register(GPT2Attention)
+def gpt2_attention_converter(module: torch.nn.Module, module_index: int, max_sequence_length: int) -> torch.nn.Module:
+    """Adds ALiBi to GPT2Attention and replaces the attention mask to support `max_sequence_length` tokens."""
+
+    assert isinstance(module, GPT2Attention)
+    del module_index  # unused
+    module = register_alibi(module=module,
+                            n_heads=int(module.num_heads),
+                            max_token_length=max_sequence_length,
+                            causal=True)
+    setattr(module, '_attn', MethodType(_attn, module))
+
+    module = enlarge_mask(module, max_sequence_length)
+    return module
 
 
 def _attn(self, query, key, value, attention_mask=None, head_mask=None) -> Tuple[torch.Tensor, torch.Tensor]:

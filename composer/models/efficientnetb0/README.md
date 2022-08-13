@@ -8,9 +8,9 @@ The EfficientNet model family is a set of convolutional neural networks that can
 ## Example
 
 ```python
-from composer.models import EfficientNetB0
+from composer.models import composer_efficientnetb0
 
-model = EfficientNetB0(num_classes=1000, drop_connect_rate=0.2)
+model = composer_efficientnetb0(num_classes=1000, drop_connect_rate=0.2)
 ```
 
 ## Architecture
@@ -73,6 +73,6 @@ Hyperparameters: [DeepLearningExamples Github repository](https://github.com/NVI
 ## API Reference
 
 ```{eval-rst}
-.. autoclass:: composer.models.efficientnetb0.EfficientNetB0
+.. autoclass:: composer.models.efficientnetb0.composer_efficientnetb0
     :noindex:
 ```

@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import itertools
 from typing import List, Mapping, Tuple, Type, cast
 from unittest.mock import Mock
 
@@ -9,6 +10,7 @@ import torch
 from torch import nn
 from torch.optim import Optimizer
 
+from composer.algorithms.blurpool import BlurMaxPool2d
 from composer.utils import module_surgery
 from tests.common import SimpleModel
 
@@ -29,6 +31,7 @@ class SimpleReplacementPolicy(nn.Module):
         super().__init__()
         self.fc1 = nn.Linear(in_features=16, out_features=32)
         self.fc2 = nn.Linear(in_features=32, out_features=10)
+        self.pool = nn.MaxPool2d(kernel_size=3)
 
     @staticmethod
     def maybe_replace_linear(module: torch.nn.Module, module_index: int):
@@ -37,12 +40,21 @@ class SimpleReplacementPolicy(nn.Module):
             return RecursiveLinear(cast(int, module.in_features), cast(int, module.out_features))
         return None
 
+    @staticmethod
+    def replace_pool(module: torch.nn.Module, module_index: int):
+        assert isinstance(module, nn.MaxPool2d)
+        return BlurMaxPool2d.from_maxpool2d(module, module_index)
+
     def policy(self) -> Mapping[Type[torch.nn.Module], module_surgery.ReplacementFunction]:
-        return {nn.Linear: self.maybe_replace_linear}
+        return {
+            nn.Linear: self.maybe_replace_linear,
+            nn.MaxPool2d: self.replace_pool,
+        }
 
     def validate_replacements(self, recurse_on_replacements: bool):
         assert type(self.fc1) is nn.Linear
         assert type(self.fc2) is RecursiveLinear
+        assert type(self.pool) is BlurMaxPool2d
 
         if recurse_on_replacements:
             assert type(self.fc2.submodule) is RecursiveLinear
@@ -94,6 +106,24 @@ def test_module_replacement(model_cls: Type[SimpleReplacementPolicy], recurse_on
     )
 
     model.validate_replacements(recurse_on_replacements)
+
+
+@pytest.mark.gpu
+def test_module_replacement_gpu():
+    model = SimpleReplacementPolicy()
+    model = model.cuda()
+    module_surgery.replace_module_classes(
+        model,
+        optimizers=None,
+        policies=model.policy(),
+        recurse_on_replacements=False,
+    )
+
+    model.validate_replacements(False)
+
+    # Validate the model devices are correct
+    for p in itertools.chain(model.parameters(), model.buffers()):
+        assert p.device.type == 'cuda'
 
 
 class _CopyLinear(torch.nn.Module):

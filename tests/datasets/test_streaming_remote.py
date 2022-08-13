@@ -3,7 +3,7 @@
 
 import pathlib
 import time
-from typing import Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import pytest
 import pytest_httpserver
@@ -17,10 +17,16 @@ from composer.datasets.imagenet import StreamingImageNet1k
 from composer.datasets.streaming import StreamingDataset
 from composer.datasets.streaming.download import download_or_wait
 from composer.datasets.utils import pil_image_collate
+from tests.datasets.test_streaming import get_fake_samples_decoders, write_synthetic_streaming_dataset
 
 
-def get_dataset(name: str, local: str, split: str, shuffle: bool,
-                batch_size: Optional[int]) -> Tuple[int, StreamingDataset]:
+def get_dataset(name: str,
+                local: str,
+                split: str,
+                shuffle: bool,
+                batch_size: Optional[int],
+                other_kwargs: Optional[Dict[str, Any]] = None) -> Tuple[int, StreamingDataset]:
+    other_kwargs = {} if other_kwargs is None else other_kwargs
     dataset_map = {
         'ade20k': {
             'remote': 's3://mosaicml-internal-dataset-ade20k/mds/1/',
@@ -81,6 +87,14 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
             'class': StreamingCIFAR10,
             'kwargs': {},
         },
+        'test_streaming_upload': {
+            'remote': 's3://streaming-upload-test-bucket/',
+            'num_samples': {
+                'all': 0,
+            },
+            'class': StreamingDataset,
+            'kwargs': {},
+        }
     }
     if name not in dataset_map and split not in dataset_map[name]['num_samples'][split]:
         raise ValueError('Could not load dataset with name={name} and split={split}')
@@ -88,13 +102,28 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
     d = dataset_map[name]
     expected_samples = d['num_samples'][split]
     remote = d['remote']
-    kwargs = d['kwargs']
+    kwargs = {**d['kwargs'], **other_kwargs}
     dataset = d['class'](remote=remote, local=local, split=split, shuffle=shuffle, batch_size=batch_size, **kwargs)
     return (expected_samples, dataset)
 
 
+@pytest.mark.remote
+@pytest.mark.xfail(reason='Test is broken. See https://mosaicml.atlassian.net/browse/CO-762')
+def test_upload_streaming_dataset(tmp_path: pathlib.Path, s3_bucket: str):
+    num_samples = 1000
+    original_path = str(tmp_path / 'original')
+    download_path = str(tmp_path / 'downloaded')
+    samples, decoders = get_fake_samples_decoders(num_samples)
+    write_synthetic_streaming_dataset(original_path, samples, shard_size_limit=1 >> 16, upload=f's3://{s3_bucket}/')
+    dataset = get_dataset('test_streaming_upload', download_path, 'all', False, 1, other_kwargs={'decoders': decoders})
+    measured_samples = 0
+    for _ in dataset:
+        measured_samples += 1
+
+    assert dataset[0] == measured_samples and measured_samples == num_samples
+
+
 @pytest.mark.remote()
-@pytest.mark.timeout(0)
 @pytest.mark.filterwarnings(r'ignore::pytest.PytestUnraisableExceptionWarning')
 @pytest.mark.parametrize('name', [
     'ade20k',
@@ -104,6 +133,7 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
     'cifar10',
 ])
 @pytest.mark.parametrize('split', ['val'])
+@pytest.mark.xfail(reason='Test is broken. See https://mosaicml.atlassian.net/browse/CO-762')
 def test_streaming_remote_dataset(tmp_path: pathlib.Path, name: str, split: str) -> None:
 
     # Build StreamingDataset
@@ -134,7 +164,6 @@ def test_streaming_remote_dataset(tmp_path: pathlib.Path, name: str, split: str)
 
 
 @pytest.mark.remote()
-@pytest.mark.timeout(0)
 @pytest.mark.filterwarnings(r'ignore::pytest.PytestUnraisableExceptionWarning')
 @pytest.mark.parametrize('name', [
     'ade20k',
@@ -144,6 +173,7 @@ def test_streaming_remote_dataset(tmp_path: pathlib.Path, name: str, split: str)
     'c4',
 ])
 @pytest.mark.parametrize('split', ['val'])
+@pytest.mark.xfail(reason='Test is broken. See https://mosaicml.atlassian.net/browse/CO-762')
 def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: str) -> None:
     # Transformers imports required for batch collating
     pytest.importorskip('transformers')

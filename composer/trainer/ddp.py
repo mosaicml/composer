@@ -53,7 +53,7 @@ def ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Uni
     """A context manager for handling the :class:`DDPSyncStrategy`.
 
     Args:
-        state (State): The state of the :class:`~composer.trainer.trainer.Trainer`.
+        state (State): The state of the :class:`.Trainer`.
         is_final_microbatch (bool): Whether or not the context is being used during the final
             microbatch of the gradient accumulation steps.
         sync_strategy (str | DDPSyncStrategy): The ddp sync strategy to use. If a string

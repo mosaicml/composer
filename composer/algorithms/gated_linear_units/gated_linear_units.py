@@ -11,7 +11,10 @@ from typing import Callable, Dict, Optional, Sequence, Type, Union
 
 import torch
 
+from composer.models.huggingface import HuggingFaceModel
+
 try:
+    from transformers import BertForMaskedLM, BertForSequenceClassification
     from transformers.models.bert.modeling_bert import BertIntermediate, BertOutput
     IS_TRANSFORMERS_INSTALLED = True
 except ImportError as e:
@@ -21,7 +24,6 @@ from composer.algorithms.gated_linear_units.gated_linear_unit_layers import BERT
 from composer.algorithms.warnings import NoEffectWarning
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
-from composer.models import BERTModel
 from composer.utils import MissingConditionalImportError, module_surgery
 
 log = logging.getLogger(__name__)
@@ -79,9 +81,10 @@ def apply_gated_linear_units(model: torch.nn.Module,
     if not IS_TRANSFORMERS_INSTALLED:
         raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers')
 
-    # ensure that the model is an instance of a BERTModel, since our replacement policy is only defined for BERTs
-    if not isinstance(model, BERTModel):
-        raise TypeError('Gated Linear Units only has a surgery policy defined for instances of BERTModel.')
+    # ensure that the model is an instance of a BERT model, since our replacement policy is only defined for BERTs
+    if not isinstance(model, HuggingFaceModel) and not (isinstance(model.model, BertForMaskedLM) or
+                                                        isinstance(model.model, BertForSequenceClassification)):
+        raise TypeError('Gated Linear Units only has a surgery policy defined for instances of BERT models.')
 
     if act_fn is None:
         # get the activation functions used
@@ -115,14 +118,15 @@ def apply_gated_linear_units(model: torch.nn.Module,
         warnings.warn(
             NoEffectWarning(
                 'No instances of `torch.nn.LayerNorm` were found, and therefore, there were no modules to replace.'))
-    log.info(f'Successfully replaced {len(replaced_instances)} of LayerNorm with a Fused LayerNorm.')
+    log.info(
+        f'Successfully replaced {len(replaced_instances)} of BertIntermediate and BertOutput with a GatedLinearUnit.')
 
 
 class GatedLinearUnits(Algorithm):
     """Replaces all instances of Linear layers in the feed-forward subnetwork with a `Gated Linear Unit <https://arxiv.org/abs/2002.05202>`_.
     The Gated Linear Units provide a more expressive form for the same number of parameters, and a slight degredation to throughput.
 
-    Runs on :attr:`~composer.core.event.Event.INIT`, so it can swap the Linear layers in the FFN for GLUs before the model is DDP wrapped.
+    Runs on :attr:`.Event.INIT`, so it can swap the Linear layers in the FFN for GLUs before the model is DDP wrapped.
 
     Args:
         act_fn (Callable[[torch.Tensor], torch.Tensor], optional): Optionally, the activation function to use. If ``None``, the algorithm will

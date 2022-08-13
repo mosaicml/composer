@@ -35,8 +35,10 @@ from composer.utils.iter_helpers import ensure_tuple
 log = logging.getLogger(__name__)
 
 __all__ = [
-    'ReplacementFunction', 'replace_module_classes', 'count_module_instances', 'update_params_in_optimizer',
-    'replace_params_in_optimizer'
+    'ReplacementFunction',
+    'replace_module_classes',
+    'count_module_instances',
+    'update_params_in_optimizer',
 ]
 
 ReplacementFunction = Callable[[torch.nn.Module, int], Optional[torch.nn.Module]]
@@ -164,6 +166,9 @@ def replace_module_classes(
                                                                            str]]] = collections.OrderedDict()
     _add_children_recursive(module, children_to_parents_and_names)
     indices = indices if indices is not None else {c: 0 for c in policies}
+
+    default_device = _infer_device(module)
+
     while len(children_to_parents_and_names) > 0:
         child, parents = children_to_parents_and_names.popitem(last=False)
         for policy_class, replacement_fn in policies.items():
@@ -177,11 +182,21 @@ def replace_module_classes(
             indices[policy_class] += 1
             if replacement is not None:
                 assert child not in replaced_pairs
-                replaced_pairs[child] = replacement
 
+                # if no device inferred (child has no parameters, e.g. Pool2d),
+                # use the default device inferred from the entire module.
+                device = _infer_device(child)
+                if device is None:
+                    device = default_device
+
+                if device:
+                    replacement = replacement.to(device)
+
+                replaced_pairs[child] = replacement
                 for parent, name in parents:
                     # update each parent with the replaced child
                     setattr(parent, name, replacement)
+
                 # recurse on new child object
                 if recurse_on_replacements:
                     children_to_parents_and_names[replacement] = list(parents)  # copy the parents list
@@ -198,6 +213,16 @@ def replace_module_classes(
             invoking this method, or manually add new parameters to the existing optimizer."""))
 
     return replaced_pairs
+
+
+def _infer_device(module: torch.nn.Module) -> Optional[torch.device]:
+    """Attempt to infer a module's device by inspecting its parameters and buffers."""
+    try:
+        p = next(itertools.chain(module.parameters(), module.buffers()))
+    except StopIteration:
+        return None
+    else:
+        return p.device
 
 
 def count_module_instances(module: torch.nn.Module, module_class: Union[Type[torch.nn.Module],
@@ -363,47 +388,3 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
     new_param_list += list(added_params)
     log.info(f'adding {len(added_params)} new parameters to parameter group #{group_idx}')
     param_group['params'] = new_param_list
-
-
-def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
-                                new_params: Iterable[torch.nn.parameter.Parameter],
-                                optimizers: Union[Optimizer, Sequence[Optimizer]]) -> None:
-    """Fully replaces an optimizer's parameters.
-
-    This differs from :meth:`update_params_in_optimizer` in that this method is capable
-    of replacing parameters spanning multiple param groups. To accomplish this,
-    this function assumes that parameters in ``new_params`` should inherit the
-    param group of the corresponding parameter from ``old_params``. Thus, this
-    function also assumes that ``old_params`` and ``new_params`` have the same length.
-
-    Args:
-        old_params (Iterator[torch.nn.parameter.Parameter]): Current parameters of the optimizer.
-        new_params (Iterator[torch.nn.parameter.Parameter]): New parameters of the optimizer, given in the same order as
-            ``old_params``. Must be the same length as ``old_params``.
-        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer]): One or more :class:`torch.optim.Optimizer` objects.
-
-    Raises:
-        NotImplementedError: If ``optimizers`` contains more than one optimizer.
-        RuntimeError: If ``old_params`` and ``new_params`` have different lengths, or
-            if a param from ``old_params`` cannot be found.
-    """
-    if len(ensure_tuple(optimizers)) > 1:
-        raise NotImplementedError('Surgery with multiple optimizers is not yet supported.')
-
-    opt = ensure_tuple(optimizers)[0]
-
-    param_to_idxs_map = {}
-    for group_idx, param_group in enumerate(opt.param_groups):
-        param_list = param_group['params']
-        for param_idx, param in enumerate(param_list):
-            param_to_idxs_map[param] = (group_idx, param_idx)
-
-    for old_param, new_param in itertools.zip_longest(old_params, new_params):
-        if old_params is None or new_params is None:
-            raise RuntimeError('old_params and new_params have different lengths.')
-
-        if not old_param in param_to_idxs_map:
-            raise RuntimeError(f'Parameter {old_param} is missing from the optimizer.')
-
-        group_idx, param_idx = param_to_idxs_map[old_param]
-        opt.param_groups[group_idx]['params'][param_idx] = new_param
