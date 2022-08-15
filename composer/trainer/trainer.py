@@ -973,8 +973,8 @@ class Trainer:
         self.state.evaluators = evaluators
 
         # Some algorithms require specific settings
-        self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, ensure_tuple(algorithms)))
-        self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, ensure_tuple(algorithms)))
+        self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, ensure_tuple(self.state.algorithms)))
+        self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, ensure_tuple(self.state.algorithms)))
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
