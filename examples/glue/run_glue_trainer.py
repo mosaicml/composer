@@ -30,7 +30,7 @@ like in the following::
     >>> python examples/glue/run_glue_trainer.py
     finetune_hparams --help
 """
-import multiprocessing as mp
+# import multiprocessing as mp
 import os
 import subprocess
 import sys
@@ -42,8 +42,10 @@ from multiprocessing.context import BaseContext
 from typing import Dict, List, Optional, Tuple
 
 import torch
+import torch.multiprocessing as mp
 import yahp as hp
 import yaml
+from loky import get_reusable_executor
 from nlp_trainer_hparams import GLUETrainerHparams, NLPTrainerHparams
 from tabulate import tabulate
 
@@ -216,10 +218,10 @@ def spawn_finetuning_jobs(
     ctx = mp.get_context('spawn')
     cuda_envs = init_cuda_queue(torch.cuda.device_count(), ctx)
     free_port = get_free_tcp_port()
-    executor = Pool(max_workers=torch.cuda.device_count(),
-                    initializer=init_cuda_env,
-                    initargs=(cuda_envs, free_port),
-                    mp_context=ctx)
+    executor = get_reusable_executor(max_workers=torch.cuda.device_count(),
+                                     initializer=init_cuda_env,
+                                     initargs=(cuda_envs, free_port),
+                                     context=ctx)
 
     # Fine-tune from pre-trained checkpoint(s)
     ckpt_parent_pairs = zip(ckpt_load_paths, parent_ckpts)
@@ -232,9 +234,8 @@ def spawn_finetuning_jobs(
         for task, save_ckpt in task_to_save_ckpt.items():
             # Run 1 or more fine-tune trainers from this checkpoint, using a different seed override for each
             for seed in seed_overrides[task]:
-                _ = executor.submit(train_finetune, base_yaml_file, task, save_ckpt, ckpt_load_path, parent_ckpt,
-                                    parent_idx, ckpt_save_folder, save_locally, free_port + rank, load_ignore_keys,
-                                    seed)
+                executor.submit(train_finetune, base_yaml_file, task, save_ckpt, ckpt_load_path, parent_ckpt,
+                                parent_idx, ckpt_save_folder, save_locally, free_port + rank, load_ignore_keys, seed)
                 # future.add_done_callback(
                 #     lambda future: log_metrics(future.result(), ckpt_filename=parent_ckpt, glue_metrics=glue_metrics))
                 rank += 1
@@ -263,6 +264,8 @@ def train_finetune(
 
     finetune_hparams = NLPTrainerHparams.create(cli_args=False, f=base_yaml_file).finetune_hparams
     task_hparams = TrainerHparams.create(cli_args=False, f=f'./composer/yamls/models/glue/{task}.yaml')
+    task_hparams.train_subset_num_batches = 100
+    task_hparams.eval_subset_num_batches = 100
 
     if finetune_hparams:
         ft_hparams = merge_hparams(task_hparams, finetune_hparams)

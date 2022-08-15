@@ -1,0 +1,45 @@
+training_scheme: finetune
+pretrain_hparams: None
+finetune_hparams:
+  algorithms:
+    alibi:
+      max_sequence_length: 256
+      train_sequence_length_scaling: 1.0
+    gated_linear_units: {}
+  finetune_ckpts:
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed1654/checkpoints/ep0-ba3500-rank0-2049.741483wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed1654/checkpoints/ep0-ba10500-rank0-6037.542443wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed1654/checkpoints/ep0-ba17500-rank0-10030.179733wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed1654/checkpoints/ep0-ba24500-rank0-14020.376009wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed1654/checkpoints/ep0-ba31500-rank0-18011.066304wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed1654/checkpoints/ep0-ba42000-rank0-23990.930489wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed1654/checkpoints/ep0-ba49000-rank0-27981.041456wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed1654/checkpoints/ep0-ba56000-rank0-31967.008366wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed1654/checkpoints/ep0-ba63000-rank0-35952.438174wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed1654/checkpoints/ep0-ba68796-rank0-39266.246585wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed3407/checkpoints/ep0-ba3500-rank0-2017.443281wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed3407/checkpoints/ep0-ba10500-rank0-5992.853368wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed3407/checkpoints/ep0-ba17500-rank0-9969.322826wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed3407/checkpoints/ep0-ba24500-rank0-13945.129005wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed3407/checkpoints/ep0-ba31500-rank0-17919.789017wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed3407/checkpoints/ep0-ba42000-rank0-23880.928893wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed3407/checkpoints/ep0-ba49000-rank0-27855.494766wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed3407/checkpoints/ep0-ba56000-rank0-31829.49876wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed3407/checkpoints/ep0-ba63000-rank0-35804.010215wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed3407/checkpoints/ep0-ba68796-rank0-39094.802084wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed9407/checkpoints/ep0-ba3500-rank0-2010.32419wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed9407/checkpoints/ep0-ba10500-rank0-5990.305392wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed9407/checkpoints/ep0-ba17500-rank0-9970.584242wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed9407/checkpoints/ep0-ba24500-rank0-13949.782693wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed9407/checkpoints/ep0-ba31500-rank0-17928.881778wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed9407/checkpoints/ep0-ba42000-rank0-23898.470276wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed9407/checkpoints/ep0-ba49000-rank0-27879.360326wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed9407/checkpoints/ep0-ba56000-rank0-31858.802409wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed9407/checkpoints/ep0-ba63000-rank0-35838.661218wct
+  - https://storage.googleapis.com/alex_bert_checkpoints/bert/dc-2022-07-v2/bert-dc-2022-07-baseline-fln-alibi-glu--seed9407/checkpoints/ep0-ba68796-rank0-39135.573917wct
+  load_ignore_keys:
+  - state/model/model.bert.embeddings.position_embeddings.weight
+  - state/model/model.bert.encoder.layer.*.attention.self.alibi
+  - state/model/model.bert.embeddings.position_ids
+  run_name: fln-alibi-glu
+  save_folder: checkpoints
