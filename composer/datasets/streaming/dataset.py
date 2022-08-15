@@ -94,8 +94,8 @@ class StreamingDataset(IterableDataset):
         batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default:
             ``None``.
         shuffle_size (Optional[str]): Either a proportion of the dataset that is required to be loaded at once for
-            optimal streaming speed, or an absolute number of shards. The string takes the format: `0.01prop`, meaning
-            1% of the dataset at a time is needed, or `1000shards`, meaning 1000 shards at a time are needed. Lower values
+            optimal streaming speed, or an absolute number of shards. The string takes the format: ``0.01prop``, meaning
+            1% of the dataset at a time is needed, or ``1000shards``, meaning 1000 shards at a time are needed. Lower values
             may degrade shuffle randomness, while higher values may increase cold-start lag.
 
     .. doctest::

@@ -10,7 +10,17 @@ __all__ = ['BlockCipherShuffler']
 
 
 def _encrypt_round(key: int, round_num: int, plaintext: int, block_size: int) -> int:
-    """Performs round_num rounds of encryption, recursively calling _encrypt_round."""
+    """Performs round_num rounds of Feistel network encryption, recursively calling _encrypt_round.
+
+    Args:
+        key (int): cipher key
+        round_num (int): number of rounds to perform
+        plaintext (int): plaintext message
+        block_size (int): number of bits in cipher block
+
+    Returns:
+        int: ciphertext output
+    """
     if round_num == 0:
         return plaintext
 
@@ -24,7 +34,18 @@ def _encrypt_round(key: int, round_num: int, plaintext: int, block_size: int) ->
 
 
 def _decrypt_round(key: int, round_num: int, ciphertext: int, block_size: int, num_rounds: int) -> int:
-    """Performs round_num rounds of decryption, recursively calling _decrypt_round."""
+    """Performs round_num rounds of Feistel network decryption, recursively calling _decrypt_round.
+
+    Args:
+        key (int): cipher key
+        round_num (int): index of current round
+        ciphertext (int): encrypted block
+        block_size (int): number of bits in cipher block
+        num_rounds (int): total number of rounds in encryption
+
+    Returns:
+        int: plaintext output
+    """
     if round_num > num_rounds:
         return ciphertext
 
@@ -109,6 +130,11 @@ class BlockCipherShuffler:
             raise ValueError('shuffling is on but no seed was specified')
         idx = idx * num_workers + rank
 
+        ### at a high level, this function does the following things:
+        ### 1. calculates the group of shards that need to be present on the disk at a time
+        ### 2. calculates the index of the sample relative to this group
+        ### 3. maps the relative groupwise index to a global sample index
+
         # calculate the index of the shard group
         shard_id = self.index.sample_shards[idx]
         shard_index = decrypt(self._cipher_key, shard_id, self.index.num_shards)
@@ -135,5 +161,13 @@ class BlockCipherShuffler:
 
         return shard_base_offset + shard_offset
 
-    def get_shard_index(self, shard_id):
+    def get_shard_index(self, shard_id: int) -> int:
+        """Gets the index (relative position in an epoch) of a shard with a given ID
+
+        Args:
+            shard_id (int): ID of shard
+
+        Returns:
+            int: relative position in an epoch of shard
+        """
         return decrypt(self._cipher_key, shard_id, self.index.num_shards)
