@@ -327,7 +327,6 @@ class StreamingDataset(IterableDataset):
             Iterator[Any]: Each sample.
         """
         Thread(target=self.download, daemon=True).start()
-        #raise ValueError(np.array([self.shuffle_sample(ix) for ix in np.arange(self.index.total_samples)]))
         num_workers = dist.get_local_world_size()
         rank = dist.get_local_rank()
         sbs = int(self._shuffle_buffer_size)
