@@ -53,7 +53,7 @@ class LogLevel(IntEnum):
 class Logger:
     """An interface to record training data.
 
-    The :class:`~composer.trainer.trainer.Trainer`, instances of :class:`~composer.core.callback.Callback`, and
+    The :class:`.Trainer`, instances of :class:`.Callback`, and
     instances of :class:`~composer.core.algorithm.Algorithm` invoke the logger to record data such as
     the epoch, training loss, and custom metrics as provided by individual callbacks and algorithms.
     This class does not store any data itself; instead, it routes all data to the ``destinations``.
@@ -104,6 +104,8 @@ class Logger:
 
         Both ``file_path`` and ``artifact_name`` can be specified as format strings.
         See :func:`~.composer.utils.file_helpers.format_name_with_dist` for more information.
+
+        .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
 
         Args:
             log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of

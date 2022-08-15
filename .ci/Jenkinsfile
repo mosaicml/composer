@@ -25,7 +25,7 @@ cacheRepo = 'mosaicml/docker-cache'  // The repo where docker image layers are c
 // Pytest settings
 pytestTimeout = '1800' // timeout to run pytest, in seconds
 pytestCpuTestCpuLimit = '4'
-pytestCpuTestMemLimit = '20Gi' // memory limit for ram and ephemeral storage
+pytestCpuTestMemLimit = '30Gi' // memory limit for ram and ephemeral storage
 pytestGpuTestNumGpus = 2
 pytestGpuTestCpuLimit = '14'
 pytestGpuTestMemLimit = '30Gi' // memory limit for ram and ephemeral storage
