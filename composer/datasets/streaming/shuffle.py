@@ -9,7 +9,7 @@ from composer.datasets.streaming.format import StreamingDatasetIndex
 __all__ = ['BlockCipherShuffler']
 
 
-def _encrypt_round(key, round_num, plaintext, block_size):
+def _encrypt_round(key: int, round_num: int, plaintext: int, block_size: int) -> int:
     """Performs round_num rounds of encryption, recursively calling _encrypt_round."""
     if round_num == 0:
         return plaintext
@@ -23,7 +23,7 @@ def _encrypt_round(key, round_num, plaintext, block_size):
     return _encrypt_round(key, round_num - 1, (upper << half_block_size) ^ lower, block_size)
 
 
-def _decrypt_round(key, round_num, ciphertext, block_size, num_rounds):
+def _decrypt_round(key: int, round_num: int, ciphertext: int, block_size: int, num_rounds: int) -> int:
     """Performs round_num rounds of decryption, recursively calling _decrypt_round."""
     if round_num > num_rounds:
         return ciphertext
