@@ -180,7 +180,6 @@ class StreamingDataset(IterableDataset):
         self._batch_count = 0
         self._restored_batch_count = 0
         self._shuffle_buffer_size = self._parse_shuffle_buffer_size(shuffle_size)
-        N = self.index.num_shards
         world = get_world()
         num_nodes = world.global_num_nodes
         global_rank = dist.get_global_rank()
@@ -190,6 +189,7 @@ class StreamingDataset(IterableDataset):
             self._shard_shuffle_indices = self.shuffler.shuffle_shards()
             self.index.relocate_samples(self._shard_shuffle_indices)
         else:
+            N = self.index.num_shards
             self._shard_shuffle_indices = np.arange(N)[np.arange(N) % num_nodes == global_rank]
 
     def _parse_shuffle_buffer_size(self, shuffle_buffer_size_arg: str) -> np.int64:
