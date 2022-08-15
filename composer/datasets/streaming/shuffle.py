@@ -112,11 +112,11 @@ class BlockCipherShuffler:
         """Returns an ordering of shards such that shards are distributed evenly between nodes and shuffled randomly.
 
         Args:
-            num_nodes (int): number of nodes
-            global_rank (int): rank of current node
+            num_nodes (int): Number of nodes
+            global_rank (int): Rank of current node
 
         Returns:
-            NDArray[np.int64]: _description_
+            NDArray[np.int64]: Shuffled shard ordering
         """
         num_shards = self.index.num_shards
         return np.array([
