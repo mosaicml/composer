@@ -1,6 +1,6 @@
 # 🫀 Squeeze-and-Excitation
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
 `Computer Vision`, `Changes the Training Algorithm`
 
@@ -127,3 +127,7 @@ Because SE modules slow down the model, they compose well with methods that make
 [Squeeze-and-Excitation Networks](https://arxiv.org/abs/1709.01507) by Jie Hu, Li Shen, and Gang Sun. Published at CVPR 2018.
 
 *This Composer implementation of this method and the accompanying documentation were produced by Davis Blalock and Ajay Saini at MosaicML.*
+
+## API Reference
+
+See {mod}`composer.algorithms.squeeze_excite`

@@ -1,6 +1,6 @@
 # 🧈 Label Smoothing
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
 `Computer Vision`, `Changes the Training Algorithm`
 
@@ -118,3 +118,7 @@ We did not observe label smoothing to affect throughput in any way, although it 
 [Rethinking the Inception Architecture for Computer Vision](https://arxiv.org/abs/1512.00567) by Christian Szegedy, Vincent Vanhoucke, Sergey Ioffe, Jonathan Shlens, and Zbigniew Wojna. Posted to arXiv in 2015.
 
 *This Composer implementation of this method and the accompanying documentation were produced by Cory Stephenson at MosaicML.*
+
+## API Reference
+
+See {mod}`composer.algorithms.label_smoothing`

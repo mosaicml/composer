@@ -1,6 +1,6 @@
 # ⛩️ Gated Linear Units
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
  `Natural Language Processing`, `Changes the Training Algorithm`
 
@@ -92,3 +92,7 @@ Our implementation most closely matches: [*GLU Variants Improve
 Transformer*](https://arxiv.org/abs/2002.05202) by Shazeer. Posted to arXiv in 2020.
 
 *The Composer implementation of this method and the accompanying documentation were produced by Moin Nadeem at MosaicML.*
+
+## API Reference
+
+See {mod}`composer.algorithms.gated_linear_units`

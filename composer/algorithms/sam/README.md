@@ -1,6 +1,6 @@
 # 🏔️ Sharpness Aware Minimization (SAM)
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
 `Computer Vision`, `Changes the Training Algorithm`
 
@@ -91,3 +91,7 @@ We did not find that SAM provides any improvement on GPT-style language modeling
 [*Sharpness-Aware Minimization for Efficiently Improving Generalization*](https://arxiv.org/abs/2010.01412) by Pierre Foret, Ariel Kleiner, Hossein Mobahi, and Behnam Neyshabur. Published in ICLR 2021.
 
 *The Composer implementation of this method and the accompanying documentation were produced by Abhi Venigalla at MosaicML.*
+
+## API Reference
+
+See {mod}`composer.algorithms.sam`
