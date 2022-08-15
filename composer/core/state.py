@@ -13,7 +13,6 @@ import torch
 import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
-from torch.utils.data import DataLoader
 
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
@@ -59,25 +58,6 @@ _STATE_DICT_SERIALIZED_ATTRIBUTES = [
     'timestamp',
     'dataloader_state',
 ]
-
-
-class DataloaderState:
-
-    def __init__(self, dataloader):
-        self.dataloader = dataloader
-
-    def state_dict(self):
-        if isinstance(self.dataloader, DataLoader):
-            if isinstance(self.dataloader.dataset, DataloaderState):
-                return self.dataloader.dataset.state_dict()
-
-    def load_state_dict(self, state):
-        pass
-
-    def apply_state_to_dataloader(self, state):
-        if isinstance(self.dataloader, DataLoader):
-            if isinstance(self.dataloader.dataset, DataloaderState):
-                self.dataloader.dataset.load_state_dict(state['dataloader_state'])
 
 
 class State(Serializable):
@@ -459,9 +439,11 @@ class State(Serializable):
                     torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state, 'module.')
                 serialized_value = model_state
             elif attribute_name == 'dataloader_state':
-                dataloader_state = attribute_value.state_dict()
+                dataloader_state = None
+                if hasattr(self.dataloader, 'state_dict'):
+                    dataloader_state = self.dataloader.state_dict()
+                    dataloader_state['batch_count'] = self.timestamp.batch_in_epoch
                 # patch this value to be resilient to prefetching:
-                dataloader_state['batch_count'] = self.timestamp.batch_in_epoch
                 serialized_value = dataloader_state
             else:
                 if attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
@@ -512,7 +494,8 @@ class State(Serializable):
                 self.load_model_state(state, strict=strict)
                 continue
             elif attribute_name == 'dataloader_state':
-                self.dataloader_state.apply_state_to_dataloader(state)
+                if hasattr(self.dataloader, 'load_state_dict'):
+                    self.dataloader.load_state_dict(state)
                 continue
             state_field_value = getattr(self, attribute_name)
             if attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
@@ -536,11 +519,6 @@ class State(Serializable):
     def dataloader(self):
         """The active dataloader."""
         return self._dataloader
-
-    @property
-    def dataloader_state(self):
-        """The dataloader state (used for reproduction)."""
-        return DataloaderState(self._dataloader)
 
     @property
     def dataloader_label(self):
