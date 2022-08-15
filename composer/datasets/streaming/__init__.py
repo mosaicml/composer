@@ -15,6 +15,8 @@ A brief list of improvements:
 * Dataset is cached on local storage after epoch 1.
 * When used with a :class:`torch.utils.data.DataLoader`, the epoch boundaries are consistent (# samples, # batches) regardless of ``num_workers``, producing (nearly) the same behavior as a map-style :class:`torch.utils.data.Dataset`.
 * When data is read from a single device with ``num_workers <= 1``, samples are read in-order (useful for local dataset inspection).
+* Dataset order is deterministic for a given value of ``num_workers``.
+* Dataset can resume mid epoch without needing to "spin" through previous values.
 * (TODO) Supports lazy random-access retrieval of samples (useful for local dataset inspection).
 * Shuffling is best-effort in epoch 1, and samples are made available for random acess as they are being downloaded.
 * (TODO) Shuffling is perfect, i.e. random access (per-worker), in all subsequent epochs.
