@@ -106,6 +106,10 @@ class StreamingDataset(IterableDataset):
         timeout (float): How long to wait for shard to download before raising an exception. Default: 60 sec.
         batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default:
             ``None``.
+        shuffle_buffer_size (Optional[str]): Either a proportion of the dataset that is required to be loaded at once for
+            optimal streaming speed, or an absolute number of shards. The string takes the format: `0.01prop`, meaning 
+            1% of the dataset at a time is needed, or `1000shards`, meaning 1000 shards at a time are needed. Lower values
+            may degrade shuffle randomness, while higher values may increase cold-start lag.
 
     .. doctest::
 
@@ -195,7 +199,7 @@ class StreamingDataset(IterableDataset):
         num_nodes = world.global_num_nodes
         global_rank = dist.get_global_rank()
         if shuffle:
-            self._cipher_key = self._next_epoch + np.random.randint(2 << 10) + 1  # initialize using a random cipher key
+            self._cipher_key = 42  # initialize using an arbitrary cipher key
             self._shard_shuffle_indices = np.array(
                 [encrypt(self._cipher_key, v, N) for v in range(N) if v % num_nodes == global_rank])
             self.index.relocate_samples(self._shard_shuffle_indices)
@@ -276,7 +280,8 @@ class StreamingDataset(IterableDataset):
             self._download_status = _DownloadStatus.DONE
 
     def _shuffle_sample(self, idx):
-        """ Permutes the space of samples in the following way:  """
+        """Shuffles the samples as much as possible while maintaining the shuffle_buffer_size invariant of shards 
+        required on the disk at once."""
         if self._cipher_key is None:
             raise ValueError('shuffling is on but no seed was specified')
         num_workers = dist.get_local_world_size()
