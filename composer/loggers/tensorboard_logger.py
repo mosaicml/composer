@@ -136,7 +136,8 @@ class TensorboardLogger(LoggerDestination):
         if self.rank_zero_only and dist.get_global_rank() != 0:
             return
 
-        assert self.writer is not None
+        if self.writer is None:
+            return
         # Skip if no writes occurred since last flush.
         if not self.writer.file_writer:
             return
@@ -154,3 +155,8 @@ class TensorboardLogger(LoggerDestination):
 
         # Close writer, which creates new log file.
         self.writer.close()
+
+    def close(self, state: State, logger: Logger) -> None:
+        del state  # unused
+        self._flush(logger)
+        self.writer = None

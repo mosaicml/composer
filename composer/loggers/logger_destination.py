@@ -20,8 +20,8 @@ class LoggerDestination(Callback, ABC):
     """Base class for logger destination.
 
     As this class extends :class:`~.callback.Callback`, logger destinations can run on any training loop
-    :class:`~composer.core.event.Event`. For example, it may be helpful to run on
-    :attr:`~composer.core.event.Event.EPOCH_END` to perform any flushing at the end of every epoch.
+    :class:`.Event`. For example, it may be helpful to run on
+    :attr:`.Event.EPOCH_END` to perform any flushing at the end of every epoch.
 
     Example:
         .. doctest::
@@ -87,7 +87,7 @@ class LoggerDestination(Callback, ABC):
 
         Subclasses should implement this method to store logged files (e.g. copy it to another folder or upload it to
         an object store), then it should implement this method. However, not all loggers need to implement this method.
-        For example, the :class:`~composer.loggers.tqdm_logger.TQDMLogger` does not implement this method, as it cannot
+        For example, the :class:`.TQDMLogger` does not implement this method, as it cannot
         handle file artifacts.
 
         .. note::
@@ -100,6 +100,8 @@ class LoggerDestination(Callback, ABC):
                 copy the file to a temporary directory. Otherwise, the original file may no longer exist, or the logged
                 artifact can be corrupted (e.g., if the logger destination is reading from file while the training loop
                 is writing to it).
+
+        .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
 
         Args:
             state (State): The training state.
@@ -130,3 +132,13 @@ class LoggerDestination(Callback, ABC):
         """
         del artifact_name, destination, overwrite, progress_bar  # unused
         raise NotImplementedError
+
+    def can_log_file_artifacts(self) -> bool:
+        """Indicates whether LoggerDestination can log file artifacts.
+
+        Defaults to false, should return True for derived logger classes that implement log_file_artifact().
+
+        Returns:
+            bool: Whether the class supports logging file artifacts.
+        """
+        return False

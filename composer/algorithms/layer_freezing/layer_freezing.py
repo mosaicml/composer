@@ -95,7 +95,7 @@ class LayerFreezing(Algorithm):
     `FreezeOut <https://arxiv.org/abs/1706.04983>`_ and
     `Freeze Training <https://arxiv.org/abs/1706.05806>`_.
 
-    Runs on :attr:`~composer.core.event.Event.EPOCH_END`.
+    Runs on :attr:`.Event.EPOCH_END`.
 
     Example:
          .. testcode::

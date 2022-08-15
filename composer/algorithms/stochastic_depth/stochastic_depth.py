@@ -108,8 +108,8 @@ class StochasticDepth(Algorithm):
     implementation used for EfficientNet in the
     `Tensorflow/TPU repo <https://github.com/tensorflow/tpu>`_.
 
-    Runs on :attr:`~composer.core.event.Event.INIT`, as well as
-    :attr:`~composer.core.event.Event.BATCH_START` if ``drop_warmup > 0``.
+    Runs on :attr:`.Event.INIT`, as well as
+    :attr:`.Event.BATCH_START` if ``drop_warmup > 0``.
 
     .. note::
 

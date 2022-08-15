@@ -53,7 +53,7 @@ Available Loggers
 Automatically Logged Data
 -------------------------
 
-The :class:`~composer.trainer.trainer.Trainer` automatically logs the following data:
+The :class:`.Trainer` automatically logs the following data:
 
 -  ``trainer/algorithms``: a list of specified algorithm names.
 -  ``epoch``: the current epoch.

@@ -9,6 +9,7 @@ import yahp as hp
 
 from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.callbacks.early_stopper import EarlyStopper
+from composer.callbacks.export_for_inference import ExportForInferenceCallback
 from composer.callbacks.grad_monitor import GradMonitor
 from composer.callbacks.image_visualizer import ImageVisualizer
 from composer.callbacks.lr_monitor import LRMonitor
@@ -26,6 +27,7 @@ callback_registry: Dict[str, Union[Type[Callback], Type[hp.Hparams]]] = {
     'memory_monitor': MemoryMonitor,
     'mlperf': MLPerfCallback,
     'early_stopper': EarlyStopper,
+    'export_for_inference': ExportForInferenceCallback,
     'threshold_stopper': ThresholdStopper,
     'image_visualizer': ImageVisualizer,
 }
