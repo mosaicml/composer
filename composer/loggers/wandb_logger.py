@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import copy
 import atexit
 import os
 import pathlib
@@ -103,11 +104,16 @@ class WandBLogger(LoggerDestination):
     def _set_is_in_atexit(self):
         self._is_in_atexit = True
 
-    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
+    def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         import wandb
-        del log_level  # unused
-        if self._enabled:
-            wandb.log(data, step=int(state.timestamp.batch))
+        wandb.config.update(hyperparameters)
+
+    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+        import wandb
+        # wandb.log alters the metrics dictionary object, so we deepcopy to avoid
+        # side effects.
+        metrics_copy = copy.deepcopy(metrics)
+        wandb.log(metrics_copy, step=step)
 
     def state_dict(self) -> Dict[str, Any]:
         import wandb

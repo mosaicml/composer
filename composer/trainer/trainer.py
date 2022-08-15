@@ -434,16 +434,6 @@ class Trainer:
 
             The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is ``False``.
 
-        console_log_level (LogLevel | str | (State, LogLevel) -> bool, optional): The maximum log level which
-            should be printed to the console. (default: :attr:`.LogLevel.EPOCH`)
-
-            It can either be :class:`.LogLevel`, a string corresponding to a :class:`.LogLevel`, or a callable
-            that takes the training :class:`.State` and the :class:`.LogLevel` and returns a boolean of whether this
-            statement should be printed.
-
-            This parameter has no effect if ``log_to_console`` is ``False``, or is unspecified and ``progres_bar`` is
-            ``True``.
-
         console_stream (TextIO | str, optional): The stream to write to. If a string, it can either be
             ``'stdout'`` or ``'stderr'``. (default: :attr:`sys.stderr`)
         load_path (str, optional):  The path format string to an existing checkpoint file.
@@ -719,7 +709,6 @@ class Trainer:
         run_name: Optional[str] = None,
         progress_bar: bool = True,
         log_to_console: Optional[bool] = None,
-        console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         console_stream: Union[str, TextIO] = 'stderr',
 
         # Load Checkpoint
@@ -874,7 +863,7 @@ class Trainer:
             warnings.warn(
                 DeprecationWarning(
                     (f'Specifying the {ProgressBarLogger.__name__} via `loggers` is deprecated. Instead, '
-                     'please specify `progress_bar`, `log_to_console`, `log_level`, and `stream` arguments when '
+                     'please specify `progress_bar`, `log_to_console`, and `stream` arguments when '
                      'constructing the trainer. If specified, these arguments will be ignored, as the '
                      f'{ProgressBarLogger.__name__} was already created.')))
         else:
@@ -882,7 +871,6 @@ class Trainer:
                 ProgressBarLogger(
                     progress_bar=progress_bar,
                     log_to_console=log_to_console,
-                    console_log_level=console_log_level,
                     stream=console_stream,
                 ))
 
@@ -935,7 +923,7 @@ class Trainer:
         if max_duration is not None:
             self.state.max_duration = ensure_time(max_duration, TimeUnit.EPOCH)
 
-        self.logger.data_fit({'rank_zero_seed': rank_zero_seed})
+        self.logger.log_hyperparameters({'rank_zero_seed': rank_zero_seed})
 
         assert isinstance(self.state.model, ComposerModel)
         self._original_model = self.state.model
@@ -1405,18 +1393,17 @@ class Trainer:
 
         return metrics
 
-    def _compute_and_log_metrics(self, dataloader_label: str, log_level: LogLevel, metrics: MetricCollection):
+    def _compute_and_log_metrics(self, dataloader_label: str, metrics: MetricCollection):
         """Computes metrics, logs the results, and updates the state.
 
         Args:
             dataloader_label (str): The dataloader label.
             metrics (MetricCollection): The metrics to compute.
-            log_level (LogLevel): The LogLevel for logging metrics.
         """
         computed_metrics = metrics.compute()
-        self.logger.data(
-            log_level=log_level,
-            data={f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},
+        self.logger.log_metrics(
+            metrics={f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},
+            step=self.state.timestamp.batch.value,
         )
         self.state.current_metrics[dataloader_label] = computed_metrics
 
@@ -1470,7 +1457,7 @@ class Trainer:
         """Run training for the specified number of epochs and log results."""
         # print training start
         log.info('Using precision %s', self.state.precision)
-        self.logger.data_fit({algo.__class__.__name__: 1 for algo in self.state.algorithms})
+        self.logger.log_hyperparameters({'enabled_algorithms/' + algo.__class__.__name__: True for algo in self.state.algorithms})
 
         assert self.state.dataloader is not None, 'dataloader is set in __init__() or fit()'
         assert self._train_data_spec is not None, 'The train data spec is set in __init__() or fit()'
@@ -1496,14 +1483,16 @@ class Trainer:
         last_wct = datetime.datetime.now()
 
         while self.state.timestamp < self.state.max_duration:
-            self.state.model.train()
+            try:
+                self.state.model.train()
 
-            if int(self.state.timestamp.batch_in_epoch) == 0:
-                self.engine.run_event(Event.EPOCH_START)
-                self.logger.data_epoch({'epoch': int(self.state.timestamp.epoch)})
-                if self.train_metrics is not None:
-                    # reset the metrics before every epoch
-                    self.train_metrics.reset()
+                if int(self.state.timestamp.batch_in_epoch) == 0:
+                    self.engine.run_event(Event.EPOCH_START)
+                    self.logger.log_metrics({'trainer/epoch': int(self.state.timestamp.epoch)},
+                                           step=self.state.timestamp.batch.value)
+                    if self.train_metrics is not None:
+                        # reset the metrics before every epoch
+                        self.train_metrics.reset()
 
             dataloader = self.state.dataloader
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
@@ -1541,27 +1530,30 @@ class Trainer:
 
                 self.state.model.train()
 
-                self.engine.run_event(Event.AFTER_DATALOADER)
+                    self.engine.run_event(Event.AFTER_DATALOADER)
 
                 self.engine.run_event(Event.BATCH_START)
-                self.logger.data_batch({
+                self.logger.log_metrics({
                     'trainer/global_step': int(self.state.timestamp.batch),
                     'trainer/batch_idx': self.state.timestamp.batch_in_epoch.value,
-                })
+                },
+                    step=self.state.timestamp.batch.value)
 
                 total_loss = self._train_batch(use_grad_scaling)
 
                 if use_grad_scaling:
                     self.state.scaler.update()
 
-                if total_loss is not None:
-                    if not isinstance(total_loss, torch.Tensor):
-                        total_loss = self._device.tensor_to_device(torch.tensor([total_loss]))
+                    if total_loss is not None:
+                        if not isinstance(total_loss, torch.Tensor):
+                            total_loss = self._device.tensor_to_device(torch.tensor([total_loss]))
 
                     # total_loss can be None if gradient scaling failed
                     dist.all_reduce(total_loss, reduce_operation='SUM')
                     full_loss = total_loss.cpu().item()
-                    self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
+                    self.logger.log_metrics(
+                            {'loss/train': full_loss / dist.get_world_size()},
+                            step=self.state.timestamp.batch.value)
 
                 # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
                 # next batch's wall clock time. The time accumulation must be done here so schedulers
@@ -1577,18 +1569,24 @@ class Trainer:
                     batch_time,
                 )
 
-                # `now` is actually in the past, but want to include the time it takes to perform this reduction
-                last_wct = now
+                    # `now` is actually in the past, but want to include the time it takes to perform this reduction
+                    last_wct = now
 
-                self.state.timestamp = self.state.timestamp.to_next_batch(
-                    samples=total_num_samples,
-                    tokens=total_num_tokens,
-                    duration=batch_time,
-                )
+                    if self.train_metrics is not None:
+                        self._compute_and_log_metrics(
+                            dataloader_label='train',
+                            metrics=self.train_metrics,
+                        )
 
-                if self._scheduler_step_frequency == TimeUnit.BATCH:
-                    for scheduler in self.state.schedulers:
-                        scheduler.step()
+                    self.state.timestamp = self.state.timestamp.to_next_batch(
+                        samples=total_num_samples,
+                        tokens=total_num_tokens,
+                        duration=batch_time,
+                    )
+
+                    if self._scheduler_step_frequency == TimeUnit.BATCH:
+                        for scheduler in self.state.schedulers:
+                            scheduler.step()
 
                 if self.train_metrics is not None:
                     self._compute_and_log_metrics(
@@ -1602,7 +1600,7 @@ class Trainer:
                 # Pause the timing during evaluation
                 # Evaluation time is tracked separately in state.eval_timestamp
                 duration = datetime.datetime.now() - last_wct
-                self._run_evaluators(Event.BATCH_END, log_level=LogLevel.BATCH)
+                self._run_evaluators(Event.BATCH_END)
                 last_wct = datetime.datetime.now() - duration
 
                 self.engine.run_event(Event.BATCH_CHECKPOINT)
@@ -1624,7 +1622,6 @@ class Trainer:
                 if self.train_metrics is not None:
                     self._compute_and_log_metrics(
                         dataloader_label='train',
-                        log_level=LogLevel.EPOCH,
                         metrics=self.train_metrics,
                     )
 
@@ -1637,14 +1634,14 @@ class Trainer:
                 # Pause the timing during evaluation
                 # Evaluation time is tracked separately in state.eval_timestamp
                 duration = datetime.datetime.now() - last_wct
-                self._run_evaluators(Event.EPOCH_END, log_level=LogLevel.EPOCH)
+                self._run_evaluators(Event.EPOCH_END)
                 last_wct = datetime.datetime.now() - duration
 
                 self.engine.run_event(Event.EPOCH_CHECKPOINT)
         self.engine.run_event(Event.FIT_END)
-        self._run_evaluators(Event.FIT_END, log_level=LogLevel.FIT)
+        self._run_evaluators(Event.FIT_END)
 
-    def _run_evaluators(self, event: Event, log_level: LogLevel):
+    def _run_evaluators(self, event: Event):
         """Runs evaluators periodically during training."""
         for evaluator in self.state.evaluators:
             assert evaluator.eval_interval is not None, 'eval_interval should have been set on __init__() or fit()'
@@ -1655,7 +1652,6 @@ class Trainer:
                     dataloader_label=evaluator.label,
                     subset_num_batches=evaluator.subset_num_batches,
                     metrics=evaluator.metrics,
-                    log_level=log_level,
                 )
 
     def _train_batch(self, use_grad_scaling: bool):
@@ -1739,24 +1735,16 @@ class Trainer:
                 else:
                     original_grad_accum = self.state.grad_accum
                     self.state.grad_accum = min(2 * self.state.grad_accum, device_batch_size)
-                    warnings.warn(
-                        RuntimeWarning('CUDA out of memory detected. Gradient Accumulation '
-                                       f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
-                                       'and the batch will be retrained with a '
-                                       f'micro-batchsize of {device_batch_size // self.state.grad_accum}'))
-                    # Empty cache if on GPU, which will help reduce fragmentation
-                    if isinstance(self._device, DeviceGPU):
-                        torch.cuda.empty_cache()
-            # Otherwise, log grad_accum and return calculated loss
+                    log.info(('CUDA out of memory detected. Gradient Accumulation '
+                              f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
+                              'and the batch will be retrained.'))
+            elif caught_timeout_error:
+                # If not CUDA out of memory, raise exception to user. Note that this truncates the call stack
+                # back only to this newly raised error.
+                raise caught_timeout_error
             else:
-                # Synchronize new batch compute time
-                batch_compute_time = end_time - start_time
-                batch_compute_time = self._device.tensor_to_device(torch.tensor([batch_compute_time],
-                                                                                dtype=torch.float))
-                dist.all_reduce(batch_compute_time, reduce_operation='MAX')
-                self.batch_compute_time = batch_compute_time.item()
-
-                self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
+                # Otherwise, log grad_accum and return calculated loss
+                self.logger.log_metrics({'trainer/grad_accum': self.state.grad_accum}, self.state.timestamp.batch.value)
                 return total_loss
 
     def _train_microbatches(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
@@ -2032,7 +2020,6 @@ class Trainer:
         *,
         metrics: Union[Metric, MetricCollection],
         subset_num_batches: int = -1,
-        log_level: Union[str, LogLevel] = LogLevel.FIT,
     ):
         """Evaluate the model and log appropriate metrics.
 
@@ -2047,10 +2034,7 @@ class Trainer:
                 This parameter has no effect if ``eval_dataloader`` is not specified, it is greater than
                 ``len(eval_dataloader)``, or ``eval_dataloader`` is an :class:`.Evaluator` (which is via
                 ``Evaluator(subset_num_batches=...)``.)
-            log_level (LogLevel | str, optional): The log level to use when logging metrics. Defaults to
-                :attr:`~.LogLevel.FIT`.
         """
-        log_level = LogLevel(log_level)
         restore_model_train = self.state.model.training
 
         # back up the original dataloader on the state, so we can restore it after evaluation is finished
@@ -2138,10 +2122,10 @@ class Trainer:
 
                 self.engine.run_event(Event.EVAL_BATCH_END)
 
-            self.logger.data_epoch({'epoch': self.state.timestamp.epoch.value})
-            self.logger.data_batch({'trainer/global_step': self.state.timestamp.batch.value})
+            self.logger.log_metrics({'epoch': self.state.timestamp.epoch.value}, step=self.state.timestamp.batch.value)
+            self.logger.log_metrics({'trainer/global_step': self.state.timestamp.batch.value}, step=self.state.timestamp.batch.value)
 
-            self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics, log_level=log_level)
+            self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics)
 
             self.engine.run_event(Event.EVAL_END)
 

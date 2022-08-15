@@ -17,8 +17,8 @@ from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
 
-LOG_NUM_CONV2D_REPLACEMENTS_KEY = 'factorize/num_conv2d_replacements'
-LOG_NUM_LINEAR_REPLACEMENTS_KEY = 'factorize/num_linear_replacements'
+LOG_NUM_CONV2D_REPLACEMENTS_KEY = 'algorithm_hparams/factorize/num_conv2d_replacements'
+LOG_NUM_LINEAR_REPLACEMENTS_KEY = 'algorithm_hparams/factorize/num_linear_replacements'
 
 
 def apply_factorization(model: torch.nn.Module,
@@ -177,12 +177,12 @@ class Factorize(Algorithm):
 
         if self.factorize_convs:
             num_factorized = module_surgery.count_module_instances(state.model, FactorizedConv2d)
-            logger.data_fit({
+            logger.log_hyperparameters({
                 LOG_NUM_CONV2D_REPLACEMENTS_KEY: num_factorized,
             })
         if self.factorize_linears:
             num_factorized = module_surgery.count_module_instances(state.model, FactorizedLinear)
-            logger.data_fit({
+            logger.log_hyperparameters({
                 LOG_NUM_LINEAR_REPLACEMENTS_KEY: num_factorized,
             })
 

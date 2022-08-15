@@ -145,9 +145,9 @@ class BlurPool(Algorithm):
                  f'Model now has {num_blurpool_layers} BlurMaxPool2d '
                  f'and {num_blurconv_layers} BlurConv2D layers.')
 
-        logger.data_fit({
-            'blurpool/num_blurpool_layers': num_blurpool_layers,
-            'blurpool/num_blurconv_layers': num_blurconv_layers,
+        logger.log_hyperparameters({
+            'algorithm_hparams/blurpool/num_blurpool_layers': num_blurpool_layers,
+            'algorithm_hparams/blurpool/num_blurconv_layers': num_blurconv_layers,
         })
 
 

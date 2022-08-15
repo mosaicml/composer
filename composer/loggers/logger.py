@@ -79,18 +79,18 @@ class Logger:
         self.destinations = ensure_tuple(destinations)
         self._state = state
 
-    def data(self, log_level: Union[str, int, LogLevel], data: Dict[str, Any]) -> None:
-        """Log data to the :attr:`destinations`.
+    def log_traces(self, traces: Dict[str, Any]):
+        for destination in self.destinations:
+            destination.log_traces(traces)
 
-        Args:
-            log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
-                :class:`LogLevel`.
-            data (Dict[str, Any]): The data to log.
-        """
-        log_level = LogLevel(log_level)
+    def log_hyperparameters(self, parameters: Dict[str, Any]):
+        for destination in self.destinations:
+            destination.log_hyperparameters(parameters)
+
+    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
 
         for destination in self.destinations:
-            destination.log_data(self._state, log_level, data)
+            destination.log_metrics(metrics, step)
 
     def file_artifact(
         self,
@@ -127,18 +127,6 @@ class Logger:
                 overwrite=overwrite,
             )
 
-    def data_fit(self, data: Dict[str, Any]) -> None:
-        """Helper function for ``self.data(LogLevel.FIT, data)``."""
-        self.data(LogLevel.FIT, data)
-
-    def data_epoch(self, data: Dict[str, Any]) -> None:
-        """Helper function for ``self.data(LogLevel.EPOCH, data)``."""
-        self.data(LogLevel.EPOCH, data)
-
-    def data_batch(self, data: Dict[str, Any]) -> None:
-        """Helper function for ``self.data(LogLevel.BATCH, data)``."""
-        self.data(LogLevel.BATCH, data)
-
     def has_file_artifact_destination(self) -> bool:
         """Determines if the logger has a destination which supports logging file artifacts.
 
@@ -151,7 +139,6 @@ class Logger:
             if destination.can_log_file_artifacts():
                 return True
         return False
-
 
 def format_log_data_value(data: Any) -> str:
     """Recursively formats a given log data value into a string.

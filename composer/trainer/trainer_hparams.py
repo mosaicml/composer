@@ -211,7 +211,6 @@ class TrainerHparams(hp.Hparams):
         run_name (str, optional): See :class:`.Trainer`.
         progress_bar (bool, optional): See :class:`.Trainer`.
         log_to_console (bool, optional): See :class:`.Trainer`.
-        console_log_level (bool, optional): See :class:`.Trainer`.
         console_stream (bool, optional): See :class:`.Trainer`.
         python_log_level (str): The Python log level to use for log statements in the :mod:`composer`
             module. (default: ``INFO``)
@@ -319,7 +318,6 @@ class TrainerHparams(hp.Hparams):
     run_name: Optional[str] = hp.auto(Trainer, 'run_name')
     progress_bar: bool = hp.auto(Trainer, 'progress_bar')
     log_to_console: Optional[bool] = hp.auto(Trainer, 'log_to_console')
-    console_log_level: LogLevel = hp.auto(Trainer, 'console_log_level')
     console_stream: str = hp.auto(Trainer, 'console_stream')
     python_log_level: str = hp.optional(doc='Python loglevel to use composer', default='INFO')
 
@@ -518,7 +516,6 @@ class TrainerHparams(hp.Hparams):
             run_name=self.run_name,
             progress_bar=self.progress_bar,
             log_to_console=self.log_to_console,
-            console_log_level=self.console_log_level,
             console_stream=self.console_stream,
 
             # Checkpoint Loading
@@ -735,7 +732,6 @@ class EvalKwargs(TypedDict):
     dataloader_label: str
     metrics: Union[Metric, MetricCollection]
     subset_num_batches: int
-    log_level: Union[str, LogLevel]
 
 
 @dataclasses.dataclass
@@ -747,7 +743,6 @@ class EvalHparams(hp.Hparams):
         batch_size (int): The evaluation batch size across all workers.
         dataloader_label (str, optional): See :meth:`.Trainer.eval`.
         subset_num_batches (int, optional): See :meth:`.Trainer.eval`.
-        log_level (LogLevel, optional): See :meth:`.Trainer.eval`.
         metric_names (List[str], optional): Name of the metrics for the evaluator. (default: ``None``)
 
             Can be a :mod:`torchmetrics` metric name or the class name of a metric returned by
@@ -762,7 +757,6 @@ class EvalHparams(hp.Hparams):
     batch_size: int = hp.required(doc='batch size to use for each evaluation step')
     dataloader_label: str = hp.auto(Trainer.eval, 'dataloader_label')
     subset_num_batches: int = hp.auto(Trainer.eval, 'subset_num_batches')
-    log_level: LogLevel = hp.auto(Trainer.eval, 'log_level')
     metric_names: Optional[List[str]] = hp.optional(
         doc=(
             'Name of the metrics for the evaluator. Can be a torchmetrics metric name or the '
@@ -824,7 +818,6 @@ class EvalHparams(hp.Hparams):
             'dataloader_label': self.dataloader_label,
             'metrics': metrics,
             'subset_num_batches': self.subset_num_batches,
-            'log_level': self.log_level,
         }
 
 

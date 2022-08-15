@@ -132,6 +132,6 @@ def test_incorrect_event_does_not_match(event: Event, algo_instance):
 def test_algorithm_logging(state, algo_instance):
     logger_mock = Mock()
     algo_instance.apply(Event.INIT, state, logger_mock)
-    logger_mock.data_fit.assert_called_once_with({
-        'GhostBatchNorm/num_new_modules': 1,
+    logger_mock.log_hyperparameters.assert_called_once_with({
+        'algorithm_hparams/GhostBatchNorm/num_new_modules': 1,
     })
