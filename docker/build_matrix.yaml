@@ -41,7 +41,7 @@
   - mosaicml/pytorch:1.12.1_cu116-python3.9-ubuntu20.04
   - mosaicml/pytorch:latest
   TARGET: pytorch_stage
-  TORCHVISION_VERSION: 0.13.0
+  TORCHVISION_VERSION: 0.13.1
 - BASE_IMAGE: nvidia/cuda:11.6.2-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 11.6.2
   PYTHON_VERSION: '3.9'
@@ -50,7 +50,7 @@
   - mosaicml/pytorch_vision:1.12.1_cu116-python3.9-ubuntu20.04
   - mosaicml/pytorch_vision:latest
   TARGET: vision_stage
-  TORCHVISION_VERSION: 0.13.0
+  TORCHVISION_VERSION: 0.13.1
 - BASE_IMAGE: ubuntu:20.04
   CUDA_VERSION: ''
   MOFED_VERSION: ''
@@ -60,7 +60,7 @@
   - mosaicml/pytorch:1.12.1_cpu-python3.9-ubuntu20.04
   - mosaicml/pytorch:latest_cpu
   TARGET: pytorch_stage
-  TORCHVISION_VERSION: 0.13.0
+  TORCHVISION_VERSION: 0.13.1
 - BASE_IMAGE: ubuntu:20.04
   CUDA_VERSION: ''
   MOFED_VERSION: ''
@@ -70,7 +70,7 @@
   - mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
   - mosaicml/pytorch_vision:latest_cpu
   TARGET: vision_stage
-  TORCHVISION_VERSION: 0.13.0
+  TORCHVISION_VERSION: 0.13.1
 - BASE_IMAGE: nvidia/cuda:11.6.2-cudnn8-devel-ubuntu20.04
   COMPOSER_INSTALL_COMMAND: mosaicml[all]
   CUDA_VERSION: 11.6.2
@@ -79,7 +79,7 @@
   TAGS:
   - mosaicml/composer:latest
   TARGET: composer_stage
-  TORCHVISION_VERSION: 0.13.0
+  TORCHVISION_VERSION: 0.13.1
 - BASE_IMAGE: ubuntu:20.04
   COMPOSER_INSTALL_COMMAND: mosaicml[all]
   CUDA_VERSION: ''
@@ -88,7 +88,7 @@
   TAGS:
   - mosaicml/composer:latest_cpu
   TARGET: composer_stage
-  TORCHVISION_VERSION: 0.13.0
+  TORCHVISION_VERSION: 0.13.1
 - BASE_IMAGE: nvidia/cuda:11.6.2-cudnn8-devel-ubuntu20.04
   COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.8.2
   CUDA_VERSION: 11.6.2
@@ -97,7 +97,7 @@
   TAGS:
   - mosaicml/composer:0.8.2
   TARGET: composer_stage
-  TORCHVISION_VERSION: 0.13.0
+  TORCHVISION_VERSION: 0.13.1
 - BASE_IMAGE: ubuntu:20.04
   COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.8.2
   CUDA_VERSION: ''
@@ -106,7 +106,7 @@
   TAGS:
   - mosaicml/composer:0.8.2_cpu
   TARGET: composer_stage
-  TORCHVISION_VERSION: 0.13.0
+  TORCHVISION_VERSION: 0.13.1
 - BASE_IMAGE: nvidia/cuda:11.6.2-cudnn8-devel-ubuntu20.04
   COMPOSER_INSTALL_COMMAND: mosaicml[all]GIT_COMMIT
   CUDA_VERSION: 11.6.2
@@ -114,7 +114,7 @@
   PYTORCH_VERSION: 1.12.1
   TAGS: []
   TARGET: composer_stage
-  TORCHVISION_VERSION: 0.13.0
+  TORCHVISION_VERSION: 0.13.1
 - BASE_IMAGE: ubuntu:20.04
   COMPOSER_INSTALL_COMMAND: mosaicml[all]GIT_COMMIT
   CUDA_VERSION: ''
@@ -122,4 +122,4 @@
   PYTORCH_VERSION: 1.12.1
   TAGS: []
   TARGET: composer_stage
-  TORCHVISION_VERSION: 0.13.0
+  TORCHVISION_VERSION: 0.13.1
