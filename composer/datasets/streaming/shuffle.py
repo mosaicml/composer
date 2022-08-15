@@ -122,7 +122,7 @@ class BlockCipherShuffler:
         return np.array([
             encrypt(self._cipher_key, idx, num_shards)
             for idx in np.arange(num_shards)
-            if idx % num_nodes == global_rank
+            if (idx % num_nodes) == global_rank
         ])
 
     def shuffle_sample(self, idx: int, num_workers: int, rank: int, shuffle_buffer_size: int) -> int:
