@@ -431,6 +431,14 @@ class State(Serializable):
         state_dict = {}
 
         for attribute_name in self.serialized_attributes:
+            if attribute_name == 'dataloader_state':
+                dataloader_state = None
+                if hasattr(self.dataloader, 'state_dict'):
+                    dataloader_state = self.dataloader.state_dict()
+                    dataloader_state['batch_count'] = self.timestamp.batch_in_epoch
+                # patch this value to be resilient to prefetching:
+                serialized_value = dataloader_state
+                continue
             attribute_value = getattr(self, attribute_name)
             if attribute_name == 'model':
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
@@ -439,13 +447,6 @@ class State(Serializable):
                 if self.is_model_ddp:
                     torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state, 'module.')
                 serialized_value = model_state
-            elif attribute_name == 'dataloader_state':
-                dataloader_state = None
-                if hasattr(self.dataloader, 'state_dict'):
-                    dataloader_state = self.dataloader.state_dict()
-                    dataloader_state['batch_count'] = self.timestamp.batch_in_epoch
-                # patch this value to be resilient to prefetching:
-                serialized_value = dataloader_state
             else:
                 if attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                     serialized_value = {
