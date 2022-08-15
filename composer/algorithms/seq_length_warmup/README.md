@@ -3,7 +3,7 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
- `Natural Language Processing`, `Changes the Training Algorithm`
+ `Natural Language Processing`
 
 Sequence Length Warmup linearly increases the sequence length (number of tokens per sentence) used to train a language model from a `min_seq_length` to a `max_seq_length` over some duration at the beginning of training. The underlying motivation is that sequence length is a proxy for the difficulty of an example, and this method assumes a simple curriculum where the model is trained on easy examples (by this definition) first. Sequence Length Warmup is able to reduce the training time of GPT-style models by ~1.5x while still achieving the same loss as baselines.
 

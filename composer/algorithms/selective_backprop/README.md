@@ -2,7 +2,7 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
-`Computer Vision`, `Changes the Training Algorithm`
+`Computer Vision`
 
 Selective Backprop prioritizes examples with high loss at each iteration, skipping backpropagation on examples with low loss.
 This speeds up training with limited impact on generalization.

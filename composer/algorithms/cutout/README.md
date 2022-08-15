@@ -2,7 +2,7 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
-`Computer Vision`, `Changes the Training Algorithm`
+`Computer Vision`
 
 Cutout is a data augmentation technique that masks one or more square regions of an input image, replacing them with gray boxes.
 It is a regularization technique that improves the accuracy of models for computer vision.

@@ -2,7 +2,7 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
- `Computer Vision`, `Natural Language Processing`, `Changes the Training Algorithm`
+ `Computer Vision`, `Natural Language Processing`
 
 Stochastic Weight Averaging (SWA) maintains a running average of the weights towards the end of training. This leads to better generalization than conventional training.
 

@@ -2,7 +2,7 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
-`Computer Vision`, `Changes the Training Algorithm`
+`Computer Vision`
 
 For each data sample, RandAugment randomly samples `depth` image augmentations from a set of augmentations (e.g. translation, shear, contrast) and applies them sequentially.
 Each augmentation is applied with a context-specific `severity` sampled uniformly from 0 to 10.

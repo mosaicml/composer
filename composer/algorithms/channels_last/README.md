@@ -2,7 +2,7 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
-`Computer Vision`, `Mathematically Equivalent`
+`Computer Vision`, `Math Equivalent`
 
 Channels Last improves the throughput of convolution operations in networks for computer vision by changing the memory format of activation and weight tensors to contain channels as their last dimension (i.e., NHWC format) rather than the default format in which the height and width are the last dimensions (i.e., NCHW format).
 NVIDIA GPUs natively perform convolution operations in NHWC format, so storing the tensors this way eliminates transpositions that would otherwise need to take place, increasing throughput.
