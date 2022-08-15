@@ -131,3 +131,5 @@ BlurPool tends to compose well with other methods. We are not aware of an exampl
 [*Making Convolutional Networks Shift-Invariant Again*](https://proceedings.mlr.press/v97/zhang19a.html) by Richard Zhang in ICML 2019.
 
 *The Composer implementation of this method and the accompanying documentation were produced by Davis Blalock at MosaicML. We thank Richard Zhang for helpful discussion.*
+
+## {mod}`BlurPool API Reference <composer.algorithms.blurpool>`
