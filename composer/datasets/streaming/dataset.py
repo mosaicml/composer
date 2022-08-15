@@ -4,19 +4,6 @@
 """The :class:`StreamingDataset` class, used for building streaming iterable datasets.
 """
 
-### High level overview:
-### - Permute shards (cipher shuffle)
-### - Divide shards between nodes
-### - Calculate sample order within
-
-### at a high level, we want a function from batch_idx -> sample_indices[batch_size]
-
-### TODO:
-### - add shard_id -> is_downloaded dictionary
-### - modify partition to return list of shards in canonical order
-### - modify __iter__ to shuffle within shards
-### - modify __iter__ to block if get_shard_id(sample_id) is not downloaded
-
 import enum
 import math
 import os
@@ -31,7 +18,7 @@ from composer.datasets.streaming.download import download_or_wait
 from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict,
                                                 get_compression_scheme_basename, get_index_basename, get_shard_basename,
                                                 split_compression_suffix)
-from composer.datasets.streaming.shuffle import decrypt, encrypt
+from composer.datasets.streaming.shuffle import BlockCipherShuffler
 from composer.datasets.streaming.world import get_world
 from composer.utils import dist
 
@@ -106,8 +93,8 @@ class StreamingDataset(IterableDataset):
         timeout (float): How long to wait for shard to download before raising an exception. Default: 60 sec.
         batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default:
             ``None``.
-        shuffle_buffer_size (Optional[str]): Either a proportion of the dataset that is required to be loaded at once for
-            optimal streaming speed, or an absolute number of shards. The string takes the format: `0.01prop`, meaning 
+        shuffle_size (Optional[str]): Either a proportion of the dataset that is required to be loaded at once for
+            optimal streaming speed, or an absolute number of shards. The string takes the format: `0.01prop`, meaning
             1% of the dataset at a time is needed, or `1000shards`, meaning 1000 shards at a time are needed. Lower values
             may degrade shuffle randomness, while higher values may increase cold-start lag.
 
@@ -147,7 +134,7 @@ class StreamingDataset(IterableDataset):
                  max_retries: int = 2,
                  timeout: float = 60,
                  batch_size: Optional[int] = None,
-                 shuffle_buffer_size: str = '0.50prop') -> None:
+                 shuffle_size: str = '0.50prop') -> None:
 
         self.remote = remote
         self.local = local
@@ -192,16 +179,15 @@ class StreamingDataset(IterableDataset):
         self._shuffle_index = 0
         self._batch_count = 0
         self._restored_batch_count = 0
-        self._shuffle_buffer_size = self._parse_shuffle_buffer_size(shuffle_buffer_size)
-        self._cipher_key = None
+        self._shuffle_buffer_size = self._parse_shuffle_buffer_size(shuffle_size)
         N = self.index.num_shards
         world = get_world()
         num_nodes = world.global_num_nodes
         global_rank = dist.get_global_rank()
         if shuffle:
-            self._cipher_key = 42  # initialize using an arbitrary cipher key
-            self._shard_shuffle_indices = np.array(
-                [encrypt(self._cipher_key, v, N) for v in range(N) if v % num_nodes == global_rank])
+            cipher_key = 42  # initialize using an arbitrary cipher key
+            self.shuffler = BlockCipherShuffler(cipher_key, self.index)
+            self._shard_shuffle_indices = self.shuffler.shuffle_shards()
             self.index.relocate_samples(self._shard_shuffle_indices)
         else:
             self._shard_shuffle_indices = np.arange(N)[np.arange(N) % num_nodes == global_rank]
@@ -215,13 +201,12 @@ class StreamingDataset(IterableDataset):
             return np.int64(1)
 
     def state_dict(self):
-        return {'batch_count': self._batch_count, 'cipher_key': self._cipher_key}
+        return {'batch_count': self._batch_count, 'cipher_key': self.shuffler._cipher_key}
 
     def load_state_dict(self, state):
         self._restored_batch_count = state['batch_count']
-        self._cipher_key = state['cipher_key']
-        N = self.index.num_shards
-        self._shard_shuffle_indices = np.array([encrypt(self._cipher_key, v, N) for v in range(N)])
+        self.shuffler = BlockCipherShuffler(state['cipher_key'], self.index)
+        self._shard_shuffle_indices = self.shuffler.shuffle_shards()
         self.index.relocate_samples(self._shard_shuffle_indices)
 
     def _download_file(self, basename: str, wait: bool = False, local_basename: Optional[str] = None) -> str:
@@ -255,14 +240,13 @@ class StreamingDataset(IterableDataset):
                 return
             self._download_status = _DownloadStatus.IN_PROGRESS
 
-        N = self.index.num_shards
         current_shard_id = self.index.sample_shards[self._restored_batch_count]
         current_shard_index = current_shard_id
 
         if self.shuffle:
-            if self._cipher_key is None:
+            if self.shuffler._cipher_key is None:
                 raise ValueError('shuffling is on but no seed was specified')
-            current_shard_index = decrypt(self._cipher_key, current_shard_id, N)
+            current_shard_index = self.shuffler.get_shard_index(current_shard_id)
             current_shard_index -= current_shard_index % self._shuffle_buffer_size
 
         shard_ids = self._shard_shuffle_indices[current_shard_index:]
@@ -278,41 +262,6 @@ class StreamingDataset(IterableDataset):
 
         with self._lock:
             self._download_status = _DownloadStatus.DONE
-
-    def _shuffle_sample(self, idx):
-        """Shuffles the samples as much as possible while maintaining the shuffle_buffer_size invariant of shards 
-        required on the disk at once."""
-        if self._cipher_key is None:
-            raise ValueError('shuffling is on but no seed was specified')
-        num_workers = dist.get_local_world_size()
-        rank = dist.get_local_rank()
-        idx = idx * num_workers + rank
-
-        shard_id = self.index.sample_shards[idx]
-        shard_index = decrypt(self._cipher_key, shard_id, self.index.num_shards)
-        first_shard_group_index = shard_index - (shard_index % self._shuffle_buffer_size)
-        last_shard_group_index = min(int(first_shard_group_index + self._shuffle_buffer_size),
-                                     int(self.index.num_shards))
-
-        samples_in_group = np.sum(self.index.shard_samples[np.arange(first_shard_group_index, last_shard_group_index)])
-
-        group_key = int(self._cipher_key + first_shard_group_index)
-        group_relative_sample_id = encrypt(group_key, idx % samples_in_group, samples_in_group)
-
-        relative_id_to_shard_index = []
-        relative_id_to_shard_offset = []
-        for shard_member_index in np.arange(first_shard_group_index, last_shard_group_index):
-            relative_id_to_shard_index += [shard_member_index] * self.index.shard_samples[shard_member_index]
-            relative_id_to_shard_offset += list(range(self.index.shard_samples[shard_member_index]))
-
-        target_shard_index = relative_id_to_shard_index[group_relative_sample_id]
-        shard_offset = relative_id_to_shard_offset[group_relative_sample_id]
-        shard_base_offset = np.sum(self.index.shard_samples[:target_shard_index])
-
-        return shard_base_offset + shard_offset
-
-        #return np.sum(self.index.samples_per_shard[:shard_id]) + shard_relative_sample_id
-        return
 
     def __len__(self) -> int:
         """Get the length of the dataset.
@@ -380,7 +329,11 @@ class StreamingDataset(IterableDataset):
                 self._batch_count += 1
                 yield None
             try:
-                idx = self._shuffle_sample(self._batch_count) if self.shuffle else self._batch_count
+                num_workers = dist.get_local_world_size()
+                rank = dist.get_local_rank()
+                sbs = int(self._shuffle_buffer_size)
+                idx = self.shuffler.shuffle_sample(self._batch_count, num_workers, rank, sbs) \
+                    if self.shuffle else self._batch_count
                 yield self[idx]
                 self._batch_count += 1
             except FileNotFoundError as e:

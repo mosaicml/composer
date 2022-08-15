@@ -3,6 +3,8 @@
 
 import numpy as np
 
+from composer.datasets.streaming.format import StreamingDatasetIndex
+
 __all__ = ['encrypt', 'decrypt']
 
 
@@ -35,11 +37,11 @@ def _decrypt_round(key, round_num, ciphertext, block_size, num_rounds):
 
 
 def encrypt(key: int, value: int, num_possible_values: int):
-    """Permutes the set [0, num_possible_values) \\in Z using a four-round Feistel network 
+    """Permutes the set [0, num_possible_values) \\in Z using a four-round Feistel network
     and Numpy's random number generator for round functions. Warning: likely not cryptographically secure,
     designed to give sufficient pseudorandomness to dataset shuffling scheme.
-        
-    Args: 
+
+    Args:
         key (int): Cipher key
         value (int): Message to encrypt. must be in [0, num_possible_values).
         num_possible_values (int): Size of the set of the plaintext/ciphertext space."""
@@ -52,11 +54,11 @@ def encrypt(key: int, value: int, num_possible_values: int):
 
 
 def decrypt(key: int, value: int, num_possible_values: int) -> int:
-    """Un-permutes the set [0, num_possible_values) \\in Z using a four-round Feistel network 
+    """Un-permutes the set [0, num_possible_values) \\in Z using a four-round Feistel network
     and Numpy's random number generator for round functions. Warning: likely not cryptographically secure,
     designed to give sufficient pseudorandomness to dataset shuffling scheme.
-        
-    Args: 
+
+    Args:
         key (int): Cipher key
         value (int): Message to decrypt. must be in [0, num_possible_values).
         num_possible_values (int): Size of the set of the plaintext/ciphertext space."""
@@ -66,3 +68,46 @@ def decrypt(key: int, value: int, num_possible_values: int) -> int:
     if plaintext < num_possible_values:
         return plaintext
     return decrypt(key, plaintext, num_possible_values)
+
+
+class BlockCipherShuffler:
+
+    def __init__(self, cipher_key: int, index: StreamingDatasetIndex):
+        self._cipher_key = cipher_key
+        self.index = index
+
+    def shuffle_shards(self):
+        num_shards = self.index.num_shards
+        return np.array([encrypt(self._cipher_key, idx, num_shards) for idx in range(num_shards)])
+
+    def shuffle_sample(self, idx: int, num_workers: int, rank: int, shuffle_buffer_size: int):
+        """Shuffles the samples as much as possible while maintaining the shuffle_buffer_size invariant of shards
+        required on the disk at once."""
+        if self._cipher_key is None:
+            raise ValueError('shuffling is on but no seed was specified')
+        idx = idx * num_workers + rank
+
+        shard_id = self.index.sample_shards[idx]
+        shard_index = decrypt(self._cipher_key, shard_id, self.index.num_shards)
+        first_shard_group_index = shard_index - (shard_index % shuffle_buffer_size)
+        last_shard_group_index = min(int(first_shard_group_index + shuffle_buffer_size), int(self.index.num_shards))
+
+        samples_in_group = np.sum(self.index.shard_samples[np.arange(first_shard_group_index, last_shard_group_index)])
+
+        group_key = int(self._cipher_key + first_shard_group_index)
+        group_relative_sample_id = encrypt(group_key, idx % samples_in_group, samples_in_group)
+
+        relative_id_to_shard_index = []
+        relative_id_to_shard_offset = []
+        for shard_member_index in np.arange(first_shard_group_index, last_shard_group_index):
+            relative_id_to_shard_index += [shard_member_index] * self.index.shard_samples[shard_member_index]
+            relative_id_to_shard_offset += list(range(self.index.shard_samples[shard_member_index]))
+
+        target_shard_index = relative_id_to_shard_index[group_relative_sample_id]
+        shard_offset = relative_id_to_shard_offset[group_relative_sample_id]
+        shard_base_offset = np.sum(self.index.shard_samples[:target_shard_index])
+
+        return shard_base_offset + shard_offset
+
+    def get_shard_index(self, shard_id):
+        return decrypt(self._cipher_key, shard_id, self.index.num_shards)

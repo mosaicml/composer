@@ -3,7 +3,6 @@
 
 """The :class:`StreamingDatsetIndex` format that defines shard/sample metadata for :class:`StreamingDataset`."""
 
-import math
 from gzip import GzipFile
 from io import BufferedIOBase, BufferedReader, BufferedWriter, BytesIO
 from os.path import splitext
@@ -11,8 +10,6 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
-
-from composer.datasets.streaming.world import World
 
 __all__ = [
     'get_index_basename',
@@ -312,117 +309,3 @@ class StreamingDatasetIndex(object):
         sample_begins = sample_ends - self.bytes_per_sample
         sample_shard_offsets = sample_begins - sample_shard_begins
         return sample_shards, sample_id_shards, sample_shard_offsets, shard_samples
-
-    def get_partition(self, world: World, batch_size: Optional[int] = None) -> Tuple[List[int], List[int], int, int]:
-        """Get the shards and sample range of a given partition of the dataset.
-
-        When ``batch_size`` is provided, worker indices will be constructed so that there is at most one incomplete
-        batch at the end of each epoch. For example, if the DataLoader is reading over::
-
-            samples: [0, 1, 2, 3, 4, 5, 6, 7]
-            num_workers: 3
-            batch_size: 2
-            drop_last: True
-
-        but ``batch_size`` is not hinted to the StreamingDataset ahead of time, then the samples will by default be
-        assigned like::
-
-            worker 0: [0, 1, 2]
-            worker 1: [3, 4, 5]
-            worker 2: [6, 7]
-
-        and will be read as batches like (with samples [2] and [5] dropped as incomplete)::
-
-            batch 0: [0, 1]
-            batch 1: [3, 4]
-            batch 2: [6, 7]
-
-        The above is suboptimal because we could have dropped no samples. So when ``batch_size`` is provided as a hint,
-        we assign samples like this::
-
-            worker 0: [0, 1, 2, 3]
-            worker 1: [4, 5]
-            worker 2: [6, 7]
-
-        which will be read as batches like::
-
-            batch 0: [0, 1]
-            batch 1: [4, 5]
-            batch 2: [6, 7]
-            batch 3: [2, 3]
-
-        Args:
-            world (World): Context about workers, devices, and nodes.
-            batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader.
-
-        Returns:
-            shards (List[int]): The shards that this partition overlaps.
-            shards_to_download (List[int]): The shards that this worker should download (subset of ``shards``).
-            min_id (int): The lowest sample ID of this partition.
-            max_id (int): The highest sample ID of this partition.
-        """
-        global_device = world.global_device
-        global_num_devices = world.global_num_devices
-        node_worker = world.node_worker
-        node_num_workers = world.node_num_workers
-        device_worker = world.device_worker
-        device_num_workers = world.device_num_workers
-
-        # Splits a range (start, start+total) into num_parts such that:
-        # each part spans a continguous range [part_min_id, part_max_id]
-        # each part_i starts immediately from where the previous part_[i-1] stopped
-        # all parts have the same number of items,
-        # except the first K parts may have exactly 1 more item
-        def _get_min_max_size(start: int, total: int, part: int, num_parts: int):
-            sizes = [math.ceil((total - p) / num_parts) for p in range(num_parts)]
-            min_ids = np.cumsum([0] + sizes)
-            part_min_id = start + min_ids[part]
-            part_max_id = start + min_ids[part + 1] - 1
-            part_size = sizes[part]
-            return part_min_id, part_max_id, part_size
-
-        device_min_id, _, device_samples = _get_min_max_size(0, self.total_samples, global_device, global_num_devices)
-
-        # Some devices may have 1 fewer sample, so repeat some samples at boundaries
-        expected_device_samples = math.ceil(self.total_samples / global_num_devices)
-        if device_samples < expected_device_samples:
-            if device_samples != expected_device_samples - 1:
-                raise RuntimeError('Found device partition with incorrect # samples')
-            device_min_id -= 1
-            device_samples += 1
-
-        if not batch_size:
-            worker_min_id, worker_max_id, _ = _get_min_max_size(device_min_id, device_samples, device_worker,
-                                                                device_num_workers)
-        else:
-            device_batches = math.ceil(device_samples / batch_size)
-            samples_missing = device_batches * batch_size - device_samples
-
-            # Determine which batches this worker is responsible for
-            worker_min_batch_id, worker_max_batch_id, _ = _get_min_max_size(0, device_batches, device_worker,
-                                                                            device_num_workers)
-
-            # The last device_worker to be read from will be the one with the incomplete batch.
-            # This is done to match PyTorch DataLoader's round-robin scheduling of workers
-            # All device_workers must be careful to account for the missing samples offset by the incomplete batch
-            incomplete_device_worker = (device_batches + device_num_workers - 1) % device_num_workers
-            min_id_offset = 0 if device_worker <= incomplete_device_worker else samples_missing
-            max_id_offset = 0 if device_worker < incomplete_device_worker else samples_missing
-
-            worker_min_id = device_min_id + worker_min_batch_id * batch_size - min_id_offset
-            worker_max_id = device_min_id + (worker_max_batch_id + 1) * batch_size - max_id_offset - 1
-
-        min_shard = self.sample_shards[worker_min_id]
-        max_shard = self.sample_shards[worker_max_id]
-        shards = list(range(min_shard, max_shard + 1))
-
-        # Ensure that each shard only gets downloaded by 1 worker, so there are no race conditions.
-        # To do this, we skip downloading the last shard (likely overlapped with next worker) unless:
-        # - you are the last worker on your node (no files shared across nodes so you have to download it again!)
-        # - you are downloading the last sample of the shard (no overlap with next worker)
-        if ((node_worker + 1 == node_num_workers) or
-            (worker_max_id + 1 < self.total_samples and self.sample_shards[worker_max_id + 1] != max_shard)):
-            shards_to_download = shards
-        else:
-            shards_to_download = shards[:-1]
-        return shards, shards_to_download, worker_min_id, worker_max_id

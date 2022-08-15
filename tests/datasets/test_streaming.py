@@ -440,18 +440,14 @@ def test_cipher_shuffle(remote_local: Tuple[str, str]):
                                       samples=samples,
                                       shard_size_limit=shard_size_limit,
                                       compression=None)
-    dataset = StreamingDataset(remote=remote,
-                               local=local,
-                               shuffle=shuffle,
-                               decoders=decoders,
-                               shuffle_buffer_size='15shards')
+    dataset = StreamingDataset(remote=remote, local=local, shuffle=shuffle, decoders=decoders, shuffle_size='15shards')
 
     unique_set = []
     assert len(dataset) == num_samples
 
     for datum in dataset:
         if datum['uid'] in unique_set:
-            nominal_order = [dataset._shuffle_sample(ix) for ix in range(len(dataset))]
+            nominal_order = [dataset.shuffler.shuffle_sample(ix, 1, 0, 15) for ix in range(len(dataset))]
             raise ValueError(
                 f"Duplicate UID: {datum['uid']}, full order: {unique_set}, nominal order: {nominal_order}, shard order: {dataset._shard_shuffle_indices}, samples per shard: {dataset.index.samples_per_shard}"
             )
