@@ -78,9 +78,14 @@ objects.
 
     trainer.fit()
 
+When training is complete, metrics can be accessed from the trainer state.
+
+.. code:: python
+
+    print(trainer.state.current_metrics)
+
 In the background, we automatically add the :class:`.ProgressBarLogger` to log
 training progress to the console.
-
 
 A few tips and tricks for using our Trainer:
 
@@ -257,7 +262,7 @@ Training on GPU
 
 Control which device you use for training with the ``device`` parameter,
 and we will handle the data movement and other systems-related
-engineering. We currently support the ``cpu`` and ``gpu`` devices.
+engineering. We currently support the ``cpu``, ``gpu`` and ``tpu`` devices.
 
 .. testcode::
 
@@ -270,6 +275,44 @@ engineering. We currently support the ``cpu`` and ``gpu`` devices.
         max_duration='2ep',
         device='cpu'
     )
+
+Training on M1 chips (beta)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To train models on Apple M-series chips, we support ``device='mps'``. Note
+that this requires having ``torch >= 1.12`` installed, as well as Mac OSX 12.3+.
+
+For more details, see: `Pytorch Release Blog <https://pytorch.org/blog/pytorch-1.12-released/#prototype-introducing-accelerated-pytorch-training-on-mac>`__.
+
+.. code:: python
+
+    from composer import Trainer
+
+    trainer = Trainer(
+        ...,
+        device='mps',
+    )
+
+Training on TPU (beta)
+~~~~~~~~~~~~~~~~~~~~~~
+Beta support: train your models on **single core** ``tpus``
+in ``bf16`` precision. You will need to have ``torch_xla`` installed using
+instructions here https://github.com/pytorch/xla.
+
+.. code::
+
+    from composer import Trainer
+
+    ## The user needs to first move the model to the xla device before sending it to the trainer.
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+	max_duration='2ep',
+	device='tpu'
+    )
+
+.. note:: We will add multi-core support in future releases.
 
 Distributed Training
 ~~~~~~~~~~~~~~~~~~~~
@@ -486,7 +529,7 @@ gradient accumulation, Composer initially sets ``grad_accum=1``. During the trai
 if a Cuda Out of Memory Exception is encountered, indicating the current batch size is too
 large for the hardware, Composer catches this exception and continues training after doubling
 ``grad_accum``. As a secondary benefit, automatic gradient accumulation is able to dynamically
-adjust throughout the training process. For example, when using ``ProgressiveResizing``, input
+adjust throughout the training process. For example, when using :class:`.ProgressiveResizing`, input
 size increases throughout training. Composer automatically increases ``grad_accum`` only when
 required, such as when a Cuda OOM is encountered due to larger images, allowing for faster
 training at the start until image sizes are scaled up. Note that this feature is experimental

@@ -4,7 +4,7 @@
 import contextlib
 import os
 import pathlib
-from typing import Any, Dict, Type, Union
+from typing import Any, Dict, Type
 
 import mockssh
 import moto
@@ -53,6 +53,7 @@ _object_store_marks = {
     SFTPObjectStore: [
         pytest.mark.skipif(not _SFTP_AVAILABLE, reason='Missing dependency'),
         pytest.mark.filterwarnings(r'ignore:setDaemon\(\) is deprecated:DeprecationWarning'),
+        pytest.mark.filterwarnings(r'ignore:Unknown .* host key:UserWarning')
     ],
     SFTPObjectStoreHparams: [
         pytest.mark.skipif(not _SFTP_AVAILABLE, reason='Missing dependency'),
@@ -60,18 +61,7 @@ _object_store_marks = {
     ],
 }
 
-object_store_kwargs: Dict[Union[Type[ObjectStore], Type[ObjectStoreHparams]], Dict[str, Any]] = {
-    LibcloudObjectStore: {
-        'provider': 'local',
-        'container': '.',
-        'provider_kwargs': {
-            'key': '.',
-        },
-    },
-    S3ObjectStore: {
-        'bucket': 'my-bucket',
-        'prefix': 'folder/subfolder'
-    },
+object_store_hparam_kwargs: Dict[Type[ObjectStoreHparams], Dict[str, Any]] = {
     S3ObjectStoreHparams: {
         'bucket': 'my-bucket',
     },
@@ -79,11 +69,6 @@ object_store_kwargs: Dict[Union[Type[ObjectStore], Type[ObjectStoreHparams]], Di
         'provider': 'local',
         'key_environ': 'OBJECT_STORE_KEY',
         'container': '.',
-    },
-    SFTPObjectStore: {
-        'host': 'localhost',
-        'port': 23,
-        'username': 'test_user',
     },
     SFTPObjectStoreHparams: {
         'host': 'localhost',
@@ -103,45 +88,59 @@ object_store_hparams = [
 
 
 @contextlib.contextmanager
-def get_object_store_ctx(object_store_cls: Type[ObjectStore], monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path):
+def get_object_store_ctx(object_store_cls: Type[ObjectStore],
+                         object_store_kwargs: Dict[str, Any],
+                         monkeypatch: pytest.MonkeyPatch,
+                         tmp_path: pathlib.Path,
+                         remote: bool = False):
     if object_store_cls is S3ObjectStore:
         pytest.importorskip('boto3')
         import boto3
-        monkeypatch.setenv('AWS_ACCESS_KEY_ID', 'testing')
-        monkeypatch.setenv('AWS_SECRET_ACCESS_KEY', 'testing')
-        monkeypatch.setenv('AWS_SECURITY_TOKEN', 'testing')
-        monkeypatch.setenv('AWS_SESSION_TOKEN', 'testing')
-        monkeypatch.setenv('AWS_DEFAULT_REGION', 'us-east-1')
-        with moto.mock_s3():
-            # create the dummy bucket
-            s3 = boto3.client('s3')
-            s3.create_bucket(Bucket=object_store_kwargs[S3ObjectStore]['bucket'])
+        if remote:
             yield
+        else:
+            monkeypatch.setenv('AWS_ACCESS_KEY_ID', 'testing')
+            monkeypatch.setenv('AWS_SECRET_ACCESS_KEY', 'testing')
+            monkeypatch.setenv('AWS_SECURITY_TOKEN', 'testing')
+            monkeypatch.setenv('AWS_SESSION_TOKEN', 'testing')
+            monkeypatch.setenv('AWS_DEFAULT_REGION', 'us-east-1')
+            with moto.mock_s3():
+                # create the dummy bucket
+                s3 = boto3.client('s3')
+                s3.create_bucket(Bucket=object_store_hparam_kwargs[S3ObjectStoreHparams]['bucket'])
+                yield
     elif object_store_cls is LibcloudObjectStore:
         pytest.importorskip('libcloud')
-        monkeypatch.setenv(object_store_kwargs[LibcloudObjectStoreHparams]['key_environ'], '.')
+        if remote:
+            pytest.skip('Libcloud object store has no remote tests.')
+        monkeypatch.setenv(object_store_hparam_kwargs[LibcloudObjectStoreHparams]['key_environ'], '.')
 
         remote_dir = tmp_path / 'remote_dir'
         os.makedirs(remote_dir)
-        object_store_kwargs[object_store_cls]['provider_kwargs']['key'] = remote_dir
+        if 'provider_kwargs' not in object_store_kwargs:
+            object_store_kwargs['provider_kwargs'] = {}
+        object_store_kwargs['provider_kwargs']['key'] = remote_dir
         yield
     elif object_store_cls is SFTPObjectStore:
         pytest.importorskip('paramiko')
-        private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-        pem = private_key.private_bytes(encoding=serialization.Encoding.PEM,
-                                        format=serialization.PrivateFormat.TraditionalOpenSSL,
-                                        encryption_algorithm=serialization.NoEncryption())
-        private_key_path = tmp_path / 'test_rsa_key'
-        username = object_store_kwargs[object_store_cls]['username']
-        with open(private_key_path, 'wb') as private_key_file:
-            private_key_file.write(pem)
-        with mockssh.Server(users={
-                username: str(private_key_path),
-        }) as server:
-            client = server.client(username)
-            monkeypatch.setattr(client, 'connect', lambda *args, **kwargs: None)
-            monkeypatch.setattr(composer.utils.object_store.sftp_object_store, 'SSHClient', lambda: client)
+        if remote:
             yield
+        else:
+            private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+            pem = private_key.private_bytes(encoding=serialization.Encoding.PEM,
+                                            format=serialization.PrivateFormat.TraditionalOpenSSL,
+                                            encryption_algorithm=serialization.NoEncryption())
+            private_key_path = tmp_path / 'test_rsa_key'
+            username = object_store_kwargs['username']
+            with open(private_key_path, 'wb') as private_key_file:
+                private_key_file.write(pem)
+            with mockssh.Server(users={
+                    username: str(private_key_path),
+            }) as server:
+                client = server.client(username)
+                monkeypatch.setattr(client, 'connect', lambda *args, **kwargs: None)
+                monkeypatch.setattr(composer.utils.object_store.sftp_object_store, 'SSHClient', lambda: client)
+                yield
 
     else:
         raise NotImplementedError('Parameterization not implemented')

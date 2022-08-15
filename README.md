@@ -349,8 +349,8 @@ Here's some resources actively maintained by the Composer community to help you 
     <td>An interactive Colab Notebook aimed at teaching users about building speedup methods on top of Composer</td>
   </tr>
   <tr>
-    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/nlp_models.ipynb" target="_blank" rel="noopener noreferrer">Training BERTs with Composer</a></td>
-    <td>An interactive Colab Notebook aimed at helping users learn how to train BERT models with Composer!</td>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/huggingface_models.ipynb" target="_blank" rel="noopener noreferrer">Training BERTs with Composer and 🤗 </a></td>
+    <td>An interactive Colab Notebook aimed at helping users learn how to train BERT models with Composer and 🤗!</td>
   </tr>
   <tr>
     <td><a href="https://mosaicml.com/jobs" target="_blank" rel="noopener noreferrer">We're Hiring!</a></td>
@@ -359,7 +359,7 @@ Here's some resources actively maintained by the Composer community to help you 
 </tbody>
 </table>
 
-If you have any questions, please feel free to reach out to us on [Twitter](https://twitter.com/mosaicml), [email](mailto:community@mosaicml.com), or our [Community Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg)!
+If you have any questions, please feel free to reach out to us on [Twitter](https://twitter.com/mosaicml), [email](mailto:community@mosaicml.com), or our [Community Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-1dc6mo5wg-arlv6Oo9JjEn_g4d5s7PXQ)!
 
 # 💫 Contributors
 Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues!

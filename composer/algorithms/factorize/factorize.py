@@ -117,7 +117,7 @@ class Factorize(Algorithm):
     and :class:`.FactorizedLinear` for more information about the factorized modules
     used to replace the original modules.
 
-    Runs on :attr:`~composer.core.event.Event.INIT`.
+    Runs on :attr:`.Event.INIT`.
 
     Args:
         factorize_convs (bool): whether to try factorizing :class:`torch.nn.Conv2d` modules.

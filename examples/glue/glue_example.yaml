@@ -1,0 +1,100 @@
+pretrain_hparams:
+  # Use a bert-base model, initialized from scratch
+  model:
+    bert:
+      use_pretrained: false
+      tokenizer_name: bert-base-uncased
+      pretrained_model_name: bert-base-uncased
+
+  # Train the model on the English C4 corpus
+  train_dataset:
+    streaming_c4:
+      remote: s3://allenai-c4/mds/1/
+      local: /tmp/mds-cache/mds-c4/
+      split: train
+      shuffle: true
+      tokenizer_name: bert-base-uncased
+      max_seq_len: 128
+      group_method: truncate
+      mlm: true
+      mlm_probability: 0.15
+
+  dataloader:
+    pin_memory: true
+    timeout: 0
+    prefetch_factor: 2
+    persistent_workers: true
+    num_workers: 8
+
+  # Periodically evaluate the LanguageCrossEntropy and Masked Accuracy
+  # on the validation split of the dataset.
+  evaluators:
+    evaluator:
+        label: bert_pre_training
+        eval_dataset:
+          streaming_c4:
+            remote: s3://allenai-c4/mds/1/
+            local: /tmp/mds-cache/mds-c4/
+            split: val
+            shuffle: false
+            tokenizer_name: bert-base-uncased
+            max_seq_len: 128
+            group_method: truncate
+            mlm: true
+            mlm_probability: 0.15
+        metric_names:
+          - LanguageCrossEntropy
+          - MaskedAccuracy
+
+  # Run evaluation after every 1000 training steps
+  eval_interval: 1000ba
+
+  # Use the decoupled AdamW optimizer with learning rate warmup
+  optimizers:
+    decoupled_adamw:
+      lr: 5.0e-4                     # Peak learning rate
+      betas:
+        - 0.9
+        - 0.98
+      eps: 1.0e-06
+      weight_decay: 1.0e-5           # Amount of weight decay regularization
+  schedulers:
+    linear_decay_with_warmup:
+      t_warmup: 0.06dur              # Point when peak learning rate is reached
+      alpha_f: 0.02
+
+  max_duration: 275184000sp          # Subsample the training data for 275M samples
+  train_batch_size: 4000             # Number of training examples to use per update
+  eval_batch_size: 2000
+
+  precision: amp                     # Use mixed-precision training
+  grad_clip_norm: -1.0               # Turn off gradient clipping
+  grad_accum: 'auto'                 # Use automatic gradient accumulation to avoid OOMs
+
+  save_folder: &folder checkpoints   # The directory to save checkpoints to, aliased as 'folder' for future reference in this file
+  save_interval: 3500ba              # Save checkpoints every 3500 batches
+  save_artifact_name: '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}' # comment if you do not want to checkpoint to cloud
+  save_num_checkpoints_to_keep: 0
+  save_overwrite: True
+
+  loggers:
+    object_store:
+      object_store_hparams: &bucket  # The bucket to save checkpoints to, aliased as 'bucket' for future reference in this file
+        s3:
+          bucket: your-bucket-here #TODO
+    wandb:
+      tags:
+        - pretrain
+
+finetune_hparams:
+  # defaults
+  loggers:
+    object_store:
+      object_store_hparams:
+        *bucket                       # Refers to previously defined alias of 'bucket'
+    wandb:
+      tags:
+        - finetune
+  load_object_store:
+    *bucket
+  save_folder: *folder                # Refers to previously defined alias of 'folder'
