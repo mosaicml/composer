@@ -59,8 +59,7 @@ def _decrypt_round(key: int, round_num: int, ciphertext: int, block_size: int, n
 
 
 def encrypt(key: int, value: int, num_possible_values: int) -> int:
-    """
-    Permutes the set [0, num_possible_values) \\in Z using a four-round Feistel network
+    """Permutes the set [0, num_possible_values) \\in Z using a four-round Feistel network
     and Numpy's random number generator for round functions. Warning: likely not cryptographically secure,
     designed to give sufficient pseudorandomness to dataset shuffling scheme.
 
@@ -86,7 +85,8 @@ def decrypt(key: int, value: int, num_possible_values: int) -> int:
     Args:
         key (int): Cipher key
         value (int): Message to decrypt. must be in [0, num_possible_values).
-        num_possible_values (int): Size of the set of the plaintext/ciphertext space."""
+        num_possible_values (int): Size of the set of the plaintext/ciphertext space.
+    """
     num_rounds = 4
     block_size = int(np.ceil(np.log2(num_possible_values)))
     plaintext = _decrypt_round(key, 1, value, block_size, num_rounds)
@@ -108,9 +108,22 @@ class BlockCipherShuffler:
         self._cipher_key = cipher_key
         self.index = index
 
-    def shuffle_shards(self) -> NDArray[np.int64]:
+    def shuffle_shards(self, num_nodes: int, global_rank: int) -> NDArray[np.int64]:
+        """Returns an ordering of shards such that shards are distributed evenly between nodes and shuffled randomly.
+
+        Args:
+            num_nodes (int): number of nodes
+            global_rank (int): rank of current node
+
+        Returns:
+            NDArray[np.int64]: _description_
+        """
         num_shards = self.index.num_shards
-        return np.array([encrypt(self._cipher_key, idx, num_shards) for idx in range(num_shards)])
+        return np.array([
+            encrypt(self._cipher_key, idx, num_shards)
+            for idx in np.arange(num_shards)
+            if idx % num_nodes == global_rank
+        ])
 
     def shuffle_sample(self, idx: int, num_workers: int, rank: int, shuffle_buffer_size: int) -> int:
         """

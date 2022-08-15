@@ -186,11 +186,12 @@ class StreamingDataset(IterableDataset):
         if shuffle:
             cipher_key = 42  # initialize using an arbitrary cipher key
             self.shuffler = BlockCipherShuffler(cipher_key, self.index)
-            self._shard_shuffle_indices = self.shuffler.shuffle_shards()
+            self._shard_shuffle_indices = self.shuffler.shuffle_shards(num_nodes, global_rank)
             self.index.relocate_samples(self._shard_shuffle_indices)
         else:
             N = self.index.num_shards
             self._shard_shuffle_indices = np.arange(N)[np.arange(N) % num_nodes == global_rank]
+            self.index.relocate_samples(self._shard_shuffle_indices)
 
     def _parse_shuffle_buffer_size(self, shuffle_buffer_size_arg: str) -> np.int64:
         if shuffle_buffer_size_arg.endswith('prop'):
@@ -206,7 +207,10 @@ class StreamingDataset(IterableDataset):
     def load_state_dict(self, state):
         self._restored_batch_count = state['batch_count']
         self.shuffler = BlockCipherShuffler(state['cipher_key'], self.index)
-        self._shard_shuffle_indices = self.shuffler.shuffle_shards()
+        world = get_world()
+        num_nodes = world.global_num_nodes
+        global_rank = dist.get_global_rank()
+        self._shard_shuffle_indices = self.shuffler.shuffle_shards(num_nodes, global_rank)
         self.index.relocate_samples(self._shard_shuffle_indices)
 
     def _download_file(self, basename: str, wait: bool = False, local_basename: Optional[str] = None) -> str:
