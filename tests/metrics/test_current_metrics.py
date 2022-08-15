@@ -20,7 +20,7 @@ class MetricsCallback(Callback):
         self._train_batch_end_train_accuracy = None
 
     def init(self, state: State, logger: Logger) -> None:
-        # on init, the `current_metrics` should be empty
+        # on init, the current metrics should be empty
         del logger  # unused
         assert state.train_metrics == {}, 'no train metrics should be defined on init()'
         assert state.eval_metrics == {}, 'no eval metrics should be defined on init()'

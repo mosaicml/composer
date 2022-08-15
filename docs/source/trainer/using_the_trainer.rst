@@ -78,11 +78,12 @@ objects.
 
     trainer.fit()
 
-When training is complete, metrics can be accessed from the trainer state.
+When training is complete, both training and evaluation metrics can be accessed from the trainer state.
 
 .. code:: python
 
-    print(trainer.state.current_metrics)
+    print(trainer.state.train_metrics)
+    print(trainer.state.eval_metrics)
 
 In the background, we automatically add the :class:`.ProgressBarLogger` to log
 training progress to the console.

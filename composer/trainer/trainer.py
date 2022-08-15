@@ -328,7 +328,7 @@ class Trainer:
         train_dataloader_label (str, optional): The label for the train dataloader. (default: ``'train'``)
 
             This label is used to index the training metrics (if ``compute_training_metrics`` is True) in
-            :attr:`.State.current_metrics`.
+            :attr:`.State.train_metrics`.
 
             This parameter has no effect if ``train_dataloader`` or ``compute_training_metrics`` are not specified.
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
@@ -341,7 +341,7 @@ class Trainer:
             This parameter is ignored if ``train_dataloader`` is not specified.
         compute_training_metrics (bool, optional): Whether to compute training metrics. (default: ``False``)
 
-            Training metrics will be indexed on :attr:`.State.current_metrics` under the ``train_dataloader_label``
+            Training metrics will be indexed on :attr:`.State.train_metrics` under the ``train_dataloader_label``
             key (which defaults to ``'train'``).
         max_duration (Time | str | int, optional): The maximum duration to train. Can be an integer, which will be
             interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
@@ -939,7 +939,6 @@ class Trainer:
 
         self.logger.data_fit({'rank_zero_seed': rank_zero_seed})
 
-        assert isinstance(self.state.model, ComposerModel)
         self._original_model = self.state.model
 
         # Schedulers
@@ -2097,7 +2096,6 @@ class Trainer:
 
             # extract model metrics based on provided names
             # TODO (Ishana): refactor as part of CO-251
-            assert isinstance(self.state.model, ComposerModel)
             if not metric_names:
                 metrics = self.state.model.metrics(train=False)
             else:
