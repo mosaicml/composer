@@ -1,6 +1,6 @@
 # 🎃 Cutout
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
 `Computer Vision`
 
@@ -129,3 +129,7 @@ The implementation in Composer currently only supports computer vision.
 [*Improved Regularization of Convolutional Neural Networks with Cutout*](https://arxiv.org/abs/1708.04552) by Terrance DeVries and Graham W. Taylor. Posted to arXiv in 2017.
 
 *This Composer implementation of this method and the accompanying documentation were produced by Cory Stephenson at MosaicML.*
+
+## API Reference
+
+See {mod}`composer.algorithms.cutout`

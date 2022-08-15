@@ -1,6 +1,6 @@
 # ⛩️ Gated Linear Units
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
  `Natural Language Processing`
 
@@ -84,3 +84,7 @@ While there are many hypotheses for the performace of Gated Linear Units, the co
 ## Attribution
 
 *The Composer implementation of this method and the accompanying documentation were produced by Moin Nadeem at MosaicML.*
+
+## API Reference
+
+See {mod}`composer.algorithms.gated_linear_units`

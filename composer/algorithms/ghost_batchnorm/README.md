@@ -1,6 +1,6 @@
 # 👻 Ghost BatchNorm
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
 `Computer Vision`
 
@@ -124,3 +124,7 @@ The original paper on Ghost BatchNorm reports a 0-3% accuracy change across a nu
 [*A New Look at Ghost Normalization*](https://arxiv.org/abs/2007.08554) by Neofyos Dimitriou and Ognjen Arandjelovic. Posted on arXiv in 2020.
 
 *The Composer implementation of this method and the accompanying documentation were produced by Davis Blalock at MosaicML.*
+
+## API Reference
+
+See {mod}`composer.algorithms.ghost_batchnorm`

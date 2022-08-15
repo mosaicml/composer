@@ -1,6 +1,6 @@
 # 🎲 RandAugment
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
 `Computer Vision`
 
@@ -152,3 +152,7 @@ For example, applying RandAugment with `depth=2`, `severity=9`, yields a 0.31% a
 [*Randaugment: Practical automated data augmentation with a reduced search space*](https://openaccess.thecvf.com/content_CVPRW_2020/html/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.html) by Ekin D. Cubuk, Barret Zoph, Jonathon Shlens, and Quoc V. Le. Published in CVPR 2020.
 
 *The Composer implementation of this method and the accompanying documentation were produced by Matthew Leavitt at MosaicML.*
+
+## API Reference
+
+See {mod}`composer.algorithms.randaugment`

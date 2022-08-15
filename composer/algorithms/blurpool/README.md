@@ -1,6 +1,8 @@
 # 🏊 BlurPool
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested
+Hyperparameters\]](#suggested-hyperparameters) - [\[Technical
+Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference) - [\[API Reference\]](#api-reference)
 
 `Computer Vision`
 
@@ -132,4 +134,6 @@ BlurPool tends to compose well with other methods. We are not aware of an exampl
 
 *The Composer implementation of this method and the accompanying documentation were produced by Davis Blalock at MosaicML. We thank Richard Zhang for helpful discussion.*
 
-## {mod}`BlurPool API Reference <composer.algorithms.blurpool>`
+## API Reference
+
+See {mod}`composer.algorithms.blurpool`

@@ -1,7 +1,7 @@
 # ➗ Factorize
 
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
  `Computer Vision`,  `Natural Language Processing`
 
@@ -134,3 +134,7 @@ Our factorization structure most closely matches that in:
 * [*Accelerating Very Deep Convolutional Networks for Classification and Detection*](https://ieeexplore.ieee.org/abstract/document/7332968) by Xiangyu Zhang, Jianhua Zou, Kaiming He, and Jian Sun. Published in IEEE TPAMI in 2016.
 
 *The Composer implementation of this method and the accompanying documentation were produced by Davis Blalock at MosaicML.*
+
+## API Reference
+
+See {mod}`composer.algorithms.factorize`

@@ -1,6 +1,6 @@
 # 🚚 EMA
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
 Exponential Moving Average (EMA) is a model averaging technique that maintains an exponentially weighted moving average of the model parameters during training. The averaged parameters are used for model evaluation. EMA typically results in less noisy validation metrics over the course of training, and sometimes increased generalization.
 
@@ -33,18 +33,8 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
-<!--pytest.mark.gpu-->
-<!--
-```python
-from torch.utils.data import DataLoader
-from tests.common import RandomClassificationDataset, SimpleModel
-
-model = SimpleModel()
-train_dataloader = DataLoader(RandomClassificationDataset())
-eval_dataloader = DataLoader(RandomClassificationDataset())
-```
--->
-<!--pytest-codeblocks:cont-->
+<!-- TODO: Address timeouts -->
+<!--pytest-codeblocks:skip-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
@@ -56,7 +46,6 @@ ema = EMA(half_life='50ba')
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
-                  eval_dataloader=eval_dataloader,
                   max_duration='1ep',
                   algorithms=[ema])
 
@@ -98,7 +87,7 @@ Our implementation of EMA also provides the option to use the EMA weights as the
 
 > ❗ Evaluation should not be done with the training model
 >
-> Evaluation should be done with the `ema_model` in the functional impementation as this is the model containing the averaged parameters. The ema model can be accessed after training from the `EMA` object via `model = ema.get_ema_model(model)` in the composer trainer implementation.
+> Evaluation should be done with the `ema_model` in the functional implementation as this is the model containing the averaged parameters. The ema model can be accessed after training from the `EMA` object via `model = ema.get_ema_model(model)` in the composer trainer implementation.
 
 
 ## Attribution

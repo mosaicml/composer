@@ -1,6 +1,6 @@
 # 🎨 AugMix
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
 `Computer Vision`
 
@@ -169,3 +169,7 @@ Doing so can allow models to reach higher quality, but this typically requires (
 [*AugMix: A Simple Data Processing Method to Improve Robustness and Uncertainty*](https://arxiv.org/abs/1912.02781) by Dan Hendrycks, Norman Mu, Ekin D. Cubuk, Barret Zoph, Justin Gilmer, and Balaji Lakshminarayanan. Published in ICLR 2020.
 
 *The Composer implementation of this method and the accompanying documentation were produced by Matthew Leavitt at MosaicML.*
+
+## API Reference
+
+See {mod}`composer.algorithms.augmix`

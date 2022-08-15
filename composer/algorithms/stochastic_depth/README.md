@@ -1,6 +1,6 @@
 # 🎰 Stochastic Depth (Sample)
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
  `Computer Vision`
 
@@ -123,3 +123,7 @@ For both ResNet-50 and ResNet-101 on ImageNet, we measure a +0.4% absolute accur
 [EfficientNet model in the TPU Github repository](https://github.com/tensorflow/tpu/tree/master/models/official/efficientnet) from Google
 
 [EfficientNet model in gen-efficientnet-pytorch Github repository](https://github.com/rwightman/gen-efficientnet-pytorch) by Ross Wightman
+
+## API Reference
+
+See {mod}`composer.algorithms.stochastic_depth`
