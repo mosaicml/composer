@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
-
-from composer.datasets.streaming.format import StreamingDatasetIndex
 from numpy.typing import NDArray
 
-__all__ = ['encrypt', 'decrypt']
+from composer.datasets.streaming.format import StreamingDatasetIndex
+
+__all__ = ['BlockCipherShuffler']
 
 
 def _encrypt_round(key, round_num, plaintext, block_size):
@@ -38,14 +38,17 @@ def _decrypt_round(key, round_num, ciphertext, block_size, num_rounds):
 
 
 def encrypt(key: int, value: int, num_possible_values: int) -> int:
-    """Permutes the set [0, num_possible_values) \\in Z using a four-round Feistel network
+    """
+    Permutes the set [0, num_possible_values) \\in Z using a four-round Feistel network
     and Numpy's random number generator for round functions. Warning: likely not cryptographically secure,
     designed to give sufficient pseudorandomness to dataset shuffling scheme.
 
     Args:
         key (int): Cipher key
         value (int): Message to encrypt. must be in [0, num_possible_values).
-        num_possible_values (int): Size of the set of the plaintext/ciphertext space."""
+        num_possible_values (int): Size of the set of the plaintext/ciphertext space.
+
+    """
     num_rounds = 4
     block_size = int(np.ceil(np.log2(num_possible_values)))
     ciphertext = _encrypt_round(key, num_rounds, value, block_size)
@@ -74,6 +77,13 @@ def decrypt(key: int, value: int, num_possible_values: int) -> int:
 class BlockCipherShuffler:
 
     def __init__(self, cipher_key: int, index: StreamingDatasetIndex):
+        """Block Cipher Shuffler takes a `cipher_key` and a `StreamingDatasetIndex` and handles utility functions
+        for shuffling within shards and samples.
+
+        Args:
+            cipher_key (int): RNG seed for reproducibility
+            index (StreamingDatasetIndex): Index of underlying dataset
+        """
         self._cipher_key = cipher_key
         self.index = index
 
@@ -86,7 +96,7 @@ class BlockCipherShuffler:
         Shuffles the samples as much as possible while maintaining the shuffle_buffer_size invariant of shards
         required on the disk at once.
 
-        Args: 
+        Args:
             idx (int): index of sample to be shuffled
             num_workers (int): number of worker threads
             rank (int): rank of current worker thread
@@ -99,16 +109,20 @@ class BlockCipherShuffler:
             raise ValueError('shuffling is on but no seed was specified')
         idx = idx * num_workers + rank
 
+        # calculate the index of the shard group
         shard_id = self.index.sample_shards[idx]
         shard_index = decrypt(self._cipher_key, shard_id, self.index.num_shards)
         first_shard_group_index = shard_index - (shard_index % shuffle_buffer_size)
         last_shard_group_index = min(int(first_shard_group_index + shuffle_buffer_size), int(self.index.num_shards))
 
+        # calculate the number of samples in the shard group
         samples_in_group = np.sum(self.index.shard_samples[np.arange(first_shard_group_index, last_shard_group_index)])
 
+        # calculate how far into our shard group the shuffled sample lies
         group_key = int(self._cipher_key + first_shard_group_index)
         group_relative_sample_id = encrypt(group_key, idx % samples_in_group, samples_in_group)
 
+        # map the shard group relative offset to a global sample offset
         relative_id_to_shard_index = []
         relative_id_to_shard_offset = []
         for shard_member_index in np.arange(first_shard_group_index, last_shard_group_index):
