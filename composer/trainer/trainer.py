@@ -2097,11 +2097,11 @@ class Trainer:
             # extract model metrics based on provided names
             # TODO (Ishana): refactor as part of CO-251
             if not metric_names:
-                metrics = self.state.model.metrics(train=False)
+                metrics = self._original_model.metrics(train=False)
             else:
                 # filter metrics based on globs
                 metrics = []
-                model_metrics = self.state.model.metrics(train=False)
+                model_metrics = self._original_model.metrics(train=False)
                 if isinstance(model_metrics, Metric):
                     if any(
                             re.match(f'.*{metric_name}.*', model_metrics._get_name(), re.IGNORECASE)
