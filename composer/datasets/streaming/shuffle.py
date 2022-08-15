@@ -59,7 +59,7 @@ def _decrypt_round(key: int, round_num: int, ciphertext: int, block_size: int, n
 
 
 def encrypt(key: int, value: int, num_possible_values: int) -> int:
-    """Permutes the set [0, num_possible_values) \\in Z using a four-round Feistel network
+    """Permutes the set [0, num_possible_values) ∈ Z using a four-round Feistel network
     and Numpy's random number generator for round functions. Warning: likely not cryptographically secure,
     designed to give sufficient pseudorandomness to dataset shuffling scheme.
 
@@ -78,7 +78,7 @@ def encrypt(key: int, value: int, num_possible_values: int) -> int:
 
 
 def decrypt(key: int, value: int, num_possible_values: int) -> int:
-    """Un-permutes the set [0, num_possible_values) \\in Z using a four-round Feistel network
+    """Un-permutes the set [0, num_possible_values) ∈ Z using a four-round Feistel network
     and Numpy's random number generator for round functions. Warning: likely not cryptographically secure,
     designed to give sufficient pseudorandomness to dataset shuffling scheme.
 
