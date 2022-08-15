@@ -958,7 +958,7 @@ class Trainer:
         if eval_dataloader is None:
             evaluators: List[Evaluator] = []
         else:
-            model_metric_names = model.metrics(train=False).keys()
+            model_metric_names = [str(k) for k in model.metrics(train=False).keys()]  # type: ignore
             evaluators = [
                 ensure_evaluator(evaluator, default_metric_names=model_metric_names)
                 for evaluator in ensure_tuple(eval_dataloader)
@@ -1353,10 +1353,12 @@ class Trainer:
 
         # Evaluators
         if eval_dataloader is not None:
+            assert isinstance(self._original_model, ComposerModel)
+            metric_names = [str(k) for k in self._original_model.metrics(train=False).keys()]  # type: ignore
             evaluators = [
                 # Need to use the `original_model` rather than `state.model`, as `state.model`
                 # could be DDP / DeepSpeed wrapped.
-                ensure_evaluator(evaluator, default_metric_names=self._original_model.metrics(train=False).keys())
+                ensure_evaluator(evaluator, default_metric_names=metric_names)
                 for evaluator in ensure_tuple(eval_dataloader)
             ]
             _set_evaluator_interval_and_subset_num_batches(
@@ -2095,14 +2097,22 @@ class Trainer:
 
             # extract model metrics based on provided names
             # TODO (Ishana): refactor as part of CO-251
+            assert isinstance(self.state.model, ComposerModel)
             if not metric_names:
                 metrics = self.state.model.metrics(train=False)
             else:
-                metrics = [
-                    self.state.model.metrics(train=False)[k]
-                    for k in self.state.model.metrics(train=False).keys()
-                    if any(re.match(metric_name, k, re.IGNORECASE) for metric_name in metric_names)
-                ]  # filter metrics based on globs
+                # filter metrics based on globs
+                metrics = []
+                model_metrics = self.state.model.metrics(train=False)
+                if isinstance(model_metrics, Metric):
+                    if any(
+                            re.match(f'.*{metric_name}.*', model_metrics._get_name(), re.IGNORECASE)
+                            for metric_name in metric_names):
+                        metrics.append(model_metrics)
+                else:
+                    for k in model_metrics:
+                        if any(re.match(f'.*{metric_name}.*', k, re.IGNORECASE) for metric_name in metric_names):
+                            metrics.append(model_metrics[k])
 
             if not isinstance(metrics, MetricCollection):
                 metrics = MetricCollection(metrics)

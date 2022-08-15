@@ -803,7 +803,7 @@ class EvalHparams(hp.Hparams):
 
         # Use all the metrics from the model if no metric_names are specified
         if self.metric_names is None:
-            metric_names = list(model_metrics.keys())
+            metric_names = [str(k) for k in model_metrics.keys()]  # convert hashable to str
         else:
             metric_names = []
             for metric_name in self.metric_names:
@@ -813,7 +813,7 @@ class EvalHparams(hp.Hparams):
                     raise RuntimeError((f'No metric found with the name {metric_name}. Check if this '
                                         'metric is compatible/listed in your model metrics. ')) from e
                 assert isinstance(metric, Metric), 'all values of a MetricCollection.__getitem__ should be a metric'
-                metric_names.append(metric_name)
+                metric_names.append(str(metric_name))
             if len(metric_names) == 0:
                 raise RuntimeError(('No metrics compatible with your model were added to this evaluator. '
                                     'Check that the metrics you specified are compatible/listed in your model.'))
