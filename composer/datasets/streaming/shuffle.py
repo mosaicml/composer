@@ -4,6 +4,7 @@
 import numpy as np
 
 from composer.datasets.streaming.format import StreamingDatasetIndex
+from numpy.typing import NDArray
 
 __all__ = ['encrypt', 'decrypt']
 
@@ -36,7 +37,7 @@ def _decrypt_round(key, round_num, ciphertext, block_size, num_rounds):
     return _decrypt_round(key, round_num + 1, (upper << half_block_size) ^ lower, block_size, num_rounds)
 
 
-def encrypt(key: int, value: int, num_possible_values: int):
+def encrypt(key: int, value: int, num_possible_values: int) -> int:
     """Permutes the set [0, num_possible_values) \\in Z using a four-round Feistel network
     and Numpy's random number generator for round functions. Warning: likely not cryptographically secure,
     designed to give sufficient pseudorandomness to dataset shuffling scheme.
@@ -76,13 +77,24 @@ class BlockCipherShuffler:
         self._cipher_key = cipher_key
         self.index = index
 
-    def shuffle_shards(self):
+    def shuffle_shards(self) -> NDArray[np.int64]:
         num_shards = self.index.num_shards
         return np.array([encrypt(self._cipher_key, idx, num_shards) for idx in range(num_shards)])
 
-    def shuffle_sample(self, idx: int, num_workers: int, rank: int, shuffle_buffer_size: int):
-        """Shuffles the samples as much as possible while maintaining the shuffle_buffer_size invariant of shards
-        required on the disk at once."""
+    def shuffle_sample(self, idx: int, num_workers: int, rank: int, shuffle_buffer_size: int) -> int:
+        """
+        Shuffles the samples as much as possible while maintaining the shuffle_buffer_size invariant of shards
+        required on the disk at once.
+
+        Args: 
+            idx (int): index of sample to be shuffled
+            num_workers (int): number of worker threads
+            rank (int): rank of current worker thread
+            shuffle_buffer_size (int): number of shards needed at once
+
+        Returns:
+            int: id of shuffled sample
+        """
         if self._cipher_key is None:
             raise ValueError('shuffling is on but no seed was specified')
         idx = idx * num_workers + rank

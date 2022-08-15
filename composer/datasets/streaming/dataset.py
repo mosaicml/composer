@@ -324,14 +324,14 @@ class StreamingDataset(IterableDataset):
         """
         Thread(target=self.download, daemon=True).start()
         #raise ValueError(np.array([self.shuffle_sample(ix) for ix in np.arange(self.index.total_samples)]))
+        num_workers = dist.get_local_world_size()
+        rank = dist.get_local_rank()
+        sbs = int(self._shuffle_buffer_size)
         while self._batch_count < self.index.total_samples:
             if self._batch_count < self._restored_batch_count:
                 self._batch_count += 1
                 yield None
             try:
-                num_workers = dist.get_local_world_size()
-                rank = dist.get_local_rank()
-                sbs = int(self._shuffle_buffer_size)
                 idx = self.shuffler.shuffle_sample(self._batch_count, num_workers, rank, sbs) \
                     if self.shuffle else self._batch_count
                 yield self[idx]

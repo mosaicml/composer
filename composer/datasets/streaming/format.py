@@ -172,7 +172,7 @@ class StreamingDatasetIndex(object):
         self.sample_shards, self.sample_id_shards, self.sample_shard_offsets, self.shard_samples = self._locate_samples(
         )
 
-    def relocate_samples(self, shuffle_indices: NDArray[np.int64]):
+    def relocate_samples(self, shuffle_indices: NDArray[np.int64]) -> None:
         self.shuffle_indices = shuffle_indices
         self.sample_shards, self.sample_id_shards, self.sample_shard_offsets, self.shard_samples = self._locate_samples(
         )
