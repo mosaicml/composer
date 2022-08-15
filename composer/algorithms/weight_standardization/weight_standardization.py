@@ -43,4 +43,4 @@ class WeightStandardization(Algorithm):
 
     def apply(self, event: Event, state: State, logger: Logger):
         count = apply_weight_standardization(state.model)
-        logger.data_fit({'weight_standardization/num_weights_standardized': count})
+        logger.data_fit({'WeightStandardization/num_weights_standardized': count})
