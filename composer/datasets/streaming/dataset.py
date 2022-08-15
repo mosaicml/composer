@@ -177,8 +177,8 @@ class StreamingDataset(IterableDataset):
         self._download_exception: Exception
 
         self._shuffle_index = 0
-        self._batch_count = 0
-        self._restored_batch_count = 0
+        self._sample_count = 0
+        self._restored_sample_count = 0
         self._shuffle_buffer_size = self._parse_shuffle_buffer_size(shuffle_size)
         world = get_world()
         num_nodes = world.global_num_nodes
@@ -202,10 +202,10 @@ class StreamingDataset(IterableDataset):
             return np.int64(1)
 
     def state_dict(self):
-        return {'batch_count': self._batch_count, 'cipher_key': self.shuffler._cipher_key}
+        return {'sample_count': self._sample_count, 'cipher_key': self.shuffler._cipher_key}
 
     def load_state_dict(self, state):
-        self._restored_batch_count = state['batch_count']
+        self._restored_sample_count = state['sample_count']
         self.shuffler = BlockCipherShuffler(state['cipher_key'], self.index)
         world = get_world()
         num_nodes = world.global_num_nodes
@@ -244,7 +244,7 @@ class StreamingDataset(IterableDataset):
                 return
             self._download_status = _DownloadStatus.IN_PROGRESS
 
-        current_shard_id = self.index.sample_shards[self._restored_batch_count]
+        current_shard_id = self.index.sample_shards[self._restored_sample_count]
         current_shard_index = current_shard_id
 
         if self.shuffle:
@@ -330,15 +330,15 @@ class StreamingDataset(IterableDataset):
         num_workers = dist.get_local_world_size()
         rank = dist.get_local_rank()
         sbs = int(self._shuffle_buffer_size)
-        while self._batch_count < self.index.total_samples:
-            if self._batch_count < self._restored_batch_count:
-                self._batch_count += 1
+        while self._sample_count < self.index.total_samples:
+            if self._sample_count < self._restored_sample_count:
+                self._sample_count += 1
                 yield None
             try:
-                idx = self.shuffler.shuffle_sample(self._batch_count, num_workers, rank, sbs) \
-                    if self.shuffle else self._batch_count
+                idx = self.shuffler.shuffle_sample(self._sample_count, num_workers, rank, sbs) \
+                    if self.shuffle else self._sample_count
                 yield self[idx]
-                self._batch_count += 1
+                self._sample_count += 1
             except FileNotFoundError as e:
                 with self._lock:
                     if self._download_status == _DownloadStatus.FAILED:

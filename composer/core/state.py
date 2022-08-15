@@ -434,8 +434,7 @@ class State(Serializable):
             if attribute_name == 'dataloader_state':
                 dataloader_state = None
                 if self.dataloader is not None and hasattr(self.dataloader, 'state_dict'):
-                    # type: ignore
-                    dataloader_state = self.dataloader.state_dict()
+                    dataloader_state = self.dataloader.state_dict()  # type: ignore
                     dataloader_state['batch_count'] = self.timestamp.batch_in_epoch
                 # patch this value to be resilient to prefetching:
                 serialized_value = dataloader_state
@@ -498,8 +497,7 @@ class State(Serializable):
                 continue
             elif attribute_name == 'dataloader_state':
                 if self.dataloader is not None and hasattr(self.dataloader, 'load_state_dict'):
-                    # type: ignore
-                    self.dataloader.load_state_dict(state)
+                    self.dataloader.load_state_dict(state)  # type: ignore
                 continue
             state_field_value = getattr(self, attribute_name)
             if attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
