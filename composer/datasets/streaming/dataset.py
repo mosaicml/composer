@@ -206,7 +206,10 @@ class StreamingDataset(IterableDataset):
 
     def load_state_dict(self, state):
         self._restored_sample_count = state['sample_count']
-        self.shuffler = BlockCipherShuffler(state['cipher_key'], self.index)
+        cipher_key = self.shuffler._cipher_key
+        if 'cipher_key' in state:
+            cipher_key = state['cipher_key']
+        self.shuffler = BlockCipherShuffler(cipher_key, self.index)
         world = get_world()
         num_nodes = world.global_num_nodes
         global_rank = dist.get_global_rank()
