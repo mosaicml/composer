@@ -939,6 +939,8 @@ class Trainer:
 
         self.logger.data_fit({'rank_zero_seed': rank_zero_seed})
 
+        if not isinstance(self.state.model, ComposerModel):
+            raise ValueError('Provided model should be a subclass of ComposerModel.')
         self._original_model = self.state.model
 
         # Schedulers
@@ -1430,10 +1432,12 @@ class Trainer:
         # store raw metrics
         for metric_name, metric in metrics.items():
             if dataloader_label == 'train':
+                assert isinstance(metric, Metric)
                 self.state.train_metrics[metric_name] = metric
             else:
                 if dataloader_label not in self.state.eval_metrics:
                     self.state.eval_metrics[dataloader_label] = {}
+                assert isinstance(metric, Metric)
                 self.state.eval_metrics[dataloader_label][metric_name] = metric
 
     def _spin_dataloaders(self):

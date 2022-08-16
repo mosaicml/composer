@@ -14,11 +14,11 @@ import torch.nn
 import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
+from torchmetrics import Metric
 
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit
-from composer.metrics.metric_interface import MetricInterface
 from composer.utils import batch_get, batch_set, dist, ensure_tuple, is_model_deepspeed
 
 if TYPE_CHECKING:
@@ -108,7 +108,7 @@ class State(Serializable):
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
             microbatch between :attr:`.Event.BATCH_START` and :attr:`.Event.BATCH_END`.
-        train_metrics (Dict[str, MetricInterface]): The current raw train metrics, organized by metric name. ``train_metrics`` will be deep-copied to
+        train_metrics (Dict[str, Metric]): The current raw train metrics, organized by metric name. ``train_metrics`` will be deep-copied to
             ensure that each evaluator updates only its ``train_metrics``.
 
             For example:
@@ -123,7 +123,7 @@ class State(Serializable):
             >>> trainer.state.train_metrics
             {'Accuracy': Accuracy()}}
 
-        eval_metrics (Dict[str, Dict[str, MetricInterface]]): The current raw evaluation metrics, organized
+        eval_metrics (Dict[str, Dict[str, Metric]]): The current raw evaluation metrics, organized
             by dataloader label and then by metric name. If not using an :class:`.Evaluator`,
             the eval dataloader is labeled ``'eval'``. Otherwise, the evaluator label is used.
             ``eval_metrics`` will be deep-copied to ensure that each evaluator updates only its ``eval_metrics``.
@@ -208,9 +208,9 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
             | rank_zero_seed        | The seed of the rank zero process.                          |
             +-----------------------+-------------------------------------------------------------+
-            | train_metrics         | The current training metrics                                |
+            | train_metrics         | The current raw training metrics                            |
             +-----------------------+-------------------------------------------------------------+
-            | eval_metrics          | The current evaluation metrics                              |
+            | eval_metrics          | The current raw evaluation metrics                          |
             +-----------------------+-------------------------------------------------------------+
             | run_name              | The run name for training.                                  |
             +-----------------------+-------------------------------------------------------------+
@@ -320,8 +320,8 @@ class State(Serializable):
             'run_name',
         ]
 
-        self.train_metrics: Dict[str, MetricInterface] = {}
-        self.eval_metrics: Dict[str, Dict[str, MetricInterface]] = {}
+        self.train_metrics: Dict[str, Metric] = {}
+        self.eval_metrics: Dict[str, Dict[str, Metric]] = {}
 
     @property
     def seed(self):
