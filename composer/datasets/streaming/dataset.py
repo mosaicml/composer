@@ -247,6 +247,7 @@ class StreamingDataset(IterableDataset):
                 return
             self._download_status = _DownloadStatus.IN_PROGRESS
 
+        print(self.index.sample_shards)
         current_shard_id = self.index.sample_shards[self._restored_sample_count]
         current_shard_index = current_shard_id
 
