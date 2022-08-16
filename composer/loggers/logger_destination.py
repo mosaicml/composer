@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pathlib
 from abc import ABC
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from composer.core.callback import Callback
 from composer.core.state import State
@@ -28,7 +28,7 @@ class LoggerDestination(Callback, ABC):
 
             >>> from composer.loggers import LoggerDestination
             >>> class MyLogger(LoggerDestination):
-            ...     def log_data(self, state, log_level, data):
+            ...     def log_metrics(self, data):
             ...         print(f'Batch {int(state.timestamp.batch)}: {data}')
             >>> logger = MyLogger()
             >>> trainer = Trainer(
@@ -38,29 +38,40 @@ class LoggerDestination(Callback, ABC):
             Batch 0: {'rank_zero_seed': ...}
     """
 
-    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
-        """Log data.
+    def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
+        """Log hyperparameters, configurations, and settings.
 
-        Subclasses should implement this method to store logged data (e.g. write it to a file, send it to a server,
-        etc...). However, not all loggers need to implement this method.
+        Logs any parameter/configuration/setting that doesn't vary during the run.
 
-        .. note::
+         Args:
+            hyperparameters (Dict[str, Any]): A dictionary mapping hyperparameter names
+                (strings) to their values (Any).
+        """
+        del hyperparameters  # unused
+        pass
 
-            This method will block the training loop. For optimal performance, it is recommended to deepcopy the
-            ``data`` (e.g. ``copy.deepcopy(data)``), and store the copied data in queue. Then, either:
-
-            *   Use background thread(s) or process(s) to read from this queue to perform any I/O.
-            *   Batch the data together and flush periodically on events, such as
-                :attr:`.Event.BATCH_END` or :attr:`.Event.EPOCH_END`.
-
-                .. seealso:: :class:`~composer.loggers.file_logger.FileLogger` as an example.
+    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+        """Log metrics or parameters that vary during training.
 
         Args:
-            state (State): The training state.
-            log_level (LogLevel): The log level.
-            data (Dict[str, Any]): The data to log.
+            metrics (Dict[str, float]): Dictionary mapping metric name (str) to metric
+                scalar value (float)
+            step (Optional[int], optional): The current step or batch of training at the
+                time of logging. Defaults to None. If not specified the specific
+                LoggerDestination implementation will choose a step (usually a running
+                counter).
         """
-        del state, log_level, data  # unused
+        del metrics, step # unused
+        pass
+
+    def log_traces(self, traces: Dict[str, Any]):
+        """Log traces. Logs any debug-related data like algorithm traces.
+        
+        Args:
+            traces (Dict[str, float]): Dictionary mapping trace names (str) to trace
+                (Any).
+        """
+        del traces
         pass
 
     def log_file_artifact(
