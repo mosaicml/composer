@@ -116,8 +116,8 @@ def test_current_metrics(
     num_actual_calls = 0
 
     # Need to filter out non-metrics-related calls
-    for call in mock_logger_destination.log_data.mock_calls:
-        data = call[1][2]
+    for call in mock_logger_destination.log_metrics.mock_calls:
+        data = call[1][0]
         for k in data:
             if k.startswith('metrics/'):
                 num_actual_calls += 1

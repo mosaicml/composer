@@ -43,8 +43,8 @@ def test_logged_data_is_json_serializable(callback_cls: Type[Callback]):
     trainer.fit()
 
     for log_calls in logger.data.values():
-        for timestamp, log_level, data in log_calls:
-            del timestamp, log_level  # unused
+        for timestamp, data in log_calls:
+            del timestamp  # unused
             # manually filter out custom W&B data types and tensors, which are allowed, but cannot be json serialized
             if isinstance(data, (WBValue, torch.Tensor)):
                 continue
