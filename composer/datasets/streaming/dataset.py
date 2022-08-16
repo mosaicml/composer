@@ -257,7 +257,7 @@ class StreamingDataset(IterableDataset):
             current_shard_index = self.shuffler.get_shard_index(current_shard_id)
             current_shard_index -= current_shard_index % self._shuffle_buffer_size
 
-        shard_ids = self._shard_shuffle_indices[current_shard_index:]
+        shard_ids = self._shard_shuffle_indices[0:]
 
         for shard_id in shard_ids:
             basename = get_shard_basename(shard_id, compression_name=self.compression_scheme)
