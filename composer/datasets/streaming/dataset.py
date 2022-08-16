@@ -270,7 +270,9 @@ class StreamingDataset(IterableDataset):
             basename = get_shard_basename(shard_id, compression_name=self.compression_scheme)
             try:
                 self._download_file(basename, wait=False)
-                print('downloaded', basename)
+                if shard_id == 0:
+                    print("IT'S RIGHT HEEEERE")
+                print('downloaded', basename, ix)
             except Exception as e:
                 with self._lock:
                     self._download_status = _DownloadStatus.FAILED
