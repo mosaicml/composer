@@ -182,7 +182,7 @@ class StreamingDataset(IterableDataset):
         self._shuffle_buffer_size = self._parse_shuffle_buffer_size(shuffle_size)
         world = get_world()
         num_nodes = world.global_num_nodes
-        global_rank = world.node_device
+        global_rank = world.global_node
         if shuffle:
             cipher_key = 42  # initialize using an arbitrary cipher key
             self.shuffler = BlockCipherShuffler(cipher_key, self.index)
@@ -212,7 +212,7 @@ class StreamingDataset(IterableDataset):
         self.shuffler = BlockCipherShuffler(cipher_key, self.index)
         world = get_world()
         num_nodes = world.global_num_nodes
-        global_rank = world.node_device
+        global_rank = world.global_node 
         self._shard_shuffle_indices = self.shuffler.shuffle_shards(num_nodes, global_rank)
         self.index.relocate_samples(self._shard_shuffle_indices)
 
