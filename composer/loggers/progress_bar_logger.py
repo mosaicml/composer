@@ -141,7 +141,6 @@ class ProgressBarLogger(LoggerDestination):
         self,
         progress_bar: bool = True,
         log_to_console: Optional[bool] = None,
-        console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         stream: Union[str, TextIO] = sys.stderr,
     ) -> None:
 
@@ -153,21 +152,9 @@ class ProgressBarLogger(LoggerDestination):
         self.train_pbar: Optional[_ProgressBar] = None
         self.eval_pbar: Optional[_ProgressBar] = None
 
-        if isinstance(console_log_level, str):
-            console_log_level = LogLevel(console_log_level)
-
-        if log_to_console is None:
-            log_to_console = not progress_bar
-
-        if not log_to_console:
-            # never log to console
-            self.should_log = lambda state, ll: False
-        else:
-            # set should_log to a Callable[[State, LogLevel], bool]
-            if isinstance(console_log_level, LogLevel):
-                self.should_log = lambda state, ll: ll <= console_log_level
-            else:
-                self.should_log = console_log_level
+        self.should_log_to_console = log_to_console
+        if self.should_log_to_console is None:
+            self.should_log_to_console = not progress_bar
 
         # set the stream
         if isinstance(stream, str):
@@ -179,41 +166,60 @@ class ProgressBarLogger(LoggerDestination):
                 raise ValueError(f'stream must be one of ("stdout", "stderr", TextIO-like), got {stream}')
 
         self.stream = stream
+        self.state: State = None
 
     @property
     def show_pbar(self) -> bool:
         return self._show_pbar and dist.get_local_rank() == 0
 
-    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]) -> None:
+    def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
+        if self.should_log_to_console:
+            for hparam_name, hparam in hyperparameters.items():
+                hparam_str = format_log_data_value(hparam)
+                log_str = f'[hyperparameter]: {hparam_name}: {hparam_str}'
+                self._log_to_console(log_str)
+
+    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+        for metric_name, metric_value in metrics.items():
+            # Only log metrics and losses to pbar.
+            if 'metric' in metric_name or 'loss' in metric_name:
+                if self._show_pbar:
+                    self.log_to_pbar(data={metric_name: metric_value})
+            if self.should_log_to_console:
+                self.log_to_console(data={metric_name: metric_value})
+
+    def log_to_pbar(self, data: Dict[str, Any]):
         # log to progress bar
         current_pbar = self.eval_pbar if self.eval_pbar is not None else self.train_pbar
         if current_pbar:
             # Logging outside an epoch
             current_pbar.log_data(data)
 
+    def log_to_console(self, data: Dict[str, Any]) -> None:
+        assert self.state is not None
         # log to console
-        if self.should_log(state, log_level):
+        for data_name, data in data.items():
             data_str = format_log_data_value(data)
-            if state.max_duration is None:
+            if self.state.max_duration is None:
                 training_progress = ''
-            elif state.max_duration.unit == TimeUnit.EPOCH:
-                if state.dataloader_len is None:
-                    curr_progress = f'[batch={int(state.timestamp.batch_in_epoch)}]'
+            elif self.state.max_duration.unit == TimeUnit.EPOCH:
+                if self.state.dataloader_len is None:
+                    curr_progress = f'[batch={int(self.state.timestamp.batch_in_epoch)}]'
                 else:
-                    total = int(state.dataloader_len)
-                    curr_progress = f'[batch={int(state.timestamp.batch_in_epoch)}/{total}]'
+                    total = int(self.state.dataloader_len)
+                    curr_progress = f'[batch={int(self.state.timestamp.batch_in_epoch)}/{total}]'
 
-                training_progress = f'[epoch={int(state.timestamp.epoch)}]{curr_progress}'
+                training_progress = f'[epoch={int(self.state.timestamp.epoch)}]{curr_progress}'
             else:
-                unit = state.max_duration.unit
-                curr_duration = int(state.timestamp.get(unit))
-                total = state.max_duration.value
+                unit = self.state.max_duration.unit
+                curr_duration = int(self.state.timestamp.get(unit))
+                total = self.state.max_duration.value
                 training_progress = f'[{unit.name.lower()}={curr_duration}/{total}]'
 
-            log_str = f'[{log_level.name}]{training_progress}: {data_str}'
-            self.log_to_console(log_str)
+            log_str = f'{training_progress}: {data_name}: {data_str}'
+            self._log_to_console(log_str)
 
-    def log_to_console(self, log_str: str):
+    def _log_to_console(self, log_str: str):
         """Logs to the console, avoiding interleaving with a progress bar."""
         current_pbar = self.eval_pbar if self.eval_pbar is not None else self.train_pbar
         if current_pbar:
@@ -283,7 +289,7 @@ class ProgressBarLogger(LoggerDestination):
         )
 
     def init(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
+        del logger  # unused
         if not is_notebook():
             # Notebooks don't need the dummy progress bar; otherwise, it would be visible.
             self.dummy_pbar = _ProgressBar(
@@ -295,6 +301,7 @@ class ProgressBarLogger(LoggerDestination):
                 bar_format='{bar:-1b}',
                 timestamp_key='',
             )
+        self.state = state
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         if self.show_pbar and not self.train_pbar:
