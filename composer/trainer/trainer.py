@@ -1795,7 +1795,8 @@ class Trainer:
             for microbatch_idx, self.state.batch in enumerate(microbatches):
                 is_final_microbatch = microbatch_idx + 1 == len(microbatches)
                 microbatch_loss_dict = self._train_microbatch(use_grad_scaling, current_batch_size, is_final_microbatch)
-                # Log each loss in loss_dict into total_loss dictionary
+
+                # Aggregate each loss in microbatch_loss_dict into total_loss_dict
                 for k, microbatch_loss in microbatch_loss_dict.items():
                     loss_key = f'loss/train/{k}'
                     if loss_key not in total_loss_dict:
