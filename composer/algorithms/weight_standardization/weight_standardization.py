@@ -1,7 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-import numpy as np
 import torch
 import torch.nn.utils.parametrize as parametrize
 from torch import nn
@@ -14,7 +13,8 @@ __all__ = ['apply_weight_standardization', 'WeightStandardization']
 
 def _standardize_weights(W: torch.Tensor):
     reduce_dims = list(range(1, W.dim()))
-    return (W - W.mean(dim=reduce_dims, keepdim=True)) / W.std(dim=reduce_dims, keepdim=True)
+    W_var, W_mean = torch.var_mean(W, dim=reduce_dims, keepdim=True, unbiased=False)
+    return (W - W_mean) / (torch.sqrt(W_var + 1e-10))
 
 
 class WeightStandardizer(nn.Module):
