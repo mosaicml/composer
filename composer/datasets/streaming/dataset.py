@@ -353,3 +353,4 @@ class StreamingDataset(IterableDataset):
                     elif self._download_status == _DownloadStatus.DONE:
                         raise e
                 sleep(0.25)
+                print("file not found")
