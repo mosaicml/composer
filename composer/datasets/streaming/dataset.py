@@ -263,6 +263,8 @@ class StreamingDataset(IterableDataset):
         shard_ids = self._shard_shuffle_indices[0:]
 
         for shard_id in shard_ids:
+            if dist.get_local_rank() != 0:
+                continue
             basename = get_shard_basename(shard_id, compression_name=self.compression_scheme)
             try:
                 self._download_file(basename, wait=(dist.get_local_rank() != 0))
