@@ -282,7 +282,7 @@ class StreamingDatasetIndex(object):
             sample_shards (NDArray[np.int64]): Shard per sample.
             sample_shard_offsets (NDArray[np.int64]): Intra-shard byte offset per sample.
         """
-        samples_per_shard_shuffled = self.samples_per_shard[self.shuffle_indices]
+        samples_per_shard_shuffled = np.array([self.samples_per_shard[ix] for ix in self.shuffle_indices])
         indices = self.shuffle_indices
 
         shard_ends = self.bytes_per_shard.cumsum()
