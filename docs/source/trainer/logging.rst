@@ -78,7 +78,7 @@ Each of its methods has access to the :class:`.Logger`.
     class EpochMonitor(Callback):
 
         def epoch_end(self, state: State, logger: Logger):
-            logger.data_epoch({"Epoch": int(state.timestamp.epoch)})
+            logger.log_metrics({"Epoch": int(state.timestamp.epoch)})
 
 .. testcleanup::
 

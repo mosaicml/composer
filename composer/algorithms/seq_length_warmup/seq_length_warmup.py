@@ -323,7 +323,7 @@ class SeqLengthWarmup(Algorithm):
                          'The GPU does not have enough memory to process even 1 sample.'))
                 else:
                     state.grad_accum = min(2 * state.grad_accum, device_batch_size)
-                    logger.data_batch({'trainer/grad_accum': state.grad_accum})
+                    logger.log_metrics({'trainer/grad_accum': state.grad_accum})
             else:
                 self._activated = True
                 return
@@ -375,7 +375,7 @@ class SeqLengthWarmup(Algorithm):
         state.batch = set_batch_sequence_length(state.batch, curr_seq_len, self.truncate, self.preserve_end_of_sequence)
 
         batch_size = state.batch['input_ids'].shape[0]
-        logger.data_batch({
+        logger.log_metrics({
             'seq_length_warmup/curr_seq_len': curr_seq_len,
             'seq_length_warmup/curr_bs': batch_size,
         })

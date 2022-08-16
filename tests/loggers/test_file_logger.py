@@ -52,21 +52,21 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmp_path: pathlib.
     dummy_state.timestamp = dummy_state.timestamp.to_next_epoch()
     log_destination.run_event(Event.EPOCH_END, dummy_state, logger)
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
-    logger.data_fit({'metric': 'fit'})  # should print
-    logger.data_epoch({'metric': 'epoch'})  # should print on batch level, since epoch calls are always printed
-    logger.data_batch({'metric': 'batch'})  # should print on batch level, since we print every 3 steps
+    logger.log_hyperparameters({'metric': 'fit'})  # should print
+    logger.log_metrics({'metric': 'epoch'})  # should print on batch level, since epoch calls are always printed
+    logger.log_metrics({'metric': 'batch'})  # should print on batch level, since we print every 3 steps
     dummy_state.timestamp = dummy_state.timestamp.to_next_epoch()
     log_destination.run_event(Event.EPOCH_END, dummy_state, logger)
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
-    logger.data_epoch({'metric': 'epoch1'})  # should print, since we log every 3 epochs
+    logger.log_metrics({'metric': 'epoch1'})  # should print, since we log every 3 epochs
     dummy_state.timestamp = dummy_state.timestamp.to_next_epoch()
     log_destination.run_event(Event.EPOCH_END, dummy_state, logger)
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
     dummy_state.timestamp = dummy_state.timestamp.to_next_batch()
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
-    logger.data_epoch({'metric': 'epoch2'})  # should print on batch level, since epoch calls are always printed
-    logger.data_batch({'metric': 'batch1'})  # should NOT print
+    logger.log_metrics({'metric': 'epoch2'})  # should print on batch level, since epoch calls are always printed
+    logger.log_metrics({'metric': 'batch1'})  # should NOT print
     dummy_state.timestamp = dummy_state.timestamp.to_next_batch()
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
     dummy_state.timestamp = dummy_state.timestamp.to_next_epoch()

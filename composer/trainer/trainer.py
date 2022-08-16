@@ -935,7 +935,7 @@ class Trainer:
         if max_duration is not None:
             self.state.max_duration = ensure_time(max_duration, TimeUnit.EPOCH)
 
-        self.logger.data_fit({'rank_zero_seed': rank_zero_seed})
+        self.logger.log_hyperparameters({'rank_zero_seed': rank_zero_seed})
 
         assert isinstance(self.state.model, ComposerModel)
         self._original_model = self.state.model
@@ -1470,7 +1470,7 @@ class Trainer:
         """Run training for the specified number of epochs and log results."""
         # print training start
         log.info('Using precision %s', self.state.precision)
-        self.logger.data_fit({algo.__class__.__name__: 1 for algo in self.state.algorithms})
+        self.logger.log_hyperparameters({algo.__class__.__name__: 1 for algo in self.state.algorithms})
 
         assert self.state.dataloader is not None, 'dataloader is set in __init__() or fit()'
         assert self._train_data_spec is not None, 'The train data spec is set in __init__() or fit()'
@@ -1500,7 +1500,7 @@ class Trainer:
 
             if int(self.state.timestamp.batch_in_epoch) == 0:
                 self.engine.run_event(Event.EPOCH_START)
-                self.logger.data_epoch({'epoch': int(self.state.timestamp.epoch)})
+                self.logger.log_metrics({'epoch': int(self.state.timestamp.epoch)})
                 if self.train_metrics is not None:
                     # reset the metrics before every epoch
                     self.train_metrics.reset()
@@ -1544,7 +1544,7 @@ class Trainer:
                 self.engine.run_event(Event.AFTER_DATALOADER)
 
                 self.engine.run_event(Event.BATCH_START)
-                self.logger.data_batch({
+                self.logger.log_metrics({
                     'trainer/global_step': int(self.state.timestamp.batch),
                     'trainer/batch_idx': self.state.timestamp.batch_in_epoch.value,
                 })
@@ -1561,7 +1561,7 @@ class Trainer:
                     # total_loss can be None if gradient scaling failed
                     dist.all_reduce(total_loss, reduce_operation='SUM')
                     full_loss = total_loss.cpu().item()
-                    self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
+                    self.logger.log_metrics({'loss/train': full_loss / dist.get_world_size()})
 
                 # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
                 # next batch's wall clock time. The time accumulation must be done here so schedulers
@@ -1756,7 +1756,7 @@ class Trainer:
                 dist.all_reduce(batch_compute_time, reduce_operation='MAX')
                 self.batch_compute_time = batch_compute_time.item()
 
-                self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
+                self.logger.log_metrics({'trainer/grad_accum': self.state.grad_accum})
                 return total_loss
 
     def _train_microbatches(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
@@ -2138,8 +2138,8 @@ class Trainer:
 
                 self.engine.run_event(Event.EVAL_BATCH_END)
 
-            self.logger.data_epoch({'epoch': self.state.timestamp.epoch.value})
-            self.logger.data_batch({'trainer/global_step': self.state.timestamp.batch.value})
+            self.logger.log_metrics({'epoch': self.state.timestamp.epoch.value})
+            self.logger.log_metrics({'trainer/global_step': self.state.timestamp.batch.value})
 
             self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics, log_level=log_level)
 

@@ -12,10 +12,10 @@ from composer.loggers import InMemoryLogger, Logger, LogLevel
 def test_in_memory_logger(dummy_state: State):
     in_memory_logger = InMemoryLogger(LogLevel.EPOCH)
     logger = Logger(dummy_state, destinations=[in_memory_logger])
-    logger.data_batch({'batch': 'should_be_ignored'})
-    logger.data_epoch({'epoch': 'should_be_recorded'})
+    logger.log_metrics({'batch': 'should_be_ignored'})
+    logger.log_metrics({'epoch': 'should_be_recorded'})
     dummy_state.timestamp = dummy_state.timestamp.to_next_batch(samples=1, tokens=1)
-    logger.data_epoch({'epoch': 'should_be_recorded_and_override'})
+    logger.log_metrics({'epoch': 'should_be_recorded_and_override'})
 
     # no batch events should be logged, since the level is epoch
     assert 'batch' not in in_memory_logger.data
