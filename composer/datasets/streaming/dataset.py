@@ -242,11 +242,12 @@ class StreamingDataset(IterableDataset):
     def download(self) -> None:
         """Downloads everything in the correct order"""
 
-        if dist.get_local_rank() != 0:
-            return
-
         if not hasattr(self, '_lock'):
             self._lock = Lock()
+
+        world = get_world()
+        if world.node_device != 0:
+            return
 
         with self._lock:
             if self._download_status != _DownloadStatus.NOT_STARTED:
