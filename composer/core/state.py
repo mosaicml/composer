@@ -121,7 +121,7 @@ class State(Serializable):
             ... )
             >>> trainer.fit()
             >>> trainer.state.train_metrics
-            {'Accuracy': Accuracy()}}
+            {'Accuracy': Accuracy()}
 
         eval_metrics (Dict[str, Dict[str, Metric]]): The current raw evaluation metrics, organized
             by dataloader label and then by metric name. If not using an :class:`.Evaluator`,

@@ -25,7 +25,7 @@ class ThresholdStopper(Callback):
             >>> evaluator = Evaluator(
             ...     dataloader = eval_dataloader,
             ...     label = 'my_evaluator',
-            ...     metrics = Accuracy()
+            ...     metric_names = ['Accuracy']
             ... )
             >>> trainer = Trainer(
             ...     model=model,
