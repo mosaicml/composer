@@ -334,12 +334,13 @@ class StreamingDataset(IterableDataset):
         node_num_workers = world.node_num_workers
         rank = world.node_worker
         sbs = int(self._shuffle_buffer_size)
+        batch_size = 1 if self.batch_size is None else self.batch_size
         while self._sample_count < self.index.total_samples:
             if self._sample_count < self._restored_sample_count:
                 self._sample_count += 1
                 yield None
             try:
-                idx = self.shuffler.shuffle_sample(self._sample_count, node_num_workers, rank, sbs) \
+                idx = self.shuffler.shuffle_sample(self._sample_count, node_num_workers, rank, sbs, batch_size) \
                     if self.shuffle else self._sample_count
                 yield self[idx]
                 self._sample_count += 1
