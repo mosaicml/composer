@@ -791,10 +791,6 @@ class EvalHparams(hp.Hparams):
 
         # Metrics
 
-        # TODO(Ishana): Cleanup this code as part of the MetricsModule. This code was copied
-        # from composer/datasets/evaluator.py, but will likely be removed when the MetricsModule
-        # is implemented, as the trainer will not be responsible for constructing metrics.
-
         # Get and copy all the model's associated evaluation metrics
         model_metrics = model.metrics(train=False)
         if isinstance(model_metrics, Metric):
@@ -902,8 +898,7 @@ class ExperimentHparams(hp.Hparams):
                 (trainer, list of :meth:`~.Trainer.fit` kwargs, list of :meth:`~.Trainer.eval` kwargs).
         """
         trainer = self.trainer.initialize_object()
-        # TODO(ravi): With MetricsModule, `fit_hparams` and `eval_hparams` will
-        # no longer need the original model
+
         fit_kwargs = [
             fit_hparams.initialize_object(trainer._original_model, self.trainer.dataloader) for fit_hparams in self.fits
         ]
