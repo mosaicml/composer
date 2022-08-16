@@ -15,13 +15,17 @@ import logging
 import os
 import sys
 import tempfile
+import warnings
 
+from composer.utils.misc import warning_on_one_line
 from composer.loggers import LogLevel
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist
 
 
 def _main():
+    warnings.formatwarning = warning_on_one_line
+
     global_rank = dist.get_global_rank()
 
     logging.basicConfig(
