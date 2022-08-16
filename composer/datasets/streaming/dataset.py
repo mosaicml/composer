@@ -174,6 +174,7 @@ class StreamingDataset(IterableDataset):
         self._lock: Lock
         self._next_epoch = 0
         self._download_status = _DownloadStatus.NOT_STARTED
+        self._shards_downloaded = 0
         self._download_exception: Exception
 
         self._shuffle_index = 0
@@ -273,6 +274,9 @@ class StreamingDataset(IterableDataset):
                 if shard_id == 0:
                     print("IT'S RIGHT HEEEERE")
                 print('downloaded', basename, ix)
+                with self._lock:
+                    self._shards_downloaded += 1
+                    print(self._shards_downloaded)
             except Exception as e:
                 with self._lock:
                     self._download_status = _DownloadStatus.FAILED
@@ -362,6 +366,6 @@ class StreamingDataset(IterableDataset):
                     if self._download_status == _DownloadStatus.FAILED:
                         raise self._download_exception
                     elif self._download_status == _DownloadStatus.DONE:
-                        raise e
+                        pass
                 sleep(0.25)
                 print('file not found')
