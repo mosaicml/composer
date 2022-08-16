@@ -134,7 +134,7 @@ class StreamingDataset(IterableDataset):
                  max_retries: int = 2,
                  timeout: float = 60,
                  batch_size: Optional[int] = None,
-                 shuffle_size: str = '0.50prop') -> None:
+                 shuffle_size: str = '2shards') -> None:
 
         self.remote = remote
         self.local = local
@@ -263,7 +263,7 @@ class StreamingDataset(IterableDataset):
             basename = get_shard_basename(shard_id, compression_name=self.compression_scheme)
             try:
                 self._download_file(basename, wait=(dist.get_local_rank() != 0))
-                print("downloaded", basename)
+                print('downloaded', basename)
             except Exception as e:
                 with self._lock:
                     self._download_status = _DownloadStatus.FAILED
@@ -353,4 +353,4 @@ class StreamingDataset(IterableDataset):
                     elif self._download_status == _DownloadStatus.DONE:
                         raise e
                 sleep(0.25)
-                print("file not found")
+                print('file not found')
