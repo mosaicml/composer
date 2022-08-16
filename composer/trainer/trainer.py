@@ -1403,8 +1403,7 @@ class Trainer:
         computed_metrics = metrics.compute()
         self.logger.log_metrics(
             metrics={f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},
-            step=self.state.timestamp.batch.value
-        )
+            step=self.state.timestamp.batch.value)
         self.state.current_metrics[dataloader_label] = computed_metrics
 
     def _spin_dataloaders(self):
@@ -1457,7 +1456,8 @@ class Trainer:
         """Run training for the specified number of epochs and log results."""
         # print training start
         log.info('Using precision %s', self.state.precision)
-        self.logger.log_hyperparameters({'enabled_algorithms/' + algo.__class__.__name__: True for algo in self.state.algorithms})
+        self.logger.log_hyperparameters(
+            {'enabled_algorithms/' + algo.__class__.__name__: True for algo in self.state.algorithms})
 
         assert self.state.dataloader is not None, 'dataloader is set in __init__() or fit()'
         assert self._train_data_spec is not None, 'The train data spec is set in __init__() or fit()'
@@ -1488,7 +1488,8 @@ class Trainer:
 
                 if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
-                    self.logger.log_metrics({'trainer/epoch': int(self.state.timestamp.epoch)}, step=self.state.timestamp.batch.value)
+                    self.logger.log_metrics({'trainer/epoch': int(self.state.timestamp.epoch)},
+                                            step=self.state.timestamp.batch.value)
                     if self.train_metrics is not None:
                         # reset the metrics before every epoch
                         self.train_metrics.reset()
@@ -1518,8 +1519,8 @@ class Trainer:
                     if self.train_metrics is not None:
                         self.state.model.eval()
                         with torch.no_grad():
-                            for eval_microbatch in self._train_data_spec.split_batch(self.state.batch,
-                                                                                    self.state.grad_accum):
+                            for eval_microbatch in self._train_data_spec.split_batch(
+                                    self.state.batch, self.state.grad_accum):
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
                                 with get_precision_context(self.state.precision):
@@ -1532,10 +1533,12 @@ class Trainer:
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
                     self.engine.run_event(Event.BATCH_START)
-                    self.logger.log_metrics({
-                        'trainer/global_step': int(self.state.timestamp.batch),
-                        'trainer/batch_idx': self.state.timestamp.batch_in_epoch.value,
-                    }, step=self.state.timestamp.batch.value)
+                    self.logger.log_metrics(
+                        {
+                            'trainer/global_step': int(self.state.timestamp.batch),
+                            'trainer/batch_idx': self.state.timestamp.batch_in_epoch.value,
+                        },
+                        step=self.state.timestamp.batch.value)
 
                     total_loss = self._train_batch(use_grad_scaling)
 
@@ -1549,7 +1552,8 @@ class Trainer:
                         # total_loss can be None if gradient scaling failed
                         dist.all_reduce(total_loss, reduce_operation='SUM')
                         full_loss = total_loss.cpu().item()
-                        self.logger.log_metrics({'loss/train': full_loss / dist.get_world_size()}, step=self.state.timestamp.batch.value)
+                        self.logger.log_metrics({'loss/train': full_loss / dist.get_world_size()},
+                                                step=self.state.timestamp.batch.value)
 
                     # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
                     # next batch's wall clock time. The time accumulation must be done here so schedulers

@@ -9,15 +9,14 @@ Useful for collecting and plotting data inside notebooks.
 from __future__ import annotations
 
 import copy
-from typing import Any, Dict, List, Tuple, Optional
-
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from torch import Tensor
 
 from composer.core.state import State
 from composer.core.time import Time, Timestamp
-from composer.loggers.logger import LogLevel, Logger
+from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 
 __all__ = ['InMemoryLogger']
@@ -64,7 +63,6 @@ class InMemoryLogger(LoggerDestination):
         self.most_recent_timestamps: Dict[str, Timestamp] = {}
         self.state: State = None
         self.hyperparameters: Dict[str, Any] = {}
-
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         self.hyperparameters.update(hyperparameters)

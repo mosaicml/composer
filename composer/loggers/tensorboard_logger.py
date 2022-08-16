@@ -63,9 +63,11 @@ class TensorboardLogger(LoggerDestination):
 
         if self.rank_zero_only and dist.get_global_rank() != 0:
             return
-        # Lazy logging of hyperparameters b/c Tensorboard requires a metric to pair 
+        # Lazy logging of hyperparameters b/c Tensorboard requires a metric to pair
         # with hyperparameters.
-        formatted_hparams = {hparam_name: format_log_data_value(hparam_value) for hparam_name, hparam_value in hyperparameters.items()}
+        formatted_hparams = {
+            hparam_name: format_log_data_value(hparam_value) for hparam_name, hparam_value in hyperparameters.items()
+        }
         self.hyperparameters.update(formatted_hparams)
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None):
@@ -87,7 +89,6 @@ class TensorboardLogger(LoggerDestination):
             # Gets raised if data_point is not a tensor, array, scalar, or string.
             except NotImplementedError:
                 pass
-    
 
     def init(self, state: State, logger: Logger) -> None:
         self.run_name = state.run_name
@@ -122,7 +123,11 @@ class TensorboardLogger(LoggerDestination):
     def eval_end(self, state: State, logger: Logger) -> None:
         # Give the metrics used for hparams a unique name, so they don't get plotted in the
         # normal metrics plot.
-        metrics_for_hparams = {'hparams/' + name: metric for name, metric in self.current_metrics.items() if 'metric' in name or 'loss' in name}
+        metrics_for_hparams = {
+            'hparams/' + name: metric
+            for name, metric in self.current_metrics.items()
+            if 'metric' in name or 'loss' in name
+        }
         self.writer.add_hparams(hparam_dict=self.hyperparameters,
                                 metric_dict=metrics_for_hparams,
                                 run_name=self.run_name)

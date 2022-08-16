@@ -61,12 +61,12 @@ class LoggerDestination(Callback, ABC):
                 LoggerDestination implementation will choose a step (usually a running
                 counter).
         """
-        del metrics, step # unused
+        del metrics, step  # unused
         pass
 
     def log_traces(self, traces: Dict[str, Any]):
         """Log traces. Logs any debug-related data like algorithm traces.
-        
+
         Args:
             traces (Dict[str, float]): Dictionary mapping trace names (str) to trace
                 (Any).

@@ -140,6 +140,7 @@ class Logger:
                 return True
         return False
 
+
 def format_log_data_value(data: Any) -> str:
     """Recursively formats a given log data value into a string.
 

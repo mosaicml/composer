@@ -38,7 +38,7 @@ def test_file_logger(dummy_state: State, tmp_path: pathlib.Path):
     logger = Logger(dummy_state, destinations=[log_destination, file_tracker_destination])
     log_destination.run_event(Event.INIT, dummy_state, logger)
     logger.log_hyperparameters({'foo': 3})
-    logger.log_metrics({'loss': 2}, step = 1)
+    logger.log_metrics({'loss': 2}, step=1)
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
     log_destination.close(dummy_state, logger)
     with open(log_file_name, 'r') as f:

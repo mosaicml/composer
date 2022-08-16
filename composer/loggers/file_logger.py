@@ -173,7 +173,6 @@ class FileLogger(LoggerDestination):  # noqa: D101
         # Flush any log calls that occurred during INIT or FIT_START
         self._flush_file(logger)
 
-
     def log_traces(self, traces: Dict[str, Any]):
         if self.should_log_traces:
             for trace_name, trace in traces.items():
@@ -181,7 +180,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
                 self.write(
                     f'[trace]: {trace_name}:',
                     trace_str + '\n',
-            ) 
+                )
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
         for metric_name, metric in metrics.items():
@@ -222,8 +221,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
         self._flush_file(logger)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
-        if int(
-                state.timestamp.epoch) % self.flush_interval == 0:
+        if int(state.timestamp.epoch) % self.flush_interval == 0:
             self._flush_file(logger)
 
     def write(self, prefix: str, s: str):
