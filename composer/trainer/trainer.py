@@ -104,6 +104,23 @@ def _get_training_metrics(model: ComposerModel):
     return train_metrics
 
 
+def _filter_metrics(metrics: Union[Metric, MetricCollection],
+                    metric_names: Optional[List[str]]) -> Union[MetricCollection, Metric, List[Metric]]:
+    """Filter the metrics based on the given metric_names as regex strings (e.g. 'Accuracy', 'f1' for 'BinaryF1Score', 'Top-.' for 'Top-1 Accuracy' and 'Top-2 Accuracy', etc). If no metric_names are provided, all metrics will be returned."""
+    if not metric_names:
+        return metrics
+    else:
+        filtered_metrics = []
+        if isinstance(metrics, Metric):
+            if any(re.match(f'.*{metric_name}.*', metrics._get_name(), re.IGNORECASE) for metric_name in metric_names):
+                filtered_metrics.append(metrics)
+        else:
+            for k in metrics:
+                if any(re.match(f'.*{metric_name}.*', k, re.IGNORECASE) for metric_name in metric_names):
+                    filtered_metrics.append(metrics[k])
+        return filtered_metrics
+
+
 def _validate_precision(precision: Precision, device: Device, deepspeed_enabled: bool):
     if isinstance(device, DeviceCPU) and precision != Precision.FP32:
         raise ValueError(f'{precision} is not supproted for CPU training.')
@@ -959,7 +976,11 @@ class Trainer:
         if eval_dataloader is None:
             evaluators: List[Evaluator] = []
         else:
-            model_metric_names = [str(k) for k in model.metrics(train=False).keys()]  # type: ignore
+            eval_metrics = self._original_model.metrics(train=False)
+            if isinstance(eval_metrics, Metric):
+                model_metric_names = [eval_metrics._get_name()]
+            else:
+                model_metric_names = [str(k) for k in eval_metrics.keys()]
             evaluators = [
                 ensure_evaluator(evaluator, default_metric_names=model_metric_names)
                 for evaluator in ensure_tuple(eval_dataloader)
@@ -1354,8 +1375,11 @@ class Trainer:
 
         # Evaluators
         if eval_dataloader is not None:
-            assert isinstance(self._original_model, ComposerModel)
-            metric_names = [str(k) for k in self._original_model.metrics(train=False).keys()]  # type: ignore
+            eval_metrics = self._original_model.metrics(train=False)
+            if isinstance(eval_metrics, Metric):
+                metric_names = [eval_metrics._get_name()]
+            else:
+                metric_names = [str(k) for k in eval_metrics.keys()]
             evaluators = [
                 # Need to use the `original_model` rather than `state.model`, as `state.model`
                 # could be DDP / DeepSpeed wrapped.
@@ -1413,7 +1437,7 @@ class Trainer:
         return metrics
 
     def _compute_and_log_metrics(self, dataloader_label: str, log_level: LogLevel, metrics: MetricCollection):
-        """Computes metrics, logs the results, and updates the state with the raw deep-copied metrics.
+        """Computes metrics, logs the results, and updates the state with the deep-copied metrics.
 
         Args:
             dataloader_label (str): The dataloader label.
@@ -1429,15 +1453,14 @@ class Trainer:
             data={f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},
         )
 
-        # store raw metrics
+        # store metric instances
         for metric_name, metric in metrics.items():
+            assert isinstance(metric, Metric)
             if dataloader_label == 'train':
-                assert isinstance(metric, Metric)
                 self.state.train_metrics[metric_name] = metric
             else:
                 if dataloader_label not in self.state.eval_metrics:
                     self.state.eval_metrics[dataloader_label] = {}
-                assert isinstance(metric, Metric)
                 self.state.eval_metrics[dataloader_label][metric_name] = metric
 
     def _spin_dataloaders(self):
@@ -2100,21 +2123,8 @@ class Trainer:
 
             # extract model metrics based on provided names
             # TODO (Ishana): refactor as part of CO-251
-            if not metric_names:
-                metrics = self._original_model.metrics(train=False)
-            else:
-                # filter metrics based on globs
-                metrics = []
-                model_metrics = self._original_model.metrics(train=False)
-                if isinstance(model_metrics, Metric):
-                    if any(
-                            re.match(f'.*{metric_name}.*', model_metrics._get_name(), re.IGNORECASE)
-                            for metric_name in metric_names):
-                        metrics.append(model_metrics)
-                else:
-                    for k in model_metrics:
-                        if any(re.match(f'.*{metric_name}.*', k, re.IGNORECASE) for metric_name in metric_names):
-                            metrics.append(model_metrics[k])
+            model_metrics = self._original_model.metrics(train=False)
+            metrics = _filter_metrics(model_metrics, metric_names)
 
             if not isinstance(metrics, MetricCollection):
                 metrics = MetricCollection(metrics)

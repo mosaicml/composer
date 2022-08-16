@@ -108,7 +108,7 @@ class State(Serializable):
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
             microbatch between :attr:`.Event.BATCH_START` and :attr:`.Event.BATCH_END`.
-        train_metrics (Dict[str, Metric]): The current raw train metrics, organized by metric name. ``train_metrics`` will be deep-copied to
+        train_metrics (Dict[str, Metric]): The current train metrics, organized by metric name. ``train_metrics`` will be deep-copied to
             ensure that each evaluator updates only its ``train_metrics``.
 
             For example:
@@ -123,10 +123,11 @@ class State(Serializable):
             >>> trainer.state.train_metrics
             {'Accuracy': Accuracy()}
 
-        eval_metrics (Dict[str, Dict[str, Metric]]): The current raw evaluation metrics, organized
+        eval_metrics (Dict[str, Dict[str, Metric]]): The current evaluation metrics, organized
             by dataloader label and then by metric name. If not using an :class:`.Evaluator`,
-            the eval dataloader is labeled ``'eval'``. Otherwise, the evaluator label is used.
-            ``eval_metrics`` will be deep-copied to ensure that each evaluator updates only its ``eval_metrics``.
+            the eval dataloader is labeled ``'eval'``. Otherwise, in the case of having multiple evaluation datasets,
+            the evaluator label is used. See the `Multiple Datasets Documentation <https://docs.mosaicml.com/en/stable/trainer/evaluation.html#multiple-datasets>`_
+            for more information. ``eval_metrics`` will be deep-copied to ensure that each evaluator updates only its ``eval_metrics``.
 
             For example:
             >>> from torchmetrics import Accuracy
@@ -141,7 +142,7 @@ class State(Serializable):
             >>> trainer.state.eval_metrics
             {'eval': {'CrossEntropy': CrossEntropy(), 'Accuracy': Accuracy()}}
 
-            Or, when using an :class:`.Evaluator`:
+            Or, when using an :class:`.Evaluator` for multiple evaluation datasets:
 
             .. testsetup::
 
@@ -208,9 +209,9 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
             | rank_zero_seed        | The seed of the rank zero process.                          |
             +-----------------------+-------------------------------------------------------------+
-            | train_metrics         | The current raw training metrics                            |
+            | train_metrics         | The current training metrics                                |
             +-----------------------+-------------------------------------------------------------+
-            | eval_metrics          | The current raw evaluation metrics                          |
+            | eval_metrics          | The current evaluation metrics                              |
             +-----------------------+-------------------------------------------------------------+
             | run_name              | The run name for training.                                  |
             +-----------------------+-------------------------------------------------------------+
@@ -322,6 +323,14 @@ class State(Serializable):
 
         self.train_metrics: Dict[str, Metric] = {}
         self.eval_metrics: Dict[str, Dict[str, Metric]] = {}
+
+    @property
+    def current_metrics(self):
+        warnings.warn(
+            DeprecationWarning(
+                'The ``current_metrics`` argument for a :class:`Trainer`. state is deprecated and will be removed in the future. Please use ``train_metrics`` and'
+                '``eval_metrics`` instead.'))
+        return {'train': self.train_metrics, **self.eval_metrics}
 
     @property
     def seed(self):

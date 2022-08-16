@@ -86,7 +86,8 @@ class Evaluator:
         dataloader (DataSpec | Iterable | Dict[str, Any]): Iterable that yields batches, a :class:`.DataSpec`
             for evaluation, or a Dict of :class:`.DataSpec` kwargs.
         metric_names: The list of metric names to compute.
-            Each value in this list can be a glob string. Each glob string will be matched against the keys of the dictionary returned
+            Each value in this list can be a regex string (e.g. "Accuracy", "f1" for "BinaryF1Score",
+            "Top-." for "Top-1", "Top-2", etc). Each regex string will be matched against the keys of the dictionary returned
             by ``model.get_metrics()``. All matching metrics will be evaluated.
 
             By default, if left blank, then all metrics returned by ``model.get_metrics()`` will be used.
@@ -123,9 +124,7 @@ class Evaluator:
         self.label = label
         self.dataloader = ensure_data_spec(dataloader)
 
-        self.metric_names = []
-        if metric_names:
-            self.metric_names = metric_names
+        self.metric_names = metric_names if metric_names else []
 
         self.subset_num_batches = subset_num_batches
         self._eval_interval = None

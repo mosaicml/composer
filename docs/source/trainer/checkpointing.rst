@@ -159,9 +159,9 @@ state from the checkpoint are not compatible with these new objects.
     +-----------------------+-------------------------------------------------------------+
     | rank_zero_seed        | The seed of the rank zero process.                          |
     +-----------------------+-------------------------------------------------------------+
-    | train_metrics         | The current raw training metrics.                           |
+    | train_metrics         | The current training metrics.                               |
     +-----------------------+-------------------------------------------------------------+
-    | eval_metrics          | The current raw validation metrics.                         |
+    | eval_metrics          | The current validation metrics.                             |
     +-----------------------+-------------------------------------------------------------+
     | run_name              | The run name for training.                                  |
     +-----------------------+-------------------------------------------------------------+
