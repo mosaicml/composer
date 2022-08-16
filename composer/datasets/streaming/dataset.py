@@ -242,6 +242,9 @@ class StreamingDataset(IterableDataset):
     def download(self) -> None:
         """Downloads everything in the correct order"""
 
+        if dist.get_local_rank() != 0:
+            return
+
         if not hasattr(self, '_lock'):
             self._lock = Lock()
 
@@ -273,7 +276,8 @@ class StreamingDataset(IterableDataset):
                     self._download_exception = e
 
         with self._lock:
-            self._download_status = _DownloadStatus.DONE
+            if dist.get_local_rank() == 0:
+                self._download_status = _DownloadStatus.DONE
 
     def __len__(self) -> int:
         """Get the length of the dataset.
