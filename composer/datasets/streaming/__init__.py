@@ -18,8 +18,6 @@ A brief list of improvements:
 * Dataset order is deterministic for a given value of ``world_size`` and ``num_workers``.
 * Dataset can resume mid epoch without needing to "spin" through previous values.
 * (TODO) Supports lazy random-access retrieval of samples (useful for local dataset inspection).
-* Shuffling is best-effort in epoch 1, and samples are made available for random acess as they are being downloaded.
-* (TODO) Shuffling is perfect, i.e. random access (per-worker), in all subsequent epochs.
 """
 
 from composer.datasets.streaming.dataset import StreamingDataset
