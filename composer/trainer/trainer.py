@@ -1855,7 +1855,7 @@ class Trainer:
             microbatch_loss_dict = {}
             # If total loss key is present, copy loss
             if isinstance(self.state.loss, dict) and ('total' in self.state.loss):
-                microbatch_loss = self.state.loss[0]
+                microbatch_loss = self.state.loss['total']  # type: ignore
                 microbatch_loss_dict = self.state.loss.copy()
             # If total loss key is not present, sum individual losses
             else:
