@@ -331,7 +331,7 @@ class StreamingDataset(IterableDataset):
         """
         Thread(target=self.download, daemon=True).start()
         world = get_world()
-        num_workers = world.node_num_workers
+        node_num_workers = world.node_num_workers
         rank = world.node_worker
         sbs = int(self._shuffle_buffer_size)
         while self._sample_count < self.index.total_samples:
@@ -339,7 +339,7 @@ class StreamingDataset(IterableDataset):
                 self._sample_count += 1
                 yield None
             try:
-                idx = self.shuffler.shuffle_sample(self._sample_count, num_workers, rank, sbs) \
+                idx = self.shuffler.shuffle_sample(self._sample_count, node_num_workers, rank, sbs) \
                     if self.shuffle else self._sample_count
                 yield self[idx]
                 self._sample_count += 1
