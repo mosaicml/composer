@@ -331,7 +331,8 @@ class StreamingDataset(IterableDataset):
         Returns:
             Iterator[Any]: Each sample.
         """
-        Thread(target=self.download, daemon=True).start()
+        self.download()
+        #Thread(target=self.download, daemon=True).start()
         world = get_world()
         node_num_workers = world.node_num_workers
         rank = world.node_worker
