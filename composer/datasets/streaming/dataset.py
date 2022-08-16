@@ -246,8 +246,6 @@ class StreamingDataset(IterableDataset):
             self._lock = Lock()
 
         world = get_world()
-        if world.node_worker != 0:
-            return
 
         with self._lock:
             if self._download_status != _DownloadStatus.NOT_STARTED:
@@ -266,10 +264,12 @@ class StreamingDataset(IterableDataset):
 
         shard_ids = self._shard_shuffle_indices[0:]
 
-        for shard_id in shard_ids:
+        for ix, shard_id in enumerate(shard_ids):
+            if (ix % world.node_num_workers) != world.node_worker:
+                continue
             basename = get_shard_basename(shard_id, compression_name=self.compression_scheme)
             try:
-                self._download_file(basename, wait=(dist.get_local_rank() != 0))
+                self._download_file(basename, wait=False)
                 print('downloaded', basename)
             except Exception as e:
                 with self._lock:
