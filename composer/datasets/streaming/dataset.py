@@ -246,7 +246,7 @@ class StreamingDataset(IterableDataset):
             self._lock = Lock()
 
         world = get_world()
-        if world.node_device != 0:
+        if world.node_worker != 0:
             return
 
         with self._lock:
