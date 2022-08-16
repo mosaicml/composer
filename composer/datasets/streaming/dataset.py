@@ -181,9 +181,9 @@ class StreamingDataset(IterableDataset):
         self._restored_sample_count = 0
         self._shuffle_buffer_size = self._parse_shuffle_buffer_size(shuffle_size)
         world = get_world()
-        num_nodes = world.global_num_nodes
-        global_rank = world.global_node
-        print("num nodes:", num_nodes, "global rank:", global_rank)
+        num_nodes = world.global_num_devices
+        global_rank = world.global_device
+        print('num nodes:', num_nodes, 'global rank:', global_rank)
         if shuffle:
             cipher_key = 42  # initialize using an arbitrary cipher key
             self.shuffler = BlockCipherShuffler(cipher_key, self.index)
@@ -214,8 +214,8 @@ class StreamingDataset(IterableDataset):
             cipher_key = state['cipher_key']
         self.shuffler = BlockCipherShuffler(cipher_key, self.index)
         world = get_world()
-        num_nodes = world.global_num_nodes
-        global_rank = world.global_node
+        num_nodes = world.global_num_devices
+        global_rank = world.global_device
         self._shard_shuffle_indices = self.shuffler.shuffle_shards(num_nodes, global_rank)
         self.index.relocate_samples(self._shard_shuffle_indices)
 
@@ -263,8 +263,6 @@ class StreamingDataset(IterableDataset):
         shard_ids = self._shard_shuffle_indices[0:]
 
         for shard_id in shard_ids:
-            if dist.get_local_rank() != 0:
-                continue
             basename = get_shard_basename(shard_id, compression_name=self.compression_scheme)
             try:
                 self._download_file(basename, wait=(dist.get_local_rank() != 0))
