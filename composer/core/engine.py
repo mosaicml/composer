@@ -334,17 +334,8 @@ class Engine():
                                      run=True)
 
         if self.logger is not None:
-            if event in (Event.INIT, Event.FIT_START):
-                log_level = LogLevel.FIT
-            if event in (Event.EPOCH_START, Event.EPOCH_END):
-                log_level = LogLevel.EPOCH
-            else:
-                # algs don't run on eval events, so don't have to worry about
-                # batch-frequency vs epoch-frequency evaluators
-                log_level = LogLevel.BATCH
             if len(trace) > 0:
-                self.logger.data(log_level=log_level,
-                                 data={f'{tr.name}/{tr.event}': 1 if tr.run else 0 for _, tr in trace.items()})
+                self.logger.log_traces({f'algorithm_traces/{tr.name}/{tr.event}': 1 if tr.run else 0 for _, tr in trace.items()})
 
         return trace
 
