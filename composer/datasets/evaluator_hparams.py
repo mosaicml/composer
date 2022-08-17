@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import copy
 import logging
 import textwrap
 from dataclasses import dataclass
@@ -77,9 +76,9 @@ class EvaluatorHparams(hp.Hparams):
 
         # Use all the metrics from the model if no metric_names are specified
         if self.metric_names is None:
-            evaluator_metrics = copy.deepcopy(model_metrics)
+            evaluator_metric_names = [str(k) for k in model_metrics.keys()]  # convert hashable to str
         else:
-            evaluator_metrics = MetricCollection([])
+            evaluator_metric_names = []
             for metric_name in self.metric_names:
                 try:
                     metric = model_metrics[metric_name]
@@ -88,8 +87,8 @@ class EvaluatorHparams(hp.Hparams):
                         textwrap.dedent(f"""No metric found with the name {metric_name}. Check if this"
                                        "metric is compatible/listed in your model metrics.""")) from e
                 assert isinstance(metric, Metric), 'all values of a MetricCollection.__getitem__ should be a metric'
-                evaluator_metrics.add_metrics(copy.deepcopy(metric))
-            if len(evaluator_metrics) == 0:
+                evaluator_metric_names.append(str(metric_name))
+            if len(evaluator_metric_names) == 0:
                 raise RuntimeError(
                     textwrap.dedent(f"""No metrics compatible with your model were added to this evaluator.
                     Check that the metrics you specified are compatible/listed in your model."""))
@@ -97,7 +96,7 @@ class EvaluatorHparams(hp.Hparams):
         return Evaluator(
             label=self.label,
             dataloader=dataloader,
-            metrics=evaluator_metrics,
+            metric_names=evaluator_metric_names,
             eval_interval=self.eval_interval,
             subset_num_batches=self.subset_num_batches,
         )

@@ -11,8 +11,10 @@ import itertools
 import logging
 import os
 import pathlib
+import re
 import time
 import warnings
+from copy import deepcopy
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
 
 import coolname
@@ -100,6 +102,23 @@ def _get_training_metrics(model: ComposerModel):
         train_metrics = MetricCollection([train_metrics])
 
     return train_metrics
+
+
+def _filter_metrics(metrics: Union[Metric, MetricCollection],
+                    metric_names: Optional[List[str]]) -> Union[MetricCollection, Metric, List[Metric]]:
+    """Filter the metrics based on the given metric_names as regex strings (e.g. 'Accuracy', 'f1' for 'BinaryF1Score', 'Top-.' for 'Top-1 Accuracy' and 'Top-2 Accuracy', etc). If no metric_names are provided, all metrics will be returned."""
+    if not metric_names:
+        return metrics
+    else:
+        filtered_metrics = []
+        if isinstance(metrics, Metric):
+            if any(re.match(f'.*{metric_name}.*', metrics._get_name(), re.IGNORECASE) for metric_name in metric_names):
+                filtered_metrics.append(metrics)
+        else:
+            for k in metrics:
+                if any(re.match(f'.*{metric_name}.*', k, re.IGNORECASE) for metric_name in metric_names):
+                    filtered_metrics.append(metrics[k])
+        return filtered_metrics
 
 
 def _validate_precision(precision: Precision, device: Device, deepspeed_enabled: bool):
@@ -401,7 +420,7 @@ class Trainer:
         train_dataloader_label (str, optional): The label for the train dataloader. (default: ``'train'``)
 
             This label is used to index the training metrics (if ``compute_training_metrics`` is True) in
-            :attr:`.State.current_metrics`.
+            :attr:`.State.train_metrics`.
 
             This parameter has no effect if ``train_dataloader`` or ``compute_training_metrics`` are not specified.
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
@@ -414,7 +433,7 @@ class Trainer:
             This parameter is ignored if ``train_dataloader`` is not specified.
         compute_training_metrics (bool, optional): Whether to compute training metrics. (default: ``False``)
 
-            Training metrics will be indexed on :attr:`.State.current_metrics` under the ``train_dataloader_label``
+            Training metrics will be indexed on :attr:`.State.train_metrics` under the ``train_dataloader_label``
             key (which defaults to ``'train'``).
         max_duration (Time | str | int, optional): The maximum duration to train. Can be an integer, which will be
             interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
@@ -1012,7 +1031,8 @@ class Trainer:
 
         self.logger.data_fit({'rank_zero_seed': rank_zero_seed})
 
-        assert isinstance(self.state.model, ComposerModel)
+        if not isinstance(self.state.model, ComposerModel):
+            raise ValueError('Provided model should be a subclass of ComposerModel.')
         self._original_model = self.state.model
 
         # Schedulers
@@ -1031,8 +1051,14 @@ class Trainer:
         if eval_dataloader is None:
             evaluators: List[Evaluator] = []
         else:
+            eval_metrics = self._original_model.metrics(train=False)
+            if isinstance(eval_metrics, Metric):
+                model_metric_names = [eval_metrics._get_name()]
+            else:
+                model_metric_names = [str(k) for k in eval_metrics.keys()]
             evaluators = [
-                ensure_evaluator(evaluator, model.metrics(train=False)) for evaluator in ensure_tuple(eval_dataloader)
+                ensure_evaluator(evaluator, default_metric_names=model_metric_names)
+                for evaluator in ensure_tuple(eval_dataloader)
             ]
             _set_evaluator_interval_and_subset_num_batches(
                 evaluators=evaluators,
@@ -1424,10 +1450,15 @@ class Trainer:
 
         # Evaluators
         if eval_dataloader is not None:
+            eval_metrics = self._original_model.metrics(train=False)
+            if isinstance(eval_metrics, Metric):
+                metric_names = [eval_metrics._get_name()]
+            else:
+                metric_names = [str(k) for k in eval_metrics.keys()]
             evaluators = [
                 # Need to use the `original_model` rather than `state.model`, as `state.model`
                 # could be DDP / DeepSpeed wrapped.
-                ensure_evaluator(evaluator, default_metrics=self._original_model.metrics(train=False))
+                ensure_evaluator(evaluator, default_metric_names=metric_names)
                 for evaluator in ensure_tuple(eval_dataloader)
             ]
             _set_evaluator_interval_and_subset_num_batches(
@@ -1482,19 +1513,31 @@ class Trainer:
         return metrics
 
     def _compute_and_log_metrics(self, dataloader_label: str, log_level: LogLevel, metrics: MetricCollection):
-        """Computes metrics, logs the results, and updates the state.
+        """Computes metrics, logs the results, and updates the state with the deep-copied metrics.
 
         Args:
             dataloader_label (str): The dataloader label.
             metrics (MetricCollection): The metrics to compute.
             log_level (LogLevel): The LogLevel for logging metrics.
         """
+        metrics = deepcopy(metrics)
+
+        # log computed metrics
         computed_metrics = metrics.compute()
         self.logger.data(
             log_level=log_level,
             data={f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},
         )
-        self.state.current_metrics[dataloader_label] = computed_metrics
+
+        # store metric instances
+        for metric_name, metric in metrics.items():
+            assert isinstance(metric, Metric)
+            if dataloader_label == 'train':
+                self.state.train_metrics[metric_name] = metric
+            else:
+                if dataloader_label not in self.state.eval_metrics:
+                    self.state.eval_metrics[dataloader_label] = {}
+                self.state.eval_metrics[dataloader_label][metric_name] = metric
 
     def _spin_dataloaders(self):
         """Spin the dataloaders to restore sampler state.
@@ -1759,7 +1802,7 @@ class Trainer:
                     dataloader=evaluator.dataloader,
                     dataloader_label=evaluator.label,
                     subset_num_batches=evaluator.subset_num_batches,
-                    metrics=evaluator.metrics,
+                    metric_names=evaluator.metric_names,
                     log_level=log_level,
                 )
 
@@ -2088,7 +2131,7 @@ class Trainer:
         dataloader: Union[Iterable, DataSpec, dict],
         dataloader_label: str = 'eval',
         *,
-        metrics: Union[Metric, MetricCollection],
+        metric_names: List[str],
         subset_num_batches: int = -1,
         log_level: Union[str, LogLevel] = LogLevel.FIT,
     ):
@@ -2098,7 +2141,7 @@ class Trainer:
             dataloader (DataLoader | DataSpec | dict): The class:`.DataLoader`, :class:`.DataSpec`, or
                 dict of :class:`.DataSpec` kwargs to use for evaluation
             dataloader_label (str, optional): The dataloader label to use for logging metrics. Defaults to ``'eval'``.
-            metrics (Metric | MetricCollection): The metrics to log.
+            metric_names (List[str]): The names of the metrics to log.
             subset_num_batches (int, optional): If specified, evaluate on this many batches. Defaults to ``-1``,
                 which means to iterate over the entire dataloader.
 
@@ -2135,6 +2178,11 @@ class Trainer:
             assert self.state.dataloader is not None, 'dataloader is set'
 
             self.engine.run_event(Event.EVAL_START)
+
+            # extract model metrics based on provided names
+            # TODO (Ishana): refactor as part of CO-251
+            model_metrics = self._original_model.metrics(train=False)
+            metrics = _filter_metrics(model_metrics, metric_names)
 
             if not isinstance(metrics, MetricCollection):
                 metrics = MetricCollection(metrics)
