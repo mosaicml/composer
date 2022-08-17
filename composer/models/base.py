@@ -7,7 +7,7 @@ from __future__ import annotations
 import abc
 import copy
 import warnings
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Union
 
 import torch
 from torch import Tensor
@@ -201,7 +201,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         )
         return self.get_metrics(train)
 
-    def validate(self, batch: Batch) -> Tuple[Any, Any]:
+    def validate(self, batch: Batch):
         """Compute model outputs on provided data. Will be called by the trainer with :class:`torch.no_grad` enabled.
 
         The output of this function will be directly used as input

@@ -78,7 +78,7 @@ class EvaluatorHparams(hp.Hparams):
         else:
             evaluator_metric_names = []
             for metric_name in self.metric_names:
-                if not any(re.match(f'.*{metric_name}.*', k) for k in model_metrics.keys()):
+                if not any(re.match(f'.*{metric_name}.*', k, re.IGNORECASE) for k in model_metrics.keys()):
                     raise RuntimeError(
                         textwrap.dedent(f"""No metric found with the name {metric_name}. Check if this"
                                        "metric is compatible/listed in your model metrics."""))

@@ -1529,7 +1529,7 @@ class Trainer:
                     self.engine.run_event(Event.EPOCH_START)
                     self.logger.data_epoch({'epoch': int(self.state.timestamp.epoch)})
                     if self.state.train_metrics is not None:
-                        for metric in self.state.train_metrics.values():
+                        for _, metric in self.state.train_metrics.items():
                             # reset the metrics before every epoch
                             metric.reset()
 
@@ -1566,7 +1566,7 @@ class Trainer:
                                     # Run in same precision context to avoid NaNs
                                     outputs = self.state.model.forward(eval_microbatch)
                                     eval_outputs = self.state.model.eval_forward(eval_microbatch, outputs)
-                                    for metric in self.state.train_metrics.values():
+                                    for _, metric in self.state.train_metrics.items():
                                         self.state.model.update_metric(
                                             eval_microbatch,
                                             eval_outputs,

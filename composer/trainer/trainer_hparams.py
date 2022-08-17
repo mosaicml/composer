@@ -758,7 +758,7 @@ class EvalHparams(hp.Hparams):
     log_level: LogLevel = hp.auto(Trainer.eval, 'log_level')
     metric_names: Optional[List[str]] = hp.optional(
         doc=
-        ('Name of the metrics for the evaluator. Can be a metric name or the '
+        ('Name of the metrics for the evaluator. Can be a torchmetrics name or the '
          'class name of a metric returned by model.get_metrics(). If None (the default), uses all metrics in the model'
         ),
         default=None,
