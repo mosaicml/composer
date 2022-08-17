@@ -16,7 +16,8 @@ from composer.core.time import TimeUnit
 from composer.core.types import Batch
 from composer.loggers import Logger
 from composer.models import HuggingFaceModel
-from composer.utils import dist, ensure_tuple
+from composer.trainer.trainer import _get_device, _handle_cuda_oom
+from composer.utils import ensure_tuple
 
 __all__ = ['SeqLengthWarmup', 'set_batch_sequence_length']
 
@@ -310,21 +311,8 @@ class SeqLengthWarmup(Algorithm):
                 else:
                     raise
 
-            # Propagate across all ranks if any rank hit CUDA OOM
-            should_handle_cuda_oom = torch.tensor([should_handle_cuda_oom], dtype=torch.uint8, device=device)
-            dist.all_reduce(should_handle_cuda_oom, reduce_operation='MAX')
-            if int(should_handle_cuda_oom.item()) == 1:
-                # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_timeout_error since
-                # it is likely transient, e.g. timeout because certain ranks OOMed and didn't reach barrier.
-                # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
-                if state.grad_accum == device_batch_size:
-                    raise RuntimeError(
-                        ('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
-                         'The GPU does not have enough memory to process even 1 sample.'))
-                else:
-                    state.grad_accum = min(2 * state.grad_accum, device_batch_size)
-                    logger.data_batch({'trainer/grad_accum': state.grad_accum})
-            else:
+            device_arg = _get_device(device.type) if device is not None else None
+            if not _handle_cuda_oom(state, should_handle_cuda_oom, device_arg, device_batch_size, is_train=True):
                 self._activated = True
                 return
 
