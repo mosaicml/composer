@@ -452,7 +452,6 @@ def _generate_rst_files_for_modules() -> None:
     """
     docs_dir = os.path.abspath(os.path.dirname(__file__))
     module_rst_save_dir = os.path.join(docs_dir, 'api_reference')
-
     # gather up modules to generate rst files for
     document_modules = _modules_to_rst()
 
