@@ -197,9 +197,8 @@ class ComposerModel(torch.nn.Module, abc.ABC):
                 return self.train_acc if train else MetricCollection([self.val_acc, self.val_loss])
         """
         warnings.warn(
-            DeprecationWarning(
-                'Using ``metrics()`` is no longer supported and will be removed in a future version. Please use ``get_metrics()`` instead.'
-            ))
+            'Using ``metrics()`` is no longer supported and will be removed in a future version. Please use ``get_metrics()`` instead.'
+        )
         return self.get_metrics(train)
 
     def validate(self, batch: Batch) -> Tuple[Any, Any]:
@@ -238,9 +237,8 @@ class ComposerModel(torch.nn.Module, abc.ABC):
             metrics.compute() # compute final metrics
         """
         warnings.warn(
-            DeprecationWarning(
-                'Using ``validate()`` is no longer supported and will be removed in a future version. Please use ``eval_forward()`` instead.'
-            ))
+            'Using ``validate()`` is no longer supported and will be removed in a future version. Please use ``eval_forward()`` instead.'
+        )
         return self.eval_forward(batch), None
 
     def eval_forward(

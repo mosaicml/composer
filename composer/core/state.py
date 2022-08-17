@@ -323,9 +323,8 @@ class State(Serializable):
     @property
     def current_metrics(self):
         warnings.warn(
-            DeprecationWarning(
-                'The ``current_metrics`` argument for a :class:`Trainer`. state is deprecated and will be removed in the future. Please use ``train_metrics`` and'
-                '``eval_metrics`` instead.'))
+            'The ``current_metrics`` argument for a :class:`Trainer`. state is deprecated and will be removed in the future. Please use ``train_metrics`` and'
+            '``eval_metrics`` instead.')
         return {'train': self.train_metrics, **self.eval_metrics}
 
     @property
