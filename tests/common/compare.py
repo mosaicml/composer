@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 import torch
+import torchmetrics
 
 from composer import Time
 from composer.core.time import TimeUnit
@@ -46,6 +47,10 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
     if isinstance(item1, (tuple, list)):
         assert isinstance(item2, type(item1)), f'{path} differs: {item1} != {item2}'
         _check_list_recursively(item1, item2, path, atol=atol, rtol=rtol)
+        return
+    if isinstance(item1, torchmetrics.Metric):
+        assert isinstance(item2, torchmetrics.Metric), f'{path} differs: {item1} != {item2}'
+        assert item1.compute() == item2.compute(), f'{path} differs: {item1.compute()} != {item2.compute()}'
         return
 
     raise NotImplementedError(f'Unsupported item type: {type(item1)}')
