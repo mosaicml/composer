@@ -39,6 +39,8 @@ from pypandoc.pandoc_download import download_pandoc
 from sphinx.ext.autodoc import ClassDocumenter, _
 from sphinx.writers.html5 import HTML5Translator
 
+import composer
+
 if not shutil.which('pandoc'):
     # Install pandoc if it is not installed.
     # Pandoc is required by nbconvert but it is not included in the pypandoc pip package
@@ -424,7 +426,6 @@ def _modules_to_rst() -> List[types.ModuleType]:
     """Return the list of modules for which to generate API reference rst files."""
     # adding composer.functional to the below list yields:
     #   AttributeError: module 'composer' has no attribute 'functional'
-    import composer
     import composer.functional as cf
 
     document_modules: List[types.Module] = [
@@ -449,8 +450,8 @@ def _generate_rst_files_for_modules() -> None:
     These files contain the module docstring followed by tables listing all
     the functions, classes, etc.
     """
-    MODULE_RST_SAVE_DIR = 'source/api_reference'
-    import composer
+    docs_dir = os.path.abspath(os.path.dirname(__file__))
+    module_rst_save_dir = os.path.join(docs_dir, 'api_reference')
 
     # gather up modules to generate rst files for
     document_modules = _modules_to_rst()
@@ -463,9 +464,9 @@ def _generate_rst_files_for_modules() -> None:
             composer_imported_types.append(obj)
 
     document_modules = sorted(document_modules, key=lambda x: x.__name__)
-    os.makedirs(MODULE_RST_SAVE_DIR, exist_ok=True)
+    os.makedirs(module_rst_save_dir, exist_ok=True)
     for module in document_modules:
-        saveas = os.path.join(MODULE_RST_SAVE_DIR, module.__name__ + '.rst')
+        saveas = os.path.join(module_rst_save_dir, module.__name__ + '.rst')
         print(f'Generating rst file {saveas} for module: {module.__name__}')
 
         # avoid duplicate entries in docs. We add torch's _LRScheduler to
