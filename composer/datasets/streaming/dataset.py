@@ -162,6 +162,8 @@ class StreamingDataset(IterableDataset):
                     fp.write('')
                 pass
 
+        self.num_samples = np.sum(self.index.samples_per_shard[self._shard_shuffle_indices])
+
         # Load the index file containing the shard metadata
         # This file contains the shard and offset in bytes of each sample (for direct access).
         # Only local device 0 on each node downloads the index. All other devices wait.
@@ -216,6 +218,7 @@ class StreamingDataset(IterableDataset):
         global_rank = world.global_node
         self._shard_shuffle_indices = self.shuffler.shuffle_shards(num_nodes, global_rank)
         self.index.relocate_samples(self._shard_shuffle_indices)
+        self.num_samples = np.sum(self.index.samples_per_shard[self._shard_shuffle_indices])
 
     def _download_file(self, basename: str, wait: bool = False, local_basename: Optional[str] = None) -> str:
         """Safely download a file from remote to local cache.
@@ -267,7 +270,6 @@ class StreamingDataset(IterableDataset):
             basename = get_shard_basename(shard_id, compression_name=self.compression_scheme)
             try:
                 self._download_file(basename, wait=False)
-                print('downloaded', basename, ix)
             except Exception as e:
                 with self._lock:
                     self._download_status = _DownloadStatus.FAILED
@@ -318,7 +320,6 @@ class StreamingDataset(IterableDataset):
         shard = self.index.sample_id_shards[idx]
         offset = self.index.sample_shard_offsets[idx]
         size = self.index.bytes_per_sample[idx]
-        print(shard)
 
         basename = get_shard_basename(shard)
         shard_filename = os.path.join(self.local, basename)
@@ -348,7 +349,7 @@ class StreamingDataset(IterableDataset):
             #     self._sample_count += 1
             #     yield None
             try:
-                idx = self.shuffler.shuffle_sample(self._sample_count, node_num_workers, rank, sbs, batch_size) \
+                idx = self.shuffler.shuffle_sample(self._sample_count, node_num_workers, rank, sbs, batch_size, self.num_samples) \
                     if self.shuffle else self._sample_count
                 yield self[idx]
                 self._sample_count += 1
@@ -359,4 +360,3 @@ class StreamingDataset(IterableDataset):
                     elif self._download_status == _DownloadStatus.DONE:
                         pass
                 sleep(0.25)
-                print('file not found')

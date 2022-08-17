@@ -125,7 +125,7 @@ class BlockCipherShuffler:
             if (idx % num_nodes) == global_rank
         ])
 
-    def shuffle_sample(self, idx: int, num_workers: int, rank: int, shuffle_buffer_size: int, batch_size: int) -> int:
+    def shuffle_sample(self, idx: int, num_workers: int, rank: int, shuffle_buffer_size: int, batch_size: int, num_samples: int) -> int:
         """
         Shuffles the samples as much as possible while maintaining the shuffle_buffer_size invariant of shards
         required on the disk at once.
@@ -142,6 +142,7 @@ class BlockCipherShuffler:
         if self._cipher_key is None:
             raise ValueError('shuffling is on but no seed was specified')
         idx = ((idx // batch_size) * num_workers + rank) * batch_size + (idx % batch_size)
+        idx = idx % num_samples
 
         ### at a high level, this function does the following things:
         ### 1. calculates the group of shards that need to be present on the disk at a time
