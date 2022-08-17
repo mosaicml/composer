@@ -449,7 +449,7 @@ def _generate_rst_files_for_modules() -> None:
     These files contain the module docstring followed by tables listing all
     the functions, classes, etc.
     """
-    MODULE_RST_SAVE_DIR = 'source/api_reference'
+    MODULE_RST_SAVE_DIR = 'api_reference'
     import composer
 
     # gather up modules to generate rst files for
