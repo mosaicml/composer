@@ -125,7 +125,7 @@ into a dictionary:
             # Dictionary to store logged data
             self.data = {}
 
-        def log_data(self, state: State, data: Dict[str, Any]):
+        def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None):
             for k, v in data.items():
                 if k not in self.data:
                     self.data[k] = []
