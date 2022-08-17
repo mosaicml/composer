@@ -180,10 +180,15 @@ def _get_initial_grad_accum(grad_accum: Union[int, str]):
 
 def _is_cuda_oom(e: RuntimeError):
     """Determines if error is CUDA Out of Memory and if adaptive_grad_accum is enabled."""
-    return 'CUDA out of memory' in str(
-        e
-    ) or 'cuDNN error: CUDNN_STATUS_NOT_SUPPORTED. This error may appear if you passed in a non-contiguous input.' in str(
-        e)
+    if 'CUDA out of memory' in str(e):
+        return True
+    if 'cuDNN error: CUDNN_STATUS_NOT_SUPPORTED. This error may appear if you passed in a non-contiguous input.' in str(
+            e):
+        warnings.warn(
+            f'Encountered "cuDNN error: CUDNN_STATUS_NOT_SUPPORTED. This error may appear if you passed in a non-contiguous input." This can happen when the batch_size is too large for the GPU so auto grad_accum will rerun with a higher grad_accum value, but there may be a user error with non-contiguous inputs.'
+        )
+        return True
+    return False
 
 
 def _handle_cuda_oom(state: State, should_handle_cuda_oom: int, device: Optional[Device], device_batch_size: int,
