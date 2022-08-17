@@ -153,7 +153,7 @@ class BlockCipherShuffler:
 
         # calculate the index of the shard group
         num_shards = len(self.index.samples_per_shard)
-        shard_id, _ = self.index.sample_shards[idx]
+        shard_id = self.index.sample_shards[idx]
         shard_index = self.get_shard_index(shard_id)
         first_shard_group_index = shard_index - (shard_index % shuffle_buffer_size)
         last_shard_group_index = min(int(first_shard_group_index + shuffle_buffer_size), num_shards)
