@@ -5,7 +5,6 @@ import os
 import pathlib
 import sys
 
-import pytest
 from torch.utils.data import DataLoader
 
 from composer import Callback, Event, State, Trainer
