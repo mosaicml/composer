@@ -184,7 +184,6 @@ class StreamingDataset(IterableDataset):
         world = get_world()
         num_nodes = world.global_num_nodes
         global_rank = world.global_node
-        print('num nodes:', num_nodes, 'global rank:', global_rank)
         if shuffle:
             cipher_key = 42  # initialize using an arbitrary cipher key
             self.shuffler = BlockCipherShuffler(cipher_key, self.index)
@@ -194,8 +193,6 @@ class StreamingDataset(IterableDataset):
             N = self.index.num_shards
             self._shard_shuffle_indices = np.arange(N)[(np.arange(N) % num_nodes) == global_rank]
             self.index.relocate_samples(self._shard_shuffle_indices)
-
-        print(self._shard_shuffle_indices)
 
     def _parse_shuffle_buffer_size(self, shuffle_buffer_size_arg: str) -> np.int64:
         if shuffle_buffer_size_arg.endswith('prop'):
@@ -253,7 +250,6 @@ class StreamingDataset(IterableDataset):
                 return
             self._download_status = _DownloadStatus.IN_PROGRESS
 
-        print(self.index.sample_shards)
         current_shard_id = self.index.sample_shards[self._restored_sample_count]
         current_shard_index = current_shard_id
 
@@ -271,12 +267,7 @@ class StreamingDataset(IterableDataset):
             basename = get_shard_basename(shard_id, compression_name=self.compression_scheme)
             try:
                 self._download_file(basename, wait=False)
-                if shard_id == 0:
-                    print("IT'S RIGHT HEEEERE")
                 print('downloaded', basename, ix)
-                with self._lock:
-                    self._shards_downloaded += 1
-                    print(self._shards_downloaded)
             except Exception as e:
                 with self._lock:
                     self._download_status = _DownloadStatus.FAILED
@@ -327,6 +318,7 @@ class StreamingDataset(IterableDataset):
         shard = self.index.sample_id_shards[idx]
         offset = self.index.sample_shard_offsets[idx]
         size = self.index.bytes_per_sample[idx]
+        print(shard)
 
         basename = get_shard_basename(shard)
         shard_filename = os.path.join(self.local, basename)
@@ -345,8 +337,7 @@ class StreamingDataset(IterableDataset):
         Returns:
             Iterator[Any]: Each sample.
         """
-        self.download()
-        #Thread(target=self.download, daemon=True).start()
+        Thread(target=self.download, daemon=True).start()
         world = get_world()
         node_num_workers = world.node_num_workers
         rank = world.node_worker
