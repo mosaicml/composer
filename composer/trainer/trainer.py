@@ -2220,7 +2220,7 @@ class Trainer:
 
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
-                self._eval_batch(metrics)
+                self._eval_batch(data_spec, metrics)
 
                 now = datetime.datetime.now()
                 batch_time = now - last_wct
@@ -2255,9 +2255,7 @@ class Trainer:
         if original_num_batches is not None:
             self.state.dataloader_len = original_num_batches
 
-    def _eval_batch(self, metrics: MetricCollection):
-        assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
-
+    def _eval_batch(self, data_spec: DataSpec, metrics: MetricCollection):
         # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
         device_batch = self.state.batch
 
@@ -2266,7 +2264,7 @@ class Trainer:
             # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
             should_handle_cuda_oom = 0
             try:
-                for eval_microbatch in self._train_data_spec.split_batch(self.state.batch, self.state.eval_batch_split):
+                for eval_microbatch in data_spec.split_batch(self.state.batch, self.state.eval_batch_split):
                     self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
                     with get_precision_context(self.state.precision):
                         self.state.outputs, targets = self._original_model.validate(eval_microbatch)
@@ -2286,7 +2284,7 @@ class Trainer:
                     should_handle_cuda_oom = 1
                 else:
                     raise
-            device_batch_size = self._train_data_spec.get_num_samples_in_batch(device_batch)
+            device_batch_size = data_spec.get_num_samples_in_batch(device_batch)
             if not _handle_cuda_oom(self.state, should_handle_cuda_oom, self._device, device_batch_size,
                                     is_train=False):
                 # Return if we've successfully completed eval without OOMing.
