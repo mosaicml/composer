@@ -236,9 +236,6 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
             metrics.compute() # compute final metrics
         """
-        warnings.warn(
-            'Using ``validate()`` is no longer supported and will be removed in a future version. Please use ``eval_forward()`` instead.'
-        )
         return None, None
 
     def eval_forward(

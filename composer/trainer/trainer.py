@@ -1566,6 +1566,9 @@ class Trainer:
                                     # Run in same precision context to avoid NaNs
                                     if any(self._original_model.validate(
                                             eval_microbatch)):  # backwards compatibility check
+                                        warnings.warn(
+                                            'Using ``validate()`` is no longer supported and will be removed in a future version. Please use ``eval_forward()`` instead.'
+                                        )
                                         eval_outputs, _ = self._original_model.validate(eval_microbatch)
                                     else:
                                         outputs = self.state.model.forward(eval_microbatch)
@@ -2149,6 +2152,9 @@ class Trainer:
                 self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
                 with get_precision_context(self.state.precision):
                     if any(self._original_model.validate(self.state.batch)):  # backwards compatibility check
+                        warnings.warn(
+                            'Using ``validate()`` is no longer supported and will be removed in a future version. Please use ``eval_forward()`` instead.'
+                        )
                         self.state.outputs, _ = self._original_model.validate(self.state.batch)
                     else:
                         self.state.outputs = self._original_model.eval_forward(self.state.batch)
