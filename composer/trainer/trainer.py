@@ -927,7 +927,7 @@ class Trainer:
         # Grad Accum
         self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
         grad_accum = _get_initial_grad_accum(grad_accum)
-        eval_batch_split = grad_accum
+        eval_batch_split = 1
         if self.adaptive_gradient_accumulation and isinstance(self._device, DeviceTPU):
             raise NotImplementedError(f'grad_accum=auto not supported on TPUs.')
 
@@ -1487,7 +1487,6 @@ class Trainer:
         if grad_accum is not None:
             self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
             self.state.grad_accum = _get_initial_grad_accum(grad_accum)
-            self.state.eval_batch_split = self.state.grad_accum
 
         # Precision
         if precision is not None and Precision(precision) != self.state.precision:
