@@ -5,6 +5,7 @@ from typing import List
 
 import pytest
 from torch.utils.data import DataLoader
+from torchmetrics import Accuracy
 
 from composer import Trainer
 from composer.callbacks.early_stopper import EarlyStopper
@@ -16,7 +17,7 @@ from tests.metrics import MetricSetterCallback
 
 
 @device('cpu', 'gpu')
-@pytest.mark.parametrize('metric_sequence', [[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.2, 1.3], [0.1, 0.2]])
+@pytest.mark.parametrize('metric_sequence', [[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], [0.1, 0.2]])
 @pytest.mark.parametrize('unit', [TimeUnit.EPOCH, TimeUnit.BATCH])
 def test_early_stopper(metric_sequence: List[float], unit: TimeUnit, device: str):
 
@@ -29,7 +30,8 @@ def test_early_stopper(metric_sequence: List[float], unit: TimeUnit, device: str
 
     early_stopper = EarlyStopper('Accuracy', dataloader_label, patience=Time(3, unit))
 
-    test_metric_setter = MetricSetterCallback('Accuracy', dataloader_label, metric_sequence, unit, test_device)
+    test_metric_setter = MetricSetterCallback('Accuracy', dataloader_label, Accuracy, metric_sequence, unit,
+                                              test_device)
 
     trainer = Trainer(
         model=SimpleModel(num_features=5),
