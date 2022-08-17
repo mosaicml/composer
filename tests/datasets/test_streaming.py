@@ -447,7 +447,9 @@ def test_cipher_shuffle(remote_local: Tuple[str, str]):
 
     for datum in dataset:
         if datum['uid'] in unique_set:
-            nominal_order = [dataset.shuffler.shuffle_sample(ix, 1, 0, 15, 1) for ix in range(len(dataset))]
+            nominal_order = [
+                dataset.shuffler.shuffle_sample(ix, 1, 0, 15, 1, num_samples) for ix in range(len(dataset))
+            ]
             raise ValueError(
                 f"Duplicate UID: {datum['uid']}, full order: {unique_set}, nominal order: {nominal_order}, shard order: {dataset._shard_shuffle_indices}, samples per shard: {dataset.index.samples_per_shard}"
             )

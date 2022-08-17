@@ -125,7 +125,8 @@ class BlockCipherShuffler:
             if (idx % num_nodes) == global_rank
         ])
 
-    def shuffle_sample(self, idx: int, num_workers: int, rank: int, shuffle_buffer_size: int, batch_size: int, num_samples: int) -> int:
+    def shuffle_sample(self, idx: int, num_workers: int, rank: int, shuffle_buffer_size: int, batch_size: int,
+                       num_samples: int) -> int:
         """
         Shuffles the samples as much as possible while maintaining the shuffle_buffer_size invariant of shards
         required on the disk at once.
