@@ -186,8 +186,9 @@ class StreamingDataset(IterableDataset):
         global_rank = world.global_node
         if shuffle:
             cipher_key = 42  # initialize using an arbitrary cipher key
-            self.shuffler = BlockCipherShuffler(cipher_key, self.index)
-            self._shard_shuffle_indices = self.shuffler.shuffle_shards(num_nodes, global_rank)
+            self.shuffler = BlockCipherShuffler(cipher_key, self.index, num_nodes, global_rank,
+                                                int(self._shuffle_buffer_size))
+            self._shard_shuffle_indices = self.shuffler.shuffle_indices
             self.index.relocate_samples(self._shard_shuffle_indices)
         else:
             N = self.index.num_shards
@@ -211,11 +212,12 @@ class StreamingDataset(IterableDataset):
         cipher_key = self.shuffler._cipher_key
         if 'cipher_key' in state:
             cipher_key = state['cipher_key']
-        self.shuffler = BlockCipherShuffler(cipher_key, self.index)
         world = get_world()
         num_nodes = world.global_num_nodes
         global_rank = world.global_node
-        self._shard_shuffle_indices = self.shuffler.shuffle_shards(num_nodes, global_rank)
+        self.shuffler = BlockCipherShuffler(cipher_key, self.index, num_nodes, global_rank,
+                                            int(self._shuffle_buffer_size))
+        self._shard_shuffle_indices = self.shuffler.shuffle_indices
         self.index.relocate_samples(self._shard_shuffle_indices)
         self.num_samples = np.sum(self.index.samples_per_shard[self._shard_shuffle_indices])
 

@@ -97,7 +97,8 @@ def decrypt(key: int, value: int, num_possible_values: int) -> int:
 
 class BlockCipherShuffler:
 
-    def __init__(self, cipher_key: int, index: StreamingDatasetIndex):
+    def __init__(self, cipher_key: int, index: StreamingDatasetIndex, num_nodes: int, global_rank: int,
+                 shuffle_buffer_size: int):
         """Block Cipher Shuffler takes a `cipher_key` and a `StreamingDatasetIndex` and handles utility functions
         for shuffling within shards and samples.
 
@@ -107,6 +108,32 @@ class BlockCipherShuffler:
         """
         self._cipher_key = cipher_key
         self.index = index
+        self.samples_per_group = []
+        self.group_relative_id_to_shard_index = {}
+        self.group_relative_id_to_shard_offset = {}
+        self.shuffle_indices = self.shuffle_shards(num_nodes, global_rank)
+        num_shards = len(self.index.samples_per_shard)
+        for shard_index, shard_id in enumerate(self.shuffle_indices):
+            if shard_id % shuffle_buffer_size != 0:
+                pass
+
+            first_shard_group_index = shard_index - (shard_index % shuffle_buffer_size)
+            last_shard_group_index = min(first_shard_group_index + shuffle_buffer_size, num_shards)
+
+            relative_id_to_shard_index = []
+            relative_id_to_shard_offset = []
+            samples_in_group = 0
+
+            for group_shard_index in range(first_shard_group_index, last_shard_group_index):
+                group_shard_id = self.get_shard_id(group_shard_index)
+                samples_in_group += self.index.samples_per_shard[group_shard_id]
+                shard_member_id = self.get_shard_id(group_shard_index)
+                relative_id_to_shard_index += [group_shard_index] * self.index.samples_per_shard[shard_member_id]
+                relative_id_to_shard_offset += list(range(self.index.samples_per_shard[shard_member_id]))
+
+            self.samples_per_group.append(samples_in_group)
+            self.group_relative_id_to_shard_index[first_shard_group_index] = relative_id_to_shard_index
+            self.group_relative_id_to_shard_offset[first_shard_group_index] = relative_id_to_shard_offset
 
     def shuffle_shards(self, num_nodes: int, global_rank: int) -> NDArray[np.int64]:
         """Returns an ordering of shards such that shards are distributed evenly between nodes and shuffled randomly.
@@ -152,34 +179,24 @@ class BlockCipherShuffler:
         ### 3. maps the relative groupwise index to a global sample index
 
         # calculate the index of the shard group
-        num_shards = len(self.index.samples_per_shard)
         shard_id = self.index.sample_shards[idx]
         shard_index = self.get_shard_index(shard_id)
         first_shard_group_index = shard_index - (shard_index % shuffle_buffer_size)
-        last_shard_group_index = min(int(first_shard_group_index + shuffle_buffer_size), num_shards)
 
         # calculate the number of samples in the shard group
-        samples_in_group = 0
-        for shard_idx in range(first_shard_group_index, last_shard_group_index):
-            group_shard_id = self.get_shard_id(shard_idx)
-            samples_in_group += self.index.samples_per_shard[group_shard_id]
+        samples_in_group = self.samples_per_group[first_shard_group_index // shuffle_buffer_size]
 
         # calculate how far into our shard group the shuffled sample lies
         group_key = int(self._cipher_key + first_shard_group_index)
         group_relative_sample_id = encrypt(group_key, idx % samples_in_group, samples_in_group)
 
         # map the shard group relative offset to a global sample offset
-        relative_id_to_shard_index = []
-        relative_id_to_shard_offset = []
-        for shard_member_index in np.arange(first_shard_group_index, last_shard_group_index):
-            shard_member_id = self.get_shard_id(shard_member_index)
-            relative_id_to_shard_index += [shard_member_index] * self.index.samples_per_shard[shard_member_id]
-            relative_id_to_shard_offset += list(range(self.index.samples_per_shard[shard_member_id]))
+        relative_id_to_shard_index = self.group_relative_id_to_shard_index[first_shard_group_index]
+        relative_id_to_shard_offset = self.group_relative_id_to_shard_offset[first_shard_group_index]
 
         target_shard_index = relative_id_to_shard_index[group_relative_sample_id]
         target_shard_id = self.get_shard_id(target_shard_index)
         shard_offset = relative_id_to_shard_offset[group_relative_sample_id]
-        print(group_relative_sample_id)
         shard_base_offset = np.sum(self.index.samples_per_shard[:target_shard_id])
 
         return shard_base_offset + shard_offset
