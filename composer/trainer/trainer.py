@@ -93,31 +93,15 @@ def _get_default_scheduler_frequency(schedulers: Optional[Union[Scheduler, Seque
         return TimeUnit.BATCH
 
 
-def _get_training_metrics(model: ComposerModel):
-    warnings.warn(('Computing model evaluation metrics during training doubles the number of forward passes '
-                   'and may lead to a throughput degradation.'))
-    train_metrics = model.metrics(train=True)
-    if isinstance(train_metrics, Metric):
-        # Forcing metrics to be a MetricCollection simplifies logging results
-        train_metrics = MetricCollection([train_metrics])
-
-    return train_metrics
-
-
-def _filter_metrics(metrics: Union[Metric, MetricCollection],
-                    metric_names: Optional[List[str]]) -> Union[MetricCollection, Metric, List[Metric]]:
+def _filter_metrics(metrics: Dict[str, Metric], metric_names: Optional[List[str]]) -> Dict[str, Metric]:
     """Filter the metrics based on the given metric_names as regex strings (e.g. 'Accuracy', 'f1' for 'BinaryF1Score', 'Top-.' for 'Top-1 Accuracy' and 'Top-2 Accuracy', etc). If no metric_names are provided, all metrics will be returned."""
     if not metric_names:
         return metrics
     else:
-        filtered_metrics = []
-        if isinstance(metrics, Metric):
-            if any(re.match(f'.*{metric_name}.*', metrics._get_name(), re.IGNORECASE) for metric_name in metric_names):
-                filtered_metrics.append(metrics)
-        else:
-            for k in metrics:
-                if any(re.match(f'.*{metric_name}.*', k, re.IGNORECASE) for metric_name in metric_names):
-                    filtered_metrics.append(metrics[k])
+        filtered_metrics = {}
+        for name, metric in metrics.items():
+            if any(re.match(f'.*{metric_name}.*', name, re.IGNORECASE) for metric_name in metric_names):
+                filtered_metrics[name] = metric
         return filtered_metrics
 
 
@@ -344,10 +328,10 @@ class Trainer:
             :meth:`.Trainer.fit`.
         train_dataloader_label (str, optional): The label for the train dataloader. (default: ``'train'``)
 
-            This label is used to index the training metrics (if ``compute_training_metrics`` is True) in
+            This label is used to index the training metrics in
             :attr:`.State.train_metrics`.
 
-            This parameter has no effect if ``train_dataloader`` or ``compute_training_metrics`` are not specified.
+            This parameter has no effect if ``train_dataloader`` is not specified.
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If ``-1``, then the entire dataloader will be iterated over. (default: ``-1``)
@@ -356,10 +340,6 @@ class Trainer:
             This setting will end each epoch early to avoid additional training that will not be profiled.
 
             This parameter is ignored if ``train_dataloader`` is not specified.
-        compute_training_metrics (bool, optional): Whether to compute training metrics. (default: ``False``)
-
-            Training metrics will be indexed on :attr:`.State.train_metrics` under the ``train_dataloader_label``
-            key (which defaults to ``'train'``).
         max_duration (Time | str | int, optional): The maximum duration to train. Can be an integer, which will be
             interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
 
@@ -409,7 +389,7 @@ class Trainer:
 
             To evaluate one or more specific metrics across one or more datasets, pass in an
             :class:`.Evaluator`. If a :class:`.DataSpec` or :class:`.DataLoader` is passed in, then all
-            metrics returned by ``model.metrics()`` will be used during evaluation.
+            metrics returned by ``model.get_metrics()`` will be used during evaluation.
             ``None`` results in no evaluation. (default: ``None``)
         eval_interval (int | str | Time | (State, Event) -> bool, optional): Specifies how frequently to run evaluation.
             An integer, which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time`
@@ -712,7 +692,6 @@ class Trainer:
         train_dataloader: Optional[Union[Iterable, DataSpec, Dict[str, Any]]] = None,
         train_dataloader_label: str = 'train',
         train_subset_num_batches: int = -1,
-        compute_training_metrics: bool = False,
 
         # Stopping Condition
         max_duration: Optional[Union[int, str, Time]] = None,
@@ -936,8 +915,42 @@ class Trainer:
         # Run Event.INIT
         self.engine.run_event(Event.INIT)
 
+        if not isinstance(self.state.model, ComposerModel):
+            raise ValueError('Provided model should be a subclass of ComposerModel.')
+
         # After running Event.INIT, then set the "optional" elements of state that could be passed in on FIT instead of INIT
         # Setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
+
+        # Metrics and Evaluators
+        # Set state.train_metrics and state.eval_metrics here to allow callbacks / algs to potentially
+        # change the model, which could change what metrics are computed
+        self.state.train_metrics = self.state.model.get_metrics(is_train=True)
+        self.state.eval_metrics = {}
+        if eval_dataloader is None:
+            evaluators: List[Evaluator] = []
+        else:
+            eval_metrics = self.state.model.get_metrics(is_train=False)
+            model_metric_names = [str(k) for k in eval_metrics.keys()]
+            evaluators = []
+            for evaluator in ensure_tuple(eval_dataloader):
+                evaluator = ensure_evaluator(evaluator, default_metric_names=model_metric_names)
+                evaluators.append(evaluator)
+
+                # match metric names to model metrics
+                self.state.eval_metrics[evaluator.label] = _filter_metrics(eval_metrics, evaluator.metric_names)
+
+            _set_evaluator_interval_and_subset_num_batches(
+                evaluators=evaluators,
+                eval_interval=eval_interval,
+                subset_num_batches=eval_subset_num_batches,
+            )
+        if len(evaluators) == 0:
+            if eval_subset_num_batches != -1:
+                raise ValueError('Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.')
+            if eval_interval != 1:
+                raise ValueError('Specifying `eval_interval` without an `eval_dataloader` has no effect.')
+
+        self.state.evaluators = evaluators
 
         # Train Dataloader
         self._train_data_spec = None if train_dataloader is None else ensure_data_spec(train_dataloader)
@@ -948,7 +961,6 @@ class Trainer:
                 self.state.train_dataloader = pl.MpDeviceLoader(self.state.dataloader, xm.xla_device())
             else:
                 self.state.train_dataloader = self.state.dataloader
-        self.train_metrics = _get_training_metrics(model) if compute_training_metrics else None
 
         # Max Duration
         if max_duration is not None:
@@ -956,8 +968,6 @@ class Trainer:
 
         self.logger.data_fit({'rank_zero_seed': rank_zero_seed})
 
-        if not isinstance(self.state.model, ComposerModel):
-            raise ValueError('Provided model should be a subclass of ComposerModel.')
         self._original_model = self.state.model
 
         # Schedulers
@@ -971,32 +981,6 @@ class Trainer:
             self._scheduler_step_frequency = _get_default_scheduler_frequency(schedulers)
         else:
             self._scheduler_step_frequency = TimeUnit.BATCH if step_schedulers_every_batch else TimeUnit.EPOCH
-
-        # Evaluators
-        if eval_dataloader is None:
-            evaluators: List[Evaluator] = []
-        else:
-            eval_metrics = self._original_model.metrics(train=False)
-            if isinstance(eval_metrics, Metric):
-                model_metric_names = [eval_metrics._get_name()]
-            else:
-                model_metric_names = [str(k) for k in eval_metrics.keys()]
-            evaluators = [
-                ensure_evaluator(evaluator, default_metric_names=model_metric_names)
-                for evaluator in ensure_tuple(eval_dataloader)
-            ]
-            _set_evaluator_interval_and_subset_num_batches(
-                evaluators=evaluators,
-                eval_interval=eval_interval,
-                subset_num_batches=eval_subset_num_batches,
-            )
-        if len(evaluators) == 0:
-            if eval_subset_num_batches != -1:
-                raise ValueError('Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.')
-            if eval_interval != 1:
-                raise ValueError('Specifying `eval_interval` without an `eval_dataloader` has no effect.')
-
-        self.state.evaluators = evaluators
 
         # Some algorithms require specific settings
         self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, ensure_tuple(algorithms)))
@@ -1186,7 +1170,6 @@ class Trainer:
         train_dataloader: Optional[Union[Iterable, DataSpec, Dict[str, Any]]] = None,
         train_dataloader_label: str = 'train',
         train_subset_num_batches: Optional[int] = None,
-        compute_training_metrics: Optional[bool] = None,
 
         # Timing
         duration: Optional[Union[int, str, Time[int]]] = None,
@@ -1281,7 +1264,6 @@ class Trainer:
             train_dataloader (Iterable | DataSpec | Dict[str, Any], optional): See :class:`.Trainer`.
             train_dataloader_label (str, optional): See :class:`.Trainer`.
             train_subset_num_batches (int, optional): See :class:`.Trainer`.
-            compute_training_metrics (bool, optional): See :class:`.Trainer`.
             reset_time (bool): Whether to reset the :attr:`.State.timestamp` to zero values. Defaults to False.
 
                 If ``True``, the timestamp will be zeroed out, causing :class:`.ComposerScheduler` and
@@ -1325,8 +1307,6 @@ class Trainer:
             _raise_missing_argument_exception('train_dataloader')
         if train_subset_num_batches is not None:
             self.state.dataloader_len = train_subset_num_batches
-        if compute_training_metrics is not None:
-            self.train_metrics = _get_training_metrics(self._original_model) if compute_training_metrics else None
 
         # Reset Time
         if reset_time:
@@ -1375,17 +1355,18 @@ class Trainer:
 
         # Evaluators
         if eval_dataloader is not None:
-            eval_metrics = self._original_model.metrics(train=False)
-            if isinstance(eval_metrics, Metric):
-                metric_names = [eval_metrics._get_name()]
-            else:
-                metric_names = [str(k) for k in eval_metrics.keys()]
-            evaluators = [
-                # Need to use the `original_model` rather than `state.model`, as `state.model`
-                # could be DDP / DeepSpeed wrapped.
-                ensure_evaluator(evaluator, default_metric_names=metric_names)
-                for evaluator in ensure_tuple(eval_dataloader)
-            ]
+            # Need to use the `original_model` rather than `state.model`, as `state.model`
+            # could be DDP / DeepSpeed wrapped.
+            eval_metrics = self._original_model.get_metrics(is_train=False)
+            metric_names = [str(k) for k in eval_metrics.keys()]
+            evaluators = []
+            for evaluator in ensure_tuple(eval_dataloader):
+                evaluator = ensure_evaluator(evaluator, default_metric_names=metric_names)
+                evaluators.append(evaluator)
+
+                # match metric names to model metrics
+                self.state.eval_metrics[evaluator.label] = _filter_metrics(eval_metrics, evaluator.metric_names)
+
             _set_evaluator_interval_and_subset_num_batches(
                 evaluators=evaluators,
                 eval_interval=eval_interval,
@@ -1436,18 +1417,21 @@ class Trainer:
 
         return metrics
 
-    def _compute_and_log_metrics(self, dataloader_label: str, log_level: LogLevel, metrics: MetricCollection):
+    def _compute_and_log_metrics(self, dataloader_label: str, log_level: LogLevel, metrics: Dict[str, Metric]):
         """Computes metrics, logs the results, and updates the state with the deep-copied metrics.
 
         Args:
             dataloader_label (str): The dataloader label.
-            metrics (MetricCollection): The metrics to compute.
+            metrics (Dict[str, Metric]): The metrics to compute.
             log_level (LogLevel): The LogLevel for logging metrics.
         """
         metrics = deepcopy(metrics)
 
         # log computed metrics
-        computed_metrics = metrics.compute()
+        computed_metrics = {}
+        for metric_name, metric in metrics.items():
+            computed_metrics[metric_name] = metric.compute()
+
         self.logger.data(
             log_level=log_level,
             data={f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},
@@ -1519,6 +1503,8 @@ class Trainer:
         assert self._train_data_spec is not None, 'The train data spec is set in __init__() or fit()'
         assert self.state.scaler is not None, 'scaler should have been set in __init__()'
 
+        assert isinstance(self.state.model, ComposerModel)
+
         self.engine.run_event(Event.FIT_START)
 
         use_grad_scaling = self._use_grad_scaling(self.state.precision, self.state.scaler)
@@ -1529,9 +1515,6 @@ class Trainer:
             # only restore the rng state here if the step in the current epoch is zero.
             reproducibility.load_rng_state(self._rng_state)
             self._rng_state = None
-
-        if self.train_metrics is not None:
-            self.train_metrics = self._ensure_metrics_device_and_dtype(self.train_metrics)
 
         # Flag if the epoch finished early, so it can be tracked whether to run the epoch end events
         finished_epoch_early = False
@@ -1544,9 +1527,10 @@ class Trainer:
             if int(self.state.timestamp.batch_in_epoch) == 0:
                 self.engine.run_event(Event.EPOCH_START)
                 self.logger.data_epoch({'epoch': int(self.state.timestamp.epoch)})
-                if self.train_metrics is not None:
+                if self.state.train_metrics is not None:
                     # reset the metrics before every epoch
-                    self.train_metrics.reset()
+                    for _, metric in self.state.train_metrics.items():
+                        metric.reset()
 
             dataloader = self.state.dataloader
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
@@ -1570,7 +1554,7 @@ class Trainer:
                 if self.deepspeed_enabled:
                     self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
-                if self.train_metrics is not None:
+                if self.state.train_metrics is not None:
                     self.state.model.eval()
                     with torch.no_grad():
                         for eval_microbatch in self._train_data_spec.split_batch(self.state.batch,
@@ -1578,9 +1562,15 @@ class Trainer:
                             # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                             # data and if so print a warning that metrics may return unexpected results
                             with get_precision_context(self.state.precision):
-                                outputs, targets = self._original_model.validate(eval_microbatch)
                                 # Run in same precision context to avoid NaNs
-                                self.train_metrics.update(outputs, targets)
+                                outputs = self.state.model.forward(eval_microbatch)
+                                eval_outputs = self.state.model.eval_forward(eval_microbatch, outputs)
+                                for _, metric in self.state.train_metrics.items():
+                                    self.state.model.update_metric(
+                                        eval_microbatch,
+                                        eval_outputs,
+                                        metric,
+                                    )
 
                 self.state.model.train()
 
@@ -1633,11 +1623,11 @@ class Trainer:
                     for scheduler in self.state.schedulers:
                         scheduler.step()
 
-                if self.train_metrics is not None:
+                if self.state.train_metrics is not None:
                     self._compute_and_log_metrics(
                         dataloader_label='train',
                         log_level=LogLevel.BATCH,
-                        metrics=self.train_metrics,
+                        metrics=self.state.train_metrics,
                     )
 
                 self.engine.run_event(Event.BATCH_END)
@@ -1664,11 +1654,11 @@ class Trainer:
                 # the end of the dataloader (i.e. next(dataloader) would raise StopIteration)
                 self.state.timestamp = self.state.timestamp.to_next_epoch()
 
-                if self.train_metrics is not None:
+                if self.state.train_metrics is not None:
                     self._compute_and_log_metrics(
                         dataloader_label='train',
                         log_level=LogLevel.EPOCH,
-                        metrics=self.train_metrics,
+                        metrics=self.state.train_metrics,
                     )
 
                 if self._scheduler_step_frequency == TimeUnit.EPOCH:
@@ -1697,7 +1687,7 @@ class Trainer:
                     dataloader=evaluator.dataloader,
                     dataloader_label=evaluator.label,
                     subset_num_batches=evaluator.subset_num_batches,
-                    metric_names=evaluator.metric_names,
+                    metrics=self.state.eval_metrics[evaluator.label],
                     log_level=log_level,
                 )
 
@@ -2073,7 +2063,7 @@ class Trainer:
         dataloader: Union[Iterable, DataSpec, dict],
         dataloader_label: str = 'eval',
         *,
-        metric_names: List[str],
+        metrics: Dict[str, Metric],
         subset_num_batches: int = -1,
         log_level: Union[str, LogLevel] = LogLevel.FIT,
     ):
@@ -2083,7 +2073,7 @@ class Trainer:
             dataloader (DataLoader | DataSpec | dict): The class:`.DataLoader`, :class:`.DataSpec`, or
                 dict of :class:`.DataSpec` kwargs to use for evaluation
             dataloader_label (str, optional): The dataloader label to use for logging metrics. Defaults to ``'eval'``.
-            metric_names (List[str]): The names of the metrics to log.
+            metrics (Dict[str, Metric]): Dictionary mapping metric names to metrics to evaluate against.
             subset_num_batches (int, optional): If specified, evaluate on this many batches. Defaults to ``-1``,
                 which means to iterate over the entire dataloader.
 
@@ -2095,6 +2085,7 @@ class Trainer:
         """
         log_level = LogLevel(log_level)
         restore_model_train = self.state.model.training
+        assert isinstance(self.state.model, ComposerModel)
 
         # back up the original dataloader on the state, so we can restore it after evaluation is finished
         original_dataloader = self.state.dataloader
@@ -2121,16 +2112,9 @@ class Trainer:
 
             self.engine.run_event(Event.EVAL_START)
 
-            # extract model metrics based on provided names
-            # TODO (Ishana): refactor as part of CO-251
-            model_metrics = self._original_model.metrics(train=False)
-            metrics = _filter_metrics(model_metrics, metric_names)
+            for _, metric in metrics.items():
+                metric.reset()
 
-            if not isinstance(metrics, MetricCollection):
-                metrics = MetricCollection(metrics)
-
-            metrics = self._ensure_metrics_device_and_dtype(metrics)
-            metrics.reset()
             dataloader = self.state.dataloader
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                 # The distributed sampler uses `set_epoch` to set the random seed
@@ -2155,7 +2139,7 @@ class Trainer:
 
                 self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
                 with get_precision_context(self.state.precision):
-                    self.state.outputs, targets = self._original_model.validate(self.state.batch)
+                    self.state.outputs = self.state.model.eval_forward(self.state.batch)
                 self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
                 # Run in same precision context to avoid NaNs
@@ -2163,9 +2147,16 @@ class Trainer:
                     if isinstance(self._device, DeviceMPS):
                         # torchmetrics math has numerical errors on M1 devices
                         # running the compute on CPU instead
-                        metrics.update(self.state.outputs.cpu(), targets.cpu())
+                        outputs = self.state.outputs.cpu()
                     else:
-                        metrics.update(self.state.outputs, targets)
+                        outputs = self.state.outputs
+
+                    for _, metric in metrics.items():
+                        self.state.model.update_metric(
+                            self.state.batch,
+                            outputs,
+                            metric,
+                        )
 
                 now = datetime.datetime.now()
                 batch_time = now - last_wct

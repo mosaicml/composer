@@ -5,12 +5,12 @@
 
 import contextlib
 import math
-from typing import Any, Sequence, Tuple, Union, cast
+from typing import Any, Dict, Sequence, Union, cast
 from unittest.mock import MagicMock, Mock
 
 import pytest
 import torch
-from torchmetrics import Metric, MetricCollection
+from torchmetrics import Metric
 
 from composer.algorithms import ghost_batchnorm as ghostbn
 from composer.algorithms.ghost_batchnorm.ghost_batchnorm import GhostBatchNorm, _GhostBatchNorm
@@ -48,10 +48,10 @@ class ModuleWithBatchnorm(ComposerModel):
     def loss(self, outputs: Any, batch: Batch, *args, **kwargs) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
         raise NotImplementedError()
 
-    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
+    def get_metrics(self, is_train: bool = False) -> Dict[str, Metric]:
         raise NotImplementedError()
 
-    def validate(self, batch: Batch) -> Tuple[Any, Any]:
+    def eval_forward(self, batch: Batch):
         raise NotImplementedError()
 
 

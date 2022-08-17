@@ -5,7 +5,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional, Union
+from copy import deepcopy
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from torchmetrics import Metric
 from torchmetrics.collections import MetricCollection
@@ -70,12 +71,12 @@ class HuggingFaceModel(ComposerModel):
         self.use_logits = use_logits
 
         self.train_metrics = None
-        self.valid_metrics = None
+        self.val_metrics = None
 
         if metrics:
             metric_collection = MetricCollection(metrics)
             self.train_metrics = metric_collection.clone(prefix='train_')
-            self.valid_metrics = metric_collection.clone(prefix='val_')
+            self.val_metrics = metric_collection.clone(prefix='val_')
 
     def forward(self, batch):
         for key in self.model_inputs:
@@ -88,9 +89,8 @@ class HuggingFaceModel(ComposerModel):
     def loss(self, outputs, batch):
         return outputs['loss']
 
-    def validate(self, batch):
+    def eval_forward(self, batch):
         if self.use_logits:
-            labels = batch.pop('labels')
             output = self.forward(batch)
             output = output['logits']
 
@@ -98,13 +98,30 @@ class HuggingFaceModel(ComposerModel):
             if output.shape[1] == 1:
                 output = output.squeeze(dim=1)
 
-            return output, labels
+            return output
         else:
             output = self.forward(batch)
-            return output, None
+            return output
 
-    def metrics(self, train: bool = False):
-        return self.train_metrics if train else self.valid_metrics
+    def get_metrics(self, is_train: bool = False) -> Dict[str, Metric]:
+        if is_train:
+            metrics = deepcopy(self.train_metrics)
+        else:
+            metrics = deepcopy(self.val_metrics)
+
+        if not metrics:
+            return {}
+
+        model_metrics = {}
+        for name, metric in metrics.items():
+            assert isinstance(metric, Metric)
+            model_metrics[name] = metric
+
+        return model_metrics
+
+    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
+        _, targets = batch
+        metric.update(outputs, targets)
 
     def get_model_inputs(self):
         """Returns a set of inputs that the model expects in the forward pass.

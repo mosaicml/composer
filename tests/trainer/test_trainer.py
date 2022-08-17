@@ -127,14 +127,12 @@ class TestTrainerInitOrFit:
         return Time(1, TimeUnit.EPOCH)
 
     @pytest.mark.parametrize('train_subset_num_batches', [-1, 1])
-    @pytest.mark.parametrize('compute_training_metrics', [True, False])
     def test_train_dataloader(
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
         max_duration: Time[int],
         train_subset_num_batches: int,
-        compute_training_metrics: bool,
     ):
         # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
         copied_model = copy.deepcopy(model)
@@ -145,7 +143,6 @@ class TestTrainerInitOrFit:
             max_duration=max_duration,
             train_dataloader=train_dataloader,
             train_subset_num_batches=train_subset_num_batches,
-            compute_training_metrics=compute_training_metrics,
         )
         init_trainer.fit()
 
@@ -157,7 +154,6 @@ class TestTrainerInitOrFit:
         fit_trainer.fit(
             train_dataloader=train_dataloader,
             train_subset_num_batches=train_subset_num_batches,
-            compute_training_metrics=compute_training_metrics,
         )
 
         # Assert that the states are equivalent
