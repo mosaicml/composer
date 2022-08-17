@@ -162,8 +162,6 @@ class StreamingDataset(IterableDataset):
                     fp.write('')
                 pass
 
-        self.num_samples = np.sum(self.index.samples_per_shard[self._shard_shuffle_indices])
-
         # Load the index file containing the shard metadata
         # This file contains the shard and offset in bytes of each sample (for direct access).
         # Only local device 0 on each node downloads the index. All other devices wait.
@@ -195,6 +193,7 @@ class StreamingDataset(IterableDataset):
             N = self.index.num_shards
             self._shard_shuffle_indices = np.arange(N)[(np.arange(N) % num_nodes) == global_rank]
             self.index.relocate_samples(self._shard_shuffle_indices)
+        self.num_samples = np.sum(self.index.samples_per_shard[self._shard_shuffle_indices])
 
     def _parse_shuffle_buffer_size(self, shuffle_buffer_size_arg: str) -> np.int64:
         if shuffle_buffer_size_arg.endswith('prop'):
