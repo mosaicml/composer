@@ -160,9 +160,9 @@ class BlockCipherShuffler:
 
         # calculate the number of samples in the shard group
         samples_in_group = 0
-        for id in range(first_shard_group_index, last_shard_group_index):
-            idx = self.get_shard_index(id)
-            samples_in_group += self.index.samples_per_shard[idx]
+        for shard_idx in range(first_shard_group_index, last_shard_group_index):
+            group_shard_id = self.get_shard_id(shard_idx)
+            samples_in_group += self.index.samples_per_shard[group_shard_id]
 
         # calculate how far into our shard group the shuffled sample lies
         group_key = int(self._cipher_key + first_shard_group_index)
@@ -172,13 +172,14 @@ class BlockCipherShuffler:
         relative_id_to_shard_index = []
         relative_id_to_shard_offset = []
         for shard_member_index in np.arange(first_shard_group_index, last_shard_group_index):
-            shard_id = self.get_shard_id(shard_member_index)
-            relative_id_to_shard_index += [shard_member_index] * self.index.samples_per_shard[shard_id]
-            relative_id_to_shard_offset += list(range(self.index.samples_per_shard[shard_id]))
+            shard_member_id = self.get_shard_id(shard_member_index)
+            relative_id_to_shard_index += [shard_member_index] * self.index.samples_per_shard[shard_member_id]
+            relative_id_to_shard_offset += list(range(self.index.samples_per_shard[shard_member_id]))
 
         target_shard_index = relative_id_to_shard_index[group_relative_sample_id]
         target_shard_id = self.get_shard_id(target_shard_index)
         shard_offset = relative_id_to_shard_offset[group_relative_sample_id]
+        print(group_relative_sample_id)
         shard_base_offset = np.sum(self.index.samples_per_shard[:target_shard_id])
 
         return shard_base_offset + shard_offset
