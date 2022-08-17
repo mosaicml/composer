@@ -112,6 +112,7 @@ class BlockCipherShuffler:
         self.group_relative_id_to_shard_index = {}
         self.group_relative_id_to_shard_offset = {}
         self.shuffle_indices = self.shuffle_shards(num_nodes, global_rank)
+        self.shuffle_buffer_size = shuffle_buffer_size
         num_shards = len(self.index.samples_per_shard)
         for shard_index, shard_id in enumerate(self.shuffle_indices):
             if shard_id % shuffle_buffer_size != 0:
@@ -132,8 +133,10 @@ class BlockCipherShuffler:
                 relative_id_to_shard_offset += list(range(self.index.samples_per_shard[shard_member_id]))
 
             self.samples_per_group.append(samples_in_group)
-            self.group_relative_id_to_shard_index[first_shard_group_index] = relative_id_to_shard_index
-            self.group_relative_id_to_shard_offset[first_shard_group_index] = relative_id_to_shard_offset
+            self.group_relative_id_to_shard_index[first_shard_group_index //
+                                                  shuffle_buffer_size] = relative_id_to_shard_index
+            self.group_relative_id_to_shard_offset[first_shard_group_index //
+                                                   shuffle_buffer_size] = relative_id_to_shard_offset
 
     def shuffle_shards(self, num_nodes: int, global_rank: int) -> NDArray[np.int64]:
         """Returns an ordering of shards such that shards are distributed evenly between nodes and shuffled randomly.
@@ -152,8 +155,7 @@ class BlockCipherShuffler:
             if (idx % num_nodes) == global_rank
         ])
 
-    def shuffle_sample(self, idx: int, num_workers: int, rank: int, shuffle_buffer_size: int, batch_size: int,
-                       num_samples: int) -> int:
+    def shuffle_sample(self, idx: int, num_workers: int, rank: int, batch_size: int, num_samples: int) -> int:
         """
         Shuffles the samples as much as possible while maintaining the shuffle_buffer_size invariant of shards
         required on the disk at once.
@@ -181,18 +183,20 @@ class BlockCipherShuffler:
         # calculate the index of the shard group
         shard_id = self.index.sample_shards[idx]
         shard_index = self.get_shard_index(shard_id)
-        first_shard_group_index = shard_index - (shard_index % shuffle_buffer_size)
+        first_shard_group_index = shard_index - (shard_index % self.shuffle_buffer_size)
 
         # calculate the number of samples in the shard group
-        samples_in_group = self.samples_per_group[first_shard_group_index // shuffle_buffer_size]
+        samples_in_group = self.samples_per_group[first_shard_group_index // self.shuffle_buffer_size]
 
         # calculate how far into our shard group the shuffled sample lies
         group_key = int(self._cipher_key + first_shard_group_index)
         group_relative_sample_id = encrypt(group_key, idx % samples_in_group, samples_in_group)
 
         # map the shard group relative offset to a global sample offset
-        relative_id_to_shard_index = self.group_relative_id_to_shard_index[first_shard_group_index]
-        relative_id_to_shard_offset = self.group_relative_id_to_shard_offset[first_shard_group_index]
+        relative_id_to_shard_index = self.group_relative_id_to_shard_index[first_shard_group_index //
+                                                                           self.shuffle_buffer_size]
+        relative_id_to_shard_offset = self.group_relative_id_to_shard_offset[first_shard_group_index //
+                                                                             self.shuffle_buffer_size]
 
         target_shard_index = relative_id_to_shard_index[group_relative_sample_id]
         target_shard_id = self.get_shard_id(target_shard_index)
