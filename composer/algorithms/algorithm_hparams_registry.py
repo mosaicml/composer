@@ -25,12 +25,15 @@ from composer.algorithms.no_op_model import NoOpModel
 from composer.algorithms.progressive_resizing import ProgressiveResizing
 from composer.algorithms.randaugment import RandAugment
 from composer.algorithms.sam import SAM
+from composer.algorithms.sample_prioritization import SamplePrioritization
 from composer.algorithms.selective_backprop import SelectiveBackprop
 from composer.algorithms.seq_length_warmup import SeqLengthWarmup
 from composer.algorithms.squeeze_excite import SqueezeExcite
 from composer.algorithms.stochastic_depth import StochasticDepth
 from composer.algorithms.swa import SWA
 from composer.core.algorithm import Algorithm
+
+from .sample_prioritization.sample_prioritization import SamplePrioritization
 
 algorithm_registry: Dict[str, Union[Type[Algorithm], Type[hp.Hparams]]] = {
     'blurpool': BlurPool,
@@ -57,5 +60,6 @@ algorithm_registry: Dict[str, Union[Type[Algorithm], Type[hp.Hparams]]] = {
     'sam': SAM,
     'alibi': Alibi,
     'selective_backprop': SelectiveBackprop,
+    'sample_prioritization': SamplePrioritization,
     'gradient_clipping': GradientClipping,
 }

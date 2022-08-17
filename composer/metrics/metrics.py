@@ -37,8 +37,9 @@ class MIoU(Metric):
         self.add_state('total_intersect', default=torch.zeros(num_classes, dtype=torch.float64), dist_reduce_fx='sum')
         self.add_state('total_union', default=torch.zeros(num_classes, dtype=torch.float64), dist_reduce_fx='sum')
 
-    def update(self, logits: Tensor, targets: Tensor):
+    def update(self, logits: Tensor, targets: Tensor, **kwargs):
         """Update the state with new predictions and targets."""
+        del kwargs
         preds = logits.argmax(dim=1)
         for pred, target in zip(preds, targets):
             mask = (target != self.ignore_index)
@@ -74,8 +75,9 @@ class Dice(Metric):
         self.add_state('n_updates', default=torch.zeros(1), dist_reduce_fx='sum')
         self.add_state('dice', default=torch.zeros((num_classes,)), dist_reduce_fx='sum')
 
-    def update(self, preds: Tensor, targets: Tensor):
+    def update(self, preds: Tensor, targets: Tensor, **kwargs):
         """Update the state based on new predictions and targets."""
+        del kwargs
         self.n_updates += 1  # type: ignore
         self.dice += self.compute_stats(preds, targets)
 
@@ -142,9 +144,10 @@ class CrossEntropy(Metric):
         self.add_state('sum_loss', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total_batches', default=torch.tensor(0), dist_reduce_fx='sum')
 
-    def update(self, preds: Tensor, targets: Tensor) -> None:
+    def update(self, preds: Tensor, targets: Tensor, **kwargs) -> None:
         """Update the state with new predictions and targets."""
         # Loss calculated over samples/batch, accumulate loss over all batches
+        del kwargs
         self.sum_loss += soft_cross_entropy(preds, targets, ignore_index=self.ignore_index)
         assert isinstance(self.total_batches, Tensor)
         self.total_batches += 1
@@ -172,9 +175,10 @@ class LossMetric(Metric):
         self.add_state('sum_loss', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total_batches', default=torch.tensor(0), dist_reduce_fx='sum')
 
-    def update(self, preds: Tensor, targets: Tensor) -> None:
+    def update(self, preds: Tensor, targets: Tensor, **kwargs) -> None:
         """Update the state with new predictions and targets."""
         # Loss calculated over samples/batch, accumulate loss over all batches
+        del kwargs
         self.sum_loss += self.loss_function(preds, targets)
         self.total_batches += 1  # type: ignore
 

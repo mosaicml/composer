@@ -1,0 +1,13 @@
+{
+    "sample_prioritization": {
+        "name": "Sample Prioritization",
+        "class_name": "SamplePrioritization",
+        "functional": "sample_prioritization",
+        "tldr": "Drops examples with small loss contributions inspired by selective backprop.",
+        "domains": [
+            "nlp"
+        ],
+        "summary": "Prioritizes examples with high loss at each iteration, skipping examples based on heuristics.",
+        "use": "Generally applicable"
+    }
+}

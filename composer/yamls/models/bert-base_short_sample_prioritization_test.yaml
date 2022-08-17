@@ -1,0 +1,115 @@
+# Use a bert-base model, initialized from scratch
+model:
+  bert:
+    use_pretrained: false
+    tokenizer_name: bert-base-uncased
+    pretrained_model_name: bert-base-uncased
+
+trainer_metrics:
+  sequence_cross_entropy:
+    name: SequenceCrossEntropyConverged
+    vocab_size: 30522
+
+# Train the model on the English C4 corpus
+train_dataset:
+  streaming_c4:
+    remote: s3://allenai-c4/mds/1-gz/
+    local: /tmp/mds-cache/mds-c4/
+    split: train
+    shuffle: true
+    tokenizer_name: bert-base-uncased
+    max_seq_len: 128
+    group_method: truncate
+    mlm: true
+    mlm_probability: 0.15
+
+dataloader:
+  pin_memory: true
+  timeout: 0
+  prefetch_factor: 2
+  persistent_workers: true
+  num_workers: 8
+
+# Periodically evaluate the LanguageCrossEntropy and Masked Accuracy
+# on the validation split of the dataset.
+evaluators:
+  evaluator:
+    label: bert_pre_training
+    eval_dataset:
+      streaming_c4:
+        remote: s3://allenai-c4/mds/1-gz/
+        local: /tmp/mds-cache/mds-c4/
+        split: val
+        shuffle: false
+        tokenizer_name: bert-base-uncased
+        max_seq_len: 128
+        group_method: truncate
+        mlm: true
+        mlm_probability: 0.15
+    metric_names:
+      - SequenceCrossEntropyConverged
+      - LanguageCrossEntropy
+      - MaskedAccuracy
+    eval_interval: 50ba
+    subset_num_batches: 20
+  # evaluator:
+  #   label: end_of_training_eval
+  #   eval_dataset:
+  #     streaming_c4:
+  #       remote: s3://allenai-c4/mds/1-gz/
+  #       local: /tmp/mds-cache/mds-c4/
+  #       split: train
+  #       shuffle: true
+  #       tokenizer_name: bert-base-uncased
+  #       max_seq_len: 128
+  #       group_method: truncate
+  #       mlm: true
+  #       mlm_probability: 0.15
+  #   metric_names:
+  #     - SequenceCrossEntropyConverged
+
+algorithms:
+  sample_prioritization: {}
+
+callbacks:
+  data_saver:
+    filename: blorp
+    save_destination: blarp
+    metrics:
+      bert_pre_training: SequenceCrossEntropyConverged
+
+# Use the decoupled AdamW optimizer with learning rate warmup
+optimizers:
+  decoupled_adamw:
+    lr: 5.0e-4 # Peak learning rate
+    betas:
+      - 0.9
+      - 0.98
+    eps: 1.0e-06
+    weight_decay: 1.0e-5 # Amount of weight decay regularization
+schedulers:
+  linear_decay_with_warmup:
+    t_warmup: 0.06dur # Point when peak learning rate is reached
+    alpha_f: 0.02
+
+max_duration: 10000sp
+train_batch_size: 256 # Number of training examples to use per update
+eval_batch_size: 512
+
+seed: 17
+
+precision: amp # Use mixed-precision training
+grad_clip_norm: -1.0 # Turn off gradient clipping
+grad_accum: auto # Use automatic gradient accumulation to avoid OOMs
+
+save_folder: bert_checkpoints # The directory to save checkpoints to
+save_interval: 3500ba # Save checkpoints every 3500 batches
+
+loggers:
+  progress_bar: {} # Add a TQDM progress bar
+  # Optional, some nice default parameters for object store checkpointing. Uncomment this if you want to checkpoint to cloud.
+  object_store:
+   object_store_hparams:
+     s3:
+       bucket: mosaicml-internal-checkpoints-bert
+  in_memory: {}

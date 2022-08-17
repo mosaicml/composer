@@ -16,6 +16,7 @@ from torchmetrics import Metric, MetricCollection
 from composer.core.evaluator import Evaluator
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_hparams_registry import dataset_registry
+from composer.metrics import metric_registry
 from composer.models.base import ComposerModel
 
 log = logging.getLogger(__name__)

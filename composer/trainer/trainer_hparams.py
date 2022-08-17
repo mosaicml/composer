@@ -26,6 +26,7 @@ from composer.datasets.dataset_hparams_registry import dataset_registry
 from composer.datasets.evaluator_hparams import EvaluatorHparams
 from composer.loggers import LoggerDestination, LogLevel
 from composer.loggers.logger_hparams_registry import logger_registry
+from composer.metrics import MetricHparams, metric_hparams_registry, metric_registry
 from composer.models import (BERTForClassificationHparams, BERTHparams, DeepLabV3Hparams, EfficientNetB0Hparams,
                              GPT2Hparams, MnistClassifierHparams, ModelHparams, ResNetCIFARHparams, ResNetHparams,
                              SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
@@ -197,7 +198,8 @@ class TrainerHparams(hp.Hparams):
             ``val_dataset`` or ``evaluators`` is set. (default: ``None``)
         eval_interval (str, optional): See :class:`.Trainer`.
         eval_subset_num_batches (int, optional): See :class:`.Trainer`.
-
+        trainer_metrics (List[MetricHparams], optional): Additional metrics not declared
+            in/attached to model. Use to create ad-hoc eval metrics.
         callbacks (List[CallbackHparams], optional): Hparams to construct the callbacks to
             run during training. (default: ``[]``)
 
@@ -274,6 +276,7 @@ class TrainerHparams(hp.Hparams):
         'callbacks': callback_registry,
         'device': device_registry,
         'load_object_store': object_store_registry,
+        'trainer_metrics': metric_hparams_registry,
     }
 
     model: ModelHparams = hp.auto(Trainer, 'model')
@@ -309,6 +312,7 @@ class TrainerHparams(hp.Hparams):
     eval_batch_size: Optional[int] = hp.optional(doc='batch size to use for each evaluation step', default=None)
     eval_interval: Union[int, str] = hp.auto(Trainer, 'eval_interval')
     eval_subset_num_batches: int = hp.auto(Trainer, 'eval_subset_num_batches')
+    trainer_metrics: Optional[List[MetricHparams]] = hp.optional(doc='Additional metrics', default=None)
 
     # Callbacks
     callbacks: Optional[List[Callback]] = hp.auto(Trainer, 'callbacks')
@@ -454,6 +458,12 @@ class TrainerHparams(hp.Hparams):
             import torch_xla.distributed.xla_multiprocessing as xmp
 
             model = xmp.MpModelWrapper(model).to(xm.xla_device())
+
+        # Trainer (non-model-associated) metrics
+        if self.trainer_metrics:
+            for metric_hparams in self.trainer_metrics:
+                metric = metric_hparams.initialize_object()
+                metric_registry[metric_hparams.name] = metric
 
         # Train dataloader
         train_dataloader = _initialize_dataloader(self.train_dataset, self.train_dataloader_label,
