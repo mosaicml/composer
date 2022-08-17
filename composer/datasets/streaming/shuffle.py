@@ -115,9 +115,9 @@ class BlockCipherShuffler:
         num_shards = len(self.index.samples_per_shard)
         for shard_index, shard_id in enumerate(self.shuffle_indices):
             if shard_id % shuffle_buffer_size != 0:
-                pass
+                continue
 
-            first_shard_group_index = shard_index - (shard_index % shuffle_buffer_size)
+            first_shard_group_index = shard_index
             last_shard_group_index = min(first_shard_group_index + shuffle_buffer_size, num_shards)
 
             relative_id_to_shard_index = []
