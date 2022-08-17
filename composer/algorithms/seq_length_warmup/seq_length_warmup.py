@@ -313,7 +313,12 @@ class SeqLengthWarmup(Algorithm):
             # In-line to avoid circular dependency
             from composer.trainer.trainer import _get_device, _handle_cuda_oom
 
-            device_arg = _get_device(device.type) if device is not None else None
+            device_arg = None
+            if device is not None:
+                device_type = device.type
+                if 'cuda' in device.type:
+                    device_type = 'gpu'
+                device_arg = _get_device(device_type)
             if not _handle_cuda_oom(state, should_handle_cuda_oom, device_arg, device_batch_size, is_train=True):
                 self._activated = True
                 return
