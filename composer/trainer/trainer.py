@@ -161,7 +161,10 @@ def _get_initial_grad_accum(grad_accum: Union[int, str]):
 
 def _is_cuda_oom(e: RuntimeError):
     """Determines if error is CUDA Out of Memory and if adaptive_grad_accum is enabled."""
-    return 'CUDA out of memory' in str(e)
+    return 'CUDA out of memory' in str(
+        e
+    ) or 'cuDNN error: CUDNN_STATUS_NOT_SUPPORTED. This error may appear if you passed in a non-contiguous input.' in str(
+        e)
 
 
 def _handle_cuda_oom(state: State, should_handle_cuda_oom: int, device: Optional[Device], device_batch_size: int,
@@ -1605,7 +1608,7 @@ class Trainer:
                         self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                     if self.train_metrics is not None:
-                        self._eval_batch()
+                        self._eval_train_metrics()
 
                     self.state.model.train()
 
@@ -1715,7 +1718,7 @@ class Trainer:
         self.engine.run_event(Event.FIT_END)
         self._run_evaluators(Event.FIT_END, log_level=LogLevel.FIT)
 
-    def _eval_batch(self):
+    def _eval_train_metrics(self):
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
         assert self.train_metrics is not None, 'The train metrics should be set on __init__ or fit()'
 
@@ -1724,7 +1727,7 @@ class Trainer:
             # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
             device_batch = self.state.batch
 
-            # Retry until we successfully complete training and return loss
+            # Retry until we successfully complete evaluation
             while True:
                 # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
                 should_handle_cuda_oom = 0
@@ -2140,6 +2143,7 @@ class Trainer:
                 metrics = MetricCollection(metrics)
 
             metrics = self._ensure_metrics_device_and_dtype(metrics)
+
             metrics.reset()
             dataloader = self.state.dataloader
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
@@ -2163,19 +2167,7 @@ class Trainer:
 
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
-                self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-                with get_precision_context(self.state.precision):
-                    self.state.outputs, targets = self._original_model.validate(self.state.batch)
-                self.engine.run_event(Event.EVAL_AFTER_FORWARD)
-
-                # Run in same precision context to avoid NaNs
-                with get_precision_context(self.state.precision):
-                    if isinstance(self._device, DeviceMPS):
-                        # torchmetrics math has numerical errors on M1 devices
-                        # running the compute on CPU instead
-                        metrics.update(self.state.outputs.cpu(), targets.cpu())
-                    else:
-                        metrics.update(self.state.outputs, targets)
+                self._eval_batch(metrics)
 
                 now = datetime.datetime.now()
                 batch_time = now - last_wct
@@ -2209,6 +2201,43 @@ class Trainer:
         self.state.set_dataloader(original_dataloader, original_dataloader_label)
         if original_num_batches is not None:
             self.state.dataloader_len = original_num_batches
+
+    def _eval_batch(self, metrics: MetricCollection):
+        assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
+
+        # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
+        device_batch = self.state.batch
+
+        # Retry until we successfully complete evaluation
+        while True:
+            # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
+            should_handle_cuda_oom = 0
+            try:
+                for eval_microbatch in self._train_data_spec.split_batch(self.state.batch, self.state.eval_batch_split):
+                    self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
+                    with get_precision_context(self.state.precision):
+                        self.state.outputs, targets = self._original_model.validate(eval_microbatch)
+                    self.engine.run_event(Event.EVAL_AFTER_FORWARD)
+
+                    # Run in same precision context to avoid NaNs
+                    with get_precision_context(self.state.precision):
+                        if isinstance(self._device, DeviceMPS):
+                            # torchmetrics math has numerical errors on M1 devices
+                            # running the compute on CPU instead
+                            metrics.update(self.state.outputs.cpu(), targets.cpu())
+                        else:
+                            metrics.update(self.state.outputs, targets)
+            except RuntimeError as e:
+                if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
+                    log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
+                    should_handle_cuda_oom = 1
+                else:
+                    raise
+            device_batch_size = self._train_data_spec.get_num_samples_in_batch(device_batch)
+            if not _handle_cuda_oom(self.state, should_handle_cuda_oom, self._device, device_batch_size,
+                                    is_train=False):
+                # Return if we've successfully completed eval without OOMing.
+                return
 
     def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[GradScaler]) -> bool:
         """Determines based on precision when to use grad scaling.

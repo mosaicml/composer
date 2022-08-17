@@ -16,7 +16,6 @@ from composer.core.time import TimeUnit
 from composer.core.types import Batch
 from composer.loggers import Logger
 from composer.models import HuggingFaceModel
-from composer.trainer.trainer import _get_device, _handle_cuda_oom
 from composer.utils import ensure_tuple
 
 __all__ = ['SeqLengthWarmup', 'set_batch_sequence_length']
@@ -310,6 +309,9 @@ class SeqLengthWarmup(Algorithm):
                     should_handle_cuda_oom = 1
                 else:
                     raise
+
+            # In-line to avoid circular dependency
+            from composer.trainer.trainer import _get_device, _handle_cuda_oom
 
             device_arg = _get_device(device.type) if device is not None else None
             if not _handle_cuda_oom(state, should_handle_cuda_oom, device_arg, device_batch_size, is_train=True):
