@@ -61,7 +61,12 @@ def get_precision_context(precision: Union[str, Precision]) -> Generator[None, N
         with torch.cuda.amp.autocast(True):
             yield
     elif precision == Precision.BF16:
-        with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):
+        if torch.cuda.is_available():
+            with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):
+                yield
+        else:
+            import os
+            os.environ['XLA_USE_BF16'] = '1'
             yield
     else:
         raise ValueError(f'Unsupported precision: {precision}')

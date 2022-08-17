@@ -43,7 +43,7 @@ def _build_object_store(object_store_cls: Type[ObjectStore], object_store_kwargs
 class ObjectStoreLogger(LoggerDestination):
     r"""Logger destination that uploads artifacts to an object store.
 
-    This logger destination handles calls to :meth:`~composer.loggers.logger.Logger.file_artifact`
+    This logger destination handles calls to :meth:`.Logger.file_artifact`
     and uploads files to :class:`.ObjectStore`, such as AWS S3 or Google Cloud Storage. To minimize the training
     loop performance hit, it supports background uploads.
 

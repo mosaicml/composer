@@ -144,7 +144,10 @@ extra_deps['wandb'] = [
     'wandb>=0.12.17,<0.13',
 ]
 
-extra_deps['tensorboard'] = ['tensorboard>=2.9.1,<3.0.0']
+extra_deps['tensorboard'] = [
+    'tensorboard>=2.9.1,<3.0.0',
+    'tensorflow-io>=0.26.0,<0.27',
+]
 
 extra_deps['unet'] = [
     'monai>=0.8.0,<0.9',

@@ -9,33 +9,34 @@ The order in which algorithms are run matters significantly during composition. 
 :class:`.SelectiveBackprop` algorithm runs on the :attr:`.Event.AFTER_DATALOADER` event and must run before
 any data augmentations. :class:`.Engine` runs re-ordering passes to resolve such ordering issues or conflicts.
 
+These orderings are enforced by algorithm passes. The default passes registered to the Engine are found in
+:mod:`composer.core.passes`. To register a new pass, use :meth:`.Engine.register_pass`, e.g.
+
+
+.. testsetup::
+
+    # dummy algorithm
+    MyAlgorithm = None
+
+.. doctest::
+
+    from composer import Engine, Algorithm, Event
+    from typing import Sequence
+
+    def run_last(algorithms: Sequence[Algorithm], event: Event) -> Sequence[Algorithm]:
+        algorithms = sorted(algorithms, key=lambda x: isinstance(x, MyAlgorithm))
+
+    Engine.register_pass(run_last)
+
 .. note::
 
     * An instance of :class:`.Engine` is automatically constructed by the :class:`.Trainer`
       constructor. A user need not instantiate the :class:`.Engine` class.
 
+.. note::
     * The design of :class:`.Engine` is subject to change in future releases
       to accommodate more complexity as we investigate composition of algorithms.
 
-
-Currently, the following passes are registered:
-
-* **LIFO order for events**
-
-  For the events that follow the ``before_*`` (e.g., :attr:`.Event.BEFORE_LOSS`) and ``after_*`` (e.g.,
-  :attr:`.Event.AFTER_LOSS`) pattern, the ordering of algorithms is reversed for the ``after_*`` events. For example,
-  four given algorithms ``A``, ``B``, ``C``, and ``D`` will run in ``ABCD`` ordering on the ``before_*`` event while
-  ``DCBA`` ordering on the ``after_*`` event.
-
-  This allows algorithms to "clean up" their changes. For example, :class:`.LabelSmoothing` will smooth the labels
-  upon the :attr:`.Event.BEFORE_LOSS` event and then restore the original unsmoothed labels on the
-  :attr:`.Event.AFTER_LOSS` event.
-
-* **Run Selective Backprop first**
-
-  :class:`.SelectiveBackprop` runs after the dataloader returns the batch and executes an extra forward pass to rank
-  and prune the examples in the batch by loss. To ensure a clean estimate of loss, :class:`.SelectiveBackprop` should
-  run before any other data augmentations (e.g., :class:`.MixUp`) on the :attr:`.Event.AFTER_DATALOADER` event.
 
 Trace
 ~~~~~
@@ -64,12 +65,12 @@ from __future__ import annotations
 import atexit
 import contextlib
 import logging
-import warnings
 import weakref
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import ContextManager, Dict, Optional, Sequence, Union, cast
+from typing import ContextManager, Dict, List, Optional, Sequence, TypeVar, Union, cast
 
+from composer.core import passes
 from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.event import Event
@@ -81,34 +82,14 @@ log = logging.getLogger(__name__)
 
 __all__ = ['Trace', 'Engine', 'Traces']
 
+T = TypeVar('T')
+
+_ALWAYS_RECORD_EVENTS = [Event.INIT, Event.FIT_START, Event.EPOCH_START, Event.EPOCH_END]
+
 #: The default traces of an entire run is an OrderedDict.
 #: The keys are of format ``<algorithm_name>/<event>`` (e.g.,  ``Blurpool/INIT``) and values are an instance of
 #: :class:`Trace`.
 Traces = Dict[str, 'Trace']
-
-_ALWAYS_RECORD_EVENTS = [Event.INIT, Event.FIT_START, Event.EPOCH_START, Event.EPOCH_END]
-_EVENTS_WHERE_DATALOADER_IS_SET = [e for e in Event if e != Event.INIT]
-_EVENTS_WHERE_MAX_DURATION_IS_SET = [
-    Event.FIT_START,
-    Event.EPOCH_START,
-    Event.BATCH_START,
-    Event.AFTER_DATALOADER,
-    Event.BEFORE_TRAIN_BATCH,
-    Event.BEFORE_FORWARD,
-    Event.AFTER_FORWARD,
-    Event.BEFORE_LOSS,
-    Event.AFTER_LOSS,
-    Event.BEFORE_BACKWARD,
-    Event.AFTER_BACKWARD,
-    Event.AFTER_TRAIN_BATCH,
-    Event.BATCH_END,
-    Event.BATCH_CHECKPOINT,
-    Event.EPOCH_END,
-    Event.EPOCH_CHECKPOINT,
-    Event.FIT_END,
-]
-_EVAL_EVENTS = [e for e in Event if e.name.startswith('EVAL_')]
-_PREDICT_EVENTS = [e for e in Event if e.name.startswith('PREDICT_')]
 
 # Track whether atexit triggered _close(), which indicates whether the python process is shutting down
 # If so, do not run close() again via __del__(), as Python machinery (e.g. the ability to do conditional
@@ -125,6 +106,15 @@ def _set_atexit_ran():
 # Since atexit calls hooks in LIFO order, this hook will always be invoked after all atexit-triggered
 # _close() calls are invoked
 atexit.register(_set_atexit_ran)
+
+
+def _get_default_passes():
+    return [
+        passes.sort_selective_backprop_first,
+        passes.sort_fused_layernorm_last,
+        passes.set_filo_order,
+        passes.warn_if_multiple_loss_interpolation,
+    ]
 
 
 @dataclass
@@ -173,6 +163,9 @@ class Engine():
         self.logger = logger
         self.state = state
         self._is_closed = False
+
+        self.algorithm_passes: List[passes.AlgorithmPass] = _get_default_passes()
+
         atexit.register(self._close, state, logger)
 
     def run_event(
@@ -223,7 +216,7 @@ class Engine():
         if self.state.profiler is not None:
             name = f'event/{event.canonical_name}'
             if (event.is_before_event or event.is_after_event):
-                # if not part of an event pair (e.g. init or after dataloader), then don't record an event here
+                # if not part of an event pair (e.g. init), then don't record an event here
                 if event in _ALWAYS_RECORD_EVENTS:
                     actions = [ProfilerAction.ACTIVE, ProfilerAction.WARMUP, ProfilerAction.SKIP]
                 else:
@@ -233,11 +226,7 @@ class Engine():
         if event.is_after_event and duration_marker is not None:
             duration_marker.finish()
 
-        if event in _EVENTS_WHERE_DATALOADER_IS_SET:
-            assert self.state.dataloader is not None, f'The trainer should have set state.dataloader for event {event}.'
-
-        if event in _EVENTS_WHERE_MAX_DURATION_IS_SET:
-            assert self.state.max_duration is not None, f'The trainer should have set state.max_duration for event {event}.'
+        self._assert_dataloader_and_duration_set(self.state, event)
 
         if event == Event.INIT:
             # For the INIT event, run the callbacks first to initialize the loggers
@@ -254,13 +243,73 @@ class Engine():
 
         return traces
 
+    def run_marker_only_event(
+        self,
+        event: Union[Event, str],
+    ) -> None:
+        """Runs the marker for an event if the profiler is enabled.
+
+        This is primarily used to complete the dataloader marker at the end of the dataloader. In
+        this scenario, the dataloader marker has started from Event.BEFORE_DATALOADER, but
+        Event.AFTER_DATALOADER cannot be called as no batch was yielded from the dataloader.
+
+        Args:
+            event (Event | str): The current :class:`.Event`. It can be the enum member values or a
+                string with the event value.
+        """
+        duration_marker = None
+        event = Event(event)
+
+        if self._is_closed:
+            raise RuntimeError(('The engine was already closed and therefore cannot be used again. '
+                                'To fix, please create a new Engine (or Trainer)'))
+
+        if self.state.profiler is not None:
+            name = f'event/{event.canonical_name}'
+            if (event.is_before_event or event.is_after_event):
+                # if not part of an event pair (e.g. init), then don't record an event here
+                if event in _ALWAYS_RECORD_EVENTS:
+                    actions = [ProfilerAction.ACTIVE, ProfilerAction.WARMUP, ProfilerAction.SKIP]
+                else:
+                    actions = [ProfilerAction.ACTIVE, ProfilerAction.WARMUP]
+                duration_marker = self.state.profiler.marker(name, actions=actions)
+
+        if event.is_after_event and duration_marker is not None:
+            duration_marker.finish()
+        if event.is_before_event and duration_marker is not None:
+            duration_marker.start()
+
+    def register_pass(self, algorithm_pass: passes.AlgorithmPass, index: int = -1):
+        """Registers an algorithm pass with the Engine.
+
+        Args:
+            algorithm_pass (passes.AlgorithmPass): A method that maps a list of
+                algorithms to a list of algorithms.
+            index (int, optional): The index to insert into the list of passes.
+                If -1 (default), the pass will be insert to the end of the list.
+        """
+        if index == -1:
+            index = len(self.algorithm_passes)
+
+        self.algorithm_passes.insert(index, algorithm_pass)
+
+    @staticmethod
+    def _assert_dataloader_and_duration_set(state: State, event: Event):
+        # correctness checks that dataloader and max duration need to be set for certain events
+
+        if event != Event.INIT:  # datalaoder should be set on all events expect INIT
+            assert state.dataloader is not None, f'The trainer should have set state.dataloader for event {event}.'
+
+        if event != Event.INIT and not event.is_predict and not event.is_eval:
+            assert state.max_duration is not None, f'The trainer should have set state.max_duration for event {event}.'
+
     def _run_algorithms(
         self,
         event: Event,
     ) -> Traces:
         algorithms_to_run = [algo for algo in self.state.algorithms if algo.match(event, self.state)]
 
-        # future collision resolution
+        # apply algorithm passes
         algorithms_to_run = self._compile(algorithms_to_run, event)
 
         trace = _setup_trace(algorithms_to_run, event)
@@ -321,30 +370,11 @@ class Engine():
         Returns:
             Sequence[Algorithm]: Modified sequence of algorithms.
         """
-        from composer.algorithms import CutMix, FusedLayerNorm, MixUp, SelectiveBackprop, StochasticDepth
+        # run reordering passes on the algorithms
+        for passes in self.algorithm_passes:
+            algorithms_to_run = passes(algorithms_to_run, event)
 
-        # Move selective backprop to the beginning while maintaining order of other algorithms
-        algorithms = sorted(algorithms_to_run,
-                            key=lambda x: not isinstance(x, SelectiveBackprop) and not isinstance(x, StochasticDepth))
-
-        # Move fused layernorm to the end while maintaining order of other algorithms (FLN only does surgery on leaf modules)
-        algorithms = sorted(algorithms, key=lambda x: isinstance(x, FusedLayerNorm))
-
-        # Check for multiple algorithms that try to interpolate the loss at the same time
-        interpolation_settings = [a.interpolate_loss for a in algorithms if isinstance(a, (CutMix, MixUp))]
-        if sum(interpolation_settings) > 1:
-            warnings.warn(
-                'Multiple algorithms are trying to interpolate the loss. This can result in strange behavior.')
-
-        if event.is_after_event:
-            """Establish a FILO queue of algorithms ``before_`` and ``after_`` an event.
-
-            before_loss: A, B, C, D
-            after_loss: D, C, B, A
-            """
-            algorithms = list(reversed(algorithms))
-
-        return algorithms
+        return algorithms_to_run
 
     def _run_callbacks(
         self,
@@ -392,32 +422,17 @@ class Engine():
 
     def _debug_log(self, event: Event, msg: str):
         """Helper to include timestamp and event info in log messages."""
-        if event in _EVAL_EVENTS:
-            log.debug(
-                '[ep=%i][ba=%i][eval_ba=%i][event=%s]: %s',
-                int(self.state.timestamp.epoch),
-                int(self.state.timestamp.batch),
-                int(self.state.eval_timestamp.batch),
-                event.name,
-                msg,
-            )
-        elif event in _PREDICT_EVENTS:
-            log.debug(
-                '[ep=%i][ba=%i][predict_ba=%i][event=%s]: %s',
-                int(self.state.timestamp.epoch),
-                int(self.state.timestamp.batch),
-                int(self.state.predict_timestamp.batch),
-                event.name,
-                msg,
-            )
-        else:
-            log.debug(
-                '[ep=%i][ba=%i][event=%s]: %s',
-                int(self.state.timestamp.epoch),
-                int(self.state.timestamp.batch),
-                event.name,
-                msg,
-            )
+        timestamp = f'[ep={int(self.state.timestamp.epoch)}][ba={int(self.state.timestamp.batch)}]'
+
+        # for eval or pr
+        if event.is_eval:
+            timestamp += f'[eval_ba={int(self.state.eval_timestamp.batch)}]'
+        if event.is_predict:
+            timestamp += f'[predict_ba={int(self.state.predict_timestamp.batch)}]'
+
+        timestamp += f'[event={event.name}]'
+
+        log.debug(f'{timestamp}: {msg}')
 
     def close(self) -> None:
         """Shutdown the engine.

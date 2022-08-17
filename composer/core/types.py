@@ -21,7 +21,7 @@ import torch.utils.data
 
 from composer.utils.string_enum import StringEnum
 
-__all__ = ['Batch', 'PyTorchScheduler', 'JSON', 'MemoryFormat', 'BreakEpochException']
+__all__ = ['Batch', 'PyTorchScheduler', 'JSON', 'MemoryFormat', 'TrainerMode', 'BreakEpochException']
 
 Batch = Any
 
@@ -37,8 +37,20 @@ class BreakEpochException(Exception):
 
     If you're wondering whether you should use this, the answer is no.
     """
-
     pass
+
+
+class TrainerMode(StringEnum):
+    """Enum to represent which mode the Trainer is in.
+
+    Attributes:
+        TRAIN: In training mode.
+        EVAL: In evaluation mode.
+        PREDICT: In predict mode.
+    """
+    TRAIN = 'train'
+    EVAL = 'eval'
+    PREDICT = 'predict'
 
 
 class MemoryFormat(StringEnum):
