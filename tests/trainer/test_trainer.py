@@ -14,7 +14,6 @@ import pytest
 import torch
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
-from torchmetrics import Accuracy
 
 from composer import Callback, Evaluator, Trainer
 from composer.algorithms import CutOut, LabelSmoothing
@@ -285,12 +284,16 @@ class TestTrainerInitOrFit:
         'eval_dataloader',
         [
             DataLoader(RandomClassificationDataset(size=2)),  # a normal dataloader
-            Evaluator(label='eval', dataloader=DataLoader(RandomClassificationDataset(size=2)),
-                      metrics=Accuracy()),  # an evaluator
+            Evaluator(label='eval',
+                      dataloader=DataLoader(RandomClassificationDataset(size=2)),
+                      metric_names=['Accuracy']),  # an evaluator
             [  # multiple evaluators
-                Evaluator(label='eval1', dataloader=DataLoader(RandomClassificationDataset(size=2)),
-                          metrics=Accuracy()),
-                Evaluator(label='eval2', dataloader=DataLoader(RandomClassificationDataset(size=2)), metrics=Accuracy())
+                Evaluator(label='eval1',
+                          dataloader=DataLoader(RandomClassificationDataset(size=2)),
+                          metric_names=['Accuracy']),
+                Evaluator(label='eval2',
+                          dataloader=DataLoader(RandomClassificationDataset(size=2)),
+                          metric_names=['Accuracy'])
             ],
         ])
     def test_eval_dataloader(

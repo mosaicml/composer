@@ -106,9 +106,9 @@ To compute metrics during training, implement the following methods:
    def metrics(self, train=False) -> Metrics:
        ...
 
-where ``Metrics`` should be compatible with the ``torchmetrics`` package. We
+where ``Metrics`` should be compatible with the ``torchmetrics.Metrics`` protocol. We
 require that the output of :meth:`.ComposerModel.validate` be consumable by
-``torchmetrics``. Specifically, the validation loop does something like this:
+that protocol. Specifically, the validation loop does something like this:
 
 .. code:: python
 
@@ -116,7 +116,7 @@ require that the output of :meth:`.ComposerModel.validate` be consumable by
 
     for batch in val_dataloader:
         outputs, targets = model.validate(batch)
-        metrics.update(outputs, targets)  # implements the torchmetrics interface
+        metrics.update(outputs, targets)
 
     metrics.compute()
 

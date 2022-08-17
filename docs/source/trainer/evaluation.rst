@@ -28,7 +28,7 @@ This class is just a container for a few attributes:
 - ``label``: a user-specified name for the metric.
 - ``dataloader``: PyTorch :class:`~torch.utils.data.DataLoader` or our :class:`.DataSpec`.
     See :doc:`DataLoaders</trainer/dataloaders>` for more details.
-- ``metrics``: :class:`torchmetrics.Metric` or :class:`torchmetrics.MetricCollection`.
+- ``metric_names``: list of names of metrics to track.
 
 For example, the `GLUE <https://gluebenchmark.com>`__ tasks for language models
 can be specified as in the following example:
@@ -36,19 +36,18 @@ can be specified as in the following example:
 .. code:: python
 
     from composer.core import Evaluator
-    from torchmetrics import Accuracy, MetricCollection
     from composer.models.nlp_metrics import BinaryF1Score
 
     glue_mrpc_task = Evaluator(
         label='glue_mrpc',
         dataloader=mrpc_dataloader,
-        metrics=MetricCollection([BinaryF1Score(), Accuracy()])
+        metric_names=['BinaryF1Score', 'Accuracy']
     )
 
     glue_mnli_task = Evaluator(
         label='glue_mnli',
         dataloader=mnli_dataloader,
-        metrics=Accuracy()
+        metric_names=['Accuracy']
     )
 
     trainer = Trainer(
@@ -56,6 +55,3 @@ can be specified as in the following example:
         eval_dataloader=[glue_mrpc_task, glue_mnli_task],
         ...
     )
-
-In this case, the metrics from :meth:`.ComposerModel.metrics` will be ignored
-since they are explicitly provided above.
