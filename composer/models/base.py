@@ -7,7 +7,7 @@ from __future__ import annotations
 import abc
 import copy
 import warnings
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 import torch
 from torch import Tensor
@@ -201,7 +201,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         )
         return self.get_metrics(train)
 
-    def validate(self, batch: Batch):
+    def validate(self, batch: Batch) -> Tuple[Any, Any]:
         """Compute model outputs on provided data. Will be called by the trainer with :class:`torch.no_grad` enabled.
 
         The output of this function will be directly used as input
@@ -239,7 +239,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         warnings.warn(
             'Using ``validate()`` is no longer supported and will be removed in a future version. Please use ``eval_forward()`` instead.'
         )
-        return self.eval_forward(batch), None
+        return None, None
 
     def eval_forward(
         self,

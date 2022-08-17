@@ -1564,10 +1564,15 @@ class Trainer:
                                 # data and if so print a warning that metrics may return unexpected results
                                 with get_precision_context(self.state.precision):
                                     # Run in same precision context to avoid NaNs
-                                    outputs = self.state.model.forward(eval_microbatch)
-                                    eval_outputs = self.state.model.eval_forward(eval_microbatch, outputs)
+                                    if any(self._original_model.validate(
+                                            eval_microbatch)):  # backwards compatibility check
+                                        eval_outputs, _ = self._original_model.validate(eval_microbatch)
+                                    else:
+                                        outputs = self.state.model.forward(eval_microbatch)
+                                        eval_outputs = self.state.model.eval_forward(eval_microbatch, outputs)
+
                                     for _, metric in self.state.train_metrics.items():
-                                        self.state.model.update_metric(
+                                        self._original_model.update_metric(
                                             eval_microbatch,
                                             eval_outputs,
                                             metric,
@@ -2143,7 +2148,10 @@ class Trainer:
 
                 self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
                 with get_precision_context(self.state.precision):
-                    self.state.outputs = self.state.model.eval_forward(self.state.batch)
+                    if any(self._original_model.validate(self.state.batch)):  # backwards compatibility check
+                        self.state.outputs, _ = self._original_model.validate(self.state.batch)
+                    else:
+                        self.state.outputs = self._original_model.eval_forward(self.state.batch)
                 self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
                 # Run in same precision context to avoid NaNs
@@ -2156,7 +2164,7 @@ class Trainer:
                         outputs = self.state.outputs
 
                     for _, metric in metrics.items():
-                        self.state.model.update_metric(
+                        self._original_model.update_metric(
                             self.state.batch,
                             outputs,
                             metric,
