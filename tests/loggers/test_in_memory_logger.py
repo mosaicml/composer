@@ -7,6 +7,7 @@ import numpy as np
 
 from composer.core import State, Time, Timestamp
 from composer.loggers import InMemoryLogger, Logger
+from tests.fixtures.new_fixtures import empty_logger, minimal_state
 
 
 def test_in_memory_logger(dummy_state: State):
@@ -35,8 +36,8 @@ def test_in_memory_logger(dummy_state: State):
 
 def test_in_memory_logger_get_timeseries():
     in_memory_logger = InMemoryLogger()
-    state = MagicMock()
-    logger = MagicMock()
+    state = minimal_state
+    logger = empty_logger
     in_memory_logger.init(state, logger)
     data = {'accuracy/val': [], 'batch': [], 'batch_in_epoch': []}
     for i in range(10):
