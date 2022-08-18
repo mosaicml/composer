@@ -206,8 +206,8 @@ setup(name=package_name,
       version=composer_version,
       author='MosaicML',
       author_email='team@mosaicml.com',
-      description='Composer provides well-engineered implementations of efficient training methods to give '
-      'the tools that help you train a better model for cheaper.',
+      description=('Composer is a PyTorch library that enables you to train ' +
+                   'neural networks faster, at lower cost, and to higher accuracy.'),
       long_description=long_description,
       long_description_content_type='text/markdown',
       url='https://github.com/mosaicml/composer',
