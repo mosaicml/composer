@@ -143,7 +143,6 @@ class StreamingDataset(IterableDataset):
         self.max_retries = max_retries
         self.timeout = timeout
         self.batch_size = batch_size
-        self.world = get_world()
 
         self.compression_scheme = None
         if remote is not None:
@@ -182,8 +181,9 @@ class StreamingDataset(IterableDataset):
         self._sample_count = 0
         self._restored_sample_count = 0
         self._shuffle_buffer_size = self._parse_shuffle_buffer_size(shuffle_size)
-        num_nodes = self.world.global_num_devices
-        global_rank = self.world.global_device
+        world = get_world()
+        num_nodes = world.global_num_devices
+        global_rank = world.global_device
         if shuffle:
             cipher_key = 42  # initialize using an arbitrary cipher key
             self.shuffler = BlockCipherShuffler(cipher_key, self.index, num_nodes, global_rank,
@@ -212,8 +212,9 @@ class StreamingDataset(IterableDataset):
         cipher_key = self.shuffler._cipher_key
         if 'cipher_key' in state:
             cipher_key = state['cipher_key']
-        num_nodes = self.world.global_num_nodes
-        global_rank = self.world.global_node
+        world = get_world()
+        num_nodes = world.global_num_nodes
+        global_rank = world.global_node
         self.shuffler = BlockCipherShuffler(cipher_key, self.index, num_nodes, global_rank,
                                             int(self._shuffle_buffer_size))
         self._shard_shuffle_indices = self.shuffler.shuffle_indices
@@ -316,8 +317,6 @@ class StreamingDataset(IterableDataset):
             Any: The sample.
         """
         shard = self.index.sample_id_shards[idx]
-        if self.shuffle == False:
-            shard = (shard // self.world.global_num_devices) * self.world.global_num_devices + self.world.global_device
         offset = self.index.sample_shard_offsets[idx]
         size = self.index.bytes_per_sample[idx]
 
