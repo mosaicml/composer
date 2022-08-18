@@ -284,7 +284,7 @@ class StreamingDatasetIndex(object):
         """
         samples_per_shard_shuffled = np.array([self.samples_per_shard[ix] for ix in self.shuffle_indices])
         indices = self.shuffle_indices
-        owned_samples = set(self.shuffle_indices)
+        owned_shards = set(self.shuffle_indices)
 
         shard_ends = self.bytes_per_shard.cumsum()
         shard_begins = shard_ends - self.bytes_per_shard
@@ -306,7 +306,7 @@ class StreamingDatasetIndex(object):
         sample_shards = np.array(sample_shards, np.int64)
         shard_samples = np.array(shard_samples, np.int64)
 
-        mask = np.array([x in owned_samples for x in sample_id_shards])
+        mask = np.array([x in owned_shards for x in sample_id_shards])
 
         sample_ends = self.bytes_per_sample.astype(np.int64).cumsum()
         sample_begins = sample_ends - self.bytes_per_sample

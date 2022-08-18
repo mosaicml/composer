@@ -356,5 +356,9 @@ class StreamingDataset(IterableDataset):
                     if self._download_status == _DownloadStatus.FAILED:
                         raise self._download_exception
                     elif self._download_status == _DownloadStatus.DONE:
+                        if not self.shuffle and self.index.sample_id_shards[
+                                self._sample_count] not in self._shard_shuffle_indices:
+                            self._sample_count += 1
+                            continue
                         raise e
                 sleep(0.25)
