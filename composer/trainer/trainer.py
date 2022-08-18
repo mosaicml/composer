@@ -1424,7 +1424,7 @@ class Trainer:
 
         return metrics
 
-    def _compute_and_log_metrics(self, dataloader_label: str,   metrics: MetricCollection):
+    def _compute_and_log_metrics(self, dataloader_label: str, metrics: MetricCollection):
         """Computes metrics, logs the results, and updates the state with the deep-copied metrics.
 
         Args:
@@ -1435,10 +1435,8 @@ class Trainer:
 
         # log computed metrics
         computed_metrics = metrics.compute()
-        self.logger.log_metrics(
-            {f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},
-            step=self.state.timestamp.batch.value
-        )
+        self.logger.log_metrics({f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},
+                                step=self.state.timestamp.batch.value)
 
         # store metric instances
         for metric_name, metric in metrics.items():
@@ -1615,7 +1613,6 @@ class Trainer:
 
                     # `now` is actually in the past, but want to include the time it takes to perform this reduction
                     last_wct = now
-
 
                     if self._scheduler_step_frequency == TimeUnit.BATCH:
                         for scheduler in self.state.schedulers:

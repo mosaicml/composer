@@ -7,13 +7,13 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import Any, Callable, Dict, List, Optional, TextIO, Union
+from typing import Any, Dict, List, Optional, TextIO, Union
 
 import tqdm.auto
 
 from composer.core.state import State
 from composer.core.time import Timestamp, TimeUnit
-from composer.loggers.logger import Logger, LogLevel, format_log_data_value
+from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist, is_notebook
 
@@ -172,14 +172,12 @@ class ProgressBarLogger(LoggerDestination):
     def show_pbar(self) -> bool:
         return self._show_pbar and dist.get_local_rank() == 0
 
-
     def log_traces(self, traces: Dict[str, Any]):
         if self.should_log_to_console:
             for trace_name, trace in traces.items():
                 trace_str = format_log_data_value(trace)
                 self._log_to_console(f'[trace]: {trace_name}:' + trace_str + '\n')
 
-        
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         if self.should_log_to_console:
             for hparam_name, hparam in hyperparameters.items():
