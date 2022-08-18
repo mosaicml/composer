@@ -265,20 +265,25 @@ class StreamingDataset(IterableDataset):
 
         shard_ids = self._shard_shuffle_indices[0:]
 
-        for _, shard_id in enumerate(shard_ids):
+        world = get_world()
+
+        for shard_idx, shard_id in enumerate(shard_ids):
+            if (shard_idx % world.device_num_workers) != world.device_worker:
+                continue
             basename = get_shard_basename(shard_id, compression_name=self.compression_scheme)
             try:
-                print('downloading file', basename)
                 self._download_file(basename, wait=(dist.get_local_rank() != 0))
-                print('downloaded file', basename)
+                print('downloaded file')
+                with self._lock:
+                    self._shards_downloaded += 1
+                    print(f'downloaded shard {self._shards_downloaded} of {len(self._shard_shuffle_indices)}')
+                    if self._shards_downloaded == len(self._shard_shuffle_indices):
+                        self._download_status = _DownloadStatus.DONE
+
             except Exception as e:
                 with self._lock:
                     self._download_status = _DownloadStatus.FAILED
                     self._download_exception = e
-
-        with self._lock:
-            if dist.get_local_rank() == 0:
-                self._download_status = _DownloadStatus.DONE
 
     def __len__(self) -> int:
         """Get the length of the dataset.
