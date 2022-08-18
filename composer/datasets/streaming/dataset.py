@@ -316,9 +316,18 @@ class StreamingDataset(IterableDataset):
         Returns:
             Any: The sample.
         """
-        shard = self.index.sample_id_shards[idx]
-        offset = self.index.sample_shard_offsets[idx]
-        size = self.index.bytes_per_sample[idx]
+        shard = None
+        offset = None
+        size = None
+
+        if not self.shuffle:
+            shard = self.index.unshuffled_index_to_shard[idx]
+            offset = self.index.unshuffled_index_to_offset[idx]
+            size = self.index.unshuffled_index_to_bytes[idx]
+        else:
+            shard = self.index.sample_id_shards[idx]
+            offset = self.index.sample_shard_offsets[idx]
+            size = self.index.bytes_per_sample[idx]
 
         basename = get_shard_basename(shard)
         shard_filename = os.path.join(self.local, basename)
@@ -356,10 +365,5 @@ class StreamingDataset(IterableDataset):
                     if self._download_status == _DownloadStatus.FAILED:
                         raise self._download_exception
                     elif self._download_status == _DownloadStatus.DONE:
-                        if not self.shuffle and self.index.sample_id_shards[
-                                self._sample_count] not in self._shard_shuffle_indices:
-                            self._sample_count += 1
-                            print('skipping')
-                            continue
                         raise e
                 sleep(0.25)
