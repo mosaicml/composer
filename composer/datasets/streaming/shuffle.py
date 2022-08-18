@@ -115,7 +115,7 @@ class BlockCipherShuffler:
         self.shuffle_buffer_size = shuffle_buffer_size
         num_shards = len(self.index.samples_per_shard)
         for shard_index, shard_id in enumerate(self.shuffle_indices):
-            if shard_id % shuffle_buffer_size != 0:
+            if shard_index % shuffle_buffer_size != 0:
                 continue
 
             first_shard_group_index = shard_index
