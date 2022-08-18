@@ -331,7 +331,7 @@ Composer is an active and ongoing project. We will respond quickly to issues fil
 
 # 🧐 Why shouldn’t I use Composer?
 
-* Composer is mostly optimized for computer vision (CV) and natural language processing (NLP). If you work on, e.g., reinforcement learning, you might encounter rough edges when using Composer.
+* Composer is mostly optimized for computer vision and natural language processing. If you work on, e.g., reinforcement learning, you might encounter rough edges when using Composer.
 * Composer currently only supports NVIDIA GPUs, although we're working on adding alternatives.
 * Since Composer is still in alpha, our API may not be stable. We recommend pegging your work to a Composer version.
 
