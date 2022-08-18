@@ -193,7 +193,7 @@ class StreamingDataset(IterableDataset):
         else:
             N = self.index.num_shards
             self._shard_shuffle_indices = np.arange(N)[(np.arange(N) % num_nodes) == global_rank]
-            if not self._shard_shuffle_indices:
+            if len(self._shard_shuffle_indices) == 0:
                 self._shard_shuffle_indices = np.array([0])
             self.index.relocate_samples(self._shard_shuffle_indices)
         self.num_samples = np.sum(self.index.samples_per_shard[self._shard_shuffle_indices])
