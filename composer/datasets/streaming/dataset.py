@@ -263,6 +263,8 @@ class StreamingDataset(IterableDataset):
                 raise ValueError('shuffling is on but no seed was specified')
             current_shard_index = self.shuffler.get_shard_index(current_shard_id)
             current_shard_index -= current_shard_index % self._shuffle_buffer_size
+        if self.restored_sample_count == 0:
+            current_shard_index = 0
 
         shard_ids = self._shard_shuffle_indices[current_shard_index:]
 
