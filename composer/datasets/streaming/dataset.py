@@ -272,7 +272,7 @@ class StreamingDataset(IterableDataset):
                 continue
             basename = get_shard_basename(shard_id, compression_name=self.compression_scheme)
             try:
-                self._download_file(basename, wait=(dist.get_local_rank() != 0))
+                self._download_file(basename, wait=False)
                 print('downloaded file')
                 with self._lock:
                     self._shards_downloaded += 1
