@@ -328,6 +328,7 @@ class StreamingDataset(IterableDataset):
         size = None
 
         if not self.shuffle:
+            idx = idx % self.num_samples
             shard = self.index.unshuffled_index_to_shard[idx]
             offset = self.index.unshuffled_index_to_offset[idx]
             size = self.index.unshuffled_index_to_bytes[idx]
@@ -373,4 +374,4 @@ class StreamingDataset(IterableDataset):
                         raise self._download_exception
                     elif self._download_status == _DownloadStatus.DONE:
                         raise e
-                sleep(0.25)
+                sleep(0.05)
