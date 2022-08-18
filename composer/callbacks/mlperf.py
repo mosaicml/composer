@@ -89,7 +89,7 @@ class MLPerfCallback(Callback):
                 target='0.759',
             )
 
-    During training, the metric found in ``state.current_metrics[metric_label][metric_name]``
+    During training, the metric found in ``state.eval_metrics[metric_label][metric_name]``
     will be compared against the target criterion.
 
     .. note::
@@ -117,7 +117,7 @@ class MLPerfCallback(Callback):
         metric_name (str, optional): name of the metric to compare against the target.
             Default: ``Accuracy``.
         metric_label (str, optional): The label name. The metric will be accessed via
-            ``state.current_metrics[metric_label][metric_name]``.
+            ``state.eval_metrics[metric_label][metric_name]``.
         submitter (str, optional): Submitting organization. Default: ``"MosaicML"``.
         system_name (str, optional): Name of the system (e.g. 8xA100_composer). If
             not provided, system name will default to ``[world_size]x[device_name]_composer``,
@@ -241,10 +241,10 @@ class MLPerfCallback(Callback):
             self.mllogger.event(key=key, value=value)
 
     def _get_accuracy(self, state: State) -> float:
-        if self.metric_name not in state.current_metrics[self.metric_label]:
+        if self.metric_name not in state.eval_metrics[self.metric_label]:
             raise ValueError(f'{self.metric_name} must be a validation metric.')
 
-        metric = state.current_metrics[self.metric_label][self.metric_name]
+        metric = state.eval_metrics[self.metric_label][self.metric_name].compute()
         return float(metric)
 
     def _get_dataloader_stats(self, dataloader: Iterable):

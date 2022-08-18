@@ -83,7 +83,7 @@ The above code, when run, will produce the checkpoints below:
     >>> list(state_dict)
     ['state', 'rng']
     >>> list(state_dict['state'].keys())
-    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timestamp', 'rank_zero_seed', 'current_metrics', 'run_name']
+    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timestamp', 'rank_zero_seed', 'train_metrics', 'eval_metrics', 'run_name']
 
 Resume training
 ---------------
@@ -159,7 +159,9 @@ state from the checkpoint are not compatible with these new objects.
     +-----------------------+-------------------------------------------------------------+
     | rank_zero_seed        | The seed of the rank zero process.                          |
     +-----------------------+-------------------------------------------------------------+
-    | current_metrics       | The current metrics.                                        |
+    | train_metrics         | The current training metrics.                               |
+    +-----------------------+-------------------------------------------------------------+
+    | eval_metrics          | The current validation metrics.                             |
     +-----------------------+-------------------------------------------------------------+
     | run_name              | The run name for training.                                  |
     +-----------------------+-------------------------------------------------------------+
