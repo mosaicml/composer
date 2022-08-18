@@ -11,6 +11,7 @@ Name|Functional|Attribution|tl;dr|Math-Equivalent
 [ColOut](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/colout)|`cf.colout_batch`|[MosaicML](https://www.mosaicml.com)|Removes columns and rows from the image for augmentation and efficiency|❌
 [CutMix](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/cutmix)|`cf.cutmix_batch`|[Yun et al, 2019](https://arxiv.org/abs/1905.04899)|Combines pairs of examples in non-overlapping regions and mixes labels|❌
 [CutOut](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/cutout)|`cf.cutout_batch`|[DeVries et al, 2017](https://arxiv.org/abs/1708.04552)|Randomly erases rectangular blocks from the image|❌
+[Decoupled Weight Decay](https://github.com/mosaicml/composer/blob/dev/composer/optim/decoupled_weight_decay.py)||[Loshchilov and Hutter, 2019](https://arxiv.org/abs/1711.05101)|Decouples weight decay from learning rate|❌
 [EMA](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/ema)|`cf.compute_ema`|[Many](https://www.mosaicml.com)|Exponentially weighted moving average of model parameters during training|❌
 [Factorize](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/factorize)|`cf.apply_factorization`|[Many](https://www.mosaicml.com)|Factorize GEMMs into smaller GEMMs|❌
 [Fused LayerNorm](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/fused_layernorm)|`cf.apply_fused_layernorm`|[Many](https://www.mosaicml.com)|Replaces `torch.nn.LayerNorm` with `apex.normalization.fused_layer_norm`|✅
