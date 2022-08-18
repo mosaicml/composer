@@ -169,12 +169,12 @@ class StreamingDatasetIndex(object):
 
         # Sample -> shard, byte offset within shard.
         self.shuffle_indices = shuffle_indices if shuffle_indices is not None else np.arange(self.num_shards)
-        self.sample_shards, self.sample_id_shards, self.sample_shard_offsets, self.shard_samples, self.bytes_per_sample = self._locate_samples(
+        self.sample_shards, self.sample_id_shards, self.sample_shard_offsets, self.shard_samples = self._locate_samples(
         )
 
     def relocate_samples(self, shuffle_indices: NDArray[np.int64]) -> None:
         self.shuffle_indices = shuffle_indices
-        self.sample_shards, self.sample_id_shards, self.sample_shard_offsets, self.shard_samples, self.bytes_per_sample = self._locate_samples(
+        self.sample_shards, self.sample_id_shards, self.sample_shard_offsets, self.shard_samples = self._locate_samples(
         )
 
     @classmethod
@@ -275,9 +275,7 @@ class StreamingDatasetIndex(object):
         data = self.dumps()
         fp.write(data)
 
-    def _locate_samples(
-            self
-    ) -> Tuple[NDArray[np.int64], NDArray[np.int64], NDArray[np.int64], NDArray[np.int64], NDArray[np.int64]]:
+    def _locate_samples(self) -> Tuple[NDArray[np.int64], NDArray[np.int64], NDArray[np.int64], NDArray[np.int64]]:
         """Precompute the shard and byte offset within the shard of every sample.
 
         Returns:
@@ -286,7 +284,7 @@ class StreamingDatasetIndex(object):
         """
         samples_per_shard_shuffled = np.array([self.samples_per_shard[ix] for ix in self.shuffle_indices])
         indices = self.shuffle_indices
-        owned_shards = set(self.shuffle_indices)
+        # owned_shards = set(self.shuffle_indices)
 
         shard_ends = self.bytes_per_shard.cumsum()
         shard_begins = shard_ends - self.bytes_per_shard
@@ -308,10 +306,9 @@ class StreamingDatasetIndex(object):
         sample_shards = np.array(sample_shards, np.int64)
         shard_samples = np.array(shard_samples, np.int64)
 
-        mask = np.array([x in owned_shards for x in sample_id_shards])
+        # mask = np.array([x in owned_shards for x in sample_id_shards])
 
         sample_ends = self.bytes_per_sample.astype(np.int64).cumsum()
         sample_begins = sample_ends - self.bytes_per_sample
         sample_shard_offsets = sample_begins - sample_shard_begins
-        return sample_shards, sample_id_shards[mask], sample_shard_offsets[mask], shard_samples, self.bytes_per_sample[
-            mask]
+        return sample_shards, sample_id_shards, sample_shard_offsets, shard_samples
