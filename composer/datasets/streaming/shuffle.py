@@ -113,6 +113,9 @@ class BlockCipherShuffler:
         self.group_relative_id_to_shard_offset = {}
         self.shuffle_indices = self.shuffle_shards(num_nodes, global_rank)
         self.shuffle_buffer_size = shuffle_buffer_size
+        self.num_nodes = num_nodes
+        self.rank = global_rank
+
         num_shards = len(self.index.samples_per_shard)
         for shard_index, _ in enumerate(self.shuffle_indices):
             if shard_index % shuffle_buffer_size != 0:
@@ -215,7 +218,7 @@ class BlockCipherShuffler:
             int: relative position in an epoch of shard
         """
         num_shards = len(self.index.samples_per_shard)
-        return decrypt(self._cipher_key, shard_id, num_shards)
+        return decrypt(self._cipher_key, shard_id, num_shards) // self.num_nodes
 
     def get_shard_id(self, shard_index: int) -> int:
         """Gets the ID (relative position in dataset) of a shard with a given index
@@ -227,4 +230,4 @@ class BlockCipherShuffler:
             int: relative position in an epoch of shard
         """
         num_shards = len(self.index.samples_per_shard)
-        return encrypt(self._cipher_key, shard_index, num_shards)
+        return encrypt(self._cipher_key, shard_index * self.num_nodes + self.rank, num_shards)
