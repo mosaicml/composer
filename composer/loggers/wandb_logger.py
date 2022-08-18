@@ -105,16 +105,18 @@ class WandBLogger(LoggerDestination):
         self._is_in_atexit = True
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
-        import wandb
-        wandb.config.update(hyperparameters)
+        if self._enabled:
+            import wandb
+            wandb.config.update(hyperparameters)
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
-        import wandb
+        if self._enabled:
+            import wandb
 
-        # wandb.log alters the metrics dictionary object, so we deepcopy to avoid
-        # side effects.
-        metrics_copy = copy.deepcopy(metrics)
-        wandb.log(metrics_copy, step=step)
+            # wandb.log alters the metrics dictionary object, so we deepcopy to avoid
+            # side effects.
+            metrics_copy = copy.deepcopy(metrics)
+            wandb.log(metrics_copy, step=step)
 
     def state_dict(self) -> Dict[str, Any]:
         import wandb
