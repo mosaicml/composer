@@ -247,30 +247,28 @@ class StreamingDataset(IterableDataset):
         if not hasattr(self, '_lock'):
             self._lock = Lock()
 
-        world = get_world()
+        # world = get_world()
 
         with self._lock:
             if self._download_status != _DownloadStatus.NOT_STARTED:
                 return
             self._download_status = _DownloadStatus.IN_PROGRESS
 
-        current_shard_id = self.index.sample_shards[self._restored_sample_count]
-        current_shard_index = current_shard_id
+        # current_shard_id = self.index.sample_shards[self._restored_sample_count]
+        # current_shard_index = current_shard_id
 
-        if self.shuffle:
-            if self.shuffler._cipher_key is None:
-                raise ValueError('shuffling is on but no seed was specified')
-            current_shard_index = self.shuffler.get_shard_index(current_shard_id)
-            current_shard_index -= current_shard_index % self._shuffle_buffer_size
+        # if self.shuffle:
+        #     if self.shuffler._cipher_key is None:
+        #         raise ValueError('shuffling is on but no seed was specified')
+        #     current_shard_index = self.shuffler.get_shard_index(current_shard_id)
+        #     current_shard_index -= current_shard_index % self._shuffle_buffer_size
 
         shard_ids = self._shard_shuffle_indices[0:]
 
-        for ix, shard_id in enumerate(shard_ids):
-            if (ix % world.node_num_workers) != world.node_worker:
-                continue
+        for _, shard_id in enumerate(shard_ids):
             basename = get_shard_basename(shard_id, compression_name=self.compression_scheme)
             try:
-                self._download_file(basename, wait=False)
+                self._download_file(basename, wait=(dist.get_local_rank() != 0))
             except Exception as e:
                 with self._lock:
                     self._download_status = _DownloadStatus.FAILED
@@ -358,5 +356,5 @@ class StreamingDataset(IterableDataset):
                     if self._download_status == _DownloadStatus.FAILED:
                         raise self._download_exception
                     elif self._download_status == _DownloadStatus.DONE:
-                        pass
+                        raise e
                 sleep(0.25)
