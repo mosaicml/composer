@@ -10,4 +10,21 @@
 
 # Require admin approval to change the Dockerfile configuration
 # All dockerfile changes should be reviewed for security
-/docker/ @mosaicml/docker-admins
+/docker/ @mosaicml/composer-team-admins
+
+# Assigning domain-specific owners for certain portions of the repo so they will be
+# explicitly added in pull requests. Including @mosaicml/composer-team-eng
+# as an owner for all sections, so anyone on Composer Eng can approve any Composer PR
+# According to the CODEOWNER docs, the last match takes precedence, so @mosaicml/composer-team-eng
+# must be mentioned for each rule below.
+/composer/algorithms/ @dskhudia
+/composer/cli/ @jbloxham
+/composer/datasets/ @knighton
+/composer/functional/ @dblalock
+/composer/loggers/ @eracah
+/composer/loss/ @mosaicml/composer-team-eng
+/composer/metrics/ @mosaicml/composer-team-eng
+/composer/models/ @mosaicml/composer-team-eng
+/composer/optim/ @mosaicml/composer-team-eng
+/composer/profiler/ @mosaicml/composer-team-eng
+/composer/yamls/ @mosaicml/composer-team-eng
