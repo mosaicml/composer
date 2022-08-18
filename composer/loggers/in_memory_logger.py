@@ -16,7 +16,7 @@ from torch import Tensor
 
 from composer.core.state import State
 from composer.core.time import Time, Timestamp
-from composer.loggers.logger import Logger, LogLevel
+from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 
 __all__ = ['InMemoryLogger']
@@ -58,16 +58,16 @@ class InMemoryLogger(LoggerDestination):
     """
 
     def __init__(self) -> None:
-        self.data: Dict[str, List[Tuple[Timestamp, LogLevel, Any]]] = {}
+        self.data: Dict[str, List[Tuple[Timestamp, Any]]] = {}
         self.most_recent_values = {}
         self.most_recent_timestamps: Dict[str, Timestamp] = {}
-        self.state: State = None
+        self.state: Optional[State] = None
         self.hyperparameters: Dict[str, Any] = {}
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         self.hyperparameters.update(hyperparameters)
 
-    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+    def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         assert self.state is not None
         timestamp = self.state.timestamp
         copied_metrics = copy.deepcopy(metrics)
@@ -102,10 +102,10 @@ class InMemoryLogger(LoggerDestination):
 
                 import matplotlib.pyplot as plt
 
-                from composer.loggers import InMemoryLogger, LogLevel
+                from composer.loggers import InMemoryLogger
                 from composer.core.time import Time, Timestamp
 
-                in_mem_logger = InMemoryLogger(LogLevel.BATCH)
+                in_mem_logger = InMemoryLogger()
 
                 # Populate the logger with data
                 for b in range(0,3):

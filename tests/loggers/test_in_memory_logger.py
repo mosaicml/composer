@@ -1,22 +1,21 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from unittest.mock import MagicMock
-
 import numpy as np
 
 from composer.core import State, Time, Timestamp
 from composer.loggers import InMemoryLogger, Logger
-from tests.fixtures.new_fixtures import empty_logger, minimal_state
+
+#from tests.fixtures.new_fixtures import empty_logger, minimal_state
 
 
 def test_in_memory_logger(dummy_state: State):
     in_memory_logger = InMemoryLogger()
     logger = Logger(dummy_state, destinations=[in_memory_logger])
     in_memory_logger.init(dummy_state, logger)
-    logger.log_metrics({'epoch': 'should_be_recorded'})
+    logger.log_metrics({'epoch': 2.2})
     dummy_state.timestamp = dummy_state.timestamp.to_next_batch(samples=1, tokens=1)
-    logger.log_metrics({'epoch': 'should_be_recorded_and_override'})
+    logger.log_metrics({'epoch': 3.3})
 
     # no batch events should be logged, since the level is epoch
     assert len(in_memory_logger.data['epoch']) == 2
@@ -24,17 +23,17 @@ def test_in_memory_logger(dummy_state: State):
     # `in_memory_logger.data` should contain everything
     timestamp, data = in_memory_logger.data['epoch'][0]
     assert timestamp.batch == 0
-    assert data == 'should_be_recorded'
+    assert data == 2.2
     timestamp, data = in_memory_logger.data['epoch'][1]
     assert timestamp.batch == 1
-    assert data == 'should_be_recorded_and_override'
+    assert data == 3.3
 
     # the most recent values should have just the last call to epoch
-    assert in_memory_logger.most_recent_values['epoch'] == 'should_be_recorded_and_override'
+    assert in_memory_logger.most_recent_values['epoch'] == 3.3
     assert in_memory_logger.most_recent_timestamps['epoch'].batch == 1
 
 
-def test_in_memory_logger_get_timeseries():
+def test_in_memory_logger_get_timeseries(minimal_state: State, empty_logger: Logger):
     in_memory_logger = InMemoryLogger()
     state = minimal_state
     logger = empty_logger
@@ -52,6 +51,7 @@ def test_in_memory_logger_get_timeseries():
             token=Time(0, 'tok'),
             token_in_epoch=Time(0, 'tok'),
         )
+        assert in_memory_logger.state is not None
         in_memory_logger.state.timestamp = timestamp
         datapoint = i / 3
         in_memory_logger.log_metrics({'accuracy/val': datapoint}, step=state.timestamp.batch.value)

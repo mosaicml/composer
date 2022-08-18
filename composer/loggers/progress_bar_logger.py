@@ -124,15 +124,6 @@ class ProgressBarLogger(LoggerDestination):
 
             The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is
             ``False``.
-        console_log_level (LogLevel | str | (State, LogLevel) -> bool, optional): The maximum log level for which statements
-            should be printed. (default: :attr:`.LogLevel.EPOCH`)
-
-            It can either be :class:`.LogLevel`, a string corresponding to a :class:`.LogLevel`, or a callable that
-            takes the training :class:`.State` and the :class:`.LogLevel` and returns a boolean of whether this
-            statement should be printed.
-
-            This parameter has no effect if ``log_to_console`` is ``False`` or is unspecified when ``progress_bar`` is
-            ``True``.
         stream (str | TextIO, optional): The console stream to use. If a string, it can either be ``'stdout'`` or
             ``'stderr'``. (default: :attr:`sys.stderr`)
     """
@@ -166,7 +157,7 @@ class ProgressBarLogger(LoggerDestination):
                 raise ValueError(f'stream must be one of ("stdout", "stderr", TextIO-like), got {stream}')
 
         self.stream = stream
-        self.state: State = None
+        self.state: Optional[State] = None
 
     @property
     def show_pbar(self) -> bool:

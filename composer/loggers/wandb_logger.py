@@ -109,7 +109,7 @@ class WandBLogger(LoggerDestination):
             import wandb
             wandb.config.update(hyperparameters)
 
-    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+    def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:
             import wandb
 

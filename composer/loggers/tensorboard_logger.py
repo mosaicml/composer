@@ -128,6 +128,7 @@ class TensorboardLogger(LoggerDestination):
             for name, metric in self.current_metrics.items()
             if 'metric' in name or 'loss' in name
         }
+        assert self.writer is not None
         self.writer.add_hparams(hparam_dict=self.hyperparameters,
                                 metric_dict=metrics_for_hparams,
                                 run_name=self.run_name)

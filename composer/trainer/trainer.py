@@ -34,7 +34,7 @@ from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Eve
 from composer.core.precision import get_precision_context
 from composer.core.time import TimeUnit
 from composer.core.types import Batch, BreakEpochException, PyTorchScheduler, TrainerMode
-from composer.loggers import Logger, LoggerDestination, LogLevel, ProgressBarLogger
+from composer.loggers import Logger, LoggerDestination, ProgressBarLogger
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.optim.scheduler import ComposerScheduler, compile_composer_scheduler
