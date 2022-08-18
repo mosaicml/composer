@@ -74,7 +74,7 @@ Evaluators and Multiple Metrics
 
 When there are multiple datasets and metrics to use for validation and evaluation, :class:`.Evaluator` objects can be used to pass in multiple dataloaders to the trainer. Each of the :class:`.Evaluator` objects can have multiple metrics associated. See :doc:`Evaluation</trainer/evaluation>` for more details.
 
-Each Evaluator object is marked with a ``label`` field for logging, and a ``metrics`` field that accepts a single metric, list of metrics. These can be provided to the callbacks above to indiciate which metric to monitor.
+Each Evaluator object is marked with a ``label`` field for logging, and a ``metric_names`` field that accepts a list of metric names. These can be provided to the callbacks above to indiciate which metric to monitor.
 
 In the example below, the callback will monitor the `Accuracy` metric in the dataloader marked `eval_dataset1`.`
 
@@ -85,19 +85,18 @@ In the example below, the callback will monitor the `Accuracy` metric in the dat
 .. testcode::
 
     from composer import Trainer, Evaluator
-    from torchmetrics.classification.accuracy import Accuracy
     from composer.callbacks.early_stopper import EarlyStopper
 
     evaluator1 = Evaluator(
         label='eval_dataset1',
         dataloader=eval_dataloader,
-        metrics=Accuracy()
+        metric_names=['Accuracy']
     )
 
     evaluator2 = Evaluator(
         label='eval_dataset2',
         dataloader=eval_dataloader2,
-        metrics=Accuracy()
+        metric_names=['Accuracy']
     )
 
     early_stopper = EarlyStopper(
