@@ -193,6 +193,8 @@ class StreamingDataset(IterableDataset):
         else:
             N = self.index.num_shards
             self._shard_shuffle_indices = np.arange(N)[(np.arange(N) % num_nodes) == global_rank]
+            if not self._shard_shuffle_indices:
+                self._shard_shuffle_indices = np.array([0])
             self.index.relocate_samples(self._shard_shuffle_indices)
         self.num_samples = np.sum(self.index.samples_per_shard[self._shard_shuffle_indices])
 
@@ -248,23 +250,21 @@ class StreamingDataset(IterableDataset):
         if not hasattr(self, '_lock'):
             self._lock = Lock()
 
-        # world = get_world()
-
         with self._lock:
             if self._download_status != _DownloadStatus.NOT_STARTED:
                 return
             self._download_status = _DownloadStatus.IN_PROGRESS
 
-        # current_shard_id = self.index.sample_shards[self._restored_sample_count]
-        # current_shard_index = current_shard_id
+        current_shard_id = self.index.sample_shards[self.restored_sample_count]
+        current_shard_index = current_shard_id
 
-        # if self.shuffle:
-        #     if self.shuffler._cipher_key is None:
-        #         raise ValueError('shuffling is on but no seed was specified')
-        #     current_shard_index = self.shuffler.get_shard_index(current_shard_id)
-        #     current_shard_index -= current_shard_index % self._shuffle_buffer_size
+        if self.shuffle:
+            if self.shuffler._cipher_key is None:
+                raise ValueError('shuffling is on but no seed was specified')
+            current_shard_index = self.shuffler.get_shard_index(current_shard_id)
+            current_shard_index -= current_shard_index % self._shuffle_buffer_size
 
-        shard_ids = self._shard_shuffle_indices[0:]
+        shard_ids = self._shard_shuffle_indices[current_shard_index:]
 
         world = get_world()
 
@@ -359,9 +359,9 @@ class StreamingDataset(IterableDataset):
         rank = world.node_worker
         batch_size = 1 if self.batch_size is None else self.batch_size
         while self._sample_count < self.index.total_samples:
-            # if self._sample_count < self._restored_sample_count:
-            #     self._sample_count += 1
-            #     yield None
+            if self._sample_count < self.restored_sample_count:
+                self._sample_count += self.restored_sample_count
+                continue
             try:
                 idx = self.shuffler.shuffle_sample(self._sample_count, node_num_workers, rank, batch_size, self.num_samples) \
                     if self.shuffle else self._sample_count
