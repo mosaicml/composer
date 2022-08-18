@@ -1511,7 +1511,10 @@ class Trainer:
 
             for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
 
-                # if resuming, skip dataloader forward to the minibatch index
+                # if resuming, skip dataloader forward to the minibatch index or restore directly if supported
+                if hasattr(self.state.dataloader, 'restored_sample_count'):
+                    batch_idx += int(self.state.timestamp.batch_in_epoch)
+
                 if batch_idx < int(self.state.timestamp.batch_in_epoch):
                     # Restore the RNG state immediately before the next batch is yielded from the dataloader
                     if batch_idx + 1 == int(self.state.timestamp.batch_in_epoch) and self._rng_state is not None:

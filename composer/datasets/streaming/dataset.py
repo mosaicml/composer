@@ -179,7 +179,7 @@ class StreamingDataset(IterableDataset):
 
         self._shuffle_index = 0
         self._sample_count = 0
-        self._restored_sample_count = 0
+        self.restored_sample_count = 0
         self._shuffle_buffer_size = self._parse_shuffle_buffer_size(shuffle_size)
         world = get_world()
         num_nodes = world.global_num_devices
@@ -205,16 +205,17 @@ class StreamingDataset(IterableDataset):
             return np.int64(1)
 
     def state_dict(self):
-        return {'sample_count': self._sample_count, 'cipher_key': self.shuffler._cipher_key}
+        world = get_world()
+        return {'sample_count': self._sample_count * world.global_num_devices, 'cipher_key': self.shuffler._cipher_key}
 
     def load_state_dict(self, state):
-        self._restored_sample_count = state['sample_count']
+        world = get_world()
+        self.restored_sample_count = state['sample_count'] // world.global_num_devices
         cipher_key = self.shuffler._cipher_key
         if 'cipher_key' in state:
             cipher_key = state['cipher_key']
-        world = get_world()
-        num_nodes = world.global_num_nodes
-        global_rank = world.global_node
+        num_nodes = world.global_num_devices
+        global_rank = world.global_device
         self.shuffler = BlockCipherShuffler(cipher_key, self.index, num_nodes, global_rank,
                                             int(self._shuffle_buffer_size))
         self._shard_shuffle_indices = self.shuffler.shuffle_indices
@@ -273,10 +274,8 @@ class StreamingDataset(IterableDataset):
             basename = get_shard_basename(shard_id, compression_name=self.compression_scheme)
             try:
                 self._download_file(basename, wait=False)
-                print('downloaded file')
                 with self._lock:
                     self._shards_downloaded += 1
-                    print(f'downloaded shard {self._shards_downloaded} of {len(self._shard_shuffle_indices)}')
                     if self._shards_downloaded == len(self._shard_shuffle_indices):
                         self._download_status = _DownloadStatus.DONE
 
