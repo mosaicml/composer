@@ -268,7 +268,9 @@ class StreamingDataset(IterableDataset):
         for _, shard_id in enumerate(shard_ids):
             basename = get_shard_basename(shard_id, compression_name=self.compression_scheme)
             try:
+                print('downloading file', basename)
                 self._download_file(basename, wait=(dist.get_local_rank() != 0))
+                print('downloaded file', basename)
             except Exception as e:
                 with self._lock:
                     self._download_status = _DownloadStatus.FAILED
