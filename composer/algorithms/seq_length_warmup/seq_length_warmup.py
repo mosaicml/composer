@@ -16,6 +16,7 @@ from composer.core.time import TimeUnit
 from composer.core.types import Batch
 from composer.loggers import Logger
 from composer.models import HuggingFaceModel
+from composer.trainer.devices import DeviceGPU
 from composer.utils import ensure_tuple
 
 __all__ = ['SeqLengthWarmup', 'set_batch_sequence_length']
@@ -286,7 +287,7 @@ class SeqLengthWarmup(Algorithm):
             per_gpu_batch = ceil(per_gpu_macrobatch / state.grad_accum)
             model_inputs = {k: v[:per_gpu_batch] for k, v in batch_clone.items()}
 
-            should_handle_cuda_oom = 0
+            found_cuda_oom = 0
             try:
                 # start by running a forward and backward pass
                 # of the maximum sequence length to allocate cache.
@@ -306,22 +307,25 @@ class SeqLengthWarmup(Algorithm):
             # This error/state.grad_accum handling mimics the logic in trainer._train_batch().
             except RuntimeError as e:
                 if 'CUDA out of memory' in str(e):
-                    should_handle_cuda_oom = 1
+                    found_cuda_oom = 1
                 else:
                     raise
 
             # In-line to avoid circular dependency
-            from composer.trainer.trainer import _get_device, _handle_cuda_oom
+            from composer.trainer.trainer import _handle_train_cuda_oom
 
-            device_arg = None
-            if device is not None:
-                device_type = device.type
-                if 'cuda' in device.type:
-                    device_type = 'gpu'
-                device_arg = _get_device(device_type)
-            if not _handle_cuda_oom(state, should_handle_cuda_oom, device_arg, device_batch_size, is_train=True):
-                self._activated = True
-                return
+            # Auto grad accum only supported on GPU
+            if device and device.type == 'gpu':
+                devicegpu = DeviceGPU()
+                # Propagate across all ranks if any rank hit CUDA OOM
+                found_cuda_oom = devicegpu.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8)).item()
+                if found_cuda_oom == 1:
+                    _handle_train_cuda_oom(state, device_batch_size)
+                    # Skip return and rerun after handling oom
+                    continue
+            # Activate and return if we've completed without OOMing.
+            self._activated = True
+            return
 
     def match(self, event: Event, state: State) -> bool:
         return (event == Event.INIT and self._original_model is None) or event == Event.AFTER_DATALOADER
