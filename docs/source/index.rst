@@ -7,8 +7,7 @@ Composer
 It contains many state-of-the-art methods for accelerating neural network training and improving generalization, along with
 an optional :doc:`Trainer<trainer/using_the_trainer>` API that makes `composing` many different enhancements easy.
 
-We implemented dozens of papers and `trained thousands of models <https://app.mosaicml.com/explorer/imagenet>`_ so you don't have to,
-and built strong baselines to rigorously measure their effect.
+We implemented dozens of papers and `trained thousands of models <https://app.mosaicml.com/explorer/imagenet>`_ so you don't have to.
 
 With Composer, you can build recipes to:
 
@@ -16,6 +15,11 @@ With Composer, you can build recipes to:
    :parser: myst_parser.sphinx_
    :start-after: <!-- start numbers -->
    :end-before: <!-- end numbers -->
+
+.. include:: ../../README.md
+   :parser: myst_parser.sphinx_
+   :start-after: <!-- start main results -->
+   :end-before: <!-- end main results -->
 
 
 Composer features:
