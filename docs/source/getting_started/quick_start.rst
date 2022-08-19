@@ -26,7 +26,7 @@ These methods are easy to integrate into your own training loop code with just a
 
 For an overview of the algorithms, see :doc:`/trainer/algorithms`.
 
-We make composing recipes together even easier with our (optional) :class`.Trainer`. Here,
+We make composing recipes together even easier with our (optional) :class:`.Trainer`. Here,
 we train an MNIST classifer with a recipe of methods:
 
 .. code-block:: python

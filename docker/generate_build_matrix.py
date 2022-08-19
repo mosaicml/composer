@@ -21,7 +21,7 @@ import yaml
 
 def _get_pytorch_version(python_version: str):
     if python_version == '3.9':
-        return '1.12.0'
+        return '1.12.1'
     if python_version in '3.8':
         return '1.11.0'
     if python_version == '3.7':
@@ -30,8 +30,8 @@ def _get_pytorch_version(python_version: str):
 
 
 def _get_torchvision_version(pytorch_version: str):
-    if pytorch_version == '1.12.0':
-        return '0.13.0'
+    if pytorch_version == '1.12.1':
+        return '0.13.1'
     if pytorch_version == '1.11.0':
         return '0.12.0'
     if pytorch_version == '1.10.2':
@@ -52,7 +52,7 @@ def _get_cuda_version(pytorch_version: str, use_cuda: bool):
         return '11.3.1'
     if pytorch_version == '1.11.0':
         return '11.5.2'
-    if pytorch_version == '1.12.0':
+    if pytorch_version == '1.12.1':
         return '11.6.2'
     raise ValueError(f'Invalid pytorch_version: {str}')
 

@@ -5,10 +5,7 @@
 
 from __future__ import annotations
 
-import copy
-from typing import Any, Callable, Dict, Iterable, Optional, Union
-
-from torchmetrics import Metric, MetricCollection
+from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
 from composer.core.data_spec import DataSpec, ensure_data_spec
 from composer.core.event import Event
@@ -71,11 +68,10 @@ class Evaluator:
 
     .. doctest::
 
-       >>> from torchmetrics.classification.accuracy import Accuracy
        >>> eval_evaluator = Evaluator(
        ...     label="myEvaluator",
        ...     dataloader=eval_dataloader,
-       ...     metrics=Accuracy()
+       ...     metric_names=['Accuracy']
        ... )
        >>> trainer = Trainer(
        ...     model=model,
@@ -89,8 +85,12 @@ class Evaluator:
         label (str): Name of the Evaluator.
         dataloader (DataSpec | Iterable | Dict[str, Any]): Iterable that yields batches, a :class:`.DataSpec`
             for evaluation, or a Dict of :class:`.DataSpec` kwargs.
-        metrics (torchmetrics.Metric | torchmetrics.MetricCollection): :class:`torchmetrics.Metric` to log.
-            ``metrics`` will be deep-copied to ensure that each evaluator updates only its ``metrics``.
+        metric_names: The list of metric names to compute.
+            Each value in this list can be a regex string (e.g. "Accuracy", "f1" for "BinaryF1Score",
+            "Top-." for "Top-1", "Top-2", etc). Each regex string will be matched against the keys of the dictionary returned
+            by ``model.get_metrics()``. All matching metrics will be evaluated.
+
+            By default, if left blank, then all metrics returned by ``model.get_metrics()`` will be used.
         subset_num_batches (int, optional): The maximum number of batches to use for each evaluation. Defaults to ``None``,
             which means that the ``eval_subset_num_batches`` parameter from the :class:`.Trainer` will be used.
             Set to ``-1`` to evaluate the entire ``dataloader``
@@ -117,19 +117,14 @@ class Evaluator:
         *,
         label: str,
         dataloader: Union[DataSpec, Iterable, Dict[str, Any]],
-        metrics: Union[Metric, MetricCollection],
+        metric_names: Optional[List[str]] = None,
         subset_num_batches: Optional[int] = None,
         eval_interval: Optional[Union[int, str, Time, Callable[[State, Event], bool]]] = None,
     ):
         self.label = label
         self.dataloader = ensure_data_spec(dataloader)
 
-        # Forcing metrics to be a MetricCollection simplifies logging results
-        metrics = copy.deepcopy(metrics)
-        if isinstance(metrics, Metric):
-            self.metrics = MetricCollection([metrics])
-        else:
-            self.metrics = metrics
+        self.metric_names = metric_names if metric_names else []
 
         self.subset_num_batches = subset_num_batches
         self._eval_interval = None
@@ -149,15 +144,14 @@ class Evaluator:
             self._eval_interval = eval_interval
 
 
-def ensure_evaluator(evaluator: Union[Evaluator, DataSpec, Iterable, Dict[str, Any]],
-                     default_metrics: Union[Metric, MetricCollection]):
+def ensure_evaluator(evaluator: Union[Evaluator, DataSpec, Iterable, Dict[str, Any]], default_metric_names: List[str]):
     """Ensure that ``evaluator`` is an :class:`.Evaluator`.
 
     Args:
         evaluator (Evaluator | DataSpec | Iterable | Dict[str, Any]): A dataloader,
             :class:`.DataSpec` instance, dictionary of :class:`.DataSpec` kwargs, or existing evaluator.
-        default_metrics (torchmetrics.Metric | torchmetrics.MetricCollection): The metrics for the ``evaluator``,
-            if a datalaoder was specified.
+        default_metric_names (List[str]): The names of the metrics for the ``evaluator``,
+            if a dataloader was specified.
 
     Returns:
         Evaluator: An evaluator.
@@ -168,5 +162,5 @@ def ensure_evaluator(evaluator: Union[Evaluator, DataSpec, Iterable, Dict[str, A
         return Evaluator(
             label='eval',
             dataloader=evaluator,
-            metrics=default_metrics,
+            metric_names=default_metric_names,
         )

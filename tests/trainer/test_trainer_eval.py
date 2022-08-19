@@ -4,7 +4,6 @@
 from typing import Callable, Union
 
 import pytest
-import torchmetrics
 from torch.utils.data import DataLoader
 
 from composer.core import Event
@@ -27,11 +26,11 @@ def test_trainer_eval_only():
     trainer.eval(
         dataloader=eval_dataloader,
         dataloader_label='eval',
-        metrics=torchmetrics.Accuracy(),
+        metric_names=['Accuracy'],
     )
 
     # Assert that there is some accuracy
-    assert trainer.state.current_metrics['eval']['Accuracy'] != 0.0
+    assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
 
 
 def test_trainer_eval_subset_num_batches():
@@ -47,7 +46,7 @@ def test_trainer_eval_subset_num_batches():
     trainer.eval(
         dataloader=eval_dataloader,
         dataloader_label='eval',
-        metrics=torchmetrics.Accuracy(),
+        metric_names=['Accuracy'],
         subset_num_batches=1,
     )
 
@@ -69,7 +68,7 @@ def test_trainer_eval_timestamp():
     trainer.eval(
         dataloader=eval_dataloader,
         dataloader_label='eval',
-        metrics=torchmetrics.Accuracy(),
+        metric_names=['Accuracy'],
     )
 
     # Ensure that the eval timestamp matches the number of evaluation events
@@ -85,7 +84,7 @@ def test_trainer_eval_timestamp():
     trainer.eval(
         dataloader=eval_dataloader,
         dataloader_label='eval',
-        metrics=torchmetrics.Accuracy(),
+        metric_names=['Accuracy'],
     )
     # Validate the same invariants
     assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == trainer.state.eval_timestamp.batch
@@ -106,7 +105,7 @@ def test_eval_at_fit_end(eval_at_fit_end: bool):
     evaluator = Evaluator(
         label='eval',
         dataloader=DataLoader(dataset=RandomClassificationDataset()),
-        metrics=torchmetrics.Accuracy(),
+        metric_names=['Accuracy'],
     )
 
     evaluator.eval_interval = evaluate_periodically(eval_interval=eval_interval, eval_at_fit_end=eval_at_fit_end)
@@ -141,7 +140,7 @@ def test_eval_at_fit_end(eval_at_fit_end: bool):
     Evaluator(
         label='eval',
         dataloader=DataLoader(dataset=RandomClassificationDataset()),
-        metrics=torchmetrics.Accuracy(),
+        metric_names=['Accuracy'],
     ),
 ])
 @pytest.mark.parametrize(
@@ -211,8 +210,8 @@ def test_eval_hparams(composer_trainer_hparams: TrainerHparams):
 
     # Validate that `eval_interval` and `subset_num_batches` was set correctly for the evaluator that actually
     # ran
-    assert 'eval1' in trainer.state.current_metrics
-    assert 'eval2' in trainer.state.current_metrics
+    assert 'eval1' in trainer.state.eval_metrics
+    assert 'eval2' in trainer.state.eval_metrics
     event_counter_callback = None
     for callback in trainer.state.callbacks:
         if isinstance(callback, EventCounterCallback):
@@ -234,7 +233,7 @@ def test_eval_params_evaluator():
     eval_dataloader = Evaluator(
         label='eval',
         dataloader=DataLoader(dataset=RandomClassificationDataset()),
-        metrics=torchmetrics.Accuracy(),
+        metric_names=['Accuracy'],
         eval_interval=f'{eval_interval_batches}ba',
         subset_num_batches=eval_subset_num_batches,
     )

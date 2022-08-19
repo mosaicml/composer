@@ -306,7 +306,7 @@ def train_finetune(
     trainer.fit()
     print(f'\nFINISHED TRAINING TASK {task.upper()}\n')
     # recursively move metrics to CPU to avoid pickling issues
-    return DeviceCPU().batch_to_device(trainer.state.current_metrics)
+    return DeviceCPU().batch_to_device(trainer.state.eval_metrics)
 
 
 def get_args() -> str:
