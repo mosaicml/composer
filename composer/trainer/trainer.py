@@ -10,8 +10,10 @@ import datetime
 import itertools
 import logging
 import os
+import re
 import time
 import warnings
+from copy import deepcopy
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
 
 import coolname
@@ -30,7 +32,7 @@ from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Eve
                            ensure_data_spec, ensure_evaluator, ensure_time)
 from composer.core.precision import get_precision_context
 from composer.core.time import TimeUnit
-from composer.core.types import Batch, BreakEpochException, PyTorchScheduler
+from composer.core.types import Batch, BreakEpochException, PyTorchScheduler, TrainerMode
 from composer.loggers import Logger, LoggerDestination, LogLevel, ProgressBarLogger
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
@@ -40,7 +42,7 @@ from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _par
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
-from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
+from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed, map_collection,
                             reproducibility)
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
@@ -99,6 +101,23 @@ def _get_training_metrics(model: ComposerModel):
         train_metrics = MetricCollection([train_metrics])
 
     return train_metrics
+
+
+def _filter_metrics(metrics: Union[Metric, MetricCollection],
+                    metric_names: Optional[List[str]]) -> Union[MetricCollection, Metric, List[Metric]]:
+    """Filter the metrics based on the given metric_names as regex strings (e.g. 'Accuracy', 'f1' for 'BinaryF1Score', 'Top-.' for 'Top-1 Accuracy' and 'Top-2 Accuracy', etc). If no metric_names are provided, all metrics will be returned."""
+    if not metric_names:
+        return metrics
+    else:
+        filtered_metrics = []
+        if isinstance(metrics, Metric):
+            if any(re.match(f'.*{metric_name}.*', metrics._get_name(), re.IGNORECASE) for metric_name in metric_names):
+                filtered_metrics.append(metrics)
+        else:
+            for k in metrics:
+                if any(re.match(f'.*{metric_name}.*', k, re.IGNORECASE) for metric_name in metric_names):
+                    filtered_metrics.append(metrics[k])
+        return filtered_metrics
 
 
 def _validate_precision(precision: Precision, device: Device, deepspeed_enabled: bool):
@@ -171,8 +190,16 @@ def _get_device(device: Optional[Union[str, Device]]):
             device = DeviceCPU()
         elif device.lower() == 'gpu':
             device = DeviceGPU()
+        elif device.lower() == 'mps':
+            device = DeviceMPS()
+        elif device.lower() == 'tpu':
+            if not _is_tpu_installed():
+                raise ImportError(
+                    'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla'
+                )
+            device = DeviceTPU()
         else:
-            raise ValueError(f'device ({device}) must be one of (cpu, gpu).')
+            raise ValueError(f'device ({device}) must be one of (cpu, gpu, mps, tpu).')
     return device
 
 
@@ -215,6 +242,21 @@ def _generate_run_name() -> str:
     dist.broadcast_object_list(run_name_list)
     generated_run_name = run_name_list[0]
     return generated_run_name
+
+
+def _is_tpu_installed() -> bool:
+    try:
+        import torch_xla.core.xla_model as xm
+        del xm
+    except ImportError:
+        return False
+    else:
+        return True
+
+
+if _is_tpu_installed():
+    import torch_xla.core.xla_model as xm
+    import torch_xla.distributed.parallel_loader as pl
 
 
 class Trainer:
@@ -302,7 +344,7 @@ class Trainer:
         train_dataloader_label (str, optional): The label for the train dataloader. (default: ``'train'``)
 
             This label is used to index the training metrics (if ``compute_training_metrics`` is True) in
-            :attr:`.State.current_metrics`.
+            :attr:`.State.train_metrics`.
 
             This parameter has no effect if ``train_dataloader`` or ``compute_training_metrics`` are not specified.
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
@@ -315,7 +357,7 @@ class Trainer:
             This parameter is ignored if ``train_dataloader`` is not specified.
         compute_training_metrics (bool, optional): Whether to compute training metrics. (default: ``False``)
 
-            Training metrics will be indexed on :attr:`.State.current_metrics` under the ``train_dataloader_label``
+            Training metrics will be indexed on :attr:`.State.train_metrics` under the ``train_dataloader_label``
             key (which defaults to ``'train'``).
         max_duration (Time | str | int, optional): The maximum duration to train. Can be an integer, which will be
             interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
@@ -544,7 +586,7 @@ class Trainer:
             This parameter has no effect if ``save_folder`` is ``None``.
             (default: ``"{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}"``)
 
-            .. seealso:: :class:`~.CheckpointSaver`
+            .. seealso:: :class:`~.CheckpointSaver` and :doc:`Artifact Logging</trainer/artifact_logging>` notes.
         save_latest_filename (str, optional): A format string for the name of a symlink
             (relative to ``save_folder``) that points to the last saved checkpoint.
             This parameter has no effect if ``save_folder`` is ``None``.
@@ -555,7 +597,7 @@ class Trainer:
             This parameter has no effect if ``save_folder``, ``save_latest_filename``, or ``save_artifact_name`` are ``None``.
             To disable symlinking in logger, set this or ``save_latest_filename`` to ``None``. (default: ``"{run_name}/checkpoints/latest-rank{rank}"``)
 
-            .. seealso:: :class:`~.CheckpointSaver`
+            .. seealso:: :class:`~.CheckpointSaver` and :doc:`Artifact Logging</trainer/artifact_logging>` notes.
         save_overwrite (bool, optional): Whether existing checkpoints should be overridden.
             This parameter has no effect if ``save_folder`` is None. (default: ``False``)
 
@@ -573,7 +615,7 @@ class Trainer:
             are removed first. Set to ``-1`` to keep all checkpoints locally. (default: ``-1``)
 
             Checkpoints will be removed after they have been logged as a file artifact. For example, when this callback
-            is used in conjunction with the :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`, set this
+            is used in conjunction with the :class:`.ObjectStoreLogger`, set this
             parameter to ``0`` to immediately delete checkpoints from the local disk after they have been uploaded to
             the object store.
 
@@ -597,11 +639,10 @@ class Trainer:
 
             To use DeepSpeed with default values, set to the empty dictionary ``{}``.
             To disable DeepSpeed (the default), set to ``None``.
-        device (Device | str, optional): The device to use for training, which can be ``'cpu'`` or ``'gpu'``.
-            (default: ``None``)
+        device (Device | str, optional): The device to use for training, which can be ``'cpu'``, ``'gpu'``,
+            ``'tpu'``, or ``'mps'``. (default: ``None``)
 
-            The default behavior sets the device to ``'gpu'`` if CUDA is available; otherwise, it sets the device to
-            ``'cpu'``.
+            The default behavior sets the device to ``'gpu'`` if CUDA is available, and otherwise ``'cpu'``.
         precision (Precision | str, optional): Numerical precision to use for training. One of ``fp32``, ``fp16``
             or ``amp`` (recommended). (default: ``Precision.FP32`` if training on CPU; ``Precision.AMP`` if training
             on GPU)
@@ -785,16 +826,24 @@ class Trainer:
             raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
         # Move the model and optimizers to the device
+
         if not deepspeed_enabled:
-            model = self._device.module_to_device(model)
-            # Move any remaining optimizer parameters onto the device
-            # It is possible that optimizer initialize created some internal tensors on CPU
-            # that need to be moved onto GPU.
+            # check if model is already on tpu
+            if isinstance(self._device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
+                raise ValueError(
+                    'Use model.to(xm.xla_device()) to set the model to the TPU before providing to the trainer.')
+            else:
+                model = self._device.module_to_device(model)
+                # Move any remaining optimizer parameters onto the device
+                # It is possible that optimizer initialize created some internal tensors on CPU
+                # that need to be moved onto GPU.
             optimizers = map_collection(optimizers, self._device.optimizer_to_device)
 
         # Grad Accum
         self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
         grad_accum = _get_initial_grad_accum(grad_accum)
+        if self.adaptive_gradient_accumulation and isinstance(self._device, DeviceTPU):
+            raise NotImplementedError(f'grad_accum=auto not supported on TPUs.')
         # Dynamic time estimate for forward and backward pass. Used for monitored_barrier to avoid deadlocks
         self.batch_compute_time = 300
 
@@ -894,7 +943,10 @@ class Trainer:
         if self._train_data_spec is not None:
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label,
                                       train_subset_num_batches)
-            self.state.train_dataloader = self.state.dataloader
+            if isinstance(self._device, DeviceTPU):
+                self.state.train_dataloader = pl.MpDeviceLoader(self.state.dataloader, xm.xla_device())
+            else:
+                self.state.train_dataloader = self.state.dataloader
         self.train_metrics = _get_training_metrics(model) if compute_training_metrics else None
 
         # Max Duration
@@ -903,7 +955,8 @@ class Trainer:
 
         self.logger.data_fit({'rank_zero_seed': rank_zero_seed})
 
-        assert isinstance(self.state.model, ComposerModel)
+        if not isinstance(self.state.model, ComposerModel):
+            raise ValueError('Provided model should be a subclass of ComposerModel.')
         self._original_model = self.state.model
 
         # Schedulers
@@ -922,8 +975,14 @@ class Trainer:
         if eval_dataloader is None:
             evaluators: List[Evaluator] = []
         else:
+            eval_metrics = self._original_model.metrics(train=False)
+            if isinstance(eval_metrics, Metric):
+                model_metric_names = [eval_metrics._get_name()]
+            else:
+                model_metric_names = [str(k) for k in eval_metrics.keys()]
             evaluators = [
-                ensure_evaluator(evaluator, model.metrics(train=False)) for evaluator in ensure_tuple(eval_dataloader)
+                ensure_evaluator(evaluator, default_metric_names=model_metric_names)
+                for evaluator in ensure_tuple(eval_dataloader)
             ]
             _set_evaluator_interval_and_subset_num_batches(
                 evaluators=evaluators,
@@ -935,13 +994,13 @@ class Trainer:
                 raise ValueError('Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.')
             if eval_interval != 1:
                 raise ValueError('Specifying `eval_interval` without an `eval_dataloader` has no effect.')
+
         self.state.evaluators = evaluators
 
         # Some algorithms require specific settings
-        self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, ensure_tuple(algorithms)))
-        self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, ensure_tuple(algorithms)))
+        self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, self.state.algorithms))
+        self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, self.state.algorithms))
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
-
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
             try:
@@ -974,6 +1033,11 @@ class Trainer:
         # If using DeepSpeed, the model must be loaded from checkpoint after the engine has been
         # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
         # DDP.
+
+        # surpressing GradScaler warnings as they are always created
+        # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
+        warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
+        self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
 
         # Load Checkpoint
         self._rng_state = None
@@ -1303,10 +1367,15 @@ class Trainer:
 
         # Evaluators
         if eval_dataloader is not None:
+            eval_metrics = self._original_model.metrics(train=False)
+            if isinstance(eval_metrics, Metric):
+                metric_names = [eval_metrics._get_name()]
+            else:
+                metric_names = [str(k) for k in eval_metrics.keys()]
             evaluators = [
                 # Need to use the `original_model` rather than `state.model`, as `state.model`
                 # could be DDP / DeepSpeed wrapped.
-                ensure_evaluator(evaluator, default_metrics=self._original_model.metrics(train=False))
+                ensure_evaluator(evaluator, default_metric_names=metric_names)
                 for evaluator in ensure_tuple(eval_dataloader)
             ]
             _set_evaluator_interval_and_subset_num_batches(
@@ -1328,13 +1397,15 @@ class Trainer:
             self.state.grad_accum = _get_initial_grad_accum(grad_accum)
 
         # Precision
-        if precision is not None:
+        if precision is not None and Precision(precision) != self.state.precision:
             if self.deepspeed_enabled:
                 raise ValueError('Changing the precision when using DeepSpeed is not supported')
             precision = Precision(precision)
             _validate_precision(precision, self._device, self.deepspeed_enabled)
             self.state.precision = precision
 
+            # update scaler since precision was provided
+            self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
         self._train_loop()
 
     def close(self):
@@ -1358,19 +1429,31 @@ class Trainer:
         return metrics
 
     def _compute_and_log_metrics(self, dataloader_label: str, log_level: LogLevel, metrics: MetricCollection):
-        """Computes metrics, logs the results, and updates the state.
+        """Computes metrics, logs the results, and updates the state with the deep-copied metrics.
 
         Args:
             dataloader_label (str): The dataloader label.
             metrics (MetricCollection): The metrics to compute.
             log_level (LogLevel): The LogLevel for logging metrics.
         """
+        metrics = deepcopy(metrics)
+
+        # log computed metrics
         computed_metrics = metrics.compute()
         self.logger.data(
             log_level=log_level,
             data={f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},
         )
-        self.state.current_metrics[dataloader_label] = computed_metrics
+
+        # store metric instances
+        for metric_name, metric in metrics.items():
+            assert isinstance(metric, Metric)
+            if dataloader_label == 'train':
+                self.state.train_metrics[metric_name] = metric
+            else:
+                if dataloader_label not in self.state.eval_metrics:
+                    self.state.eval_metrics[dataloader_label] = {}
+                self.state.eval_metrics[dataloader_label][metric_name] = metric
 
     def _spin_dataloaders(self):
         """Spin the dataloaders to restore sampler state.
@@ -1411,9 +1494,8 @@ class Trainer:
         # Batch time should be the value from rank 0
         sample_token_tensor = self._device.tensor_to_device(torch.tensor([num_samples, num_tokens], dtype=torch.int))
         dist.all_reduce(sample_token_tensor, reduce_operation='SUM')
-
         batch_time_tensor = self._device.tensor_to_device(
-            torch.tensor([batch_time.total_seconds()], dtype=torch.float64))
+            torch.tensor([batch_time.total_seconds()], dtype=torch.float32))
         dist.broadcast(batch_time_tensor, src=0)
         batch_time = datetime.timedelta(seconds=batch_time_tensor[0].cpu().item())
 
@@ -1427,13 +1509,10 @@ class Trainer:
 
         assert self.state.dataloader is not None, 'dataloader is set in __init__() or fit()'
         assert self._train_data_spec is not None, 'The train data spec is set in __init__() or fit()'
+        assert self.state.scaler is not None, 'scaler should have been set in __init__()'
 
         self.engine.run_event(Event.FIT_START)
 
-        # surpressing GradScaler warnings as they are always created
-        # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
-        warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
-        self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
         use_grad_scaling = self._use_grad_scaling(self.state.precision, self.state.scaler)
 
         self._spin_dataloaders()
@@ -1466,7 +1545,7 @@ class Trainer:
                 if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                     dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
 
-                for batch_idx, self.state.batch in enumerate(self._iter_dataloader()):
+                for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
 
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < int(self.state.timestamp.batch_in_epoch):
@@ -1571,36 +1650,36 @@ class Trainer:
                         finished_epoch_early = True
                         break
 
+                if not finished_epoch_early or self.state.dataloader_len == self.state.timestamp.batch_in_epoch:
+                    # Trigger the epoch end events if the dataloader was exhausted.
+                    # This happens if the "break" did not trigger above, or if it
+                    # did (e.g. duration specified in samples/batches/tokens), but it is still
+                    # the end of the dataloader (i.e. next(dataloader) would raise StopIteration)
+                    self.state.timestamp = self.state.timestamp.to_next_epoch()
+
+                    if self.train_metrics is not None:
+                        self._compute_and_log_metrics(
+                            dataloader_label='train',
+                            log_level=LogLevel.EPOCH,
+                            metrics=self.train_metrics,
+                        )
+
+                    if self._scheduler_step_frequency == TimeUnit.EPOCH:
+                        for scheduler in self.state.schedulers:
+                            scheduler.step()
+
+                    self.engine.run_event(Event.EPOCH_END)
+
+                    # Pause the timing during evaluation
+                    # Evaluation time is tracked separately in state.eval_timestamp
+                    duration = datetime.datetime.now() - last_wct
+                    self._run_evaluators(Event.EPOCH_END, log_level=LogLevel.EPOCH)
+                    last_wct = datetime.datetime.now() - duration
+
+                    self.engine.run_event(Event.EPOCH_CHECKPOINT)
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {int(self.state.timestamp.epoch)}')
 
-            if not finished_epoch_early or self.state.dataloader_len == self.state.timestamp.batch_in_epoch:
-                # Trigger the epoch end events if the dataloader was exhausted.
-                # This happens if the "break" did not trigger above, or if it
-                # did (e.g. duration specified in samples/batches/tokens), but it is still
-                # the end of the dataloader (i.e. next(dataloader) would raise StopIteration)
-                self.state.timestamp = self.state.timestamp.to_next_epoch()
-
-                if self.train_metrics is not None:
-                    self._compute_and_log_metrics(
-                        dataloader_label='train',
-                        log_level=LogLevel.EPOCH,
-                        metrics=self.train_metrics,
-                    )
-
-                if self._scheduler_step_frequency == TimeUnit.EPOCH:
-                    for scheduler in self.state.schedulers:
-                        scheduler.step()
-
-                self.engine.run_event(Event.EPOCH_END)
-
-                # Pause the timing during evaluation
-                # Evaluation time is tracked separately in state.eval_timestamp
-                duration = datetime.datetime.now() - last_wct
-                self._run_evaluators(Event.EPOCH_END, log_level=LogLevel.EPOCH)
-                last_wct = datetime.datetime.now() - duration
-
-                self.engine.run_event(Event.EPOCH_CHECKPOINT)
         self.engine.run_event(Event.FIT_END)
         self._run_evaluators(Event.FIT_END, log_level=LogLevel.FIT)
 
@@ -1614,7 +1693,7 @@ class Trainer:
                     dataloader=evaluator.dataloader,
                     dataloader_label=evaluator.label,
                     subset_num_batches=evaluator.subset_num_batches,
-                    metrics=evaluator.metrics,
+                    metric_names=evaluator.metric_names,
                     log_level=log_level,
                 )
 
@@ -1657,7 +1736,10 @@ class Trainer:
                         if use_grad_scaling:
                             self.state.scaler.step(optimizer)
                         else:
-                            optimizer.step()
+                            if isinstance(self._device, DeviceTPU):
+                                xm.optimizer_step(optimizer, barrier=True)
+                            else:
+                                optimizer.step()
             except RuntimeError as e:
                 if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
@@ -1681,8 +1763,9 @@ class Trainer:
             # Propagate across all ranks if any rank hit CUDA OOM
             should_handle_cuda_oom = self._device.tensor_to_device(
                 torch.tensor([should_handle_cuda_oom], dtype=torch.uint8))
-            dist.all_reduce(should_handle_cuda_oom, reduce_operation='MAX')
-            # Check if any rank hit CUDA OOM
+
+            if not isinstance(self._device, DeviceTPU):
+                dist.all_reduce(should_handle_cuda_oom, reduce_operation='MAX')
             if int(should_handle_cuda_oom.item()) == 1:
                 # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_timeout_error since
                 # it is likely transient, e.g. timeout because certain ranks OOMed and didn't reach barrier.
@@ -1698,7 +1781,11 @@ class Trainer:
                     warnings.warn(
                         RuntimeWarning('CUDA out of memory detected. Gradient Accumulation '
                                        f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
-                                       'and the batch will be retrained.'))
+                                       'and the batch will be retrained with a '
+                                       f'micro-batchsize of {device_batch_size // self.state.grad_accum}'))
+                    # Empty cache if on GPU, which will help reduce fragmentation
+                    if isinstance(self._device, DeviceGPU):
+                        torch.cuda.empty_cache()
             # Otherwise, log grad_accum and return calculated loss
             else:
                 # Synchronize new batch compute time
@@ -1921,7 +2008,7 @@ class Trainer:
 
             self.engine.run_event(Event.PREDICT_START)
 
-            for self.state.batch in self._iter_dataloader():
+            for self.state.batch in self._iter_dataloader(TrainerMode.PREDICT):
                 # Move the batch onto the device
                 self.state.batch = self._device.batch_to_device(self.state.batch)
 
@@ -1982,7 +2069,7 @@ class Trainer:
         dataloader: Union[Iterable, DataSpec, dict],
         dataloader_label: str = 'eval',
         *,
-        metrics: Union[Metric, MetricCollection],
+        metric_names: List[str],
         subset_num_batches: int = -1,
         log_level: Union[str, LogLevel] = LogLevel.FIT,
     ):
@@ -1992,7 +2079,7 @@ class Trainer:
             dataloader (DataLoader | DataSpec | dict): The class:`.DataLoader`, :class:`.DataSpec`, or
                 dict of :class:`.DataSpec` kwargs to use for evaluation
             dataloader_label (str, optional): The dataloader label to use for logging metrics. Defaults to ``'eval'``.
-            metrics (Metric | MetricCollection): The metrics to log.
+            metric_names (List[str]): The names of the metrics to log.
             subset_num_batches (int, optional): If specified, evaluate on this many batches. Defaults to ``-1``,
                 which means to iterate over the entire dataloader.
 
@@ -2030,6 +2117,11 @@ class Trainer:
 
             self.engine.run_event(Event.EVAL_START)
 
+            # extract model metrics based on provided names
+            # TODO (Ishana): refactor as part of CO-251
+            model_metrics = self._original_model.metrics(train=False)
+            metrics = _filter_metrics(model_metrics, metric_names)
+
             if not isinstance(metrics, MetricCollection):
                 metrics = MetricCollection(metrics)
 
@@ -2043,7 +2135,7 @@ class Trainer:
                 # The epoch provided to `set_epoch` need not be sequential, so this is fine.
                 dataloader.sampler.set_epoch(int(self.state.timestamp.batch))
 
-            for self.state.batch in self._iter_dataloader():
+            for self.state.batch in self._iter_dataloader(TrainerMode.EVAL):
                 self.state.batch = self._device.batch_to_device(self.state.batch)
                 if data_spec.device_transforms is not None:
                     self.state.batch = data_spec.device_transforms(self.state.batch)
@@ -2064,7 +2156,12 @@ class Trainer:
 
                 # Run in same precision context to avoid NaNs
                 with get_precision_context(self.state.precision):
-                    metrics.update(self.state.outputs, targets)
+                    if isinstance(self._device, DeviceMPS):
+                        # torchmetrics math has numerical errors on M1 devices
+                        # running the compute on CPU instead
+                        metrics.update(self.state.outputs.cpu(), targets.cpu())
+                    else:
+                        metrics.update(self.state.outputs, targets)
 
                 now = datetime.datetime.now()
                 batch_time = now - last_wct
@@ -2126,15 +2223,15 @@ class Trainer:
                                f'Potentially your hardware does not support Precision {precision}.')
         return use_grad_scaling
 
-    def _iter_dataloader(self):
+    def _iter_dataloader(self, trainer_mode: TrainerMode):
         """Helper method to iterate over the dataloader.
 
         This method yields up to :attr:`.State.dataloader_len`` batches from the dataloader. In addition, if the
         profiler is enabled, the dataloader latency recorded via the :class:`.Marker` API.
+
+        Args:
+            trainer_mode (TrainerMode): Specifies which mode the trainer is in.
         """
-        marker = None
-        if self.state.profiler is not None:
-            marker = self.state.profiler.marker(f'dataloader/{self.state.dataloader_label}', categories=['dataloader'])
         assert self.state.dataloader is not None, 'the dataloader should be set before calling this method'
 
         if self.state.dataloader_len is None:
@@ -2143,15 +2240,21 @@ class Trainer:
             dataloader_iter = itertools.islice(self.state.dataloader, int(self.state.dataloader_len))
 
         while True:
-            if marker is not None:
-                marker.start()
             try:
+                # [BEFORE/AFTER]_DATALOADER only runs while training
+                if trainer_mode == TrainerMode.TRAIN:
+                    self.engine.run_event(Event.BEFORE_DATALOADER)
                 batch = next(dataloader_iter)
             except StopIteration:
+                # [BEFORE/AFTER]_DATALOADER only runs while training
+                if trainer_mode == TrainerMode.TRAIN:
+                    # Event.AFTER_DATALOADER is normally called in the train loop. However, if we
+                    # encounter StopIteration, the train loop will not run. Accordingly, we need to
+                    # explicitly call the engine to run marker.finish() for the dataloader marker.
+                    # Otherwise, we will encounter an error at the start of the next epoch when
+                    # Event.BEFORE_DATALOADER tries to start an unfinished marker.
+                    self.engine.run_marker_only_event(Event.AFTER_DATALOADER)
                 break
-            finally:
-                if marker is not None:
-                    marker.finish()
             yield batch
 
     def _use_closures(self) -> bool:
@@ -2161,6 +2264,9 @@ class Trainer:
         with the _step_supports_amp_closure flag.
         """
         if self.deepspeed_enabled:
+            return False
+
+        if isinstance(self._device, DeviceTPU):
             return False
 
         if self.state.precision != Precision.AMP:

@@ -1,6 +1,6 @@
 train_dataset:
   streaming_ade20k:
-    remote: s3://mosaicml-internal-dataset-ade20k/mds/1/
+    remote: your-bucket-here
     local: /tmp/mds-cache/mds-ade20k/
     split: train
     base_size: 512
@@ -12,7 +12,7 @@ train_dataset:
     shuffle: true
 val_dataset:
   streaming_ade20k:
-    remote: s3://mosaicml-internal-dataset-ade20k/mds/1/
+    remote: your-bucket-here
     local: /tmp/mds-cache/mds-ade20k/
     split: val
     base_size: 512
@@ -37,8 +37,7 @@ model:
       - bn_ones
     num_classes: 150
     backbone_arch: resnet101
-    is_backbone_pretrained: true
-    backbone_url: https://download.pytorch.org/models/resnet101-cd907fc2.pth
+    backbone_weights: IMAGENET1K_V2
     use_plus: true
     sync_bn: false
 max_duration: 128ep

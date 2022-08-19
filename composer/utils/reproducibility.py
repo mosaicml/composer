@@ -81,7 +81,7 @@ def configure_deterministic_mode():
 
     .. note::
 
-        When using the :class:`~composer.trainer.trainer.Trainer`, you can use the ``deterministic_mode`` flag
+        When using the :class:`.Trainer`, you can use the ``deterministic_mode`` flag
         instead of invoking this function directly.
         For example:
 
@@ -140,7 +140,7 @@ def seed_all(seed: int):
 
     .. note::
 
-        When using the :class:`~composer.trainer.trainer.Trainer`, you can use the ``seed`` parameter
+        When using the :class:`.Trainer`, you can use the ``seed`` parameter
         instead of invoking this function directly.
         For example:
 
