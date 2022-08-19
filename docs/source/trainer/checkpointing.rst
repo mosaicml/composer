@@ -76,7 +76,7 @@ The above code, when run, will produce the checkpoints below:
 
     >>> trainer.saved_checkpoints
     ['./path/to/checkpoints/ep1.pt']
-    >>> latest_checkpoint = trainer.saved_checkpoints[-1]
+    >>> latest_checkpoint = trainer.saved_checkpoints
     >>> state_dict = torch.load(latest_checkpoint[0])
     >>> list(state_dict)
     ['state', 'rng']
