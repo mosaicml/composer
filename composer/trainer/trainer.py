@@ -1145,6 +1145,7 @@ class Trainer:
         save_folder = format_name_with_dist(save_folder, self.state.run_name)
         save_latest_artifact_name = format_name_with_dist(save_latest_artifact_name, self.state.run_name)
         latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
+
         # If latest checkpoint is not saved locally, try to fetch from loggers
         if not os.path.exists(latest_checkpoint_path):
             # Make save folder in case it doesn't exist so latest checkpoint can be downloaded

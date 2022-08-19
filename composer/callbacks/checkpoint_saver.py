@@ -305,8 +305,8 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         self.folder = folder
 
-        self.filename = PartialFilePath(filename, folder)
-        self.latest_filename = PartialFilePath(latest_filename, folder) if latest_filename else None
+        self.filename = PartialFilePath(filename.lstrip('/'), folder)
+        self.latest_filename = PartialFilePath(latest_filename.lstrip('/'), folder) if latest_filename else None
 
         self.artifact_name = PartialFilePath(artifact_name) if artifact_name else None
         self.latest_artifact_name = PartialFilePath(latest_artifact_name) if latest_artifact_name else None
@@ -376,11 +376,13 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         if self.latest_filename is not None:
             symlink = self.latest_filename.format(state, is_deepspeed)
+            print(symlink)
+            os.makedirs(os.path.dirname(symlink), exist_ok=True)
             try:
                 os.remove(symlink)
             except FileNotFoundError:
                 pass
-            os.symlink(filename, symlink)
+            os.symlink(os.path.relpath(filename, os.path.dirname(symlink)), symlink)
 
         # if artifact name provided, upload the checkpoint
         if self.artifact_name is not None:
