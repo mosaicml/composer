@@ -34,7 +34,7 @@ class ChannelsLast(Algorithm):
     """Changes the memory format of the model to `torch.channels_last <https://\\
     pytorch.org/tutorials/intermediate/memory_format_tutorial.html>`_. This usually improves GPU utilization.
 
-    Runs on :attr:`~composer.core.event.Event.INIT``, so it can set the memory format before the model is DDP wrapped.
+    Runs on :attr:`.Event.INIT``, so it can set the memory format before the model is DDP wrapped.
     Has no hyperparameters.
 
     Example:

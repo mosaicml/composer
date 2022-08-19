@@ -20,28 +20,29 @@ class MetricsCallback(Callback):
         self._train_batch_end_train_accuracy = None
 
     def init(self, state: State, logger: Logger) -> None:
-        # on init, the `current_metrics` should be empty
+        # on init, the current metrics should be empty
         del logger  # unused
-        assert state.current_metrics == {}, 'no metrics should be defined on init()'
+        assert state.train_metrics == {}, 'no train metrics should be defined on init()'
+        assert state.eval_metrics == {}, 'no eval metrics should be defined on init()'
 
     def batch_end(self, state: State, logger: Logger) -> None:
         # The metric should be computed and updated on state every batch.
         del logger  # unused
         if self.compute_training_metrics:
             # assuming that at least one sample was correctly classified
-            assert state.current_metrics['train']['Accuracy'] != 0.0
-            self._train_batch_end_train_accuracy = state.current_metrics['train']['Accuracy']
+            assert state.train_metrics['Accuracy'].compute() != 0.0
+            self._train_batch_end_train_accuracy = state.train_metrics['Accuracy']
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         # The metric at epoch end should be the same as on batch end.
         del logger  # unused
         if self.compute_training_metrics:
-            assert state.current_metrics['train']['Accuracy'] == self._train_batch_end_train_accuracy
+            assert state.train_metrics['Accuracy'].compute() == self._train_batch_end_train_accuracy
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if self.compute_val_metrics:
             # assuming that at least one sample was correctly classified
-            assert state.current_metrics['eval']['Accuracy'] != 0.0
+            assert state.eval_metrics['eval']['Accuracy'].compute() != 0.0
 
 
 @pytest.mark.parametrize('compute_training_metrics', [True, False])
@@ -89,14 +90,14 @@ def test_current_metrics(
 
     # Validate the metrics
     if compute_training_metrics:
-        assert trainer.state.current_metrics['train']['Accuracy'] != 0.0
+        assert trainer.state.train_metrics['Accuracy'].compute() != 0.0
     else:
-        assert 'train' not in trainer.state.current_metrics
+        assert trainer.state.train_metrics == {}
 
     if compute_val_metrics:
-        assert trainer.state.current_metrics['eval']['Accuracy'] != 0.0
+        assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
     else:
-        assert 'eval' not in trainer.state.current_metrics
+        assert 'eval' not in trainer.state.eval_metrics
 
     # Validate that the logger was called the correct number of times for metric calls
     num_expected_calls = 0
