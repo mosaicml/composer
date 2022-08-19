@@ -24,7 +24,7 @@ see :doc:`/method_cards/blurpool`. The method should log:
 
 These methods are easy to integrate into your own training loop code with just a few lines.
 
-For an overview of the algorithms, see :doc:`/trainer/algorithms`.
+For an overview of the algorithms, see :doc:`/method_cards/algorithms`.
 
 We make composing recipes together even easier with our (optional) :class`.Trainer`. Here,
 we train an MNIST classifer with a recipe of methods:

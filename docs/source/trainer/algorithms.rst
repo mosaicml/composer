@@ -5,8 +5,8 @@ Composer has a curated collection of speedup methods ("Algorithms") that can be 
 to easily create efficient training recipes.
 
 Below is a brief overview of the algorithms currently in Composer.
-For more detailed information about each algorithm, see the :doc:`method cards</method_cards/methods_overview>`,
-also linked in the table. Each algorithm has a functional implementation intended
+For more detailed information about each algorithm, see the method cards
+linked in the table. Each algorithm has a functional implementation intended
 for use with your own training loop and an implementation intended for use with
 Composer's trainer.
 

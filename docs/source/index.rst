@@ -113,7 +113,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    :maxdepth: 1
    :caption: Methods Library
 
-   trainer/algorithms.rst
+   method_cards/algorithms.rst
    method_cards/alibi.md
    method_cards/augmix.md
    method_cards/blurpool.md
