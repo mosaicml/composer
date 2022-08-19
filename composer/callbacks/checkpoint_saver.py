@@ -376,7 +376,6 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         if self.latest_filename is not None:
             symlink = self.latest_filename.format(state, is_deepspeed)
-            print(symlink)
             os.makedirs(os.path.dirname(symlink), exist_ok=True)
             try:
                 os.remove(symlink)
