@@ -43,7 +43,7 @@ class LoggerDestination(Callback, ABC):
 
         Logs any parameter/configuration/setting that doesn't vary during the run.
 
-            Args:
+        Args:
             hyperparameters (Dict[str, Any]): A dictionary mapping hyperparameter names
                 (strings) to their values (Any).
         """
