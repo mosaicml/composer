@@ -232,7 +232,7 @@ def test_ensure_folder_is_empty(tmp_path: pathlib.Path):
         ],  # Error if in future for batches but not epochs
         [
             'blazing-unicorn-ep{epoch}-batch{batch}-tie{token_in_epoch}-rank{rank}.pt',
-            'blazing-unicorn-ep2-batch7-tie9-rank0.pt', False
+            'blazing-unicorn-ep2-batch9-tie9-rank0.pt', False
         ],  # Error if in same epoch but later in sample in epoch
         [
             'charging-chungus-ep{epoch}-b{batch}-s{sample}-t{token}-bie{batch_in_epoch}-sie{sample_in_epoch}-tie{token_in_epoch}.pt',
@@ -240,7 +240,7 @@ def test_ensure_folder_is_empty(tmp_path: pathlib.Path):
         ],  # Ignore timestamps in past
         [
             'charging-chungus-ep{epoch}-b{batch}-s{sample}-t{token}-bie{batch_in_epoch}-sie{sample_in_epoch}-tie{token_in_epoch}.pt',
-            'charging-chungus-ep2-b7-s15-t31-bie1-sie3-tie8.pt', False
+            'charging-chungus-ep2-b7-s15-t32-bie1-sie3-tie8.pt', False
         ],  # Error if in future
     ],
 )
