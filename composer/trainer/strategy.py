@@ -14,21 +14,21 @@ from composer.core.state import State
 from composer.utils import dist
 from composer.utils.string_enum import StringEnum
 
-__all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module']
+__all__ = ['SyncStrategy', 'get_sync_context', 'prepare_ddp_module']
 
 log = logging.getLogger(__name__)
 
 
-class DDPSyncStrategy(StringEnum):
-    """How and when DDP gradient synchronization should happen.
+class SyncStrategy(StringEnum):
+    """How and when gradient synchronization should happen.
 
     Attributes:
-        SINGLE_AUTO_SYNC: The default behavior for DDP. Gradients are synchronized as they
+        SINGLE_AUTO_SYNC: The default behavior. Gradients are synchronized as they
             computed, for only the final microbatch of a batch. This is the most efficient
             strategy, but can lead to errors when ``find_unused_parameters`` is set, since
             it is possible different microbatches may use different sets of parameters,
             leading to an incomplete sync.
-        MULTI_AUTO_SYNC: The default behavior for DDP when ``find_unused_parameters`` is set.
+        MULTI_AUTO_SYNC: The default behavior when ``find_unused_parameters`` is set.
             Gradients are synchronized as they are computed for all microbatches. This ensures
             complete synchronization, but is less efficient than :attr:`SINGLE_AUTO_SYNC`. This
             efficiency gap is usually small, as long as either DDP syncs are a small portion
@@ -49,36 +49,36 @@ class DDPSyncStrategy(StringEnum):
 
 
 @contextmanager
-def ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Union[str, DDPSyncStrategy]):
-    """A context manager for handling the :class:`DDPSyncStrategy`.
+def get_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Union[str, SyncStrategy]):
+    """A context manager for handling the :class:`SyncStrategy`.
 
     Args:
         state (State): The state of the :class:`.Trainer`.
         is_final_microbatch (bool): Whether or not the context is being used during the final
             microbatch of the gradient accumulation steps.
-        sync_strategy (str | DDPSyncStrategy): The ddp sync strategy to use. If a string
-            is provided, the string must be one of the values in :class:`DDPSyncStrategy`.
+        sync_strategy (str | SyncStrategy): The ddp sync strategy to use. If a string
+            is provided, the string must be one of the values in :class:`SyncStrategy`.
     """
     if not isinstance(state.model, DistributedDataParallel):
         yield
         return
 
     assert state.optimizers is not None, 'optimizers have not been initialized'
-    sync_strategy = DDPSyncStrategy(sync_strategy)
+    sync_strategy = SyncStrategy(sync_strategy)
 
     no_sync_context = cast(Callable[[], ContextManager], state.model.no_sync)
     auto_sync_context = nullcontext
 
-    if sync_strategy == DDPSyncStrategy.SINGLE_AUTO_SYNC:
+    if sync_strategy == SyncStrategy.SINGLE_AUTO_SYNC:
         context = auto_sync_context if is_final_microbatch else no_sync_context
         with context():
             yield
 
-    elif sync_strategy == DDPSyncStrategy.MULTI_AUTO_SYNC:
+    elif sync_strategy == SyncStrategy.MULTI_AUTO_SYNC:
         with auto_sync_context():
             yield
 
-    elif sync_strategy == DDPSyncStrategy.FORCED_SYNC:
+    elif sync_strategy == SyncStrategy.FORCED_SYNC:
         try:
             with no_sync_context():
                 yield
@@ -96,6 +96,29 @@ def ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Uni
 
 
 def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) -> torch.nn.Module:
+    """Wraps the module in a :class:`torch.nn.parallel.DistributedDataParallel` object if running distributed training.
+
+    Args:
+        module (torch.nn.Module): The module to wrap.
+        find_unused_parameters (bool): Whether or not to do a pass over the autograd graph
+            to find parameters to not expect gradients for. This is useful if there are some
+            parameters in the model that are not being trained.
+    """
+    if dist.is_available() and dist.is_initialized():
+        if any((p.requires_grad for p in module.parameters())):
+            log.debug('Wrapping model with DistributedDataParallel')
+            ddp_model = DistributedDataParallel(module, find_unused_parameters=find_unused_parameters)
+            return ddp_model
+        return module
+    if dist.is_available():
+        raise RuntimeError('Please call dist.initialize_dist() before calling ddp.prepare_module()')
+
+    raise RuntimeError('When the world size is > 1, ``torch.distributed`` must be used. However, it is '
+                       'not available in your installation of PyTorch. Please install or build PyTorch '
+                       'with distributed support.')
+
+
+def prepare_fsdp_module(module: torch.nn.Module, find_unused_parameters: bool) -> torch.nn.Module:
     """Wraps the module in a :class:`torch.nn.parallel.DistributedDataParallel` object if running distributed training.
 
     Args:
