@@ -21,12 +21,12 @@ class MaskedAccuracy(Metric):
         total (float): The number of total instances that were predicted.
 
     Args:
-        ignore_index (int): The class index to ignore.
+        ignore_index (int): The class index to ignore. Default: -100.
         dist_sync_on_step (bool, optional): Synchronize metric state across processes at
             each forward() before returning the value at the step. Default: ``False``.
     """
 
-    def __init__(self, ignore_index: int, dist_sync_on_step: bool = False):
+    def __init__(self, ignore_index: int = -100, dist_sync_on_step: bool = False):
         # state from multiple processes
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.ignore_index = ignore_index

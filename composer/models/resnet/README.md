@@ -48,17 +48,13 @@ ResNet family members are identified by their number of layers. Parameter count,
 
 ```yaml
 optimizer:
-  sgd:
+  decoupled_sgdw:
     learning_rate: 2.048
     momentum: 0.875
-    weight_decay: 5e-4
-lr_schedulers:
-  linear_warmup: "8ep"
-  cosine_decay:
-      T_max: "82ep"
-      eta_min: 0
-      verbose: false
-      interval: step
+    weight_decay: 5.0e-4
+schedulers:
+  cosine_decay_with_warmup:
+    t_warmup: 8ep
 train_batch_size: 2048
 max_duration: 90ep
 ```
