@@ -86,6 +86,24 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
     return save_interval
 
 
+
+class PartialFilePath:
+
+    def __init__(self, filename: str, folder: Optional[str]= None):
+        self.folder = folder
+        self.filename = filename
+
+    def format(self, state: State, is_deepspeed: bool=False) -> str:
+        suffix = '.tar' if is_deepspeed else ''
+        if self.folder:
+            return os.path.join(
+                format_name_with_dist(self.folder, state.run_name, state.timestamp),
+                format_name_with_dist_and_time(self.filename, state.run_name, state.timestamp)
+            ) + suffix
+        else:
+            return format_name_with_dist_and_time(self.filename, state.run_name, state.timestamp) + suffix
+
+
 class CheckpointSaver(Callback):  # noqa: D101
     __doc__ = f"""Callback to save checkpoints.
 
@@ -301,39 +319,50 @@ class CheckpointSaver(Callback):  # noqa: D101
         weights_only: bool = False,
     ):
         if not callable(save_interval):
-            save_interval = checkpoint_periodically(save_interval)
+            self.save_interval = checkpoint_periodically(save_interval)
 
         self.folder = folder
-        self.filename = filename
-        self.artifact_name = artifact_name
-        self.latest_filename = latest_filename
-        self.latest_artifact_name = latest_artifact_name
-        self.overwrite = overwrite
 
-        self.save_interval = save_interval
-        self.saved_checkpoints: List[Tuple[Timestamp, List[pathlib.Path]]] = []
+        self.save_filename = PartialFilePath(filename, folder)
+        self.save_latest_filename = PartialFilePath(latest_filename, folder)
+
+        self.save_artifact = PartialFilePath(artifact_name)
+        self.save_latest_artifact = PartialFilePath(latest_artifact_name)
+
+        self.overwrite = overwrite
+        self.saved_checkpoints = List[pathlib.Path] = []
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
 
+
+
+        # self.folder = folder
+        # self.filename = filename
+        # self.artifact_name = artifact_name
+        # self.latest_filename = latest_filename
+        # self.latest_artifact_name = latest_artifact_name
+        # self.overwrite = overwrite
+
+        # self.save_interval = save_interval
+        # self.saved_checkpoints: List[Tuple[Timestamp, List[pathlib.Path]]] = []
+        # self.num_checkpoints_to_keep = num_checkpoints_to_keep
+        # self.weights_only = weights_only
+
     def init(self, state: State, logger: Logger) -> None:
-        del logger  # unused
         folder = format_name_with_dist(self.folder, state.run_name)
         os.makedirs(folder, exist_ok=True)
 
     def fit_start(self, state: State, logger: Logger) -> None:
-        del logger  # unused
-        # Verify safety with self.overwrite. Note that this has to be done at fit_start as opposed to init since it requires state.timestamp
-        # from any checkpoints which are loaded, and checkpoint loading happens after Event.INIT.
         if not self.overwrite:
+            # checks that folder contains no files with a timestamp after the current timestamp,
+            # which has potential for future conflicts.
             folder = format_name_with_dist(self.folder, state.run_name)
             ensure_folder_has_no_conflicting_files(folder, self.filename, state.timestamp)
-        # Ensure no rank proceeds (and potentially attempts to write to the folder), until all ranks have validated that the folder is safe.
-        dist.barrier()
-        if is_model_deepspeed(state.model):
-            if self.weights_only:
-                NotImplementedError(
-                    ('Saving checkpoints with `weights_only=True` is not currently supported when using DeepSpeed. '
-                     'See https://github.com/mosaicml/composer/issues/685.'))
+
+        dist.barrier()  # holds all ranks until folder check is done
+
+        if is_model_deepspeed(state.model) and self.weights_only:
+            raise NotImplementedError('weights_only=True is not supported when using DeepSpeed.')
 
     def batch_checkpoint(self, state: State, logger: Logger):
         if self.save_interval(state, Event.BATCH_CHECKPOINT):
@@ -412,21 +441,6 @@ class CheckpointSaver(Callback):  # noqa: D101
             self._prune_checkpoints()
 
 
-class PartialFilePath:
-
-    def __init__(self, filename: str, folder: Optional[str]= None):
-        self.folder = folder
-        self.filename = filename
-
-    def format(self, state: State, is_deepspeed: bool=False) -> str:
-        suffix = '.tar' if is_deepspeed else ''
-        if self.folder:
-            return os.path.join(
-                format_name_with_dist(self.folder, state.run_name, state.timestamp),
-                format_name_with_dist_and_time(self.filename, state.run_name, state.timestamp)
-            ) + suffix
-        else:
-            return format_name_with_dist_and_time(self.filename, state.run_name, state.timestamp) + suffix
 
 
 
