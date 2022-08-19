@@ -45,7 +45,7 @@ If there are multiple validation datasets that may have different metrics,
 use :class:`.Evaluator` to specify each pair of dataloader and metrics.
 This class is just a container for a few attributes:
 
-- ``label``: a user-specified name for the metric.
+- ``label``: a user-specified name for the evaluator.
 - ``dataloader``: PyTorch :class:`~torch.utils.data.DataLoader` or our :class:`.DataSpec`.
     See :doc:`DataLoaders</trainer/dataloaders>` for more details.
 - ``metric_names``: list of names of metrics to track.
@@ -75,3 +75,5 @@ can be specified as in the following example:
         eval_dataloader=[glue_mrpc_task, glue_mnli_task],
         ...
     )
+
+Note that `metric_names` must be a subset of the metrics provided by the model in :meth:`.ComposerModel.metrics`.
