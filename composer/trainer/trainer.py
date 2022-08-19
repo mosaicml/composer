@@ -10,7 +10,6 @@ import datetime
 import itertools
 import logging
 import os
-import pathlib
 import time
 import warnings
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
@@ -1049,20 +1048,13 @@ class Trainer:
         return is_model_deepspeed(self.state.model)
 
     @property
-    def saved_checkpoints(self) -> List[Tuple[Timestamp, List[pathlib.Path]]]:
-        """The checkpoint timestamps and filepaths.
-
-        This list contains tuples of the save timestamp and the checkpoint filepaths.
-        This list will have at most ``save_num_checkpoints_to_keep`` entries. The latest checkpoint
-        will be at the end.
+    def saved_checkpoints(self) -> List[str]:
+        """Returns list of saved checkpoints.
 
         .. note::
 
-            When using DeepSpeed, the index of a filepath in each list corresponds to the global rank of
-            the process that wrote that file. Each filepath is valid only on the process's (rank's) node.
-
-            Otherwise, when not using DeepSpeed, each sub-list will contain only one filepath since only rank zero
-            saves checkpoints.
+            For DeepSpeed, which saves file on every rank, only the files corresponding to the process's rank
+            will be shown.
         """
         if self._checkpoint_saver is None:
             return []
@@ -2189,16 +2181,9 @@ class Trainer:
             weights_only (bool, optional): See :func:`.save_checkpoint`.
 
         Returns:
-            List[pathlib.Path]: See :func:`.save_checkpoint`.
+            str or None: See :func:`.save_checkpoint`.
         """
-        state_dict = {
-            'state': self.state.state_dict(),
-            'rng': reproducibility.get_rng_state(),
-        }
-        if weights_only and not is_model_deepspeed(self.state.model):
-            state_dict['state'] = {'model': state_dict['state']['model']}
-
-        return save_checkpoint(state=state_dict, filename=name)
+        return save_checkpoint(state=self.state, filename=name, weights_only=weights_only)
 
     def export_for_inference(
         self,
