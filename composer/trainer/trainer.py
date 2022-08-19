@@ -192,7 +192,7 @@ def _is_cuda_oom(e: RuntimeError):
     return False
 
 
-def _handle_train_cuda_oom(state: State, device_batch_size):
+def _adjust_grad_accum(state: State, device_batch_size):
     """Adjust grad_accum if we encounter OOM.
 
     Args:
@@ -215,7 +215,7 @@ def _handle_train_cuda_oom(state: State, device_batch_size):
     torch.cuda.empty_cache()
 
 
-def _handle_eval_cuda_oom(state: State, device_batch_size):
+def _adjust_eval_batch_split(state: State, device_batch_size):
     """Adjust eval_batch_split if we encounter OOM.
 
     Args:
@@ -1748,8 +1748,7 @@ class Trainer:
 
             # Retry until we successfully complete evaluation
             while True:
-                # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
-                found_cuda_oom = 0
+                found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
                 try:
                     for eval_microbatch in self._train_data_spec.split_batch(device_batch, self.state.eval_batch_split):
                         # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
@@ -1771,7 +1770,7 @@ class Trainer:
                                                                                 dtype=torch.uint8)).item()
                     if found_cuda_oom == 1:
                         device_batch_size = self._train_data_spec.get_num_samples_in_batch(device_batch)
-                        _handle_eval_cuda_oom(self.state, device_batch_size)
+                        _adjust_eval_batch_split(self.state, device_batch_size)
                         # Skip return and rerun after handling oom
                         continue
                 # Return if we've successfully completed eval without OOMing.
@@ -1807,8 +1806,7 @@ class Trainer:
         # Retry until we successfully complete training and return loss
         while True:
             total_loss = None
-            # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
-            found_cuda_oom = 0
+            found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             try:
                 assert self.state.scaler is not None
                 microbatches = self._train_data_spec.split_batch(device_batch, self.state.grad_accum)
@@ -1842,10 +1840,11 @@ class Trainer:
             # Auto grad accum only supported on GPU
             if isinstance(self._device, DeviceGPU):
                 # Propagate across all ranks if any rank hit CUDA OOM
-                found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8)).item()
-                if found_cuda_oom == 1:
+                found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
+                if found_cuda_oom.item() == 1:
                     device_batch_size = self._train_data_spec.get_num_samples_in_batch(device_batch)
-                    _handle_train_cuda_oom(self.state, device_batch_size)
+                    _adjust_grad_accum(self.state, device_batch_size)
                     # Skip return and rerun after handling oom
                     continue
             # Log grad_accum and return loss if we've completed without OOMing.
@@ -2204,7 +2203,46 @@ class Trainer:
 
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
-                self._eval_batch(data_spec, metrics)
+                # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
+                device_batch = self.state.batch
+                # Retry until we successfully complete evaluation
+                while True:
+                    # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
+                    found_cuda_oom = 0
+                    try:
+                        for eval_microbatch in data_spec.split_batch(self.state.batch, self.state.eval_batch_split):
+                            self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
+                            with get_precision_context(self.state.precision):
+                                self.state.outputs, targets = self._original_model.validate(eval_microbatch)
+                            self.engine.run_event(Event.EVAL_AFTER_FORWARD)
+
+                            # Run in same precision context to avoid NaNs
+                            with get_precision_context(self.state.precision):
+                                if isinstance(self._device, DeviceMPS):
+                                    # torchmetrics math has numerical errors on M1 devices
+                                    # running the compute on CPU instead
+                                    metrics.update(self.state.outputs.cpu(), targets.cpu())
+                                else:
+                                    metrics.update(self.state.outputs, targets)
+                    except RuntimeError as e:
+                        if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
+                            log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
+                            found_cuda_oom = 1
+                        else:
+                            raise
+                    # Auto grad accum only supported on GPU
+                    if isinstance(self._device, DeviceGPU):
+                        # Propagate across all ranks if any rank hit CUDA OOM
+                        found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom],
+                                                                                    dtype=torch.uint8))
+                        dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
+                        if found_cuda_oom.item() == 1:
+                            device_batch_size = data_spec.get_num_samples_in_batch(device_batch)
+                            _adjust_eval_batch_split(self.state, device_batch_size)
+                            # Skip return and rerun after handling oom
+                            continue
+                    # Break if we've successfully completed eval without OOMing.
+                    break
 
                 now = datetime.datetime.now()
                 batch_time = now - last_wct
@@ -2238,47 +2276,6 @@ class Trainer:
         self.state.set_dataloader(original_dataloader, original_dataloader_label)
         if original_num_batches is not None:
             self.state.dataloader_len = original_num_batches
-
-    def _eval_batch(self, data_spec: DataSpec, metrics: MetricCollection):
-        # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
-        device_batch = self.state.batch
-
-        # Retry until we successfully complete evaluation
-        while True:
-            # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
-            found_cuda_oom = 0
-            try:
-                for eval_microbatch in data_spec.split_batch(self.state.batch, self.state.eval_batch_split):
-                    self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-                    with get_precision_context(self.state.precision):
-                        self.state.outputs, targets = self._original_model.validate(eval_microbatch)
-                    self.engine.run_event(Event.EVAL_AFTER_FORWARD)
-
-                    # Run in same precision context to avoid NaNs
-                    with get_precision_context(self.state.precision):
-                        if isinstance(self._device, DeviceMPS):
-                            # torchmetrics math has numerical errors on M1 devices
-                            # running the compute on CPU instead
-                            metrics.update(self.state.outputs.cpu(), targets.cpu())
-                        else:
-                            metrics.update(self.state.outputs, targets)
-            except RuntimeError as e:
-                if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
-                    log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
-                    found_cuda_oom = 1
-                else:
-                    raise
-            # Auto grad accum only supported on GPU
-            if isinstance(self._device, DeviceGPU):
-                # Propagate across all ranks if any rank hit CUDA OOM
-                found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8)).item()
-                if found_cuda_oom == 1:
-                    device_batch_size = data_spec.get_num_samples_in_batch(device_batch)
-                    _handle_eval_cuda_oom(self.state, device_batch_size)
-                    # Skip return and rerun after handling oom
-                    continue
-            # Return if we've successfully completed eval without OOMing.
-            return
 
     def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[GradScaler]) -> bool:
         """Determines based on precision when to use grad scaling.

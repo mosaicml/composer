@@ -17,7 +17,7 @@ from composer.core.types import Batch
 from composer.loggers import Logger
 from composer.models import HuggingFaceModel
 from composer.trainer.devices import DeviceGPU
-from composer.utils import ensure_tuple
+from composer.utils import dist, ensure_tuple
 
 __all__ = ['SeqLengthWarmup', 'set_batch_sequence_length']
 
@@ -287,7 +287,7 @@ class SeqLengthWarmup(Algorithm):
             per_gpu_batch = ceil(per_gpu_macrobatch / state.grad_accum)
             model_inputs = {k: v[:per_gpu_batch] for k, v in batch_clone.items()}
 
-            found_cuda_oom = 0
+            found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             try:
                 # start by running a forward and backward pass
                 # of the maximum sequence length to allocate cache.
@@ -312,15 +312,16 @@ class SeqLengthWarmup(Algorithm):
                     raise
 
             # In-line to avoid circular dependency
-            from composer.trainer.trainer import _handle_train_cuda_oom
+            from composer.trainer.trainer import _adjust_grad_accum
 
             # Auto grad accum only supported on GPU
             if device and device.type == 'gpu':
                 devicegpu = DeviceGPU()
                 # Propagate across all ranks if any rank hit CUDA OOM
-                found_cuda_oom = devicegpu.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8)).item()
-                if found_cuda_oom == 1:
-                    _handle_train_cuda_oom(state, device_batch_size)
+                found_cuda_oom = devicegpu.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
+                if found_cuda_oom.item() == 1:
+                    _adjust_grad_accum(state, device_batch_size)
                     # Skip return and rerun after handling oom
                     continue
             # Activate and return if we've completed without OOMing.
