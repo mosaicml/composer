@@ -1,1 +1,1 @@
-docs/source/trainer/algorithms.rst
+../trainer/algorithms.rst
