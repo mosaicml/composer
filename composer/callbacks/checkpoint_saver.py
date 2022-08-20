@@ -363,7 +363,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         is_deepspeed = is_model_deepspeed(state.model)
 
         # save the checkpoint to the filename
-        filename = self.filename.format(state)
+        filename = self.filename.format(state, is_deepspeed)
 
         saved = checkpoint.save_checkpoint(
             state=state,
