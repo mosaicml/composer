@@ -25,7 +25,7 @@ import torch.utils.data
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
-from torchmetrics import Metric, MetricCollection
+from torchmetrics import Metric
 
 from composer.algorithms import GradientClipping
 from composer.callbacks import CheckpointSaver
@@ -1404,15 +1404,14 @@ class Trainer:
         """
         self.engine.close()
 
-    def _ensure_metrics_device_and_dtype(self, metrics: MetricCollection):
-        # Safety check to ensure the metric and data are on the same device. Normally not
-        # needed because the metric is automatically on the same device as the model.
-        # See https://torchmetrics.readthedocs.io/en/latest/pages/overview.html for details.
-        metrics = self._device.module_to_device(metrics)
-
+    def _ensure_metrics_device_and_dtype(self, metrics: Dict[str, Metric]):
         # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When
         # running with FP16, this tends to result in overflows. Let's assume FP32 is good enough.
-        for _, metric in metrics.items():
+        for name, metric in metrics.items():
+            # Safety check to ensure the metric and data are on the same device. Normally not
+            # needed because the metric is automatically on the same device as the model.
+            # See https://torchmetrics.readthedocs.io/en/latest/pages/overview.html for details.
+            metrics[name] = self._device.module_to_device(metric)
             metric.set_dtype(torch.float32)  # type: ignore
 
         return metrics
@@ -1503,8 +1502,6 @@ class Trainer:
         assert self._train_data_spec is not None, 'The train data spec is set in __init__() or fit()'
         assert self.state.scaler is not None, 'scaler should have been set in __init__()'
 
-        assert isinstance(self.state.model, ComposerModel)
-
         self.engine.run_event(Event.FIT_START)
 
         use_grad_scaling = self._use_grad_scaling(self.state.precision, self.state.scaler)
@@ -1515,6 +1512,9 @@ class Trainer:
             # only restore the rng state here if the step in the current epoch is zero.
             reproducibility.load_rng_state(self._rng_state)
             self._rng_state = None
+
+        if self.state.train_metrics is not None:
+            self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
 
         # Flag if the epoch finished early, so it can be tracked whether to run the epoch end events
         finished_epoch_early = False
@@ -1571,8 +1571,8 @@ class Trainer:
                                         )
                                         eval_outputs, _ = self._original_model.validate(eval_microbatch)
                                     else:
-                                        outputs = self.state.model.forward(eval_microbatch)
-                                        eval_outputs = self.state.model.eval_forward(eval_microbatch, outputs)
+                                        outputs = self._original_model.forward(eval_microbatch)
+                                        eval_outputs = self._original_model.eval_forward(eval_microbatch, outputs)
 
                                     for _, metric in self.state.train_metrics.items():
                                         self._original_model.update_metric(
@@ -2097,7 +2097,6 @@ class Trainer:
         """
         log_level = LogLevel(log_level)
         restore_model_train = self.state.model.training
-        assert isinstance(self.state.model, ComposerModel)
 
         # back up the original dataloader on the state, so we can restore it after evaluation is finished
         original_dataloader = self.state.dataloader
@@ -2123,6 +2122,8 @@ class Trainer:
             assert self.state.dataloader is not None, 'dataloader is set'
 
             self.engine.run_event(Event.EVAL_START)
+
+            metrics = self._ensure_metrics_device_and_dtype(metrics)
 
             for _, metric in metrics.items():
                 metric.reset()

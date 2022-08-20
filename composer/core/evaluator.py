@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
+from torchmetrics import Metric, MetricCollection
+
 from composer.core.data_spec import DataSpec, ensure_data_spec
 from composer.core.event import Event
 from composer.core.state import State
@@ -118,13 +120,22 @@ class Evaluator:
         label: str,
         dataloader: Union[DataSpec, Iterable, Dict[str, Any]],
         metric_names: Optional[List[str]] = None,
+        metrics: Optional[Union[Metric, MetricCollection]] = None,
         subset_num_batches: Optional[int] = None,
         eval_interval: Optional[Union[int, str, Time, Callable[[State, Event], bool]]] = None,
     ):
         self.label = label
         self.dataloader = ensure_data_spec(dataloader)
 
-        self.metric_names = metric_names if metric_names else []
+        if metric_names or metrics:
+            assert (metric_names is None and metrics) or (metrics is None and metric_names)
+            if metric_names:
+                self.metric_names = metric_names
+            elif metrics:
+                if isinstance(metrics, Metric):
+                    self.metric_names = [metrics._get_name()]
+                else:
+                    self.metric_names = [str(k) for k, _ in metrics.items()]
 
         self.subset_num_batches = subset_num_batches
         self._eval_interval = None
