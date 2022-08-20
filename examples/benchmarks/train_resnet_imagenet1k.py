@@ -21,6 +21,9 @@ parser = argparse.ArgumentParser()
 
 # Dataloader arguments
 parser.add_argument('--datadir', help='Path to the directory containing the ImageNet-1k dataset', type=str)
+parser.add_arugment('--train_crop_size', help='Training image crop size', type=int, default=224)
+parser.add_argument('--eval_resize_size', help='Evaluation image resize size', type=int, default=256)
+parser.add_argument('--eval_crop_size', help='Evaluation image crop size', type=int, default=224)
 parser.add_argument('--train_batch_size', help='Train dataloader batch size', type=int, default=2048)
 parser.add_argument('--val_batch_size', help='Validation dataloader batch size', type=int, default=2048)
 
@@ -55,19 +58,12 @@ parser.add_argument('--precision',
 
 args = parser.parse_args()
 
-# Configurations
-
-# Train / val transforms
-train_crop_size = 224
-eval_resize_size = 256
-eval_crop_size = 224
-
 IMAGENET_CHANNEL_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_CHANNEL_STD = (0.229, 0.224, 0.225)
 
 # Train dataset
 train_transforms = transforms.Compose([
-    transforms.RandomResizedCrop(train_crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
+    transforms.RandomResizedCrop(args.train_crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
     transforms.RandomHorizontalFlip(),
     transforms.Normalize(IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD)
 ])
@@ -87,8 +83,8 @@ train_dataloader = torch.utils.data.DataLoader(
 
 # Validation dataset
 eval_transforms = transforms.Compose([
-    transforms.Resize(eval_resize_size),
-    transforms.CenterCrop(eval_crop_size),
+    transforms.Resize(args.eval_resize_size),
+    transforms.CenterCrop(args.eval_crop_size),
     transforms.Normalize(IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD)
 ])
 eval_dataset = ImageFolder(os.path.join(args.datadir, 'val'), eval_transforms)
@@ -149,7 +145,7 @@ lr_monitor = LRMonitor()
 
 # TODO: Checkpointing
 
-# TODO: Algorithms
+# TODO: Algorithms?
 
 # Create the Trainer!
 trainer = Trainer(
