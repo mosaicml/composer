@@ -862,15 +862,20 @@ class Trainer:
                 buffer_dtype=torch.float32,
             )
             backward_prefetch = BackwardPrefetch.BACKWARD_POST
-            model = FullyShardedDataParallel(
-                model,
-                sharding_strategy=sharding_map[self.fsdp_config['sharding_strategy'].upper()],
-                auto_wrap_policy=partial(size_based_auto_wrap_policy,
-                                         min_num_params=int(self.fsdp_config['min_params'])),
-                cpu_offload=None,
-                mixed_precision=mixed_precision,
-                backward_prefetch=backward_prefetch,
-                device_id=self._device._device)
+
+            for attr in dir(model):
+                obj = getattr(model, attr)
+                if isinstance(obj, torch.nn.Module) and not isinstance(obj, (Metric, MetricCollection)):
+                    fsdp_obj = FullyShardedDataParallel(
+                        obj,
+                        sharding_strategy=sharding_map[self.fsdp_config['sharding_strategy'].upper()],
+                        auto_wrap_policy=partial(size_based_auto_wrap_policy,
+                                                 min_num_params=int(self.fsdp_config['min_params'])),
+                        cpu_offload=None,
+                        mixed_precision=mixed_precision,
+                        backward_prefetch=backward_prefetch,
+                        device_id=self._device._device)
+                    setattr(model, attr, fsdp_obj)
 
             if self.fsdp_config['verbose']:
                 print(model)
