@@ -30,21 +30,24 @@ like in the following::
     >>> python examples/glue/run_glue_trainer.py
     finetune_hparams --help
 """
+import multiprocessing as mp
 # import multiprocessing as mp
 import os
 import subprocess
 import sys
 import tempfile
 import warnings
-from concurrent.futures import ProcessPoolExecutor as Pool
+# from concurrent.futures import ProcessPoolExecutor as Pool
+# from concurrent.futures import as_completed
 from dataclasses import dataclass
 from multiprocessing.context import BaseContext
+from multiprocessing.pool import Pool
 from typing import Dict, List, Optional, Tuple
 
 import torch
-import torch.multiprocessing as mp
 import yahp as hp
 import yaml
+# from bounded_pool_executor import BoundedProcessPoolExecutor
 from loky import get_reusable_executor
 from nlp_trainer_hparams import GLUETrainerHparams, NLPTrainerHparams
 from tabulate import tabulate
@@ -103,6 +106,7 @@ def init_cuda_queue(queue_size: int, ctx: BaseContext) -> mp.Queue:
 
 def init_cuda_env(cuda_envs: mp.Queue, free_port: int) -> None:
     """Set up a single GPU CUDA environment on initialization of a mp process pool."""
+    print("Spawned new job env!")
     env = cuda_envs.get()
     torch.cuda.set_device(env)
 
@@ -218,13 +222,19 @@ def spawn_finetuning_jobs(
     ctx = mp.get_context('spawn')
     cuda_envs = init_cuda_queue(torch.cuda.device_count(), ctx)
     free_port = get_free_tcp_port()
-    executor = get_reusable_executor(max_workers=torch.cuda.device_count(),
-                                     initializer=init_cuda_env,
-                                     initargs=(cuda_envs, free_port),
-                                     context=ctx)
+    pool = Pool(processes=torch.cuda.device_count(),
+                initializer=init_cuda_env,
+                initargs=(cuda_envs, free_port),
+                maxtasksperchild=1,
+                context=ctx)
+
+    def manage_queue(freed_device):
+        print("Adding", freed_device, "back to the queue!")
+        cuda_envs.put(freed_device)
 
     # Fine-tune from pre-trained checkpoint(s)
     ckpt_parent_pairs = zip(ckpt_load_paths, parent_ckpts)
+    futures = set()
     for parent_idx, ckpt_parent_pair in enumerate(ckpt_parent_pairs):
         ckpt_load_path, parent_ckpt = ckpt_parent_pair
         # `ckpt_load_path` provides the path to the checkpoint from which we load the starting weights used when fine-tuning
@@ -234,13 +244,29 @@ def spawn_finetuning_jobs(
         for task, save_ckpt in task_to_save_ckpt.items():
             # Run 1 or more fine-tune trainers from this checkpoint, using a different seed override for each
             for seed in seed_overrides[task]:
-                executor.submit(train_finetune, base_yaml_file, task, save_ckpt, ckpt_load_path, parent_ckpt,
-                                parent_idx, ckpt_save_folder, save_locally, free_port + rank, load_ignore_keys, seed)
+                pool.apply_async(train_finetune,
+                                 args=(base_yaml_file, task, save_ckpt, ckpt_load_path, parent_ckpt, parent_idx,
+                                       ckpt_save_folder, save_locally, free_port + rank, load_ignore_keys, seed),
+                                 callback=manage_queue)
+
+                # future = executor.submit(train_finetune, base_yaml_file, task, save_ckpt, ckpt_load_path, parent_ckpt,
+                # parent_idx, ckpt_save_folder, save_locally, free_port + rank, load_ignore_keys,
+                # seed)
+                # futures.add(future)
                 # future.add_done_callback(
                 #     lambda future: log_metrics(future.result(), ckpt_filename=parent_ckpt, glue_metrics=glue_metrics))
                 rank += 1
 
-    executor.shutdown(wait=True)  # wait for processes and callbacks to complete
+    # for future in as_completed(futures):
+    # futures.remove(future)
+    # del future
+    # print(len(futures), "futures left to go through.")
+    # import gc
+    # gc.collect()
+
+    # executor.shutdown(wait=True)  # wait for processes and callbacks to complete
+    pool.close()
+    pool.join()
 
     cuda_envs.close()
     cuda_envs.join_thread()
@@ -261,11 +287,14 @@ def train_finetune(
 ):
     """Run single instance of a finetuning job on given task."""
     os.environ['MASTER_PORT'] = f'{master_port}'  # set unique master port for each spawn
+    print("Spawned new job!")
 
     finetune_hparams = NLPTrainerHparams.create(cli_args=False, f=base_yaml_file).finetune_hparams
     task_hparams = TrainerHparams.create(cli_args=False, f=f'./composer/yamls/models/glue/{task}.yaml')
     task_hparams.train_subset_num_batches = 100
     task_hparams.eval_subset_num_batches = 100
+    task_hparams.dataloader.num_workers = 0
+    task_hparams.dataloader.persistent_workers = False
 
     if finetune_hparams:
         ft_hparams = merge_hparams(task_hparams, finetune_hparams)
@@ -334,7 +363,10 @@ def train_finetune(
     trainer.fit()
     print(f'\nFINISHED TRAINING TASK {task.upper()}\n')
     # recursively move metrics to CPU to avoid pickling issues
-    return DeviceCPU().batch_to_device(trainer.state.current_metrics)
+    del trainer
+    del ft_hparams
+    return torch.cuda.current_device()
+    # return DeviceCPU().batch_to_device(trainer.state.current_metrics)
 
 
 def get_args() -> str:
