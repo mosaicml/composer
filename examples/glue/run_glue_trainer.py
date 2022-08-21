@@ -47,8 +47,6 @@ from typing import Dict, List, Optional, Tuple
 import torch
 import yahp as hp
 import yaml
-# from bounded_pool_executor import BoundedProcessPoolExecutor
-from loky import get_reusable_executor
 from nlp_trainer_hparams import GLUETrainerHparams, NLPTrainerHparams
 from tabulate import tabulate
 
@@ -106,7 +104,6 @@ def init_cuda_queue(queue_size: int, ctx: BaseContext) -> mp.Queue:
 
 def init_cuda_env(cuda_envs: mp.Queue, free_port: int) -> None:
     """Set up a single GPU CUDA environment on initialization of a mp process pool."""
-    print("Spawned new job env!")
     env = cuda_envs.get()
     torch.cuda.set_device(env)
 
@@ -229,12 +226,10 @@ def spawn_finetuning_jobs(
                 context=ctx)
 
     def manage_queue(freed_device):
-        print("Adding", freed_device, "back to the queue!")
         cuda_envs.put(freed_device)
 
     # Fine-tune from pre-trained checkpoint(s)
     ckpt_parent_pairs = zip(ckpt_load_paths, parent_ckpts)
-    futures = set()
     for parent_idx, ckpt_parent_pair in enumerate(ckpt_parent_pairs):
         ckpt_load_path, parent_ckpt = ckpt_parent_pair
         # `ckpt_load_path` provides the path to the checkpoint from which we load the starting weights used when fine-tuning
@@ -256,13 +251,6 @@ def spawn_finetuning_jobs(
                 # future.add_done_callback(
                 #     lambda future: log_metrics(future.result(), ckpt_filename=parent_ckpt, glue_metrics=glue_metrics))
                 rank += 1
-
-    # for future in as_completed(futures):
-    # futures.remove(future)
-    # del future
-    # print(len(futures), "futures left to go through.")
-    # import gc
-    # gc.collect()
 
     # executor.shutdown(wait=True)  # wait for processes and callbacks to complete
     pool.close()
@@ -287,7 +275,6 @@ def train_finetune(
 ):
     """Run single instance of a finetuning job on given task."""
     os.environ['MASTER_PORT'] = f'{master_port}'  # set unique master port for each spawn
-    print("Spawned new job!")
 
     finetune_hparams = NLPTrainerHparams.create(cli_args=False, f=base_yaml_file).finetune_hparams
     task_hparams = TrainerHparams.create(cli_args=False, f=f'./composer/yamls/models/glue/{task}.yaml')
@@ -363,10 +350,7 @@ def train_finetune(
     trainer.fit()
     print(f'\nFINISHED TRAINING TASK {task.upper()}\n')
     # recursively move metrics to CPU to avoid pickling issues
-    del trainer
-    del ft_hparams
-    return torch.cuda.current_device()
-    # return DeviceCPU().batch_to_device(trainer.state.current_metrics)
+    return DeviceCPU().batch_to_device(trainer.state.current_metrics), torch.cuda.current_device()
 
 
 def get_args() -> str:
