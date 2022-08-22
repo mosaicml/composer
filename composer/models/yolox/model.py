@@ -1,9 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from torchmetrics.detection import MeanAveragePrecision
-
 from composer.models import MMDetModel
+from composer.metrics import MAP
 
 __all__ = ['composer_yolox']
 
@@ -61,7 +60,7 @@ def composer_yolox(model_name: str, num_classes=80):
         raise ValueError(f'model name must be one of {model_names}.')
 
     config = ConfigDict(config)
-    metrics = [MeanAveragePrecision(box_format='xyxy')]
+    metrics = [MAP(box_format='xyxy')]
     model = build_detector(config)
     model.init_weights()
 
