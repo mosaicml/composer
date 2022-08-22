@@ -88,6 +88,8 @@ class Logger:
             destination.log_hyperparameters(parameters)
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+        if not step:
+            step = self._state.timestamp.batch.value
         for destination in self.destinations:
             destination.log_metrics(metrics, step)
 
