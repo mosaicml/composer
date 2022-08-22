@@ -251,6 +251,7 @@ def spawn_finetuning_jobs(
                 maxtasksperchild=1,
                 context=ctx)
 
+    rank = 0
     # Fine-tune from pre-trained checkpoint(s)
     ckpt_parent_pairs = zip(ckpt_load_paths, parent_ckpts)
     for parent_idx, ckpt_parent_pair in enumerate(ckpt_parent_pairs):
@@ -258,7 +259,6 @@ def spawn_finetuning_jobs(
         # `ckpt_load_path` provides the path to the checkpoint from which we load the starting weights used when fine-tuning
         # `parent_ckpt` keeps track of the original pre-training checkpoint, for tasks with multiple fine-tuning stages (e.g., RTE)
         # `parent_idx` is used for bookkeeping, so `parent_ckpt` can be internally recovered from the path used to save fine-tune checkpoints
-        rank = 0
         for task, save_ckpt in task_to_save_ckpt.items():
             # Run 1 or more fine-tune trainers from this checkpoint, using a different seed override for each
             for seed in seed_overrides[task]:
