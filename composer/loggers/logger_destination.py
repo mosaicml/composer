@@ -27,8 +27,9 @@ class LoggerDestination(Callback, ABC):
         .. doctest::
 
             >>> from composer.loggers import LoggerDestination
+            >>> from composer.trainer import Trainer
             >>> class MyLogger(LoggerDestination):
-            ...     def log_metrics(self, data):
+            ...     def log_hyperparameters(self, data):
             ...         print(f'Batch {int(state.timestamp.batch)}: {data}')
             >>> logger = MyLogger()
             >>> trainer = Trainer(
