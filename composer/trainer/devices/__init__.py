@@ -9,5 +9,7 @@ Used by :class:`.Trainer` in order to train on different devices such as GPU and
 from composer.trainer.devices.device import Device as Device
 from composer.trainer.devices.device_cpu import DeviceCPU as DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU as DeviceGPU
+from composer.trainer.devices.device_mps import DeviceMPS as DeviceMPS
+from composer.trainer.devices.device_tpu import DeviceTPU as DeviceTPU
 
-__all__ = ['Device', 'DeviceCPU', 'DeviceGPU']
+__all__ = ['Device', 'DeviceCPU', 'DeviceGPU', 'DeviceMPS', 'DeviceTPU']

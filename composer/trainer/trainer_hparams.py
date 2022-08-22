@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import copy
 import dataclasses
 import datetime
 import logging
@@ -36,9 +35,9 @@ from composer.optim.optimizer_hparams_registry import OptimizerHparams, optimize
 from composer.optim.scheduler_hparams_registry import scheduler_registry
 from composer.profiler import Profiler
 from composer.trainer.ddp import DDPSyncStrategy
-from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
+from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceTPU
 from composer.trainer.devices.device_hparams_registry import device_registry
-from composer.trainer.trainer import Trainer
+from composer.trainer.trainer import Trainer, _is_tpu_installed
 from composer.utils import dist, reproducibility
 from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
 
@@ -445,6 +444,16 @@ class TrainerHparams(hp.Hparams):
 
         # The model
         model = self.model.initialize_object()
+        # on TPUs, model must be moved to device before optimizer creation
+        if isinstance(device, DeviceTPU):
+            if not _is_tpu_installed():
+                raise ImportError(
+                    'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla'
+                )
+            import torch_xla.core.xla_model as xm
+            import torch_xla.distributed.xla_multiprocessing as xmp
+
+            model = xmp.MpModelWrapper(model).to(xm.xla_device())
 
         # Train dataloader
         train_dataloader = _initialize_dataloader(self.train_dataset, self.train_dataloader_label,
@@ -723,7 +732,7 @@ class EvalKwargs(TypedDict):
     """
     dataloader: Union[Iterable, DataSpec, dict]
     dataloader_label: str
-    metrics: Union[Metric, MetricCollection]
+    metric_names: List[str]
     subset_num_batches: int
     log_level: Union[str, LogLevel]
 
@@ -782,10 +791,6 @@ class EvalHparams(hp.Hparams):
 
         # Metrics
 
-        # TODO(Ravi): Cleanup this code as part of the MetricsModule. This code was copied
-        # from composer/datasets/evaluator.py, but will likely be removed when the MetricsModule
-        # is implemented, as the trainer will not be responsible for constructing metrics.
-
         # Get and copy all the model's associated evaluation metrics
         model_metrics = model.metrics(train=False)
         if isinstance(model_metrics, Metric):
@@ -794,9 +799,9 @@ class EvalHparams(hp.Hparams):
 
         # Use all the metrics from the model if no metric_names are specified
         if self.metric_names is None:
-            metrics = copy.deepcopy(model_metrics)
+            metric_names = [str(k) for k in model_metrics.keys()]  # convert hashable to str
         else:
-            metrics = MetricCollection([])
+            metric_names = []
             for metric_name in self.metric_names:
                 try:
                     metric = model_metrics[metric_name]
@@ -804,15 +809,15 @@ class EvalHparams(hp.Hparams):
                     raise RuntimeError((f'No metric found with the name {metric_name}. Check if this '
                                         'metric is compatible/listed in your model metrics. ')) from e
                 assert isinstance(metric, Metric), 'all values of a MetricCollection.__getitem__ should be a metric'
-                metrics.add_metrics(copy.deepcopy(metric))
-            if len(metrics) == 0:
+                metric_names.append(str(metric_name))
+            if len(metric_names) == 0:
                 raise RuntimeError(('No metrics compatible with your model were added to this evaluator. '
                                     'Check that the metrics you specified are compatible/listed in your model.'))
 
         return {
             'dataloader': dataloader,
             'dataloader_label': self.dataloader_label,
-            'metrics': metrics,
+            'metric_names': metric_names,
             'subset_num_batches': self.subset_num_batches,
             'log_level': self.log_level,
         }
@@ -893,8 +898,7 @@ class ExperimentHparams(hp.Hparams):
                 (trainer, list of :meth:`~.Trainer.fit` kwargs, list of :meth:`~.Trainer.eval` kwargs).
         """
         trainer = self.trainer.initialize_object()
-        # TODO(ravi): With MetricsModule, `fit_hparams` and `eval_hparams` will
-        # no longer need the original model
+
         fit_kwargs = [
             fit_hparams.initialize_object(trainer._original_model, self.trainer.dataloader) for fit_hparams in self.fits
         ]

@@ -45,16 +45,17 @@
 
 # 👋 Welcome
 
-Composer is a library written in PyTorch that enables you to <b>train neural networks faster, at lower cost, and to higher accuracy</b>. We've implemented more than two dozen speed-up methods that can be applied to your training loop in just a few lines of code, or used with our built-in Trainer. We continually integrate the latest state-of-the-art in efficient neural network training.
+Composer is a PyTorch library that enables you to <b>train neural networks faster, at lower cost, and to higher accuracy</b>. We've implemented more than two dozen speedup methods that can be applied to your training loop in just a few lines of code, or used with our built-in Trainer. We continually integrate the latest state-of-the-art in efficient neural network training.
 
 Composer features:
-- 20+ methods for speeding up training networks for computer vision and language modeling. Don't waste hours trying to reproduce research papers when Composer has done the work for you.
-- An easy-to-use trainer that has been written to be as performant as possible and [integrates best practices](https://www.mosaicml.com/blog/5-best-practices-for-efficient-model-training) for efficient training.
+- 20+ methods for speeding up training networks for computer vision and natural language. Don't waste hours trying to reproduce research papers when Composer has done the work for you.
+- An easy-to-use trainer that has been written to be as performant as possible and [integrates best practices](https://www.mosaicml.com/blog/5-best-practices-for-efficient-model-training) for efficient, multi-GPU training.
 - Functional forms of all of our speedup methods that allow you to integrate them into your existing training loop.
-- Strong, _reproducible_ baselines to get you started as quickly as possible.
+- Strong, reproducible baselines to get you started as quickly as possible.
 
 ## Benefits
 
+<!-- start main results -->
 <p align="center">
   <a href="https://storage.googleapis.com/docs.mosaicml.com/images/composer_graph_light_06212022.svg?ref=Fiey0Xei#gh-light-mode-only" class="only-light">
     <img src="https://storage.googleapis.com/docs.mosaicml.com/images/composer_graph_light_06212022.svg?ref=Fiey0Xei" width="75%"/>
@@ -66,12 +67,13 @@ Composer features:
   </a>
   <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_END -->
 </p>
+<!-- end main results -->
 
 With no additional tuning, you can apply our methods to:
 <!-- start numbers -->
 - Train ResNet-50 on ImageNet to the standard 76.6% top-one accuracy for \$15 in 27 minutes (_with vanilla PyTorch:_ \$116 in 3.5 hours) on AWS.
-- Train GPT-2 125M to a the standard perplexity of 24.11 for \$145 in 4.5 hours (_with vanilla PyTorch_: \$255 in 7.8 hours) on AWS.
-- Train DeepLab-v3 on ADE20k to the standard mean IOU of 45.7 for \$36 in 1.1 hours (_with vanilla PyTorch_: \$110 in 3.5 hours on AWS)
+- Train GPT-2 125M to the standard perplexity of 24.11 for \$145 in 4.5 hours (_with vanilla PyTorch_: \$255 in 7.8 hours) on AWS.
+- Train DeepLab-v3 on ADE20k to the standard mean IOU of 45.7 for \$36 in 1.1 hours (_with vanilla PyTorch_: \$110 in 3.5 hours) on AWS.
 <!-- end numbers -->
 
 # 🚀 Quickstart
@@ -96,11 +98,11 @@ conda install -c mosaicml mosaicml
 You can use Composer's speedup methods in two ways:
 
 * Through a standalone **Functional API** (similar to `torch.nn.functional`) that allows you to integrate them into your existing training code.
-* Using Composer's built-in **Trainer**, which is designed to be performant and automatically takes care of many of the low-level details of using speedup methods.
+* Using Composer's built-in **Trainer**, which is designed to be performant and automatically takes care of the details of using speedup methods.
 
 ### Example: Functional API [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/functional_api.ipynb)
 
-Integrate our speed-up methods into your training loop with just a few lines of code, and see the results. Here we easily apply [BlurPool](https://docs.mosaicml.com/en/stable/method_cards/blurpool.html) and SqueezeExcite:
+Integrate our speedup methods into your training loop with just a few lines of code, and see the results. Here we easily apply [BlurPool](https://docs.mosaicml.com/en/stable/method_cards/blurpool.html) and [SqueezeExcite](https://docs.mosaicml.com/en/stable/method_cards/squeeze_excite.html):
 
 <!-- begin_example_1 --->
 ```python
@@ -121,7 +123,7 @@ For more examples, see the [Composer Functional API Colab notebook](https://cola
 
 ### Example: Trainer [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/getting_started.ipynb)
 
-For the best experience and the most efficient possible training, we recommend using Composer's built-in trainer, which automatically takes care of the low-level details of using speedup methods and provides useful abstractions that facilitate rapid experimentation.
+For the best experience and the most efficient possible training, we recommend using Composer's built-in trainer, which automatically takes care of the details of using speedup methods and provides useful abstractions that facilitate rapid experimentation.
 
 <!-- begin_example_2 --->
 <!--pytest.mark.gpu-->
@@ -167,9 +169,8 @@ trainer.fit()
 
 Composer's built-in [trainer](https://docs.mosaicml.com/en/stable/trainer/using_the_trainer.html) makes it easy to **add multiple speedup methods in a single line of code!**
 Trying out new methods or combinations of methods is as easy as changing a single list.
-As we continually implement more methods, they will be easy for you to add to your code.
 
-For concrete examples of methods in Composer, here are some ([_see here for all_](https://docs.mosaicml.com/en/latest/trainer/algorithms.html)) speedup methods currently in Composer:
+Here are some examples of methods available in Composer ([_see here for the full list_](https://docs.mosaicml.com/en/latest/trainer/algorithms.html)):
 
 Name|Attribution|tl;dr|Example Benchmark|Speed Up*|
 ----|-----------|-----|---------|---------|
@@ -224,9 +225,9 @@ Name|Functional|tl;dr|Benchmark|Speed Up
 
 # ⚙️ What benchmarks does Composer support?
 
-Composer uses a _benchmark_ as a term to denote a particular model trained on a particular dataset in a standardized, reproducible way. A benchmark is a specific model trained for a task, where a task = dataset + loss function + metric.
+We'll use the word _benchmark_ to denote a specific model trained on a specific dataset, with model quality assessed using a specific metric.
 
-We support computer vision and natural language processing use cases, such as (but not limited to) the following. New benchmarks will be added regularly, as will compatibility with existing libraries.
+Composer features computer vision and natural language processing benchmarks including (but not limited to):
 
 <div class="center">
 <table>
@@ -301,33 +302,42 @@ We support computer vision and natural language processing use cases, such as (b
 
 # 🤔 Why should I use Composer?
 
-The compute required to train a state-of-the-art machine learning model is [doubling every 6 months](https://arxiv.org/abs/2202.05924), putting these capabilities further and further out of reach for the broader community with each passing day.
+### Speed
+
+The compute required to train a state-of-the-art machine learning model is [doubling every 6 months](https://arxiv.org/abs/2202.05924), putting such models further and further out of reach for most researchers and practitioners with each passing day.
+
 Composer addresses this challenge by focusing on training efficiency: it contains cutting-edge speedup methods that modify the training algorithm to reduce the time and cost necessary to train deep learning models.
 **When you use Composer, you can rest assured that you are training efficiently.**
 We have combed the literature, done the science, and built industrial-grade implementations to ensure this is the case.
 
-Even after these speedup methods are implemented, assembling them together into recipes is nontrivial. We designed Composer with the **right abstractions to composing (and creating new) speedup methods.**
+### Flexibility
 
-Specifically, Composer's efficiency methods use **two-way callbacks** from ([Howard et al, 2020](https://arxiv.org/abs/2002.04688)) to modify the **entire training state** at particular events in the training loop to effect speed-ups. We handle collisions between methods, the proper order of execution for algorithms, and more.
+Even after these speedup methods are implemented, assembling them together into recipes is nontrivial. We designed Composer with the **right abstractions for composing (and creating new) speedup methods.**
 
-Through this, our methods can modify:
+Specifically, Composer uses two-way callbacks ([Howard et al, 2020](https://arxiv.org/abs/2002.04688)) to modify the **entire training state** at particular events in the training loop to effect speedups. We handle collisions between methods, proper method ordering, and more.
+
+Through this, methods can modify:
  - data inputs for batches (data augmentations, sequence length warmup, skipping examples, etc.)
  - neural network architecture (pruning, model surgery, etc.)
  - loss function (label smoothing, MixUp, CutMix, etc.)
  - optimizer (Sharpness Aware Minimization)
  - training dynamics (layer freezing, selective backprop, etc.)
 
-Easily [add your own methods](https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/custom_speedup_methods.ipynb) or callbacks to instrument any part of the training loop.
+You can easily [add your own methods](https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/custom_speedup_methods.ipynb) or callbacks to try out your ideas or modify any part of the training loop.
+
+### Support
+
+Composer is an active and ongoing project. We will respond quickly to issues filed in this repository.
 
 # 🧐 Why shouldn’t I use Composer?
 
-* Composer is mostly optimized for computer vision (CV) and natural language processing (NLP) use cases, including [custom models](https://docs.mosaicml.com/en/stable/composer_model.html) and custom datasets. We strongly encourage exploration on integrating our algorithms into new domains, such as reinforcement learning. Feel free to [join our Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg) and discuss!
-* Composer currently supports NVIDIA GPUs. We are adding support for additional hardware platforms, and you should expect more soon.
-* Composer is an active and ongoing project. Since Composer is still in alpha, our API may not be stable. We recommend pegging your work to a Composer version, and we will respond quickly to issues posted to this repository.
+* Composer is mostly optimized for computer vision and natural language processing. If you work on, e.g., reinforcement learning, you might encounter rough edges when using Composer.
+* Composer currently only supports NVIDIA GPUs, although we're working on adding alternatives.
+* Since Composer is still in alpha, our API may not be stable. We recommend pegging your work to a Composer version.
 
 # 📚 Learn More
 
-Here's some resources actively maintained by the Composer community to help you get started:
+Here are some resources actively maintained by the Composer community to help you get started:
 <table>
 <thead>
   <tr>
@@ -338,23 +348,19 @@ Here's some resources actively maintained by the Composer community to help you 
 <tbody>
   <tr>
     <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/getting_started.ipynb" target="_blank" rel="noopener noreferrer">Getting started with our Trainer</a></td>
-    <td>An interactive Colab Notebook aimed at teaching users about our Trainer</td>
+    <td>A Colab Notebook showing how to use our Trainer</td>
   </tr>
   <tr>
     <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/functional_api.ipynb" target="_blank" rel="noopener noreferrer">Getting started with our Functional API</a></td>
-    <td>An interactive Colab Notebook aimed at teaching users about our Functional API</td>
+    <td>A Colab Notebook showing how to use our Functional API</td>
   </tr>
   <tr>
     <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/custom_speedup_methods.ipynb" target="_blank" rel="noopener noreferrer">Building Speedup Methods</a></td>
-    <td>An interactive Colab Notebook aimed at teaching users about building speedup methods on top of Composer</td>
+    <td>A Colab Notebook showing how to build new training modifications on top of Composer</td>
   </tr>
   <tr>
-    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/nlp_models.ipynb" target="_blank" rel="noopener noreferrer">Training BERTs with Composer</a></td>
-    <td>An interactive Colab Notebook aimed at helping users learn how to train BERT models with Composer!</td>
-  </tr>
-  <tr>
-    <td><a href="https://mosaicml.com/jobs" target="_blank" rel="noopener noreferrer">We're Hiring!</a></td>
-    <td>Join us! 🤩</td>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/huggingface_models.ipynb" target="_blank" rel="noopener noreferrer">Training BERTs with Composer and 🤗 </a></td>
+    <td>A Colab Notebook showing how to train BERT models with Composer and 🤗!</td>
   </tr>
 </tbody>
 </table>
@@ -365,6 +371,8 @@ If you have any questions, please feel free to reach out to us on [Twitter](http
 Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues!
 
 To start contributing, see our [Contributing](https://github.com/mosaicml/composer/blob/dev/CONTRIBUTING.md) page.
+
+P.S.: [We're hiring](https://mosaicml.com/jobs)!
 
 # ✍️ Citation
 ```
