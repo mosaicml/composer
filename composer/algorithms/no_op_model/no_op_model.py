@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import torch
 import torch.nn.functional as F
@@ -60,7 +60,7 @@ class NoOpModelClass(ComposerModel):
     def get_metrics(self, is_train: bool) -> Dict[str, Metric]:
         return {'Accuracy': Accuracy()}
 
-    def eval_forward(self, batch: Batch):
+    def eval_forward(self, batch: Batch, outputs: Optional[Any] = None):
         x, y = batch
         del x  # unused
         return y

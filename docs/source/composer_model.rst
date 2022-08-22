@@ -136,7 +136,9 @@ A full example of a validation implementation would be:
 
         ...
 
-        def eval_forward(self, batch):
+        def eval_forward(self, batch, outputs):
+            if outputs:
+                return outputs
             inputs, _ = batch
             outputs = self.model(inputs)
             return outputs

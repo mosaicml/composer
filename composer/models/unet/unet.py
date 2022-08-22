@@ -4,7 +4,7 @@
 """A U-Net model extending :class:`.ComposerModel`."""
 
 import logging
-from typing import Any, Dict, Sequence, Union
+from typing import Any, Dict, Optional, Sequence, Union
 
 import torch
 import torch.nn as nn
@@ -86,7 +86,7 @@ class UNet(ComposerModel):
             preds = preds[batch_pad:]  # type: ignore
         return torch.transpose(preds, 0, 1).unsqueeze(0)
 
-    def eval_forward(self, batch: Any):
+    def eval_forward(self, batch: Any, outputs: Optional[Any] = None):
         assert self.training is False, 'For validation, model must be in eval mode'
         image, _ = batch
         pred = self.inference2d(image)

@@ -5,7 +5,7 @@
 
 import contextlib
 import math
-from typing import Any, Dict, Sequence, Union, cast
+from typing import Any, Dict, Optional, Sequence, Union, cast
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -51,7 +51,7 @@ class ModuleWithBatchnorm(ComposerModel):
     def get_metrics(self, is_train: bool = False) -> Dict[str, Metric]:
         raise NotImplementedError()
 
-    def eval_forward(self, batch: Batch):
+    def eval_forward(self, batch: Batch, outputs: Optional[Any] = None):
         raise NotImplementedError()
 
 
