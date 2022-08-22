@@ -72,6 +72,7 @@ instance/
 docs/_build/
 docs/path/
 docs/source/_build/
+docs/source/api_reference/
 # PyBuilder
 target/
 

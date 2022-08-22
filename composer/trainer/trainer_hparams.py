@@ -104,6 +104,20 @@ def _parse_grad_accum(grad_accum: Union[int, str]) -> Union[int, str]:
     raise ValueError('grad_accum should be "auto" or an integer.')
 
 
+def _parse_eval_batch_size(eval_batch_size: Optional[Union[int, str]]) -> Optional[Union[int, str]]:
+    if eval_batch_size is None:
+        return None
+    elif eval_batch_size == 'auto':
+        return eval_batch_size
+
+    try:
+        return int(eval_batch_size)
+    except (ValueError, TypeError):
+        pass
+
+    raise ValueError('eval_batch_size should be "auto" or an integer.')
+
+
 def _initialize_eval_dataloader(
     model: ComposerModel,
     eval_dataset_hparams: Optional[DatasetHparams],
@@ -193,8 +207,9 @@ class TrainerHparams(hp.Hparams):
             or more datasets. (default: ``None``)
 
             .. seealso:: :class:`~composer.core.evaluator.Evaluator` for more details on evaluators.
-        eval_batch_size (int, optional): The batch size to use for evaluation. Must be provided if one of
-            ``val_dataset`` or ``evaluators`` is set. (default: ``None``)
+        eval_batch_size (int | str, optional): The batch size to use for evaluation. Must be provided if one of
+            ``val_dataset`` or ``evaluators`` is set. If set to ``auto``, which requires ``grad_accum='auto'``,
+            train_batch_size is used with microbatches to avoid Cuda OOMs. (default: ``None``)
         eval_interval (str, optional): See :class:`.Trainer`.
         eval_subset_num_batches (int, optional): See :class:`.Trainer`.
 
@@ -305,7 +320,8 @@ class TrainerHparams(hp.Hparams):
     # Evaluation
     val_dataset: Optional[DatasetHparams] = hp.optional(doc='Validation dataset hparams', default=None)
     evaluators: Optional[List[EvaluatorHparams]] = hp.optional(doc='Evaluators', default=None)
-    eval_batch_size: Optional[int] = hp.optional(doc='batch size to use for each evaluation step', default=None)
+    eval_batch_size: Optional[Union[int, str]] = hp.optional(doc='batch size to use for each evaluation step',
+                                                             default=None)
     eval_interval: Union[int, str] = hp.auto(Trainer, 'eval_interval')
     eval_subset_num_batches: int = hp.auto(Trainer, 'eval_subset_num_batches')
 
@@ -392,6 +408,10 @@ class TrainerHparams(hp.Hparams):
             raise ValueError(
                 f'Batch size ({self.train_batch_size}) not divisible by the total number of processes ({world_size}).')
 
+        grad_accum = _parse_grad_accum(self.grad_accum)
+        if (isinstance(grad_accum, str) and grad_accum != 'auto') or (isinstance(grad_accum, int) and grad_accum < 1):
+            raise ValueError('grad_accum must be "auto" or an int greater than or equal to 1.')
+
         val_dataset_exists = self.val_dataset is not None
         evaluators_exist = self.evaluators is not None and len(self.evaluators) > 0
         if val_dataset_exists and evaluators_exist:
@@ -400,17 +420,22 @@ class TrainerHparams(hp.Hparams):
         if (val_dataset_exists or evaluators_exist) and self.eval_batch_size is None:
             raise ValueError('eval_batch_size must be specified if val_dataset or evaluators are specified.')
 
-        if self.eval_batch_size is not None and self.eval_batch_size % world_size != 0:
-            raise ValueError(
-                f'Eval batch size ({self.eval_batch_size}) not divisible by the total number of processes ({world_size}).'
-            )
+        eval_batch_size = _parse_eval_batch_size(self.eval_batch_size)
+        if eval_batch_size:
+            if (isinstance(eval_batch_size, str) and eval_batch_size != 'auto') or (isinstance(eval_batch_size, int) and
+                                                                                    eval_batch_size < 1):
+                raise ValueError(
+                    f'eval_batch_size must be "auto" or an int greater than or equal to 1 divisible by the number of processes ({world_size}).'
+                )
+            if eval_batch_size == 'auto' and grad_accum != 'auto':
+                raise ValueError('eval_batch_size can only be set to "auto" if grad_accum is also set to "auto"')
+            if eval_batch_size != 'auto' and eval_batch_size % world_size != 0:
+                raise ValueError(
+                    f'Eval batch size ({self.eval_batch_size}) not divisible by the total number of processes ({world_size}).'
+                )
 
         if self.scale_schedule_ratio <= 0:
             raise ValueError('scale_schedule_ratio must be a positive value.')
-
-        grad_accum = _parse_grad_accum(self.grad_accum)
-        if (isinstance(grad_accum, str) and grad_accum != 'auto') or (isinstance(grad_accum, int) and grad_accum < 1):
-            raise ValueError('grad_accum must be "auto" or an int greater than or equal to 1.')
 
     def initialize_object(self) -> Trainer:
         self.validate()
@@ -421,6 +446,11 @@ class TrainerHparams(hp.Hparams):
 
         # ensure grad_accum is 'auto' or an integer
         grad_accum = _parse_grad_accum(self.grad_accum)
+        eval_batch_size = _parse_eval_batch_size(self.eval_batch_size)
+        # _parse_eval_batch_size ensures eval_batch_size is auto if set to str. We need to check if
+        # it's a str and not eval_batch_size == 'auto' or pyright complains it might be a str still.
+        if isinstance(eval_batch_size, str):
+            eval_batch_size = self.train_batch_size
 
         # Device
         device = self.device
@@ -462,7 +492,7 @@ class TrainerHparams(hp.Hparams):
             model,
             self.val_dataset,
             self.evaluators,
-            self.eval_batch_size,
+            eval_batch_size,
             self.eval_subset_num_batches,
             self.dataloader,
         )
