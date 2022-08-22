@@ -678,18 +678,20 @@ class Trainer:
             This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
             artifact stores.
         autoresume (bool, optional): Whether or not to enable autoresume, which allows for stopping and resuming
-        training. This allows use of spot instances, as the training run is now fault tolerant.  This parameter requires
-            ``save_folder`` and ``run_name`` to be specified and ``save_overwrite`` to be ``False``. (default: ``False``)
+            training. This allows use of spot instances, as the training run is now fault tolerant.  This parameter
+            requires ``save_folder`` and ``run_name`` to be specified and ``save_overwrite`` to be ``False``.
+            (default: ``False``)
 
             When enabled, the save_folder is checked for checkpoints of the format ``"{save_folder}/{save_latest_filename}"``,
             which are loaded to continue training. If no local checkpoints are found, each logger is checked for potential
             checkpoints named ``save_latest_artifact_name``. Finally, if no logged checkpoints are found, ``load_path`` is
             used to load a checkpoint if specified. This should only occur at the start of a run using autoresume.
 
-            For example, to run a fine-tuning run on a spot instance, ``load_path`` would be set to the original weights and
-            an object store logger would be added. In the original run, ``load_path`` would be used to get the starting
-            checkpoint. For any future restarts, such as due to the spot instance being killed, the loggers would be queried for the latest checkpoint
-            the object store logger would be downloaded and used to resume training.
+            For example, to run a fine-tuning run on a spot instance, ``load_path`` would be set to the original
+            weights and an object store logger would be added. In the original run, ``load_path`` would be used
+            to get the starting checkpoint. For any future restarts, such as due to the spot instance being killed,
+            the loggers would be queried for the latest checkpoint the object store logger would be downloaded and
+            used to resume training.
         deepspeed_config (Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. (default: ``None``)
 
