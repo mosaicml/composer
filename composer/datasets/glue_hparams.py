@@ -113,7 +113,7 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
             tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
 
             log.info(f'Loading {self.task.upper()} on rank {dist.get_global_rank()}')
-            download_config = datasets.utils.DownloadConfig(max_retries=self.max_network_retries)
+            download_config = datasets.DownloadConfig(max_retries=self.max_network_retries)
             dataset = datasets.load_dataset('glue', self.task, split=self.split, download_config=download_config)
 
         log.info(f'Starting tokenization step by preprocessing over {dataloader_hparams.num_workers} threads!')

@@ -163,8 +163,10 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    :hidden:
    :caption: API Reference
    :maxdepth: 1
+   :glob:
 
-   api_reference.rst
+   api_reference/*
+
 
 .. _Twitter: https://twitter.com/mosaicml
 .. _Email: mailto:community@mosaicml.com
