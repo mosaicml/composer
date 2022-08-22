@@ -36,8 +36,6 @@ import subprocess
 import sys
 import tempfile
 import warnings
-# from concurrent.futures import ProcessPoolExecutor as Pool
-# from concurrent.futures import as_completed
 from dataclasses import dataclass
 from functools import partial
 from multiprocessing.context import BaseContext
@@ -161,7 +159,7 @@ def ingest_finetuning_result(result: Tuple[Dict[str, Dict], int], cuda_queue: mp
         glue_metrics (GlueState): GlueState object storing all the glue metrics for the entrypoint's current run
     """
 
-    metric, device, ckpt_filename = result
+    metric, device = result
     add_device_to_queue(device, cuda_queue=cuda_queue)
     log_metrics(metric=metric, ckpt_filename=ckpt_filename, glue_metrics=glue_metrics)
 
@@ -299,8 +297,8 @@ def train_finetune(
 
     finetune_hparams = NLPTrainerHparams.create(cli_args=False, f=base_yaml_file).finetune_hparams
     task_hparams = TrainerHparams.create(cli_args=False, f=f'./composer/yamls/models/glue/{task}.yaml')
-    task_hparams.train_subset_num_batches = 100
-    task_hparams.eval_subset_num_batches = 100
+    # turn off multiple workers on the dataloader for multiprocessing
+    # since all of the data is cached locally for GLUE, multiple workers don't hurt us.
     task_hparams.dataloader.num_workers = 0
     task_hparams.dataloader.persistent_workers = False
 
@@ -372,19 +370,27 @@ def train_finetune(
     print(f'\nFINISHED TRAINING TASK {task.upper()}\n')
 
     cpu_metrics = DeviceCPU().batch_to_device(trainer.state.current_metrics)
-    cpu_metrics = _convert_torch_tensor(cpu_metrics)
+    cpu_metrics = _convert_torch_tensor_to_primitives(cpu_metrics)
     # recursively move metrics to CPU to avoid pickling issues
-    return cpu_metrics, torch.cuda.current_device(), parent_ckpt
-    # return torch.cuda.current_device()
+    return cpu_metrics, torch.cuda.current_device()
 
 
-def _convert_torch_tensor(d):
-    for k, v in d.items():
+def _convert_torch_tensor_to_primitives(metrics_dict: dict):
+    """
+    Converts a PyTorch Tensor to primitives so it can be sent over multiprocessing.
+
+    Args:
+        metrics_dict (dict): A dictionary of PyTorch tensors to convert.
+
+    Returns:
+        metrics_dict (dict): A dictionary of primitive data types that contains the final metrics.
+    """
+    for k, v in metrics_dict.items():
         if isinstance(v, torch.Tensor):
-            d[k] = v.item()
+            metrics_dict[k] = v.item()
         elif isinstance(v, dict):
-            d[k] = _convert_torch_tensor(v)
-    return d
+            metrics_dict[k] = _convert_torch_tensor_to_primitives(v)
+    return metrics_dict
 
 
 def get_args() -> str:
