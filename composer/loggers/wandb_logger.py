@@ -116,7 +116,7 @@ class WandBLogger(LoggerDestination):
             # wandb.log alters the metrics dictionary object, so we deepcopy to avoid
             # side effects.
             metrics_copy = copy.deepcopy(metrics)
-            wandb.log(metrics_copy, step=step)
+            wandb.log(metrics_copy)
 
     def state_dict(self) -> Dict[str, Any]:
         import wandb
