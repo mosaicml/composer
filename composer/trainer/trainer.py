@@ -208,10 +208,13 @@ def _adjust_grad_accum(state: State, device_batch_size):
         original_grad_accum = state.grad_accum
         state.grad_accum = min(2 * state.grad_accum, device_batch_size)
         warnings.warn(
-            RuntimeWarning('CUDA out of memory detected. Gradient Accumulation '
+            RuntimeWarning('CUDA out of memory detected. Gradient Accumulation, the number of train microbatches, '
                            f'increased from {original_grad_accum} -> {state.grad_accum}, '
                            'and the batch will be retrained with a '
                            f'micro-batchsize of {device_batch_size // state.grad_accum}'))
+    # Clear gradients in case failure happened during backwards pass
+    for optimizer in state.optimizers:
+        optimizer.zero_grad()
     torch.cuda.empty_cache()
 
 
@@ -231,7 +234,7 @@ def _adjust_eval_batch_split(state: State, device_batch_size):
         original_eval_batch_split = state.eval_batch_split
         state.eval_batch_split = min(2 * state.eval_batch_split, device_batch_size)
         warnings.warn(
-            RuntimeWarning('CUDA out of memory detected. Eval batch split '
+            RuntimeWarning('CUDA out of memory detected. Number of eval microbatches '
                            f'increased from {original_eval_batch_split} -> {state.eval_batch_split}, '
                            'and the batch will be retrained with a '
                            f'micro-batchsize of {device_batch_size // state.eval_batch_split}'))
