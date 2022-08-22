@@ -124,7 +124,7 @@ class WandBLogger(LoggerDestination):
         # Storing these fields in the state dict to support run resuming in the future.
         if self._enabled:
             if wandb.run is None:
-                raise ValueError('wandb must be initialized before serialization.')
+                raise ValueError('wandb module must be initialized before serialization.')
             return {
                 'name': wandb.run.name,
                 'project': wandb.run.project,
