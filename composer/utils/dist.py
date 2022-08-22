@@ -63,13 +63,9 @@ __all__ = [
     'initialize_dist',
     'is_available',
     'is_initialized',
-    'monitored_barrier',
 ]
 
 log = logging.getLogger(__name__)
-
-# monitored_barrier requires gloo backend, which is initialized as a global variable
-group_gloo = None
 
 
 def _get_distributed_config_var(
@@ -161,29 +157,6 @@ def barrier() -> None:
     """
     if dist.is_available() and dist.is_initialized():
         dist.barrier()
-        return
-    world_size = get_world_size()
-    if world_size == 1:
-        return
-    raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
-                       'available or has not been initialized. Please check you have initialized '
-                       'the distributed runtime and that PyTorch has been built with distributed '
-                       'support.')
-
-
-def monitored_barrier(timeout: Optional[datetime.timedelta] = None) -> None:
-    """Synchronizes all processes.
-
-    This function blocks until all processes reach this function. Unlike `barrier`, `monitored_barrier`
-    times out and raises an error if not all ranks reach this function by `timeout`.
-
-    .. seealso:: :func:`torch.distributed.barrier`
-    """
-    if dist.is_available() and dist.is_initialized():
-        # monitored_barrier requires gloo backend, which is initialized as a global variable
-        global group_gloo
-        if group_gloo:
-            dist.monitored_barrier(group=group_gloo, timeout=timeout)
         return
     world_size = get_world_size()
     if world_size == 1:
