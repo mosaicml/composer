@@ -104,9 +104,12 @@ def ensure_folder_has_no_conflicting_files(folder_name: Union[str, pathlib.Path]
             match = match.groupdict()
             for unit, value in match.items():
                 if unit.endswith('_in_epoch'):
-                    continue  # _in_epoch counters already accounted for by the units
+                    if 'epoch' not in match:
+                        raise ValueError(f'{filename} has {{unit}} but not {{epoch}}. Add {{epoch}} for uniqueness.')
+                    if int(match['epoch']) != timestamp.epoch:
+                        continue  # only check _in_epoch if both files have same epoch count
 
-                if int(value) > timestamp.get(unit):
+                if int(value) > int(getattr(timestamp, unit)):
                     raise FileExistsError(
                         f'{os.path.join(folder_name, file)} may conflict with a future checkpoint of the current run.'
                         'Please delete that file, change to a new folder, or set overwrite=True.')
