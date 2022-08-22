@@ -1,6 +1,4 @@
-```{eval-rst}
-:orphan:
-```
+# 🃏 Methods Table
 
 Name|Functional|Attribution|tl;dr|Math-Equivalent
 ----|----------|-----------|-----|----

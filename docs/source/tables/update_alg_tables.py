@@ -56,7 +56,7 @@ table_md = utils.build_markdown_table(
     row_format=row,
 )
 
-table_path = os.path.join(os.path.dirname(__file__), 'algorithms_table.md')
+table_path = os.path.join(os.path.dirname(__file__), 'methods_table.md')
 with open(table_path, 'w') as f:
     f.write(table_md)
 

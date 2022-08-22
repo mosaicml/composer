@@ -117,7 +117,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    :maxdepth: 1
    :caption: Methods Library
 
-   method_cards/methods_overview.rst
+   tables/methods_table.md
    method_cards/alibi.md
    method_cards/augmix.md
    method_cards/blurpool.md
