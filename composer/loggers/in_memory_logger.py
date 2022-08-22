@@ -106,6 +106,14 @@ class InMemoryLogger(LoggerDestination):
                 from composer.core.time import Time, Timestamp
 
                 in_mem_logger = InMemoryLogger()
+                trainer = Trainer(
+                    model=model,
+                    train_dataloader=train_dataloader,
+                    eval_dataloader=eval_dataloader,
+                    max_duration="1ep",
+                    optimizers=[optimizer],
+                    loggers=[in_mem_logger]
+                )
 
                 # Populate the logger with data
                 for b in range(0,3):

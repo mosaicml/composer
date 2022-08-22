@@ -113,7 +113,7 @@ into a dictionary:
 
 .. testcode::
 
-    from typing import Any, Dict
+    from typing import Any, Dict, Optional
 
     from composer.loggers.logger_destination import LoggerDestination
     from composer.loggers.logger import LogLevel
@@ -126,7 +126,7 @@ into a dictionary:
             self.data = {}
 
         def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None):
-            for k, v in data.items():
+            for k, v in self.data.items():
                 if k not in self.data:
                     self.data[k] = []
                 self.data[k].append((state.timestamp, v))
