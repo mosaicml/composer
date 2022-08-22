@@ -370,6 +370,7 @@ def train_finetune(
     print(f'\nFINISHED TRAINING TASK {task.upper()}\n')
 
     cpu_metrics = DeviceCPU().batch_to_device(trainer.state.current_metrics)
+    # convert the Torch tensors to primitives so they can be sent over multiprocessing
     cpu_metrics = _convert_torch_tensor_to_primitives(cpu_metrics)
     # recursively move metrics to CPU to avoid pickling issues
     return cpu_metrics, torch.cuda.current_device()
