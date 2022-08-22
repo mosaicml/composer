@@ -212,7 +212,6 @@ class WandBLogger(LoggerDestination):
         import wandb
         import wandb.errors
 
-
         # using the wandb.Api() to support retrieving artifacts on ranks where
         # artifacts are not initialized
         api = wandb.Api()
