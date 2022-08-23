@@ -1,6 +1,9 @@
 import argparse
+import datetime
 import logging
 import os
+
+logging.getLogger(__name__).setLevel(logging.INFO)
 
 import torch
 from torchmetrics import MetricCollection
@@ -9,18 +12,17 @@ from torchvision import transforms
 from torchvision.datasets import ImageFolder
 from torchvision.models import resnet
 
-from composer import DataSpec, Time, Trainer
+from composer import Time, Trainer
 from composer.algorithms import BlurPool, ChannelsLast, EMA, LabelSmoothing, ProgressiveResizing, MixUp, SAM, ColOut, RandAugment, StochasticDepth
 from composer.callbacks import SpeedMonitor, LRMonitor, CheckpointSaver
-from composer.datasets.utils import NormalizationFn, pil_image_collate
 from composer.loss import soft_cross_entropy
 from composer.metrics import CrossEntropy
 from composer.models.tasks import ComposerClassifier
 from composer.optim import CosineAnnealingWithWarmupScheduler, DecoupledSGDW
+from composer.trainer.devices import DeviceCPU, DeviceGPU
 from composer.utils import dist
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
+#logging.getLogger(__name__).setLevel(logging.INFO)
 
 parser = argparse.ArgumentParser()
 
@@ -58,13 +60,14 @@ parser.add_argument('--t_max',
 parser.add_argument('--alpha_f', help='Learning rate multiplier to decay to', type=Time.from_timestring, default=0)
 
 # Save checkpoint arguments
-parser.add_argument('--checkpoint_dir',
-                    help='Directory to store checkpoints',
+parser.add_argument('--save_checkpoint_dir',
+                    help='Directory to save checkpoints',
                     type=str,
                     default='checkpoint/{run_name}')
 parser.add_argument('--checkpoint_interval', help='Frequency to save checkpoints', type=str, default='1ep')
 
-# TODO: Load checkpoint arguments
+# Load checkpoint arguments, assumes resuming the previous training run instead of fine-tuning
+parser.add_argument('--load_checkpoint_path', help='Path to the checkpoint to load', type=str)
 
 # Recipes
 parser.add_argument('--recipe_name',
@@ -79,6 +82,10 @@ parser.add_argument('--max_duration',
                     help='Duration to train specified in terms of Time',
                     type=Time.from_timestring,
                     default='90ep')
+parser.add_argument('--eval_interval',
+                    help='How frequently to run the evaluation datasets',
+                    type=Time.from_timestring,
+                    default='1ep')
 parser.add_argument('--device', help='Device to run training on', choices=['gpu', 'cpu', 'tpu', 'mps'], default='gpu')
 parser.add_argument('--precision',
                     help='Numerical precision for training',
@@ -88,11 +95,17 @@ parser.add_argument('--precision',
 # Local storage checkpointing
 args = parser.parse_args()
 
+device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU()
+
+if dist.get_world_size():
+    dist.initialize_dist(device, datetime.timedelta(seconds=60))
+    #train_batch_size = args.train_batch_size
+
 IMAGENET_CHANNEL_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_CHANNEL_STD = (0.229, 0.224, 0.225)
 
 # Train dataset
-print('Build train dataloader')
+logging.warning('Build train dataloader')
 train_transforms = transforms.Compose([
     transforms.RandomResizedCrop(args.train_crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
     transforms.RandomHorizontalFlip(),
@@ -102,6 +115,7 @@ train_transforms = transforms.Compose([
 train_dataset = ImageFolder(os.path.join(args.data_dir, 'train'), train_transforms)
 # Nifty function to instantiate a PyTorch DistributedSampler based on your hardware setup
 train_sampler = dist.get_sampler(train_dataset, drop_last=True, shuffle=True)
+print(train_sampler)
 train_dataloader = torch.utils.data.DataLoader(
     train_dataset,
     batch_size=args.train_batch_size,
@@ -109,13 +123,14 @@ train_dataloader = torch.utils.data.DataLoader(
     pin_memory=True,
     drop_last=True,
     sampler=train_sampler,
-    #    collate_fn=pil_image_collate,  # Converts PIL image lists to a torch.Tensor with the channel dimension first
     persistent_workers=True,  # Reduce overhead of creating new workers at the expense of using slightly more RAM
 )
-print('Built train dataloader')
+num_samples = len(train_dataloader.dataset)
+print(num_samples)
+logging.warning('Built train dataloader')
 
 # Validation dataset
-print('Build evaluation dataloader')
+logging.warning('Build evaluation dataloader')
 eval_transforms = transforms.Compose([
     transforms.Resize(args.eval_resize_size),
     transforms.CenterCrop(args.eval_crop_size),
@@ -132,12 +147,12 @@ eval_dataloader = torch.utils.data.DataLoader(
     pin_memory=True,
     drop_last=False,
     sampler=eval_sampler,
-    #    collate_fn=pil_image_collate,  # Converts PIL image lists to a torch.Tensor with the channel dimension first
     persistent_workers=True,  # Reduce overhead of creating new workers at the expense of using slightly more RAM
 )
-print('Built evaluation dataloader')
+logging.warning('Built evaluation dataloader')
 
 # Instantiate torchvision ResNet model
+logging.warning('Build Composer model')
 model_fn = getattr(resnet, args.model_name)
 model = model_fn(num_classes=1000, groups=1, width_per_group=64)
 
@@ -153,7 +168,7 @@ def weight_init(w: torch.nn.Module):
 
 model.apply(weight_init)
 
-# Performance metrics to log outside of training loss
+# Performance metrics to logging outside of training loss
 train_metrics = Accuracy()
 val_metrics = MetricCollection([CrossEntropy(), Accuracy()])
 
@@ -162,25 +177,30 @@ loss_fn = soft_cross_entropy
 
 # Wrapper function to convert a classification PyTorch model into a Composer model
 composer_model = ComposerClassifier(model, train_metrics=train_metrics, val_metrics=val_metrics, loss_fn=loss_fn)
+logging.warning('Built Composer model')
 
 # Optimizer
+logging.warning('Build optimizer and learning rate scheduler')
 optimizer = DecoupledSGDW(composer_model.parameters(),
                           lr=args.learning_rate,
                           momentum=args.momentum,
                           weight_decay=args.weight_decay)
 
 # Learning rate scheduler: LR warmup for 8 epochs, then cosine decay for the rest of training
-# TODO: I really don't like alpha_f
 lr_scheduler = CosineAnnealingWithWarmupScheduler(t_warmup=args.t_warmup, t_max=args.t_max, alpha_f=args.alpha_f)
+logging.warning('Build optimizer and learning rate scheduler')
 
-# Callbacks for logging
+# Callbacks for loggingging
+logging.warning('Build SpeedMonitor, LRMonitor, and CheckpointSaver callbacks')
 speed_monitor = SpeedMonitor(window_size=50)
 lr_monitor = LRMonitor()
 
 # Callback for checkpointing
-checkpoint_saver = CheckpointSaver(folder=args.checkpoint_dir, save_interval=args.checkpoint_interval)
+checkpoint_saver = CheckpointSaver(folder=args.save_checkpoint_dir, save_interval=args.checkpoint_interval)
+logging.warning('Build SpeedMonitor, LRMonitor, and CheckpointSaver callbacks')
 
 # Recipes for training ResNet architectures on ImageNet in order of increasing training time and accuracy
+logging.warning('Build algorithm recipes')
 if args.recipe_name == 'mild':
     algorithms = [
         BlurPool(),  # Add anti-aliasing filters to strided convs and maxpools
@@ -215,25 +235,28 @@ elif args.recipe_name == 'spicy':
                         drop_distribution='linear',
                         drop_rate=0.1)
     ]
-
 else:
     algorithms = None
+logging.warning('Built algorithm recipes')
 
 # Create the Trainer!
-trainer = Trainer(
-    model=composer_model,
-    train_dataloader=train_dataloader,
-    eval_dataloader=eval_dataloader,
-    eval_interval='1ep',
-    optimizers=optimizer,
-    schedulers=lr_scheduler,
-    algorithms=algorithms,
-    max_duration=args.max_duration,
-    callbacks=[speed_monitor, lr_monitor],
-    device=args.device,
-    precision=args.precision,  # super fast mixed precision training
-    grad_accum=args.grad_accum,
-    seed=args.seed)
+logging.warning('Build Trainer')
+trainer = Trainer(model=composer_model,
+                  train_dataloader=train_dataloader,
+                  eval_dataloader=eval_dataloader,
+                  eval_interval=args.eval_interval,
+                  optimizers=optimizer,
+                  schedulers=lr_scheduler,
+                  algorithms=algorithms,
+                  max_duration=args.max_duration,
+                  callbacks=[speed_monitor, lr_monitor, checkpoint_saver],
+                  load_path=args.load_checkpoint_path,
+                  device=args.device,
+                  precision=args.precision,
+                  grad_accum=8,
+                  seed=args.seed)
+logging.warning('Built Trainer')
 
 # Start training!
+logging.warning('Train!')
 trainer.fit()
