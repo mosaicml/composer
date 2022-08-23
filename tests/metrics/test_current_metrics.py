@@ -44,6 +44,7 @@ class MetricsCallback(Callback):
             # assuming that at least one sample was correctly classified
             assert state.eval_metrics['eval']['Accuracy'].compute() != 0.0
 
+
 @pytest.mark.parametrize('compute_training_metrics', [True, False])
 @pytest.mark.parametrize('eval_interval', ['1ba', '1ep', '0ep'])
 def test_current_metrics(
@@ -115,7 +116,6 @@ def test_current_metrics(
             num_evals += num_epochs
         num_expected_calls += (num_calls_per_eval) * num_evals
     num_actual_calls = 0
-
 
     # Need to filter out non-metrics-related calls
     for mock_call in mock_logger_destination.log_metrics.mock_calls:
