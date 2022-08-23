@@ -30,8 +30,6 @@ like in the following::
     >>> python examples/glue/run_glue_trainer.py
     finetune_hparams --help
 """
-# import multiprocessing as mp
-import torch.multiprocessing as mp
 import os
 import subprocess
 import sys
@@ -44,6 +42,7 @@ from multiprocessing.pool import Pool
 from typing import Dict, List, Optional, Tuple
 
 import torch
+import torch.multiprocessing as mp
 import yahp as hp
 import yaml
 from nlp_trainer_hparams import GLUETrainerHparams, NLPTrainerHparams
