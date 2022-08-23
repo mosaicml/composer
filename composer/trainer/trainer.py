@@ -1758,7 +1758,7 @@ class Trainer:
                                     eval_outputs,
                                     metric,
                                 )
-                                
+
                 except RuntimeError as e:
                     if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
                         log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
@@ -2176,7 +2176,6 @@ class Trainer:
 
             for _, metric in metrics.items():
                 metric.reset()
-
 
             dataloader = self.state.dataloader
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
