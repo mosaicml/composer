@@ -65,6 +65,10 @@ class NoOpModelClass(ComposerModel):
         del x  # unused
         return y
 
+    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
+        _, targets = batch
+        metric.update(outputs, targets)
+
 
 class NoOpModel(Algorithm):
     """Runs on :attr:`Event.INIT` and replaces the model with a dummy :class:`.NoOpModelClass` instance."""

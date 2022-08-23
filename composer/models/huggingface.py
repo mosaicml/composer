@@ -9,7 +9,6 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from torchmetrics import Metric
-from torchmetrics.collections import MetricCollection
 
 from composer.models.base import ComposerModel
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -74,9 +73,8 @@ class HuggingFaceModel(ComposerModel):
         self.val_metrics = None
 
         if metrics:
-            metric_collection = MetricCollection(metrics)
-            self.train_metrics = metric_collection.clone(prefix='train_')
-            self.val_metrics = metric_collection.clone(prefix='val_')
+            self.train_metrics = {metric._get_name(): metric for metric in metrics}
+            self.val_metrics = {metric._get_name(): metric for metric in metrics}
 
     def forward(self, batch):
         for key in self.model_inputs:
@@ -111,18 +109,10 @@ class HuggingFaceModel(ComposerModel):
         else:
             metrics = deepcopy(self.val_metrics)
 
-        if not metrics:
-            return {}
-
-        model_metrics = {}
-        for name, metric in metrics.items():
-            assert isinstance(metric, Metric)
-            model_metrics[name] = metric
-
-        return model_metrics
+        return metrics if metrics else {}
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
-        _, targets = batch
+        targets = batch.pop('labels')
         metric.update(outputs, targets)
 
     def get_model_inputs(self):

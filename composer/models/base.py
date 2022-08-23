@@ -242,7 +242,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         self,
         batch: Any,
         outputs: Optional[Any] = None,
-    ):
+    ) -> Any:
         """Run the evaluation forward pass.
 
 		By default, it returns the ``outputs`` if they are not None. Otherwise,
@@ -257,10 +257,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 		Returns:
 			Any: The evaluation outputs.
 		"""
-        if outputs is None:
-            return self(batch)
-        else:
-            return outputs
+        raise NotImplementedError()
 
     def update_metric(
         self,
