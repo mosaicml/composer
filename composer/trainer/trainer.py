@@ -1758,6 +1758,7 @@ class Trainer:
                                     eval_outputs,
                                     metric,
                                 )
+                                
                 except RuntimeError as e:
                     if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
                         log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
@@ -2176,6 +2177,7 @@ class Trainer:
             for _, metric in metrics.items():
                 metric.reset()
 
+
             dataloader = self.state.dataloader
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                 # The distributed sampler uses `set_epoch` to set the random seed
@@ -2216,6 +2218,7 @@ class Trainer:
                                     self.state.outputs, _ = self._original_model.validate(eval_microbatch)
                                 else:
                                     self.state.outputs = self._original_model.eval_forward(eval_microbatch)
+
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
                             # Run in same precision context to avoid NaNs
@@ -2232,6 +2235,7 @@ class Trainer:
                                         outputs,
                                         metric,
                                     )
+
                     except RuntimeError as e:
                         if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
                             log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
