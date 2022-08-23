@@ -100,28 +100,33 @@ def test_current_metrics(
     else:
         assert 'eval' not in trainer.state.eval_metrics
 
+    num_step_and_index_calls = 2  # global_step and batch_idx calls
+    num_loss_calls_per_epoch = 1
+
     # Validate that the logger was called the correct number of times for metric calls
     num_expected_calls = 0
+
+    # Every epoch is logged.
+    num_expected_calls += num_epochs
+
+    num_expected_calls += num_epochs * train_subset_num_batches * num_step_and_index_calls
+
+    num_expected_calls += num_epochs * train_subset_num_batches * num_loss_calls_per_epoch
+
     if compute_training_metrics:
         # computed once per batch
         # and again at epoch end
         num_expected_calls += (train_subset_num_batches + 1) * num_epochs
     # computed at eval end
     if compute_val_metrics:
-        num_calls_per_eval = 1
+        num_calls_per_eval = 3  # metrics + epoch + trainer/global_step
         num_evals = 0
         if eval_interval == '1ba':
             num_evals += train_subset_num_batches * num_epochs
         if eval_interval == '1ep':
             num_evals += num_epochs
         num_expected_calls += (num_calls_per_eval) * num_evals
-    num_actual_calls = 0
 
-    # Need to filter out non-metrics-related calls
-    for mock_call in mock_logger_destination.log_metrics.mock_calls:
-        metric_dict = mock_call.args[0]
-        metric_name, _ = next(iter(metric_dict.items()))
-        if metric_name.startswith('metrics/'):
-            num_actual_calls += 1
+    num_actual_calls = len(mock_logger_destination.log_metrics.mock_calls)
 
     assert num_actual_calls == num_expected_calls
