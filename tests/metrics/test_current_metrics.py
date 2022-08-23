@@ -118,8 +118,7 @@ def test_current_metrics(
 
     # Need to filter out non-metrics-related calls
     for mock_call in mock_logger_destination.log_metrics.mock_calls:
-        metric_dict, step = mock_call.args
-        del step
+        metric_dict = mock_call.args[0]
         metric_name, _ = next(iter(metric_dict.items()))
         if metric_name.startswith('metrics/'):
             num_actual_calls += 1
