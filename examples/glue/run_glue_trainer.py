@@ -30,7 +30,8 @@ like in the following::
     >>> python examples/glue/run_glue_trainer.py
     finetune_hparams --help
 """
-import multiprocessing as mp
+# import multiprocessing as mp
+import torch.multiprocessing as mp
 import os
 import subprocess
 import sys
