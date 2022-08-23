@@ -44,7 +44,6 @@ class MetricsCallback(Callback):
             # assuming that at least one sample was correctly classified
             assert state.eval_metrics['eval']['Accuracy'].compute() != 0.0
 
-
 @pytest.mark.parametrize('compute_training_metrics', [True, False])
 @pytest.mark.parametrize('eval_interval', ['1ba', '1ep', '0ep'])
 def test_current_metrics(
@@ -58,6 +57,7 @@ def test_current_metrics(
     # Configure the trainer
     num_channels = dummy_in_shape[0]
     mock_logger_destination = MagicMock()
+    mock_logger_destination.log_metrics = MagicMock()
     model = SimpleModel(num_features=num_channels, num_classes=dummy_num_classes)
     compute_val_metrics = eval_interval != '0ep'
     train_subset_num_batches = 2
@@ -115,6 +115,7 @@ def test_current_metrics(
             num_evals += num_epochs
         num_expected_calls += (num_calls_per_eval) * num_evals
     num_actual_calls = 0
+
 
     # Need to filter out non-metrics-related calls
     for mock_call in mock_logger_destination.log_metrics.mock_calls:
