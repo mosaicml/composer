@@ -106,3 +106,11 @@ class ComposerClassifier(ComposerModel):
         inputs, _ = batch
         outputs = self.module(inputs)
         return outputs
+
+    def eval_forward(self, batch: Any, outputs: Optional[Any] = None) -> Any:
+        if outputs is not None:
+            output = outputs
+        else:
+            output = self.forward(batch)
+
+        return output
