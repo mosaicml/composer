@@ -1840,7 +1840,8 @@ class Trainer:
                     # Skip return and rerun after handling oom
                     continue
             # Log grad_accum and return loss if we've completed without OOMing.
-            self.logger.log_metrics({'trainer/grad_accum': self.state.grad_accum}, step=self.state.timestamp.batch.value)
+            self.logger.log_metrics({'trainer/grad_accum': self.state.grad_accum},
+                                    step=self.state.timestamp.batch.value)
             return total_loss
 
     def _train_microbatches(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
