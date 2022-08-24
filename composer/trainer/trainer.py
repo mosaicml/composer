@@ -45,6 +45,7 @@ from composer.profiler import Profiler
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
+from composer.trainer.activation_checkpointing import apply_activation_checkpointing_wrapper
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.trainer.strategy import SyncStrategy, get_sync_context, prepare_ddp_module, prepare_fsdp_module
 from composer.utils import ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, model_eval_mode, reproducibility
@@ -866,6 +867,11 @@ class Trainer:
             for attr in dir(model):
                 obj = getattr(model, attr)
                 if isinstance(obj, torch.nn.Module) and not isinstance(obj, (Metric, MetricCollection)):
+
+                    def _param_init_fn(module):
+                        module.to_empty(device=self._device._device)
+                        module.apply(obj.param_init_fn)
+
                     fsdp_obj = FullyShardedDataParallel(
                         obj,
                         sharding_strategy=sharding_map[self.fsdp_config['sharding_strategy'].upper()],
@@ -874,7 +880,12 @@ class Trainer:
                         cpu_offload=None,
                         mixed_precision=mixed_precision,
                         backward_prefetch=backward_prefetch,
-                        device_id=self._device._device)
+                        param_init_fn=_param_init_fn)
+
+                    if self.fsdp_config['activation_checkpointing']:
+                        act_ckpt_fn = obj.activation_checkpointing_fn
+                        apply_activation_checkpointing_wrapper(fsdp_obj, check_fn=act_ckpt_fn)
+
                     setattr(model, attr, fsdp_obj)
 
             if self.fsdp_config['verbose']:
