@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from torchmetrics import Metric
@@ -73,8 +72,8 @@ class HuggingFaceModel(ComposerModel):
         self.val_metrics = None
 
         if metrics:
-            self.train_metrics = {metric._get_name(): metric for metric in metrics}
-            self.val_metrics = {metric._get_name(): metric for metric in metrics}
+            self.train_metrics = {metric.__class__.__name__: metric for metric in metrics}
+            self.val_metrics = {metric.__class__.__name__: metric for metric in metrics}
 
     def forward(self, batch):
         for key in self.model_inputs:
@@ -88,26 +87,21 @@ class HuggingFaceModel(ComposerModel):
         return outputs['loss']
 
     def eval_forward(self, batch, outputs: Optional[Any] = None):
+        output = outputs if outputs else self.forward(batch)
         if self.use_logits:
-            if outputs:
-                output = outputs
-            else:
-                output = self.forward(batch)
             output = output['logits']
 
             # if we are in the single class case, then remove the classes dimension
             if output.shape[1] == 1:
                 output = output.squeeze(dim=1)
 
-            return output
-        else:
-            return outputs if outputs else self.forward(batch)
+        return output
 
     def get_metrics(self, is_train: bool = False) -> Dict[str, Metric]:
         if is_train:
-            metrics = deepcopy(self.train_metrics)
+            metrics = self.train_metrics
         else:
-            metrics = deepcopy(self.val_metrics)
+            metrics = self.val_metrics
 
         return metrics if metrics else {}
 

@@ -95,6 +95,7 @@ def _get_default_scheduler_frequency(schedulers: Optional[Union[Scheduler, Seque
 
 def _filter_metrics(metrics: Dict[str, Metric], metric_names: Optional[List[str]]) -> Dict[str, Metric]:
     """Filter the metrics based on the given metric_names as regex strings (e.g. 'Accuracy', 'f1' for 'BinaryF1Score', 'Top-.' for 'Top-1 Accuracy' and 'Top-2 Accuracy', etc). If no metric_names are provided, all metrics will be returned."""
+    metrics = deepcopy(metrics)
     if not metric_names:
         return metrics
     else:
@@ -984,20 +985,23 @@ class Trainer:
         # Metrics and Evaluators
         # Set state.train_metrics and state.eval_metrics here to allow callbacks / algs to potentially
         # change the model, which could change what metrics are computed
-        self.state.train_metrics = self.state.model.get_metrics(is_train=True)
+        self.state.train_metrics = deepcopy(self.state.model.get_metrics(is_train=True))
         self.state.eval_metrics = {}
         if eval_dataloader is None:
             evaluators: List[Evaluator] = []
         else:
             eval_metrics = self.state.model.get_metrics(is_train=False)
             model_metric_names = [str(k) for k in eval_metrics.keys()]
-            evaluators = []
-            for evaluator in ensure_tuple(eval_dataloader):
-                evaluator = ensure_evaluator(evaluator, default_metric_names=model_metric_names)
-                evaluators.append(evaluator)
 
-                # match metric names to model metrics
-                self.state.eval_metrics[evaluator.label] = _filter_metrics(eval_metrics, evaluator.metric_names)
+            evaluators = [
+                ensure_evaluator(evaluator, default_metric_names=model_metric_names)
+                for evaluator in ensure_tuple(eval_dataloader)
+            ]
+
+            # match metric names to model metrics
+            self.state.eval_metrics = {
+                evaluator.label: _filter_metrics(eval_metrics, evaluator.metric_names) for evaluator in evaluators
+            }
 
             _set_evaluator_interval_and_subset_num_batches(
                 evaluators=evaluators,
@@ -1419,13 +1423,16 @@ class Trainer:
             # could be DDP / DeepSpeed wrapped.
             eval_metrics = self._original_model.get_metrics(is_train=False)
             metric_names = [str(k) for k in eval_metrics.keys()]
-            evaluators = []
-            for evaluator in ensure_tuple(eval_dataloader):
-                evaluator = ensure_evaluator(evaluator, default_metric_names=metric_names)
-                evaluators.append(evaluator)
 
-                # match metric names to model metrics
-                self.state.eval_metrics[evaluator.label] = _filter_metrics(eval_metrics, evaluator.metric_names)
+            evaluators = [
+                ensure_evaluator(evaluator, default_metric_names=metric_names)
+                for evaluator in ensure_tuple(eval_dataloader)
+            ]
+
+            # match metric names to model metrics
+            self.state.eval_metrics = {
+                evaluator.label: _filter_metrics(eval_metrics, evaluator.metric_names) for evaluator in evaluators
+            }
 
             _set_evaluator_interval_and_subset_num_batches(
                 evaluators=evaluators,
@@ -1743,21 +1750,23 @@ class Trainer:
                         # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                         # data and if so print a warning that metrics may return unexpected results
                         with get_precision_context(self.state.precision):
-                            if any(self._original_model.validate(eval_microbatch)):  # backwards compatibility check
+                            if hasattr(self._original_model, 'validate'):  # backwards compatibility check
                                 warnings.warn(
                                     'Using ``validate()`` is no longer supported and will be removed in a future version. Please use ``eval_forward()`` instead.'
                                 )
-                                eval_outputs, _ = self._original_model.validate(eval_microbatch)
+                                assert isinstance(self._original_model.validate, Callable)
+                                eval_outputs, target = self._original_model.validate(eval_microbatch)
+                                for _, metric in self.state.train_metrics.items():
+                                    metric.update(eval_outputs, target)
                             else:
                                 outputs = self._original_model.forward(eval_microbatch)
                                 eval_outputs = self._original_model.eval_forward(eval_microbatch, outputs)
-
-                            for _, metric in self.state.train_metrics.items():
-                                self._original_model.update_metric(
-                                    eval_microbatch,
-                                    eval_outputs,
-                                    metric,
-                                )
+                                for _, metric in self.state.train_metrics.items():
+                                    self._original_model.update_metric(
+                                        eval_microbatch,
+                                        eval_outputs,
+                                        metric,
+                                    )
 
                 except RuntimeError as e:
                     if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
@@ -2209,14 +2218,15 @@ class Trainer:
                         for eval_microbatch in data_spec.split_batch(self.state.batch, self.state.eval_batch_split):
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
                             with get_precision_context(self.state.precision):
-                                if any(self._original_model.validate(
-                                        self.state.batch)):  # backwards compatibility check
+                                if hasattr(self._original_model, 'validate'):  # backwards compatibility check
                                     warnings.warn(
                                         'Using ``validate()`` is no longer supported and will be removed in a future version. Please use ``eval_forward()`` instead.'
                                     )
-                                    self.state.outputs, _ = self._original_model.validate(eval_microbatch)
+                                    assert isinstance(self._original_model.validate, Callable)
+                                    self.state.outputs, target = self._original_model.validate(eval_microbatch)
                                 else:
                                     self.state.outputs = self._original_model.eval_forward(eval_microbatch)
+                                    target = None
 
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
@@ -2228,12 +2238,17 @@ class Trainer:
                                     outputs = self.state.outputs.cpu()
                                 else:
                                     outputs = self.state.outputs
-                                for _, metric in metrics.items():
-                                    self._original_model.update_metric(
-                                        eval_microbatch,
-                                        outputs,
-                                        metric,
-                                    )
+
+                                if hasattr(self._original_model, 'validate'):
+                                    for _, metric in self.state.train_metrics.items():
+                                        metric.update(outputs, target)
+                                else:
+                                    for _, metric in metrics.items():
+                                        self._original_model.update_metric(
+                                            eval_microbatch,
+                                            outputs,
+                                            metric,
+                                        )
 
                     except RuntimeError as e:
                         if self.adaptive_gradient_accumulation and _is_cuda_oom(e):

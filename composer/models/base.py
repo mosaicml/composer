@@ -7,7 +7,7 @@ from __future__ import annotations
 import abc
 import copy
 import warnings
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Union
 
 import torch
 from torch import Tensor
@@ -197,46 +197,10 @@ class ComposerModel(torch.nn.Module, abc.ABC):
                 return self.train_acc if train else MetricCollection([self.val_acc, self.val_loss])
         """
         warnings.warn(
-            'Using ``metrics()`` is no longer supported and will be removed in a future version. Please use ``get_metrics()`` instead.'
-        )
+            DeprecationWarning(
+                'Using ``metrics()`` is no longer supported and will be removed in a future version. Please use ``get_metrics()`` instead.'
+            ))
         return self.get_metrics(train)
-
-    def validate(self, batch: Batch) -> Tuple[Any, Any]:
-        """Compute model outputs on provided data. Will be called by the trainer with :class:`torch.no_grad` enabled.
-
-        The output of this function will be directly used as input
-        to all metrics returned by :meth:`metrics`.
-
-        Args:
-            batch (~composer.core.types.Batch): The output batch from dataloader
-
-        Returns:
-            Tuple[Any, Any]: A Tuple of (``outputs``, ``targets``) that is passed directly to the
-                :meth:`~torchmetrics.Metric.update` methods of the metrics returned by :meth:`metrics`.
-
-        Example:
-
-        .. code-block:: python
-
-            def validate(self, batch): # batch is the output of the dataloader
-                inputs, targets = batch
-                outputs = self.model(inputs)
-                return outputs, targets # return a tuple of (outputs, targets)
-
-
-        This pseudocode illustrates how :meth:`validate` outputs are passed to :meth:`metrics`:
-
-        .. code-block:: python
-
-            metrics = model.metrics(train=False) # get torchmetrics
-
-            for batch in val_dataloader:
-                outputs, targets = model.validate(batch)
-                metrics.update(outputs, targets)  # update metrics with output, targets for each batch
-
-            metrics.compute() # compute final metrics
-        """
-        return None, None
 
     def eval_forward(
         self,
