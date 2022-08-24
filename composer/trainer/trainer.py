@@ -1706,13 +1706,16 @@ class Trainer:
                     log_level=log_level,
                 )
 
-    def _train_batch(self, use_grad_scaling: bool):
+    def _train_batch(self, use_grad_scaling: bool) -> Dict[str, torch.Tensor]:
         """Compute loss by training on a full batch of data.
 
         Adaptively change microbatch size if enabled to maximize GPU usage.
 
         Args:
-            use_grad_scaling (bool): Enables gradient scaling
+            use_grad_scaling (bool): Enables gradient scaling.
+
+        Returns:
+            Dict[str, torch.Tensor]: a dictionary containing the total loss and individual losses if available.
         """
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
 

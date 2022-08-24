@@ -6,7 +6,7 @@
 import functools
 import textwrap
 import warnings
-from typing import Optional, Sequence
+from typing import Dict, Optional, Sequence
 
 import torch
 import torch.distributed as torch_dist
@@ -235,7 +235,7 @@ def composer_deeplabv3(num_classes: int,
     ce_loss_fn = functools.partial(soft_cross_entropy, ignore_index=ignore_index)
     dice_loss_fn = DiceLoss(softmax=True, batch=True, ignore_absent_classes=True)
 
-    def _combo_loss(output, target):
+    def _combo_loss(output, target) -> Dict[str, torch.Tensor]:
         loss = {'total': torch.zeros(1, device=output.device, dtype=output.dtype)}
         if cross_entropy_weight:
             loss['cross_entropy'] = ce_loss_fn(output, target)
