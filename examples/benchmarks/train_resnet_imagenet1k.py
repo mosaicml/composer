@@ -175,7 +175,7 @@ eval_transforms = transforms.Compose([
 ])
 eval_dataset = ImageFolder(os.path.join(args.data_dir, 'val'), eval_transforms)
 # Nifty function to instantiate a PyTorch DistributedSampler based on your hardware setup,
-eval_sampler = dist.get_sampler(train_dataset, drop_last=False, shuffle=False)
+eval_sampler = dist.get_sampler(eval_dataset, drop_last=False, shuffle=False)
 eval_dataloader = torch.utils.data.DataLoader(
     eval_dataset,
     batch_size=args.eval_batch_size,
