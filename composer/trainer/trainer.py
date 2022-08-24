@@ -1622,9 +1622,6 @@ class Trainer:
                     if self.deepspeed_enabled:
                         self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
-                    if self.state.train_metrics is not None:
-                        self._eval_train_metrics()
-
                     self.state.model.train()
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
@@ -1636,6 +1633,9 @@ class Trainer:
                     })
 
                     total_loss = self._train_batch(use_grad_scaling)
+
+                    if self.state.train_metrics is not None:
+                        self._eval_train_metrics()
 
                     if use_grad_scaling:
                         self.state.scaler.update()
@@ -1759,8 +1759,7 @@ class Trainer:
                                 for _, metric in self.state.train_metrics.items():
                                     metric.update(eval_outputs, target)
                             else:
-                                outputs = self._original_model.forward(eval_microbatch)
-                                eval_outputs = self._original_model.eval_forward(eval_microbatch, outputs)
+                                eval_outputs = self._original_model.eval_forward(eval_microbatch, self.state.outputs)
                                 for _, metric in self.state.train_metrics.items():
                                     self._original_model.update_metric(
                                         eval_microbatch,
