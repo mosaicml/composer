@@ -163,9 +163,9 @@ html_static_path = ['_static']
 html_title = ' Composer'
 
 # Customize CSS
-html_css_files = ['css/custom.css']
+html_css_files = ['css/custom.css', 'https://cdn.jsdelivr.net/npm/@docsearch/css@3']
 html_js_files = [
-    'js/posthog.js',
+    'js/posthog.js'
 ]
 
 # Mosaic logo
