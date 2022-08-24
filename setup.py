@@ -141,7 +141,7 @@ extra_deps['deepspeed'] = [
 ]
 
 extra_deps['wandb'] = [
-    'wandb>=0.12.17,<0.13',
+    'wandb>=0.13.2,<0.14',
 ]
 
 extra_deps['tensorboard'] = ['tensorboard>=2.9.1,<3.0.0']

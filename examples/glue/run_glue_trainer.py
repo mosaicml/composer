@@ -30,18 +30,19 @@ like in the following::
     >>> python examples/glue/run_glue_trainer.py
     finetune_hparams --help
 """
-import multiprocessing as mp
 import os
 import subprocess
 import sys
 import tempfile
 import warnings
-from concurrent.futures import ProcessPoolExecutor as Pool
 from dataclasses import dataclass
+from functools import partial
 from multiprocessing.context import BaseContext
+from multiprocessing.pool import Pool
 from typing import Dict, List, Optional, Tuple
 
 import torch
+import torch.multiprocessing as mp
 import yahp as hp
 import yaml
 from nlp_trainer_hparams import GLUETrainerHparams, NLPTrainerHparams
@@ -146,6 +147,34 @@ def print_metrics(glue_metrics: GlueState) -> None:
     print(tabulate(tb, headers='firstrow'))
 
 
+def ingest_finetuning_result(result: Tuple[Dict[str, Dict], int], cuda_queue: mp.Queue, ckpt_filename: str,
+                             glue_metrics: GlueState) -> None:
+    """
+    Ingests the output of `train_finetune` and sends it to the appropriate methods.
+
+    Args:
+        result: Tuple[Dict[str, Dict], int]: the output of the `train_finetune` function to be ingested.
+        cuda_queue (mp.Queue): the Queue to place available GPU indicies onto.
+        ckpt_filename (str): Checkpoint to log metrics under
+        glue_metrics (GlueState): GlueState object storing all the glue metrics for the entrypoint's current run
+    """
+
+    metric, device = result
+    add_device_to_queue(device, cuda_queue=cuda_queue)
+    log_metrics(metric=metric, ckpt_filename=ckpt_filename, glue_metrics=glue_metrics)
+
+
+def add_device_to_queue(device: int, cuda_queue: mp.Queue) -> None:
+    """
+    Once a process is done, it adds the device back to the queue of free GPUs.
+
+    Args:
+        device (int): the GPU index of the device that was freed.
+        cuda_queue (mp.Queue): the Queue to place available GPU indicies onto.
+    """
+    cuda_queue.put(device)
+
+
 def log_metrics(metric: Dict[str, Dict], ckpt_filename: str, glue_metrics: GlueState) -> None:
     """Callback function for metric collection.
 
@@ -165,7 +194,7 @@ def log_metrics(metric: Dict[str, Dict], ckpt_filename: str, glue_metrics: GlueS
             task_metric = tasks.task_to_avg_metric[formatted_task]
             if not task_metric:
                 tasks.task_to_avg_metric[formatted_task] = []
-            tasks.task_to_avg_metric[formatted_task].append(metric_val.item())
+            tasks.task_to_avg_metric[formatted_task].append(metric_val)
 
 
 def merge_hparams(hparams: TrainerHparams, override_hparams: GLUETrainerHparams) -> TrainerHparams:
@@ -216,11 +245,13 @@ def spawn_finetuning_jobs(
     ctx = mp.get_context('spawn')
     cuda_envs = init_cuda_queue(torch.cuda.device_count(), ctx)
     free_port = get_free_tcp_port()
-    executor = Pool(max_workers=torch.cuda.device_count(),
-                    initializer=init_cuda_env,
-                    initargs=(cuda_envs, free_port),
-                    mp_context=ctx)
+    pool = Pool(processes=torch.cuda.device_count(),
+                initializer=init_cuda_env,
+                initargs=(cuda_envs, free_port),
+                maxtasksperchild=1,
+                context=ctx)
 
+    rank = 0
     # Fine-tune from pre-trained checkpoint(s)
     ckpt_parent_pairs = zip(ckpt_load_paths, parent_ckpts)
     for parent_idx, ckpt_parent_pair in enumerate(ckpt_parent_pairs):
@@ -228,18 +259,21 @@ def spawn_finetuning_jobs(
         # `ckpt_load_path` provides the path to the checkpoint from which we load the starting weights used when fine-tuning
         # `parent_ckpt` keeps track of the original pre-training checkpoint, for tasks with multiple fine-tuning stages (e.g., RTE)
         # `parent_idx` is used for bookkeeping, so `parent_ckpt` can be internally recovered from the path used to save fine-tune checkpoints
-        rank = 0
         for task, save_ckpt in task_to_save_ckpt.items():
             # Run 1 or more fine-tune trainers from this checkpoint, using a different seed override for each
             for seed in seed_overrides[task]:
-                _ = executor.submit(train_finetune, base_yaml_file, task, save_ckpt, ckpt_load_path, parent_ckpt,
-                                    parent_idx, ckpt_save_folder, save_locally, free_port + rank, load_ignore_keys,
-                                    seed)
-                # future.add_done_callback(
-                #     lambda future: log_metrics(future.result(), ckpt_filename=parent_ckpt, glue_metrics=glue_metrics))
+                pool.apply_async(train_finetune,
+                                 args=(base_yaml_file, task, save_ckpt, ckpt_load_path, parent_ckpt, parent_idx,
+                                       ckpt_save_folder, save_locally, free_port + rank, load_ignore_keys, seed),
+                                 callback=partial(ingest_finetuning_result,
+                                                  cuda_queue=cuda_envs,
+                                                  ckpt_filename=parent_ckpt,
+                                                  glue_metrics=glue_metrics))
+
                 rank += 1
 
-    executor.shutdown(wait=True)  # wait for processes and callbacks to complete
+    pool.close()
+    pool.join()
 
     cuda_envs.close()
     cuda_envs.join_thread()
@@ -263,6 +297,10 @@ def train_finetune(
 
     finetune_hparams = NLPTrainerHparams.create(cli_args=False, f=base_yaml_file).finetune_hparams
     task_hparams = TrainerHparams.create(cli_args=False, f=f'./composer/yamls/models/glue/{task}.yaml')
+    # turn off multiple workers on the dataloader for multiprocessing
+    # since all of the data is cached locally for GLUE, multiple workers don't hurt us.
+    task_hparams.dataloader.num_workers = 0
+    task_hparams.dataloader.persistent_workers = False
 
     if finetune_hparams:
         ft_hparams = merge_hparams(task_hparams, finetune_hparams)
@@ -330,8 +368,31 @@ def train_finetune(
 
     trainer.fit()
     print(f'\nFINISHED TRAINING TASK {task.upper()}\n')
+
+    cpu_metrics = DeviceCPU().batch_to_device(trainer.state.current_metrics)
+    trainer.close()
+    # convert the Torch tensors to primitives so they can be sent over multiprocessing
+    cpu_metrics = _convert_torch_tensor_to_primitives(cpu_metrics)
     # recursively move metrics to CPU to avoid pickling issues
-    return DeviceCPU().batch_to_device(trainer.state.current_metrics)
+    return cpu_metrics, torch.cuda.current_device()
+
+
+def _convert_torch_tensor_to_primitives(metrics_dict: dict):
+    """
+    Converts a PyTorch Tensor to primitives so it can be sent over multiprocessing.
+
+    Args:
+        metrics_dict (dict): A dictionary of PyTorch tensors to convert.
+
+    Returns:
+        metrics_dict (dict): A dictionary of primitive data types that contains the final metrics.
+    """
+    for k, v in metrics_dict.items():
+        if isinstance(v, torch.Tensor):
+            metrics_dict[k] = v.item()
+        elif isinstance(v, dict):
+            metrics_dict[k] = _convert_torch_tensor_to_primitives(v)
+    return metrics_dict
 
 
 def get_args() -> str:
