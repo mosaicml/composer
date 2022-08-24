@@ -24,7 +24,8 @@ import torch.distributed
 import torch.nn as nn
 import torch.utils.data
 from torch.cuda.amp.grad_scaler import GradScaler
-from torch.distributed.fsdp import BackwardPrefetch, FullyShardedDataParallel, MixedPrecision, ShardingStrategy
+from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
+                                    ShardingStrategy)
 from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
@@ -45,7 +46,7 @@ from composer.profiler import Profiler
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
-from composer.trainer.activation_checkpointing import apply_activation_checkpointing_wrapper
+from composer.trainer.activation_checkpointing import apply_activation_checkpointing_wrapper, checkpoint_wrapper
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.trainer.strategy import SyncStrategy, get_sync_context, prepare_ddp_module, prepare_fsdp_module
 from composer.utils import ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, model_eval_mode, reproducibility
@@ -877,14 +878,20 @@ class Trainer:
                         sharding_strategy=sharding_map[self.fsdp_config['sharding_strategy'].upper()],
                         auto_wrap_policy=partial(size_based_auto_wrap_policy,
                                                  min_num_params=int(self.fsdp_config['min_params'])),
-                        cpu_offload=None,
+                        # cpu_offload=CPUOffload(offload_params=True),
                         mixed_precision=mixed_precision,
                         backward_prefetch=backward_prefetch,
-                        param_init_fn=_param_init_fn)
+                        param_init_fn=_param_init_fn,
+                        device_id=self._device._device)
 
                     if self.fsdp_config['activation_checkpointing']:
-                        act_ckpt_fn = obj.activation_checkpointing_fn
-                        apply_activation_checkpointing_wrapper(fsdp_obj, check_fn=act_ckpt_fn)
+                        checkpoint_wrapper_fn = lambda module: checkpoint_wrapper(
+                            module, offload_to_cpu=self.fsdp_config['activation_checkpointing_offload_to_cpu'])
+                        check_fn = obj.activation_checkpointing_fn
+
+                        apply_activation_checkpointing_wrapper(fsdp_obj,
+                                                               checkpoint_wrapper_fn=checkpoint_wrapper_fn,
+                                                               check_fn=check_fn)
 
                     setattr(model, attr, fsdp_obj)
 
