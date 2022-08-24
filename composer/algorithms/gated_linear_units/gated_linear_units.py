@@ -82,8 +82,9 @@ def apply_gated_linear_units(model: torch.nn.Module,
         raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers')
 
     # ensure that the model is an instance of a BERT model, since our replacement policy is only defined for BERTs
-    if not isinstance(model, HuggingFaceModel) and not (isinstance(model.model, BertForMaskedLM) or
-                                                        isinstance(model.model, BertForSequenceClassification)):
+    if not isinstance(model, HuggingFaceModel) and not (hasattr(model, 'model') and
+                                                        (isinstance(model.model, BertForMaskedLM) or
+                                                         isinstance(model.model, BertForSequenceClassification))):
         raise TypeError('Gated Linear Units only has a surgery policy defined for instances of BERT models.')
 
     if act_fn is None:

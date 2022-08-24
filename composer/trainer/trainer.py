@@ -203,7 +203,7 @@ def _adjust_grad_accum(state: State, device_batch_size):
     # at a time still resulted in CUDA out of memory.
     if state.grad_accum == device_batch_size:
         raise RuntimeError(('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
-                            'The GPU does not have enough memory to process even 1 sample.'))
+                            'The GPU does not have enough memory to process even 1 sample during train.'))
     else:
         original_grad_accum = state.grad_accum
         state.grad_accum = min(2 * state.grad_accum, device_batch_size)
@@ -229,7 +229,7 @@ def _adjust_eval_batch_split(state: State, device_batch_size):
     # at a time still resulted in CUDA out of memory.
     if state.eval_batch_split == device_batch_size:
         raise RuntimeError(('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
-                            'The GPU does not have enough memory to process even 1 sample.'))
+                            'The GPU does not have enough memory to process even 1 sample in eval. '))
     else:
         original_eval_batch_split = state.eval_batch_split
         state.eval_batch_split = min(2 * state.eval_batch_split, device_batch_size)
