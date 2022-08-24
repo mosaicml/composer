@@ -11,7 +11,7 @@ val_dataset:
     drop_last: false
     path: /workdisk/austin/data/coco
 optimizers:
-  decoupled_sgdw:
+  sgd:
     lr: 0.01
     momentum: 0.9
     weight_decay: 5.0e-4
@@ -19,7 +19,7 @@ optimizers:
     nesterov: true
 schedulers:
   - cosine_decay_with_warmup:
-      t_warmup: "32ep"
+      t_warmup: "5ep"
 model:
   yolox:
     model_name: "yolox-s"
