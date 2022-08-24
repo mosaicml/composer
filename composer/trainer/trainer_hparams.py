@@ -829,9 +829,9 @@ class EvalHparams(hp.Hparams):
                     matches = re.match(f'.*{metric_name}.*', k, re.IGNORECASE)
                     if matches:
                         metrics[k] = model_metrics[k]
-                else:
-                    raise RuntimeError((f'No metric found with the name {metric_name}. Check if this '
-                                        'metric is compatible/listed in your model metrics. '))
+                    else:
+                        raise RuntimeError((f'No metric found with the name {metric_name}. Check if this '
+                                            'metric is compatible/listed in your model metrics. '))
             if len(metrics) == 0:
                 raise RuntimeError(('No metrics compatible with your model were added to this evaluator. '
                                     'Check that the metrics you specified are compatible/listed in your model.'))
