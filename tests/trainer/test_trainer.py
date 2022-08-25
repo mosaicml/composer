@@ -872,6 +872,20 @@ class TestTrainerEquivalence():
 
         self.assert_models_equal(trainer.state.model, self.reference_model)
 
+    def test_tuple_loss_trainer(self, config, *args):
+
+        def tuple_loss(outputs, targets, *args, **kwargs):
+            loss1 = 0.25 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+            loss2 = 0.75 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+            return (loss1, loss2)
+
+        config['model']._loss_fn = tuple_loss
+
+        trainer = Trainer(**config)
+        trainer.fit()
+
+        self.assert_models_equal(trainer.state.model, self.reference_model)
+
     def test_dict_loss_trainer(self, config, *args):
 
         def dict_loss(outputs, targets, *args, **kwargs):
@@ -881,6 +895,22 @@ class TestTrainerEquivalence():
             return losses
 
         config['model']._loss_fn = dict_loss
+
+        trainer = Trainer(**config)
+        trainer.fit()
+
+        self.assert_models_equal(trainer.state.model, self.reference_model)
+
+    def test_dict_loss_total_trainer(self, config, *args):
+
+        def dict_loss_total(outputs, targets, *args, **kwargs):
+            losses = {}
+            losses['cross_entropy1'] = 2 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+            losses['cross_entropy2'] = 3 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+            losses['total'] = soft_cross_entropy(outputs, targets, *args, **kwargs)
+            return losses
+
+        config['model']._loss_fn = dict_loss_total
 
         trainer = Trainer(**config)
         trainer.fit()
