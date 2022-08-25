@@ -680,7 +680,7 @@ def test_checkpoint(
             checkpoint_saver = callback
     assert checkpoint_saver is not None
 
-    file_was_saved = dist.get_global_rank() == 0 or (deepspeed_enabled and zero_stage == 0)
+    file_was_saved = dist.get_global_rank() == 0 or deepspeed_enabled
     if not file_was_saved:
         expected_num_checkpoints = 0
 
