@@ -1,4 +1,4 @@
-# :cloud: Train ResNet-50 on AWS
+# ☁️ Train ResNet-50 on AWS
 
 Composer is a PyTorch library that accelerates training for deep learning models while improving quality at significantly lower cost.  Composer makes it possible to train ResNet-50 on the ImageNet dataset to the standard ***76.6% top-1 accuracy*** in ***27 minutes*** on an AWS EC2 instance for a mere ***$15***.  In this tutorial we’ll teach you how simple it is to do this yourself!
 
