@@ -1580,9 +1580,6 @@ class Trainer:
             reproducibility.load_rng_state(self._rng_state)
             self._rng_state = None
 
-        if self.state.train_metrics is not None:
-            self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
-
         # Flag if the epoch finished early, so it can be tracked whether to run the epoch end events
         finished_epoch_early = False
 
@@ -1916,7 +1913,7 @@ class Trainer:
         assert self._train_data_spec is not None
 
         # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
-        device_batch = self.state.batch
+        device_batch = deepcopy(self.state.batch)
 
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
         sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
@@ -1969,6 +1966,7 @@ class Trainer:
 
             # Use microbatch outputs to update training metrics
             if self.state.train_metrics is not None:
+                self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
                 self._eval_train_metrics(device_batch)
 
         if self.deepspeed_enabled:
