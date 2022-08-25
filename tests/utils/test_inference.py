@@ -275,3 +275,40 @@ def test_export_with_other_logger(model_cls, sample_input):
                                                                    save_object_store=None,
                                                                    sample_input=ANY,
                                                                    transforms=None)
+
+
+class LinModel(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+        self.lin1 = nn.Linear(256, 128)
+        self.lin2 = nn.Linear(128, 256)
+
+    def forward(self, x):
+        x = self.lin1(x)
+        x = self.lin2(x)
+        return x
+
+
+@pytest.mark.parametrize(
+    'model_cls',
+    [
+        (LinModel),
+    ],
+)
+def test_dynamic_quantize(model_cls):
+    model = model_cls()
+
+    save_format = 'torchscript'
+    with tempfile.TemporaryDirectory() as tempdir:
+        save_path_no_quantize = os.path.join(tempdir, f'model_no_quantize.pt')
+        inference.export_for_inference(model=model, save_format=save_format, save_path=save_path_no_quantize)
+        save_path_quantize = os.path.join(tempdir, f'model_quantize.pt')
+        inference.export_for_inference(model=model,
+                                       save_format=save_format,
+                                       save_path=save_path_quantize,
+                                       transforms=[inference.quantize_dynamic])
+        no_quantize_size = os.path.getsize(save_path_no_quantize)
+        quantize_size = os.path.getsize(save_path_quantize)
+        # Size different should be almost 4x
+        assert no_quantize_size > 3 * quantize_size, "Quantization didn't work"
