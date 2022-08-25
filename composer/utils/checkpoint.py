@@ -394,7 +394,9 @@ def save_checkpoint(
     *,
     weights_only: bool = False,
 ) -> List[pathlib.Path]:  # noqa: D103
+
     log.debug('Saving checkpoint to %s', filename)
+
     state_dict = {
         'state': state.state_dict(),
         'rng': reproducibility.get_rng_state(),
@@ -402,54 +404,102 @@ def save_checkpoint(
     if weights_only and not is_model_deepspeed(state.model):
         state_dict['state'] = {'model': state_dict['state']['model']}
 
-    checkpoint_filepath = format_name_with_dist_and_time(filename, state.run_name, state.timestamp)
-    if is_model_deepspeed(state.model) and not is_tar(checkpoint_filepath):
-        # Deepspeed requires tarballs; appending `.tar`
-        checkpoint_filepath += '.tar'
+    save_filename = format_name_with_dist_and_time(filename, state.run_name, state.timestamp)
+
+    if dist.get_global_rank() == 0:
+        with open(save_filename, 'xb') as f:
+            torch.save(state_dict, f)
+
+        if is_tar(save_filename):
+            _compress_file(save_filename)
+
+    if is_model_deepspeed(state.model):
+        _save_deepspeed_model(state.deepspeed_model, save_filename)
+
+    dist.barrier()  # ensure all ranks saved their files
+
+    if dist.get_global_rank() == 0 or is_model_deepspeed(state.model):
+        assert os.path.exists(save_filename)
+        return save_filename
+    else:
+        return None
+
+
+def _compress_file(filename: str):
+    """Replace a file with its compressed version."""
+    write_mode = _get_write_mode(filename)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        composer_states_filepath = os.path.join(tmpdir, _COMPOSER_STATES_FILENAME)
-        if dist.get_global_rank() == 0:
-            # Only rank zero saves the composer state dict
-            with open(composer_states_filepath, 'xb') as f:
-                torch.save(state_dict, f)
+        shutil.move(filename, tmpdir)
+        with tarfile.open(filename, write_mode) as tarball:
+            tarball.add(tmpdir, arcname='')
 
-        if is_model_deepspeed(state.model):
-            state.deepspeed_model.save_checkpoint(tmpdir, _DEEPSPEED_TAG)
 
-        # Move the checkpoint to the correct location
+def _save_deepspeed_model(model, filename: str):
+    """Save Deepspeed model and tarball the files."""
+    write_mode = _get_write_mode(filename)
 
-        checkpoint_dirname = os.path.dirname(checkpoint_filepath)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        model.save_checkpoint(tmpdir, 'deepspeed')
+        with tarfile.open(filename, write_mode) as f:
+            f.add(tmpdir, arcname='')
 
-        if is_tar(checkpoint_filepath) and (is_model_deepspeed(state.model) or dist.get_global_rank() == 0):
-            # Either deepspeed (and every rank needs to call this),
-            # or not deepspeed (but using an archive), in which case only rank zero should call this.
-            if checkpoint_dirname:
-                os.makedirs(checkpoint_dirname, exist_ok=True)
-            write_mode = _get_write_mode(checkpoint_filepath)
-            with tarfile.open(checkpoint_filepath, write_mode) as tarball:
-                # add files flat to the tarball with the specified compression
-                tarball.add(tmpdir, arcname='')
-        elif dist.get_global_rank() == 0:
-            # if not an archive, then only saving the states
-            # only rank zero saves the state dict
-            if checkpoint_dirname:
-                os.makedirs(checkpoint_dirname, exist_ok=True)
-            shutil.move(composer_states_filepath, checkpoint_filepath)
-        else:
-            checkpoint_filepath = None
+    # if dist.get_global_rank() == 0:
+    #     with open(save_filename, 'xb') as f:
+    #         torch.save(state_dict, f)
 
-    # Ensure that all processes wait for the checkpoint to be saved.
-    dist.barrier()
+    # if is_model_deepspeed(state.model):
+    #     _save_deepspeed(state.model,)
+    #     with tempfile.TemporaryDirectory() as tmpdir:
+    #         state.deepspeed_model.save_checkpoint(tmpdir, 'deepspeed')
 
-    if checkpoint_filepath is not None:
-        log.info('Saved checkpoint at %s', checkpoint_filepath)
+    # if is_model_deepspeed(state.model) and not is_tar(checkpoint_filepath):
+    #     # Deepspeed requires tarballs; appending `.tar`
+    #     checkpoint_filepath += '.tar'
 
-    # Gather the paths across ranks.
-    paths = dist.all_gather_object(checkpoint_filepath)
-    paths = list(pathlib.Path(path) for path in paths if path is not None)
+    # with tempfile.TemporaryDirectory() as tmpdir:
+    #     composer_states_filepath = os.path.join(tmpdir, _COMPOSER_STATES_FILENAME)
+    #     if dist.get_global_rank() == 0:
+    #         # Only rank zero saves the composer state dict
+    #         with open(composer_states_filepath, 'xb') as f:
+    #             torch.save(state_dict, f)
 
-    return paths
+    #     if is_model_deepspeed(state.model):
+    #         state.deepspeed_model.save_checkpoint(tmpdir, _DEEPSPEED_TAG)
+
+    #     # Move the checkpoint to the correct location
+
+    #     checkpoint_dirname = os.path.dirname(checkpoint_filepath)
+
+    #     if is_tar(checkpoint_filepath) and (is_model_deepspeed(state.model) or dist.get_global_rank() == 0):
+    #         # Either deepspeed (and every rank needs to call this),
+    #         # or not deepspeed (but using an archive), in which case only rank zero should call this.
+    #         if checkpoint_dirname:
+    #             os.makedirs(checkpoint_dirname, exist_ok=True)
+    #         write_mode = _get_write_mode(checkpoint_filepath)
+    #         with tarfile.open(checkpoint_filepath, write_mode) as tarball:
+    #             # add files flat to the tarball with the specified compression
+    #             tarball.add(tmpdir, arcname='')
+    #     elif dist.get_global_rank() == 0:
+    #         # if not an archive, then only saving the states
+    #         # only rank zero saves the state dict
+    #         if checkpoint_dirname:
+    #             os.makedirs(checkpoint_dirname, exist_ok=True)
+    #         shutil.move(composer_states_filepath, checkpoint_filepath)
+    #     else:
+    #         checkpoint_filepath = None
+
+    # # Ensure that all processes wait for the checkpoint to be saved.
+    # dist.barrier()
+
+    # if checkpoint_filepath is not None:
+    #     log.info('Saved checkpoint at %s', checkpoint_filepath)
+
+    # # Gather the paths across ranks.
+    # paths = dist.all_gather_object(checkpoint_filepath)
+    # paths = list(pathlib.Path(path) for path in paths if path is not None)
+
+    # return paths
 
 
 save_checkpoint.__doc__ = f"""Checkpoint the training ``state``.
