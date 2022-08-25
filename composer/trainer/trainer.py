@@ -1634,9 +1634,6 @@ class Trainer:
 
                     total_loss = self._train_batch(use_grad_scaling)
 
-                    if self.state.train_metrics is not None:
-                        self._eval_train_metrics()
-
                     if use_grad_scaling:
                         self.state.scaler.update()
 
@@ -1733,15 +1730,12 @@ class Trainer:
         self.engine.run_event(Event.FIT_END)
         self._run_evaluators(Event.FIT_END, log_level=LogLevel.FIT)
 
-    def _eval_train_metrics(self):
+    def _eval_train_metrics(self, device_batch):
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
         assert self.state.train_metrics is not None, 'The train metrics should be set on __init__ or fit()'
 
         self.state.model.eval()
         with torch.no_grad():
-            # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
-            device_batch = self.state.batch
-
             # Retry until we successfully complete evaluation
             while True:
                 found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
@@ -1921,6 +1915,9 @@ class Trainer:
         assert self.state.scaler is not None
         assert self._train_data_spec is not None
 
+        # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
+        device_batch = self.state.batch
+
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
         sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
             self.state,
@@ -1969,6 +1966,10 @@ class Trainer:
                 microbatch_loss.backward(create_graph=self._backwards_create_graph)
 
             self.engine.run_event(Event.AFTER_BACKWARD)
+
+            # Use microbatch outputs to update training metrics
+            if self.state.train_metrics is not None:
+                self._eval_train_metrics(device_batch)
 
         if self.deepspeed_enabled:
             self.state.deepspeed_model.step()
