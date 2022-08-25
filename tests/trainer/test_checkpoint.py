@@ -597,7 +597,7 @@ def test_checkpoint(
     - create a new trainer from the `checkpoint_interval` checkpoint, and train until end. checkpoint again.
     - assert that the checkpoint from the new trainer at the end is the same as the checkpoint from the first trainer at the end.
     """
-    del world_size  # unused. Read via env variable
+    del world_size
 
     if deepspeed_enabled:
         if not is_tar(resume_file):
@@ -679,8 +679,12 @@ def test_checkpoint(
         if isinstance(callback, CheckpointSaver):
             checkpoint_saver = callback
     assert checkpoint_saver is not None
-    assert len(checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
 
+    file_was_saved = dist.get_global_rank() == 0 or (deepspeed_enabled and zero_stage == 0)
+    if not file_was_saved:
+        expected_num_checkpoints = 0
+
+    assert len(checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
     rank_to_checkpoint_a_folder = dist.all_gather_object(os.path.abspath(checkpoint_a_folder))
 
     checkpoint_to_resume_filepath = os.path.join(rank_to_checkpoint_a_folder[0], resume_file)
