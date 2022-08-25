@@ -1752,7 +1752,7 @@ class Trainer:
                         with get_precision_context(self.state.precision):
                             if hasattr(self._original_model, 'validate'):  # backwards compatibility check
                                 warnings.warn(
-                                    'Using ``validate()`` is no longer supported and will be removed in a future version. Please use ``eval_forward()`` instead.'
+                                    'Using validate() is no longer supported and will be removed in a future version. Please use eval_forward() instead.'
                                 )
                                 assert isinstance(self._original_model.validate, Callable)
                                 eval_outputs, target = self._original_model.validate(eval_microbatch)
@@ -2219,7 +2219,7 @@ class Trainer:
                             with get_precision_context(self.state.precision):
                                 if hasattr(self._original_model, 'validate'):  # backwards compatibility check
                                     warnings.warn(
-                                        'Using ``validate()`` is no longer supported and will be removed in a future version. Please use ``eval_forward()`` instead.'
+                                        'Using validate() is no longer supported and will be removed in a future version. Please use eval_forward() instead.'
                                     )
                                     assert isinstance(self._original_model.validate, Callable)
                                     self.state.outputs, target = self._original_model.validate(eval_microbatch)

@@ -75,6 +75,8 @@ class HuggingFaceModel(ComposerModel):
             self.train_metrics = {metric.__class__.__name__: metric for metric in metrics}
             self.val_metrics = {metric.__class__.__name__: metric for metric in metrics}
 
+        self.labels = None  # set in eval_forward() if exists
+
     def forward(self, batch):
         for key in self.model_inputs:
             if key not in batch.keys():
@@ -89,6 +91,7 @@ class HuggingFaceModel(ComposerModel):
     def eval_forward(self, batch, outputs: Optional[Any] = None):
         output = outputs if outputs else self.forward(batch)
         if self.use_logits:
+            self.labels = batch.pop('labels')
             output = output['logits']
 
             # if we are in the single class case, then remove the classes dimension
@@ -106,8 +109,7 @@ class HuggingFaceModel(ComposerModel):
         return metrics if metrics else {}
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
-        targets = batch.pop('labels')
-        metric.update(outputs, targets)
+        metric.update(outputs, self.labels)
 
     def get_model_inputs(self):
         """Returns a set of inputs that the model expects in the forward pass.

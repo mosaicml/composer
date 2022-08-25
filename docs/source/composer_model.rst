@@ -106,6 +106,9 @@ To compute metrics during training, implement the following methods:
    def get_metrics(self, is_train=False) -> Dict[str, Metric]:
        ...
 
+   def update_metric(self, batch, outputs, metric) -> None:
+       ...
+
 where ``Metrics`` should be compatible with the ``torchmetrics.Metrics`` protocol. We
 require that the output of :meth:`.ComposerModel.eval_forward` be consumable by
 that protocol. Specifically, the validation loop does something like this:
