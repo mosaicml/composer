@@ -141,7 +141,7 @@ extra_deps['deepspeed'] = [
 ]
 
 extra_deps['wandb'] = [
-    'wandb>=0.12.17,<0.13',
+    'wandb>=0.13.2,<0.14',
 ]
 
 extra_deps['tensorboard'] = [
@@ -168,7 +168,7 @@ extra_deps['coco'] = [
 
 extra_deps['nlp'] = [
     'transformers>=4.11,<5',
-    'datasets>=1.14,<2',
+    'datasets>=2.4.0,<3',
 ]
 
 extra_deps['mlperf'] = [
