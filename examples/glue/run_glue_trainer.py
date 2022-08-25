@@ -228,18 +228,20 @@ def spawn_finetuning_jobs(
     else:
         parent_ckpts = ckpt_load_paths  # By default, the "parent checkpoint" is logged simply as the checkpoint
 
-    # To reduce noisiness with these tasks, expand the evaluation to multiple fine-tuning seeds per pre-train checkpoint
-    # TODO(Alex): Expose these per-task seed choices through the `finetune_hparams`
-    seed_overrides = {
-        'mnli': [19],
-        'qnli': [19],
-        'qqp': [19],
-        'sst-2': [19, 8364, 717],
-        'cola': [19, 8364, 717, 10536],
-        'rte': [19, 8364, 717, 10536, 90166],
-        'mrpc': [19, 8364, 717, 10536, 90166],
-        'stsb': [19, 8364, 717, 10536, 90166],
-    }
+    # To reduce noisiness with these tasks, expand the evaluation to multiple fine-tuning seeds per pre-train checkpoint, if desired
+    seed_overrides = NLPTrainerHparams.create(cli_args=False, f=base_yaml_file).finetune_hparams.seed_overrides
+    seed_overrides = {k.lower(): v for k, v in seed_overrides.items()}
+    # # TODO(Alex): Expose these per-task seed choices through the `finetune_hparams`
+    # seed_overrides = {
+    #     'mnli': [19],
+    #     'qnli': [19],
+    #     'qqp': [19],
+    #     'sst-2': [19, 8364, 717],
+    #     'cola': [19, 8364, 717, 10536],
+    #     'rte': [19, 8364, 717, 10536, 90166],
+    #     'mrpc': [19, 8364, 717, 10536, 90166],
+    #     'stsb': [19, 8364, 717, 10536, 90166],
+    # }
 
     # Set up CUDA environment(s) and process pool
     ctx = mp.get_context('spawn')
@@ -261,7 +263,7 @@ def spawn_finetuning_jobs(
         # `parent_idx` is used for bookkeeping, so `parent_ckpt` can be internally recovered from the path used to save fine-tune checkpoints
         for task, save_ckpt in task_to_save_ckpt.items():
             # Run 1 or more fine-tune trainers from this checkpoint, using a different seed override for each
-            for seed in seed_overrides[task]:
+            for seed in seed_overrides.get(task, [None]):
                 pool.apply_async(train_finetune,
                                  args=(base_yaml_file, task, save_ckpt, ckpt_load_path, parent_ckpt, parent_idx,
                                        ckpt_save_folder, save_locally, free_port + rank, load_ignore_keys, seed),
@@ -422,6 +424,11 @@ def validate_args(hp: NLPTrainerHparams) -> None:
 
     elif hp.training_scheme == 'all' and hp.finetune_hparams and hp.finetune_hparams.finetune_ckpts:
         warnings.warn('finetune_ckpts specified in finetune_hparams. This value will be overriden during finetuning.')
+
+    if hp.finetune_hparams is not None:
+        for task in hp.finetune_hparams.seed_overrides.keys():
+            if task.lower() not in ['mnli', 'qnli', 'qqp', 'sst-2', 'cola', 'rte', 'mrpc', 'stsb']:
+                raise KeyError(f'Key "{task}" in finetune_hparams.seed_overrides is not a GLUE task.')
 
 
 def get_finetune_hparams() -> Tuple[GLUETrainerHparams, str, bool]:
