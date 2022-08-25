@@ -180,7 +180,65 @@ def _get_initial_grad_accum(grad_accum: Union[int, str]):
 
 def _is_cuda_oom(e: RuntimeError):
     """Determines if error is CUDA Out of Memory and if adaptive_grad_accum is enabled."""
-    return 'CUDA out of memory' in str(e)
+    if 'CUDA out of memory' in str(e):
+        return True
+    # With batch_norm, large batch sizes sometimes result in cuDNN instead of Cuda OOMs.
+    if 'cuDNN error: CUDNN_STATUS_NOT_SUPPORTED. This error may appear if you passed in a non-contiguous input.' in str(
+            e):
+        warnings.warn(
+            f'Encountered "cuDNN error: CUDNN_STATUS_NOT_SUPPORTED. This error may appear if you passed in a non-contiguous input." This can happen when the batch_size is too large for the GPU so auto grad_accum will rerun with a higher grad_accum value, but there may be a user error with non-contiguous inputs.'
+        )
+        return True
+    return False
+
+
+def _adjust_grad_accum(state: State, device_batch_size):
+    """Adjust grad_accum if we encounter OOM.
+
+    Args:
+        state (State): State of trainer.
+        device_batch_size (int): Batch size.
+    """
+    # If any rank hit CUDA OOM, update grad_accum and retry. Raise runtime error if training 1 sample
+    # at a time still resulted in CUDA out of memory.
+    if state.grad_accum == device_batch_size:
+        raise RuntimeError(('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
+                            'The GPU does not have enough memory to process even 1 sample during train.'))
+    else:
+        original_grad_accum = state.grad_accum
+        state.grad_accum = min(2 * state.grad_accum, device_batch_size)
+        warnings.warn(
+            RuntimeWarning('CUDA out of memory detected. Gradient Accumulation, the number of train microbatches, '
+                           f'increased from {original_grad_accum} -> {state.grad_accum}, '
+                           'and the batch will be retrained with a '
+                           f'micro-batchsize of {device_batch_size // state.grad_accum}'))
+    # Clear gradients in case failure happened during backwards pass
+    for optimizer in state.optimizers:
+        optimizer.zero_grad()
+    torch.cuda.empty_cache()
+
+
+def _adjust_eval_batch_split(state: State, device_batch_size):
+    """Adjust eval_batch_split if we encounter OOM.
+
+    Args:
+        state (State): State of trainer.
+        device_batch_size (int): Batch size.
+    """
+    # If any rank hit CUDA OOM, update grad_accum and retry. Raise runtime error if training 1 sample
+    # at a time still resulted in CUDA out of memory.
+    if state.eval_batch_split == device_batch_size:
+        raise RuntimeError(('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
+                            'The GPU does not have enough memory to process even 1 sample in eval. '))
+    else:
+        original_eval_batch_split = state.eval_batch_split
+        state.eval_batch_split = min(2 * state.eval_batch_split, device_batch_size)
+        warnings.warn(
+            RuntimeWarning('CUDA out of memory detected. Number of eval microbatches '
+                           f'increased from {original_eval_batch_split} -> {state.eval_batch_split}, '
+                           'and the batch will be retrained with a '
+                           f'micro-batchsize of {device_batch_size // state.eval_batch_split}'))
+    torch.cuda.empty_cache()
 
 
 def _get_device(device: Optional[Union[str, Device]]):
@@ -623,18 +681,20 @@ class Trainer:
             This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
             artifact stores.
         autoresume (bool, optional): Whether or not to enable autoresume, which allows for stopping and resuming
-        training. This allows use of spot instances, as the training run is now fault tolerant.  This parameter requires
-            ``save_folder`` and ``run_name`` to be specified and ``save_overwrite`` to be ``False``. (default: ``False``)
+            training. This allows use of spot instances, as the training run is now fault tolerant.  This parameter
+            requires ``save_folder`` and ``run_name`` to be specified and ``save_overwrite`` to be ``False``.
+            (default: ``False``)
 
             When enabled, the save_folder is checked for checkpoints of the format ``"{save_folder}/{save_latest_filename}"``,
             which are loaded to continue training. If no local checkpoints are found, each logger is checked for potential
             checkpoints named ``save_latest_artifact_name``. Finally, if no logged checkpoints are found, ``load_path`` is
             used to load a checkpoint if specified. This should only occur at the start of a run using autoresume.
 
-            For example, to run a fine-tuning run on a spot instance, ``load_path`` would be set to the original weights and
-            an object store logger would be added. In the original run, ``load_path`` would be used to get the starting
-            checkpoint. For any future restarts, such as due to the spot instance being killed, the loggers would be queried for the latest checkpoint
-            the object store logger would be downloaded and used to resume training.
+            For example, to run a fine-tuning run on a spot instance, ``load_path`` would be set to the original
+            weights and an object store logger would be added. In the original run, ``load_path`` would be used
+            to get the starting checkpoint. For any future restarts, such as due to the spot instance being killed,
+            the loggers would be queried for the latest checkpoint the object store logger would be downloaded and
+            used to resume training.
         deepspeed_config (Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. (default: ``None``)
 
@@ -843,10 +903,9 @@ class Trainer:
         # Grad Accum
         self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
         grad_accum = _get_initial_grad_accum(grad_accum)
+        eval_batch_split = 1
         if self.adaptive_gradient_accumulation and isinstance(self._device, DeviceTPU):
             raise NotImplementedError(f'grad_accum=auto not supported on TPUs.')
-        # Dynamic time estimate for forward and backward pass. Used for monitored_barrier to avoid deadlocks
-        self.batch_compute_time = 300
 
         # Grad Clip Norm
         if grad_clip_norm > 0:
@@ -876,6 +935,7 @@ class Trainer:
                            model=model,
                            callbacks=callbacks,
                            grad_accum=grad_accum,
+                           eval_batch_split=eval_batch_split,
                            precision=precision,
                            optimizers=optimizers,
                            run_name=run_name,
@@ -1572,16 +1632,7 @@ class Trainer:
                         self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                     if self.train_metrics is not None:
-                        self.state.model.eval()
-                        with torch.no_grad():
-                            for eval_microbatch in self._train_data_spec.split_batch(
-                                    self.state.batch, self.state.grad_accum):
-                                # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
-                                # data and if so print a warning that metrics may return unexpected results
-                                with get_precision_context(self.state.precision):
-                                    outputs, targets = self._original_model.validate(eval_microbatch)
-                                    # Run in same precision context to avoid NaNs
-                                    self.train_metrics.update(outputs, targets)
+                        self._eval_train_metrics()
 
                     self.state.model.train()
 
@@ -1593,19 +1644,18 @@ class Trainer:
                         'trainer/batch_idx': self.state.timestamp.batch_in_epoch.value,
                     })
 
-                    total_loss = self._train_batch(use_grad_scaling)
+                    total_loss_dict = self._train_batch(use_grad_scaling)
 
                     if use_grad_scaling:
                         self.state.scaler.update()
 
-                    if total_loss is not None:
-                        if not isinstance(total_loss, torch.Tensor):
-                            total_loss = self._device.tensor_to_device(torch.tensor([total_loss]))
-
-                        # total_loss can be None if gradient scaling failed
-                        dist.all_reduce(total_loss, reduce_operation='SUM')
-                        full_loss = total_loss.cpu().item()
-                        self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
+                    # total_loss_dict can be None if gradient scaling failed
+                    if total_loss_dict is not None:
+                        map_collection(total_loss_dict, dist.all_reduce)
+                        total_loss_dict = {
+                            k: loss.cpu().item() / dist.get_world_size() for k, loss in total_loss_dict.items()
+                        }
+                        self.logger.data_batch(total_loss_dict)
 
                     # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
                     # next batch's wall clock time. The time accumulation must be done here so schedulers
@@ -1691,6 +1741,45 @@ class Trainer:
         self.engine.run_event(Event.FIT_END)
         self._run_evaluators(Event.FIT_END, log_level=LogLevel.FIT)
 
+    def _eval_train_metrics(self):
+        assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
+        assert self.train_metrics is not None, 'The train metrics should be set on __init__ or fit()'
+
+        self.state.model.eval()
+        with torch.no_grad():
+            # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
+            device_batch = self.state.batch
+
+            # Retry until we successfully complete evaluation
+            while True:
+                found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
+                try:
+                    for eval_microbatch in self._train_data_spec.split_batch(device_batch, self.state.eval_batch_split):
+                        # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
+                        # data and if so print a warning that metrics may return unexpected results
+                        with get_precision_context(self.state.precision):
+                            outputs, targets = self._original_model.validate(eval_microbatch)
+                            # Run in same precision context to avoid NaNs
+                            self.train_metrics.update(outputs, targets)
+                except RuntimeError as e:
+                    if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
+                        log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
+                        found_cuda_oom = 1
+                    else:
+                        raise
+                # Auto grad accum only supported on GPU
+                if isinstance(self._device, DeviceGPU):
+                    # Propagate across all ranks if any rank hit CUDA OOM
+                    found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom],
+                                                                                dtype=torch.uint8)).item()
+                    if found_cuda_oom == 1:
+                        device_batch_size = self._train_data_spec.get_num_samples_in_batch(device_batch)
+                        _adjust_eval_batch_split(self.state, device_batch_size)
+                        # Skip return and rerun after handling oom
+                        continue
+                # Return if we've successfully completed eval without OOMing.
+                return
+
     def _run_evaluators(self, event: Event, log_level: LogLevel):
         """Runs evaluators periodically during training."""
         for evaluator in self.state.evaluators:
@@ -1705,112 +1794,80 @@ class Trainer:
                     log_level=log_level,
                 )
 
-    def _train_batch(self, use_grad_scaling: bool):
+    def _train_batch(self, use_grad_scaling: bool) -> Dict[str, torch.Tensor]:
         """Compute loss by training on a full batch of data.
 
         Adaptively change microbatch size if enabled to maximize GPU usage.
 
         Args:
-            use_grad_scaling (bool): Enables gradient scaling
+            use_grad_scaling (bool): Enables gradient scaling.
+
+        Returns:
+            Dict[str, torch.Tensor]: a dictionary containing the total loss and individual losses if available.
         """
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
 
         # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
-        # TODO: fix this name collision!
         device_batch = self.state.batch
 
         # Retry until we successfully complete training and return loss
         while True:
-            start_time = time.time()
-            total_loss = None
-            # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
-            should_handle_cuda_oom = 0
+            total_loss_dict = {'loss/train/total': self._device.tensor_to_device(torch.zeros(size=(1,)))}
+            found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             try:
                 assert self.state.scaler is not None
                 microbatches = self._train_data_spec.split_batch(device_batch, self.state.grad_accum)
-                if self.deepspeed_enabled:
-                    total_loss = self._train_microbatches(microbatches)
-                elif self._use_closures():
+                if self._use_closures():
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
-                            total_loss = self.state.scaler.step(
-                                optimizer, closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
+                            self.state.scaler.step(optimizer,
+                                                   closure=lambda **kwargs: self._train_microbatches(
+                                                       microbatches, total_loss_dict, **kwargs))
                         else:
-                            total_loss = optimizer.step(
-                                closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs).item())
+                            optimizer.step(closure=lambda **kwargs: self._train_microbatches(
+                                microbatches, total_loss_dict, **kwargs).item())
                 else:
-                    total_loss = self._train_microbatches(microbatches)
-                    for optimizer in self.state.optimizers:
-                        if use_grad_scaling:
-                            self.state.scaler.step(optimizer)
-                        else:
-                            if isinstance(self._device, DeviceTPU):
-                                xm.optimizer_step(optimizer, barrier=True)
+                    self._train_microbatches(microbatches, total_loss_dict)
+                    if not self.deepspeed_enabled:
+                        for optimizer in self.state.optimizers:
+                            if use_grad_scaling:
+                                self.state.scaler.step(optimizer)
                             else:
-                                optimizer.step()
+                                if isinstance(self._device, DeviceTPU):
+                                    xm.optimizer_step(optimizer, barrier=True)
+                                else:
+                                    optimizer.step()
             except RuntimeError as e:
                 if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
-                    should_handle_cuda_oom = 1
+                    found_cuda_oom = 1
                 else:
                     raise
-            end_time = time.time()
 
-            # Use monitored barrier to error on deadlock. If one rank OOMs and another doesn't and gets stuck
-            # on a dist reduction in gradient syncronization, the monitored barrier will fail after the timeout.
-            # If `adaptive_gradient_accumulation=False`, the OOMing rank will instead crash, avoiding deadlock risk.
-            if self.adaptive_gradient_accumulation:
-                try:
-                    dist.monitored_barrier(timeout=datetime.timedelta(seconds=max(10, 0.5 * self.batch_compute_time)))
-                except RuntimeError as e:
-                    raise RuntimeError(
-                        'A deadlock was encountered in the train loop, likely because a strict subset of '
-                        'ranks encountered CUDA OOM when `grad_accum=auto`. Try manually setting `grad_accum` '
-                        'instead.') from e
+            # Auto grad accum only supported on GPU
+            if isinstance(self._device, DeviceGPU):
+                # Propagate across all ranks if any rank hit CUDA OOM
+                found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
+                if found_cuda_oom.item() == 1:
+                    device_batch_size = self._train_data_spec.get_num_samples_in_batch(device_batch)
+                    _adjust_grad_accum(self.state, device_batch_size)
+                    # Skip return and rerun after handling oom
+                    continue
+            # Log grad_accum and return loss if we've completed without OOMing.
+            self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
+            return total_loss_dict
 
-            # Propagate across all ranks if any rank hit CUDA OOM
-            should_handle_cuda_oom = self._device.tensor_to_device(
-                torch.tensor([should_handle_cuda_oom], dtype=torch.uint8))
-
-            if not isinstance(self._device, DeviceTPU):
-                dist.all_reduce(should_handle_cuda_oom, reduce_operation='MAX')
-            if int(should_handle_cuda_oom.item()) == 1:
-                # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_timeout_error since
-                # it is likely transient, e.g. timeout because certain ranks OOMed and didn't reach barrier.
-                # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
-                device_batch_size = self._train_data_spec.get_num_samples_in_batch(device_batch)
-                if self.state.grad_accum == device_batch_size:
-                    raise RuntimeError(
-                        ('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
-                         'The GPU does not have enough memory to process even 1 sample.'))
-                else:
-                    original_grad_accum = self.state.grad_accum
-                    self.state.grad_accum = min(2 * self.state.grad_accum, device_batch_size)
-                    warnings.warn(
-                        RuntimeWarning('CUDA out of memory detected. Gradient Accumulation '
-                                       f'increased from {original_grad_accum} -> {self.state.grad_accum}, '
-                                       'and the batch will be retrained with a '
-                                       f'micro-batchsize of {device_batch_size // self.state.grad_accum}'))
-                    # Empty cache if on GPU, which will help reduce fragmentation
-                    if isinstance(self._device, DeviceGPU):
-                        torch.cuda.empty_cache()
-            # Otherwise, log grad_accum and return calculated loss
-            else:
-                # Synchronize new batch compute time
-                batch_compute_time = end_time - start_time
-                batch_compute_time = self._device.tensor_to_device(torch.tensor([batch_compute_time],
-                                                                                dtype=torch.float))
-                dist.all_reduce(batch_compute_time, reduce_operation='MAX')
-                self.batch_compute_time = batch_compute_time.item()
-
-                self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
-                return total_loss
-
-    def _train_microbatches(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
+    def _train_microbatches(self,
+                            microbatches: Sequence[Batch],
+                            total_loss_dict: Dict[str, torch.Tensor],
+                            ddp_sync: bool = True) -> torch.Tensor:
         """Iterate over microbatches and compute the loss that will be used to step the optimizer.
 
         Args:
             microbatches (Sequence[Batch]): The microbatches which make up the batch.
+            total_loss_dict (Dict[str, torch.tensor]): Dictionary containing individual losses and their sum aggregated across all
+                microbatches.
             ddp_sync (bool): True to sync gradients between devices on every backwards
                 pass and False to only sync gradients after each device has finished
                 computing a gradient on it's entire set of microbatches. (default: ``True``)
@@ -1835,12 +1892,18 @@ class Trainer:
                     optimizer.zero_grad()
 
             # tracker for gradient accumulation
-            total_loss = self._device.tensor_to_device(torch.zeros(size=(1,)))
             current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(batch) for batch in microbatches])
 
             for microbatch_idx, self.state.batch in enumerate(microbatches):
                 is_final_microbatch = microbatch_idx + 1 == len(microbatches)
-                self._train_microbatch(use_grad_scaling, current_batch_size, total_loss, is_final_microbatch)
+                microbatch_loss_dict = self._train_microbatch(use_grad_scaling, current_batch_size, is_final_microbatch)
+
+                # Aggregate each loss in microbatch_loss_dict into total_loss_dict
+                for k, microbatch_loss in microbatch_loss_dict.items():
+                    loss_key = f'loss/train/{k}'
+                    if loss_key not in total_loss_dict:
+                        total_loss_dict[loss_key] = self._device.tensor_to_device(torch.zeros(size=(1,)))
+                    total_loss_dict[loss_key] += microbatch_loss
 
             # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
             if use_grad_scaling:
@@ -1849,17 +1912,16 @@ class Trainer:
 
             self.engine.run_event(Event.AFTER_TRAIN_BATCH)
 
-            return total_loss
+            return total_loss_dict['loss/train/total']
 
-    def _train_microbatch(self, use_grad_scaling: bool, current_batch_size: int, total_loss: torch.Tensor,
-                          is_final_microbatch: bool):
+    def _train_microbatch(self, use_grad_scaling: bool, current_batch_size: int,
+                          is_final_microbatch: bool) -> Dict[str, torch.Tensor]:
         """Train and compute the loss of ``state.batch``, which is assumed to be a single microbatch.
 
         Args:
             use_grad_scaling (bool): Whether to use gradient scaling.
             current_batch_size (int): The current batch size.
             minibatch_num_samples (int): Number of samples in the minibatch.
-            total_loss (torch.Tensor): Total loss aggregated across all microbatches.
             is_final_microbatch (bool): If current microbatch is the last one.
         """
         assert self.state.scaler is not None
@@ -1893,13 +1955,30 @@ class Trainer:
             # backward
             self.engine.run_event(Event.BEFORE_BACKWARD)
 
-            # Sum individual losses
-            microbatch_loss = self._device.tensor_to_device(torch.zeros(size=(1,)))
-            for loss in ensure_tuple(self.state.loss):
-                microbatch_loss.add_(loss.mean())
+            microbatch_loss_dict = {}
+            # If total loss key is present, copy loss
+            if isinstance(self.state.loss, dict) and ('total' in self.state.loss):
+                microbatch_loss = self.state.loss['total']  # type: ignore
+                microbatch_loss_dict = self.state.loss.copy()
+            # If total loss key is not present, sum individual losses
+            else:
+                microbatch_loss = self._device.tensor_to_device(torch.zeros(size=(1,)))
+                for loss in ensure_tuple(self.state.loss):
+                    microbatch_loss.add_(loss.mean())
 
-            # Loss used for logging, scaled by grad_accum for correctly calculating metrics
-            total_loss += microbatch_loss.detach().clone() * (microbatch_num_samples / current_batch_size)
+                # Copy the loss if it is a dictionary
+                if isinstance(self.state.loss, dict):
+                    microbatch_loss_dict = self.state.loss.copy()
+                # If not, create a dictionary with generic loss names
+                elif len(ensure_tuple(self.state.loss)) > 1:
+                    microbatch_loss_dict = {f'loss{i}': loss for i, loss in enumerate(ensure_tuple(self.state.loss))}
+
+                # Include total loss
+                microbatch_loss_dict['total'] = microbatch_loss
+
+            # For each loss to log: detach, clone, mean, then multiply by (microbatch size) / (batch size)
+            for k, loss in microbatch_loss_dict.items():
+                microbatch_loss_dict[k] = loss.detach().clone().mean() * (microbatch_num_samples / current_batch_size)
 
             if use_grad_scaling:
                 microbatch_loss = cast(torch.Tensor, self.state.scaler.scale(microbatch_loss))
@@ -1916,6 +1995,8 @@ class Trainer:
 
         if self.deepspeed_enabled:
             self.state.deepspeed_model.step()
+
+        return microbatch_loss_dict
 
     def predict(
         self,
@@ -2134,6 +2215,7 @@ class Trainer:
                 metrics = MetricCollection(metrics)
 
             metrics = self._ensure_metrics_device_and_dtype(metrics)
+
             metrics.reset()
             dataloader = self.state.dataloader
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
@@ -2157,19 +2239,46 @@ class Trainer:
 
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
-                self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-                with get_precision_context(self.state.precision):
-                    self.state.outputs, targets = self._original_model.validate(self.state.batch)
-                self.engine.run_event(Event.EVAL_AFTER_FORWARD)
+                # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
+                device_batch = self.state.batch
+                # Retry until we successfully complete evaluation
+                while True:
+                    # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
+                    found_cuda_oom = 0
+                    try:
+                        for eval_microbatch in data_spec.split_batch(self.state.batch, self.state.eval_batch_split):
+                            self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
+                            with get_precision_context(self.state.precision):
+                                self.state.outputs, targets = self._original_model.validate(eval_microbatch)
+                            self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
-                # Run in same precision context to avoid NaNs
-                with get_precision_context(self.state.precision):
-                    if isinstance(self._device, DeviceMPS):
-                        # torchmetrics math has numerical errors on M1 devices
-                        # running the compute on CPU instead
-                        metrics.update(self.state.outputs.cpu(), targets.cpu())
-                    else:
-                        metrics.update(self.state.outputs, targets)
+                            # Run in same precision context to avoid NaNs
+                            with get_precision_context(self.state.precision):
+                                if isinstance(self._device, DeviceMPS):
+                                    # torchmetrics math has numerical errors on M1 devices
+                                    # running the compute on CPU instead
+                                    metrics.update(self.state.outputs.cpu(), targets.cpu())
+                                else:
+                                    metrics.update(self.state.outputs, targets)
+                    except RuntimeError as e:
+                        if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
+                            log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
+                            found_cuda_oom = 1
+                        else:
+                            raise
+                    # Auto grad accum only supported on GPU
+                    if isinstance(self._device, DeviceGPU):
+                        # Propagate across all ranks if any rank hit CUDA OOM
+                        found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom],
+                                                                                    dtype=torch.uint8))
+                        dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
+                        if found_cuda_oom.item() == 1:
+                            device_batch_size = data_spec.get_num_samples_in_batch(device_batch)
+                            _adjust_eval_batch_split(self.state, device_batch_size)
+                            # Skip return and rerun after handling oom
+                            continue
+                    # Break if we've successfully completed eval without OOMing.
+                    break
 
                 now = datetime.datetime.now()
                 batch_time = now - last_wct

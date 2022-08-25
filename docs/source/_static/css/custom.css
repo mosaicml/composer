@@ -19,3 +19,7 @@
 .card-body p {
     display: inline;
 }
+
+.sidebar-container {
+    width: 255px;
+}
