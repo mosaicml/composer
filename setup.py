@@ -137,7 +137,7 @@ extra_deps['dev'] = [
 ]
 
 extra_deps['deepspeed'] = [
-    'deepspeed==0.5.10',  # TODO should this be >=0.5.10,<0.6
+    'deepspeed>=0.7.2,<0.8.0',
 ]
 
 extra_deps['wandb'] = [
@@ -159,7 +159,7 @@ extra_deps['vit'] = [
 ]
 
 extra_deps['timm'] = [
-    'timm>=0.5.4,<0.6',
+    'timm>=0.6.7,<0.7.0',
 ]
 
 extra_deps['coco'] = [
