@@ -936,7 +936,7 @@ class Trainer:
 
         # Move the model and optimizers to the device
 
-        if not self.deepspeed_enabled or self.fsdp_enabled:
+        if not (self.deepspeed_enabled or self.fsdp_enabled):
             # check if model is already on tpu
             if isinstance(self._device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
                 raise ValueError(
@@ -1227,7 +1227,7 @@ class Trainer:
         reproducibility.seed_all(self.state.seed)
 
         # Move the model and optimizers to the specified device
-        if not self.deepspeed_enabled and not self.fsdp_enabled and dist.get_world_size() > 1:
+        if not (self.deepspeed_enabled or self.fsdp_enabled) and dist.get_world_size() > 1:
             # Only wrap the module if required
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
