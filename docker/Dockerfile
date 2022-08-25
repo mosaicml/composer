@@ -124,24 +124,6 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-##################################################
-# Change the NCCL version to fix NVLink errors
-# This is required to train on Nvidia A100s in GCP
-##################################################
-RUN if [ -n "$CUDA_VERSION" ] ; then \
-        apt-get update && \
-        apt-get install -y --no-install-recommends --allow-change-held-packages --allow-downgrades \
-            libnccl2=2.9.6-1+cuda11.0 \
-            libnccl-dev=2.9.6-1+cuda11.0 && \
-        apt-get autoclean && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* ; \
-    fi
-
-# If using CUDA_VERSION, then use system installed NCCL per update above and point to library
-ENV USE_SYSTEM_NCCL=${CUDA_VERSION:+1}
-ENV LD_PRELOAD=${CUDA_VERSION:+/usr/lib/x86_64-linux-gnu/libnccl.so.2.9.6}
-
 ##############################
 # Install NodeJS (for Pyright)
 ##############################

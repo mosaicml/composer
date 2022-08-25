@@ -14,7 +14,6 @@ import pytest
 import torch
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
-from torchmetrics import Accuracy
 
 from composer import Callback, Evaluator, Trainer
 from composer.algorithms import CutOut, LabelSmoothing
@@ -29,6 +28,7 @@ from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.imagenet_hparams import ImagenetDatasetHparams
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger import Logger
+from composer.loss import soft_cross_entropy
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices import Device
@@ -284,12 +284,16 @@ class TestTrainerInitOrFit:
         'eval_dataloader',
         [
             DataLoader(RandomClassificationDataset(size=2)),  # a normal dataloader
-            Evaluator(label='eval', dataloader=DataLoader(RandomClassificationDataset(size=2)),
-                      metrics=Accuracy()),  # an evaluator
+            Evaluator(label='eval',
+                      dataloader=DataLoader(RandomClassificationDataset(size=2)),
+                      metric_names=['Accuracy']),  # an evaluator
             [  # multiple evaluators
-                Evaluator(label='eval1', dataloader=DataLoader(RandomClassificationDataset(size=2)),
-                          metrics=Accuracy()),
-                Evaluator(label='eval2', dataloader=DataLoader(RandomClassificationDataset(size=2)), metrics=Accuracy())
+                Evaluator(label='eval1',
+                          dataloader=DataLoader(RandomClassificationDataset(size=2)),
+                          metric_names=['Accuracy']),
+                Evaluator(label='eval2',
+                          dataloader=DataLoader(RandomClassificationDataset(size=2)),
+                          metric_names=['Accuracy'])
             ],
         ])
     def test_eval_dataloader(
@@ -864,6 +868,51 @@ class TestTrainerEquivalence():
 
         trainer = Trainer(**config)
         assert trainer.state.timestamp.epoch == '1ep'  # ensure checkpoint state loaded
+        trainer.fit()
+
+        self.assert_models_equal(trainer.state.model, self.reference_model)
+
+    def test_tuple_loss_trainer(self, config, *args):
+
+        def tuple_loss(outputs, targets, *args, **kwargs):
+            loss1 = 0.25 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+            loss2 = 0.75 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+            return (loss1, loss2)
+
+        config['model']._loss_fn = tuple_loss
+
+        trainer = Trainer(**config)
+        trainer.fit()
+
+        self.assert_models_equal(trainer.state.model, self.reference_model)
+
+    def test_dict_loss_trainer(self, config, *args):
+
+        def dict_loss(outputs, targets, *args, **kwargs):
+            losses = {}
+            losses['cross_entropy1'] = 0.25 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+            losses['cross_entropy2'] = 0.75 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+            return losses
+
+        config['model']._loss_fn = dict_loss
+
+        trainer = Trainer(**config)
+        trainer.fit()
+
+        self.assert_models_equal(trainer.state.model, self.reference_model)
+
+    def test_dict_loss_total_trainer(self, config, *args):
+
+        def dict_loss_total(outputs, targets, *args, **kwargs):
+            losses = {}
+            losses['cross_entropy1'] = 2 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+            losses['cross_entropy2'] = 3 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+            losses['total'] = soft_cross_entropy(outputs, targets, *args, **kwargs)
+            return losses
+
+        config['model']._loss_fn = dict_loss_total
+
+        trainer = Trainer(**config)
         trainer.fit()
 
         self.assert_models_equal(trainer.state.model, self.reference_model)

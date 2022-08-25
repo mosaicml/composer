@@ -43,7 +43,7 @@ def _build_object_store(object_store_cls: Type[ObjectStore], object_store_kwargs
 class ObjectStoreLogger(LoggerDestination):
     r"""Logger destination that uploads artifacts to an object store.
 
-    This logger destination handles calls to :meth:`~composer.loggers.logger.Logger.file_artifact`
+    This logger destination handles calls to :meth:`.Logger.file_artifact`
     and uploads files to :class:`.ObjectStore`, such as AWS S3 or Google Cloud Storage. To minimize the training
     loop performance hit, it supports background uploads.
 
@@ -329,6 +329,10 @@ class ObjectStoreLogger(LoggerDestination):
             if object_name in self._logged_objects and not overwrite:
                 raise FileExistsError(f'Object {object_name} was already enqueued to be uploaded, but overwrite=False.')
             self._logged_objects[object_name] = (copied_path, overwrite)
+
+    def can_log_file_artifacts(self) -> bool:
+        """Whether the logger supports logging file artifacts."""
+        return True
 
     def _enqueue_uploads(self):
         """Worker thread to enqueue uploads.

@@ -141,10 +141,13 @@ extra_deps['deepspeed'] = [
 ]
 
 extra_deps['wandb'] = [
-    'wandb>=0.12.17,<0.13',
+    'wandb>=0.13.2,<0.14',
 ]
 
-extra_deps['tensorboard'] = ['tensorboard>=2.9.1,<3.0.0']
+extra_deps['tensorboard'] = [
+    'tensorboard>=2.9.1,<3.0.0',
+    'tensorflow-io>=0.26.0,<0.27',
+]
 
 extra_deps['unet'] = [
     'monai>=0.8.0,<0.9',
@@ -165,7 +168,7 @@ extra_deps['coco'] = [
 
 extra_deps['nlp'] = [
     'transformers>=4.11,<5',
-    'datasets>=1.14,<2',
+    'datasets>=2.4.0,<3',
 ]
 
 extra_deps['mlperf'] = [
@@ -203,8 +206,8 @@ setup(name=package_name,
       version=composer_version,
       author='MosaicML',
       author_email='team@mosaicml.com',
-      description='Composer provides well-engineered implementations of efficient training methods to give '
-      'the tools that help you train a better model for cheaper.',
+      description=('Composer is a PyTorch library that enables you to train ' +
+                   'neural networks faster, at lower cost, and to higher accuracy.'),
       long_description=long_description,
       long_description_content_type='text/markdown',
       url='https://github.com/mosaicml/composer',

@@ -38,7 +38,7 @@ class MemoryMonitor(Callback):
             ...     callbacks=[MemoryMonitor()],
             ... )
 
-    The memory statistics are logged by the :class:`~composer.loggers.logger.Logger` to the following keys as
+    The memory statistics are logged by the :class:`.Logger` to the following keys as
     described below.
 
     +--------------------------+-------------------------------------------------------------+

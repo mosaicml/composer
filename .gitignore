@@ -72,6 +72,7 @@ instance/
 docs/_build/
 docs/path/
 docs/source/_build/
+docs/source/api_reference/
 # PyBuilder
 target/
 
@@ -159,3 +160,7 @@ package-lock.json
 
 # pycharm
 .idea/
+
+# composer
+data/
+datasets/

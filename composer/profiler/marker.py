@@ -20,7 +20,7 @@ __all__ = ['Marker']
 class Marker:
     """Profiler Marker.
 
-    Used by the :class:`~composer.core.engine.Engine` to measure the duration of :class:`~composer.core.event.Event` during training.
+    Used by the :class:`.Engine` to measure the duration of :class:`.Event` during training.
 
     .. note::
 

@@ -1,11 +1,10 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""The :class:`~yahp.hparams.Hparams` used to construct the :class:`~composer.trainer.trainer.Trainer`."""
+"""The :class:`~yahp.hparams.Hparams` used to construct the :class:`.Trainer`."""
 
 from __future__ import annotations
 
-import copy
 import dataclasses
 import datetime
 import logging
@@ -36,9 +35,9 @@ from composer.optim.optimizer_hparams_registry import OptimizerHparams, optimize
 from composer.optim.scheduler_hparams_registry import scheduler_registry
 from composer.profiler import Profiler
 from composer.trainer.ddp import DDPSyncStrategy
-from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
+from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceTPU
 from composer.trainer.devices.device_hparams_registry import device_registry
-from composer.trainer.trainer import Trainer
+from composer.trainer.trainer import Trainer, _is_tpu_installed
 from composer.utils import dist, reproducibility
 from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
 
@@ -85,11 +84,10 @@ def _initialize_dataloader(
             )
 
         train_device_batch_size = batch_size // dist.get_world_size()
-        if dataset_hparams.shuffle and subset_num_batches is not None:
-            warnings.warn(
-                (f'SubsetNumBatchesWarning: When specifying `subset_num_batches` for the {dataloader_label} dataset, '
-                 f'dataset_hparams.shuffle should be set to False. '
-                 'Otherwise, each epoch may load a different subset of samples.'))
+        if dataset_hparams.shuffle and subset_num_batches is not None and subset_num_batches != -1:
+            warnings.warn((f'SubsetNumBatchesWarning: When specifying `[train|eval]_subset_num_batches` for '
+                           f'the {dataloader_label} dataset, dataset_hparams.shuffle should be set to False. '
+                           'Otherwise, each epoch may load a different subset of samples.'))
         dataloader = dataset_hparams.initialize_object(train_device_batch_size, dataloader_hparams)
     return dataloader
 
@@ -104,6 +102,20 @@ def _parse_grad_accum(grad_accum: Union[int, str]) -> Union[int, str]:
         pass
 
     raise ValueError('grad_accum should be "auto" or an integer.')
+
+
+def _parse_eval_batch_size(eval_batch_size: Optional[Union[int, str]]) -> Optional[Union[int, str]]:
+    if eval_batch_size is None:
+        return None
+    elif eval_batch_size == 'auto':
+        return eval_batch_size
+
+    try:
+        return int(eval_batch_size)
+    except (ValueError, TypeError):
+        pass
+
+    raise ValueError('eval_batch_size should be "auto" or an integer.')
 
 
 def _initialize_eval_dataloader(
@@ -195,8 +207,9 @@ class TrainerHparams(hp.Hparams):
             or more datasets. (default: ``None``)
 
             .. seealso:: :class:`~composer.core.evaluator.Evaluator` for more details on evaluators.
-        eval_batch_size (int, optional): The batch size to use for evaluation. Must be provided if one of
-            ``val_dataset`` or ``evaluators`` is set. (default: ``None``)
+        eval_batch_size (int | str, optional): The batch size to use for evaluation. Must be provided if one of
+            ``val_dataset`` or ``evaluators`` is set. If set to ``auto``, which requires ``grad_accum='auto'``,
+            train_batch_size is used with microbatches to avoid Cuda OOMs. (default: ``None``)
         eval_interval (str, optional): See :class:`.Trainer`.
         eval_subset_num_batches (int, optional): See :class:`.Trainer`.
 
@@ -231,17 +244,17 @@ class TrainerHparams(hp.Hparams):
         load_progress_bar (bool, optional): See :class:`.Trainer`.
         load_ignore_keys (List[str] | (Dict) -> None, optional): See :class:`.Trainer`.
 
-        save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_filename (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_artifact_name (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_folder (str, optional): See :class:`.CheckpointSaver`.
+        save_filename (str, optional): See :class:`.CheckpointSaver`.
+        save_artifact_name (str, optional): See :class:`.CheckpointSaver`.
         save_latest_filename (str, optional): See
-            :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_latest_artifact_name (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_overwrite (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_weights_only (bool, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+            :class:`.CheckpointSaver`.
+        save_latest_artifact_name (str, optional): See :class:`.CheckpointSaver`.
+        save_overwrite (str, optional): See :class:`.CheckpointSaver`.
+        save_weights_only (bool, optional): See :class:`.CheckpointSaver`.
         save_interval (str, optional): See
             :class:`~composer.callbacks.callback_hparams.CheckpointSaverHparams`.
-        save_num_checkpoints_to_keep (int, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_num_checkpoints_to_keep (int, optional): See :class:`.CheckpointSaver`.
         autoresume (bool, optional): See :class:`.Trainer`.
 
         deepspeed_config (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
@@ -308,7 +321,8 @@ class TrainerHparams(hp.Hparams):
     # Evaluation
     val_dataset: Optional[DatasetHparams] = hp.optional(doc='Validation dataset hparams', default=None)
     evaluators: Optional[List[EvaluatorHparams]] = hp.optional(doc='Evaluators', default=None)
-    eval_batch_size: Optional[int] = hp.optional(doc='batch size to use for each evaluation step', default=None)
+    eval_batch_size: Optional[Union[int, str]] = hp.optional(doc='batch size to use for each evaluation step',
+                                                             default=None)
     eval_interval: Union[int, str] = hp.auto(Trainer, 'eval_interval')
     eval_subset_num_batches: int = hp.auto(Trainer, 'eval_subset_num_batches')
 
@@ -396,6 +410,10 @@ class TrainerHparams(hp.Hparams):
             raise ValueError(
                 f'Batch size ({self.train_batch_size}) not divisible by the total number of processes ({world_size}).')
 
+        grad_accum = _parse_grad_accum(self.grad_accum)
+        if (isinstance(grad_accum, str) and grad_accum != 'auto') or (isinstance(grad_accum, int) and grad_accum < 1):
+            raise ValueError('grad_accum must be "auto" or an int greater than or equal to 1.')
+
         val_dataset_exists = self.val_dataset is not None
         evaluators_exist = self.evaluators is not None and len(self.evaluators) > 0
         if val_dataset_exists and evaluators_exist:
@@ -404,17 +422,22 @@ class TrainerHparams(hp.Hparams):
         if (val_dataset_exists or evaluators_exist) and self.eval_batch_size is None:
             raise ValueError('eval_batch_size must be specified if val_dataset or evaluators are specified.')
 
-        if self.eval_batch_size is not None and self.eval_batch_size % world_size != 0:
-            raise ValueError(
-                f'Eval batch size ({self.eval_batch_size}) not divisible by the total number of processes ({world_size}).'
-            )
+        eval_batch_size = _parse_eval_batch_size(self.eval_batch_size)
+        if eval_batch_size:
+            if (isinstance(eval_batch_size, str) and eval_batch_size != 'auto') or (isinstance(eval_batch_size, int) and
+                                                                                    eval_batch_size < 1):
+                raise ValueError(
+                    f'eval_batch_size must be "auto" or an int greater than or equal to 1 divisible by the number of processes ({world_size}).'
+                )
+            if eval_batch_size == 'auto' and grad_accum != 'auto':
+                raise ValueError('eval_batch_size can only be set to "auto" if grad_accum is also set to "auto"')
+            if eval_batch_size != 'auto' and eval_batch_size % world_size != 0:
+                raise ValueError(
+                    f'Eval batch size ({self.eval_batch_size}) not divisible by the total number of processes ({world_size}).'
+                )
 
         if self.scale_schedule_ratio <= 0:
             raise ValueError('scale_schedule_ratio must be a positive value.')
-
-        grad_accum = _parse_grad_accum(self.grad_accum)
-        if (isinstance(grad_accum, str) and grad_accum != 'auto') or (isinstance(grad_accum, int) and grad_accum < 1):
-            raise ValueError('grad_accum must be "auto" or an int greater than or equal to 1.')
 
     def initialize_object(self) -> Trainer:
         self.validate()
@@ -425,6 +448,11 @@ class TrainerHparams(hp.Hparams):
 
         # ensure grad_accum is 'auto' or an integer
         grad_accum = _parse_grad_accum(self.grad_accum)
+        eval_batch_size = _parse_eval_batch_size(self.eval_batch_size)
+        # _parse_eval_batch_size ensures eval_batch_size is auto if set to str. We need to check if
+        # it's a str and not eval_batch_size == 'auto' or pyright complains it might be a str still.
+        if isinstance(eval_batch_size, str):
+            eval_batch_size = self.train_batch_size
 
         # Device
         device = self.device
@@ -446,6 +474,16 @@ class TrainerHparams(hp.Hparams):
 
         # The model
         model = self.model.initialize_object()
+        # on TPUs, model must be moved to device before optimizer creation
+        if isinstance(device, DeviceTPU):
+            if not _is_tpu_installed():
+                raise ImportError(
+                    'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla'
+                )
+            import torch_xla.core.xla_model as xm
+            import torch_xla.distributed.xla_multiprocessing as xmp
+
+            model = xmp.MpModelWrapper(model).to(xm.xla_device())
 
         # Train dataloader
         train_dataloader = _initialize_dataloader(self.train_dataset, self.train_dataloader_label,
@@ -456,7 +494,7 @@ class TrainerHparams(hp.Hparams):
             model,
             self.val_dataset,
             self.evaluators,
-            self.eval_batch_size,
+            eval_batch_size,
             self.eval_subset_num_batches,
             self.dataloader,
         )
@@ -724,7 +762,7 @@ class EvalKwargs(TypedDict):
     """
     dataloader: Union[Iterable, DataSpec, dict]
     dataloader_label: str
-    metrics: Union[Metric, MetricCollection]
+    metric_names: List[str]
     subset_num_batches: int
     log_level: Union[str, LogLevel]
 
@@ -783,10 +821,6 @@ class EvalHparams(hp.Hparams):
 
         # Metrics
 
-        # TODO(Ravi): Cleanup this code as part of the MetricsModule. This code was copied
-        # from composer/datasets/evaluator.py, but will likely be removed when the MetricsModule
-        # is implemented, as the trainer will not be responsible for constructing metrics.
-
         # Get and copy all the model's associated evaluation metrics
         model_metrics = model.metrics(train=False)
         if isinstance(model_metrics, Metric):
@@ -795,9 +829,9 @@ class EvalHparams(hp.Hparams):
 
         # Use all the metrics from the model if no metric_names are specified
         if self.metric_names is None:
-            metrics = copy.deepcopy(model_metrics)
+            metric_names = [str(k) for k in model_metrics.keys()]  # convert hashable to str
         else:
-            metrics = MetricCollection([])
+            metric_names = []
             for metric_name in self.metric_names:
                 try:
                     metric = model_metrics[metric_name]
@@ -805,15 +839,15 @@ class EvalHparams(hp.Hparams):
                     raise RuntimeError((f'No metric found with the name {metric_name}. Check if this '
                                         'metric is compatible/listed in your model metrics. ')) from e
                 assert isinstance(metric, Metric), 'all values of a MetricCollection.__getitem__ should be a metric'
-                metrics.add_metrics(copy.deepcopy(metric))
-            if len(metrics) == 0:
+                metric_names.append(str(metric_name))
+            if len(metric_names) == 0:
                 raise RuntimeError(('No metrics compatible with your model were added to this evaluator. '
                                     'Check that the metrics you specified are compatible/listed in your model.'))
 
         return {
             'dataloader': dataloader,
             'dataloader_label': self.dataloader_label,
-            'metrics': metrics,
+            'metric_names': metric_names,
             'subset_num_batches': self.subset_num_batches,
             'log_level': self.log_level,
         }
@@ -894,8 +928,7 @@ class ExperimentHparams(hp.Hparams):
                 (trainer, list of :meth:`~.Trainer.fit` kwargs, list of :meth:`~.Trainer.eval` kwargs).
         """
         trainer = self.trainer.initialize_object()
-        # TODO(ravi): With MetricsModule, `fit_hparams` and `eval_hparams` will
-        # no longer need the original model
+
         fit_kwargs = [
             fit_hparams.initialize_object(trainer._original_model, self.trainer.dataloader) for fit_hparams in self.fits
         ]
