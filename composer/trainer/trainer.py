@@ -1756,6 +1756,7 @@ class Trainer:
                                 )
                                 assert isinstance(self._original_model.validate, Callable)
                                 eval_outputs, target = self._original_model.validate(eval_microbatch)
+
                                 for _, metric in self.state.train_metrics.items():
                                     metric.update(eval_outputs, target)
                             else:
