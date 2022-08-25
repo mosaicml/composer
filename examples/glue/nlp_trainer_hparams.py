@@ -64,7 +64,7 @@ class GLUETrainerHparams(hp.Hparams):
     seed_overrides: Optional[Dict[str, List[int]]] = hp.optional(doc="A dictionary mapping task names to the list of seed overrides it should use "
             "per checkpoint. Each key must correspond to one of the GLUE tasks. This lets you train multiple fine-tune runs per "
             "checkpoint on a single task (one for each seed). Tasks that are not included in the dictionary use the (single) seed "
-            "in their default YAML.", default={})
+            "in their default YAML.", default=None)
 
     hparams_registry = {
         'algorithms': algorithm_registry,

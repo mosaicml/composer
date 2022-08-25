@@ -230,7 +230,10 @@ def spawn_finetuning_jobs(
 
     # To reduce noisiness with these tasks, expand the evaluation to multiple fine-tuning seeds per pre-train checkpoint, if desired
     seed_overrides = NLPTrainerHparams.create(cli_args=False, f=base_yaml_file).finetune_hparams.seed_overrides
-    seed_overrides = {k.lower(): v for k, v in seed_overrides.items()}
+    if seed_overrides is None:
+        seed_overrides = {}
+    else:
+        seed_overrides = {k.lower(): v for k, v in seed_overrides.items()}
     # # TODO(Alex): Expose these per-task seed choices through the `finetune_hparams`
     # seed_overrides = {
     #     'mnli': [19],
