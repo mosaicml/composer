@@ -53,6 +53,7 @@ def test_current_metrics(
     # Configure the trainer
     num_channels = dummy_in_shape[0]
     mock_logger_destination = MagicMock()
+    mock_logger_destination.log_metrics = MagicMock()
     model = SimpleModel(num_features=num_channels, num_classes=dummy_num_classes)
     compute_val_metrics = eval_interval != '0ep'
     train_subset_num_batches = 2
@@ -87,28 +88,32 @@ def test_current_metrics(
     else:
         assert 'eval' not in trainer.state.eval_metrics
 
+    num_step_and_index_calls = 2  # global_step and batch_idx calls
+    num_loss_calls_per_epoch = 1
+
     # Validate that the logger was called the correct number of times for metric calls
     num_expected_calls = 0
+
+    # Every epoch is logged.
+    num_expected_calls += num_epochs
+
+    num_expected_calls += num_epochs * train_subset_num_batches * num_step_and_index_calls
+
+    num_expected_calls += num_epochs * train_subset_num_batches * num_loss_calls_per_epoch
+
     # computed once per batch
     # and again at epoch end
     num_expected_calls += (train_subset_num_batches + 1) * num_epochs
     # computed at eval end
     if compute_val_metrics:
-        num_calls_per_eval = 1
+        num_calls_per_eval = 3  # metrics + epoch + trainer/global_step
         num_evals = 0
         if eval_interval == '1ba':
             num_evals += train_subset_num_batches * num_epochs
         if eval_interval == '1ep':
             num_evals += num_epochs
         num_expected_calls += (num_calls_per_eval) * num_evals
-    num_actual_calls = 0
 
-    # Need to filter out non-metrics-related calls
-    for call in mock_logger_destination.log_data.mock_calls:
-        data = call[1][2]
-        for k in data:
-            if k.startswith('metrics/'):
-                num_actual_calls += 1
-                break
+    num_actual_calls = len(mock_logger_destination.log_metrics.mock_calls)
 
     assert num_actual_calls == num_expected_calls
