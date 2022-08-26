@@ -1614,8 +1614,7 @@ class Trainer:
                         {
                             'trainer/global_step': int(self.state.timestamp.batch),
                             'trainer/batch_idx': self.state.timestamp.batch_in_epoch.value,
-                        },
-                        step=self.state.timestamp.batch.value)
+                        })
 
                     total_loss_dict = self._train_batch(use_grad_scaling)
 
