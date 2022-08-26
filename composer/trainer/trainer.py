@@ -868,6 +868,14 @@ class Trainer:
             )
             backward_prefetch = BackwardPrefetch.BACKWARD_POST
 
+            def _custom_auto_wrap_policy(module: nn.Module, recurse: bool, unwrapped_params: int):
+                if recurse:
+                    # always recurse
+                    return True
+                else:
+                    # if not recursing, decide whether we should wrap for the leaf node or reminder
+                    return obj.fsdp_wrap_fn(module)
+
             for attr in dir(model):
                 obj = getattr(model, attr)
                 if isinstance(obj, torch.nn.Module) and not isinstance(obj, (Metric, MetricCollection)):
@@ -880,14 +888,13 @@ class Trainer:
                     fsdp_obj = FullyShardedDataParallel(
                         obj,
                         sharding_strategy=sharding_map[self.fsdp_config['sharding_strategy'].upper()],
-                        auto_wrap_policy=partial(size_based_auto_wrap_policy,
-                                                 min_num_params=int(self.fsdp_config['min_params'])),
+                        auto_wrap_policy=_custom_auto_wrap_policy,
                         cpu_offload=cpu_offload,
                         mixed_precision=mixed_precision,
                         backward_prefetch=backward_prefetch,
                         param_init_fn=_param_init_fn,
                         device_id=self._device._device,
-                        )
+                    )
 
                     if self.fsdp_config['activation_checkpointing']:
                         checkpoint_wrapper_fn = lambda module: checkpoint_wrapper(
