@@ -407,9 +407,11 @@ class FactorizedLinear(_FactorizedModule):
                  in_features: int,
                  out_features: int,
                  bias: bool = True,
+                 device = None,
                  latent_features: Union[int, float] = .25):
         super().__init__(in_size=in_features, out_size=out_features, latent_size=latent_features)
         self.bias = bias
+        self.device = device
         self.module0, self.module1 = self._create_child_modules()
 
     def _create_child_modules(self) -> Tuple[torch.nn.Module, torch.nn.Module]:
@@ -418,8 +420,8 @@ class FactorizedLinear(_FactorizedModule):
                 f'latent_features {self.latent_size} is not small enough to merit factorization! Must be <= {self._max_rank_with_speedup()}'
             )
 
-        module0 = nn.Linear(in_features=self.in_features, out_features=self.latent_size, bias=False)
-        module1 = nn.Linear(in_features=self.latent_size, out_features=self.out_features, bias=self.bias)
+        module0 = nn.Linear(in_features=self.in_features, out_features=self.latent_size, bias=False, device=self.device)
+        module1 = nn.Linear(in_features=self.latent_size, out_features=self.out_features, bias=self.bias, device=self.device)
         return module0, module1
 
     # wrap shared fields in read-only properties matching the torch conv module API
