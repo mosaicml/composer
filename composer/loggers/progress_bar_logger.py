@@ -58,7 +58,12 @@ class _ProgressBar:
         )
 
     def log_data(self, data: Dict[str, Any]):
-        formatted_data = {k: format_log_data_value(v) for (k, v) in data.items() if k in self.keys_to_log}
+        formatted_data = {}
+        for (k, v) in data.items():
+            # Check if any substring of the key matches the keys to log
+            if any(key_to_log in k for key_to_log in self.keys_to_log):
+                formatted_data[k] = format_log_data_value(v)
+
         self.metrics.update(formatted_data)
         self.pbar.set_postfix(self.metrics)
 

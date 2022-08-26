@@ -38,7 +38,6 @@ def test_logged_data_is_json_serializable(callback_cls: Type[Callback]):
         max_duration='1ep',
         callbacks=callback,
         loggers=logger,
-        compute_training_metrics=True,
     )
     trainer.fit()
 
