@@ -853,6 +853,9 @@ class Trainer:
                 'SHARD_GRAD_OP': ShardingStrategy.SHARD_GRAD_OP,
                 'FULL_SHARD': ShardingStrategy.FULL_SHARD,
             }
+            cpu_offload = CPUOffload(offload_params=True) if self.fsdp_config['cpu_offload'] else None
+            if cpu_offload is not None:
+                raise ValueError('FSDP CPU Offload not supported yet.')
             reduce_dtype_map = {
                 Precision.FP32: torch.float32,
                 Precision.AMP: torch.float16,
@@ -869,6 +872,7 @@ class Trainer:
                 obj = getattr(model, attr)
                 if isinstance(obj, torch.nn.Module) and not isinstance(obj, (Metric, MetricCollection)):
 
+                    # This is called on meta modules that FSDP is wrapping
                     def _param_init_fn(module):
                         module.to_empty(device=self._device._device)
                         module.apply(obj.param_init_fn)
@@ -878,11 +882,12 @@ class Trainer:
                         sharding_strategy=sharding_map[self.fsdp_config['sharding_strategy'].upper()],
                         auto_wrap_policy=partial(size_based_auto_wrap_policy,
                                                  min_num_params=int(self.fsdp_config['min_params'])),
-                        # cpu_offload=CPUOffload(offload_params=True),
+                        cpu_offload=cpu_offload,
                         mixed_precision=mixed_precision,
                         backward_prefetch=backward_prefetch,
                         param_init_fn=_param_init_fn,
-                        device_id=self._device._device)
+                        device_id=self._device._device,
+                        )
 
                     if self.fsdp_config['activation_checkpointing']:
                         checkpoint_wrapper_fn = lambda module: checkpoint_wrapper(
