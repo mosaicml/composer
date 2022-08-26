@@ -93,16 +93,6 @@ to log any desired information.
 
     :doc:`Algorithms<algorithms>` and :doc:`Callbacks<callbacks>`
 
-Logging Levels
---------------
-
-:class:`.LogLevel` specifies three logging levels that denote where in
-the training loop log messages are generated. The logging levels are:
-
--  :attr:`.LogLevel.FIT`: metrics logged once per training
-   run, typically before the first epoch.
--  :attr:`.LogLevel.EPOCH`: metrics logged once per epoch.
--  :attr:`.LogLevel.BATCH`: metrics logged once per batch.
 
 Custom Logger Destinations
 --------------------------
@@ -116,7 +106,6 @@ into a dictionary:
     from typing import Any, Dict, Optional
 
     from composer.loggers.logger_destination import LoggerDestination
-    from composer.loggers.logger import LogLevel
     from composer.core.time import Timestamp
     from composer.core.state import State
 
