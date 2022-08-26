@@ -93,35 +93,28 @@
   <script src="https://cdn.jsdelivr.net/npm/@docsearch/js@3"></script>
   <script>
     const versionFromURL = (url) => {
-      fragments = url.split("/en/") || []
+      fragments = url.split("/en/")
       version = undefined
-      if (fragments.length > 1) {
+      if (fragments.length === 2) {
         version = fragments[1].split("/")[0]
       }
       return version
     }
 
     const siteVersion = versionFromURL(window.location.href) || "latest"
-    const searchParameters = {
-      filters: `version:${siteVersion}`,
-      attributesToRetrieve: ['*']
-    }
-
     docsearch({
       appId: "C0N22DVO6B",
       apiKey: "235ca7d524b3067aa476523449bba0db",
       indexName: "mosaicml",
       container: '#algoliasearch',
-      searchParameters,
+      searchParameters: {
+        filters: `version:${siteVersion}`,
+        attributesToRetrieve: ['*']
+      },
       transformItems(items) {
         return items.map((item) => {
-          let r = {
-            ...item,
-          }
-
-          r._snippetResult.hierarchy.lvl1.value += ` (${item.version})`
-
-          return r;
+          item._snippetResult.hierarchy.lvl1.value += ` (${item.version})`
+          return item
         });
       },
       debug: false // Set debug to true if you want to inspect the modal
