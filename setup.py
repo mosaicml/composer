@@ -113,7 +113,7 @@ extra_deps['dev'] = [
     # embedding md in rst require docutils>=0.17. See
     # https://myst-parser.readthedocs.io/en/latest/sphinx/use.html?highlight=parser#include-markdown-files-into-an-rst-file
     'docutils==0.17.1',
-    'sphinx_markdown_tables==0.0.15',
+    'sphinx_markdown_tables==0.0.17',
     'sphinx-argparse==0.3.1',
     'sphinxcontrib.katex==0.8.6',
     'sphinxext.opengraph==0.6.3',
@@ -125,7 +125,7 @@ extra_deps['dev'] = [
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.16.1',
-    'traitlets==5.1.1',  # required by testbook. Version 5.2.2 has an import bug, so pinning to 5.1.1, which worked previously.
+    'traitlets==5.3.0',  # required by testbook. Version 5.2.2 has an import bug, so pinning to 5.1.1, which worked previously.
     'nbsphinx==0.8.9',
     'pandoc==2.2',
     'pypandoc==1.8.1',
@@ -155,7 +155,7 @@ extra_deps['unet'] = [
 ]
 
 extra_deps['vit'] = [
-    'vit_pytorch==0.27',
+    'vit_pytorch==0.35.8',
 ]
 
 extra_deps['timm'] = [
