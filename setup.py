@@ -121,7 +121,7 @@ extra_deps['dev'] = [
     'furo==2022.6.21',
     'sphinx-copybutton==0.5.0',
     'testbook==0.4.2',
-    'myst-parser==0.16.1',
+    'myst-parser==0.18.0',
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.16.1',
