@@ -101,7 +101,6 @@ def test_current_metrics(
 
     num_expected_calls += num_epochs * train_subset_num_batches * num_loss_calls_per_epoch
 
- 
     # computed once per batch
     # and again at epoch end
     num_expected_calls += (train_subset_num_batches + 1) * num_epochs

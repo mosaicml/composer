@@ -1485,8 +1485,8 @@ class Trainer:
         for metric_name, metric in metrics.items():
             computed_metrics[metric_name] = metric.compute()
 
-        self.logger.log_metrics({f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},
-        )
+        self.logger.log_metrics(
+            {f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},)
 
         # store metric instances
         for metric_name, metric in metrics.items():
@@ -1610,11 +1610,10 @@ class Trainer:
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
                     self.engine.run_event(Event.BATCH_START)
-                    self.logger.log_metrics(
-                        {
-                            'trainer/global_step': int(self.state.timestamp.batch),
-                            'trainer/batch_idx': self.state.timestamp.batch_in_epoch.value,
-                        })
+                    self.logger.log_metrics({
+                        'trainer/global_step': int(self.state.timestamp.batch),
+                        'trainer/batch_idx': self.state.timestamp.batch_in_epoch.value,
+                    })
 
                     total_loss_dict = self._train_batch(use_grad_scaling)
 
@@ -1768,12 +1767,10 @@ class Trainer:
             assert evaluator.eval_interval is not None, 'eval_interval should have been set on __init__() or fit()'
             assert evaluator.subset_num_batches is not None, 'subset_num_batches should have been set on __init__() or fit()'
             if evaluator.eval_interval(self.state, event):
-                self.eval(
-                    dataloader=evaluator.dataloader,
-                    dataloader_label=evaluator.label,
-                    subset_num_batches=evaluator.subset_num_batches,
-                    metrics=self.state.eval_metrics[evaluator.label]
-                )
+                self.eval(dataloader=evaluator.dataloader,
+                          dataloader_label=evaluator.label,
+                          subset_num_batches=evaluator.subset_num_batches,
+                          metrics=self.state.eval_metrics[evaluator.label])
 
     def _train_batch(self, use_grad_scaling: bool) -> Dict[str, torch.Tensor]:
         """Compute loss by training on a full batch of data.
