@@ -112,11 +112,11 @@ class SpeedMonitor(Callback):
         # Log the throughput
         if len(self.batch_num_samples_buffer) == self.window_size:
             throughput = sum(self.batch_num_samples_buffer) / sum(self.batch_wct_buffer)
-            logger.data_batch({'throughput/samples_per_sec': throughput})
+            logger.log_metrics({'throughput/samples_per_sec': throughput})
 
         # Log the time
         # `state.timestamp` excludes any time spent in evaluation
-        logger.data_batch({
+        logger.log_metrics({
             'wall_clock/train': state.timestamp.total_wct.total_seconds(),
             'wall_clock/val': self.total_eval_wct,
             'wall_clock/total': (state.timestamp.total_wct.total_seconds() + self.total_eval_wct),

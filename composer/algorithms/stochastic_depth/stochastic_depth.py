@@ -183,7 +183,7 @@ class StochasticDepth(Algorithm):
                                    drop_rate=self.drop_rate,
                                    drop_distribution=self.drop_distribution)
             self.num_stochastic_layers = module_surgery.count_module_instances(state.model, target_block)
-            logger.data_epoch({'stochastic_depth/num_stochastic_layers': self.num_stochastic_layers})
+            logger.log_metrics({'stochastic_depth/num_stochastic_layers': self.num_stochastic_layers})
 
         elif event == Event.BATCH_START and self.num_stochastic_layers:
             elapsed_duration = state.get_elapsed_duration()
@@ -197,7 +197,7 @@ class StochasticDepth(Algorithm):
                                   module_count=self.num_stochastic_layers)
             else:
                 current_drop_rate = self.drop_rate
-            logger.data_batch({'stochastic_depth/drop_rate': current_drop_rate})
+            logger.log_metrics({'stochastic_depth/drop_rate': current_drop_rate})
 
 
 def _validate_stochastic_hparams(target_layer_name: str,

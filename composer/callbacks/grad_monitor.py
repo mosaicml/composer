@@ -67,6 +67,6 @@ class GradMonitor(Callback):
                 norm += param_grad_norm
 
         norm = norm**0.5
-        logger.data_batch({'grad_l2_norm/step': norm})
+        logger.log_metrics({'grad_l2_norm/step': norm})
         if self.log_layer_grad_norms:
-            logger.data_batch(layer_norms)
+            logger.log_metrics(layer_norms)
