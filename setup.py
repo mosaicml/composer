@@ -150,7 +150,7 @@ extra_deps['tensorboard'] = [
 ]
 
 extra_deps['unet'] = [
-    'monai>=0.8.0,<0.10',
+    'monai>=0.9.1,<0.10',
     'scikit-learn>=1.0.1,<2',
 ]
 
