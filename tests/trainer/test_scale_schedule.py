@@ -116,6 +116,7 @@ class TestScaleScheduleTrainer():
 
         trainer = composer_trainer_hparams.initialize_object()
         trainer.state.callbacks.append(CheckScaleSchedule(ssr))
+        trainer.state.train_metrics = {}  # avoid metrics construction
 
         assert trainer.state.max_duration is not None
         assert trainer.state.max_duration.unit == TimeUnit.EPOCH
