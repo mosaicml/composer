@@ -126,7 +126,7 @@ extra_deps['dev'] = [
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.16.1',
     'traitlets==5.1.1',  # required by testbook. Version 5.2.2 has an import bug, so pinning to 5.1.1, which worked previously.
-    'nbsphinx==0.8.8',
+    'nbsphinx==0.8.9',
     'pandoc==2.2',
     'pypandoc==1.8.1',
     'GitPython==3.1.27',
