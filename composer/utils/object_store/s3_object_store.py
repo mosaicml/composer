@@ -82,7 +82,7 @@ class S3ObjectStore(ObjectStore):
             from boto3.s3.transfer import TransferConfig
             from botocore.config import Config
         except ImportError as e:
-            raise MissingConditionalImportError('s3', 'boto3') from e
+            raise MissingConditionalImportError('streaming', 'boto3') from e
 
         # Format paths
         self.bucket = bucket.strip('/')
