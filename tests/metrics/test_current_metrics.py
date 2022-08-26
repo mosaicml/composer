@@ -14,8 +14,7 @@ from tests.common import SimpleModel
 
 class MetricsCallback(Callback):
 
-    def __init__(self, compute_training_metrics: bool, compute_val_metrics: bool) -> None:
-        self.compute_training_metrics = compute_training_metrics
+    def __init__(self, compute_val_metrics: bool) -> None:
         self.compute_val_metrics = compute_val_metrics
         self._train_batch_end_train_accuracy = None
 
@@ -28,16 +27,14 @@ class MetricsCallback(Callback):
     def batch_end(self, state: State, logger: Logger) -> None:
         # The metric should be computed and updated on state every batch.
         del logger  # unused
-        if self.compute_training_metrics:
-            # assuming that at least one sample was correctly classified
-            assert state.train_metrics['Accuracy'].compute() != 0.0
-            self._train_batch_end_train_accuracy = state.train_metrics['Accuracy']
+        # assuming that at least one sample was correctly classified
+        assert state.train_metrics['Accuracy'].compute() != 0.0
+        self._train_batch_end_train_accuracy = state.train_metrics['Accuracy']
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         # The metric at epoch end should be the same as on batch end.
         del logger  # unused
-        if self.compute_training_metrics:
-            assert state.train_metrics['Accuracy'].compute() == self._train_batch_end_train_accuracy
+        assert state.train_metrics['Accuracy'].compute() == self._train_batch_end_train_accuracy
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if self.compute_val_metrics:
@@ -45,14 +42,12 @@ class MetricsCallback(Callback):
             assert state.eval_metrics['eval']['Accuracy'].compute() != 0.0
 
 
-@pytest.mark.parametrize('compute_training_metrics', [True, False])
 @pytest.mark.parametrize('eval_interval', ['1ba', '1ep', '0ep'])
 def test_current_metrics(
     dummy_train_dataloader: Iterable,
     dummy_val_dataloader: Iterable,
     dummy_num_classes: int,
     dummy_in_shape: Tuple[int, ...],
-    compute_training_metrics: bool,
     eval_interval: str,
 ):
     # Configure the trainer
@@ -63,10 +58,7 @@ def test_current_metrics(
     train_subset_num_batches = 2
     eval_subset_num_batches = 2
     num_epochs = 2
-    metrics_callback = MetricsCallback(
-        compute_training_metrics=compute_training_metrics,
-        compute_val_metrics=compute_val_metrics,
-    )
+    metrics_callback = MetricsCallback(compute_val_metrics=compute_val_metrics,)
 
     # Create the trainer
     trainer = Trainer(
@@ -74,7 +66,6 @@ def test_current_metrics(
         train_dataloader=dummy_train_dataloader,
         eval_dataloader=dummy_val_dataloader,
         max_duration=num_epochs,
-        compute_training_metrics=compute_training_metrics,
         train_subset_num_batches=train_subset_num_batches,
         eval_subset_num_batches=eval_subset_num_batches,
         loggers=[mock_logger_destination],
@@ -85,14 +76,11 @@ def test_current_metrics(
     # Train the model
     trainer.fit()
 
-    if not compute_training_metrics and not compute_val_metrics:
+    if not compute_val_metrics:
         return
 
     # Validate the metrics
-    if compute_training_metrics:
-        assert trainer.state.train_metrics['Accuracy'].compute() != 0.0
-    else:
-        assert trainer.state.train_metrics == {}
+    assert trainer.state.train_metrics['Accuracy'].compute() != 0.0
 
     if compute_val_metrics:
         assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
@@ -101,10 +89,9 @@ def test_current_metrics(
 
     # Validate that the logger was called the correct number of times for metric calls
     num_expected_calls = 0
-    if compute_training_metrics:
-        # computed once per batch
-        # and again at epoch end
-        num_expected_calls += (train_subset_num_batches + 1) * num_epochs
+    # computed once per batch
+    # and again at epoch end
+    num_expected_calls += (train_subset_num_batches + 1) * num_epochs
     # computed at eval end
     if compute_val_metrics:
         num_calls_per_eval = 1

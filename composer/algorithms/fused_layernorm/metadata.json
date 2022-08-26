@@ -3,7 +3,7 @@
         "name": "Fused LayerNorm",
         "class_name": "FusedLayerNorm",
         "functional": "apply_fused_layernorm",
-        "tldr": "Uses channels last memory format (NHWC)",
+        "tldr": "Fuses underlying LayerNorm kernels into single kernel",
         "attribution": "NVIDIA",
         "link": "https://nvidia.github.io/apex/layernorm.html",
         "domains": [
