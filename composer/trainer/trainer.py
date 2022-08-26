@@ -853,18 +853,19 @@ class Trainer:
                 'SHARD_GRAD_OP': ShardingStrategy.SHARD_GRAD_OP,
                 'FULL_SHARD': ShardingStrategy.FULL_SHARD,
             }
-            cpu_offload = CPUOffload(offload_params=True) if self.fsdp_config['cpu_offload'] else None
+            cpu_offload = CPUOffload(offload_params=True) if self.fsdp_config.get('cpu_offload', False) else None
             if cpu_offload is not None:
                 raise ValueError('FSDP CPU Offload not supported yet.')
-            reduce_dtype_map = {
+
+            dtype_map = {
                 Precision.FP32: torch.float32,
                 Precision.AMP: torch.float16,
                 Precision.BF16: torch.bfloat16,
             }
             mixed_precision = MixedPrecision(
-                param_dtype=torch.float32,
-                reduce_dtype=reduce_dtype_map[precision],
-                buffer_dtype=torch.float32,
+                param_dtype=(torch.float32 if self.fsdp_config.get('fp32_master_weights', True) else dtype_map[precision]),
+                reduce_dtype=dtype_map[precision],
+                buffer_dtype=(torch.float32 if self.fsdp_config.get('fp32_master_weights', True) else dtype_map[precision])
             )
             backward_prefetch = BackwardPrefetch.BACKWARD_POST
 
@@ -877,7 +878,7 @@ class Trainer:
                     return obj.fsdp_wrap_fn(module)
 
             _size_based_policy = partial(size_based_auto_wrap_policy,
-                                         min_num_params=int(self.fsdp_config['min_params']))
+                                         min_num_params=int(self.fsdp_config.get('min_params', 1e8)))
 
             auto_wrap_policy = partial(_or_policy, policies=[_custom_policy, _size_based_policy])
 
@@ -892,7 +893,7 @@ class Trainer:
 
                     fsdp_obj = FullyShardedDataParallel(
                         obj,
-                        sharding_strategy=sharding_map[self.fsdp_config['sharding_strategy'].upper()],
+                        sharding_strategy=sharding_map[self.fsdp_config.get('sharding_strategy', 'FULL_SHARD').upper()],
                         auto_wrap_policy=auto_wrap_policy,
                         cpu_offload=cpu_offload,
                         mixed_precision=mixed_precision,
@@ -901,9 +902,9 @@ class Trainer:
                         device_id=self._device._device,
                     )
 
-                    if self.fsdp_config['activation_checkpointing']:
+                    if self.fsdp_config.get('activation_checkpointing', False):
                         checkpoint_wrapper_fn = lambda module: checkpoint_wrapper(
-                            module, offload_to_cpu=self.fsdp_config['activation_checkpointing_offload_to_cpu'])
+                            module, offload_to_cpu=self.fsdp_config.get('activation_checkpointing_offload_to_cpu', False))
                         check_fn = obj.activation_checkpointing_fn
 
                         apply_activation_checkpointing_wrapper(fsdp_obj,
@@ -912,7 +913,7 @@ class Trainer:
 
                     setattr(model, attr, fsdp_obj)
 
-            if self.fsdp_config['verbose']:
+            if self.fsdp_config.get('verbose', False):
                 print(model)
 
             if optimizers:
