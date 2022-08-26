@@ -990,7 +990,7 @@ class Trainer:
         if eval_dataloader is None:
             evaluators: List[Evaluator] = []
         else:
-            eval_metrics = self.state.model.get_metrics(is_train=False)
+            eval_metrics = deepcopy(self.state.model.get_metrics(is_train=False))
             model_metric_names = [str(k) for k in eval_metrics.keys()]
 
             evaluators = [
@@ -1783,7 +1783,7 @@ class Trainer:
             assert evaluator.eval_interval is not None, 'eval_interval should have been set on __init__() or fit()'
             assert evaluator.subset_num_batches is not None, 'subset_num_batches should have been set on __init__() or fit()'
             if evaluator.eval_interval(self.state, event):
-                self.eval(
+                self.eval_loop(
                     dataloader=evaluator.dataloader,
                     dataloader_label=evaluator.label,
                     subset_num_batches=evaluator.subset_num_batches,
@@ -2159,12 +2159,66 @@ class Trainer:
         return outputs
 
     def eval(
+            self,
+            eval_dataloader: Optional[Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
+            eval_subset_num_batches: int = -1,
+            log_level: Union[str, LogLevel] = LogLevel.FIT,
+            dataloader: Optional[Any] = None  # deprecated
+    ):
+        if dataloader is not None:
+            raise ValueError('eval() API has changed, please migrate to the new API, or'
+                             'for backwards compatibility, call eval_loop() instead'
+                             'with the same arguments.')
+
+        if eval_dataloader is not None:
+
+            eval_metrics = deepcopy(self._original_model.get_metrics(is_train=False))
+            metric_names = [str(k) for k in eval_metrics.keys()]
+
+            evaluators = [
+                ensure_evaluator(evaluator, default_metric_names=metric_names)
+                for evaluator in ensure_tuple(eval_dataloader)
+            ]
+
+            if self.state.eval_metrics:
+                for evaluator in evaluators:
+                    if evaluator.label in self.state.eval_metrics:
+                        warnings.warn(
+                            f'eval_dataloader label \'{evaluator.label}\' was already provided in'
+                            'trainer initialization. Existing data for that label will be overwritten.'
+                            'To prevent this in the future, assign unique label names.',
+                            category=UserWarning)
+
+            # match metric names to model metrics
+            log.info(f'Added {[e.label for e in evaluators]} to eval_metrics.')
+            self.state.eval_metrics.update({e.label: _filter_metrics(eval_metrics, e.metric_names) for e in evaluators})
+
+            _set_evaluator_interval_and_subset_num_batches(
+                evaluators=evaluators,
+                eval_interval='1ep',  # ignored
+                subset_num_batches=eval_subset_num_batches,
+            )
+        else:
+            if not self.state.evaluators:
+                raise ValueError('eval_dataloader must be provided to either Trainer init() or eval().')
+            evaluators = self.state.evaluators
+
+        for evaluator in evaluators:
+            self.eval_loop(
+                dataloader=evaluator.dataloader,
+                dataloader_label=evaluator.label,
+                subset_num_batches=evaluator.subset_num_batches,
+                metrics=self.state.eval_metrics[evaluator.label],
+                log_level=log_level,
+            )
+
+    def eval_loop(
         self,
         dataloader: Union[Iterable, DataSpec, dict],
         dataloader_label: str = 'eval',
         *,
         metrics: Dict[str, Metric],
-        subset_num_batches: int = -1,
+        subset_num_batches: Optional[int] = None,
         log_level: Union[str, LogLevel] = LogLevel.FIT,
     ):
         """Evaluate the model and log appropriate metrics.
@@ -2185,6 +2239,9 @@ class Trainer:
         """
         log_level = LogLevel(log_level)
         restore_model_train = self.state.model.training
+
+        if subset_num_batches is None:
+            subset_num_batches = -1
 
         # back up the original dataloader on the state, so we can restore it after evaluation is finished
         original_dataloader = self.state.dataloader
