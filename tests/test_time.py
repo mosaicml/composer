@@ -55,8 +55,7 @@ def test_time_math():
 
 def test_time_repr():
     time = Time(1, 'tok')
-    assert repr(time) == 'Time(1, TimeUnit.TOKEN)'
-    assert eval(repr(time)) == time
+    assert repr(time) == 'Time(1, tok)'
 
 
 def test_timestamp():
