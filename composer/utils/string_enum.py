@@ -96,6 +96,9 @@ class StringEnum(Enum):
                 All values in {self.__class__.__name__} must be lowercase. "
                 To fix, rename to '{self.value.lower()}'."""))
 
+    def __str__(self) -> str:
+        return self.value
+
     @classmethod
     def _missing_(cls, value: object) -> StringEnum:
         # Override _missing_ so both lowercase and uppercase names are supported,
