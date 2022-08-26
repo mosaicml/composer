@@ -93,7 +93,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@docsearch/js@3"></script>
   <script>
     const versionFromURL = (url) => {
-      fragments = url.split("https://docs.mosaicml.com/en/") || []
+      fragments = url.split("/en/") || []
       version = undefined
       if (fragments.length > 1) {
         version = fragments[1].split("/")[0]
@@ -101,21 +101,25 @@
       return version
     }
 
+    const siteVersion = versionFromURL(window.location.href) || "latest"
+    const searchParameters = {
+      filters: `version:${siteVersion}`,
+      attributesToRetrieve: ['*']
+    }
+
     docsearch({
       appId: "C0N22DVO6B",
       apiKey: "235ca7d524b3067aa476523449bba0db",
       indexName: "mosaicml",
       container: '#algoliasearch',
+      searchParameters,
       transformItems(items) {
         return items.map((item) => {
-          item_version = versionFromURL(item.url || "")
-
           let r = {
-            ...item
+            ...item,
           }
 
-          // Add documentation version to the search hit.
-          r._snippetResult.hierarchy.lvl1.value += ` (${item_version})`
+          r._snippetResult.hierarchy.lvl1.value += ` (${item.version})`
 
           return r;
         });
