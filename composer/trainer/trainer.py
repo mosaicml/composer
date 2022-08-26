@@ -26,7 +26,7 @@ import torch.utils.data
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
                                     ShardingStrategy)
-from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
+from torch.distributed.fsdp.wrap import _or_policy, size_based_auto_wrap_policy
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
@@ -868,13 +868,18 @@ class Trainer:
             )
             backward_prefetch = BackwardPrefetch.BACKWARD_POST
 
-            def _custom_auto_wrap_policy(module: nn.Module, recurse: bool, unwrapped_params: int):
+            def _custom_policy(module: nn.Module, recurse: bool, unwrapped_params: int):
                 if recurse:
                     # always recurse
                     return True
                 else:
                     # if not recursing, decide whether we should wrap for the leaf node or reminder
                     return obj.fsdp_wrap_fn(module)
+
+            _size_based_policy = partial(size_based_auto_wrap_policy,
+                                         min_num_params=int(self.fsdp_config['min_params']))
+
+            auto_wrap_policy = partial(_or_policy, policies=[_custom_policy, _size_based_policy])
 
             for attr in dir(model):
                 obj = getattr(model, attr)
@@ -888,7 +893,7 @@ class Trainer:
                     fsdp_obj = FullyShardedDataParallel(
                         obj,
                         sharding_strategy=sharding_map[self.fsdp_config['sharding_strategy'].upper()],
-                        auto_wrap_policy=_custom_auto_wrap_policy,
+                        auto_wrap_policy=auto_wrap_policy,
                         cpu_offload=cpu_offload,
                         mixed_precision=mixed_precision,
                         backward_prefetch=backward_prefetch,
