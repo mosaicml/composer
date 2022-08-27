@@ -51,7 +51,7 @@ def test_se_logging(state: State, empty_logger: Logger):
     se.apply(Event.INIT, state, logger=logger_mock)
     conv_count = module_surgery.count_module_instances(state.model, torch.nn.Conv2d)
 
-    logger_mock.data_fit.assert_called_once_with({
+    logger_mock.log_hyperparameters.assert_called_once_with({
         'squeeze_excite/num_squeeze_excite_layers': conv_count,
     })
 
