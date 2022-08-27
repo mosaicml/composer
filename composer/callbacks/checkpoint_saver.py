@@ -365,13 +365,13 @@ class CheckpointSaver(Callback):  # noqa: D101
         # save the checkpoint to the filename
         filename = self.filename.format(state, is_deepspeed)
 
-        saved = checkpoint.save_checkpoint(
+        saved_path = checkpoint.save_checkpoint(
             state=state,
             filename=filename,
             weights_only=self.weights_only,
         )
 
-        if not saved:  # not all ranks save
+        if not saved_path:  # not all ranks save
             return
 
         if self.latest_filename is not None:
