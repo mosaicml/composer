@@ -406,7 +406,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                         overwrite=True,
                     )
 
-        self.saved_checkpoints += [filename]
+        self.saved_checkpoints.append(filename)
 
         if self.num_checkpoints_to_keep >= 0:
             self._rotate_checkpoints()
