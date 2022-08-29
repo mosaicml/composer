@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from composer.core.state import State
-from composer.loggers.logger import Logger, LogLevel
+from composer.loggers.logger import Logger, LogLevel, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -56,21 +56,36 @@ class TensorboardLogger(LoggerDestination):
         self.rank_zero_only = rank_zero_only
         self.writer: Optional[SummaryWriter] = None
         self.run_name: Optional[str] = None
+        self.hyperparameters: Dict[str, Any] = {}
+        self.current_metrics: Dict[str, Any] = {}
 
-    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
-        del log_level
+    def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
 
         if self.rank_zero_only and dist.get_global_rank() != 0:
             return
-        for tag, data_point in data.items():
-            if isinstance(data_point, str):  # Will error out with weird caffe2 import error.
+        # Lazy logging of hyperparameters b/c Tensorboard requires a metric to pair
+        # with hyperparameters.
+        formatted_hparams = {
+            hparam_name: format_log_data_value(hparam_value) for hparam_name, hparam_value in hyperparameters.items()
+        }
+        self.hyperparameters.update(formatted_hparams)
+
+    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None):
+        if self.rank_zero_only and dist.get_global_rank() != 0:
+            return
+
+        # Keep track of most recent metrics to use for `add_hparams` call.
+        self.current_metrics.update(metrics)
+
+        for tag, metric in metrics.items():
+            if isinstance(metric, str):  # Will error out with weird caffe2 import error.
                 continue
             # TODO: handle logging non-(scalars/arrays/tensors/strings)
             # If a non-(scalars/arrays/tensors/strings) is passed, we skip logging it,
             # so that we do not crash the job.
             try:
                 assert self.writer is not None
-                self.writer.add_scalar(tag, data_point, global_step=int(state.timestamp.batch))
+                self.writer.add_scalar(tag, metric, global_step=step)
             # Gets raised if data_point is not a tensor, array, scalar, or string.
             except NotImplementedError:
                 pass
@@ -106,6 +121,17 @@ class TensorboardLogger(LoggerDestination):
         self._flush(logger)
 
     def eval_end(self, state: State, logger: Logger) -> None:
+        # Give the metrics used for hparams a unique name, so they don't get plotted in the
+        # normal metrics plot.
+        metrics_for_hparams = {
+            'hparams/' + name: metric
+            for name, metric in self.current_metrics.items()
+            if 'metric' in name or 'loss' in name
+        }
+        assert self.writer is not None
+        self.writer.add_hparams(hparam_dict=self.hyperparameters,
+                                metric_dict=metrics_for_hparams,
+                                run_name=self.run_name)
         self._flush(logger)
 
     def fit_end(self, state: State, logger: Logger) -> None:
