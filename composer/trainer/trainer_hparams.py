@@ -810,7 +810,7 @@ class EvalHparams(hp.Hparams):
             'eval_dataloader': eval_dataloader,
             'subset_num_batches': self.subset_num_batches,
             'dataloader': None,
-            'dataloader_label': Optional[Any],
+            'dataloader_label': None,
             'metrics': None,
             'log_level': None,
         }
