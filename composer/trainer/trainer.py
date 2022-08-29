@@ -2215,7 +2215,7 @@ class Trainer:
             )
 
         The metrics used are defined in your model's ``get_metrics()`` method. For more information,
-        see :doc:`/evaluation`.
+        see :doc:`/trainer/evaluation`.
 
         .. note::
 
