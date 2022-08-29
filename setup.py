@@ -84,7 +84,7 @@ install_requires = [
     'numpy>=1.21.5,<1.23.0',
     'psutil>=5.8.0,<6',
     'coolname>=1.1.0,<2',
-    'tabulate==0.8.9',  # for auto-generating tables
+    'tabulate==0.8.10',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<9',
     'packaging>=21.3.0,<22',
     'importlib-metadata>=4.11.0,<5',
@@ -137,7 +137,7 @@ extra_deps['dev'] = [
 ]
 
 extra_deps['deepspeed'] = [
-    'deepspeed==0.5.10',  # TODO should this be >=0.5.10,<0.6
+    'deepspeed==0.7.2',  # TODO should this be >=0.5.10,<0.6
 ]
 
 extra_deps['wandb'] = [
