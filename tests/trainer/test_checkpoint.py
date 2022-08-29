@@ -813,6 +813,10 @@ def test_rotate_checkpoints(
 ):
     num_keep = 5
 
+    # all ranks use rank 0 folder
+    tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
+    save_folder = tmp_paths[0]
+
     if deepspeed_enabled:
         deepseed_config = {'zero_optimization': {'stage': zero_stage}}
     else:
@@ -821,7 +825,7 @@ def test_rotate_checkpoints(
     trainer = Trainer(
         model=SimpleConvModel(),
         train_dataloader=DataLoader(dataset=RandomImageDataset()),
-        save_folder=str(tmp_path),
+        save_folder=str(save_folder),
         save_filename='checkpoint_{rank}_{batch}.pt',
         save_interval='1ba',
         max_duration='10ba',
@@ -832,8 +836,12 @@ def test_rotate_checkpoints(
 
     trainer.fit()
 
+    dist.barrier()  # ensure all checkpoints rotated across ranks
+
     # deepspeed saves 1 file per rank
     expected_num = num_keep if not deepspeed_enabled else num_keep * world_size
 
-    files = glob('checkpoint_*')
+    files = glob(os.path.join(save_folder, 'checkpoint_*'))
     assert len(files) == expected_num
+
+    dist.barrier()  # all ranks finish before cleaning up tmpdir
