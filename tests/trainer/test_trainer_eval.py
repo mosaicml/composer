@@ -43,13 +43,29 @@ def test_eval_call():
     assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
 
 
+def test_eval_deprecation_error():
+    # Construct the trainer
+    trainer = Trainer(model=SimpleModel(),)
+
+    with pytest.raises(ValueError):
+        trainer.eval(
+            dataloader=DataLoader(dataset=RandomClassificationDataset()),
+            dataloader_label='test',
+            metrics=Accuracy(),
+        )
+
+
 def test_trainer_eval_loop():
     # Construct the trainer
     trainer = Trainer(model=SimpleModel())
 
     # Evaluate the model
     eval_dataloader = DataLoader(dataset=RandomClassificationDataset())
-    trainer._eval_loop(dataloader=eval_dataloader, dataloader_label='eval', metrics={'Accuracy': Accuracy()})
+    trainer._eval_loop(
+        dataloader=eval_dataloader,
+        dataloader_label='eval',
+        metrics={'Accuracy': Accuracy()},
+    )
 
     # Assert that there is some accuracy
     assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
@@ -120,7 +136,10 @@ def test_eval_at_fit_end(eval_at_fit_end: bool):
         metric_names=['Accuracy'],
     )
 
-    evaluator.eval_interval = evaluate_periodically(eval_interval=eval_interval, eval_at_fit_end=eval_at_fit_end)
+    evaluator.eval_interval = evaluate_periodically(
+        eval_interval=eval_interval,
+        eval_at_fit_end=eval_at_fit_end,
+    )
 
     trainer = Trainer(
         model=SimpleModel(),
