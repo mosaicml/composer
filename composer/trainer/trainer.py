@@ -2159,13 +2159,17 @@ class Trainer:
         return outputs
 
     def eval(
-            self,
-            eval_dataloader: Optional[Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
-            eval_subset_num_batches: int = -1,
-            log_level: Union[str, LogLevel] = LogLevel.FIT,
-            dataloader: Optional[Any] = None  # deprecated
+        self,
+        eval_dataloader: Optional[Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
+        eval_subset_num_batches: int = -1,
+        log_level: Union[str, LogLevel] = LogLevel.FIT,
+        # deprecated arguments below
+        dataloader: Optional[Any] = None,
+        dataloader_label: Optional[Any] = None,
+        metrics: Optional[Any] = None,
+        subset_num_batches: Optional[Any] = None,
     ):
-        if dataloader is not None:
+        if not all([dataloader, dataloader_label, metrics, subset_num_batches]):
             raise ValueError('eval() API has changed, please migrate to the new API, or'
                              'for backwards compatibility, call eval_loop() instead'
                              'with the same arguments.')
