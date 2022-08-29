@@ -49,7 +49,7 @@ def test_trainer_eval_loop():
 
     # Evaluate the model
     eval_dataloader = DataLoader(dataset=RandomClassificationDataset())
-    trainer.eval_loop(dataloader=eval_dataloader, dataloader_label='eval', metrics={'Accuracy': Accuracy()})
+    trainer._eval_loop(dataloader=eval_dataloader, dataloader_label='eval', metrics={'Accuracy': Accuracy()})
 
     # Assert that there is some accuracy
     assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
@@ -66,8 +66,8 @@ def test_trainer_eval_subset_num_batches():
     # Evaluate the model
     eval_dataloader = DataLoader(dataset=RandomClassificationDataset())
     trainer.eval(
-        dataloader=eval_dataloader,
-        eval_subset_num_batches=1,
+        eval_dataloader=eval_dataloader,
+        subset_num_batches=1,
     )
 
     # Ensure that just one batch was evaluated
@@ -85,7 +85,7 @@ def test_trainer_eval_timestamp():
 
     # Evaluate the model
     eval_dataloader = DataLoader(dataset=RandomClassificationDataset())
-    trainer.eval(dataloader=eval_dataloader)
+    trainer.eval(eval_dataloader=eval_dataloader)
 
     # Ensure that the eval timestamp matches the number of evaluation events
     assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == trainer.state.eval_timestamp.batch
@@ -97,7 +97,7 @@ def test_trainer_eval_timestamp():
     event_counter_callback.event_to_num_calls = {k: 0 for k in event_counter_callback.event_to_num_calls}
 
     # Eval again
-    trainer.eval(dataloader=eval_dataloader)
+    trainer.eval(eval_dataloader=eval_dataloader)
     # Validate the same invariants
     assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == trainer.state.eval_timestamp.batch
     assert trainer.state.eval_timestamp.batch == trainer.state.eval_timestamp.batch_in_epoch

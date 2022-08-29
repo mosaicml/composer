@@ -1767,10 +1767,10 @@ class Trainer:
             assert evaluator.eval_interval is not None, 'eval_interval should have been set on __init__() or fit()'
             assert evaluator.subset_num_batches is not None, 'subset_num_batches should have been set on __init__() or fit()'
             if evaluator.eval_interval(self.state, event):
-                self.eval_loop(dataloader=evaluator.dataloader,
-                               dataloader_label=evaluator.label,
-                               subset_num_batches=evaluator.subset_num_batches,
-                               metrics=self.state.eval_metrics[evaluator.label])
+                self._eval_loop(dataloader=evaluator.dataloader,
+                                dataloader_label=evaluator.label,
+                                subset_num_batches=evaluator.subset_num_batches,
+                                metrics=self.state.eval_metrics[evaluator.label])
 
     def _train_batch(self, use_grad_scaling: bool) -> Dict[str, torch.Tensor]:
         """Compute loss by training on a full batch of data.
@@ -2142,17 +2142,103 @@ class Trainer:
     def eval(
         self,
         eval_dataloader: Optional[Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
-        eval_subset_num_batches: int = -1,
+        subset_num_batches: int = -1,
         # deprecated arguments below
         dataloader: Optional[Any] = None,
         dataloader_label: Optional[Any] = None,
         metrics: Optional[Any] = None,
-        subset_num_batches: Optional[Any] = None,
         log_level: Optional[Any] = None,
     ):
-        if any([dataloader, dataloader_label, metrics, subset_num_batches]):
+        """Run evaluation loop.
+
+        Results are stored in ``trainer.state.eval_metrics``. The ``eval_dataloader`` can be provided to
+        either the eval() method or during training init().
+
+        Examples:
+        .. testcode::
+
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                max_duration="2ep",
+                device="cpu",
+            )
+
+            trainer.fit()
+
+            # run eval
+            trainer.eval(
+                eval_dataloader=eval_dataloader,
+            )
+
+        Or, if the ``eval_dataloader`` is provided during init:
+
+        .. testcode::
+
+            trainer = Trainer(
+                model=model,
+                eval_dataloader=eval_dataloader,
+                train_dataloader=train_dataloader,
+                max_duration="2ep",
+                device="cpu",
+            )
+
+            trainer.fit()
+
+            # eval_dataloader already provided:
+            trainer.eval()
+
+        For multiple metrics or dataloaders, use :class:`.Evaluator` to provide
+        identifier names. For example, to run the GLUE task:
+
+        .. code:: python
+
+            from composer.core import Evaluator
+            from composer.models.nlp_metrics import BinaryF1Score
+
+            glue_mrpc_task = Evaluator(
+                label='glue_mrpc',
+                dataloader=mrpc_dataloader,
+                metric_names=['BinaryF1Score', 'Accuracy']
+            )
+
+            glue_mnli_task = Evaluator(
+                label='glue_mnli',
+                dataloader=mnli_dataloader,
+                metric_names=['Accuracy']
+            )
+
+            trainer = Trainer(
+                ...,
+                eval_dataloader=[glue_mrpc_task, glue_mnli_task],
+                ...
+            )
+
+        The metrics used are defined in your model's ``get_metrics()`` method. For more information,
+        see :doc:`/evaluation`.
+
+        .. note::
+
+            This eval API was recently changed to better much the trainer fit API. Please migrate your
+            code to using the new design here. For backwards compatibility, the old API can still be
+            invoked by calling ``_eval_loop()``, however this is not recommended as this may be
+            removed in the future.
+
+        Args:
+            eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): Dataloaders
+                for evaluation.  If not provided, defaults to using the
+                ``eval_dataloader`` provided to the trainer init().
+            subset_num_batches (int, optional): Evaluate on this many batches. Default to ``-1`` (the entire
+                dataloader. Can also be provided in the trainer init()as ``eval_subset_num_batches``.
+            dataloader: Removed, do not use.
+            dataloader_label: Removed, do not use.
+            metrics: Removed, do not use.
+            log_level: Removed, do not use.
+
+        """
+        if any([dataloader, dataloader_label, metrics]):
             raise ValueError('eval() API has changed, please migrate to the new API, or'
-                             'for backwards compatibility, call eval_loop() instead'
+                             'for backwards compatibility, call _eval_loop() instead'
                              'with the same arguments.')
 
         if eval_dataloader is not None:
@@ -2181,7 +2267,7 @@ class Trainer:
             _set_evaluator_interval_and_subset_num_batches(
                 evaluators=evaluators,
                 eval_interval='1ep',  # ignored
-                subset_num_batches=eval_subset_num_batches,
+                subset_num_batches=subset_num_batches,
             )
         else:
             if not self.state.evaluators:
@@ -2189,14 +2275,14 @@ class Trainer:
             evaluators = self.state.evaluators
 
         for evaluator in evaluators:
-            self.eval_loop(
+            self._eval_loop(
                 dataloader=evaluator.dataloader,
                 dataloader_label=evaluator.label,
-                subset_num_batches=evaluator.subset_num_batches,
+                subset_num_batches=subset_num_batches,
                 metrics=self.state.eval_metrics[evaluator.label],
             )
 
-    def eval_loop(
+    def _eval_loop(
         self,
         dataloader: Union[Iterable, DataSpec, dict],
         dataloader_label: str = 'eval',
