@@ -824,7 +824,7 @@ def test_rotate_checkpoints(
         save_folder=str(tmp_path),
         save_filename='checkpoint_{rank}_{batch}.pt',
         save_interval='1ba',
-        max_duration='2ep',
+        max_duration='10ba',
         save_num_checkpoints_to_keep=num_keep,
         device=device,
         deepspeed_config=deepseed_config,
