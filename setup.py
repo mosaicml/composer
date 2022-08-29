@@ -84,7 +84,7 @@ install_requires = [
     'numpy>=1.21.5,<1.23.0',
     'psutil>=5.8.0,<6',
     'coolname>=1.1.0,<2',
-    'tabulate==0.8.9',  # for auto-generating tables
+    'tabulate==0.8.10',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<9',
     'packaging>=21.3.0,<22',
     'importlib-metadata>=4.11.0,<5',
@@ -106,7 +106,7 @@ extra_deps['dev'] = [
     'ipython==7.32.0',
     'ipykernel==6.15.1',
     'jupyter==1.0.0',
-    'yamllint==1.26.3',
+    'yamllint==1.27.1',
     'recommonmark==0.7.1',
     'sphinx==4.4.0',
     'pre-commit>=2.18.1,<3',
