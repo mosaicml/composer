@@ -234,17 +234,6 @@ def spawn_finetuning_jobs(
         seed_overrides = {}
     else:
         seed_overrides = {k.lower(): v for k, v in seed_overrides.items()}
-    # # TODO(Alex): Expose these per-task seed choices through the `finetune_hparams`
-    # seed_overrides = {
-    #     'mnli': [19],
-    #     'qnli': [19],
-    #     'qqp': [19],
-    #     'sst-2': [19, 8364, 717],
-    #     'cola': [19, 8364, 717, 10536],
-    #     'rte': [19, 8364, 717, 10536, 90166],
-    #     'mrpc': [19, 8364, 717, 10536, 90166],
-    #     'stsb': [19, 8364, 717, 10536, 90166],
-    # }
 
     # Set up CUDA environment(s) and process pool
     ctx = mp.get_context('spawn')
