@@ -75,14 +75,19 @@ class PartialFilePath:
         self.filename = filename
 
     def format(self, state: State, is_deepspeed: bool = False) -> str:
-        suffix = '.tar' if is_deepspeed and not is_tar(self.filename) else ''
+        # if filename already has a suffix (e.g. file.pt), this would append to be file.pt.tar
+        extra_suffix = '.tar' if is_deepspeed and not is_tar(self.filename) else ''
         if self.folder:
             return os.path.join(
                 format_name_with_dist(self.folder, state.run_name),
                 format_name_with_dist_and_time(self.filename, state.run_name, state.timestamp),
-            ) + suffix
+            ) + extra_suffix
         else:
-            return format_name_with_dist_and_time(self.filename, state.run_name, state.timestamp) + suffix
+            return format_name_with_dist_and_time(
+                self.filename,
+                state.run_name,
+                state.timestamp,
+            ) + extra_suffix
 
 
 def load_checkpoint(

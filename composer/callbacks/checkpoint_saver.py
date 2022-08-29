@@ -301,7 +301,8 @@ class CheckpointSaver(Callback):  # noqa: D101
         weights_only: bool = False,
     ):
         if not callable(save_interval):
-            self.save_interval = checkpoint_periodically(save_interval)
+            save_interval = checkpoint_periodically(save_interval)
+        self.save_interval = save_interval
 
         self.folder = folder
 
