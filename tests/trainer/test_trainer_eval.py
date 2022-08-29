@@ -91,6 +91,7 @@ def test_trainer_eval_subset_num_batches():
     assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == 1
 
 
+@pytest.mark.filterwarnings(r'ignore:eval_dataloader label:UserWarning')
 def test_trainer_eval_timestamp():
     # Construct the trainer
     event_counter_callback = EventCounterCallback()
