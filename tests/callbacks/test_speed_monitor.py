@@ -14,8 +14,8 @@ from tests.common import RandomClassificationDataset, SimpleModel
 
 
 def _assert_no_negative_values(logged_values):
-    for timestamp, loglevel, v in logged_values:
-        del timestamp, loglevel  # unused
+    for timestamp, v in logged_values:
+        del timestamp  # unused
         if isinstance(v, Time):
             assert int(v) >= 0
         elif isinstance(v, datetime.timedelta):

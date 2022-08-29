@@ -9,12 +9,13 @@ import dataclasses
 import datetime
 import logging
 import os
+import re
 import warnings
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union, cast
 
 import torch
 import yahp as hp
-from torchmetrics import Metric, MetricCollection
+from torchmetrics import Metric
 
 import composer
 from composer.algorithms.algorithm_hparams_registry import algorithm_registry
@@ -24,7 +25,7 @@ from composer.core.types import JSON, PyTorchScheduler
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_hparams_registry import dataset_registry
 from composer.datasets.evaluator_hparams import EvaluatorHparams
-from composer.loggers import LoggerDestination, LogLevel
+from composer.loggers import LoggerDestination
 from composer.loggers.logger_hparams_registry import logger_registry
 from composer.models import (BERTForClassificationHparams, BERTHparams, DeepLabV3Hparams, EfficientNetB0Hparams,
                              GPT2Hparams, MnistClassifierHparams, ModelHparams, ResNetCIFARHparams, ResNetHparams,
@@ -174,7 +175,6 @@ class TrainerHparams(hp.Hparams):
         train_batch_size (int): The optimization batch size to use for training. This is the total batch
             size that is used to produce a gradient for the optimizer update step.
         train_subset_num_batches (int, optional): See :class:`.Trainer`.
-        compute_training_metrics (bool, optional): See :class:`.Trainer`.
 
         max_duration (str): The maximum duration to train as a str (e.g. ``1ep``, or ``10ba``).
             Will be converted to a :class:`~composer.core.Time` object.
@@ -225,7 +225,6 @@ class TrainerHparams(hp.Hparams):
         run_name (str, optional): See :class:`.Trainer`.
         progress_bar (bool, optional): See :class:`.Trainer`.
         log_to_console (bool, optional): See :class:`.Trainer`.
-        console_log_level (bool, optional): See :class:`.Trainer`.
         console_stream (bool, optional): See :class:`.Trainer`.
         python_log_level (str): The Python log level to use for log statements in the :mod:`composer`
             module. (default: ``INFO``)
@@ -304,7 +303,6 @@ class TrainerHparams(hp.Hparams):
         default=None,
     )
     train_subset_num_batches: int = hp.auto(Trainer, 'train_subset_num_batches')
-    compute_training_metrics: bool = hp.auto(Trainer, 'compute_training_metrics')
 
     # Stopping Conditions
     max_duration: Optional[Union[str, int]] = hp.auto(Trainer, 'max_duration')
@@ -334,7 +332,6 @@ class TrainerHparams(hp.Hparams):
     run_name: Optional[str] = hp.auto(Trainer, 'run_name')
     progress_bar: bool = hp.auto(Trainer, 'progress_bar')
     log_to_console: Optional[bool] = hp.auto(Trainer, 'log_to_console')
-    console_log_level: LogLevel = hp.auto(Trainer, 'console_log_level')
     console_stream: str = hp.auto(Trainer, 'console_stream')
     python_log_level: str = hp.optional(doc='Python loglevel to use composer', default='INFO')
 
@@ -519,7 +516,6 @@ class TrainerHparams(hp.Hparams):
             # Train Data
             train_dataloader=train_dataloader,
             train_dataloader_label=self.train_dataloader_label,
-            compute_training_metrics=self.compute_training_metrics,
             train_subset_num_batches=self.train_subset_num_batches,
 
             # Stopping Condition
@@ -547,7 +543,6 @@ class TrainerHparams(hp.Hparams):
             run_name=self.run_name,
             progress_bar=self.progress_bar,
             log_to_console=self.log_to_console,
-            console_log_level=self.console_log_level,
             console_stream=self.console_stream,
 
             # Checkpoint Loading
@@ -621,7 +616,6 @@ class FitKwargs(TypedDict):
     train_dataloader: Optional[Union[Iterable, DataSpec, Dict[str, Any]]]
     train_dataloader_label: str
     train_subset_num_batches: Optional[int]
-    compute_training_metrics: Optional[bool]
 
     # Timing
     reset_time: bool
@@ -651,7 +645,6 @@ class FitHparams(hp.Hparams):
         train_batch_size (int, optional): The optimization batch size for the training dataset.
         train_dataloader_label (str, optional): See :meth:`.Trainer.fit`.
         train_subset_num_batches (int, optional): See :meth:`.Trainer.fit`.
-        compute_training_metrics (bool, optional): See :meth:`.Trainer.fit`.
         reset_time (bool, optional): See :meth:`.Trainer.fit`.
         duration (int | str, optional): See :meth:`.Trainer.fit`.
         schedulers (List[SchedulerHparams], optional): Scheduler hyperparameters.
@@ -681,7 +674,6 @@ class FitHparams(hp.Hparams):
     )
     train_dataloader_label: str = hp.auto(Trainer.fit, 'train_dataloader_label')
     train_subset_num_batches: Optional[int] = hp.auto(Trainer.fit, 'train_subset_num_batches')
-    compute_training_metrics: Optional[bool] = hp.auto(Trainer.fit, 'compute_training_metrics')
 
     # Timing
     reset_time: bool = hp.auto(Trainer.fit, 'reset_time')
@@ -741,7 +733,6 @@ class FitHparams(hp.Hparams):
             'train_dataloader': train_dataloader,
             'train_dataloader_label': self.train_dataloader_label,
             'train_subset_num_batches': self.train_subset_num_batches,
-            'compute_training_metrics': self.compute_training_metrics,
             'reset_time': self.reset_time,
             'duration': self.duration,
             'schedulers': self.schedulers,
@@ -762,9 +753,8 @@ class EvalKwargs(TypedDict):
     """
     dataloader: Union[Iterable, DataSpec, dict]
     dataloader_label: str
-    metric_names: List[str]
+    metrics: Dict[str, Metric]
     subset_num_batches: int
-    log_level: Union[str, LogLevel]
 
 
 @dataclasses.dataclass
@@ -776,7 +766,6 @@ class EvalHparams(hp.Hparams):
         batch_size (int): The evaluation batch size across all workers.
         dataloader_label (str, optional): See :meth:`.Trainer.eval`.
         subset_num_batches (int, optional): See :meth:`.Trainer.eval`.
-        log_level (LogLevel, optional): See :meth:`.Trainer.eval`.
         metric_names (List[str], optional): Name of the metrics for the evaluator. (default: ``None``)
 
             Can be a :mod:`torchmetrics` metric name or the class name of a metric returned by
@@ -791,11 +780,11 @@ class EvalHparams(hp.Hparams):
     batch_size: int = hp.required(doc='batch size to use for each evaluation step')
     dataloader_label: str = hp.auto(Trainer.eval, 'dataloader_label')
     subset_num_batches: int = hp.auto(Trainer.eval, 'subset_num_batches')
-    log_level: LogLevel = hp.auto(Trainer.eval, 'log_level')
     metric_names: Optional[List[str]] = hp.optional(
-        doc=(
-            'Name of the metrics for the evaluator. Can be a torchmetrics metric name or the '
-            'class name of a metric returned by model.metrics(). If None (the default), uses all metrics in the model'),
+        doc=
+        ('Name of the metrics for the evaluator. Can be a torchmetrics name or the '
+         'class name of a metric returned by model.get_metrics(). If None (the default), uses all metrics in the model'
+        ),
         default=None,
     )
 
@@ -822,34 +811,30 @@ class EvalHparams(hp.Hparams):
         # Metrics
 
         # Get and copy all the model's associated evaluation metrics
-        model_metrics = model.metrics(train=False)
-        if isinstance(model_metrics, Metric):
-            # Forcing metrics to be a MetricCollection simplifies logging results
-            model_metrics = MetricCollection([model_metrics])
+        model_metrics = model.get_metrics(is_train=False)
 
         # Use all the metrics from the model if no metric_names are specified
         if self.metric_names is None:
-            metric_names = [str(k) for k in model_metrics.keys()]  # convert hashable to str
+            metrics = model_metrics
         else:
-            metric_names = []
+            metrics = {}
             for metric_name in self.metric_names:
-                try:
-                    metric = model_metrics[metric_name]
-                except KeyError as e:
-                    raise RuntimeError((f'No metric found with the name {metric_name}. Check if this '
-                                        'metric is compatible/listed in your model metrics. ')) from e
-                assert isinstance(metric, Metric), 'all values of a MetricCollection.__getitem__ should be a metric'
-                metric_names.append(str(metric_name))
-            if len(metric_names) == 0:
+                for k in model_metrics.keys():
+                    matches = re.match(f'.*{metric_name}.*', k, re.IGNORECASE)
+                    if matches:
+                        metrics[k] = model_metrics[k]
+                    else:
+                        raise RuntimeError((f'No metric found with the name {metric_name}. Check if this '
+                                            'metric is compatible/listed in your model metrics. '))
+            if len(metrics) == 0:
                 raise RuntimeError(('No metrics compatible with your model were added to this evaluator. '
                                     'Check that the metrics you specified are compatible/listed in your model.'))
 
         return {
             'dataloader': dataloader,
             'dataloader_label': self.dataloader_label,
-            'metric_names': metric_names,
+            'metrics': metrics,
             'subset_num_batches': self.subset_num_batches,
-            'log_level': self.log_level,
         }
 
 

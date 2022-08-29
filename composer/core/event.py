@@ -121,10 +121,10 @@ class Event(StringEnum):
             be preserved in checkpoints.
 
         EVAL_START: Start of evaluation through the validation dataset.
-        EVAL_BATCH_START: Before the call to ``model.validate(batch)``
-        EVAL_BEFORE_FORWARD: Before the call to ``model.validate(batch)``
-        EVAL_AFTER_FORWARD: After the call to ``model.validate(batch)``
-        EVAL_BATCH_END: After the call to ``model.validate(batch)``
+        EVAL_BATCH_START: Before the call to ``model.eval_forward(batch)``
+        EVAL_BEFORE_FORWARD: Before the call to ``model.eval_forward(batch)``
+        EVAL_AFTER_FORWARD: After the call to ``model.eval_forward(batch)``
+        EVAL_BATCH_END: After the call to ``model.eval_forward(batch)``
         EVAL_END: End of evaluation through the validation dataset.
     """
 
