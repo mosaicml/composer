@@ -386,7 +386,10 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         # if artifact name provided, upload the checkpoint
         if self.artifact_name is not None:
-            artifact_name = self.artifact_name.format(state, is_deepspeed).lstrip('/')
+            artifact_name = self.artifact_name.format(
+                state,
+                is_deepspeed,
+            ).lstrip('/')
 
             logger.file_artifact(log_level=log_level,
                                  artifact_name=artifact_name,
@@ -394,7 +397,10 @@ class CheckpointSaver(Callback):  # noqa: D101
                                  overwrite=self.overwrite)
 
             if self.latest_artifact_name is not None:
-                symlink_name = self.latest_artifact_name.format(state, is_deepspeed).lstrip('/') + '.symlink'
+                symlink_name = self.latest_artifact_name.format(
+                    state,
+                    is_deepspeed,
+                ).lstrip('/') + '.symlink'
 
                 # create and upload a symlink file
                 with tempfile.TemporaryDirectory() as tmpdir:

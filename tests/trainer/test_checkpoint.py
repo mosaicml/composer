@@ -9,11 +9,13 @@ import tarfile
 import tempfile
 import textwrap
 import time
+from glob import glob
 from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
 import torch
 import torch.distributed
+from torch.utils.data import DataLoader
 
 from composer.callbacks import CheckpointSaver
 from composer.core.callback import Callback
@@ -36,6 +38,8 @@ from composer.utils.object_store.libcloud_object_store import LibcloudObjectStor
 from composer.utils.object_store.object_store_hparams import LibcloudObjectStoreHparams
 from tests.common import (EventCounterCallback, configure_dataset_hparams_for_synthetic,
                           configure_model_hparams_for_synthetic, deep_compare, device)
+from tests.common.datasets import RandomImageDataset
+from tests.common.models import SimpleConvModel
 
 
 class DummyStatefulCallback(Callback):
@@ -787,3 +791,49 @@ def _validate_events_called_expected_number_of_times(trainer: Trainer, eval_inte
                 assert expected == actual, f'Event {event} expected to be called {expected} times, but instead it was called {actual} times'
             return
     assert False, 'EventCounterCallback not found in callbacks'
+
+
+@pytest.mark.parametrize('world_size', [
+    pytest.param(1),
+    pytest.param(2, marks=pytest.mark.world_size(2)),
+])
+@pytest.mark.parametrize('device,deepspeed_enabled,zero_stage', [
+    pytest.param('cpu', False, None, id='cpu-ddp'),
+    pytest.param('gpu', False, None, id='gpu-ddp', marks=pytest.mark.gpu),
+    pytest.param('gpu', True, 0, id='deepspeed-zero0', marks=pytest.mark.gpu),
+    pytest.param('gpu', True, 1, id='deepspeed-zero1', marks=pytest.mark.gpu),
+    pytest.param('gpu', True, 2, id='deepspeed-zero2', marks=pytest.mark.gpu),
+])
+def test_rotate_checkpoints(
+    world_size,
+    device,
+    deepspeed_enabled,
+    zero_stage,
+    tmp_path: pathlib.Path,
+):
+    num_keep = 5
+
+    if deepspeed_enabled:
+        deepseed_config = {'zero_optimization': {'stage': zero_stage}}
+    else:
+        deepseed_config = None
+
+    trainer = Trainer(
+        model=SimpleConvModel(),
+        train_dataloader=DataLoader(dataset=RandomImageDataset()),
+        save_folder=str(tmp_path),
+        save_filename='checkpoint_{rank}_{batch}.pt',
+        save_interval='1ba',
+        max_duration='2ep',
+        save_num_checkpoints_to_keep=num_keep,
+        device=device,
+        deepspeed_config=deepseed_config,
+    )
+
+    trainer.fit()
+
+    # deepspeed saves 1 file per rank
+    expected_num = num_keep if not deepspeed_enabled else num_keep * world_size
+
+    files = glob('checkpoint_*')
+    assert len(files) == expected_num
