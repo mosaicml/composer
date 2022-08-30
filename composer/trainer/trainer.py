@@ -343,7 +343,7 @@ class Trainer:
     .. testcode::
 
         # Get the saved checkpoint filepath
-        checkpoint_path = trainer.saved_checkpoints.pop()[0]
+        checkpoint_path = trainer.saved_checkpoints.pop()
 
         # Create a new trainer with the `load_path` argument set to the checkpoint path.
         trainer = Trainer(
