@@ -1,39 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-This script demonstrates how to train torchvision ResNet architectures on ImageNet using Composer's Trainer. The
-default settings replicate our baseline results. Below illustrates how some arguments can be set to replicate
-our fastest ResNet recipe, our highest accuracy ResNet recipe, and several other settings. This script contains several
-additional features such as saving checkpoints, resume training from a saved checkpoint, speed monitor to track
-training time and throughput, and a learning rate monitor to track learning rate.
-
-Single GPU training:
-    python train_resnet_imagenet1k.py /path/to/imagenet
-
-Log experiments to Weights and Biases:
-    python train_resnet_imagenet1k.py /path/to/imagenet --wandb_logger --wandb_entity my_username
-    --wandb_project my_project --wandb_run_name my_run_name
-
-Single/Multi GPU training (infers the number of GPUs available):
-    composer train_resnet_imagenet1k.py /path/to/imagenet
-
-Manually specify number of GPUs to use:
-    composer -n $N_GPUS train_resnet_imagenet1k.py /path/to/imagenet
-
-Mild ResNet recipe for fastest training to ~76.5% accuracy:
-    composer train_resnet_imagenet1k.py /path/to/imagenet --recipe_name mild --train_crop_size 176 --val_crop_size 224
-    --max_duration 36ep  --loss_name binary_cross_entropy
-
-Medium ResNet recipe highest accuracy with similar training time as baseline:
-    composer train_resnet_imagenet1k.py /path/to/imagenet --recipe_name medium --train_crop_size 176 --val_crop_size 224
-    --max_duration 135ep  --loss_name binary_cross_entropy
-
-Spicy ResNet recipe for our most accurate ResNet over a long training schedule:
-    composer train_resnet_imagenet1k.py /path/to/imagenet --recipe_name spicy --train_crop_size 176 --val_crop_size 224
-    --max_duration 270ep  --loss_name binary_cross_entropy
-"""
-
 import argparse
 import logging
 import os
@@ -84,11 +51,11 @@ parser.add_argument('--weight_decay', help='Optimizer weight decay', type=float,
 
 # LR scheduler arguments
 parser.add_argument('--t_warmup',
-                    help='Duration of learning rate warmup specified by a Time string',
+                    help='Duration of learning rate warmup specified as a Time string',
                     type=Time.from_timestring,
                     default='8ep')
 parser.add_argument('--t_max',
-                    help='Duration to cosine decay the learning rate',
+                    help='Duration to cosine decay the learning rate specified as a Time string',
                     type=Time.from_timestring,
                     default='1dur')
 
@@ -118,11 +85,11 @@ parser.add_argument('--wandb_run_name', help='WandB run name', type=str)
 # Trainer arguments
 parser.add_argument('--seed', help='Random seed', type=int, default=17)
 parser.add_argument('--max_duration',
-                    help='Duration to train specified in terms of Time',
+                    help='Duration to train specified as a Time string',
                     type=Time.from_timestring,
                     default='90ep')
 parser.add_argument('--eval_interval',
-                    help='How frequently to run evaluation on the validation set',
+                    help='How frequently to run evaluation on the validation set specified as a Time string',
                     type=Time.from_timestring,
                     default='1ep')
 
@@ -233,8 +200,8 @@ def main():
 
     # Callbacks for logging
     logging.info('Building SpeedMonitor, LRMonitor, and CheckpointSaver callbacks')
-    speed_monitor = SpeedMonitor(window_size=50)
-    lr_monitor = LRMonitor()
+    speed_monitor = SpeedMonitor(window_size=50)  # Measures throughput as samples/sec and tracks total training time
+    lr_monitor = LRMonitor()  # Logs the learning rate
 
     # Callback for checkpointing
     checkpoint_saver = CheckpointSaver(folder=args.save_checkpoint_dir, save_interval=args.checkpoint_interval)
