@@ -8,6 +8,7 @@ import logging
 import os
 
 import torch
+from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
 from torchmetrics.classification import Accuracy
 from torchvision import transforms
@@ -122,7 +123,7 @@ def _main():
     train_dataset = ImageFolder(os.path.join(args.data_dir, 'train'), train_transforms)
     # Nifty function to instantiate a PyTorch DistributedSampler based on your hardware setup
     train_sampler = dist.get_sampler(train_dataset, drop_last=True, shuffle=True)
-    train_dataloader = torch.utils.data.DataLoader(
+    train_dataloader = DataLoader(
         train_dataset,
         batch_size=args.train_batch_size,
         num_workers=8,
@@ -146,7 +147,7 @@ def _main():
     eval_dataset = ImageFolder(os.path.join(args.data_dir, 'val'), eval_transforms)
     # Nifty function to instantiate a PyTorch DistributedSampler based on your hardware setup,
     eval_sampler = dist.get_sampler(eval_dataset, drop_last=False, shuffle=False)
-    eval_dataloader = torch.utils.data.DataLoader(
+    eval_dataloader = DataLoader(
         eval_dataset,
         batch_size=args.eval_batch_size,
         num_workers=8,
