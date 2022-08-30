@@ -9,7 +9,7 @@ from numpy import ndarray
 from PIL import Image
 
 from composer.core import Callback, State, Time, TimeUnit
-from composer.loggers import InMemoryLogger, Logger, LogLevel, WandBLogger
+from composer.loggers import InMemoryLogger, Logger, WandBLogger
 from composer.loss.utils import infer_target_type
 from composer.utils import ensure_tuple
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -123,7 +123,7 @@ class ImageVisualizer(Callback):
             # Only log to the wandb logger if it is available
             for destination in ensure_tuple(logger.destinations):
                 if isinstance(destination, WandBLogger) or isinstance(destination, InMemoryLogger):
-                    destination.log_data(state, LogLevel.BATCH, {data_name: table})
+                    destination.log_metrics({data_name: table})
 
     def _log_segmented_inputs(self, state: State, logger: Logger, data_name: str):
         inputs = state.batch_get_item(key=self.input_key)
@@ -144,7 +144,7 @@ class ImageVisualizer(Callback):
         # Only log to the wandb logger if it is available
         for destination in ensure_tuple(logger.destinations):
             if isinstance(destination, WandBLogger) or isinstance(destination, InMemoryLogger):
-                destination.log_data(state, LogLevel.BATCH, {data_name: table})
+                destination.log_metrics({data_name: table})
 
     def before_forward(self, state: State, logger: Logger):
         if self.mode.lower() == 'input' and state.timestamp.get(self.interval.unit).value % self.interval.value == 0:

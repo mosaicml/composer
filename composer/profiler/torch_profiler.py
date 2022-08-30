@@ -248,7 +248,7 @@ class TorchProfiler(Callback):  # noqa: D101
     def batch_start(self, state: State, logger: Logger) -> None:
         del state  # unused
         assert self.profiler is not None
-        logger.data_batch({'profiler/state': self.profiler.current_action.name})
+        logger.log_traces({'profiler/state': self.profiler.current_action.name})
 
     def close(self, state: State, logger: Logger) -> None:
         del state, logger  # unused

@@ -5,6 +5,7 @@ from typing import Callable, Union
 
 import pytest
 from torch.utils.data import DataLoader
+from torchmetrics import Accuracy
 
 from composer.core import Event
 from composer.core.evaluator import Evaluator, evaluate_periodically
@@ -23,11 +24,7 @@ def test_trainer_eval_only():
 
     # Evaluate the model
     eval_dataloader = DataLoader(dataset=RandomClassificationDataset())
-    trainer.eval(
-        dataloader=eval_dataloader,
-        dataloader_label='eval',
-        metric_names=['Accuracy'],
-    )
+    trainer.eval(dataloader=eval_dataloader, dataloader_label='eval', metrics={'Accuracy': Accuracy()})
 
     # Assert that there is some accuracy
     assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
@@ -46,7 +43,7 @@ def test_trainer_eval_subset_num_batches():
     trainer.eval(
         dataloader=eval_dataloader,
         dataloader_label='eval',
-        metric_names=['Accuracy'],
+        metrics={'Accuracy': Accuracy()},
         subset_num_batches=1,
     )
 
@@ -65,11 +62,7 @@ def test_trainer_eval_timestamp():
 
     # Evaluate the model
     eval_dataloader = DataLoader(dataset=RandomClassificationDataset())
-    trainer.eval(
-        dataloader=eval_dataloader,
-        dataloader_label='eval',
-        metric_names=['Accuracy'],
-    )
+    trainer.eval(dataloader=eval_dataloader, dataloader_label='eval', metrics={'Accuracy': Accuracy()})
 
     # Ensure that the eval timestamp matches the number of evaluation events
     assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == trainer.state.eval_timestamp.batch
@@ -81,11 +74,7 @@ def test_trainer_eval_timestamp():
     event_counter_callback.event_to_num_calls = {k: 0 for k in event_counter_callback.event_to_num_calls}
 
     # Eval again
-    trainer.eval(
-        dataloader=eval_dataloader,
-        dataloader_label='eval',
-        metric_names=['Accuracy'],
-    )
+    trainer.eval(dataloader=eval_dataloader, dataloader_label='eval', metrics={'Accuracy': Accuracy()})
     # Validate the same invariants
     assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == trainer.state.eval_timestamp.batch
     assert trainer.state.eval_timestamp.batch == trainer.state.eval_timestamp.batch_in_epoch
