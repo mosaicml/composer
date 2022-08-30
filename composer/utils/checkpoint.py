@@ -481,7 +481,6 @@ def _save_deepspeed_model(model, filename: str):
             # not all compression formats support direct append
             with tarfile.open(filename, read_mode) as tar:
                 tar.extractall(tmpdir)
-            assert os.path.exist(os.path.join(tmpdir, _COMPOSER_STATES_FILENAME))
 
         with tarfile.open(filename, write_mode) as tar:
             tar.add(tmpdir, arcname='')
