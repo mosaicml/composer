@@ -15,7 +15,7 @@ from tests.common import RandomImageDataset
 def get_trainer(precision: Precision) -> Trainer:
 
     return Trainer(
-        model=composer_resnet_cifar('resnet_20'),
+        model=composer_resnet_cifar('resnet_56'),
         train_dataloader=DataLoader(
             dataset=RandomImageDataset(shape=(3, 32, 32)),
             batch_size=1024,
