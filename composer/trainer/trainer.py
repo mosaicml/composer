@@ -2386,7 +2386,13 @@ class Trainer:
             getattr(optimizer, '_step_supports_amp_closure', False)
             for optimizer in ensure_tuple(self.state.optimizers))
 
-    def save_checkpoint(self, name: str = 'ep{epoch}-ba{batch}-rank{rank}', *, weights_only: bool = False):
+    def save_checkpoint(
+        self,
+        name: str = 'ep{epoch}-ba{batch}-rank{rank}',
+        *,
+        weights_only: bool = False,
+        overwrite: bool = False,
+    ):
         """Checkpoint the training :class:`~.State`.
 
         Args:
@@ -2396,7 +2402,12 @@ class Trainer:
         Returns:
             str or None: See :func:`.save_checkpoint`.
         """
-        return save_checkpoint(state=self.state, filename=name, weights_only=weights_only)
+        return save_checkpoint(
+            state=self.state,
+            filename=name,
+            weights_only=weights_only,
+            overwrite=overwrite,
+        )
 
     def export_for_inference(
         self,

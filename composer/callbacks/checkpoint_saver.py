@@ -370,6 +370,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             state=state,
             filename=filename,
             weights_only=self.weights_only,
+            overwrite=self.overwrite,
         )
 
         if not saved_path:  # not all ranks save
