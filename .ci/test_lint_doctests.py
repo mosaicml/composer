@@ -45,9 +45,6 @@ def test_run_pre_commit_hooks():
 
 def test_run_doctests():
     docs_folder = pathlib.Path(os.path.dirname(__file__)) / '..' / 'docs'
-    api_reference_folder = docs_folder / 'source' / 'api_reference'
-    # Remove the `api_reference` folder, which isn't automatically removed via `make clean`
-    shutil.rmtree(api_reference_folder, ignore_errors=True)
     check_output(subprocess.run(['make', 'clean'], cwd=docs_folder, capture_output=True, text=True))
     # Must build the html first to ensure that doctests in .. autosummary:: generated pages are included
     check_output(subprocess.run(['make', 'html'], cwd=docs_folder, capture_output=True, text=True))
