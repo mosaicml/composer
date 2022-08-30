@@ -414,7 +414,6 @@ def save_checkpoint(
     filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
     *,
     weights_only: bool = False,
-    overwrite: bool = False,
 ) -> Union[str, None]:  # noqa: D103
 
     log.debug('Saving checkpoint to %s', filename)
@@ -429,13 +428,9 @@ def save_checkpoint(
         state_dict['state'] = {'model': state_dict['state']['model']}
 
     save_filename = PartialFilePath(filename).format(state, is_deepspeed)
-
     dirname = os.path.dirname(save_filename)
     if dirname:
         os.makedirs(dirname, exist_ok=True)
-
-    if os.path.exists(save_filename) and not overwrite:
-        raise FileExistsError(f'{save_filename}. To overwrite, set overwrite=True.')
 
     # only rank 0 saves the state_dict
     if dist.get_global_rank() == 0:

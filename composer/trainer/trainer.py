@@ -2390,7 +2390,6 @@ class Trainer:
         name: str = 'ep{epoch}-ba{batch}-rank{rank}',
         *,
         weights_only: bool = False,
-        overwrite: bool = False,
     ):
         """Checkpoint the training :class:`~.State`.
 
@@ -2405,7 +2404,6 @@ class Trainer:
             state=self.state,
             filename=name,
             weights_only=weights_only,
-            overwrite=overwrite,
         )
 
     def export_for_inference(
