@@ -10,7 +10,6 @@ import datetime
 import itertools
 import logging
 import os
-import pathlib
 import re
 import time
 import warnings
@@ -1149,20 +1148,13 @@ class Trainer:
         return is_model_deepspeed(self.state.model)
 
     @property
-    def saved_checkpoints(self) -> List[Tuple[Timestamp, List[pathlib.Path]]]:
-        """The checkpoint timestamps and filepaths.
-
-        This list contains tuples of the save timestamp and the checkpoint filepaths.
-        This list will have at most ``save_num_checkpoints_to_keep`` entries. The latest checkpoint
-        will be at the end.
+    def saved_checkpoints(self) -> List[str]:
+        """Returns list of saved checkpoints.
 
         .. note::
 
-            When using DeepSpeed, the index of a filepath in each list corresponds to the global rank of
-            the process that wrote that file. Each filepath is valid only on the process's (rank's) node.
-
-            Otherwise, when not using DeepSpeed, each sub-list will contain only one filepath since only rank zero
-            saves checkpoints.
+            For DeepSpeed, which saves file on every rank, only the files corresponding to the process's rank
+            will be shown.
         """
         if self._checkpoint_saver is None:
             return []
@@ -1189,6 +1181,7 @@ class Trainer:
         save_folder = format_name_with_dist(save_folder, self.state.run_name)
         save_latest_artifact_name = format_name_with_dist(save_latest_artifact_name, self.state.run_name)
         latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
+
         # If latest checkpoint is not saved locally, try to fetch from loggers
         if not os.path.exists(latest_checkpoint_path):
             # Make save folder in case it doesn't exist so latest checkpoint can be downloaded
@@ -2401,7 +2394,7 @@ class Trainer:
             weights_only (bool, optional): See :func:`.save_checkpoint`.
 
         Returns:
-            List[pathlib.Path]: See :func:`.save_checkpoint`.
+            str or None: See :func:`.save_checkpoint`.
         """
         return save_checkpoint(state=self.state, filename=name, weights_only=weights_only)
 
