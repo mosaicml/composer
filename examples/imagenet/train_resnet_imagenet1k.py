@@ -66,7 +66,7 @@ parser.add_argument('--t_max',
 parser.add_argument('--save_checkpoint_dir',
                     help='Directory in which to save model checkpoints',
                     type=str,
-                    default='checkpoints/')
+                    default='checkpoints/{run_name}')
 parser.add_argument('--checkpoint_interval', help='Frequency to save checkpoints', type=str, default='1ep')
 
 # Load checkpoint arguments, assumes resuming the previous training run instead of fine-tuning
@@ -86,6 +86,7 @@ parser.add_argument('--wandb_project', help='WandB project name', type=str)
 parser.add_argument('--wandb_run_name', help='WandB run name', type=str)
 
 # Trainer arguments
+parser.add_argument('--run_name', help='Name of the training run used for checkpointing and other logging', type=str)
 parser.add_argument('--seed', help='Random seed', type=int, default=17)
 parser.add_argument('--max_duration',
                     help='Duration to train specified as a Time string',
@@ -265,7 +266,8 @@ def main():
     logging.info('Building Trainer')
     device = 'gpu' if torch.cuda.is_available() else 'cpu'
     precision = 'amp' if device == 'gpu' else 'fp32'  # Mixed precision for fast training when using a GPU
-    trainer = Trainer(model=composer_model,
+    trainer = Trainer(run_name=args.run_name,
+                      model=composer_model,
                       train_dataloader=train_dataspec,
                       eval_dataloader=eval_dataspec,
                       eval_interval=args.eval_interval,

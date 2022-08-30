@@ -12,7 +12,7 @@ The `train_resnet_imagenet1k.py` script trains models from the ResNet architectu
 
 Few details about the script:
 - Models are pulled directly from torchvision, then wrapped into a `ComposerModel`
-- Saves checkpoints to "checkpoints/" by default
+- Saves checkpoints to "checkpoints/{run_name}" by default where `run_name` is random if not specified
 - Logs time-to-train, throughput, and learning rate throughout training.
 
 Below is a list of a few of the possible configurations:
