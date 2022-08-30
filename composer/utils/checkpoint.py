@@ -20,8 +20,8 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Un
 import torch
 
 from composer.utils import dist, reproducibility
-from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist_and_time, get_file,
-                                         is_tar)
+from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
+                                         format_name_with_dist_and_time, get_file, is_tar)
 from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store import ObjectStore
 
@@ -66,6 +66,28 @@ def _get_write_mode(name: str) -> str:
     if name.endswith('.tar.lzma'):
         return 'w:xz'
     raise ValueError(f'{name} does not end with a valid tarfile extension.')
+
+
+class PartialFilePath:
+
+    def __init__(self, filename: str, folder: Optional[str] = None):
+        self.folder = folder
+        self.filename = filename
+
+    def format(self, state: State, is_deepspeed: bool = False) -> str:
+        # if filename already has a suffix (e.g. file.pt), this would append to be file.pt.tar
+        extra_suffix = '.tar' if is_deepspeed and not is_tar(self.filename) else ''
+        if self.folder:
+            return os.path.join(
+                format_name_with_dist(self.folder, state.run_name),
+                format_name_with_dist_and_time(self.filename, state.run_name, state.timestamp),
+            ) + extra_suffix
+        else:
+            return format_name_with_dist_and_time(
+                self.filename,
+                state.run_name,
+                state.timestamp,
+            ) + extra_suffix
 
 
 def load_checkpoint(
@@ -393,7 +415,7 @@ def save_checkpoint(
     filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
     *,
     weights_only: bool = False,
-) -> List[pathlib.Path]:  # noqa: D103
+) -> Optional[pathlib.Path]:  # noqa: D103
     log.debug('Saving checkpoint to %s', filename)
     state_dict = {
         'state': state.state_dict(),
@@ -449,7 +471,13 @@ def save_checkpoint(
     paths = dist.all_gather_object(checkpoint_filepath)
     paths = list(pathlib.Path(path) for path in paths if path is not None)
 
-    return paths
+    # TODO: refactor this function
+    # returns the file path saved for this rank
+    # returns None if no file saved
+    if dist.get_global_rank() < len(paths):
+        return paths[dist.get_global_rank()]
+    else:
+        return None
 
 
 save_checkpoint.__doc__ = f"""Checkpoint the training ``state``.
