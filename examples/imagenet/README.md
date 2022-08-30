@@ -1,10 +1,21 @@
 # ImageNet Examples
 
-These examples illustrate how to use Composer to train models on ImageNet-1k. The scripts contain training recipes for both strong baselines and high accuracy models, depending on the configuration specified by commandline arguments. Before running these examples, please pip install composer by running `pip install mosaicml`. The only prequisite is to have ImageNet already downloaded on the system used for training
+These examples illustrate how to train models on ImageNet-1k using Composer.
+
+Prerequisites:
+- Install Compose: `pip install mosaicml`
+- ImageNet already downloaded on the system used for training
 
 ## ResNet
 
-The `train_resnet_imagenet1k.py` script is used to train models from the ResNet architecture family e.g. ResNet-50, ResNet-101. The models are pulled directly from torchvision and wrapped into a `ComposerModel`. This script contains several additional features such as saving checkpoints, resuming training from a saved checkpoint, and logging time-to-train, throughput, and learning rate throughout training. Below is a list of a few of the possible configurations:
+The `train_resnet_imagenet1k.py` script trains models from the ResNet architecture family e.g. ResNet-50, ResNet-101.
+
+Few details about the script:
+- Models are pulled directly from torchvision, then wrapped into a `ComposerModel`
+- Saves checkpoints to "checkpoints/" by default
+- Logs time-to-train, throughput, and learning rate throughout training.
+
+Below is a list of a few of the possible configurations:
 
 ```bash
 # Single GPU/CPU depending on torch.cuda.is_available()
@@ -16,7 +27,7 @@ python train_resnet_imagenet1k.py /path/to/imagenet --wandb_logger --wandb_entit
 # Single/Multi GPU training (infers the number of GPUs available)
 composer train_resnet_imagenet1k.py /path/to/imagenet
 
-#Manually specify number of GPUs to use:
+# Manually specify number of GPUs to use:
 composer -n $N_GPUS train_resnet_imagenet1k.py /path/to/imagenet
 
 # Mild ResNet recipe for fastest training to ~76.5% accuracy:

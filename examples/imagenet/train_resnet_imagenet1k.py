@@ -24,6 +24,9 @@ from composer.models.tasks import ComposerClassifier
 from composer.optim import CosineAnnealingWithWarmupScheduler, DecoupledSGDW
 from composer.utils import dist
 
+logging.basicConfig()
+logging.getLogger().setLevel(logging.INFO)
+
 parser = argparse.ArgumentParser()
 
 # Dataloader arguments
@@ -63,7 +66,7 @@ parser.add_argument('--t_max',
 parser.add_argument('--save_checkpoint_dir',
                     help='Directory in which to save model checkpoints',
                     type=str,
-                    default='checkpoint/{run_name}')
+                    default='checkpoints/')
 parser.add_argument('--checkpoint_interval', help='Frequency to save checkpoints', type=str, default='1ep')
 
 # Load checkpoint arguments, assumes resuming the previous training run instead of fine-tuning
@@ -128,7 +131,7 @@ def main():
     # DataSpec allows for on-gpu transformations, marginally relieving dataloader bottleneck
     train_dataspec = DataSpec(dataloader=train_dataloader,
                               device_transforms=NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD))
-    logging.info('Built train dataloader')
+    logging.info('Built train dataloader\n')
 
     # Validation dataset
     logging.info('Building evaluation dataloader')
@@ -151,7 +154,7 @@ def main():
     )
     eval_dataspec = DataSpec(dataloader=eval_dataloader,
                              device_transforms=NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD))
-    logging.info('Built evaluation dataloader')
+    logging.info('Built evaluation dataloader\n')
 
     # Instantiate torchvision ResNet model
     logging.info('Building Composer model')
@@ -185,7 +188,7 @@ def main():
 
     # Wrapper function to convert a classification PyTorch model into a Composer model
     composer_model = ComposerClassifier(model, train_metrics=train_metrics, val_metrics=val_metrics, loss_fn=loss_fn)
-    logging.info('Built Composer model')
+    logging.info('Built Composer model\n')
 
     # Optimizer
     logging.info('Building optimizer and learning rate scheduler')
@@ -196,7 +199,7 @@ def main():
 
     # Learning rate scheduler: LR warmup for 8 epochs, then cosine decay for the rest of training
     lr_scheduler = CosineAnnealingWithWarmupScheduler(t_warmup=args.t_warmup, t_max=args.t_max)
-    logging.info('Built optimizer and learning rate scheduler')
+    logging.info('Built optimizer and learning rate scheduler\n')
 
     # Callbacks for logging
     logging.info('Building SpeedMonitor, LRMonitor, and CheckpointSaver callbacks')
@@ -205,7 +208,7 @@ def main():
 
     # Callback for checkpointing
     checkpoint_saver = CheckpointSaver(folder=args.save_checkpoint_dir, save_interval=args.checkpoint_interval)
-    logging.info('Built SpeedMonitor, LRMonitor, and CheckpointSaver callbacks')
+    logging.info('Built SpeedMonitor, LRMonitor, and CheckpointSaver callbacks\n')
 
     # Recipes for training ResNet architectures on ImageNet in order of increasing training time and accuracy
     # To learn about individual methods, check out "Methods Overview" in our documentation: https://docs.mosaicml.com/
@@ -246,7 +249,7 @@ def main():
         ]
     else:
         algorithms = None
-    logging.info('Built algorithm recipes')
+    logging.info('Built algorithm recipes\n')
 
     logger = None
     if args.wandb_logger:
@@ -277,7 +280,7 @@ def main():
                       precision=precision,
                       grad_accum='auto',
                       seed=args.seed)
-    logging.info('Built Trainer')
+    logging.info('Built Trainer\n')
 
     # Start training!
     logging.info('Train!')
