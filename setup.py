@@ -84,7 +84,7 @@ install_requires = [
     'numpy>=1.21.5,<1.23.0',
     'psutil>=5.8.0,<6',
     'coolname>=1.1.0,<2',
-    'tabulate==0.8.9',  # for auto-generating tables
+    'tabulate==0.8.10',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<9',
     'packaging>=21.3.0,<22',
     'importlib-metadata>=4.11.0,<5',
@@ -101,31 +101,31 @@ extra_deps['dev'] = [
     'junitparser==2.8.0',
     'coverage[toml]==6.4.4',
     'fasteners==0.17.3',  # object store tests require fasteners
-    'pytest==7.1.0',
+    'pytest==7.1.2',
     'toml==0.10.2',
     'ipython==7.32.0',
-    'ipykernel==6.9.2',
+    'ipykernel==6.15.2',
     'jupyter==1.0.0',
-    'yamllint==1.26.3',
+    'yamllint==1.27.1',
     'recommonmark==0.7.1',
     'sphinx==4.4.0',
     'pre-commit>=2.18.1,<3',
     # embedding md in rst require docutils>=0.17. See
     # https://myst-parser.readthedocs.io/en/latest/sphinx/use.html?highlight=parser#include-markdown-files-into-an-rst-file
     'docutils==0.17.1',
-    'sphinx_markdown_tables==0.0.15',
+    'sphinx_markdown_tables==0.0.17',
     'sphinx-argparse==0.3.1',
-    'sphinxcontrib.katex==0.8.6',
+    'sphinxcontrib.katex==0.9.0',
     'sphinxext.opengraph==0.6.3',
     'sphinxemoji==0.2.0',
-    'furo==2022.3.4',
+    'furo==2022.6.21',
     'sphinx-copybutton==0.5.0',
     'testbook==0.4.2',
     'myst-parser==0.16.1',
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.16.1',
-    'traitlets==5.1.1',  # required by testbook. Version 5.2.2 has an import bug, so pinning to 5.1.1, which worked previously.
+    'traitlets==5.3.0',  # required by testbook. Version 5.2.2 has an import bug, so pinning to 5.1.1, which worked previously.
     'nbsphinx==0.8.9',
     'pandoc==2.2',
     'pypandoc==1.8.1',
@@ -155,7 +155,7 @@ extra_deps['unet'] = [
 ]
 
 extra_deps['vit'] = [
-    'vit_pytorch==0.27',
+    'vit_pytorch==0.35.8',
 ]
 
 extra_deps['timm'] = [
