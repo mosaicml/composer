@@ -442,8 +442,6 @@ def save_checkpoint(
 
     # all ranks save for deepspeed
     if is_deepspeed:
-        if '{rank}' not in filename:
-            raise ValueError(f'Save filename {filename} must have {{rank}} for deepspeed.')
         _save_deepspeed_model(state.deepspeed_model, save_filename)
 
     dist.barrier()  # ensure all ranks saved their files
