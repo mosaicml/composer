@@ -17,7 +17,7 @@ Few details about the script:
 
 Below is a list of a few of the possible configurations:
 
-```bash
+```
 # Single GPU/CPU depending on torch.cuda.is_available()
 python train_resnet_imagenet1k.py /path/to/imagenet
 
