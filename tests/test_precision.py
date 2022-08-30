@@ -8,14 +8,22 @@ from torch.utils.data import DataLoader
 
 from composer import Trainer
 from composer.core import Precision
-from tests.common import RandomImageDataset, SimpleConvModel
+from composer.models import composer_resnet_cifar
+from tests.common import RandomImageDataset
 
 
 def get_trainer(precision: Precision) -> Trainer:
+
     return Trainer(
-        model=SimpleConvModel(),
-        train_dataloader=DataLoader(dataset=RandomImageDataset()),
-        eval_dataloader=DataLoader(dataset=RandomImageDataset()),
+        model=composer_resnet_cifar('resnet_20'),
+        train_dataloader=DataLoader(
+            dataset=RandomImageDataset(shape=(3, 32, 32)),
+            batch_size=1024,
+        ),
+        eval_dataloader=DataLoader(
+            dataset=RandomImageDataset(shape=(3, 32, 32)),
+            batch_size=1024,
+        ),
         precision=precision,
         max_duration='1ep',
         eval_interval='1ep',
