@@ -418,17 +418,16 @@ def save_checkpoint(
 
     log.debug('Saving checkpoint to %s', filename)
 
+    is_deepspeed = is_model_deepspeed(state.model)
+
     state_dict = {
         'state': state.state_dict(),
         'rng': reproducibility.get_rng_state(),
     }
-    if weights_only and not is_model_deepspeed(state.model):
+    if weights_only and not is_deepspeed:
         state_dict['state'] = {'model': state_dict['state']['model']}
 
-    # TODO: use PartialFilePath after #1428 is merged
-    save_filename = format_name_with_dist_and_time(filename, state.run_name, state.timestamp)
-    if is_model_deepspeed(state.model) and not is_tar(save_filename):
-        save_filename += '.tar'
+    save_filename = PartialFilePath(filename).format(state, is_deepspeed)
 
     dirname = os.path.dirname(save_filename)
     if dirname:
@@ -443,17 +442,18 @@ def save_checkpoint(
             _compress_file(save_filename, basename=_COMPOSER_STATES_FILENAME)
 
     # all ranks save for deepspeed
-    if is_model_deepspeed(state.model):
+    if is_deepspeed:
         if '{rank}' not in filename:
             raise ValueError(f'Save filename {filename} must have {{rank}} for deepspeed.')
         _save_deepspeed_model(state.deepspeed_model, save_filename)
 
     dist.barrier()  # ensure all ranks saved their files
 
-    if dist.get_global_rank() == 0 or is_model_deepspeed(state.model):
-        assert os.path.exists(save_filename)
+    if dist.get_global_rank() == 0 or is_deepspeed:
+        assert os.path.exists(save_filename), 'Expected file to have been saved.'
         return save_filename
     else:
+        # no file saved
         return None
 
 
