@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Example script to train a ResNet model on ImageNet."""
+
 import argparse
 import logging
 import os
@@ -101,7 +103,8 @@ parser.add_argument('--eval_interval',
 args = parser.parse_args()
 
 
-def main():
+def _main():
+
     # Divide batch sizes by number of devices if running multi-gpu training
     if dist.get_world_size():
         args.train_batch_size = args.train_batch_size // dist.get_world_size()
@@ -290,4 +293,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    _main()
