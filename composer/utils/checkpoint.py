@@ -471,7 +471,7 @@ def _compress_file(filename: str, basename: str):
 def _save_deepspeed_model(model, filename: str):
     """Save Deepspeed model and tarball the files."""
     write_mode = _get_write_mode(filename)
-    read_mode = write_mode.replace('w:', 'r:')
+    read_mode = 'r' + write_mode[1:]
 
     with tempfile.TemporaryDirectory() as tmpdir:
         model.save_checkpoint(tmpdir, _DEEPSPEED_TAG)
@@ -481,6 +481,7 @@ def _save_deepspeed_model(model, filename: str):
             # not all compression formats support direct append
             with tarfile.open(filename, read_mode) as tar:
                 tar.extractall(tmpdir)
+            assert os.path.exist(os.path.join(tmpdir, _COMPOSER_STATES_FILENAME))
 
         with tarfile.open(filename, write_mode) as tar:
             tar.add(tmpdir, arcname='')
