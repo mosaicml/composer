@@ -452,6 +452,8 @@ def get_finetune_hparams() -> Tuple[GLUETrainerHparams, str, bool, bool]:
     if training_scheme in ('finetune', 'all'):
         if hp.finetune_hparams:
             hparams = hp.finetune_hparams
+            if hparams.finetune_ckpts:
+                load_locally = False
             if hparams.load_object_store:
                 load_locally = False
             if hparams.loggers:
