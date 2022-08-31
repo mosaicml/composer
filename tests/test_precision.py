@@ -50,11 +50,7 @@ def eval_and_measure_memory(precision) -> int:
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
 
-    trainer.eval(
-        dataloader=trainer.state.evaluators[0].dataloader,
-        dataloader_label='eval',
-        metrics=trainer.state.eval_metrics[trainer.state.evaluators[0].label],
-    )
+    trainer.eval()
 
     return torch.cuda.max_memory_allocated()
 
