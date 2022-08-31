@@ -10,6 +10,7 @@ import datetime
 import itertools
 import logging
 import os
+import random
 import re
 import time
 import warnings
@@ -278,6 +279,8 @@ def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrateg
 
 
 def _generate_run_name() -> str:
+    # change coolname randomness for different names with same seed
+    coolname.replace_random(random.Random(os.urandom(128)))
     # prefixing with the time so experiments sorted alphabetically will have the latest experiment last
     generated_run_name = str(int(time.time())) + '-' + coolname.generate_slug(2)
     run_name_list = [generated_run_name]
