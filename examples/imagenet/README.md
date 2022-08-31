@@ -1,5 +1,3 @@
-:orphan:
-
 # ImageNet Examples
 
 These examples illustrate how to train models on ImageNet-1k using Composer.
@@ -17,7 +15,7 @@ Few details about the script:
 - Saves checkpoints to "checkpoints/{run_name}" by default where `run_name` is random if not specified
 - Logs time-to-train, throughput, and learning rate throughout training.
 
-#### Example configurations:
+### Example configurations:
 
 <!--pytest.mark.skip-->
 
