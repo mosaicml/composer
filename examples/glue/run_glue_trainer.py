@@ -368,6 +368,7 @@ def train_finetune(
             wandb.config.update(ft_hparams.to_dict())
             wandb.config.update({'pretrained_ckpt': parent_ckpt, 'task': task, 'pretrained_idx': parent_idx})
 
+    print(f'\nBEGINNING TRAINING TASK {task.upper()}\n')
     trainer.fit()
     print(f'\nFINISHED TRAINING TASK {task.upper()}\n')
 
