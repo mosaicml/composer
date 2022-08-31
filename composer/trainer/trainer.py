@@ -2140,14 +2140,10 @@ class Trainer:
         return outputs
 
     def eval(
-        self,
-        eval_dataloader: Optional[Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
-        subset_num_batches: int = -1,
-        **kwargs,  # catch deprecated arguments
-        # dataloader: Optional[Any] = None,
-        # dataloader_label: Optional[Any] = None,
-        # metrics: Optional[Any] = None,
-        # log_level: Optional[Any] = None,
+            self,
+            eval_dataloader: Optional[Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
+            subset_num_batches: int = -1,
+            **kwargs,  # catch deprecated arguments
     ):
         """Run evaluation loop.
 
