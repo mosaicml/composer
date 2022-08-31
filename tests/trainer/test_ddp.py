@@ -1,25 +1,19 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-import collections.abc
 import os
 import pathlib
-from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import pytest
 import torch
 import torch.distributed
-import torch.utils.data
-import yahp as hp
+from torch.utils.data import DataLoader
 
 import composer.core.types as types
 from composer import Callback, Event
 from composer.core import State
-from composer.core.data_spec import DataSpec
-from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.loggers import Logger
 from composer.models.model_hparams import ModelHparams
 from composer.trainer.trainer import Trainer
@@ -62,38 +56,6 @@ class TrackedDataset(types.Dataset):
 
     def __len__(self):
         return len(self.dataset)
-
-
-@dataclass
-class TrackedDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
-    num_classes: Optional[int] = hp.optional('num_classes', default=None)
-    data_shape: Optional[List[int]] = hp.optional('data_shape', default=None)
-    tmp_path: Optional[str] = hp.optional('tmp_path', default=None)
-    is_train: bool = hp.optional('Whether to load the training data (the default) or validation data.', default=True)
-
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
-        assert self.num_classes is not None
-        assert self.data_shape is not None
-        assert self.tmp_path is not None
-        synthetic_dataset = SyntheticBatchPairDataset(
-            num_unique_samples_to_create=self.synthetic_num_unique_samples,
-            total_dataset_size=10_000,
-            data_shape=self.data_shape,
-            num_classes=self.num_classes,
-        )
-        drop_last = False
-        tracked_dataset = TrackedDataset(
-            tmp_path=pathlib.Path(self.tmp_path),
-            is_train=self.is_train,
-            synthetic_dataset=synthetic_dataset,
-        )
-        sampler = dist.get_sampler(tracked_dataset, drop_last=drop_last, shuffle=True)
-        return dataloader_hparams.initialize_object(
-            dataset=tracked_dataset,
-            batch_size=batch_size,
-            sampler=sampler,
-            drop_last=drop_last,
-        )
 
 
 class CheckBatch0(Callback):
@@ -143,44 +105,67 @@ def test_ddp(device: str, world_size: int, dummy_model_hparams: ModelHparams, de
     and 2) each ddp process is indeed getting different data.
     """
 
-    dummy_model_hparams.num_classes = 100
-    model = dummy_model_hparams.initialize_object()
-    assert isinstance(model, SimpleModel)
+    model = SimpleModel(num_classes=100)
 
-    dataloader_hparams = DataLoaderHparams(
+    train_batch_size = 10
+    train_subset_num_batches = 3
+
+    synthetic_dataset = SyntheticBatchPairDataset(
+        num_unique_samples_to_create=train_batch_size * train_subset_num_batches,
+        total_dataset_size=10_000,
+        data_shape=(model.num_features, 5, 5),
+        num_classes=model.num_classes,
+    )
+    train_dataset = TrackedDataset(
+        synthetic_dataset=synthetic_dataset,
+        is_train=True,
+        tmp_path=tmp_path,
+    )
+
+    train_dataloader = DataLoader(
+        dataset=train_dataset,
         num_workers=0,
         prefetch_factor=2,
         persistent_workers=False,
         pin_memory=False,
         timeout=0.0,
+        batch_size=train_batch_size // dist.get_world_size(),
+        sampler=dist.get_sampler(
+            train_dataset,
+            drop_last=False,
+            shuffle=True,
+        ),
     )
 
-    train_batch_size = 10
-    train_dataloader_batch_size = train_batch_size // dist.get_world_size()
-    train_subset_num_batches = 3
-    train_dataset_hparams = TrackedDatasetHparams(
-        synthetic_num_unique_samples=train_batch_size * train_subset_num_batches,
-        is_train=True,
-        data_shape=[model.num_features, 5, 5],
-        num_classes=model.num_classes,
-        tmp_path=str(tmp_path),
-    )
-    train_dataloader = train_dataset_hparams.initialize_object(train_dataloader_batch_size, dataloader_hparams)
     eval_batch_size = 10
     eval_subset_num_batches = 3
-    val_dataset_hparams = TrackedDatasetHparams(
-        synthetic_num_unique_samples=eval_batch_size * eval_subset_num_batches,
-        is_train=False,
-        data_shape=[model.num_features, 5, 5],
+
+    eval_dataset = SyntheticBatchPairDataset(
+        num_unique_samples_to_create=eval_batch_size * eval_subset_num_batches,
+        total_dataset_size=10_000,
+        data_shape=(model.num_features, 5, 5),
         num_classes=model.num_classes,
-        tmp_path=str(tmp_path),
     )
-    eval_dataloader_batch_size = eval_batch_size // dist.get_world_size()
-    val_dataloader = val_dataset_hparams.initialize_object(eval_dataloader_batch_size, dataloader_hparams)
+    eval_dataset = TrackedDataset(
+        synthetic_dataset=eval_dataset,
+        is_train=False,
+        tmp_path=tmp_path,
+    )
+
+    eval_dataloader = DataLoader(
+        dataset=eval_dataset,
+        batch_size=eval_batch_size // dist.get_world_size(),
+        sampler=dist.get_sampler(
+            eval_dataset,
+            drop_last=False,
+            shuffle=True,
+        ),
+    )
+
     max_epochs = 2
     trainer = Trainer(model=model,
                       train_dataloader=train_dataloader,
-                      eval_dataloader=val_dataloader,
+                      eval_dataloader=eval_dataloader,
                       device=device,
                       max_duration=f'{max_epochs}ep',
                       eval_interval='1ep',
@@ -189,20 +174,17 @@ def test_ddp(device: str, world_size: int, dummy_model_hparams: ModelHparams, de
                       deepspeed_config={} if deepspeed else None,
                       callbacks=[CheckBatch0(tmp_path)])
 
-    for evaluator in trainer.state.evaluators:
-        assert isinstance(evaluator.dataloader, DataSpec)
-        assert isinstance(evaluator.dataloader.dataloader, collections.abc.Sized)
     trainer.fit()
 
     expected_train_num_loads = max_epochs * train_batch_size * train_subset_num_batches
     #expected_val_num_loads = max_epochs * hparams.eval_batch_size * hparams.eval_subset_num_batches
     expected_val_num_loads = 0
-    for evaluator in trainer.state.evaluators:
+    for _ in trainer.state.evaluators:
         expected_val_num_loads += max_epochs * eval_batch_size * eval_subset_num_batches
 
     # adding hparams.eval_batch_size to account for the extra spin of the evaluator dataloaders
     # that is called to create a deterministic ordering for the sampler
-    for evaluator in trainer.state.evaluators:
+    for _ in trainer.state.evaluators:
         expected_val_num_loads += eval_batch_size
 
     actual_train_num_loads = 0
