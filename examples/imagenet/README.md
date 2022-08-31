@@ -1,3 +1,5 @@
+:orphan:
+
 # ImageNet Examples
 
 These examples illustrate how to train models on ImageNet-1k using Composer.
@@ -33,11 +35,11 @@ composer train_resnet_imagenet1k.py /path/to/imagenet
 composer -n $N_GPUS train_resnet_imagenet1k.py /path/to/imagenet
 
 # Mild ResNet recipe for fastest training to ~76.5% accuracy:
-composer train_resnet_imagenet1k.py /path/to/imagenet --recipe_name mild --train_crop_size 176 --val_crop_size 224 --max_duration 36ep  --loss_name binary_cross_entropy
+composer train_resnet_imagenet1k.py /path/to/imagenet --recipe_name mild --train_crop_size 176 --eval_crop_size 224 --max_duration 36ep  --loss_name binary_cross_entropy
 
 # Medium ResNet recipe highest accuracy with similar training time as baseline:
-composer train_resnet_imagenet1k.py /path/to/imagenet --recipe_name medium --train_crop_size 176 --val_crop_size 224 --max_duration 135ep  --loss_name binary_cross_entropy
+composer train_resnet_imagenet1k.py /path/to/imagenet --recipe_name medium --train_crop_size 176 --eval_crop_size 224 --max_duration 135ep  --loss_name binary_cross_entropy
 
 # Spicy ResNet recipe for our most accurate ResNet over a long training schedule:
-composer train_resnet_imagenet1k.py /path/to/imagenet --recipe_name spicy --train_crop_size 176 --val_crop_size 224 --max_duration 270ep  --loss_name binary_cross_entropy
+composer train_resnet_imagenet1k.py /path/to/imagenet --recipe_name spicy --train_crop_size 176 --eval_crop_size 224 --max_duration 270ep  --loss_name binary_cross_entropy
 ```
