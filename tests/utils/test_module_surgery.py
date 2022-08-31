@@ -2,13 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import itertools
-from typing import List, Mapping, Tuple, Type, cast
+from typing import Mapping, Type, cast
 from unittest.mock import Mock
 
 import pytest
 import torch
 from torch import nn
-from torch.optim import Optimizer
 
 from composer.algorithms.blurpool import BlurMaxPool2d
 from composer.utils import module_surgery
@@ -96,7 +95,10 @@ class NoOpReplacementPolicy(SimpleReplacementPolicy):
     ModuleIdxReplacementPolicy,
     NoOpReplacementPolicy,
 ])
-def test_module_replacement(model_cls: Type[SimpleReplacementPolicy], recurse_on_replacements: bool):
+def test_module_replacement(
+    model_cls: Type[SimpleReplacementPolicy],
+    recurse_on_replacements: bool,
+):
     model = model_cls()
     module_surgery.replace_module_classes(
         model,
@@ -139,7 +141,10 @@ class _CopyLinear(torch.nn.Module):
     def from_linear(module: torch.nn.Module, module_index: int = -1):
         assert isinstance(module.in_features, int)
         assert isinstance(module.out_features, int)
-        ret = _CopyLinear(in_features=module.in_features, out_features=module.out_features)
+        ret = _CopyLinear(
+            in_features=module.in_features,
+            out_features=module.out_features,
+        )
         with torch.no_grad():
             # new param object
             assert isinstance(module.weight, torch.Tensor)
@@ -150,21 +155,21 @@ class _CopyLinear(torch.nn.Module):
 
 @pytest.fixture
 def optimizer_surgery_state():
-    num_channels = 1
-    n_classes = 10
-    model = SimpleModel(num_channels, n_classes)
+    """Returns a tuple of (old_layers, new_layers, and optimizer)."""
+    model = SimpleModel(num_features=1, num_classes=10)
     policy: Mapping[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
         torch.nn.Linear: _CopyLinear.from_linear
     }
     opt = torch.optim.SGD(model.parameters(), lr=.001)
+
     orig_linear_modules = [model.fc1, model.fc2]
     module_surgery.replace_module_classes(model, policies=policy, optimizers=opt)
     new_linear_modules = [model.fc1, model.fc2]
+
     return orig_linear_modules, new_linear_modules, opt
 
 
-def test_optimizer_surgery_no_duplicate_params(optimizer_surgery_state: Tuple[List[torch.nn.Module],
-                                                                              List[torch.nn.Module], Optimizer]):
+def test_no_duplicate_params(optimizer_surgery_state):
     _, _, opt = optimizer_surgery_state
     params_list = opt.param_groups[0]['params']
     params_set = set(params_list)
@@ -175,16 +180,14 @@ def _param_in_optimizer(param: torch.nn.parameter.Parameter, opt: torch.optim.Op
     return module_surgery._find_param_in_optimizer(param, opt) >= 0
 
 
-def test_optimizer_surgery_removed_params_gone(optimizer_surgery_state: Tuple[List[torch.nn.Module],
-                                                                              List[torch.nn.Module], Optimizer]):
+def test_params_removed(optimizer_surgery_state):
     orig_linear_modules, _, opt = optimizer_surgery_state
     for module in orig_linear_modules:
         assert isinstance(module.weight, torch.nn.parameter.Parameter)
         assert not _param_in_optimizer(module.weight, opt)
 
 
-def test_optimizer_surgery_new_params_present(optimizer_surgery_state: Tuple[List[torch.nn.Module],
-                                                                             List[torch.nn.Module], Optimizer]):
+def test_new_params_added(optimizer_surgery_state):
     _, new_linear_modules, opt = optimizer_surgery_state
     for module in new_linear_modules:
         assert isinstance(module.weight, torch.nn.parameter.Parameter)
@@ -193,9 +196,7 @@ def test_optimizer_surgery_new_params_present(optimizer_surgery_state: Tuple[Lis
         assert _param_in_optimizer(module.bias, opt)
 
 
-def test_optimizer_surgery_params_not_removed_still_there(optimizer_surgery_state: Tuple[List[torch.nn.Module],
-                                                                                         List[torch.nn.Module],
-                                                                                         Optimizer]):
+def test_params_kept(optimizer_surgery_state):
     orig_linear_modules, _, opt = optimizer_surgery_state
     for module in orig_linear_modules:
         assert isinstance(module.bias, torch.nn.parameter.Parameter)
