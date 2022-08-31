@@ -751,10 +751,6 @@ class EvalKwargs(TypedDict):
     """
     eval_dataloader: Optional[Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]]]
     subset_num_batches: int
-    dataloader: Optional[Any]
-    dataloader_label: Optional[Any]
-    metrics: Optional[Any]
-    log_level: Optional[Any]
 
 
 @dataclasses.dataclass
@@ -809,10 +805,6 @@ class EvalHparams(hp.Hparams):
         return {
             'eval_dataloader': eval_dataloader,
             'subset_num_batches': self.subset_num_batches,
-            'dataloader': None,
-            'dataloader_label': None,
-            'metrics': None,
-            'log_level': None,
         }
 
 

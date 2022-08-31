@@ -2143,11 +2143,11 @@ class Trainer:
         self,
         eval_dataloader: Optional[Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
         subset_num_batches: int = -1,
-        # deprecated arguments below
-        dataloader: Optional[Any] = None,
-        dataloader_label: Optional[Any] = None,
-        metrics: Optional[Any] = None,
-        log_level: Optional[Any] = None,
+        **kwargs,  # catch deprecated arguments
+        # dataloader: Optional[Any] = None,
+        # dataloader_label: Optional[Any] = None,
+        # metrics: Optional[Any] = None,
+        # log_level: Optional[Any] = None,
     ):
         """Run evaluation loop.
 
@@ -2230,16 +2230,15 @@ class Trainer:
                 ``eval_dataloader`` provided to the trainer init().
             subset_num_batches (int, optional): Evaluate on this many batches. Default to ``-1`` (the entire
                 dataloader. Can also be provided in the trainer init()as ``eval_subset_num_batches``.
-            dataloader: Removed, do not use.
-            dataloader_label: Removed, do not use.
-            metrics: Removed, do not use.
-            log_level: Removed, do not use.
 
         """
-        if any([dataloader, dataloader_label, metrics]):
+        if any([k in kwargs for k in ['dataloader', 'dataloader_label', 'metrics', 'log_level']]):
             raise ValueError('eval() API has changed, please migrate to the new API, or'
                              'for backwards compatibility, call _eval_loop() instead'
                              'with the same arguments.')
+        if kwargs:
+            arg = next(iter(kwargs.keys()))
+            raise TypeError(f'eval() got an unexpected keyword argument \'{arg}\'')
 
         if eval_dataloader is not None:
 
