@@ -38,7 +38,7 @@ class MemoryMonitor(Callback):
             ...     callbacks=[MemoryMonitor()],
             ... )
 
-    The memory statistics are logged by the :class:`~composer.loggers.logger.Logger` to the following keys as
+    The memory statistics are logged by the :class:`.Logger` to the following keys as
     described below.
 
     +--------------------------+-------------------------------------------------------------+
@@ -94,7 +94,7 @@ class MemoryMonitor(Callback):
 
         memory_report = _get_memory_report()
 
-        logger.data_batch({f'memory/{mem_stat}': val for (mem_stat, val) in memory_report.items()})
+        logger.log_metrics({f'memory/{mem_stat}': val for (mem_stat, val) in memory_report.items()})
 
 
 _MEMORY_STATS = {

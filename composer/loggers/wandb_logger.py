@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import atexit
+import copy
 import os
 import pathlib
 import re
@@ -103,11 +104,19 @@ class WandBLogger(LoggerDestination):
     def _set_is_in_atexit(self):
         self._is_in_atexit = True
 
-    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
-        import wandb
-        del log_level  # unused
+    def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         if self._enabled:
-            wandb.log(data, step=int(state.timestamp.batch))
+            import wandb
+            wandb.config.update(hyperparameters)
+
+    def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
+        if self._enabled:
+            import wandb
+
+            # wandb.log alters the metrics dictionary object, so we deepcopy to avoid
+            # side effects.
+            metrics_copy = copy.deepcopy(metrics)
+            wandb.log(metrics_copy, step)
 
     def state_dict(self) -> Dict[str, Any]:
         import wandb
@@ -115,7 +124,7 @@ class WandBLogger(LoggerDestination):
         # Storing these fields in the state dict to support run resuming in the future.
         if self._enabled:
             if wandb.run is None:
-                raise ValueError('wandb must be initialized before serialization.')
+                raise ValueError('wandb module must be initialized before serialization.')
             return {
                 'name': wandb.run.name,
                 'project': wandb.run.project,
@@ -186,6 +195,10 @@ class WandBLogger(LoggerDestination):
             )
             artifact.add_file(os.path.abspath(file_path))
             wandb.log_artifact(artifact, aliases=aliases)
+
+    def can_log_file_artifacts(self) -> bool:
+        """Whether the logger supports logging file artifacts."""
+        return True
 
     def get_file_artifact(
         self,

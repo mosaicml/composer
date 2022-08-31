@@ -149,8 +149,7 @@ def print_metrics(glue_metrics: GlueState) -> None:
 
 def ingest_finetuning_result(result: Tuple[Dict[str, Dict], int], cuda_queue: mp.Queue, ckpt_filename: str,
                              glue_metrics: GlueState) -> None:
-    """
-    Ingests the output of `train_finetune` and sends it to the appropriate methods.
+    """Ingests the output of `train_finetune` and sends it to the appropriate methods.
 
     Args:
         result: Tuple[Dict[str, Dict], int]: the output of the `train_finetune` function to be ingested.
@@ -158,15 +157,13 @@ def ingest_finetuning_result(result: Tuple[Dict[str, Dict], int], cuda_queue: mp
         ckpt_filename (str): Checkpoint to log metrics under
         glue_metrics (GlueState): GlueState object storing all the glue metrics for the entrypoint's current run
     """
-
     metric, device = result
     add_device_to_queue(device, cuda_queue=cuda_queue)
     log_metrics(metric=metric, ckpt_filename=ckpt_filename, glue_metrics=glue_metrics)
 
 
 def add_device_to_queue(device: int, cuda_queue: mp.Queue) -> None:
-    """
-    Once a process is done, it adds the device back to the queue of free GPUs.
+    """Once a process is done, it adds the device back to the queue of free GPUs.
 
     Args:
         device (int): the GPU index of the device that was freed.
@@ -219,6 +216,7 @@ def spawn_finetuning_jobs(
     glue_metrics: GlueState,
     base_yaml_file: str,
     save_locally: bool,
+    load_locally: bool,
     parent_ckpts: Optional[List[str]] = None,
     load_ignore_keys: Optional[List[str]] = None,
 ) -> None:
@@ -229,7 +227,9 @@ def spawn_finetuning_jobs(
         parent_ckpts = ckpt_load_paths  # By default, the "parent checkpoint" is logged simply as the checkpoint
 
     # To reduce noisiness with these tasks, expand the evaluation to multiple fine-tuning seeds per pre-train checkpoint, if desired
-    seed_overrides = NLPTrainerHparams.create(cli_args=False, f=base_yaml_file).finetune_hparams.seed_overrides
+    fthp = NLPTrainerHparams.create(cli_args=False, f=base_yaml_file).finetune_hparams
+    assert fthp is not None
+    seed_overrides = fthp.seed_overrides
     if seed_overrides is None:
         seed_overrides = {}
     else:
@@ -258,7 +258,8 @@ def spawn_finetuning_jobs(
             for seed in seed_overrides.get(task, [None]):
                 pool.apply_async(train_finetune,
                                  args=(base_yaml_file, task, save_ckpt, ckpt_load_path, parent_ckpt, parent_idx,
-                                       ckpt_save_folder, save_locally, free_port + rank, load_ignore_keys, seed),
+                                       ckpt_save_folder, save_locally, load_locally, free_port + rank, load_ignore_keys,
+                                       seed),
                                  callback=partial(ingest_finetuning_result,
                                                   cuda_queue=cuda_envs,
                                                   ckpt_filename=parent_ckpt,
@@ -282,6 +283,7 @@ def train_finetune(
         parent_idx: int,
         save_folder: str,
         save_locally: bool,
+        load_locally: bool,
         master_port: int,
         load_ignore_keys: Optional[List[str]] = None,
         seed_override: Optional[int] = None,  # Option to manually set the seed to this value
@@ -319,13 +321,15 @@ def train_finetune(
         ft_hparams.seed = seed_override
 
     # add finetune-specific tags to wandb if logger exists
-    # TODO(Evan): Use the config logging API in https://mosaicml.atlassian.net/browse/CO-586 to set tags and groups
     if ft_hparams.loggers:
         for logger in ft_hparams.loggers:
             if isinstance(logger, WandBLogger):
                 if 'tags' not in logger._init_kwargs.keys():
                     logger._init_kwargs['tags'] = []
                 logger._init_kwargs['tags'].append(task)
+
+    if load_locally:
+        ft_hparams.load_object_store = None
 
     # saving single checkpoint at the end of training the task
     if save_ckpt:
@@ -372,8 +376,7 @@ def train_finetune(
 
 
 def _convert_torch_tensor_to_primitives(metrics_dict: dict):
-    """
-    Converts a PyTorch Tensor to primitives so it can be sent over multiprocessing.
+    """Converts a PyTorch Tensor to primitives so it can be sent over multiprocessing.
 
     Args:
         metrics_dict (dict): A dictionary of PyTorch tensors to convert.
@@ -418,12 +421,21 @@ def validate_args(hp: NLPTrainerHparams) -> None:
         warnings.warn('finetune_ckpts specified in finetune_hparams. This value will be overriden during finetuning.')
 
     if hp.finetune_hparams is not None:
-        for task in hp.finetune_hparams.seed_overrides.keys():
-            if task.lower() not in ['mnli', 'qnli', 'qqp', 'sst-2', 'cola', 'rte', 'mrpc', 'stsb']:
-                raise KeyError(f'Key "{task}" in finetune_hparams.seed_overrides is not a GLUE task.')
+        seed_overrides = hp.finetune_hparams.seed_overrides
+        if seed_overrides is not None:
+            assert isinstance(seed_overrides, dict)
+            for task, seeds in seed_overrides.items():
+                if task.lower() not in ['mnli', 'qnli', 'qqp', 'sst-2', 'cola', 'rte', 'mrpc', 'stsb']:
+                    raise KeyError(f'Key "{task}" in finetune_hparams.seed_overrides is not a GLUE task.')
+                if not isinstance(seeds, (tuple, list)):
+                    raise TypeError(f'Seed overrides for task "{task}" must be a tuple or list of positive integers')
+                for seed in seeds:
+                    if (not isinstance(seed, int)) or seed <= 0:
+                        raise TypeError(
+                            f'Seed overrides for task "{task}" must be a tuple or list of positive integers')
 
 
-def get_finetune_hparams() -> Tuple[GLUETrainerHparams, str, bool]:
+def get_finetune_hparams() -> Tuple[GLUETrainerHparams, str, bool, bool]:
     """Extract finetune-specific hparams from the provided file and add entrypoint specific args to it."""
     hp = NLPTrainerHparams.create()
     validate_args(hp)
@@ -431,10 +443,13 @@ def get_finetune_hparams() -> Tuple[GLUETrainerHparams, str, bool]:
     training_scheme = hp.training_scheme
 
     save_locally = True
+    load_locally = True
     hparams = GLUETrainerHparams(model=None)
     if training_scheme in ('finetune', 'all'):
         if hp.finetune_hparams:
             hparams = hp.finetune_hparams
+            if hparams.load_object_store:
+                load_locally = False
             if hparams.loggers:
                 for l in hparams.loggers:
                     if isinstance(l, ObjectStoreLogger):
@@ -442,7 +457,7 @@ def get_finetune_hparams() -> Tuple[GLUETrainerHparams, str, bool]:
                     if isinstance(l, WandBLogger) and l._log_artifacts:
                         save_locally = False
 
-    return hparams, training_scheme, save_locally
+    return hparams, training_scheme, save_locally, load_locally
 
 
 def get_ckpt_names(hp: TrainerHparams, run_name: str, dataloader_len: int) -> List[str]:
@@ -525,18 +540,17 @@ def run_pretrainer(training_scheme: str, file: str, finetune_hparams: GLUETraine
     if training_scheme == 'all':  # extract run_name from trainer args for finetuning
         # list and save checkpoint paths
         finetune_hparams.save_folder = save_folder
-        # TODO(Evan): After CO-819 is merged, query the object store to list all checkpoint objects
         finetune_hparams.finetune_ckpts = get_ckpt_names(hp, run_name, dataloader_len)
 
     # call via composer to ensure pretraining done distributedly across all available GPUs
     subprocess.run(args=['composer', training_script, '-f', tmp_file, '--save_folder', save_folder], check=True)
 
 
-def run_finetuner(training_scheme: str, file: str, save_locally: bool, save_folder: str, finetune_hparams,
-                  glue_metrics: GlueState) -> None:
+def run_finetuner(training_scheme: str, file: str, save_locally: bool, load_locally: bool, save_folder: str,
+                  finetune_hparams, glue_metrics: GlueState) -> None:
     """Logic for handling a finetuning job spawn based on storage and training settings."""
     # set automatic load and save paths
-    if save_locally and training_scheme == 'all':
+    if load_locally:
         all_ckpts_list = os.listdir(save_folder)
     else:
         all_ckpts_list = finetune_hparams.finetune_ckpts
@@ -549,6 +563,7 @@ def run_finetuner(training_scheme: str, file: str, save_locally: bool, save_fold
                           glue_metrics,
                           file,
                           save_locally,
+                          load_locally,
                           load_ignore_keys=['state/model/model.classifier*'])
 
     # Second, fine-tune RTE, MRPC, and STS-B from every pre-trained checkpoint's downstream MNLI checkpoints
@@ -562,6 +577,7 @@ def run_finetuner(training_scheme: str, file: str, save_locally: bool, save_fold
         glue_metrics,
         file,
         save_locally,
+        load_locally=save_locally,
         parent_ckpts=all_ckpts_list,
         load_ignore_keys=['state/model/model.classifier*'],
     )
@@ -574,7 +590,7 @@ def _main() -> None:
         sys.argv = [sys.argv[0], '--help']
 
     file = get_args()
-    finetune_hparams, training_scheme, save_locally = get_finetune_hparams()
+    finetune_hparams, training_scheme, save_locally, load_locally = get_finetune_hparams()
 
     # Pretrain
     if training_scheme in ('pretrain', 'all'):
@@ -586,7 +602,8 @@ def _main() -> None:
     glue_metrics = GlueState(glue_task_names, {})
     if training_scheme in ('finetune', 'all'):
         assert finetune_hparams.save_folder is not None
-        run_finetuner(training_scheme, file, save_locally, finetune_hparams.save_folder, finetune_hparams, glue_metrics)
+        run_finetuner(training_scheme, file, save_locally, load_locally, finetune_hparams.save_folder, finetune_hparams,
+                      glue_metrics)
         print('FINETUNING COMPLETE')
 
         # output GLUE metrics

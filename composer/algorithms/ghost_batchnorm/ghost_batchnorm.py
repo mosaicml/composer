@@ -70,7 +70,7 @@ class GhostBatchNorm(Algorithm):
     running batch normalization on each chunk separately. ``dim=0`` is assumed to
     be the sample axis.
 
-    Runs on :attr:`~composer.core.event.Event.INIT`.
+    Runs on :attr:`.Event.INIT`.
 
     Args:
         ghost_batch_size (int, optional): size of sub-batches to normalize over. Default: ``32``.
@@ -102,7 +102,7 @@ class GhostBatchNorm(Algorithm):
                  f'Model now has {num_new_modules} {module_name} modules')
 
         if logger is not None:
-            logger.data_fit({
+            logger.log_hyperparameters({
                 f'{classname}/num_new_modules': num_new_modules,
             })
 

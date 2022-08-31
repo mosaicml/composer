@@ -9,14 +9,14 @@ Useful for collecting and plotting data inside notebooks.
 from __future__ import annotations
 
 import copy
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from torch import Tensor
 
 from composer.core.state import State
 from composer.core.time import Time, Timestamp
-from composer.loggers.logger import LogLevel
+from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 
 __all__ = ['InMemoryLogger']
@@ -33,7 +33,6 @@ class InMemoryLogger(LoggerDestination):
             from composer.loggers import InMemoryLogger, LogLevel
             from composer.trainer import Trainer
             logger = InMemoryLogger(
-                log_level=LogLevel.BATCH
             )
             trainer = Trainer(
                 model=model,
@@ -47,40 +46,40 @@ class InMemoryLogger(LoggerDestination):
             # which index in trainer.logger.destinations contains your desired logger.
             logged_data = trainer.logger.destinations[0].data
 
-    Args:
-        log_level (str | LogLevel, optional):
-            :class:`~.logger.LogLevel` (i.e. unit of resolution) at
-            which to record. Defaults to
-            :attr:`~.LogLevel.BATCH`, which records
-            everything.
-
     Attributes:
         data (Dict[str, List[Tuple[Timestamp, LogLevel, Any]]]): Mapping of a logged key to
-            a (:class:`~.time.Timestamp`, :class:`~.logger.LogLevel`, logged value) tuple.
+            a (:class:`~.time.Timestamp`, logged value) tuple.
             This dictionary contains all logged data.
         most_recent_values (Dict[str, Any]): Mapping of a key to the most recent value for that key.
         most_recent_timestamps (Dict[str, Timestamp]): Mapping of a key to the
             :class:`~.time.Timestamp` of the last logging call for that key.
+        hyperparameters (Dict[str, Any]): Dictionary of all hyperparameters.
+
     """
 
-    def __init__(self, log_level: Union[str, int, LogLevel] = LogLevel.BATCH) -> None:
-        self.log_level = LogLevel(log_level)
-        self.data: Dict[str, List[Tuple[Timestamp, LogLevel, Any]]] = {}
+    def __init__(self) -> None:
+        self.data: Dict[str, List[Tuple[Timestamp, Any]]] = {}
         self.most_recent_values = {}
         self.most_recent_timestamps: Dict[str, Timestamp] = {}
+        self.state: Optional[State] = None
+        self.hyperparameters: Dict[str, Any] = {}
 
-    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
-        if log_level > self.log_level:
-            # the logged metric is more verbose than what we want to record.
-            return
-        timestamp = state.timestamp
-        copied_data = copy.deepcopy(data)
-        for k, v in copied_data.items():
+    def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
+        self.hyperparameters.update(hyperparameters)
+
+    def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
+        assert self.state is not None
+        timestamp = self.state.timestamp
+        copied_metrics = copy.deepcopy(metrics)
+        for k, v in copied_metrics.items():
             if k not in self.data:
                 self.data[k] = []
-            self.data[k].append((timestamp, log_level, v))
-        self.most_recent_values.update(copied_data.items())
-        self.most_recent_timestamps.update({k: timestamp for k in copied_data})
+            self.data[k].append((timestamp, v))
+        self.most_recent_values.update(copied_metrics.items())
+        self.most_recent_timestamps.update({k: timestamp for k in copied_metrics})
+
+    def init(self, state: State, logger: Logger) -> None:
+        self.state = state
 
     def get_timeseries(self, metric: str) -> Dict[str, Any]:
         """Returns logged data as dict containing values of a desired metric over time.
@@ -103,15 +102,23 @@ class InMemoryLogger(LoggerDestination):
 
                 import matplotlib.pyplot as plt
 
-                from composer.loggers import InMemoryLogger, LogLevel
+                from composer.loggers import InMemoryLogger
                 from composer.core.time import Time, Timestamp
 
-                in_mem_logger = InMemoryLogger(LogLevel.BATCH)
+                in_mem_logger = InMemoryLogger()
+                trainer = Trainer(
+                    model=model,
+                    train_dataloader=train_dataloader,
+                    eval_dataloader=eval_dataloader,
+                    max_duration="1ep",
+                    optimizers=[optimizer],
+                    loggers=[in_mem_logger]
+                )
 
                 # Populate the logger with data
                 for b in range(0,3):
                     datapoint = b * 3
-                    in_mem_logger.log_data(state=state, log_level=LogLevel.BATCH, data={"accuracy/val": datapoint})
+                    in_mem_logger.log_metrics({"accuracy/val": datapoint})
 
                 timeseries = in_mem_logger.get_timeseries("accuracy/val")
                 plt.plot(timeseries["batch"], timeseries["accuracy/val"])
@@ -126,7 +133,7 @@ class InMemoryLogger(LoggerDestination):
         timeseries = {}
         # Iterate through datapoints
         for datapoint in self.data[metric]:
-            timestamp, _, metric_value = datapoint
+            timestamp, metric_value = datapoint
             timeseries.setdefault(metric, []).append(metric_value)
             # Iterate through time units and add them all!
             for field, time in timestamp.get_state().items():

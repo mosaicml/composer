@@ -21,7 +21,11 @@ class Event(StringEnum):
         # <FIT_START>
         for epoch in range(NUM_EPOCHS):
             # <EPOCH_START>
-            for batch in dataloader:
+            while True:
+                # <BEFORE_DATALOADER>
+                batch = next(dataloader)
+                if batch is None:
+                    break
                 # <AFTER_DATALOADER>
 
                 # <BATCH_START>
@@ -85,6 +89,7 @@ class Event(StringEnum):
         FIT_START: Invoked at the beginning of each call to :meth:`.Trainer.fit`. Dataset transformations typically
             occur here.
         EPOCH_START: Start of an epoch.
+        BEFORE_DATALOADER: Immediately before the dataloader is called.
         AFTER_DATALOADER: Immediately after the dataloader is called.  Typically used for on-GPU dataloader transforms.
         BATCH_START: Start of a batch.
         BEFORE_TRAIN_BATCH: Before the forward-loss-backward computation for a training batch. When using gradient
@@ -116,10 +121,10 @@ class Event(StringEnum):
             be preserved in checkpoints.
 
         EVAL_START: Start of evaluation through the validation dataset.
-        EVAL_BATCH_START: Before the call to ``model.validate(batch)``
-        EVAL_BEFORE_FORWARD: Before the call to ``model.validate(batch)``
-        EVAL_AFTER_FORWARD: After the call to ``model.validate(batch)``
-        EVAL_BATCH_END: After the call to ``model.validate(batch)``
+        EVAL_BATCH_START: Before the call to ``model.eval_forward(batch)``
+        EVAL_BEFORE_FORWARD: Before the call to ``model.eval_forward(batch)``
+        EVAL_AFTER_FORWARD: After the call to ``model.eval_forward(batch)``
+        EVAL_BATCH_END: After the call to ``model.eval_forward(batch)``
         EVAL_END: End of evaluation through the validation dataset.
     """
 
@@ -128,6 +133,7 @@ class Event(StringEnum):
 
     EPOCH_START = 'epoch_start'
 
+    BEFORE_DATALOADER = 'before_dataloader'
     AFTER_DATALOADER = 'after_dataloader'
 
     BATCH_START = 'batch_start'
@@ -207,11 +213,21 @@ class Event(StringEnum):
         name = name.replace('_end', '')
         return name
 
+    @property
+    def is_predict(self) -> bool:
+        """Whether the event is during the predict loop."""
+        return self.value.startswith('predict')
 
-_BEFORE_EVENTS = (Event.FIT_START, Event.EPOCH_START, Event.BATCH_START, Event.BEFORE_TRAIN_BATCH, Event.BEFORE_FORWARD,
-                  Event.BEFORE_LOSS, Event.BEFORE_BACKWARD, Event.EVAL_START, Event.EVAL_BATCH_START,
-                  Event.EVAL_BEFORE_FORWARD, Event.PREDICT_START, Event.PREDICT_BATCH_START,
-                  Event.PREDICT_BEFORE_FORWARD)
-_AFTER_EVENTS = (Event.EPOCH_END, Event.BATCH_END, Event.AFTER_TRAIN_BATCH, Event.AFTER_FORWARD, Event.AFTER_LOSS,
-                 Event.AFTER_BACKWARD, Event.EVAL_END, Event.EVAL_BATCH_END, Event.EVAL_AFTER_FORWARD, Event.FIT_END,
-                 Event.PREDICT_END, Event.PREDICT_BATCH_END, Event.PREDICT_AFTER_FORWARD)
+    @property
+    def is_eval(self) -> bool:
+        """Whether the event is during the eval loop."""
+        return self.value.startswith('eval')
+
+
+_BEFORE_EVENTS = (Event.FIT_START, Event.EPOCH_START, Event.BEFORE_DATALOADER, Event.BATCH_START,
+                  Event.BEFORE_TRAIN_BATCH, Event.BEFORE_FORWARD, Event.BEFORE_LOSS, Event.BEFORE_BACKWARD,
+                  Event.EVAL_START, Event.EVAL_BATCH_START, Event.EVAL_BEFORE_FORWARD, Event.PREDICT_START,
+                  Event.PREDICT_BATCH_START, Event.PREDICT_BEFORE_FORWARD)
+_AFTER_EVENTS = (Event.EPOCH_END, Event.BATCH_END, Event.AFTER_DATALOADER, Event.AFTER_TRAIN_BATCH, Event.AFTER_FORWARD,
+                 Event.AFTER_LOSS, Event.AFTER_BACKWARD, Event.EVAL_END, Event.EVAL_BATCH_END, Event.EVAL_AFTER_FORWARD,
+                 Event.FIT_END, Event.PREDICT_END, Event.PREDICT_BATCH_END, Event.PREDICT_AFTER_FORWARD)

@@ -26,11 +26,11 @@ class SystemProfiler(Callback):
 
     .. note::
 
-        The Composer :class:`~composer.trainer.trainer.Trainer` automatically creates an instance of this
+        The Composer :class:`.Trainer` automatically creates an instance of this
         :class:`.SystemProfiler` callback whenever any of the System Profiler arguments (``sys_prof_cpu``,
         ``sys_prof_memory``, ``sys_prof_disk``, or ``sys_prof_net``) are enabled.
 
-        When using the Composer :class:`~composer.trainer.trainer.Trainer`, one does not need to directly create an
+        When using the Composer :class:`.Trainer`, one does not need to directly create an
         instance of this :class:`.SystemProfiler` callback.
 
     Args:

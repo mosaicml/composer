@@ -16,6 +16,7 @@ from composer.core.time import TimeUnit
 from composer.core.types import Batch
 from composer.loggers import Logger
 from composer.models import HuggingFaceModel
+from composer.trainer.devices import DeviceGPU
 from composer.utils import dist, ensure_tuple
 
 __all__ = ['SeqLengthWarmup', 'set_batch_sequence_length']
@@ -160,7 +161,7 @@ class SeqLengthWarmup(Algorithm):
     Tensors are either truncated (``truncate=True``) or reshaped to
     create new examples from the extra tokens (``truncate=False``).
 
-    This algorithm runs on :attr:`~composer.core.event.Event.AFTER_DATALOADER` to modify
+    This algorithm runs on :attr:`.Event.AFTER_DATALOADER` to modify
     the sequence length of a batch of data after the model and data have been moved to
     accelerators.
 
@@ -286,7 +287,7 @@ class SeqLengthWarmup(Algorithm):
             per_gpu_batch = ceil(per_gpu_macrobatch / state.grad_accum)
             model_inputs = {k: v[:per_gpu_batch] for k, v in batch_clone.items()}
 
-            should_handle_cuda_oom = 0
+            found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             try:
                 # start by running a forward and backward pass
                 # of the maximum sequence length to allocate cache.
@@ -306,27 +307,26 @@ class SeqLengthWarmup(Algorithm):
             # This error/state.grad_accum handling mimics the logic in trainer._train_batch().
             except RuntimeError as e:
                 if 'CUDA out of memory' in str(e):
-                    should_handle_cuda_oom = 1
+                    found_cuda_oom = 1
                 else:
                     raise
 
-            # Propagate across all ranks if any rank hit CUDA OOM
-            should_handle_cuda_oom = torch.tensor([should_handle_cuda_oom], dtype=torch.uint8, device=device)
-            dist.all_reduce(should_handle_cuda_oom, reduce_operation='MAX')
-            if int(should_handle_cuda_oom.item()) == 1:
-                # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_timeout_error since
-                # it is likely transient, e.g. timeout because certain ranks OOMed and didn't reach barrier.
-                # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
-                if state.grad_accum == device_batch_size:
-                    raise RuntimeError(
-                        ('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
-                         'The GPU does not have enough memory to process even 1 sample.'))
-                else:
-                    state.grad_accum = min(2 * state.grad_accum, device_batch_size)
-                    logger.data_batch({'trainer/grad_accum': state.grad_accum})
-            else:
-                self._activated = True
-                return
+            # In-line to avoid circular dependency
+            from composer.trainer.trainer import _adjust_grad_accum
+
+            # Auto grad accum only supported on GPU
+            if device and device.type == 'gpu':
+                devicegpu = DeviceGPU()
+                # Propagate across all ranks if any rank hit CUDA OOM
+                found_cuda_oom = devicegpu.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
+                if found_cuda_oom.item() == 1:
+                    _adjust_grad_accum(state, device_batch_size)
+                    # Skip return and rerun after handling oom
+                    continue
+            # Activate and return if we've completed without OOMing.
+            self._activated = True
+            return
 
     def match(self, event: Event, state: State) -> bool:
         return (event == Event.INIT and self._original_model is None) or event == Event.AFTER_DATALOADER
@@ -375,7 +375,7 @@ class SeqLengthWarmup(Algorithm):
         state.batch = set_batch_sequence_length(state.batch, curr_seq_len, self.truncate, self.preserve_end_of_sequence)
 
         batch_size = state.batch['input_ids'].shape[0]
-        logger.data_batch({
+        logger.log_metrics({
             'seq_length_warmup/curr_seq_len': curr_seq_len,
             'seq_length_warmup/curr_bs': batch_size,
         })

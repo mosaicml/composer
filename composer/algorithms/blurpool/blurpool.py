@@ -85,7 +85,7 @@ class BlurPool(Algorithm):
     """`BlurPool <http://proceedings.mlr.press/v97/zhang19a.html>`_ adds anti-aliasing filters to convolutional layers.
 
     This algorithm increases accuracy and invariance to small shifts in the input. It runs on
-    :attr:`~composer.core.event.Event.INIT`.
+    :attr:`.Event.INIT`.
 
     Args:
         replace_convs (bool): replace strided :class:`torch.nn.Conv2d` modules with
@@ -145,7 +145,7 @@ class BlurPool(Algorithm):
                  f'Model now has {num_blurpool_layers} BlurMaxPool2d '
                  f'and {num_blurconv_layers} BlurConv2D layers.')
 
-        logger.data_fit({
+        logger.log_hyperparameters({
             'blurpool/num_blurpool_layers': num_blurpool_layers,
             'blurpool/num_blurconv_layers': num_blurconv_layers,
         })

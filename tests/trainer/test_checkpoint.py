@@ -9,11 +9,13 @@ import tarfile
 import tempfile
 import textwrap
 import time
+from glob import glob
 from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
 import torch
 import torch.distributed
+from torch.utils.data import DataLoader
 
 from composer.callbacks import CheckpointSaver
 from composer.core.callback import Callback
@@ -36,6 +38,8 @@ from composer.utils.object_store.libcloud_object_store import LibcloudObjectStor
 from composer.utils.object_store.object_store_hparams import LibcloudObjectStoreHparams
 from tests.common import (EventCounterCallback, configure_dataset_hparams_for_synthetic,
                           configure_model_hparams_for_synthetic, deep_compare, device)
+from tests.common.datasets import RandomImageDataset
+from tests.common.models import SimpleConvModel
 
 
 class DummyStatefulCallback(Callback):
@@ -560,14 +564,17 @@ def test_checkpoint_with_object_store_logger(
 @pytest.mark.parametrize(
     'seed,save_interval,save_filename,resume_file,final_checkpoint',
     [
-        [None, '1ep', 'ep{epoch}-rank{rank}', 'ep1-rank{rank}', 'latest-rank{rank}'
+        [None, '1ep', 'ep{epoch}-rank{rank}.pt', 'ep1-rank{rank}.pt', 'latest-rank{rank}.pt'
         ],  # test randomized seed saving and symlinking
-        [42, '1ep', 'ep{epoch}-rank{rank}', 'ep1-rank{rank}', 'ep2-rank{rank}'],  # test save at epoch end
+        [42, '1ep', 'ep{epoch}-rank{rank}.pt', 'ep1-rank{rank}.pt', 'ep2-rank{rank}.pt'],  # test save at epoch end
         [42, '1ep', 'ep{epoch}-rank{rank}.tgz', 'ep1-rank{rank}.tgz', 'ep2-rank{rank}.tgz'
         ],  # test tarball with compression
-        [42, '2ba', 'ba{batch}-rank{rank}', 'ba4-rank{rank}', 'ba8-rank{rank}'],  # test save batch in partial epoch
-        [42, '1ba', 'ba{batch}-rank{rank}', 'ba5-rank{rank}', 'ba8-rank{rank}'],  # test save batch at epoch end
-        [42, '2ba', 'ba{batch}-rank{rank}', 'ba6-rank{rank}', 'ba8-rank{rank}'],  # test save batch after complete epoch
+        [42, '2ba', 'ba{batch}-rank{rank}.pt', 'ba4-rank{rank}.pt', 'ba8-rank{rank}.pt'
+        ],  # test save batch in partial epoch
+        [42, '1ba', 'ba{batch}-rank{rank}.pt', 'ba5-rank{rank}.pt', 'ba8-rank{rank}.pt'
+        ],  # test save batch at epoch end
+        [42, '2ba', 'ba{batch}-rank{rank}.pt', 'ba6-rank{rank}.pt', 'ba8-rank{rank}.pt'
+        ],  # test save batch after complete epoch
     ],
 )
 @pytest.mark.parametrize('model_name', [
@@ -594,7 +601,7 @@ def test_checkpoint(
     - create a new trainer from the `checkpoint_interval` checkpoint, and train until end. checkpoint again.
     - assert that the checkpoint from the new trainer at the end is the same as the checkpoint from the first trainer at the end.
     """
-    del world_size  # unused. Read via env variable
+    del world_size
 
     if deepspeed_enabled:
         if not is_tar(resume_file):
@@ -676,8 +683,12 @@ def test_checkpoint(
         if isinstance(callback, CheckpointSaver):
             checkpoint_saver = callback
     assert checkpoint_saver is not None
-    assert len(checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
 
+    file_was_saved = dist.get_global_rank() == 0 or deepspeed_enabled
+    if not file_was_saved:
+        expected_num_checkpoints = 0
+
+    assert len(checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
     rank_to_checkpoint_a_folder = dist.all_gather_object(os.path.abspath(checkpoint_a_folder))
 
     checkpoint_to_resume_filepath = os.path.join(rank_to_checkpoint_a_folder[0], resume_file)
@@ -780,3 +791,57 @@ def _validate_events_called_expected_number_of_times(trainer: Trainer, eval_inte
                 assert expected == actual, f'Event {event} expected to be called {expected} times, but instead it was called {actual} times'
             return
     assert False, 'EventCounterCallback not found in callbacks'
+
+
+@pytest.mark.parametrize('world_size', [
+    pytest.param(1),
+    pytest.param(2, marks=pytest.mark.world_size(2)),
+])
+@pytest.mark.parametrize('device,deepspeed_enabled,zero_stage', [
+    pytest.param('cpu', False, None, id='cpu-ddp'),
+    pytest.param('gpu', False, None, id='gpu-ddp', marks=pytest.mark.gpu),
+    pytest.param('gpu', True, 0, id='deepspeed-zero0', marks=pytest.mark.gpu),
+    pytest.param('gpu', True, 1, id='deepspeed-zero1', marks=pytest.mark.gpu),
+    pytest.param('gpu', True, 2, id='deepspeed-zero2', marks=pytest.mark.gpu),
+])
+def test_rotate_checkpoints(
+    world_size,
+    device,
+    deepspeed_enabled,
+    zero_stage,
+    tmp_path: pathlib.Path,
+):
+    num_keep = 5
+
+    # all ranks use rank 0 folder
+    tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
+    save_folder = tmp_paths[0]
+
+    if deepspeed_enabled:
+        deepseed_config = {'zero_optimization': {'stage': zero_stage}}
+    else:
+        deepseed_config = None
+
+    trainer = Trainer(
+        model=SimpleConvModel(),
+        train_dataloader=DataLoader(dataset=RandomImageDataset()),
+        save_folder=str(save_folder),
+        save_filename='checkpoint_{rank}_{batch}.pt',
+        save_interval='1ba',
+        max_duration='10ba',
+        save_num_checkpoints_to_keep=num_keep,
+        device=device,
+        deepspeed_config=deepseed_config,
+    )
+
+    trainer.fit()
+
+    dist.barrier()  # ensure all checkpoints rotated across ranks
+
+    # deepspeed saves 1 file per rank
+    expected_num = num_keep if not deepspeed_enabled else num_keep * world_size
+
+    files = glob(os.path.join(save_folder, 'checkpoint_*'))
+    assert len(files) == expected_num
+
+    dist.barrier()  # all ranks finish before cleaning up tmpdir

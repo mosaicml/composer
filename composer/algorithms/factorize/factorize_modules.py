@@ -178,7 +178,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
 
     @abc.abstractmethod
     def solution_for_rank(self, input: torch.Tensor, rank: int) -> LowRankSolution:
-        """Returns a solution that :meth:`~apply_solution` can use to update the module's level of factorization.
+        """Returns a solution that :meth:`.apply_solution` can use to update the module's level of factorization.
 
         This is seperate from :meth:`set_rank` so that one can generate and assess
         many possible solutions for a given module before choosing one.
@@ -209,7 +209,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
             solution (LowRankSolution): An object encapsulating the new
                 parameters to be used and their associated mean squared error on
                 the input for which they were optimized. Can be obtained using
-                :meth:`~solution_for_rank`.
+                :meth:`.solution_for_rank`.
         """
         ...
 
@@ -257,7 +257,7 @@ class FactorizedConv2d(_FactorizedModule):
             to reduce the number of multiply-add operations. In this regime,
             factorization is both slower and less expressive than a
             non-factorized operation. Setting
-            ``latent_features`` to  :meth:`~max_allowed_latent_channels`
+            ``latent_features`` to  :meth:`.max_allowed_latent_channels`
             or a smaller value is sufficient to avoid this.
     """
 
@@ -399,7 +399,7 @@ class FactorizedLinear(_FactorizedModule):
             factorization is both slower and less expressive than a
             non-factorized operation. Setting
             ``latent_features < min(in_features, out_features) / 2`` or
-            using :meth:`~max_allowed_latent_features` is sufficient to avoid
+            using :meth:`.max_allowed_latent_features` is sufficient to avoid
             this.
     """
 

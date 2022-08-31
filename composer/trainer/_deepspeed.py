@@ -119,7 +119,7 @@ def _parse_deepspeed_config(
 
     Returns:
         Dict[str, Any]: The DeepSpeed config updated with values from the arguments passed to the
-            :class:`~composer.trainer.trainer.Trainer`.
+            :class:`.Trainer`.
 
     Raises:
         ValueError: If any of the values in the DeepSpeed config conflict with arguments passed
