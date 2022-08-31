@@ -9,13 +9,11 @@ import dataclasses
 import datetime
 import logging
 import os
-import re
 import warnings
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union, cast
 
 import torch
 import yahp as hp
-from torchmetrics import Metric
 
 import composer
 from composer.algorithms.algorithm_hparams_registry import algorithm_registry
@@ -751,9 +749,7 @@ class EvalKwargs(TypedDict):
 
     :meta private:
     """
-    dataloader: Union[Iterable, DataSpec, dict]
-    dataloader_label: str
-    metrics: Dict[str, Metric]
+    eval_dataloader: Optional[Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]]]
     subset_num_batches: int
 
 
@@ -776,17 +772,12 @@ class EvalHparams(hp.Hparams):
     hparams_registry = {
         'dataset': dataset_registry,
     }
-    dataset: DatasetHparams = hp.required(doc='Validation dataset hparams')
-    batch_size: int = hp.required(doc='batch size to use for each evaluation step')
-    dataloader_label: str = hp.auto(Trainer.eval, 'dataloader_label')
-    subset_num_batches: int = hp.auto(Trainer.eval, 'subset_num_batches')
-    metric_names: Optional[List[str]] = hp.optional(
-        doc=
-        ('Name of the metrics for the evaluator. Can be a torchmetrics name or the '
-         'class name of a metric returned by model.get_metrics(). If None (the default), uses all metrics in the model'
-        ),
-        default=None,
-    )
+
+    # Evaluation
+    dataset: Optional[DatasetHparams] = hp.optional(doc='Validation dataset hparams', default=None)
+    evaluators: Optional[List[EvaluatorHparams]] = hp.optional(doc='Evaluators', default=None)
+    batch_size: Optional[int] = hp.optional(doc='batch size to use for each evaluation step', default=None)
+    subset_num_batches: Optional[int] = hp.optional(doc='eval for this number of batches', default=None)
 
     def initialize_object(self, model: ComposerModel, dataloader_hparams: DataLoaderHparams) -> EvalKwargs:
         """Construct a kwargs dictionary that can be unpacked and passed into :meth:`.Trainer.eval`.
@@ -798,42 +789,21 @@ class EvalHparams(hp.Hparams):
         Returns:
             EvalKwargs: A kwargs dictionary that can be unpacked and passed into :meth:`.Trainer.eval`.
         """
-        # Dataloader
-        dataloader = _initialize_dataloader(
-            dataset_hparams=self.dataset,
-            dataloader_label=self.dataloader_label,
-            batch_size=self.batch_size,
-            subset_num_batches=self.subset_num_batches,
+        if self.subset_num_batches is None:
+            self.subset_num_batches = -1
+
+        # Eval dataloader
+        eval_dataloader = _initialize_eval_dataloader(
+            model=model,
+            eval_dataset_hparams=self.dataset,
+            evaluators=self.evaluators,
+            eval_batch_size=self.batch_size,
+            eval_subset_num_batches=self.subset_num_batches,
             dataloader_hparams=dataloader_hparams,
         )
-        assert dataloader is not None, 'The dataloader is a required argument'
-
-        # Metrics
-
-        # Get and copy all the model's associated evaluation metrics
-        model_metrics = model.get_metrics(is_train=False)
-
-        # Use all the metrics from the model if no metric_names are specified
-        if self.metric_names is None:
-            metrics = model_metrics
-        else:
-            metrics = {}
-            for metric_name in self.metric_names:
-                for k in model_metrics.keys():
-                    matches = re.match(f'.*{metric_name}.*', k, re.IGNORECASE)
-                    if matches:
-                        metrics[k] = model_metrics[k]
-                    else:
-                        raise RuntimeError((f'No metric found with the name {metric_name}. Check if this '
-                                            'metric is compatible/listed in your model metrics. '))
-            if len(metrics) == 0:
-                raise RuntimeError(('No metrics compatible with your model were added to this evaluator. '
-                                    'Check that the metrics you specified are compatible/listed in your model.'))
 
         return {
-            'dataloader': dataloader,
-            'dataloader_label': self.dataloader_label,
-            'metrics': metrics,
+            'eval_dataloader': eval_dataloader,
             'subset_num_batches': self.subset_num_batches,
         }
 
