@@ -65,6 +65,7 @@ class HuggingFaceModel(ComposerModel):
         else:
             assert tokenizer.model_input_names is not None, 'the tokenizer should have a model input name'
             self.model_inputs = set(tokenizer.model_input_names)
+            self.model.resize_token_embeddings(len(tokenizer))
 
         self.use_logits = use_logits
 
