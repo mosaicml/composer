@@ -45,7 +45,6 @@ def test_early_stopper(metric_sequence: List[float], unit: TimeUnit, device: str
         ),
         max_duration='30ep',
         callbacks=[test_metric_setter, early_stopper],
-        device=test_device,
     )
 
     trainer.fit()
