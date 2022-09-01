@@ -3,6 +3,7 @@
 
 import contextlib
 import copy
+import functools
 import os
 import pathlib
 import shutil
@@ -26,17 +27,13 @@ from composer.core.time import Time, TimeUnit, ensure_time
 from composer.datasets.dataset_hparams import DatasetHparams
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.loggers import ObjectStoreLogger
-from composer.optim import CosineAnnealingScheduler, ExponentialScheduler
-from composer.optim.optimizer_hparams_registry import AdamWHparams
-from composer.trainer.devices import Device, DeviceGPU
-from composer.trainer.devices.device_cpu import DeviceCPU
+from composer.optim import ExponentialScheduler
+from composer.trainer.devices import DeviceCPU, DeviceGPU
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, is_tar
 from composer.utils.checkpoint import glob_filter
-from composer.utils.iter_helpers import ensure_tuple
 from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
-from composer.utils.object_store.object_store_hparams import LibcloudObjectStoreHparams
 from tests.common import (EventCounterCallback, configure_dataset_hparams_for_synthetic,
                           configure_model_hparams_for_synthetic, deep_compare, device)
 from tests.common.datasets import RandomImageDataset
@@ -238,10 +235,11 @@ class TestCheckpointLoading:
             torch.testing.assert_close(p1, p2)
 
     def get_trainer(self, **kwargs):
-        model = SimpleConvModel(),
+        model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
 
         return Trainer(
+            model=model,
             train_dataloader=DataLoader(
                 dataset=RandomImageDataset(),
                 batch_size=8,
@@ -309,10 +307,18 @@ class TestCheckpointLoading:
         )
         trainer_1.fit()
 
-        trainer_2 = self.get_trainer(loggers=[self.get_logger(tmp_path)],
-                                     run_name='electric-zebra',
-                                     load_path='cloud_training_run/checkpoints/latest-rank0',
-                                     load_object_store=self.get_logger(tmp_path))
+        trainer_2 = self.get_trainer(
+            loggers=[self.get_logger(tmp_path)],
+            run_name='electric-zebra',
+            load_path='electric-zebra/checkpoints/latest-rank0',
+            load_object_store=self.get_logger(tmp_path),
+        )
+
+        # check weights loaded properly
+        self._assert_weights_equivalent(
+            trainer_1.state.model,
+            trainer_2.state.model,
+        )
 
     # composer_trainer_hparams.callbacks = [DummyStatefulCallback(), EventCounterCallback()]
 
@@ -377,12 +383,13 @@ class TestCheckpointLoading:
         if save_overwrite:
             ctx = contextlib.nullcontext
         else:
-            ctx = pytest.raises(FileExistsError)
+            ctx = functools.partial(pytest.raises, FileExistsError)
 
         with ctx():  # expect FileExistsError if save_overwrite=False
             trainer_2 = self.get_trainer(
-                load_path=os.path.join('first', 'ep1.pt'),
+                save_folder='first',
                 save_overwrite=save_overwrite,
+                load_path=os.path.join('first', 'ep1.pt'),
                 device=device,
             )
             trainer_2.fit(duration='1ba')
@@ -390,101 +397,16 @@ class TestCheckpointLoading:
         # loading from the last checkpoint should work regardless
         # of save_overwrite, as new checkpoints are later in time.
         trainer_3 = self.get_trainer(
-            load_path=os.path.join('first', 'ep2.pt'),
+            save_folder='first',
             save_overwrite=save_overwrite,
+            load_path=os.path.join('first', 'ep2.pt'),
             device=device,
         )
         trainer_3.fit(duration='1ba')
 
 
-def test_checkpoint_with_object_store_logger(
-    composer_trainer_hparams: TrainerHparams,
-    tmp_path: pathlib.Path,
-    monkeypatch: pytest.MonkeyPatch,
-):
-    """Train model while logging to object store.
-
-    Load model from object store and ensure it's the same.
-    """
-    pytest.importorskip('libcloud')
-
-    checkpoint_a_folder = 'first'
-    final_checkpoint = 'ep2.pt'
-    composer_trainer_hparams = get_two_epoch_composer_hparams(
-        composer_trainer_hparams,
-        checkpoint_a_folder,
-    )
-
-    # Train model and log to object store
-    remote_dir = str(tmp_path / 'object_store')
-    os.makedirs(remote_dir, exist_ok=True)
-    provider = 'local'
-    container = '.'
-    monkeypatch.setenv('OBJECT_STORE_KEY', remote_dir)  # for the local option, the key is the path
-    object_store_hparams = LibcloudObjectStoreHparams(
-        provider=provider,
-        container=container,
-        key_environ='OBJECT_STORE_KEY',
-    )
-    run_name = 'electric-zebra'
-    composer_trainer_hparams.run_name = run_name
-    second_trainer_hparams_object_store = copy.deepcopy(composer_trainer_hparams)
-    second_trainer_hparams_logger = copy.deepcopy(composer_trainer_hparams)
-    for hparams in [composer_trainer_hparams, second_trainer_hparams_logger]:
-        object_store_logger = ObjectStoreLogger(
-            object_store_cls=LibcloudObjectStore,
-            object_store_kwargs={
-                'provider': provider,
-                'container': container,
-                'provider_kwargs': {
-                    'key': remote_dir,
-                },
-            },
-            num_concurrent_uploads=1,
-            use_procs=False,
-            upload_staging_folder=str(tmp_path / 'staging_folder'),
-        )
-        hparams.loggers = [object_store_logger]
-        if hparams is second_trainer_hparams_logger:
-            hparams.load_logger_destination = object_store_logger
-
-    artifact_name = f'{run_name}/checkpoints/ep2-ba10-rank' + '{rank}'
-    trainer = composer_trainer_hparams.initialize_object()
-    trainer.fit()
-
-    trainer.close()
-
-    # Load model weights using object store
-    checkpoint_a_file_path = [os.path.join(os.path.abspath(checkpoint_a_folder), final_checkpoint)]
-    dist.broadcast_object_list(checkpoint_a_file_path)
-    composer_trainer_hparams.load_path = checkpoint_a_file_path[0]
-
-    second_trainer_hparams_object_store.load_path = artifact_name
-    second_trainer_hparams_object_store.load_object_store = object_store_hparams
-    second_trainer_hparams_object_store.load_weights_only = True
-    second_trainer_hparams_object_store.load_strict_model_weights = True
-    composer_trainer_hparams.loggers = []
-
-    assert_weights_equivalent(
-        original_trainer_hparams=composer_trainer_hparams,
-        new_trainer_hparams=second_trainer_hparams_object_store,
-        overwrite_load_path=False,
-    )
-
-    # Load model weights using object store logger
-    checkpoint_a_file_path = [os.path.join(os.path.abspath(checkpoint_a_folder), final_checkpoint)]
-    dist.broadcast_object_list(checkpoint_a_file_path)
-
-    second_trainer_hparams_logger.load_path = artifact_name
-    second_trainer_hparams_logger.load_weights_only = True
-    second_trainer_hparams_logger.load_strict_model_weights = True
-    composer_trainer_hparams.loggers = []
-
-    assert_weights_equivalent(
-        original_trainer_hparams=composer_trainer_hparams,
-        new_trainer_hparams=second_trainer_hparams_logger,
-        overwrite_load_path=False,
-    )
+class TestCheckpointResumption:
+    pass
 
 
 @pytest.mark.parametrize('world_size', [
