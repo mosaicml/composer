@@ -1579,11 +1579,6 @@ class Trainer:
                     dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
 
                 for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
-                    # Reset train_metrics on every batch
-                    if self.state.train_metrics is not None:
-                        for _, metric in self.state.train_metrics.items():
-                            metric.reset()
-
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < int(self.state.timestamp.batch_in_epoch):
                         # Restore the RNG state immediately before the next batch is yielded from the dataloader
@@ -1785,6 +1780,12 @@ class Trainer:
 
         # Retry until we successfully complete training and return loss
         while True:
+            # Reset train_metrics on every batch
+            # Placing reset here ensures that if auto grad accum catches an OOM, incomplete metric state is cleared
+            if self.state.train_metrics is not None:
+                for _, metric in self.state.train_metrics.items():
+                    metric.reset()
+
             total_loss_dict = {'loss/train/total': self._device.tensor_to_device(torch.zeros(size=(1,)))}
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             try:
