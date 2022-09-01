@@ -254,6 +254,8 @@ class TestCheckpointLoading:
 
     def test_load_weights_object_store(self, tmp_path):
 
+        pytest.importorskip('libcloud')
+
         trainer_1 = self.get_trainer(
             save_folder='first',
             loggers=[self.get_logger(tmp_path)],
