@@ -144,7 +144,7 @@ extra_deps['wandb'] = [
     'wandb>=0.13.2,<0.14',
 ]
 
-extra_deps['comet_ml'] = ['comet_ml>=3.31.12']
+extra_deps['comet_ml'] = ['comet_ml>=3.31.12,<4.0.0']
 
 extra_deps['tensorboard'] = [
     'tensorboard>=2.9.1,<3.0.0',
