@@ -44,9 +44,8 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
-from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed, map_collection,
-                            reproducibility)
-from composer.utils.checkpoint import load_checkpoint, save_checkpoint
+from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed,
+                            map_collection, reproducibility)
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.inference import ExportFormat, Transform, export_with_logger
@@ -347,7 +346,7 @@ class Trainer:
     .. testcode::
 
         # Get the saved checkpoint filepath
-        checkpoint_path = trainer.saved_checkpoints.pop()[0]
+        checkpoint_path = trainer.saved_checkpoints.pop()
 
         # Create a new trainer with the `load_path` argument set to the checkpoint path.
         trainer = Trainer(
@@ -542,7 +541,7 @@ class Trainer:
 
                 import composer.trainer
 
-                composer.trainer.trainer.load_checkpoint = lambda *args, **kwargs: None
+                composer.trainer.trainer.checkpoint.load_checkpoint = lambda *args, **kwargs: None
 
             .. testcode::
 
@@ -1118,7 +1117,7 @@ class Trainer:
                 log.info('No previous autoresume checkpoint found')
         # Actually load the checkpoint from potentially updated arguments
         if load_path is not None:
-            self._rng_state = load_checkpoint(
+            self._rng_state = checkpoint.load_checkpoint(
                 state=self.state,
                 path=load_path,
                 object_store=load_object_store,
@@ -2530,7 +2529,12 @@ class Trainer:
             getattr(optimizer, '_step_supports_amp_closure', False)
             for optimizer in ensure_tuple(self.state.optimizers))
 
-    def save_checkpoint(self, name: str = 'ep{epoch}-ba{batch}-rank{rank}', *, weights_only: bool = False):
+    def save_checkpoint(
+        self,
+        name: str = 'ep{epoch}-ba{batch}-rank{rank}',
+        *,
+        weights_only: bool = False,
+    ):
         """Checkpoint the training :class:`~.State`.
 
         Args:
@@ -2540,7 +2544,11 @@ class Trainer:
         Returns:
             str or None: See :func:`.save_checkpoint`.
         """
-        return save_checkpoint(state=self.state, filename=name, weights_only=weights_only)
+        return checkpoint.save_checkpoint(
+            state=self.state,
+            filename=name,
+            weights_only=weights_only,
+        )
 
     def export_for_inference(
         self,
