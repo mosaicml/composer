@@ -352,10 +352,6 @@ def train_finetune(
         f'\n --------\n SPAWNING TASK {task.upper()}\n DEVICE: {torch.cuda.current_device()}\n CKPT: {parent_ckpt}\n --------'
     )
 
-    # #### FOR TESTING! MAKE SURE TO REMOVE! ######
-    # ft_hparams.max_duration = '100ba'
-    # #### FOR TESTING! MAKE SURE TO REMOVE! ######
-
     trainer = ft_hparams.initialize_object()
 
     # if using wandb, store the config and other information inside the wandb run
