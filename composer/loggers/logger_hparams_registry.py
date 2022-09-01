@@ -87,5 +87,5 @@ logger_registry: Dict[str, Union[Type[LoggerDestination], Type[hp.Hparams]]] = {
     'tensorboard': TensorboardLogger,
     'in_memory': InMemoryLogger,
     'object_store': ObjectStoreLoggerHparams,
-    'cometml': CometMLLogger,
+    'comet_ml': CometMLLogger,
 }
