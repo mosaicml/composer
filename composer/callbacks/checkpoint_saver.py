@@ -363,6 +363,9 @@ class CheckpointSaver(Callback):  # noqa: D101
     def _save_checkpoint(self, state: State, logger: Logger, log_level: LogLevel):
         is_deepspeed = is_model_deepspeed(state.model)
 
+        if is_deepspeed and '{rank}' not in self.filename.filename:
+            raise ValueError(f'Save filename {self.filename.filename} must have {{rank}} for deepspeed.')
+
         # save the checkpoint to the filename
         filename = self.filename.format(state, is_deepspeed)
 
