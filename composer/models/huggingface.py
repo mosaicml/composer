@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from torchmetrics import Metric
@@ -14,6 +15,8 @@ from composer.utils.import_helpers import MissingConditionalImportError
 
 if TYPE_CHECKING:
     import transformers
+
+log = logging.getLogger(__name__)
 
 __all__ = ['HuggingFaceModel']
 
@@ -65,6 +68,13 @@ class HuggingFaceModel(ComposerModel):
         else:
             assert tokenizer.model_input_names is not None, 'the tokenizer should have a model input name'
             self.model_inputs = set(tokenizer.model_input_names)
+
+            if self.config.vocab_size != len(tokenizer):
+                # set model's word embedding matrix and final lm_head to vocab size according to tokenizer
+                log.warning(
+                    f'The number of tokens in the tokenizer and the number of tokens in the model are different.'
+                    f' Resizing the model tokenizer to {len(tokenizer)} from {self.config.vocab_size}.')
+                self.model.resize_token_embeddings(len(tokenizer))
 
         self.use_logits = use_logits
 
