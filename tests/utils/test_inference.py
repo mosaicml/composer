@@ -55,7 +55,7 @@ def test_export_for_inference_torchscript(model_cls, sample_input):
         loaded_model.eval()
         loaded_model_out = loaded_model(sample_input)
 
-        torch.testing.assert_allclose(
+        torch.testing.assert_close(
             orig_out,
             loaded_model_out,
             msg=f'output mismatch with {save_format}',
