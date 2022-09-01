@@ -14,7 +14,6 @@ from composer import Callback, Event
 from composer.core import State
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.loggers import Logger
-from composer.models.model_hparams import ModelHparams
 from composer.trainer.trainer import Trainer
 from composer.utils import dist
 from tests.common import SimpleModel
@@ -90,8 +89,7 @@ class CheckBatch0(Callback):
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
-def test_ddp(device: str, world_size: int, dummy_model_hparams: ModelHparams, deepspeed: bool,
-             tmp_path: pathlib.Path) -> None:
+def test_ddp(device: str, world_size: int, deepspeed: bool, tmp_path: pathlib.Path) -> None:
     """test strategy for ddp: 1) Train a dummy model on two gps, for two epochs, using the tracked dataset. 2) The
     tracked dataset should record two -- and only two -- accesses for each sample -- one for each epoch If each sample
     is accessed more than this number of times, then the distributed sampler isn't working properly If each sample is
