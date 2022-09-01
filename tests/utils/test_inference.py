@@ -46,14 +46,20 @@ def test_export_for_inference_torchscript(model_cls, sample_input):
     save_format = 'torchscript'
     with tempfile.TemporaryDirectory() as tempdir:
         save_path = os.path.join(tempdir, f'model.pt')
-        inference.export_for_inference(model=model, save_format=save_format, save_path=save_path)
+        inference.export_for_inference(
+            model=model,
+            save_format=save_format,
+            save_path=save_path,
+        )
         loaded_model = torch.jit.load(save_path)
         loaded_model.eval()
         loaded_model_out = loaded_model(sample_input)
 
-        assert torch.allclose(
+        torch.testing.assert_close(
             orig_out,
-            loaded_model_out), f'mismatch in the original and exported for inference model outputs with {save_format}'
+            loaded_model_out,
+            msg=f'output mismatch with {save_format}',
+        )
 
 
 @pytest.mark.parametrize(
@@ -77,10 +83,12 @@ def test_export_for_inference_onnx(model_cls, sample_input):
     save_format = 'onnx'
     with tempfile.TemporaryDirectory() as tempdir:
         save_path = os.path.join(tempdir, f'model.{save_format}')
-        inference.export_for_inference(model=model,
-                                       save_format=save_format,
-                                       save_path=save_path,
-                                       sample_input=(sample_input,))
+        inference.export_for_inference(
+            model=model,
+            save_format=save_format,
+            save_path=save_path,
+            sample_input=(sample_input,),
+        )
         loaded_model = onnx.load(save_path)
         onnx.checker.check_model(loaded_model)
 
@@ -95,7 +103,8 @@ def test_export_for_inference_onnx(model_cls, sample_input):
             loaded_model_out[0],
             rtol=1e-4,  # lower tolerance for ONNX
             atol=1e-3,  # lower tolerance for ONNX
-            msg=f'mismatch in the original and exported for inference model outputs with {save_format}')
+            msg=f'output mismatch with {save_format}',
+        )
 
 
 @pytest.mark.parametrize(
@@ -139,10 +148,12 @@ def test_export_for_inference_onnx_ddp(model_cls, sample_input):
         with tempfile.TemporaryDirectory() as tempdir:
             save_path = os.path.join(str(tempdir), f'model.{save_format}')
             assert isinstance(state.model.module, nn.Module)
-            inference.export_for_inference(model=state.model.module,
-                                           save_format=save_format,
-                                           save_path=save_path,
-                                           sample_input=(sample_input,))
+            inference.export_for_inference(
+                model=state.model.module,
+                save_format=save_format,
+                save_path=save_path,
+                sample_input=(sample_input,),
+            )
 
             loaded_model = onnx.load(save_path)
             onnx.checker.check_model(loaded_model)
@@ -195,7 +206,11 @@ def test_export_for_inference_torchscript_ddp(model_cls, sample_input):
         with tempfile.TemporaryDirectory() as tempdir:
             save_path = os.path.join(str(tempdir), f'model.pt')
             assert isinstance(state.model.module, nn.Module)
-            inference.export_for_inference(model=state.model.module, save_format=save_format, save_path=save_path)
+            inference.export_for_inference(
+                model=state.model.module,
+                save_format=save_format,
+                save_path=save_path,
+            )
 
             loaded_model = torch.jit.load(save_path)
             loaded_model.eval()
@@ -219,25 +234,31 @@ def test_export_with_file_artifact_logger(model_cls, sample_input):
             save_path = os.path.join(tempdir, f'model.pt')
 
             # Construct the trainer and train
-            trainer = Trainer(model=model,
-                              train_dataloader=DataLoader(RandomImageDataset(shape=(3, 224, 224))),
-                              max_duration='1ba')
+            trainer = Trainer(
+                model=model,
+                train_dataloader=DataLoader(RandomImageDataset(shape=(3, 224, 224))),
+                max_duration='1ba',
+            )
             trainer.fit()
 
             mock_logger = Logger(state=trainer.state, destinations=[mock_obj_logger])
 
-            export_with_logger(model=model,
-                               save_format=save_format,
-                               save_path=save_path,
-                               sample_input=(sample_input,),
-                               logger=mock_logger)
+            export_with_logger(
+                model=model,
+                save_format=save_format,
+                save_path=save_path,
+                sample_input=(sample_input,),
+                logger=mock_logger,
+            )
 
             # Assert export_for_inference utility called with expected inputs
-            inference.export_for_inference.assert_called_once_with(model=model,
-                                                                   save_format=save_format,
-                                                                   save_path=ANY,
-                                                                   sample_input=ANY,
-                                                                   transforms=None)
+            inference.export_for_inference.assert_called_once_with(
+                model=model,
+                save_format=save_format,
+                save_path=ANY,
+                sample_input=ANY,
+                transforms=None,
+            )
 
 
 @pytest.mark.parametrize(
@@ -255,26 +276,35 @@ def test_export_with_other_logger(model_cls, sample_input):
             save_path = os.path.join(tempdir, f'model.pt')
 
             # Construct the trainer and train
-            trainer = Trainer(model=model,
-                              train_dataloader=DataLoader(RandomImageDataset(shape=(3, 224, 224))),
-                              max_duration='1ba')
+            trainer = Trainer(
+                model=model,
+                train_dataloader=DataLoader(RandomImageDataset(shape=(3, 224, 224))),
+                max_duration='1ba',
+            )
             trainer.fit()
 
-            mock_logger = Logger(state=trainer.state, destinations=[non_file_artifact_logger])
+            mock_logger = Logger(
+                state=trainer.state,
+                destinations=[non_file_artifact_logger],
+            )
 
-            export_with_logger(model=model,
-                               save_format=save_format,
-                               save_path=save_path,
-                               sample_input=(sample_input,),
-                               logger=mock_logger)
+            export_with_logger(
+                model=model,
+                save_format=save_format,
+                save_path=save_path,
+                sample_input=(sample_input,),
+                logger=mock_logger,
+            )
 
             # Assert export_for_inference utility called with expected inputs
-            inference.export_for_inference.assert_called_once_with(model=model,
-                                                                   save_format=save_format,
-                                                                   save_path=save_path,
-                                                                   save_object_store=None,
-                                                                   sample_input=ANY,
-                                                                   transforms=None)
+            inference.export_for_inference.assert_called_once_with(
+                model=model,
+                save_format=save_format,
+                save_path=save_path,
+                save_object_store=None,
+                sample_input=ANY,
+                transforms=None,
+            )
 
 
 class LinModel(nn.Module):
@@ -302,12 +332,18 @@ def test_dynamic_quantize(model_cls):
     save_format = 'torchscript'
     with tempfile.TemporaryDirectory() as tempdir:
         save_path_no_quantize = os.path.join(tempdir, f'model_no_quantize.pt')
-        inference.export_for_inference(model=model, save_format=save_format, save_path=save_path_no_quantize)
+        inference.export_for_inference(
+            model=model,
+            save_format=save_format,
+            save_path=save_path_no_quantize,
+        )
         save_path_quantize = os.path.join(tempdir, f'model_quantize.pt')
-        inference.export_for_inference(model=model,
-                                       save_format=save_format,
-                                       save_path=save_path_quantize,
-                                       transforms=[inference.quantize_dynamic])
+        inference.export_for_inference(
+            model=model,
+            save_format=save_format,
+            save_path=save_path_quantize,
+            transforms=[inference.quantize_dynamic],
+        )
         no_quantize_size = os.path.getsize(save_path_no_quantize)
         quantize_size = os.path.getsize(save_path_quantize)
         # Size different should be almost 4x
