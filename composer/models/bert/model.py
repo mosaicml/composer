@@ -171,6 +171,13 @@ def create_bert_classification(num_labels: Optional[int] = 2,
         from composer.models import create_bert_classification
         model = create_bert_classification(num_labels=3) # if the task has three classes.
 
+    Note:
+        This function can be used to construct a BERT model for regression by setting ``num_labels == 1``.
+        This will have two noteworthy effects. First, it will switch the training loss to :class:`~torch.nn.MSELoss`.
+        Second, the returned :class:`.ComposerModel`'s train/validation metrics will be :class:`~torchmetrics.MeanSquaredError` and :class:`~torchmetrics.SpearmanCorrCoef`.
+
+        For the classifcation case (when ``num_labels > 1``), the training loss is :class:`~torch.nn.CrossEntropyLoss`, and the train/validation
+        metrics are :class:`~torchmetrics.Accuracy` and :class:`~torchmetrics.MatthewsCorrCoef`, as well as :class:`.BinaryF1Score` if ``num_labels == 2``.
     """
     try:
         import transformers
@@ -203,11 +210,13 @@ def create_bert_classification(num_labels: Optional[int] = 2,
     else:
         tokenizer = None
 
-    metrics = [
-        Accuracy(),
-        MeanSquaredError(),
-        SpearmanCorrCoef(),
-        BinaryF1Score(),
-        MatthewsCorrCoef(num_classes=model.config.num_labels)
-    ]
+    if num_labels == 1:
+        # Metrics for a regression model
+        metrics = [MeanSquaredError(), SpearmanCorrCoef()]
+    else:
+        # Metrics for a classification model
+        metrics = [Accuracy(), MatthewsCorrCoef(num_classes=model.config.num_labels)]
+        if num_labels == 2:
+            metrics.append(BinaryF1Score())
+
     return HuggingFaceModel(model=model, tokenizer=tokenizer, use_logits=True, metrics=metrics)
