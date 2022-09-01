@@ -59,48 +59,11 @@ def _load_checkpoint(checkpoint_dir: str, filename: str):
     if not is_tar(filename):
         return torch.load(filename, map_location='cpu')
 
-    with tarfile.open(filename) as tarball:
-        tarball.extractall(checkpoint_dir)
-    states_path = os.path.join(checkpoint_dir, 'composer_states.pt')
-    return torch.load(states_path, map_location='cpu')
-
-
-def assert_checkpoints_equivalent(
-    checkpoint_file_a: str,
-    checkpoint_file_b: str,
-) -> None:
-
-    with tempfile.TemporaryDirectory() as tmp_path:
-        a_checkpoint_dir = os.path.join(tmp_path, 'a')
-        b_checkpoint_dir = os.path.join(tmp_path, 'b')
-
-        checkpoint_a = _load_checkpoint(a_checkpoint_dir, checkpoint_file_a)
-        checkpoint_b = _load_checkpoint(b_checkpoint_dir, checkpoint_file_b)
-
-        # Remove the event counter callback, since the number of fit_start events will differ
-        del checkpoint_a['state']['callbacks']['EventCounterCallback']
-        del checkpoint_b['state']['callbacks']['EventCounterCallback']
-
-        # Remove the wall clock time
-        del checkpoint_a['state']['timestamp']['Timestamp']['total_wct']
-        del checkpoint_a['state']['timestamp']['Timestamp']['epoch_wct']
-        del checkpoint_a['state']['timestamp']['Timestamp']['batch_wct']
-        del checkpoint_b['state']['timestamp']['Timestamp']['total_wct']
-        del checkpoint_b['state']['timestamp']['Timestamp']['epoch_wct']
-        del checkpoint_b['state']['timestamp']['Timestamp']['batch_wct']
-
-        # Remove run_name, since it's a function of time
-        del checkpoint_a['state']['run_name']
-        del checkpoint_b['state']['run_name']
-
-        deep_compare(checkpoint_a, checkpoint_b)
-
-        if 'model' not in checkpoint_a['state']:
-            assert 'optimizer' not in checkpoint_a['state']
-            assert 'model' not in checkpoint_b['state']
-            assert 'optimizer' not in checkpoint_b['state']
-            # it is a deepspeed checkpoint
-            # TODO manually compare the model and optimizer states
+    with tempfile.TemporaryDirectory as tmp_dir:
+        with tarfile.open(filename) as tarball:
+            tarball.extractall(tmp_dir)
+        states_path = os.path.join(tmp_dir, 'composer_states.pt')
+        return torch.load(states_path, map_location='cpu')
 
 
 @pytest.mark.parametrize(
@@ -365,33 +328,185 @@ class TestCheckpointLoading:
         trainer_3.fit(duration='1ba')
 
 
-@pytest.mark.parametrize('world_size', [
-    pytest.param(1),
-    pytest.param(2, marks=pytest.mark.world_size(2)),
-])
-@pytest.mark.parametrize('device,deepspeed_enabled,zero_stage', [
-    pytest.param('cpu', False, None, id='cpu-ddp'),
-    pytest.param('gpu', False, None, id='gpu-ddp', marks=pytest.mark.gpu),
-    pytest.param('gpu', True, 0, id='deepspeed-zero0', marks=pytest.mark.gpu),
-    pytest.param('gpu', True, 1, id='deepspeed-zero1', marks=pytest.mark.gpu),
-    pytest.param('gpu', True, 2, id='deepspeed-zero2', marks=pytest.mark.gpu),
-])
-@pytest.mark.parametrize(
-    'seed,save_interval,save_filename,resume_file,final_checkpoint',
-    [
-        [None, '1ep', 'ep{epoch}-rank{rank}.pt', 'ep1-rank{rank}.pt', 'latest-rank{rank}.pt'
-        ],  # test randomized seed saving and symlinking
-        [42, '1ep', 'ep{epoch}-rank{rank}.pt', 'ep1-rank{rank}.pt', 'ep2-rank{rank}.pt'],  # test save at epoch end
-        [42, '1ep', 'ep{epoch}-rank{rank}.tgz', 'ep1-rank{rank}.tgz', 'ep2-rank{rank}.tgz'
-        ],  # test tarball with compression
-        [42, '2ba', 'ba{batch}-rank{rank}.pt', 'ba4-rank{rank}.pt', 'ba8-rank{rank}.pt'
-        ],  # test save batch in partial epoch
-        [42, '1ba', 'ba{batch}-rank{rank}.pt', 'ba5-rank{rank}.pt', 'ba8-rank{rank}.pt'
-        ],  # test save batch at epoch end
-        [42, '2ba', 'ba{batch}-rank{rank}.pt', 'ba6-rank{rank}.pt', 'ba8-rank{rank}.pt'
-        ],  # test save batch after complete epoch
-    ],
-)
+class TestCheckpointResumption:
+
+    def get_trainer(self, **kwargs):
+        model = SimpleConvModel()
+        optimizer = torch.optim.Adam(model.parameters())
+
+        return Trainer(
+            model=model,
+            train_dataloader=DataLoader(
+                dataset=RandomImageDataset(),
+                batch_size=8,
+                shuffle=False,
+            ),
+            eval_dataloader=DataLoader(
+                dataset=RandomImageDataset(),
+                batch_size=16,
+                shuffle=False,
+            ),
+            grad_accum=2,
+            precision='fp32',
+            train_subset_num_batches=5,
+            max_duration='2ep',
+            optimizers=optimizer,
+            schedulers=ExponentialScheduler(gamma=0.9),
+            **kwargs,
+        )
+
+    @pytest.mark.parametrize('world_size', [
+        pytest.param(1),
+        pytest.param(2, marks=pytest.mark.world_size(2)),
+    ])
+    @pytest.mark.parametrize('device,deepspeed_zero_stage', [
+        pytest.param('cpu', None, id='cpu-ddp'),
+        pytest.param('gpu', None, id='gpu-ddp', marks=pytest.mark.gpu),
+        pytest.param('gpu', 0, id='deepspeed-zero0', marks=pytest.mark.gpu),
+        pytest.param('gpu', 1, id='deepspeed-zero1', marks=pytest.mark.gpu),
+        pytest.param('gpu', 2, id='deepspeed-zero2', marks=pytest.mark.gpu),
+    ])
+    @pytest.mark.parametrize(
+        'seed,save_interval,save_filename,resume_file,final_checkpoint',
+        [
+            [None, '1ep', 'ep{epoch}-rank{rank}.pt', 'ep1-rank{rank}.pt', 'latest-rank{rank}.pt'
+            ],  # test randomized seed saving and symlinking
+            [42, '1ep', 'ep{epoch}-rank{rank}.pt', 'ep1-rank{rank}.pt', 'ep2-rank{rank}.pt'],  # test save at epoch end
+            [42, '1ep', 'ep{epoch}-rank{rank}.tgz', 'ep1-rank{rank}.tgz', 'ep2-rank{rank}.tgz'
+            ],  # test tarball with compression
+            [42, '2ba', 'ba{batch}-rank{rank}.pt', 'ba4-rank{rank}.pt', 'ba8-rank{rank}.pt'
+            ],  # test save batch in partial epoch
+            [42, '1ba', 'ba{batch}-rank{rank}.pt', 'ba5-rank{rank}.pt', 'ba8-rank{rank}.pt'
+            ],  # test save batch at epoch end
+            [42, '2ba', 'ba{batch}-rank{rank}.pt', 'ba6-rank{rank}.pt', 'ba8-rank{rank}.pt'
+            ],  # test save batch after complete epoch
+        ],
+    )
+    def test_resumption(
+        self,
+        device: str,
+        world_size: int,
+        deepspeed_zero_stage: Optional[int],
+        save_interval: str,
+        save_filename: str,
+        resume_file: str,
+        final_checkpoint: str,
+        seed: Optional[int],
+        tmp_path: pathlib.Path,
+    ):
+
+        # all ranks use rank 0 folder
+        tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
+        save_folder = pathlib.Path(tmp_paths[0])
+
+        if deepspeed_zero_stage:
+            deepspeed_config = {'zero_optimization': {'stage': deepspeed_zero_stage}}
+        else:
+            deepspeed_config = None
+
+        trainer_1 = self.get_trainer(
+            save_folder=save_folder / 'first',
+            save_filename=save_filename,
+            save_interval=save_interval,
+            eval_interval=save_interval,
+            deepspeed_config=deepspeed_config,
+            seed=seed,
+            device=device,
+        )
+
+        trainer_1.fit()
+        trainer_1.close()
+
+        self._assert_expected_num_checkpoints(
+
+        )
+
+        resume_file = os.path.join(save_folder, resume_file)
+
+        trainer_2 = self.get_trainer(
+            save_folder=save_folder / 'second',
+            save_filename=save_filename,
+            save_interval=save_interval,
+            eval_interval=save_interval,
+            deepspeed_config=deepspeed_config,
+            seed=seed,
+            device=device,
+            load_path=resume_file,  # <-- resume training from file
+        )
+        trainer_2.fit()
+        trainer_2.close()
+
+        self._assert_checkpoints_equivalent(
+            save_folder / 'first' / final_checkpoint,
+            save_folder / 'second' / final_checkpoint,
+        )
+
+    def _assert_checkpoints_equivalent(self, file1, file2):
+        checkpoint_1 = _load_checkpoint(file1)
+        checkpoint_2 = _load_checkpoint(file2)
+
+        # Remove the wall clock time
+        del checkpoint_1['state']['timestamp']['Timestamp']['total_wct']
+        del checkpoint_1['state']['timestamp']['Timestamp']['epoch_wct']
+        del checkpoint_1['state']['timestamp']['Timestamp']['batch_wct']
+        del checkpoint_2['state']['timestamp']['Timestamp']['total_wct']
+        del checkpoint_2['state']['timestamp']['Timestamp']['epoch_wct']
+        del checkpoint_2['state']['timestamp']['Timestamp']['batch_wct']
+
+        # Remove run_name, since it's a function of time
+        del checkpoint_1['state']['run_name']
+        del checkpoint_2['state']['run_name']
+
+        deep_compare(checkpoint_1, checkpoint_2)
+
+        # deepspeed checkpoints do not have model or optimizer
+        # so either model, optimizer should be in all checkpoints or in none
+        keys_in = (
+            'model' in checkpoint_1['state'],
+            'optimizer' in checkpoint_1['state'],
+            'model' in checkpoint_2['state'],
+            'optimizer' in checkpoint_2['state'],
+        )
+        assert all(keys_in) or not any(keys_in)
+
+    def _assert_expected_num_checkpoints(self, save_folder, save_interval, trainer: Trainer):
+        assert trainer.state.max_duration is not None
+        num_epochs = trainer.state.max_duration.value
+
+        save_interval = Time.from_timestring(save_interval)
+        if save_interval.unit == TimeUnit.EPOCH:
+            expected_num_files = ((num_epochs - 1) // save_interval.value) + 1
+        else:
+            expected_num_files = (num_batches * num_epochs - 1) // save_interval.value) + 1
+
+
+
+
+
+
+         save_interval_time = Time.from_timestring(save_interval)
+    if save_interval_time.unit == TimeUnit.EPOCH:
+        expected_num_checkpoints = ((num_epochs - 1) // save_interval_time.value) + 1
+    else:
+        expected_num_checkpoints = (
+            (composer_trainer_hparams.train_subset_num_batches * num_epochs - 1) // save_interval_time.value) + 1
+    checkpoint_saver = None
+    for callback in first_trainer.state.callbacks:
+        if isinstance(callback, CheckpointSaver):
+            checkpoint_saver = callback
+    assert checkpoint_saver is not None
+
+    file_was_saved = dist.get_global_rank() == 0 or deepspeed_enabled
+    if not file_was_saved:
+        expected_num_checkpoints = 0
+
+    assert len(checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
+
+
+
+
+
+
 @pytest.mark.parametrize('model_name', [
     None,
     pytest.param('resnet50_synthetic', marks=pytest.mark.daily),
