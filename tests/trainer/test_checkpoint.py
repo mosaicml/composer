@@ -238,6 +238,7 @@ class TestCheckpointLoading:
 
         trainer_1 = self.get_trainer(save_folder='first', device=device)
         trainer_1.fit()
+        trainer_1.close()
 
         last_checkpoint = os.path.join('first', 'ep2.pt')
         trainer_2 = self.get_trainer(
@@ -262,6 +263,7 @@ class TestCheckpointLoading:
             run_name='electric-zebra',
         )
         trainer_1.fit()
+        trainer_1.close()
 
         trainer_2 = self.get_trainer(
             loggers=[self.get_logger(tmp_path)],
@@ -303,6 +305,7 @@ class TestCheckpointLoading:
 
         # trains the model, saving the checkpoint files
         trainer_1.fit()
+        trainer_1.close()
 
         if delete_local:
             # delete files locally, forcing trainer to look in object store
@@ -313,7 +316,7 @@ class TestCheckpointLoading:
             device=device,
             run_name='big-chungus',
             autoresume=True,
-            load_path='ignored.pt',  # this should be ignored
+            load_path='ignore_me.pt',  # this should be ignored
             loggers=[self.get_logger(tmp_path)] if use_object_store else [],
         )
 
@@ -335,6 +338,7 @@ class TestCheckpointLoading:
             device=device,
         )
         trainer_1.fit()
+        trainer_1.close()
 
         if save_overwrite:
             ctx = contextlib.nullcontext
