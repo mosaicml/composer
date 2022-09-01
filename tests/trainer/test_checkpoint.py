@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
 import copy
 import os
 import pathlib
@@ -25,7 +26,7 @@ from composer.core.time import Time, TimeUnit, ensure_time
 from composer.datasets.dataset_hparams import DatasetHparams
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.loggers import ObjectStoreLogger
-from composer.optim import CosineAnnealingScheduler
+from composer.optim import CosineAnnealingScheduler, ExponentialScheduler
 from composer.optim.optimizer_hparams_registry import AdamWHparams
 from composer.trainer.devices import Device, DeviceGPU
 from composer.trainer.devices.device_cpu import DeviceCPU
@@ -230,234 +231,170 @@ def test_ignore_params(remove_field_paths: List[List[str]], filter_params: List[
     assert base_dict == new_dict
 
 
-@device('cpu', 'gpu')
-def test_load_weights(
-    device: str,
-    composer_trainer_hparams: TrainerHparams,
-):
-    """strategy:
-    - train two epochs. capture checkpoints after `save_interval` and ep2.
-    - create a new trainer from the `save_interval` checkpoint, but with a new optimizer and scheduler.
-    - assert that the model weights are the original model, even though the optimizer and scheduler are different.
-    """
-    if not isinstance(composer_trainer_hparams.train_dataset, SyntheticHparamsMixin):
-        pytest.skip('Checkpointing tests require synthetic data')
-        return
-    if not isinstance(composer_trainer_hparams.val_dataset, SyntheticHparamsMixin):
-        pytest.skip('Checkpointing tests require synthetic data')
-        return
-    checkpoint_a_folder = 'first'
-    final_checkpoint = 'ep2.pt'
-    composer_trainer_hparams = get_two_epoch_composer_hparams(composer_trainer_hparams, checkpoint_a_folder)
+class TestCheckpointLoading:
 
-    second_trainer_hparams = copy.deepcopy(composer_trainer_hparams)
-    _test_checkpoint_trainer(composer_trainer_hparams)
+    def _assert_weights_equivalent(self, m1: torch.nn.Module, m2: torch.nn.Module):
+        for p1, p2 in zip(m1.parameters(), m2.parameters()):
+            torch.testing.assert_close(p1, p2)
 
-    # Reduce the filepath to get the location on the rank zero process
-    checkpoint_a_file_path = [os.path.join(os.path.abspath(checkpoint_a_folder), final_checkpoint)]
-    dist.broadcast_object_list(checkpoint_a_file_path)
+    def get_trainer(self, **kwargs):
+        model = SimpleConvModel(),
+        optimizer = torch.optim.Adam(model.parameters())
 
-    # load only model weights
-    second_trainer_hparams.load_path = checkpoint_a_file_path[0]
-    second_trainer_hparams.load_weights_only = True
-    second_trainer_hparams.load_strict_model_weights = True
-    # setup a new optimizer
-    second_trainer_hparams.optimizers = AdamWHparams()
+        return Trainer(
+            train_dataloader=DataLoader(
+                dataset=RandomImageDataset(),
+                batch_size=8,
+            ),
+            eval_dataloader=DataLoader(
+                dataset=RandomImageDataset(),
+                batch_size=16,
+            ),
+            grad_accum=2,
+            precision='fp32',
+            train_subset_num_batches=5,
+            save_interval='1ep',
+            eval_interval='1ba',
+            save_filename='ep{epoch}.pt',
+            max_duration='2ep',
+            optimizers=optimizer,
+            schedulers=ExponentialScheduler(gamma=0.9),
+            **kwargs,
+        )
 
-    # setup a new LR scheduler
-    assert isinstance(second_trainer_hparams.max_duration, str)
-    second_trainer_hparams.schedulers = [CosineAnnealingScheduler(t_max=second_trainer_hparams.max_duration)]
-
-    # ensure our new choice of scheduler is different than the original scheduler
-    for idx in range(len(second_trainer_hparams.schedulers)):
-        if idx < len(ensure_tuple(composer_trainer_hparams.schedulers)):
-            assert second_trainer_hparams.schedulers[idx] != ensure_tuple(composer_trainer_hparams.schedulers)[idx]
-
-    # pass in the two trainers, verify that the weights are the same
-    assert_weights_equivalent(
-        original_trainer_hparams=composer_trainer_hparams,
-        new_trainer_hparams=second_trainer_hparams,
-    )
-
-
-@device('cpu', 'gpu')
-@pytest.mark.parametrize('use_object_store,delete_local_checkpoint', [
-    pytest.param(False, False),
-    pytest.param(True, False),
-    pytest.param(True, True),
-])
-def test_autoresume(
-    device: str,
-    composer_trainer_hparams: TrainerHparams,
-    use_object_store: bool,
-    delete_local_checkpoint: bool,
-    tmp_path: pathlib.Path,
-    use_procs: bool = False,
-):
-    """strategy:
-    - train two epochs. capture checkpoints after `save_interval` and ep2.
-    - create a new trainer with autoresume=True.
-    - assert that the model weights are the original model even though load_path is not set.
-    """
-    del device  # unused. Set automatically
-    if not isinstance(composer_trainer_hparams.train_dataset, SyntheticHparamsMixin):
-        pytest.skip('Checkpointing tests require synthetic data')
-        return
-    if not isinstance(composer_trainer_hparams.val_dataset, SyntheticHparamsMixin):
-        pytest.skip('Checkpointing tests require synthetic data')
-        return
-    if use_object_store:
-        pytest.importorskip('libcloud')
-
-    checkpoint_a_folder = 'first'
-    checkpoint_b_folder = 'second'
-    middle_checkpoint = 'ep1.pt'
-    final_checkpoint = 'ep2.pt'
-    latest_checkpoint = composer_trainer_hparams.save_latest_filename.format(rank=dist.get_global_rank())
-    composer_trainer_hparams = get_two_epoch_composer_hparams(composer_trainer_hparams, checkpoint_a_folder)
-    composer_trainer_hparams.run_name = 'big-chungus'
-    second_trainer_hparams = copy.deepcopy(composer_trainer_hparams)
-    # Add object store logger
-    if use_object_store:
+    def get_logger(self, tmp_path: pathlib.Path):
+        """Returns an object store logger that saves locally."""
         remote_dir = str(tmp_path / 'object_store')
         os.makedirs(remote_dir, exist_ok=True)
-        for hparams in [composer_trainer_hparams, second_trainer_hparams]:
-            object_store_logger = ObjectStoreLogger(
-                object_store_cls=LibcloudObjectStore,
-                object_store_kwargs={
-                    'provider': 'local',
-                    'container': '.',
-                    'provider_kwargs': {
-                        'key': remote_dir,
-                    },
+
+        return ObjectStoreLogger(
+            object_store_cls=LibcloudObjectStore,
+            object_store_kwargs={
+                'provider': 'local',
+                'container': '.',
+                'provider_kwargs': {
+                    'key': remote_dir,
                 },
-                num_concurrent_uploads=1,
-                use_procs=use_procs,
-                upload_staging_folder=str(tmp_path / 'staging_folder'),
+            },
+            num_concurrent_uploads=1,
+            use_procs=False,
+            upload_staging_folder=str(tmp_path / 'staging_folder'),
+        )
+
+    @device('cpu', 'gpu')
+    def test_load_weights(self, device):
+
+        trainer_1 = self.get_trainer(save_folder='first', device=device)
+        trainer_1.fit()
+
+        last_checkpoint = os.path.join('first', 'ep2.pt')
+        trainer_2 = self.get_trainer(
+            load_path=last_checkpoint,
+            load_weights_only=True,
+            load_strict_model_weights=True,
+        )
+
+        # check weights loaded properly
+        self._assert_weights_equivalent(
+            trainer_1.state.model,
+            trainer_2.state.model,
+        )
+
+    def test_load_weights_object_store(self, tmp_path):
+
+        trainer_1 = self.get_trainer(
+            save_folder='first',
+            loggers=[self.get_logger(tmp_path)],
+            run_name='electric-zebra',
+        )
+        trainer_1.fit()
+
+        trainer_2 = self.get_trainer(loggers=[self.get_logger(tmp_path)],
+                                     run_name='electric-zebra',
+                                     load_path='cloud_training_run/checkpoints/latest-rank0',
+                                     load_object_store=self.get_logger(tmp_path))
+
+    # composer_trainer_hparams.callbacks = [DummyStatefulCallback(), EventCounterCallback()]
+
+    @device('cpu', 'gpu')
+    @pytest.mark.parametrize('use_object_store', [True, False])
+    @pytest.mark.parametrize('delete_local', [True, False])
+    def test_autoresume(
+        self,
+        device: str,
+        tmp_path: pathlib.Path,
+        use_object_store: bool,
+        delete_local: bool,
+    ):
+        if delete_local and not use_object_store:
+            pytest.skip('Invalid test setting.')
+
+        if use_object_store:
+            pytest.importorskip('libcloud')
+
+        trainer_1 = self.get_trainer(
+            save_folder='first',
+            device=device,
+            run_name='big-chungus',
+            loggers=[self.get_logger(tmp_path)] if use_object_store else [],
+        )
+
+        # trains the model, saving the checkpoint files
+        trainer_1.fit()
+
+        if delete_local:
+            # delete files locally, forcing trainer to look in object store
+            shutil.rmtree('first')
+
+        trainer_2 = self.get_trainer(
+            save_folder='first',
+            device=device,
+            run_name='big-chungus',
+            autoresume=True,
+            load_path='ignored.pt',  # this should be ignored
+            loggers=[self.get_logger(tmp_path)] if use_object_store else [],
+        )
+
+        # TODO (mihir): should be checking the entire state
+        # not just the model?
+        self._assert_weights_equivalent(
+            trainer_1.state.model,
+            trainer_2.state.model,
+        )
+
+        assert trainer_1.state.run_name == trainer_2.state.run_name
+
+    @device('cpu', 'gpu')
+    @pytest.mark.parametrize('save_overwrite', [True, False])
+    def test_save_overwrite(self, device, save_overwrite):
+
+        trainer_1 = self.get_trainer(
+            save_folder='first',
+            device=device,
+        )
+        trainer_1.fit()
+
+        if save_overwrite:
+            ctx = contextlib.nullcontext
+        else:
+            ctx = pytest.raises(FileExistsError)
+
+        with ctx():  # expect FileExistsError if save_overwrite=False
+            trainer_2 = self.get_trainer(
+                load_path=os.path.join('first', 'ep1.pt'),
+                save_overwrite=save_overwrite,
+                device=device,
             )
-            hparams.loggers = [object_store_logger]
+            trainer_2.fit(duration='1ba')
 
-    _test_checkpoint_trainer(composer_trainer_hparams)
-
-    # Create checkpoint in seperate folder to load. Optionally delete original checkpoint by moving it.
-    if delete_local_checkpoint:
-        shutil.move(checkpoint_a_folder, checkpoint_b_folder)
-    else:
-        shutil.copytree(checkpoint_a_folder, checkpoint_b_folder, symlinks=True)
-    # Recreate symlink in new folder
-    new_latest_path = os.path.join(checkpoint_b_folder, latest_checkpoint)
-    os.remove(new_latest_path)
-    os.symlink(final_checkpoint, new_latest_path)
-
-    # Original trainer loads from filesystem using load_path
-    composer_trainer_hparams.load_path = os.path.join(checkpoint_b_folder, latest_checkpoint)
-
-    # re-create the trainer from the YAML
-    second_trainer_hparams.autoresume = True
-    # This should be ignored with autoresume
-    second_trainer_hparams.load_path = middle_checkpoint
-
-    # pass in the two trainers, verify that the weights are the same and run_name is same
-    trainer, second_trainer = assert_weights_equivalent(original_trainer_hparams=composer_trainer_hparams,
-                                                        new_trainer_hparams=second_trainer_hparams,
-                                                        overwrite_load_path=False,
-                                                        save_overwrite=False)
-    assert trainer.state.run_name == second_trainer.state.run_name
-
-
-@device('cpu', 'gpu')
-def test_different_run_names(
-    device: Device,
-    composer_trainer_hparams: TrainerHparams,
-):
-    """strategy:
-    - train two epochs and save checkpoints
-    - load checkpoint with two different hparams and verify run_names are different as
-        run_name should only be loaded from checkpoint if using autoresume
-    """
-    del device
-    if not isinstance(composer_trainer_hparams.train_dataset, SyntheticHparamsMixin):
-        pytest.skip('Checkpointing tests require synthetic data')
-        return
-    if not isinstance(composer_trainer_hparams.val_dataset, SyntheticHparamsMixin):
-        pytest.skip('Checkpointing tests require synthetic data')
-        return
-    # Train original checkpoints
-    checkpoint_a_folder = 'first'
-    final_checkpoint = 'ep2.pt'
-    composer_trainer_hparams = get_two_epoch_composer_hparams(composer_trainer_hparams, checkpoint_a_folder)
-    composer_trainer_hparams.save_overwrite = True
-    composer_trainer_hparams.load_weights_only = False
-    composer_trainer_hparams.load_strict_model_weights = False
-    _test_checkpoint_trainer(composer_trainer_hparams)
-    composer_trainer_hparams.load_path = os.path.join(checkpoint_a_folder, final_checkpoint)
-
-    # Create new trainer and change seed for new run_name generation
-    second_trainer_hparams = copy.deepcopy(composer_trainer_hparams)
-    second_trainer_hparams.seed = 2
-
-    trainer_a = composer_trainer_hparams.initialize_object()
-    trainer_b = second_trainer_hparams.initialize_object()
-
-    assert trainer_a.state.run_name != trainer_b.state.run_name
-
-
-@device('cpu', 'gpu')
-@pytest.mark.parametrize('save_overwrite', [
-    True,
-    False,
-])
-def test_save_overwrite(
-    device: Device,
-    composer_trainer_hparams: TrainerHparams,
-    save_overwrite: bool,
-):
-    """strategy:
-    - train two epochs. capture checkpoints after `save_interval` and ep2.
-    - create a new trainer from the `save_interval` checkpoint, but with a new optimizer and scheduler.
-    - assert that the model weights are the original model, even though the optimizer and scheduler are different.
-    """
-    del device
-    if not isinstance(composer_trainer_hparams.train_dataset, SyntheticHparamsMixin):
-        pytest.skip('Checkpointing tests require synthetic data')
-        return
-    if not isinstance(composer_trainer_hparams.val_dataset, SyntheticHparamsMixin):
-        pytest.skip('Checkpointing tests require synthetic data')
-        return
-
-    checkpoint_a_folder = 'first'
-    middle_checkpoint = 'ep1.pt'
-    final_checkpoint = 'ep2.pt'
-    composer_trainer_hparams = get_two_epoch_composer_hparams(composer_trainer_hparams, checkpoint_a_folder)
-    composer_trainer_hparams.save_overwrite = save_overwrite
-    middle_trainer_hparams = copy.deepcopy(composer_trainer_hparams)
-    final_trainer_hparams = copy.deepcopy(composer_trainer_hparams)
-    _test_checkpoint_trainer(composer_trainer_hparams)
-
-    # re-create the trainers from the YAMLs and move filepaths to rank zero process
-    middle_checkpoint_path = [os.path.join(os.path.abspath(checkpoint_a_folder), middle_checkpoint)]
-    dist.broadcast_object_list(middle_checkpoint_path)
-    final_checkpoint_path = [os.path.join(os.path.abspath(checkpoint_a_folder), final_checkpoint)]
-    dist.broadcast_object_list(final_checkpoint_path)
-
-    # load model from middle checkpoint
-    middle_trainer_hparams.load_path = middle_checkpoint_path[0]
-    if save_overwrite:
-        # succesfully load if save_overwrite is True
-        trainer = middle_trainer_hparams.initialize_object()
-        # Train for a minimal amount of time
-        trainer.fit(duration='1ba')
-    else:
-        # raise FileExistsError if save_overwrite is False
-        with pytest.raises(FileExistsError):
-            trainer = middle_trainer_hparams.initialize_object()
-            # Train for a minimal amount of time
-            trainer.fit(duration='1ba')
-
-    # load model from last checkpoint, which should work regardless of save_overwrite
-    final_trainer_hparams.load_path = final_checkpoint_path[0]
-    trainer = final_trainer_hparams.initialize_object()
-    trainer.fit(duration='1ba')
+        # loading from the last checkpoint should work regardless
+        # of save_overwrite, as new checkpoints are later in time.
+        trainer_3 = self.get_trainer(
+            load_path=os.path.join('first', 'ep2.pt'),
+            save_overwrite=save_overwrite,
+            device=device,
+        )
+        trainer_3.fit(duration='1ba')
 
 
 def test_checkpoint_with_object_store_logger(
