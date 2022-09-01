@@ -3,7 +3,6 @@
 
 import os
 import pathlib
-from typing import Dict, List
 
 import pytest
 import torch
@@ -176,52 +175,56 @@ def test_ddp(device: str, world_size: int, dummy_model_hparams: ModelHparams, de
 
     trainer.fit()
 
-    expected_train_num_loads = max_epochs * train_batch_size * train_subset_num_batches
-    #expected_val_num_loads = max_epochs * hparams.eval_batch_size * hparams.eval_subset_num_batches
-    expected_val_num_loads = 0
-    for _ in trainer.state.evaluators:
-        expected_val_num_loads += max_epochs * eval_batch_size * eval_subset_num_batches
+    expected_train_samples = max_epochs * train_batch_size * train_subset_num_batches
 
-    # adding hparams.eval_batch_size to account for the extra spin of the evaluator dataloaders
-    # that is called to create a deterministic ordering for the sampler
-    for _ in trainer.state.evaluators:
-        expected_val_num_loads += eval_batch_size
+    expected_val_samples = max_epochs * eval_batch_size * eval_subset_num_batches
+    # account for extra spin to create deterministic ordering
+    expected_val_samples += eval_batch_size
 
-    actual_train_num_loads = 0
-    actual_val_num_loads = 0
+    actual_train_samples = _read_tracked_results(tmp_path, is_train=True)
+    actual_val_samples = _read_tracked_results(tmp_path, is_train=False)
 
-    rank_to_tmp_path = [pathlib.Path(x) for x in dist.all_gather_object(str(tmp_path))]
+    assert expected_train_samples == actual_train_samples
+    assert expected_val_samples == actual_val_samples
 
-    for rank_tmp_path in rank_to_tmp_path:
-        with open(get_file_path(is_train=True, tmp_path=rank_tmp_path), 'r') as f:
-            actual_train_num_loads += int(f.read())
-        with open(get_file_path(is_train=False, tmp_path=rank_tmp_path), 'r') as f:
-            actual_val_num_loads += int(f.read())
-    assert actual_train_num_loads == expected_train_num_loads, f'actual_train_num_loads({actual_train_num_loads}) != expected_train_num_loads({expected_train_num_loads})'
-    assert actual_val_num_loads == expected_val_num_loads, f'actual_val_num_loads({actual_val_num_loads}) != expected_val_num_loads({expected_val_num_loads})'
+    if not deepspeed:
+        _assert_inputs_different(tmp_path, max_epochs, is_train=True)
+        _assert_inputs_different(tmp_path, max_epochs, is_train=False)
 
-    is_train_to_pickles: Dict[bool, List[Dict[str, torch.Tensor]]] = {True: [], False: []}
 
-    if deepspeed:
-        # it is not possible to save individual batches when using deepspeed
-        return
+def _read_tracked_results(path, is_train):
 
+    # get all paths across ranks
+    paths = [pathlib.Path(p) for p in dist.all_gather_object(str(path))]
+
+    counter = 0
+    for p in paths:
+        with open(get_file_path(is_train=is_train, tmp_path=p), 'r') as f:
+            counter += int(f.read())
+    return counter
+
+
+def _assert_inputs_different(tmp_path, max_epochs, is_train):
+    """Checks that each rank's dataloader input is different."""
+
+    inputs = []
+    targets = []
     for epoch in range(max_epochs):
-        for is_train in (True, False):
-            real_epoch = epoch if is_train else epoch + 1  # validation is 1 ahead of training
-            data: Dict[str, torch.Tensor] = torch.load(
-                get_batch_file_path(
-                    epoch=real_epoch,
-                    is_train=is_train,
-                    tmp_path=tmp_path,
-                ),
-                map_location='cpu',
-            )
-            for pickle in is_train_to_pickles[is_train]:
-                assert not torch.all(
-                    data['last_input'] == pickle['last_input']
-                ), f'inputs are the same for is_train={is_train}, epoch={epoch}, rank={dist.get_global_rank()}'
-                assert not torch.all(
-                    data['last_target'] == pickle['last_target']
-                ), f'targets are the same for is_train={is_train}, epoch={epoch}, rank={dist.get_global_rank()}'
-            is_train_to_pickles[is_train].append(data)
+
+        file_path = get_batch_file_path(
+            epoch=epoch if is_train else epoch + 1,  # val is 1 ahead
+            is_train=is_train,
+            tmp_path=tmp_path,
+        )
+        state_dict = torch.load(file_path, map_location='cpu')
+
+        for input in inputs:
+            if torch.allclose(state_dict['last_input'], input):
+                raise ValueError(f'Tensors equal for epoch {epoch}, rank {dist.get_global_rank()}')
+
+        for target in targets:
+            if torch.allclose(state_dict['last_target'], target):
+                raise ValueError(f'Tensors equal for epoch {epoch}, rank {dist.get_global_rank()}')
+
+        inputs.append(state_dict['last_input'])
+        targets.append(state_dict['last_target'])
