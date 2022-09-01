@@ -70,8 +70,8 @@ class HuggingFaceModel(ComposerModel):
             self.model_inputs = set(tokenizer.model_input_names)
 
             # set model's word embedding matrix and final lm_head to vocab size according to tokenizer
-            log.warning(f"The number of tokens in the tokenizer and the number of tokens in the model are different."
-                        f" Resizing the model tokenizer to {len(tokenizer)} from {self.config.vocab_size}.")
+            log.warning(f'The number of tokens in the tokenizer and the number of tokens in the model are different.'
+                        f' Resizing the model tokenizer to {len(tokenizer)} from {self.config.vocab_size}.')
             self.model.resize_token_embeddings(len(tokenizer))
 
         self.use_logits = use_logits
