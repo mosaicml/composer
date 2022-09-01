@@ -42,14 +42,8 @@ def _main():
 
     trainer = hparams.initialize_object()
 
-    # if using wandb, store the config inside the wandb run
-    try:
-        import wandb
-    except ImportError:
-        pass
-    else:
-        if wandb.run is not None:
-            wandb.config.update(hparams.to_dict())
+    # Log all hyperparameters.
+    trainer.logger.log_hyperparameters(hparams.to_dict())
 
     # Only log the config once, since it should be the same on all ranks.
     if dist.get_global_rank() == 0:

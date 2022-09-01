@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
+
 from composer.core.state import State
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
@@ -21,11 +22,11 @@ class CometMLLogger(LoggerDestination):
     Args:
         workspace (str, optional): The name of the workspace which contains the project
             you want to attach your experiment to. If nothing specified will default to your
-            default workspace as configured at `www.comet.com <https://www.comet.com>`.
-        project_name (str, optional): The name of the project to categorize your experiment in. 
+            default workspace as configured in your comet account settings.
+        project_name (str, optional): The name of the project to categorize your experiment in.
             A new project with this name will be created under the Comet workspace if one
-            with this name does not exist. If no project name specified, the experiment will go 
-            under 'Uncategorized Experiments'. 
+            with this name does not exist. If no project name specified, the experiment will go
+            under Uncategorized Experiments.
         log_code (bool): Whether to log your code in your experiment (default: ``False``).
         log_graph (bool): Whether to log your computational graph in your experiment
             (default: ``False``).
@@ -33,9 +34,9 @@ class CometMLLogger(LoggerDestination):
             to :attr:`.State.run_name`.
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process.
             (default: ``False``).
-        init_kwargs (Dict[str, Any], optional): Any additional init kwargs
-            ``wandb.init`` (see
-            `WandB do`cumentation <https://docs.wandb.ai/ref/python/init>`_).
+        exp_kwargs (Dict[str, Any], optional): Any additional kwargs to
+            comet_ml.Experiment(see
+            `Comet documentation <https://www.comet.com/docs/v2/api-and-sdk/python-sdk/reference/Experiment/>`_).
     """
 
     def __init__(
@@ -46,10 +47,10 @@ class CometMLLogger(LoggerDestination):
         log_graph: bool = False,
         name: Optional[str] = None,
         rank_zero_only: bool = True,
-        init_kwargs: Optional[Dict[str, Any]] = None,
+        exp_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
         try:
-            import comet_ml
+            from comet_ml import Experiment
         except ImportError as e:
             raise MissingConditionalImportError(extra_deps_group='comet_ml',
                                                 conda_package='comet_ml',
@@ -57,23 +58,22 @@ class CometMLLogger(LoggerDestination):
 
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
-        if init_kwargs is None:
-            init_kwargs = {}
+        if exp_kwargs is None:
+            exp_kwargs = {}
 
         if workspace is not None:
-            init_kwargs['workspace'] = workspace
+            exp_kwargs['workspace'] = workspace
 
         if project_name is not None:
-            init_kwargs['project_name'] = project_name
+            exp_kwargs['project_name'] = project_name
 
-        init_kwargs['log_code'] = log_code
-        init_kwargs['log_graph'] = log_graph
-
+        exp_kwargs['log_code'] = log_code
+        exp_kwargs['log_graph'] = log_graph
 
         self.name = name
         self._rank_zero_only = rank_zero_only
-        self._init_kwargs = init_kwargs
-        self.experiment = Optional[comet_ml.Experiment] = None
+        self._exp_kwargs = exp_kwargs
+        self.experiment: Optional[Experiment] = None
 
     def init(self, state: State, logger: Logger) -> None:
         import comet_ml
@@ -88,14 +88,15 @@ class CometMLLogger(LoggerDestination):
             self.name += f'-rank{dist.get_global_rank()}'
 
         if self._enabled:
-            self.experiment = comet_ml.Experiment(**self._init_kwargs)
+            self.experiment = comet_ml.Experiment(**self._exp_kwargs)
             self.experiment.set_name(self.name)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:
+            assert self.experiment is not None
             self.experiment.log_metrics(dic=metrics, step=step)
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         if self._enabled:
+            assert self.experiment is not None
             self.experiment.log_parameters(hyperparameters)
-
