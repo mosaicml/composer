@@ -12,7 +12,7 @@ import tempfile
 import textwrap
 import time
 from glob import glob
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import pytest
 import torch
@@ -34,10 +34,9 @@ from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, is_tar
 from composer.utils.checkpoint import glob_filter
 from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
-from tests.common import (EventCounterCallback, configure_dataset_hparams_for_synthetic,
-                          configure_model_hparams_for_synthetic, deep_compare, device)
-from tests.common.datasets import RandomImageDataset
-from tests.common.models import SimpleConvModel
+from tests.common import (EventCounterCallback, RandomImageDataset, SimpleConvModel,
+                          configure_dataset_hparams_for_synthetic, configure_model_hparams_for_synthetic, deep_compare,
+                          device)
 
 
 class DummyStatefulCallback(Callback):
@@ -53,34 +52,6 @@ class DummyStatefulCallback(Callback):
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
         self.random_value = state['random_value']
-
-
-def assert_weights_equivalent(original_trainer_hparams: TrainerHparams,
-                              new_trainer_hparams: TrainerHparams,
-                              overwrite_load_path=True,
-                              save_overwrite=True) -> Tuple[Trainer, Trainer]:
-    """
-    Strategy: get the weights from a new trainer
-    Then assert that they are equivalent to the weights from the original model.
-    """
-
-    # load_weights_only is False since the original Trainer is testing full checkpoint recovery
-    if overwrite_load_path:
-        original_trainer_hparams.load_path = new_trainer_hparams.load_path
-    original_trainer_hparams.load_weights_only = False
-    original_trainer_hparams.load_strict_model_weights = False
-    original_trainer_hparams.save_overwrite = save_overwrite
-    original_trainer = original_trainer_hparams.initialize_object()
-    original_weights = original_trainer.state.model.parameters()
-
-    new_trainer_hparams.save_overwrite = save_overwrite
-    new_trainer = new_trainer_hparams.initialize_object()
-    recovered_weights = new_trainer.state.model.parameters()
-
-    for p1, p2 in zip(original_weights, recovered_weights):
-        assert (p1.data == p2.data).all()
-
-    return original_trainer, new_trainer
 
 
 def _load_checkpoint(checkpoint_dir: str, filename: str):
@@ -130,23 +101,6 @@ def assert_checkpoints_equivalent(
             assert 'optimizer' not in checkpoint_b['state']
             # it is a deepspeed checkpoint
             # TODO manually compare the model and optimizer states
-
-
-def get_two_epoch_composer_hparams(composer_trainer_hparams: TrainerHparams, checkpoint_folder: str):
-    composer_trainer_hparams.grad_accum = 2
-    composer_trainer_hparams.loggers = []
-    composer_trainer_hparams.train_batch_size = 8
-    composer_trainer_hparams.eval_batch_size = 16
-    composer_trainer_hparams.max_duration = '2ep'
-    composer_trainer_hparams.precision = Precision.FP32
-    composer_trainer_hparams.callbacks = [DummyStatefulCallback(), EventCounterCallback()]
-    composer_trainer_hparams.train_subset_num_batches = 5
-    composer_trainer_hparams.save_folder = checkpoint_folder
-    composer_trainer_hparams.save_filename = 'ep{epoch}.pt'
-    composer_trainer_hparams.save_interval = '1ep'
-    composer_trainer_hparams.seed = None
-    composer_trainer_hparams.eval_interval = '1ba'
-    return composer_trainer_hparams
 
 
 @pytest.mark.parametrize(
@@ -403,10 +357,6 @@ class TestCheckpointLoading:
             device=device,
         )
         trainer_3.fit(duration='1ba')
-
-
-class TestCheckpointResumption:
-    pass
 
 
 @pytest.mark.parametrize('world_size', [
