@@ -73,10 +73,9 @@ class CometMLLogger(LoggerDestination):
         self.name = name
         self._rank_zero_only = rank_zero_only
         self._exp_kwargs = exp_kwargs
-        self.experiment: Optional[Experiment] = None
+        self.experiment = Experiment(**self._exp_kwargs)
 
     def init(self, state: State, logger: Logger) -> None:
-        import comet_ml
         del logger  # unused
 
         # Use the logger run name if the name is not set.
@@ -88,15 +87,12 @@ class CometMLLogger(LoggerDestination):
             self.name += f'-rank{dist.get_global_rank()}'
 
         if self._enabled:
-            self.experiment = comet_ml.Experiment(**self._exp_kwargs)
             self.experiment.set_name(self.name)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:
-            assert self.experiment is not None
             self.experiment.log_metrics(dic=metrics, step=step)
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         if self._enabled:
-            assert self.experiment is not None
             self.experiment.log_parameters(hyperparameters)
