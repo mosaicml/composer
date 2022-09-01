@@ -1573,16 +1573,16 @@ class Trainer:
                 if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
                     self.logger.log_metrics({'epoch': int(self.state.timestamp.epoch)})
-                    if self.state.train_metrics is not None:
-                        for _, metric in self.state.train_metrics.items():
-                            # reset the metrics before every epoch
-                            metric.reset()
 
                 dataloader = self.state.dataloader
                 if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                     dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
 
                 for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
+                    # Reset train_metrics on every batch
+                    if self.state.train_metrics is not None:
+                        for _, metric in self.state.train_metrics.items():
+                            metric.reset()
 
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < int(self.state.timestamp.batch_in_epoch):
