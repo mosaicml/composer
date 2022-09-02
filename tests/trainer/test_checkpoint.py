@@ -190,7 +190,10 @@ class TestCheckpointLoading:
     @device('cpu', 'gpu')
     def test_load_weights(self, device):
 
-        trainer_1 = self.get_trainer(save_folder='first', device=device)
+        trainer_1 = self.get_trainer(
+            save_folder='first',
+            device=device,
+        )
         trainer_1.fit()
         trainer_1.close()
 
@@ -199,6 +202,7 @@ class TestCheckpointLoading:
             load_path=last_checkpoint,
             load_weights_only=True,
             load_strict_model_weights=True,
+            device=device,
         )
 
         # check weights loaded properly
