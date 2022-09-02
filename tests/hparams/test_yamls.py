@@ -21,8 +21,8 @@ def recur_generate_yaml_paths(path: str):
 
 
 def generate_yaml_paths():
-    yaml_path = os.path.join(os.path.dirname(pathlib.Path(os.path.abspath(os.path.dirname(__file__)))), 'composer',
-                             'yamls')
+    yaml_path = os.path.join(os.path.dirname(pathlib.Path(os.path.abspath(os.path.dirname(__file__)))), '..',
+                             'composer', 'yamls')
     return recur_generate_yaml_paths(yaml_path)
 
 

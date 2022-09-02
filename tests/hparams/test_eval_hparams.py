@@ -4,14 +4,28 @@
 from composer.core import Event
 from composer.trainer.trainer_hparams import EvaluatorHparams, TrainerHparams
 from tests.common import EventCounterCallback
-from tests.hparams.common import RandomClassificationDatasetHparams
+from tests.hparams.common import DataLoaderHparams, RandomClassificationDatasetHparams, SimpleModelHparams
 
 
-def test_eval_hparams(composer_trainer_hparams: TrainerHparams):
+def test_eval_hparams():
     """Test that `eval_interval` and `eval_subset_num_batches` work when specified via hparams."""
     # Create the trainer from hparams
-    composer_trainer_hparams.eval_interval = '2ep'
-    composer_trainer_hparams.eval_subset_num_batches = 2
+    composer_trainer_hparams = TrainerHparams(
+        model=SimpleModelHparams(),
+        train_dataset=RandomClassificationDatasetHparams(),
+        dataloader=DataLoaderHparams(
+            num_workers=0,
+            persistent_workers=False,
+            pin_memory=False,
+        ),
+        max_duration='2ep',
+        eval_batch_size=1,
+        train_batch_size=1,
+        eval_interval='2ep',
+        eval_subset_num_batches=2,
+        callbacks=[EventCounterCallback()],
+    )
+
     composer_trainer_hparams.evaluators = [
         EvaluatorHparams(
             label='eval1',
@@ -25,9 +39,6 @@ def test_eval_hparams(composer_trainer_hparams: TrainerHparams):
             metric_names=['Accuracy'],
         ),
     ]
-    composer_trainer_hparams.val_dataset = None
-    composer_trainer_hparams.callbacks = [EventCounterCallback()]
-    composer_trainer_hparams.max_duration = '2ep'
     trainer = composer_trainer_hparams.initialize_object()
 
     # Validate that `subset_num_batches` was set correctly
