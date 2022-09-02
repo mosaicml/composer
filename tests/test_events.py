@@ -17,6 +17,7 @@ def test_event_values(event: Event):
     assert event.name.lower() == event.value
 
 
+@pytest.mark.skip
 class TestEventCalls:
 
     eval_subset_num_batches = 5
