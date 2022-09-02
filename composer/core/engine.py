@@ -37,6 +37,7 @@ These orderings are enforced by algorithm passes. The default passes registered 
     * The design of :class:`.Engine` is subject to change in future releases
       to accommodate more complexity as we investigate composition of algorithms.
 
+To generate verbose debug logs for the engine, set the environment variable ``ENGINE_DEBUG=1``.
 
 Trace
 ~~~~~
@@ -65,6 +66,7 @@ from __future__ import annotations
 import atexit
 import contextlib
 import logging
+import os
 import weakref
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -424,7 +426,8 @@ class Engine():
 
         timestamp += f'[event={event.name}]'
 
-        log.debug(f'{timestamp}: {msg}')
+        if os.environ.get('ENGINE_DEBUG', None):
+            log.debug(f'{timestamp}: {msg}')
 
     def close(self) -> None:
         """Shutdown the engine.
