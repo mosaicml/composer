@@ -232,8 +232,6 @@ class TestCheckpointLoading:
             trainer_2.state.model,
         )
 
-    # composer_trainer_hparams.callbacks = [DummyStatefulCallback(), EventCounterCallback()]
-
     @device('cpu', 'gpu')
     @pytest.mark.parametrize('use_object_store', [True, False])
     @pytest.mark.parametrize('delete_local', [True, False])
@@ -439,6 +437,7 @@ class TestCheckpointResumption:
             is_deepspeed=deepspeed_config is not None,
         )
 
+        resume_file = resume_file.format(rank=0)
         resume_file = os.path.join(save_folder, 'first', resume_file)
 
         trainer_2 = self.get_trainer(
@@ -495,17 +494,16 @@ class TestCheckpointResumption:
         num_batches_per_epoch: int,
         is_deepspeed: bool,
     ):
-        # checkpoints only saved by rank 0, unless deepspeed, where all ranks save
-        file_saved = dist.get_global_rank() == 0 or is_deepspeed
-        if not file_saved:
-            expected_num_files = 0
+        interval = Time.from_timestring(save_interval)
+        if interval.unit == TimeUnit.EPOCH:
+            expected_num_files = ((num_epochs - 1) // interval.value) + 1
         else:
-            interval = Time.from_timestring(save_interval)
-            if interval.unit == TimeUnit.EPOCH:
-                expected_num_files = ((num_epochs - 1) // interval.value) + 1
-            else:
-                expected_num_files = ((num_batches_per_epoch * num_epochs - 1) // interval.value) + 1
-            expected_num_files += 1  # account for symlink
+            expected_num_files = ((num_batches_per_epoch * num_epochs - 1) // interval.value) + 1
+        expected_num_files += 1  # account for symlink
+
+        if is_deepspeed:
+            # each rank saves
+            expected_num_files *= dist.get_world_size()
 
         files = os.listdir(save_folder)
         assert len(files) == expected_num_files
