@@ -207,12 +207,13 @@ class TestCheckpointLoading:
             trainer_2.state.model,
         )
 
-        # check other state is different
+        # check callbacks state
         stateful_callbacks_equal = self._stateful_callbacks_equal(
             trainer_1.state.callbacks,
             trainer_2.state.callbacks,
         )
         if load_weights_only:
+            # callback state should not have been loaded
             assert not stateful_callbacks_equal
         else:
             assert stateful_callbacks_equal
