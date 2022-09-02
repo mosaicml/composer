@@ -73,6 +73,7 @@ Next we will connect to our newly launched `p4d.24xlarge` instance, perform some
 1. Navigate back to the `Instances` page in your AWS console.  Click on the running instance you just launched and in the Details pane, copy the instance’s `Public IPv4 DNS` address.  You will need this value to connect to the instance.
 1. Using the private key you downloaded during the launch configuration and the instance’s public DNS address, connect to the system using SSH:
 
+    <!--pytest.mark.skip-->
     ```bash
     ssh -i <path_to_private_key> ec2-user@<public_dns_address>
     ```
@@ -85,6 +86,7 @@ Next we will connect to our newly launched `p4d.24xlarge` instance, perform some
 
 1. Now let’s create a `datasets` area to place the ImageNet data as follows:
 
+    <!--pytest.mark.skip-->
     ```bash
     sudo mkdir -p /datasets/ImageNet
     sudo chmod -R 777 /datasets
@@ -92,6 +94,7 @@ Next we will connect to our newly launched `p4d.24xlarge` instance, perform some
 
     (Optional )If the EC2 instance you selected comes direct attached [Instance Store Volumes](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/add-instance-store-volumes.html), it can be mounted as follows:
 
+    <!--pytest.mark.skip-->
     ```bash
     sudo mkfs -t xfs /dev/nvme1n1
     sudo mkdir ImageNet
@@ -103,6 +106,7 @@ Next we will connect to our newly launched `p4d.24xlarge` instance, perform some
 
     Regardless of whether you choose to use an EBS volume or Instance Store Volume to host your dataset, the ImageNet data can be copied to the `/datasets/Imagenet` folder.  In our example, the directory tree under `/datasets` looks as follows:
 
+    <!--pytest.mark.skip-->
     ```bash
     [ec2-user@ip-172-31-0-30 /]$ find ./datasets/ -maxdepth 2
     ./datasets/
@@ -120,6 +124,7 @@ Now that we have launched an EC2 instance, configured the runtime and populated 
 
 1. Pull and run the `mosaicml/pytorch_vision:resnet50_recipes` Docker image.  The image contains everything required to train including: pre-installed Composer, package dependencies, training entrypoint and recipe configuration files.
 
+    <!--pytest.mark.skip-->
     ```bash
     docker run -it -v /datasets:/datasets --gpus all --shm-size 1g mosaicml/pytorch_vision:resnet50_recipes
     ```
@@ -133,6 +138,7 @@ Now that we have launched an EC2 instance, configured the runtime and populated 
 
 2. Run ResNet-50 Training using the Mild recipe!
 
+    <!--pytest.mark.skip-->
     ```bash
     composer train.py -f recipes/resnet50_mild.yaml --scale_schedule_ratio 0.36 \
         --train_dataset.imagenet.ffcv_dir /datasets/ImageNet/ffcv                     \
