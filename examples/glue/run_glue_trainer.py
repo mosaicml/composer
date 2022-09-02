@@ -147,20 +147,20 @@ def print_metrics(glue_metrics: GlueState) -> None:
     print(tabulate(tb, headers='firstrow'))
 
 
-def ingest_finetuning_result(result: Tuple[Dict[str, Dict], int], cuda_queue: mp.Queue, ckpt_filename: str,
+def ingest_finetuning_result(result: Tuple[Dict[str, Dict], int], cuda_queue: mp.Queue, task: str, ckpt_filename: str,
                              glue_metrics: GlueState) -> None:
     """Ingests the output of `train_finetune` and sends it to the appropriate methods.
 
     Args:
         result: Tuple[Dict[str, Dict], int]: the output of the `train_finetune` function to be ingested.
         cuda_queue (mp.Queue): the Queue to place available GPU indicies onto.
-        ckpt_filename (str): Checkpoint to log metrics under
-        glue_metrics (GlueState): GlueState object storing all the glue metrics for the entrypoint's current run
+        task (str): Task to log metrics under.
+        ckpt_filename (str): Checkpoint to log metrics under.
+        glue_metrics (GlueState): GlueState object storing all the glue metrics for the entrypoint's current run.
     """
     metric, device = result
     add_device_to_queue(device, cuda_queue=cuda_queue)
-    del metric  # Unused while log_metrics is disabled
-    #log_metrics(metric=metric, ckpt_filename=ckpt_filename, glue_metrics=glue_metrics)
+    log_metrics(metric=metric, task=task, ckpt_filename=ckpt_filename, glue_metrics=glue_metrics)
 
 
 def add_device_to_queue(device: int, cuda_queue: mp.Queue) -> None:
@@ -173,26 +173,37 @@ def add_device_to_queue(device: int, cuda_queue: mp.Queue) -> None:
     cuda_queue.put(device)
 
 
-def log_metrics(metric: Dict[str, Dict], ckpt_filename: str, glue_metrics: GlueState) -> None:
+def log_metrics(metric: Dict[str, Dict], task: str, ckpt_filename: str, glue_metrics: GlueState) -> None:
     """Callback function for metric collection.
 
     Args:
-        metric (Dict): Metrics returned from ``train_finetune()`` for a given GLUE task
-        ckpt_filename (str): Checkpoint to log metrics under
-        glue_metrics (GlueState): GlueState object storing all the glue metrics for the entrypoint's current run
+        metric (Dict): Metrics returned from ``train_finetune()`` for a given GLUE task.
+        task (str): Task to log metrics under.
+        ckpt_filename (str): Checkpoint to log metrics under.
+        glue_metrics (GlueState): GlueState object storing all the glue metrics for the entrypoint's current run.
     """
     if ckpt_filename not in glue_metrics.ckpt_to_tasks.keys():
         glue_metrics.ckpt_to_tasks[ckpt_filename] = GlueMetricsState(glue_metrics.task_names)
 
-    task = list(metric.keys())[0]
-    formatted_task = task.split('_')[1]  # remove "glue_" prefix
-    for metrics in metric.values():  # handle case where mnli has glue_mnli and glue_mnli_mismatched
-        for metric_val in metrics.values():  # handle case where mnli has glue_mnli and glue_mnli_mismatched
+    output_str = []
+
+    # task = list(metric.keys())[0]
+    # formatted_task = task.split('_')[1]  # remove "glue_" prefix
+    formatted_task = task.lower()
+    output_str.append(f'\nResults for {task.upper()} fine-tuning:')
+    output_str.append(f'\tCheckpoint: {ckpt_filename}')
+    for evaluator_name, evaluator_metrics in metric.items():  # handle case where mnli has glue_mnli and glue_mnli_mismatched
+        for metric_name, metric_val in evaluator_metrics.values():  # handle case where an evaluator has multiple metrics
             tasks = glue_metrics.ckpt_to_tasks[ckpt_filename]
             task_metric = tasks.task_to_avg_metric[formatted_task]
             if not task_metric:
                 tasks.task_to_avg_metric[formatted_task] = []
-            tasks.task_to_avg_metric[formatted_task].append(metric_val)
+            m = metric_val.compute().item()
+            output_str.append(f'\t{evaluator_name}, {metric_name}: {m:.4f}')
+            tasks.task_to_avg_metric[formatted_task].append(m)
+    
+    output_str = '\n'.join(output_str)
+    print(output_str)
 
 
 def merge_hparams(hparams: TrainerHparams, override_hparams: GLUETrainerHparams) -> TrainerHparams:
@@ -263,6 +274,7 @@ def spawn_finetuning_jobs(
                                        seed),
                                  callback=partial(ingest_finetuning_result,
                                                   cuda_queue=cuda_envs,
+                                                  task=task,
                                                   ckpt_filename=parent_ckpt,
                                                   glue_metrics=glue_metrics))
 
@@ -348,6 +360,9 @@ def train_finetune(
     else:
         # Disable saving
         ft_hparams.save_folder = None
+
+    # FOR TESTING!!!!
+    ft_hparams.max_duration = '100ba'
 
     print(
         f'\n --------\n SPAWNING TASK {task.upper()}\n DEVICE: {torch.cuda.current_device()}\n CKPT: {parent_ckpt}\n --------'
