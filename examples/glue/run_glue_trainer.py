@@ -30,6 +30,7 @@ like in the following::
     >>> python examples/glue/run_glue_trainer.py
     finetune_hparams --help
 """
+import multiprocessing as mp
 import os
 import subprocess
 import sys
@@ -42,7 +43,6 @@ from multiprocessing.pool import Pool
 from typing import Dict, List, Optional, Tuple
 
 import torch
-import multiprocessing as mp
 import yahp as hp
 import yaml
 from nlp_trainer_hparams import GLUETrainerHparams, NLPTrainerHparams
@@ -159,6 +159,7 @@ def ingest_finetuning_result(result: Tuple[Dict[str, Dict], int], cuda_queue: mp
     """
     metric, device = result
     add_device_to_queue(device, cuda_queue=cuda_queue)
+    del metric  # Unused while log_metrics is disabled
     #log_metrics(metric=metric, ckpt_filename=ckpt_filename, glue_metrics=glue_metrics)
 
 
@@ -319,9 +320,6 @@ def train_finetune(
     if seed_override is not None:
         assert seed_override > 0
         ft_hparams.seed = seed_override
-
-    #### REMOVE ME AFTER TESTING
-    ft_hparams.max_duration = '100ba'
 
     # add finetune-specific tags to wandb if logger exists
     if ft_hparams.loggers:
