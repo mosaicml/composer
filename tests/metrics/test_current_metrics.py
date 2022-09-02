@@ -42,7 +42,7 @@ class MetricsCallback(Callback):
             # assuming that at least one sample was correctly classified
             assert state.eval_metrics['eval']['Accuracy'].compute() != 0.0
 
-@pytest.mark.xfail
+
 @pytest.mark.parametrize('eval_interval', ['1ba', '1ep', '0ep'])
 def test_current_metrics(eval_interval: str,):
     # Configure the trainer
