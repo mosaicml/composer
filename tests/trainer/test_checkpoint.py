@@ -437,8 +437,14 @@ class TestCheckpointResumption:
             is_deepspeed=deepspeed_config is not None,
         )
 
-        resume_file = resume_file.format(rank=0)
+        if not deepspeed_config:
+            # for DDP training, only rank 0 saves
+            resume_file = resume_file.format(rank=0)
+
         resume_file = os.path.join(save_folder, 'first', resume_file)
+
+        print(resume_file)
+        print(os.listdir(os.path.join(save_folder, 'first')))
 
         trainer_2 = self.get_trainer(
             save_folder=os.path.join(save_folder, 'second'),
