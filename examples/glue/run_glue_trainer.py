@@ -42,7 +42,7 @@ from multiprocessing.pool import Pool
 from typing import Dict, List, Optional, Tuple
 
 import torch
-import torch.multiprocessing as mp
+import multiprocessing as mp
 import yahp as hp
 import yaml
 from nlp_trainer_hparams import GLUETrainerHparams, NLPTrainerHparams
