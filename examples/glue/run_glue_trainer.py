@@ -193,7 +193,7 @@ def log_metrics(metric: Dict[str, Dict], task: str, ckpt_filename: str, glue_met
     output_str.append(f'\nResults for {task.upper()} fine-tuning:')
     output_str.append(f'\tCheckpoint: {ckpt_filename}')
     for evaluator_name, evaluator_metrics in metric.items():  # handle case where mnli has glue_mnli and glue_mnli_mismatched
-        for metric_name, metric_val in evaluator_metrics.values():  # handle case where an evaluator has multiple metrics
+        for metric_name, metric_val in evaluator_metrics.items():  # handle case where an evaluator has multiple metrics
             tasks = glue_metrics.ckpt_to_tasks[ckpt_filename]
             task_metric = tasks.task_to_avg_metric[formatted_task]
             if not task_metric:
