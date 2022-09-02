@@ -1,84 +1,89 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-import os
-
 import pytest
 import torch
 import torch.distributed
+from torch.utils.data import DataLoader
 
-import composer
+from composer import Trainer
 from composer.core import Precision
-from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
-from composer.trainer.trainer_hparams import TrainerHparams
+from composer.models import composer_resnet_cifar
+from tests.common import RandomImageDataset
 
 
-def setup_hparams(precision: Precision) -> TrainerHparams:
-    hparams_f = os.path.join(os.path.dirname(composer.__file__), 'yamls', 'models', 'resnet56_cifar10_synthetic.yaml')
-    hparams = TrainerHparams.create(f=hparams_f, cli_args=False)
-    hparams.train_subset_num_batches = 1
-    hparams.eval_interval = '1ep'
-    assert isinstance(hparams, TrainerHparams)
-    hparams.precision = precision
-    hparams.dataloader.num_workers = 0
-    hparams.dataloader.persistent_workers = False
-    hparams.max_duration = '1ep'
-    assert isinstance(hparams.train_dataset, SyntheticHparamsMixin)
-    hparams.train_dataset.use_synthetic = True
-    assert isinstance(hparams.val_dataset, SyntheticHparamsMixin)
-    hparams.val_dataset.use_synthetic = True
-    hparams.loggers = []
-    return hparams
+def get_trainer(precision: Precision) -> Trainer:
+
+    return Trainer(
+        model=composer_resnet_cifar('resnet_56'),
+        train_dataloader=DataLoader(
+            dataset=RandomImageDataset(size=10240),
+            batch_size=1024,
+            persistent_workers=False,
+            num_workers=0,
+        ),
+        eval_dataloader=DataLoader(
+            dataset=RandomImageDataset(size=10240),
+            batch_size=1024,
+            persistent_workers=False,
+            num_workers=0,
+        ),
+        precision=precision,
+        max_duration='1ep',
+        eval_interval='1ep',
+        train_subset_num_batches=1,
+    )
 
 
-def train_run_and_measure_memory(precision: Precision) -> int:
-    hparams = setup_hparams(precision)
-    trainer = hparams.initialize_object()
+def fit_and_measure_memory(precision) -> int:
+    trainer = get_trainer(precision)
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
+
     trainer.fit()
+
+    return torch.cuda.max_memory_allocated()
+
+
+def eval_and_measure_memory(precision) -> int:
+    trainer = get_trainer(precision)
+    torch.cuda.empty_cache()
+    torch.cuda.reset_peak_memory_stats()
+
+    trainer.eval()
+
+    return torch.cuda.max_memory_allocated()
+
+
+def predict_and_measure_memory(precision) -> int:
+    trainer = get_trainer(precision)
+    torch.cuda.empty_cache()
+    torch.cuda.reset_peak_memory_stats()
+
+    trainer.predict(dataloader=trainer.state.evaluators[0].dataloader)
+
     return torch.cuda.max_memory_allocated()
 
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('precision', [Precision.AMP, Precision.BF16])
 def test_train_precision_memory(precision: Precision):
-    memory_full = train_run_and_measure_memory(Precision.FP32)
-    memory_precision = train_run_and_measure_memory(precision)
-    assert memory_precision < 0.7 * memory_full
-
-
-def eval_run_and_measure_memory(precision: Precision) -> int:
-    hparams = setup_hparams(precision)
-    trainer = hparams.initialize_object()
-    torch.cuda.empty_cache()
-    torch.cuda.reset_peak_memory_stats()
-    trainer.eval(dataloader=trainer.state.evaluators[0].dataloader,
-                 dataloader_label='eval',
-                 metrics=trainer.state.eval_metrics[trainer.state.evaluators[0].label])
-    return torch.cuda.max_memory_allocated()
+    memory_fp32 = fit_and_measure_memory(Precision.FP32)
+    memory_half = fit_and_measure_memory(precision)
+    assert memory_half < 0.7 * memory_fp32
 
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('precision', [Precision.AMP, Precision.BF16])
 def test_eval_precision_memory(precision: Precision):
-    memory_full = eval_run_and_measure_memory(Precision.FP32)
-    memory_precision = eval_run_and_measure_memory(precision)
-    assert memory_precision < 0.9 * memory_full
-
-
-def predict_run_and_measure_memory(precision: Precision) -> int:
-    hparams = setup_hparams(precision)
-    trainer = hparams.initialize_object()
-    torch.cuda.empty_cache()
-    torch.cuda.reset_peak_memory_stats()
-    trainer.predict(dataloader=trainer.state.evaluators[0].dataloader,)
-    return torch.cuda.max_memory_allocated()
+    memory_fp32 = eval_and_measure_memory(Precision.FP32)
+    memory_half = eval_and_measure_memory(precision)
+    assert memory_half < 0.9 * memory_fp32
 
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('precision', [Precision.AMP, Precision.BF16])
 def test_predict_precision_memory(precision: Precision):
-    memory_full = predict_run_and_measure_memory(Precision.FP32)
-    memory_precision = predict_run_and_measure_memory(precision)
-    assert memory_precision < 0.9 * memory_full
+    memory_fp32 = predict_and_measure_memory(Precision.FP32)
+    memory_half = predict_and_measure_memory(precision)
+    assert memory_half < 0.9 * memory_fp32

@@ -10,6 +10,7 @@ import datetime
 import itertools
 import logging
 import os
+import random
 import re
 import time
 import warnings
@@ -43,9 +44,8 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
-from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed, map_collection,
-                            reproducibility)
-from composer.utils.checkpoint import load_checkpoint, save_checkpoint
+from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed,
+                            map_collection, reproducibility)
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.inference import ExportFormat, Transform, export_with_logger
@@ -278,6 +278,8 @@ def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrateg
 
 
 def _generate_run_name() -> str:
+    # change coolname randomness for different names with same seed
+    coolname.replace_random(random.Random(os.urandom(128)))
     # prefixing with the time so experiments sorted alphabetically will have the latest experiment last
     generated_run_name = str(int(time.time())) + '-' + coolname.generate_slug(2)
     run_name_list = [generated_run_name]
@@ -344,7 +346,7 @@ class Trainer:
     .. testcode::
 
         # Get the saved checkpoint filepath
-        checkpoint_path = trainer.saved_checkpoints.pop()[0]
+        checkpoint_path = trainer.saved_checkpoints.pop()
 
         # Create a new trainer with the `load_path` argument set to the checkpoint path.
         trainer = Trainer(
@@ -539,7 +541,7 @@ class Trainer:
 
                 import composer.trainer
 
-                composer.trainer.trainer.load_checkpoint = lambda *args, **kwargs: None
+                composer.trainer.trainer.checkpoint.load_checkpoint = lambda *args, **kwargs: None
 
             .. testcode::
 
@@ -977,7 +979,7 @@ class Trainer:
         if eval_dataloader is None:
             evaluators: List[Evaluator] = []
         else:
-            eval_metrics = self.state.model.get_metrics(is_train=False)
+            eval_metrics = deepcopy(self.state.model.get_metrics(is_train=False))
             model_metric_names = [str(k) for k in eval_metrics.keys()]
 
             evaluators = [
@@ -1115,7 +1117,7 @@ class Trainer:
                 log.info('No previous autoresume checkpoint found')
         # Actually load the checkpoint from potentially updated arguments
         if load_path is not None:
-            self._rng_state = load_checkpoint(
+            self._rng_state = checkpoint.load_checkpoint(
                 state=self.state,
                 path=load_path,
                 object_store=load_object_store,
@@ -1571,17 +1573,12 @@ class Trainer:
                 if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
                     self.logger.log_metrics({'epoch': int(self.state.timestamp.epoch)})
-                    if self.state.train_metrics is not None:
-                        for _, metric in self.state.train_metrics.items():
-                            # reset the metrics before every epoch
-                            metric.reset()
 
                 dataloader = self.state.dataloader
                 if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                     dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
 
                 for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
-
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < int(self.state.timestamp.batch_in_epoch):
                         # Restore the RNG state immediately before the next batch is yielded from the dataloader
@@ -1760,10 +1757,10 @@ class Trainer:
             assert evaluator.eval_interval is not None, 'eval_interval should have been set on __init__() or fit()'
             assert evaluator.subset_num_batches is not None, 'subset_num_batches should have been set on __init__() or fit()'
             if evaluator.eval_interval(self.state, event):
-                self.eval(dataloader=evaluator.dataloader,
-                          dataloader_label=evaluator.label,
-                          subset_num_batches=evaluator.subset_num_batches,
-                          metrics=self.state.eval_metrics[evaluator.label])
+                self._eval_loop(dataloader=evaluator.dataloader,
+                                dataloader_label=evaluator.label,
+                                subset_num_batches=evaluator.subset_num_batches,
+                                metrics=self.state.eval_metrics[evaluator.label])
 
     def _train_batch(self, use_grad_scaling: bool) -> Dict[str, torch.Tensor]:
         """Compute loss by training on a full batch of data.
@@ -1783,6 +1780,12 @@ class Trainer:
 
         # Retry until we successfully complete training and return loss
         while True:
+            # Reset train_metrics on every batch
+            # Placing reset here ensures that if auto grad accum catches an OOM, incomplete metric state is cleared
+            if self.state.train_metrics is not None:
+                for _, metric in self.state.train_metrics.items():
+                    metric.reset()
+
             total_loss_dict = {'loss/train/total': self._device.tensor_to_device(torch.zeros(size=(1,)))}
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             try:
@@ -2133,12 +2136,150 @@ class Trainer:
         return outputs
 
     def eval(
+            self,
+            eval_dataloader: Optional[Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
+            subset_num_batches: int = -1,
+            **kwargs,  # catch deprecated arguments
+    ):
+        """Run evaluation loop.
+
+        Results are stored in ``trainer.state.eval_metrics``. The ``eval_dataloader`` can be provided to
+        either the eval() method or during training init().
+
+        Examples:
+        .. testcode::
+
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                max_duration="2ep",
+                device="cpu",
+            )
+
+            trainer.fit()
+
+            # run eval
+            trainer.eval(
+                eval_dataloader=eval_dataloader,
+            )
+
+        Or, if the ``eval_dataloader`` is provided during init:
+
+        .. testcode::
+
+            trainer = Trainer(
+                model=model,
+                eval_dataloader=eval_dataloader,
+                train_dataloader=train_dataloader,
+                max_duration="2ep",
+                device="cpu",
+            )
+
+            trainer.fit()
+
+            # eval_dataloader already provided:
+            trainer.eval()
+
+        For multiple metrics or dataloaders, use :class:`.Evaluator` to provide
+        identifier names. For example, to run the GLUE task:
+
+        .. code:: python
+
+            from composer.core import Evaluator
+            from composer.models.nlp_metrics import BinaryF1Score
+
+            glue_mrpc_task = Evaluator(
+                label='glue_mrpc',
+                dataloader=mrpc_dataloader,
+                metric_names=['BinaryF1Score', 'Accuracy']
+            )
+
+            glue_mnli_task = Evaluator(
+                label='glue_mnli',
+                dataloader=mnli_dataloader,
+                metric_names=['Accuracy']
+            )
+
+            trainer = Trainer(
+                ...,
+                eval_dataloader=[glue_mrpc_task, glue_mnli_task],
+                ...
+            )
+
+        The metrics used are defined in your model's ``get_metrics()`` method. For more information,
+        see :doc:`/trainer/evaluation`.
+
+        .. note::
+
+            This eval API was recently changed to better much the trainer fit API. Please migrate your
+            code to using the new design here. For backwards compatibility, the old API can still be
+            invoked by calling ``_eval_loop()``, however this is not recommended as this may be
+            removed in the future.
+
+        Args:
+            eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): Dataloaders
+                for evaluation.  If not provided, defaults to using the
+                ``eval_dataloader`` provided to the trainer init().
+            subset_num_batches (int, optional): Evaluate on this many batches. Default to ``-1`` (the entire
+                dataloader. Can also be provided in the trainer init()as ``eval_subset_num_batches``.
+
+        """
+        if any([k in kwargs for k in ['dataloader', 'dataloader_label', 'metrics', 'log_level']]):
+            raise ValueError('eval() API has changed, please migrate to the new API, or'
+                             'for backwards compatibility, call _eval_loop() instead'
+                             'with the same arguments.')
+        if kwargs:
+            arg = next(iter(kwargs.keys()))
+            raise TypeError(f'eval() got an unexpected keyword argument \'{arg}\'')
+
+        if eval_dataloader is not None:
+
+            eval_metrics = deepcopy(self._original_model.get_metrics(is_train=False))
+            metric_names = [str(k) for k in eval_metrics.keys()]
+
+            evaluators = [
+                ensure_evaluator(evaluator, default_metric_names=metric_names)
+                for evaluator in ensure_tuple(eval_dataloader)
+            ]
+
+            if self.state.eval_metrics:
+                for evaluator in evaluators:
+                    if evaluator.label in self.state.eval_metrics:
+                        warnings.warn(
+                            f'eval_dataloader label \'{evaluator.label}\' was already provided in'
+                            'trainer initialization. Existing data for that label will be overwritten.'
+                            'To prevent this in the future, assign unique label names.',
+                            category=UserWarning)
+
+            # match metric names to model metrics
+            log.info(f'Added {[e.label for e in evaluators]} to eval_metrics.')
+            self.state.eval_metrics.update({e.label: _filter_metrics(eval_metrics, e.metric_names) for e in evaluators})
+
+            _set_evaluator_interval_and_subset_num_batches(
+                evaluators=evaluators,
+                eval_interval='1ep',  # ignored
+                subset_num_batches=subset_num_batches,
+            )
+        else:
+            if not self.state.evaluators:
+                raise ValueError('eval_dataloader must be provided to either Trainer init() or eval().')
+            evaluators = self.state.evaluators
+
+        for evaluator in evaluators:
+            self._eval_loop(
+                dataloader=evaluator.dataloader,
+                dataloader_label=evaluator.label,
+                subset_num_batches=subset_num_batches,
+                metrics=self.state.eval_metrics[evaluator.label],
+            )
+
+    def _eval_loop(
         self,
         dataloader: Union[Iterable, DataSpec, dict],
         dataloader_label: str = 'eval',
         *,
         metrics: Dict[str, Metric],
-        subset_num_batches: int = -1,
+        subset_num_batches: Optional[int] = None,
     ):
         """Evaluate the model and log appropriate metrics.
 
@@ -2155,6 +2296,9 @@ class Trainer:
                 ``Evaluator(subset_num_batches=...)``.)
         """
         restore_model_train = self.state.model.training
+
+        if subset_num_batches is None:
+            subset_num_batches = -1
 
         # back up the original dataloader on the state, so we can restore it after evaluation is finished
         original_dataloader = self.state.dataloader
@@ -2386,7 +2530,12 @@ class Trainer:
             getattr(optimizer, '_step_supports_amp_closure', False)
             for optimizer in ensure_tuple(self.state.optimizers))
 
-    def save_checkpoint(self, name: str = 'ep{epoch}-ba{batch}-rank{rank}', *, weights_only: bool = False):
+    def save_checkpoint(
+        self,
+        name: str = 'ep{epoch}-ba{batch}-rank{rank}',
+        *,
+        weights_only: bool = False,
+    ):
         """Checkpoint the training :class:`~.State`.
 
         Args:
@@ -2396,7 +2545,11 @@ class Trainer:
         Returns:
             str or None: See :func:`.save_checkpoint`.
         """
-        return save_checkpoint(state=self.state, filename=name, weights_only=weights_only)
+        return checkpoint.save_checkpoint(
+            state=self.state,
+            filename=name,
+            weights_only=weights_only,
+        )
 
     def export_for_inference(
         self,

@@ -91,17 +91,17 @@ def example_2D_tensor():
 
 
 @pytest.fixture(scope='module', params=[np.arange(12).reshape(4, 3), torch.arange(12).reshape(4, 3)])
-def example_2D_array_tensor(request):
+def example_2d(request):
     return request.param
 
 
 @pytest.fixture
-def example_complicated_object():
+def example_dict():
     return [{'a': [1, 2], 'b': [2, 4]}, {'c': [3, 6], 'd': [5, 7]}]
 
 
 @pytest.fixture
-def example_get_callable():
+def dict_getter():
 
     def my_get_callable(batch):
         return batch[1]['d'][0]
@@ -110,7 +110,7 @@ def example_get_callable():
 
 
 @pytest.fixture
-def example_set_callable():
+def dict_setter():
 
     def my_set_callable(batch, value):
         batch[1]['d'][0] = value
@@ -197,32 +197,32 @@ def test_batch_get_seq_key_for_1D_tensors_and_arrays(example_array_tensor, key, 
     assert batch_get(example_array_tensor, key).tolist() == expected
 
 
-def test_batch_get_callable(example_complicated_object, example_get_callable):
-    assert batch_get(example_complicated_object, example_get_callable) == 5
+def test_batch_get_callable(example_dict, dict_getter):
+    assert batch_get(example_dict, dict_getter) == 5
 
 
-def test_batch_get_pair_of_callables(example_complicated_object, example_get_callable, example_set_callable):
-    assert batch_get(example_complicated_object, (example_get_callable, example_set_callable)) == 5
+def test_batch_get_pair_of_callables(example_dict, dict_getter, dict_setter):
+    assert batch_get(example_dict, (dict_getter, dict_setter)) == 5
 
-    assert batch_get(example_complicated_object, [example_get_callable, example_set_callable]) == 5
+    assert batch_get(example_dict, [dict_getter, dict_setter]) == 5
 
 
-def test_batch_get_with_setter_errors_out(example_complicated_object, example_set_callable):
+def test_batch_get_with_setter_errors_out(example_dict, dict_setter):
     with pytest.raises(TypeError):
-        batch_get(example_complicated_object, (example_set_callable, example_set_callable))
+        batch_get(example_dict, (dict_setter, dict_setter))
 
     with pytest.raises(TypeError):
-        batch_get(example_complicated_object, example_set_callable)
+        batch_get(example_dict, dict_setter)
 
 
-def test_batch_get_not_pair_of_callables(example_complicated_object, example_get_callable):
+def test_batch_get_not_pair_of_callables(example_dict, dict_getter):
     # >2 callables
     with pytest.raises(ValueError):
-        batch_get(example_complicated_object, (example_get_callable, example_get_callable, example_get_callable))
+        batch_get(example_dict, (dict_getter, dict_getter, dict_getter))
 
     # Singleton of callable
     with pytest.raises(ValueError):
-        batch_get(example_complicated_object, (example_get_callable,))
+        batch_get(example_dict, (dict_getter,))
 
 
 # Test whether arrays and tensors can be indexed by a sequence of slice objects.
@@ -234,16 +234,16 @@ def test_batch_get_seq_of_slices_key_for_1D_tensors_and_arrays(batch, key, expec
 
 
 @pytest.mark.parametrize('key,expected', [((1, 2), 5)])
-def test_batch_get_2D_array_tensor_2D_tuple_key(example_2D_array_tensor, key, expected):
-    actual = batch_get(example_2D_array_tensor, key)
+def test_batch_get_2D_array_tensor_2D_tuple_key(example_2d, key, expected):
+    actual = batch_get(example_2d, key)
     assert int(actual) == expected
 
 
 @pytest.mark.parametrize('key,expected', [([1, 2], [[3, 4, 5], [6, 7, 8]]),
                                           (np.asarray([1, 2]), [[3, 4, 5], [6, 7, 8]]),
                                           (torch.tensor([1, 2]), [[3, 4, 5], [6, 7, 8]])])
-def test_batch_get_2D_array_tensor_2D_key(example_2D_array_tensor, key, expected):
-    actual = batch_get(example_2D_array_tensor, key)
+def test_batch_get_2D_array_tensor_2D_key(example_2d, key, expected):
+    actual = batch_get(example_2d, key)
     assert actual.tolist() == expected
 
 
@@ -358,8 +358,8 @@ def test_batch_set_1D_array_list_of_slices_key(example_array):
 
 
 @pytest.mark.parametrize('key,value', [((1, 2), 6)])
-def test_batch_set_2D_array_and_tensor_2D_tuple_key(example_2D_array_tensor, key, value):
-    batch = batch_set(example_2D_array_tensor, key=key, value=value)
+def test_batch_set_2D_array_and_tensor_2D_tuple_key(example_2d, key, value):
+    batch = batch_set(example_2d, key=key, value=value)
     assert batch_get(batch, key) == value
 
 
@@ -393,34 +393,32 @@ def test_batch_set_2D_array_list_of_slices(example_2D_array):
     assert np.all(np.equal(batch_get(new_batch, key), value))
 
 
-def test_batch_set_callable(example_complicated_object, example_set_callable, example_get_callable):
-    new_batch = batch_set(example_complicated_object, key=example_set_callable, value=11)
-    assert batch_get(new_batch, example_get_callable) == 11
+def test_batch_set_callable(example_dict, dict_setter, dict_getter):
+    new_batch = batch_set(example_dict, key=dict_setter, value=11)
+    assert batch_get(new_batch, dict_getter) == 11
 
 
-def test_batch_set_pair_of_callables(example_complicated_object, example_get_callable, example_set_callable):
-    new_batch = batch_set(example_complicated_object, key=(example_get_callable, example_set_callable), value=11)
-    assert batch_get(new_batch, example_get_callable) == 11
+def test_batch_set_pair_of_callables(example_dict, dict_getter, dict_setter):
+    new_batch = batch_set(example_dict, key=(dict_getter, dict_setter), value=11)
+    assert batch_get(new_batch, dict_getter) == 11
 
 
-def test_batch_set_with_getter_errors_out(example_complicated_object, example_get_callable):
+def test_batch_set_with_getter_errors_out(example_dict, dict_getter):
     with pytest.raises(TypeError):
-        batch_set(example_complicated_object, key=(example_get_callable, example_get_callable), value=11)
+        batch_set(example_dict, key=(dict_getter, dict_getter), value=11)
 
     with pytest.raises(TypeError):
-        batch_set(example_complicated_object, example_get_callable, value=11)
+        batch_set(example_dict, dict_getter, value=11)
 
 
-def test_batch_set_not_pair_of_callables(example_complicated_object, example_set_callable):
+def test_batch_set_not_pair_of_callables(example_dict, dict_setter):
     # >2 callables
     with pytest.raises(ValueError):
-        batch_set(example_complicated_object,
-                  key=(example_set_callable, example_set_callable, example_set_callable),
-                  value=11)
+        batch_set(example_dict, key=(dict_setter, dict_setter, dict_setter), value=11)
 
     # Singleton of callable
     with pytest.raises(ValueError):
-        batch_set(example_complicated_object, (example_set_callable,), value=11)
+        batch_set(example_dict, (dict_setter,), value=11)
 
 
 def test_set_with_mismatched_key_values(example_list):
