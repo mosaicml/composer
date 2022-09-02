@@ -17,7 +17,6 @@ def test_event_values(event: Event):
     assert event.name.lower() == event.value
 
 
-@pytest.mark.skip
 class TestEventCalls:
 
     eval_subset_num_batches = 5
@@ -56,9 +55,6 @@ class TestEventCalls:
     @pytest.mark.parametrize('device,deepspeed_zero_stage', [
         pytest.param('cpu', None, id='cpu-ddp'),
         pytest.param('gpu', None, id='gpu-ddp', marks=pytest.mark.gpu),
-        pytest.param('gpu', 0, id='deepspeed-zero0', marks=pytest.mark.gpu),
-        pytest.param('gpu', 1, id='deepspeed-zero1', marks=pytest.mark.gpu),
-        pytest.param('gpu', 2, id='deepspeed-zero2', marks=pytest.mark.gpu),
     ])
     @pytest.mark.parametrize('save_interval', ['1ep', '1ba'])
     def test_event_calls(self, world_size, device, deepspeed_zero_stage, save_interval):
