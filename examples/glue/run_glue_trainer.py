@@ -320,6 +320,9 @@ def train_finetune(
         assert seed_override > 0
         ft_hparams.seed = seed_override
 
+    #### REMOVE ME AFTER TESTING
+    ft_hparams.max_duration = '100ba'
+
     # add finetune-specific tags to wandb if logger exists
     if ft_hparams.loggers:
         for logger in ft_hparams.loggers:
