@@ -409,6 +409,12 @@ class TestCheckpointResumption:
 
         if deepspeed_zero_stage:
             deepspeed_config = {'zero_optimization': {'stage': deepspeed_zero_stage}}
+
+            # save_checkpoint appends .tar for deepspeed
+            if not is_tar(resume_file):
+                resume_file += '.tar'
+            if not is_tar(final_checkpoint):
+                final_checkpoint += '.tar'
         else:
             deepspeed_config = None
 
