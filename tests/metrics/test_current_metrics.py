@@ -62,8 +62,14 @@ def test_current_metrics(eval_interval: str,):
     # Create the trainer
     trainer = Trainer(
         model=model,
-        train_dataloader=DataLoader(RandomClassificationDataset(**dataset_kwargs)),
-        eval_dataloader=DataLoader(RandomClassificationDataset(**dataset_kwargs)),
+        train_dataloader=DataLoader(
+            RandomClassificationDataset(**dataset_kwargs),
+            batch_size=16,
+        ),
+        eval_dataloader=DataLoader(
+            RandomClassificationDataset(**dataset_kwargs),
+            batch_size=8,
+        ),
         max_duration=num_epochs,
         train_subset_num_batches=train_subset_num_batches,
         eval_subset_num_batches=eval_subset_num_batches,
