@@ -5,6 +5,7 @@ from typing import Callable, Union
 
 import pytest
 from torch.utils.data import DataLoader
+from torchmetrics import Accuracy
 
 from composer.core import Event
 from composer.core.evaluator import Evaluator, evaluate_periodically
@@ -17,16 +18,61 @@ from tests.common import EventCounterCallback, RandomClassificationDataset, Simp
 from tests.common.datasets import RandomClassificationDatasetHparams
 
 
-def test_trainer_eval_only():
+def test_eval():
+    # Construct the trainer
+    trainer = Trainer(
+        eval_dataloader=DataLoader(dataset=RandomClassificationDataset()),
+        model=SimpleModel(),
+    )
+
+    # Evaluate the model
+    trainer.eval()
+
+    # Assert that there is some accuracy
+    assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
+
+
+def test_eval_call():
+    # Construct the trainer
+    trainer = Trainer(model=SimpleModel(),)
+
+    # Evaluate the model
+    trainer.eval(eval_dataloader=DataLoader(dataset=RandomClassificationDataset()))
+
+    # Assert that there is some accuracy
+    assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
+
+
+def test_eval_deprecation_error():
+    # Construct the trainer
+    trainer = Trainer(model=SimpleModel(),)
+
+    with pytest.raises(ValueError):
+        trainer.eval(
+            dataloader=DataLoader(dataset=RandomClassificationDataset()),
+            dataloader_label='test',
+            metrics=Accuracy(),
+        )
+
+
+def test_eval_type_error():
+    # Construct the trainer
+    trainer = Trainer(model=SimpleModel(),)
+
+    with pytest.raises(TypeError):
+        trainer.eval(unknown_kwarg=None,)
+
+
+def test_trainer_eval_loop():
     # Construct the trainer
     trainer = Trainer(model=SimpleModel())
 
     # Evaluate the model
     eval_dataloader = DataLoader(dataset=RandomClassificationDataset())
-    trainer.eval(
+    trainer._eval_loop(
         dataloader=eval_dataloader,
         dataloader_label='eval',
-        metric_names=['Accuracy'],
+        metrics={'Accuracy': Accuracy()},
     )
 
     # Assert that there is some accuracy
@@ -44,9 +90,7 @@ def test_trainer_eval_subset_num_batches():
     # Evaluate the model
     eval_dataloader = DataLoader(dataset=RandomClassificationDataset())
     trainer.eval(
-        dataloader=eval_dataloader,
-        dataloader_label='eval',
-        metric_names=['Accuracy'],
+        eval_dataloader=eval_dataloader,
         subset_num_batches=1,
     )
 
@@ -55,6 +99,7 @@ def test_trainer_eval_subset_num_batches():
     assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == 1
 
 
+@pytest.mark.filterwarnings(r'ignore:eval_dataloader label:UserWarning')
 def test_trainer_eval_timestamp():
     # Construct the trainer
     event_counter_callback = EventCounterCallback()
@@ -65,11 +110,7 @@ def test_trainer_eval_timestamp():
 
     # Evaluate the model
     eval_dataloader = DataLoader(dataset=RandomClassificationDataset())
-    trainer.eval(
-        dataloader=eval_dataloader,
-        dataloader_label='eval',
-        metric_names=['Accuracy'],
-    )
+    trainer.eval(eval_dataloader=eval_dataloader)
 
     # Ensure that the eval timestamp matches the number of evaluation events
     assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == trainer.state.eval_timestamp.batch
@@ -81,11 +122,7 @@ def test_trainer_eval_timestamp():
     event_counter_callback.event_to_num_calls = {k: 0 for k in event_counter_callback.event_to_num_calls}
 
     # Eval again
-    trainer.eval(
-        dataloader=eval_dataloader,
-        dataloader_label='eval',
-        metric_names=['Accuracy'],
-    )
+    trainer.eval(eval_dataloader=eval_dataloader)
     # Validate the same invariants
     assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == trainer.state.eval_timestamp.batch
     assert trainer.state.eval_timestamp.batch == trainer.state.eval_timestamp.batch_in_epoch
@@ -108,7 +145,10 @@ def test_eval_at_fit_end(eval_at_fit_end: bool):
         metric_names=['Accuracy'],
     )
 
-    evaluator.eval_interval = evaluate_periodically(eval_interval=eval_interval, eval_at_fit_end=eval_at_fit_end)
+    evaluator.eval_interval = evaluate_periodically(
+        eval_interval=eval_interval,
+        eval_at_fit_end=eval_at_fit_end,
+    )
 
     trainer = Trainer(
         model=SimpleModel(),

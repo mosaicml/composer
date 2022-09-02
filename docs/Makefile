@@ -12,17 +12,21 @@ HTML_BUILDDIR ?= $(BUILDDIR)/_html
 HTTP_MODULE   = http.server
 
 # Put it first so that "make" without argument is like "make help".
+clean:
+	@$(SPHINXBUILD) -M clean "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+	rm -rf $(SOURCEDIR)/api_reference
+
+doctest:
+	@$(SPHINXBUILD) -M doctest "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) -q $(O)
+
 help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 host:
 	@$(PYTHON_BIN) -m $(HTTP_MODULE) --directory $(HTML_BUILDDIR)
 
-clean:
-	@$(SPHINXBUILD) -M clean "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
-	rm -rf $(SOURCEDIR)/api_reference
 
-.PHONY: clean help Makefile
+.PHONY: clean doctest help host Makefile
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).

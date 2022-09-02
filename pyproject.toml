@@ -4,6 +4,7 @@
 multi_line_output = 0
 line_length = 120
 skip = [ "env", "wandb", "runs", "build", "node_modules" ]
+known_third_party = ["wandb"]
 
 # Pyright
 [tool.pyright]

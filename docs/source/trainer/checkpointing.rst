@@ -75,11 +75,9 @@ The above code, when run, will produce the checkpoints below:
 .. doctest::
 
     >>> trainer.saved_checkpoints
-    [(Timestamp(...), [PosixPath('path/to/checkpoints/ep1.pt')])]
+    ['./path/to/checkpoints/ep1.pt']
     >>> latest_checkpoint = trainer.saved_checkpoints[-1]
-    >>> timestamp, checkpoint_filepaths = latest_checkpoint
-    >>> checkpoint_filepath = checkpoint_filepaths[0]  # when not using DeepSpeed, there is only one checkpoint file.
-    >>> state_dict = torch.load(checkpoint_filepath)
+    >>> state_dict = torch.load(latest_checkpoint)
     >>> list(state_dict)
     ['state', 'rng']
     >>> list(state_dict['state'].keys())

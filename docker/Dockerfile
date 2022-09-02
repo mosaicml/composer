@@ -210,6 +210,13 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         rm -rf /tmp/apex ; \
     fi
 
+##########################
+# Install Flash Attention
+##########################
+RUN if [ -n "$CUDA_VERSION" ] ; then \
+        pip${PYTHON_VERSION} install --no-cache-dir git+https://github.com/mvpatel2000/flash-attention@main ; \
+    fi
+
 
 ################################
 # Use the correct python version
