@@ -159,7 +159,7 @@ def ingest_finetuning_result(result: Tuple[Dict[str, Dict], int], cuda_queue: mp
     """
     metric, device = result
     add_device_to_queue(device, cuda_queue=cuda_queue)
-    log_metrics(metric=metric, ckpt_filename=ckpt_filename, glue_metrics=glue_metrics)
+    #log_metrics(metric=metric, ckpt_filename=ckpt_filename, glue_metrics=glue_metrics)
 
 
 def add_device_to_queue(device: int, cuda_queue: mp.Queue) -> None:
