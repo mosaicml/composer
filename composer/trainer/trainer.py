@@ -1711,8 +1711,6 @@ class Trainer:
                 found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
                 try:
                     for eval_microbatch in self._train_data_spec.split_batch(device_batch, self.state.eval_batch_split):
-                        # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
-                        # data and if so print a warning that metrics may return unexpected results
                         with get_precision_context(self.state.precision):
                             if hasattr(self._original_model, 'validate'):  # backwards compatibility check
                                 warnings.warn(

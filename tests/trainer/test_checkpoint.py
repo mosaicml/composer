@@ -188,21 +188,18 @@ class TestCheckpointLoading:
         )
 
     @device('cpu', 'gpu')
-    def test_load_weights(self, device):
+    @pytest.mark.parametrize('load_weights_only', [True, False])
+    def test_load_weights(self, device, load_weights_only):
 
-        trainer_1 = self.get_trainer(
-            save_folder='first',
-            device=device,
-        )
+        trainer_1 = self.get_trainer(save_folder='first', device=device)
         trainer_1.fit()
         trainer_1.close()
 
         last_checkpoint = os.path.join('first', 'ep2.pt')
         trainer_2 = self.get_trainer(
             load_path=last_checkpoint,
-            load_weights_only=True,
-            load_strict_model_weights=True,
-            device=device,
+            load_weights_only=load_weights_only,
+            load_strict_model_weights=load_weights_only,
         )
 
         # check weights loaded properly
@@ -210,6 +207,24 @@ class TestCheckpointLoading:
             trainer_1.state.model,
             trainer_2.state.model,
         )
+
+        # check callbacks state
+        stateful_callbacks_equal = self._stateful_callbacks_equal(
+            trainer_1.state.callbacks,
+            trainer_2.state.callbacks,
+        )
+        if load_weights_only:
+            # callback state should not have been loaded
+            assert not stateful_callbacks_equal
+        else:
+            assert stateful_callbacks_equal
+
+    def _stateful_callbacks_equal(self, callbacks1, callbacks2):
+
+        cb1 = next((cb for cb in callbacks1 if isinstance(cb, DummyStatefulCallback)))
+        cb2 = next((cb for cb in callbacks2 if isinstance(cb, DummyStatefulCallback)))
+
+        return cb1.random_value == cb2.random_value
 
     def test_load_weights_object_store(self, tmp_path):
 
@@ -276,8 +291,6 @@ class TestCheckpointLoading:
             loggers=[self.get_logger(tmp_path)] if use_object_store else [],
         )
 
-        # TODO (mihir): should be checking the entire state
-        # not just the model?
         self._assert_weights_equivalent(
             trainer_1.state.model,
             trainer_2.state.model,
@@ -296,7 +309,7 @@ class TestCheckpointLoading:
 
         trainer_2 = self.get_trainer(
             load_path=os.path.join('first', 'ep2.pt'),
-            seed=67890,
+            seed=12345,
         )
 
         assert trainer_1.state.run_name != trainer_2.state.run_name
@@ -312,12 +325,13 @@ class TestCheckpointLoading:
         trainer_1.fit()
         trainer_1.close()
 
+        ctx = None
         if save_overwrite:
-            ctx = contextlib.nullcontext
+            ctx = contextlib.nullcontext()
         else:
-            ctx = functools.partial(pytest.raises, FileExistsError)
+            ctx = pytest.raises(FileExistsError)
 
-        with ctx():  # expect FileExistsError if save_overwrite=False
+        with ctx:  # expect FileExistsError if save_overwrite=False
             trainer_2 = self.get_trainer(
                 save_folder='first',
                 save_overwrite=save_overwrite,
