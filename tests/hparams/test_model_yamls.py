@@ -10,7 +10,7 @@ import yaml
 import composer
 from composer.core.precision import Precision
 from composer.trainer.trainer_hparams import TrainerHparams
-from tests.common import configure_dataset_hparams_for_synthetic, configure_model_hparams_for_synthetic
+from tests.hparams.common import configure_dataset_hparams_for_synthetic, configure_model_hparams_for_synthetic
 
 
 def walk_model_yamls():

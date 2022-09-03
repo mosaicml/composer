@@ -12,8 +12,7 @@ from composer.datasets.dataset_hparams import DataLoaderHparams
 from composer.trainer import Trainer
 from composer.trainer.trainer_hparams import (EvalHparams, EvalKwargs, ExperimentHparams, FitHparams, FitKwargs,
                                               TrainerHparams)
-from tests.common import SimpleModelHparams
-from tests.common.datasets import RandomClassificationDatasetHparams
+from tests.hparams.common import RandomClassificationDatasetHparams, SimpleModelHparams
 
 if TYPE_CHECKING:
     from typing import TypedDict
