@@ -80,6 +80,7 @@ Next we will connect to our newly launched `p4d.24xlarge` instance, perform some
 
     For example,
 
+    <!--pytest.mark.skip-->
     ```bash
     ssh -i ~/composer_demo.pem ec2-user@ec2-11-222-333-44.us-west-2.compute.amazon.com
     ```
