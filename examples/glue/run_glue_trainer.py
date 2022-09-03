@@ -30,7 +30,6 @@ like in the following::
     >>> python examples/glue/run_glue_trainer.py
     finetune_hparams --help
 """
-import torch.multiprocessing as mp
 import os
 import subprocess
 import sys
@@ -43,6 +42,8 @@ from multiprocessing.pool import Pool
 from typing import Dict, List, Optional, Tuple
 
 import torch
+import torch.multiprocessing as mp
+import torchmetrics
 import yahp as hp
 import yaml
 from nlp_trainer_hparams import GLUETrainerHparams, NLPTrainerHparams
@@ -182,8 +183,8 @@ def log_metrics(metric: Dict[str, Dict], task: str, ckpt_filename: str, glue_met
         ckpt_filename (str): Checkpoint to log metrics under.
         glue_metrics (GlueState): GlueState object storing all the glue metrics for the entrypoint's current run.
     """
-    if ckpt_filename not in glue_metrics.ckpt_to_tasks.keys():
-        glue_metrics.ckpt_to_tasks[ckpt_filename] = GlueMetricsState(glue_metrics.task_names)
+    # if ckpt_filename not in glue_metrics.ckpt_to_tasks.keys():
+    #     glue_metrics.ckpt_to_tasks[ckpt_filename] = GlueMetricsState(glue_metrics.task_names)
 
     output_str = []
 
@@ -192,16 +193,16 @@ def log_metrics(metric: Dict[str, Dict], task: str, ckpt_filename: str, glue_met
     formatted_task = task.lower()
     output_str.append(f'\nResults for {task.upper()} fine-tuning:')
     output_str.append(f'\tCheckpoint: {ckpt_filename}')
-    for evaluator_name, evaluator_metrics in metric.items():  # handle case where mnli has glue_mnli and glue_mnli_mismatched
+    for evaluator_name, evaluator_metrics in metric.items(
+    ):  # handle case where mnli has glue_mnli and glue_mnli_mismatched
         for metric_name, metric_val in evaluator_metrics.items():  # handle case where an evaluator has multiple metrics
-            tasks = glue_metrics.ckpt_to_tasks[ckpt_filename]
-            task_metric = tasks.task_to_avg_metric[formatted_task]
-            if not task_metric:
-                tasks.task_to_avg_metric[formatted_task] = []
-            m = metric_val.compute().item()
-            output_str.append(f'\t{evaluator_name}, {metric_name}: {m:.4f}')
-            tasks.task_to_avg_metric[formatted_task].append(m)
-    
+            # tasks = glue_metrics.ckpt_to_tasks[ckpt_filename]
+            # task_metric = tasks.task_to_avg_metric[formatted_task]
+            # if not task_metric:
+            #     tasks.task_to_avg_metric[formatted_task] = []
+            output_str.append(f'\t{evaluator_name}, {metric_name}: {metric_val:.4f}')
+            # tasks.task_to_avg_metric[formatted_task].append(m)
+
     output_str = '\n'.join(output_str)
     print(output_str)
 
@@ -404,6 +405,8 @@ def _convert_torch_tensor_to_primitives(metrics_dict: dict):
     for k, v in metrics_dict.items():
         if isinstance(v, torch.Tensor):
             metrics_dict[k] = v.item()
+        elif isinstance(v, torchmetrics.Metric):
+            metrics_dict[k] = v.compute().item()
         elif isinstance(v, dict):
             metrics_dict[k] = _convert_torch_tensor_to_primitives(v)
     return metrics_dict
