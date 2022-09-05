@@ -72,6 +72,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    examples/exporting_for_inference.ipynb
    examples/glue/glue_entrypoint.ipynb
    examples/TPU_Training_in_composer.ipynb
+   tutorials/train_resnet50_on_aws.md
 
 .. toctree::
    :hidden:

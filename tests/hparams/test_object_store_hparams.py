@@ -9,7 +9,7 @@ import pytest
 from composer.utils.object_store import ObjectStore
 from composer.utils.object_store.object_store_hparams import (ObjectStoreHparams, SFTPObjectStoreHparams,
                                                               object_store_registry)
-from tests.common.hparams import assert_in_registry, construct_from_yaml
+from tests.hparams.common import assert_in_registry, construct_from_yaml
 from tests.utils.object_store.object_store_settings import (get_object_store_ctx, object_store_hparam_kwargs,
                                                             object_store_hparams)
 

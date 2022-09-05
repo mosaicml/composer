@@ -226,11 +226,18 @@ def test_engine_closes_on_atexit(exception: bool):
         check_output(proc)
 
 
-def test_logging(caplog: pytest.LogCaptureFixture, dummy_state: State, dummy_logger: Logger):
+def test_logging(
+    caplog: pytest.LogCaptureFixture,
+    dummy_state: State,
+    dummy_logger: Logger,
+    monkeypatch: pytest.MonkeyPatch,
+):
     """Test that engine logs statements as expected"""
     caplog.set_level(logging.DEBUG, logger=Engine.__module__)
     # Include a callback, since most logging happens around callback events
     dummy_state.callbacks = [EventCounterCallback()]
+
+    monkeypatch.setenv('ENGINE_DEBUG', '1')
     engine = Engine(dummy_state, dummy_logger)
     engine.run_event('INIT')
     engine.close()

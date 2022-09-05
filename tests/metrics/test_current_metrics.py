@@ -1,15 +1,16 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Iterable, Tuple
 from unittest.mock import MagicMock
 
 import pytest
+from torch.utils.data import DataLoader
 
 from composer.core import Callback, State
 from composer.loggers import Logger
 from composer.trainer import Trainer
 from tests.common import SimpleModel
+from tests.common.datasets import RandomClassificationDataset
 
 
 class MetricsCallback(Callback):
@@ -43,29 +44,32 @@ class MetricsCallback(Callback):
 
 
 @pytest.mark.parametrize('eval_interval', ['1ba', '1ep', '0ep'])
-def test_current_metrics(
-    dummy_train_dataloader: Iterable,
-    dummy_val_dataloader: Iterable,
-    dummy_num_classes: int,
-    dummy_in_shape: Tuple[int, ...],
-    eval_interval: str,
-):
+def test_current_metrics(eval_interval: str,):
     # Configure the trainer
-    num_channels = dummy_in_shape[0]
     mock_logger_destination = MagicMock()
     mock_logger_destination.log_metrics = MagicMock()
-    model = SimpleModel(num_features=num_channels, num_classes=dummy_num_classes)
+    model = SimpleModel(num_features=1, num_classes=2)
     compute_val_metrics = eval_interval != '0ep'
     train_subset_num_batches = 2
     eval_subset_num_batches = 2
     num_epochs = 2
     metrics_callback = MetricsCallback(compute_val_metrics=compute_val_metrics,)
 
+    dataset_kwargs = {
+        'num_classes': 2,
+        'shape': (1, 5, 5),
+    }
     # Create the trainer
     trainer = Trainer(
         model=model,
-        train_dataloader=dummy_train_dataloader,
-        eval_dataloader=dummy_val_dataloader,
+        train_dataloader=DataLoader(
+            RandomClassificationDataset(**dataset_kwargs),
+            batch_size=16,
+        ),
+        eval_dataloader=DataLoader(
+            RandomClassificationDataset(**dataset_kwargs),
+            batch_size=8,
+        ),
         max_duration=num_epochs,
         train_subset_num_batches=train_subset_num_batches,
         eval_subset_num_batches=eval_subset_num_batches,

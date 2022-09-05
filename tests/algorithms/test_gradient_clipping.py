@@ -10,12 +10,8 @@ from torch import nn
 import composer.algorithms.gradient_clipping.gradient_clipping as gc_module
 from composer.algorithms.gradient_clipping import GradientClipping, apply_gradient_clipping
 from composer.algorithms.gradient_clipping.gradient_clipping import _apply_agc, _get_clipped_gradient_coeff
-from composer.core import Engine
+from composer.core import Engine, State
 from composer.core.event import Event
-from tests.fixtures import dummy_fixtures
-
-# To satisfy pyright.
-dummy_state = dummy_fixtures.dummy_state
 
 
 @pytest.fixture
@@ -81,7 +77,7 @@ def test_gradient_clipping_functional(monkeypatch):
 
 
 @pytest.mark.parametrize('clipping_type', [('adaptive',), ('norm',), ('value',)])
-def test_gradient_clipping_algorithm(monkeypatch, clipping_type, simple_model_with_grads, dummy_state):
+def test_gradient_clipping_algorithm(monkeypatch, clipping_type, simple_model_with_grads, dummy_state: State):
     model = simple_model_with_grads
     apply_gc_fn = Mock()
     monkeypatch.setattr(gc_module, 'apply_gradient_clipping', apply_gc_fn)
@@ -98,8 +94,11 @@ def test_gradient_clipping_algorithm(monkeypatch, clipping_type, simple_model_wi
     apply_gc_fn.assert_called_once()
 
 
-def test_gradient_clipping_algorithm_with_deepspeed_enabled(monkeypatch: pytest.MonkeyPatch, simple_model_with_grads,
-                                                            dummy_state):
+def test_gradient_clipping_algorithm_with_deepspeed_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+    simple_model_with_grads,
+    dummy_state: State,
+):
     clipping_threshold = 0.1191
     apply_gc_fn = Mock()
     monkeypatch.setattr(gc_module, 'apply_gradient_clipping', apply_gc_fn)
@@ -128,7 +127,11 @@ def test_gradient_clipping_algorithm_with_deepspeed_enabled(monkeypatch: pytest.
     apply_gc_fn.assert_not_called()
 
 
-def test_algorithm_with_deepspeed_enabled_errors_out_for_non_norm(monkeypatch: pytest.MonkeyPatch, dummy_state):
+def test_algorithm_with_deepspeed_enabled_errors_out_for_non_norm(
+    monkeypatch: pytest.MonkeyPatch,
+    dummy_state: State,
+    simple_model_with_grads,
+):
     clipping_threshold = 0.1191
     apply_gc_fn = Mock()
     monkeypatch.setattr(gc_module, 'apply_gradient_clipping', apply_gc_fn)
