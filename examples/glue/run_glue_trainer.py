@@ -38,7 +38,7 @@ import tempfile
 import warnings
 from dataclasses import dataclass
 from multiprocessing.managers import SyncManager
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 import yahp as hp
@@ -306,6 +306,9 @@ def train_finetune(
     else:
         # Disable saving
         ft_hparams.save_folder = None
+
+    # FOR TESTING!
+    ft_hparams.max_duration = '100ba'
 
     print(
         f'\n --------\n SPAWNING TASK {task.upper()}\n DEVICE: {torch.cuda.current_device()}\n CKPT: {parent_ckpt}\n --------'
