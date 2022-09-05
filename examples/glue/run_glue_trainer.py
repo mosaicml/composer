@@ -30,16 +30,14 @@ like in the following::
     >>> python examples/glue/run_glue_trainer.py
     finetune_hparams --help
 """
-import torch.multiprocessing as mp
+import multiprocessing as mp
 import os
 import subprocess
 import sys
 import tempfile
 import warnings
 from dataclasses import dataclass
-from functools import partial
-from multiprocessing.context import BaseContext
-from multiprocessing.pool import Pool
+from multiprocessing.managers import SyncManager
 from typing import Dict, List, Optional, Tuple
 
 import torch
@@ -52,7 +50,6 @@ from composer.core.data_spec import DataSpec
 from composer.core.time import Time, Timestamp, TimeUnit
 from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.wandb_logger import WandBLogger
-from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils.file_helpers import format_name_with_dist_and_time
@@ -90,28 +87,26 @@ class GlueState:
     ckpt_to_tasks: Dict[str, GlueMetricsState]
 
 
-def init_cuda_queue(queue_size: int, ctx: BaseContext) -> mp.Queue:
-    """Generate a multiprocessing queue to store queue_size GPU IDs. The multiprocessing package has no way of extracting the worker ID from the worker name; therefore, a queue is used to map pool workers to GPUs to spawn finetune jobs one."""
-    cuda_envs = ctx.Queue(queue_size)
-    cuda_envs_list = range(queue_size)
-    for e in cuda_envs_list:
-        cuda_envs.put(e)
+def log_metrics(metric: Dict[str, Dict], task: str, ckpt_filename: str, glue_metrics: GlueState) -> None:
+    """Callback function for metric collection.
 
-    return cuda_envs
+    Args:
+        metric (Dict): Metrics returned from ``train_finetune()`` for a given GLUE task.
+        task (str): Task to log metrics under.
+        ckpt_filename (str): Checkpoint to log metrics under.
+        glue_metrics (GlueState): GlueState object storing all the glue metrics for the entrypoint's current run.
+    """
+    if ckpt_filename not in glue_metrics.ckpt_to_tasks.keys():
+        glue_metrics.ckpt_to_tasks[ckpt_filename] = GlueMetricsState(glue_metrics.task_names)
 
-
-def init_cuda_env(cuda_envs: mp.Queue, free_port: int) -> None:
-    """Set up a single GPU CUDA environment on initialization of a mp process pool."""
-    env = cuda_envs.get()
-    torch.cuda.set_device(env)
-
-    # fake a single node world
-    os.environ['WORLD_SIZE'] = '1'
-    os.environ['LOCAL_WORLD_SIZE'] = '1'
-    os.environ['NODE_RANK'] = '0'
-    os.environ['LOCAL_RANK'] = '0'
-    os.environ['RANK'] = '0'
-    os.environ['MASTER_ADDR'] = '127.0.0.1'
+    formatted_task = task.lower()
+    for _, evaluator_metrics in metric.items():  # handle case where mnli has glue_mnli and glue_mnli_mismatched
+        for _, metric_val in evaluator_metrics.items():  # handle case where an evaluator has multiple metrics
+            tasks = glue_metrics.ckpt_to_tasks[ckpt_filename]
+            task_metric = tasks.task_to_avg_metric[formatted_task]
+            if not task_metric:
+                tasks.task_to_avg_metric[formatted_task] = []
+            tasks.task_to_avg_metric[formatted_task].append(metric_val)
 
 
 def print_metrics(glue_metrics: GlueState) -> None:
@@ -147,65 +142,6 @@ def print_metrics(glue_metrics: GlueState) -> None:
     print(tabulate(tb, headers='firstrow'))
 
 
-def ingest_finetuning_result(result: Tuple[Dict[str, Dict], int], cuda_queue: mp.Queue, task: str, ckpt_filename: str,
-                             glue_metrics: GlueState) -> None:
-    """Ingests the output of `train_finetune` and sends it to the appropriate methods.
-
-    Args:
-        result: Tuple[Dict[str, Dict], int]: the output of the `train_finetune` function to be ingested.
-        cuda_queue (mp.Queue): the Queue to place available GPU indicies onto.
-        task (str): Task to log metrics under.
-        ckpt_filename (str): Checkpoint to log metrics under.
-        glue_metrics (GlueState): GlueState object storing all the glue metrics for the entrypoint's current run.
-    """
-    metric, device = result
-    add_device_to_queue(device, cuda_queue=cuda_queue)
-    log_metrics(metric=metric, task=task, ckpt_filename=ckpt_filename, glue_metrics=glue_metrics)
-
-
-def add_device_to_queue(device: int, cuda_queue: mp.Queue) -> None:
-    """Once a process is done, it adds the device back to the queue of free GPUs.
-
-    Args:
-        device (int): the GPU index of the device that was freed.
-        cuda_queue (mp.Queue): the Queue to place available GPU indicies onto.
-    """
-    cuda_queue.put(device)
-
-
-def log_metrics(metric: Dict[str, Dict], task: str, ckpt_filename: str, glue_metrics: GlueState) -> None:
-    """Callback function for metric collection.
-
-    Args:
-        metric (Dict): Metrics returned from ``train_finetune()`` for a given GLUE task.
-        task (str): Task to log metrics under.
-        ckpt_filename (str): Checkpoint to log metrics under.
-        glue_metrics (GlueState): GlueState object storing all the glue metrics for the entrypoint's current run.
-    """
-    if ckpt_filename not in glue_metrics.ckpt_to_tasks.keys():
-        glue_metrics.ckpt_to_tasks[ckpt_filename] = GlueMetricsState(glue_metrics.task_names)
-
-    output_str = []
-
-    # task = list(metric.keys())[0]
-    # formatted_task = task.split('_')[1]  # remove "glue_" prefix
-    formatted_task = task.lower()
-    output_str.append(f'\nResults for {task.upper()} fine-tuning:')
-    output_str.append(f'\tCheckpoint: {ckpt_filename}')
-    for evaluator_name, evaluator_metrics in metric.items():  # handle case where mnli has glue_mnli and glue_mnli_mismatched
-        for metric_name, metric_val in evaluator_metrics.items():  # handle case where an evaluator has multiple metrics
-            tasks = glue_metrics.ckpt_to_tasks[ckpt_filename]
-            task_metric = tasks.task_to_avg_metric[formatted_task]
-            if not task_metric:
-                tasks.task_to_avg_metric[formatted_task] = []
-            m = metric_val.compute().item()
-            output_str.append(f'\t{evaluator_name}, {metric_name}: {m:.4f}')
-            tasks.task_to_avg_metric[formatted_task].append(m)
-    
-    output_str = '\n'.join(output_str)
-    print(output_str)
-
-
 def merge_hparams(hparams: TrainerHparams, override_hparams: GLUETrainerHparams) -> TrainerHparams:
     """Overrides the atttributes of the hparams instance with those of the provided override_hparams."""
     hparams.algorithms = override_hparams.algorithms if override_hparams.algorithms else hparams.algorithms
@@ -221,11 +157,18 @@ def merge_hparams(hparams: TrainerHparams, override_hparams: GLUETrainerHparams)
     return hparams
 
 
+def _setup_gpu_queue(num_gpus: int, manager: SyncManager):
+    """Returns a queue with [0, 1, .. num_gpus]."""
+    gpu_queue = manager.Queue(num_gpus)
+    for gpu_id in range(num_gpus):
+        gpu_queue.put(gpu_id)
+    return gpu_queue
+
+
 def spawn_finetuning_jobs(
     task_to_save_ckpt: Dict[str, bool],
     ckpt_load_paths: List[str],
     ckpt_save_folder: str,
-    glue_metrics: GlueState,
     base_yaml_file: str,
     save_locally: bool,
     load_locally: bool,
@@ -247,47 +190,47 @@ def spawn_finetuning_jobs(
     else:
         seed_overrides = {k.lower(): v for k, v in seed_overrides.items()}
 
-    # Set up CUDA environment(s) and process pool
-    ctx = mp.get_context('spawn')
-    cuda_envs = init_cuda_queue(torch.cuda.device_count(), ctx)
+    num_gpus = torch.cuda.device_count()
     free_port = get_free_tcp_port()
-    pool = Pool(processes=torch.cuda.device_count(),
-                initializer=init_cuda_env,
-                initargs=(cuda_envs, free_port),
-                maxtasksperchild=1,
-                context=ctx)
 
-    rank = 0
-    # Fine-tune from pre-trained checkpoint(s)
-    ckpt_parent_pairs = zip(ckpt_load_paths, parent_ckpts)
-    for parent_idx, ckpt_parent_pair in enumerate(ckpt_parent_pairs):
-        ckpt_load_path, parent_ckpt = ckpt_parent_pair
-        # `ckpt_load_path` provides the path to the checkpoint from which we load the starting weights used when fine-tuning
-        # `parent_ckpt` keeps track of the original pre-training checkpoint, for tasks with multiple fine-tuning stages (e.g., RTE)
-        # `parent_idx` is used for bookkeeping, so `parent_ckpt` can be internally recovered from the path used to save fine-tune checkpoints
-        for task, save_ckpt in task_to_save_ckpt.items():
-            # Run 1 or more fine-tune trainers from this checkpoint, using a different seed override for each
-            for seed in seed_overrides.get(task, [None]):
-                pool.apply_async(train_finetune,
-                                 args=(base_yaml_file, task, save_ckpt, ckpt_load_path, parent_ckpt, parent_idx,
-                                       ckpt_save_folder, save_locally, load_locally, free_port + rank, load_ignore_keys,
-                                       seed),
-                                 callback=partial(ingest_finetuning_result,
-                                                  cuda_queue=cuda_envs,
-                                                  task=task,
-                                                  ckpt_filename=parent_ckpt,
-                                                  glue_metrics=glue_metrics))
+    with mp.Manager() as manager:
 
-                rank += 1
+        # workers get gpu ids from this queue
+        # to set the GPU to run on
+        gpu_queue = _setup_gpu_queue(num_gpus, manager)
 
-    pool.close()
-    pool.join()
+        ctx = mp.get_context('spawn')
+        with ctx.Pool(processes=num_gpus, maxtasksperchild=1) as pool:
+            results = []
+            rank = 0
+            # Fine-tune from pre-trained checkpoint(s)
+            ckpt_parent_pairs = zip(ckpt_load_paths, parent_ckpts)
+            for parent_idx, ckpt_parent_pair in enumerate(ckpt_parent_pairs):
+                ckpt_load_path, parent_ckpt = ckpt_parent_pair
+                # `ckpt_load_path` provides the path to the checkpoint from which we load the starting weights used when fine-tuning
+                # `parent_ckpt` keeps track of the original pre-training checkpoint, for tasks with multiple fine-tuning stages (e.g., RTE)
+                # `parent_idx` is used for bookkeeping, so `parent_ckpt` can be internally recovered from the path used to save fine-tune checkpoints
+                for task, save_ckpt in task_to_save_ckpt.items():
+                    # Run 1 or more fine-tune trainers from this checkpoint, using a different seed override for each
+                    for seed in seed_overrides.get(task, [None]):
+                        result = pool.apply_async(
+                            train_finetune,
+                            args=(gpu_queue, base_yaml_file, task, save_ckpt, ckpt_load_path, parent_ckpt, parent_idx,
+                                  ckpt_save_folder, save_locally, load_locally, free_port + rank, load_ignore_keys,
+                                  seed),
+                        )
+                        results.append(result)
+                        rank += 1
 
-    cuda_envs.close()
-    cuda_envs.join_thread()
+            pool.close()
+            pool.join()
+
+    finished_results = [result.get() for result in results]
+    return finished_results
 
 
 def train_finetune(
+        gpu_queue: mp.Queue,
         base_yaml_file: str,
         task: str,
         save_ckpt: bool,
@@ -303,6 +246,9 @@ def train_finetune(
 ):
     """Run single instance of a finetuning job on given task."""
     os.environ['MASTER_PORT'] = f'{master_port}'  # set unique master port for each spawn
+
+    gpu_id = gpu_queue.get() if gpu_queue else 0
+    torch.cuda.set_device(gpu_id)
 
     finetune_hparams = NLPTrainerHparams.create(cli_args=False, f=base_yaml_file).finetune_hparams
     task_hparams = TrainerHparams.create(cli_args=False, f=f'./composer/yamls/models/glue/{task}.yaml')
@@ -361,52 +307,36 @@ def train_finetune(
         # Disable saving
         ft_hparams.save_folder = None
 
-    # FOR TESTING!!!!
-    ft_hparams.max_duration = '100ba'
-
     print(
         f'\n --------\n SPAWNING TASK {task.upper()}\n DEVICE: {torch.cuda.current_device()}\n CKPT: {parent_ckpt}\n --------'
     )
 
-    trainer = ft_hparams.initialize_object()
-
-    # if using wandb, store the config and other information inside the wandb run
     try:
-        import wandb
-    except ImportError:
-        pass
-    else:
-        if wandb.run is not None:
-            wandb.config.update(ft_hparams.to_dict())
-            wandb.config.update({'pretrained_ckpt': parent_ckpt, 'task': task, 'pretrained_idx': parent_idx})
+        trainer = ft_hparams.initialize_object()
 
-    print(f'\nBEGINNING TRAINING TASK {task.upper()}\n')
-    trainer.fit()
-    print(f'\nFINISHED TRAINING TASK {task.upper()}\n')
+        # if using wandb, store the config and other information inside the wandb run
+        try:
+            import wandb
+        except ImportError:
+            pass
+        else:
+            if wandb.run is not None:
+                wandb.config.update(ft_hparams.to_dict())
+                wandb.config.update({'pretrained_ckpt': parent_ckpt, 'task': task, 'pretrained_idx': parent_idx})
 
-    cpu_metrics = DeviceCPU().batch_to_device(trainer.state.eval_metrics)
-    trainer.close()
-    # convert the Torch tensors to primitives so they can be sent over multiprocessing
-    cpu_metrics = _convert_torch_tensor_to_primitives(cpu_metrics)
-    # recursively move metrics to CPU to avoid pickling issues
-    return cpu_metrics, torch.cuda.current_device()
+        trainer.fit()
+        print(f'\nFINISHED TRAINING TASK {task.upper()}\n')
 
+        # cpu_metrics = DeviceCPU().batch_to_device(trainer.state.eval_metrics)  # <-- Updating API call
+        collected_metrics: Dict[str, Dict[str, Any]] = {}
+        for eval_name, metrics in trainer.state.eval_metrics.items():
+            collected_metrics[eval_name] = {name: metric.compute().cpu().numpy() for name, metric in metrics.items()}
+        trainer.close()
+    finally:
+        print(f'Releasing GPU {gpu_id}')
+        gpu_queue.put(gpu_id)
 
-def _convert_torch_tensor_to_primitives(metrics_dict: dict):
-    """Converts a PyTorch Tensor to primitives so it can be sent over multiprocessing.
-
-    Args:
-        metrics_dict (dict): A dictionary of PyTorch tensors to convert.
-
-    Returns:
-        metrics_dict (dict): A dictionary of primitive data types that contains the final metrics.
-    """
-    for k, v in metrics_dict.items():
-        if isinstance(v, torch.Tensor):
-            metrics_dict[k] = v.item()
-        elif isinstance(v, dict):
-            metrics_dict[k] = _convert_torch_tensor_to_primitives(v)
-    return metrics_dict
+    return task, parent_ckpt, collected_metrics
 
 
 def get_args() -> str:
@@ -566,7 +496,7 @@ def run_pretrainer(training_scheme: str, file: str, finetune_hparams: GLUETraine
 
 
 def run_finetuner(training_scheme: str, file: str, save_locally: bool, load_locally: bool, save_folder: str,
-                  finetune_hparams, glue_metrics: GlueState) -> None:
+                  finetune_hparams) -> None:
     """Logic for handling a finetuning job spawn based on storage and training settings."""
     # set automatic load and save paths
     if load_locally:
@@ -576,30 +506,30 @@ def run_finetuner(training_scheme: str, file: str, save_locally: bool, load_loca
 
     # First, fine-tune COLA, MNLI, QNLI, QQP, and SST-2 from every pre-trained checkpoint, saving MNLI checkpoints for the next round
     task_to_save_ckpt = {'cola': False, 'sst-2': False, 'qqp': False, 'qnli': False, 'mnli': True}
-    spawn_finetuning_jobs(task_to_save_ckpt,
-                          all_ckpts_list,
-                          save_folder,
-                          glue_metrics,
-                          file,
-                          save_locally,
-                          load_locally,
-                          load_ignore_keys=['state/model/model.classifier*'])
+    results_a = spawn_finetuning_jobs(task_to_save_ckpt,
+                                      all_ckpts_list,
+                                      save_folder,
+                                      file,
+                                      save_locally,
+                                      load_locally,
+                                      load_ignore_keys=['state/model/model.classifier*'])
 
     # Second, fine-tune RTE, MRPC, and STS-B from every pre-trained checkpoint's downstream MNLI checkpoints
     # Note: If MNLI ran for multiple seeds, this checkpoint will come from the last MNLI seed to finish.
-    ckpt_filenames = [f'{save_folder}/mnli-{idx:03d}/latest-rank0' for idx in range(len(all_ckpts_list))]
+    ckpt_filenames = [f'{save_folder}/mnli-{idx:03d}/latest-rank0.pt' for idx in range(len(all_ckpts_list))]
     mnli_task_to_save_ckpt = {'rte': False, 'mrpc': False, 'stsb': False}
-    spawn_finetuning_jobs(
+    results_b = spawn_finetuning_jobs(
         mnli_task_to_save_ckpt,
         ckpt_filenames,
         save_folder,
-        glue_metrics,
         file,
         save_locally,
         load_locally=save_locally,
         parent_ckpts=all_ckpts_list,
         load_ignore_keys=['state/model/model.classifier*'],
     )
+
+    return results_a + results_b
 
 
 def _main() -> None:
@@ -617,15 +547,17 @@ def _main() -> None:
         print('PRETRAINING COMPLETE')
 
     # Finetune
-    glue_task_names = ['cola', 'sst2', 'qqp', 'qnli', 'mnli', 'rte', 'mrpc', 'stsb']
-    glue_metrics = GlueState(glue_task_names, {})
     if training_scheme in ('finetune', 'all'):
         assert finetune_hparams.save_folder is not None
-        run_finetuner(training_scheme, file, save_locally, load_locally, finetune_hparams.save_folder, finetune_hparams,
-                      glue_metrics)
+        results = run_finetuner(training_scheme, file, save_locally, load_locally, finetune_hparams.save_folder,
+                                finetune_hparams)
         print('FINETUNING COMPLETE')
 
-        # output GLUE metrics
+        # Process and print the collected results into final GLUE metrics
+        glue_task_names = ['cola', 'sst-2', 'qqp', 'qnli', 'mnli', 'rte', 'mrpc', 'stsb']
+        glue_metrics = GlueState(glue_task_names, {})
+        for task, ckpt, metric in results:
+            log_metrics(metric, task, ckpt, glue_metrics)
         print_metrics(glue_metrics)
 
 
