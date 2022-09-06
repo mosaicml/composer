@@ -174,7 +174,7 @@ def spawn_finetuning_jobs(
     load_locally: bool,
     parent_ckpts: Optional[List[str]] = None,
     load_ignore_keys: Optional[List[str]] = None,
-) -> None:
+) -> List[Tuple[str, str, Dict[str, Any]]]:
     """Set up CUDA environment and process pool for given finetuning jobs and wait for them to complete."""
     if parent_ckpts:
         assert len(parent_ckpts) == len(ckpt_load_paths), 'Must supply one parent_ckpt per ckpt_load_path'
@@ -243,7 +243,7 @@ def train_finetune(
         master_port: int,
         load_ignore_keys: Optional[List[str]] = None,
         seed_override: Optional[int] = None,  # Option to manually set the seed to this value
-):
+) -> Tuple[str, str, Dict[str, Any]]:
     """Run single instance of a finetuning job on given task."""
     os.environ['MASTER_PORT'] = f'{master_port}'  # set unique master port for each spawn
 
@@ -306,9 +306,6 @@ def train_finetune(
     else:
         # Disable saving
         ft_hparams.save_folder = None
-
-    # FOR TESTING!
-    ft_hparams.max_duration = '100ba'
 
     print(
         f'\n --------\n SPAWNING TASK {task.upper()}\n DEVICE: {torch.cuda.current_device()}\n CKPT: {parent_ckpt}\n --------'
@@ -499,7 +496,7 @@ def run_pretrainer(training_scheme: str, file: str, finetune_hparams: GLUETraine
 
 
 def run_finetuner(training_scheme: str, file: str, save_locally: bool, load_locally: bool, save_folder: str,
-                  finetune_hparams) -> None:
+                  finetune_hparams) -> List[Tuple[str, str, Dict[str, Any]]]:
     """Logic for handling a finetuning job spawn based on storage and training settings."""
     # set automatic load and save paths
     if load_locally:
