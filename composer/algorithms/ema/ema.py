@@ -84,17 +84,19 @@ class EMA(Algorithm):
     See the :doc:`Method Card </method_cards/ema>` for more details.
 
     Args:
-        half_life (str): The time string specifying the half life for terms in the average. A longer half life means
-            old information is remembered longer, a shorter half life means old information is discared sooner.
-            A half life of ``0`` means no averaging is done, an infinite half life means no update is done. Currently
-            only units of epoch ('ep') and batch ('ba'). Value must be an integer.
+        half_life (str, optional): The time string specifying the half life for terms in the average. A longer half
+            life means old information is remembered longer, a shorter half life means old information is discared
+            sooner. A half life of ``0`` means no averaging is done, an infinite half life means no update is done.
+            Currently only units of epoch ('ep') and batch ('ba'). Value must be an integer. Ignored if ``smoothing``
+            is also specified. Default: ``"None"``.
+        smoothing (float, optional): The coefficient representing the degree to which older observations are kept.
+            Must be in the interval :math:`(0, 1)`. If used, the value of ``half_life`` is ignored. This value will
+            not be adjusted if ``update_interval`` is changed. Default: ``None``.
         update_interval (str, optional): The time string specifying the period at which updates are done. For example,
             an ``update_interval='1ep'`` means updates are done every epoch, while ``update_interval='10ba'`` means
-            updates are done once every ten batches. Units must match the units used to specify ``half_life``. If not
-            specified, ``update_interval`` will default to ``1`` in the units of ``half_life``. Value must be an
-            integer. Default: ``None``.
-        train_with_ema_weights (bool, optional): An experimental feature that uses the ema weights as the training
-            weights. In most cases should be left as ``False``. Default ``False``.
+            updates are done once every ten batches. Units must match the units used to specify ``half_life`` if not
+            using ``smoothing``. If not specified, ``update_interval`` will default to ``1`` in the units of
+            ``half_life``, or ``"1ba"`` if ``smoothing`` is specified. Value must be an integer. Default: ``None``.
 
     Example:
         .. testcode::
@@ -111,11 +113,10 @@ class EMA(Algorithm):
             )
     """
 
-    def __init__(self, half_life: str, update_interval: Optional[str] = None, train_with_ema_weights: bool = False):
-        self.half_life = half_life
-        self.update_interval = update_interval
-        self.train_with_ema_weights = train_with_ema_weights
-
+    def __init__(self,
+                 half_life: Optional[str] = None,
+                 update_interval: Optional[str] = None,
+                 smoothing: Optional[float] = None):
         self.ema_model = None
         self.training_model = None
 
@@ -124,15 +125,23 @@ class EMA(Algorithm):
             'training_model',
         ]
 
+        # Verify that either half_life or smoothing has been specified
+        if half_life is None and smoothing is None:
+            raise ValueError(f'Either half_life or smoothing must be specified')
+
         # Check timestrings are parsable and convert into time object
-        try:
-            self.half_life = Time.from_timestring(half_life)
-        except ValueError as error:
-            raise ValueError(f'Invalid time string for parameter half_life') from error
+        if half_life is not None:
+            try:
+                self.half_life = Time.from_timestring(half_life)
+            except ValueError as error:
+                raise ValueError(f'Invalid time string for parameter half_life') from error
 
         # Create the update interval if none is specified
-        if self.update_interval is None:
-            self.update_interval = Time(1, self.half_life.unit)
+        if update_interval is None:
+            if self.half_life:
+                self.update_interval = Time(1, self.half_life.unit)
+            else:
+                self.update_interval = Time(1, TimeUnit.BATCH)
         elif type(update_interval) is str:
             try:
                 self.update_interval = Time.from_timestring(update_interval)
@@ -141,23 +150,26 @@ class EMA(Algorithm):
         else:
             raise ValueError(f'update_interval must be None or a time string.')
 
-        # Verify that the units of half_life and update_interval are compatible
-        if self.half_life.unit != self.update_interval.unit:
+        # Verify that the units of half_life and update_interval are compatible if necessary
+        if half_life is not None and self.half_life.unit != self.update_interval.unit:
             raise ValueError(f'Units of half_life and update_interval must match.')
 
         # Verify that the time strings have supported units.
-        if self.half_life.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
-            raise ValueError(f'Invalid time unit for parameter half_life: '
+        if self.update_interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
+            raise ValueError(f'Invalid time unit for parameter update_interval: '
                              f'{self.update_interval.unit}')
 
         # Calculate the appropriate weighting for the moving average
-        self.smoothing = 2**(-(self.update_interval.value / self.half_life.value))
+        if smoothing is None and self.half_life:
+            self.smoothing = 2**(-(self.update_interval.value / self.half_life.value))
+        else:
+            self.smoothing = smoothing
 
         # Construct the appropriate matching events
         self.match_events = [Event.FIT_START, Event.EVAL_START, Event.EVAL_END]
-        if self.half_life.unit == TimeUnit.EPOCH:
+        if self.update_interval.unit == TimeUnit.EPOCH:
             self.match_events.append(Event.EPOCH_END)
-        if self.half_life.unit == TimeUnit.BATCH:
+        if self.update_interval.unit == TimeUnit.BATCH:
             self.match_events.append(Event.BATCH_END)
 
     def match(self, event: Event, state: State) -> bool:
@@ -165,6 +177,7 @@ class EMA(Algorithm):
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         assert isinstance(self.update_interval, Time)
+        assert isinstance(self.smoothing, float)
 
         if event == Event.FIT_START:
             if self.ema_model is not None:
@@ -178,14 +191,11 @@ class EMA(Algorithm):
                 # Initialize the shadow models if they don't exist yet
                 if self.ema_model is None:
                     self.ema_model = ShadowModel(state.model)
-                if self.training_model is None and self.train_with_ema_weights is False:
+                if self.training_model is None:
                     self.training_model = ShadowModel(state.model)
 
                 # Update the ema model
                 compute_ema(state.model, self.ema_model, smoothing=self.smoothing)
-                if self.train_with_ema_weights:
-                    # Use the ema weights for further training
-                    _copy_model(self.ema_model, state.model)
 
         if event == Event.EVAL_START and self.ema_model is not None and self.training_model is not None:
             # Swap out the training model for the ema model in state
