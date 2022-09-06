@@ -142,9 +142,10 @@ def _set_evaluator_interval_and_subset_num_batches(
 
 
 def _is_adaptive_grad_accum(grad_accum: Union[int, str], device: Device, profiler: Optional[Profiler]):
+    """Checks if `grad_accum='auto'` and if its compatible with current run configurations."""
     if grad_accum == 'auto':
         if profiler:
-            raise ValueError("`grad_accum='auto' is not compatible with the profiler. It is recommended to run "
+            raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
                              "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
                              'then manually specify that in a second run with profiler.')
         warnings.warn(("Setting `grad_accum='auto'` is an experimental feature which may cause "
