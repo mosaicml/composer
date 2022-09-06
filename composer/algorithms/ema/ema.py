@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import torch
 
+from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.core import Algorithm, Event, State, Time, TimeUnit
 from composer.loggers import Logger
 
@@ -119,11 +120,9 @@ class EMA(Algorithm):
                  smoothing: Optional[float] = None):
         self.ema_model = None
         self.training_model = None
+        self.ema_weights_active = False
 
-        self.serialized_attributes = [
-            'ema_model',
-            'training_model',
-        ]
+        self.serialized_attributes = ['ema_model', 'training_model', 'ema_weights_active']
 
         # Verify that either half_life or smoothing has been specified
         if half_life is None and smoothing is None:
@@ -166,7 +165,10 @@ class EMA(Algorithm):
             self.smoothing = smoothing
 
         # Construct the appropriate matching events
-        self.match_events = [Event.FIT_START, Event.EVAL_START, Event.EVAL_END]
+        self.match_events = [
+            Event.FIT_START, Event.BATCH_START, Event.EVAL_START, Event.EVAL_END, Event.BATCH_CHECKPOINT,
+            Event.EPOCH_CHECKPOINT
+        ]
         if self.update_interval.unit == TimeUnit.EPOCH:
             self.match_events.append(Event.EPOCH_END)
         if self.update_interval.unit == TimeUnit.BATCH:
@@ -185,6 +187,15 @@ class EMA(Algorithm):
             if self.training_model is not None:
                 _move_shadow_model_to_device(self.training_model, state.model)
 
+        assert (isinstance(self.training_model, ShadowModel))
+        assert (isinstance(self.ema_model, ShadowModel))
+
+        # Ensure the model being trained has the correct weights
+        if event == Event.BATCH_START:
+            if self.ema_weights_active:
+                _copy_model(self.training_model, state.model)
+                self.ema_weights_active = False
+
         if event in [Event.BATCH_END, Event.EPOCH_END]:
             # Check if an update should happen
             if state.timestamp.get(self.update_interval.unit).value % self.update_interval.value == 0:
@@ -201,10 +212,21 @@ class EMA(Algorithm):
             # Swap out the training model for the ema model in state
             _copy_model(state.model, self.training_model)
             _copy_model(self.ema_model, state.model)
+            self.ema_weights_active = True
 
         if event == Event.EVAL_END and self.training_model is not None:
             # Swap out the ema model for the training model in state
             _copy_model(self.training_model, state.model)
+            self.ema_weights_active = False
+
+        if event in [Event.BATCH_CHECKPOINT, Event.EPOCH_CHECKPOINT]:
+            checkpoint_savers = [cb for cb in state.callbacks if isinstance(cb, CheckpointSaver)]
+            for checkpoint_saver in checkpoint_savers:
+                if checkpoint_saver.save_interval is True:
+                    # Swap the training model out for the ema model for checkpointing
+                    _copy_model(state.model, self.training_model)
+                    _copy_model(self.ema_model, state.model)
+                    self.ema_weights_active = True
 
     def get_ema_model(self, model: torch.nn.Module):
         """Copies ema model parameters and buffers to the input model and returns it.
@@ -225,10 +247,13 @@ class EMA(Algorithm):
     def state_dict(self) -> Dict[str, ShadowModel]:
         state_dict = {}
         for attribute_name in self.serialized_attributes:
-            shadow_model = getattr(self, attribute_name)
-            state_dict[attribute_name] = {}
-            state_dict[attribute_name]['parameters'] = shadow_model.parameters()
-            state_dict[attribute_name]['buffers'] = shadow_model.buffers()
+            if attribute_name in ['ema_model', 'training_model']:
+                shadow_model = getattr(self, attribute_name)
+                state_dict[attribute_name] = {}
+                state_dict[attribute_name]['parameters'] = shadow_model.parameters()
+                state_dict[attribute_name]['buffers'] = shadow_model.buffers()
+            else:
+                state_dict[attribute_name] = getattr(self, attribute_name)
         return state_dict
 
     def load_shadow_model(self, name, parameters: List, buffers: List):
@@ -239,7 +264,10 @@ class EMA(Algorithm):
 
     def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
         for attribute_name, serialized_value in state.items():
-            self.load_shadow_model(attribute_name, serialized_value['parameters'], serialized_value['buffers'])
+            if attribute_name in ['ema_model', 'training_model']:
+                self.load_shadow_model(attribute_name, serialized_value['parameters'], serialized_value['buffers'])
+            else:
+                setattr(self, attribute_name, serialized_value)
 
 
 class ShadowModel:
