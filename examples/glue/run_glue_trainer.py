@@ -40,6 +40,7 @@ from dataclasses import dataclass
 from multiprocessing.managers import SyncManager
 from typing import Any, Dict, List, Optional, Tuple
 
+import numpy as np
 import torch
 import yahp as hp
 import yaml
@@ -112,31 +113,47 @@ def log_metrics(metric: Dict[str, Dict], task: str, ckpt_filename: str, glue_met
 def print_metrics(glue_metrics: GlueState) -> None:
     """Consolidate and prettify metrics."""
     tasks = glue_metrics.task_names
-    large_tasks = ['mnli', 'qnli', 'qqp', 'sst2']
+    large_tasks = ['mnli', 'qnli', 'qqp', 'sst-2']
+    assert all(task in glue_metrics.task_names for task in large_tasks)
     # init table headers
     headers = ['Checkpoint']
     headers.extend([f'{task.upper()}' for task in sorted(tasks)])
-    headers.extend(['GLUE-Large', 'GLUE-All'])
+    headers.extend(['GLUE-Large', 'GLUE-Avg'])
     tb = [headers]
 
+    empty_str = '  --  '
     # fill table
     for ckpt in glue_metrics.ckpt_to_tasks.keys():
         output_line = [ckpt]
         glue_all = 0
         glue_large = 0
+        count_all = 0
+        count_large = 0
+
         # Per task score
         for task in sorted(glue_metrics.task_names):
             task_metric = glue_metrics.ckpt_to_tasks[ckpt].task_to_avg_metric[task]
-            logged_metric = 0
-            if task_metric:
-                logged_metric = sum(task_metric) / len(glue_metrics.task_names)  # average all metrics
+            if not task_metric:  # Empty if this task wasn't run for some reason
+                output_line.append(empty_str)
+                continue
+            assert isinstance(task_metric, list)
+            logged_metric = float(np.nanmean(task_metric))
             output_line.append('{:.4f}'.format(logged_metric))
             glue_all += logged_metric
+            count_all += 1
             if task in large_tasks:
                 glue_large += logged_metric
+                count_large += 1
+
         # GLUE Large and GLUE All
-        output_line.append('{:.4f}'.format(glue_large / len(large_tasks)))
-        output_line.append('{:.4f}'.format(glue_all / len(tasks)))
+        if count_large > 0:
+            output_line.append('{:.4f}'.format(glue_large / count_large))
+        else:
+            output_line.append(empty_str)
+        if count_all > 0:
+            output_line.append('{:.4f}'.format(glue_all / count_all))
+        else:
+            output_line.append(empty_str)
         tb.append(output_line)
 
     print(tabulate(tb, headers='firstrow'))
