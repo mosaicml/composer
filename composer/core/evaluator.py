@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import math
 import warnings
 from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
@@ -14,6 +15,7 @@ from composer.core.data_spec import DataSpec, ensure_data_spec
 from composer.core.event import Event
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
+from composer.trainer import Trainer
 
 __all__ = ['Evaluator', 'evaluate_periodically', 'ensure_evaluator']
 
@@ -35,13 +37,14 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
     if isinstance(eval_interval, str):
         eval_interval = Time.from_timestring(eval_interval)
 
-    if eval_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH):
-        raise ValueError('The `eval_interval` must have units of EPOCH or BATCH, or be a function.')
+    if eval_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.DURATION):
+        raise ValueError('The `eval_interval` must have units of EPOCH, BATCH, DURATION or be a function.')
 
     last_batch_seen = -1
 
     def should_eval(state: State, event: Event):
-        if int(eval_interval) <= 0:
+        # `TimeUnit.Duration` value is a floating value and ranges from `[0.0, 1.0)`
+        if not eval_interval.unit == TimeUnit.DURATION and int(eval_interval) <= 0:
             return False
         nonlocal last_batch_seen  # required to use the last_batch_seen from the outer function scope
 
@@ -58,6 +61,31 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
                 state.timestamp.batch) % int(eval_interval) == 0 and event == Event.BATCH_END:
             last_batch_seen = state.timestamp.batch
             return True
+
+        if eval_interval.unit == TimeUnit.DURATION:
+            if state.max_duration is None:
+                raise ValueError(f'max_duration  is a required argument and must be specified when constructing the '
+                                 f'{Trainer.__name__} or when calling {Trainer.__name__}.{Trainer.fit.__name__}()')
+            if state.dataloader_len is None:
+                raise RuntimeError(
+                    f'Evaluation interval of type `dur` or {TimeUnit.DURATION} requires the dataloader to be sized.')
+            if state.max_duration.unit == TimeUnit.EPOCH and int(
+                    state.timestamp.batch) % math.ceil(state.max_duration.value * float(eval_interval) *
+                                                       state.dataloader_len) == 0 and event == Event.BATCH_END:
+                last_batch_seen = state.timestamp.batch
+                return True
+            elif state.max_duration.unit == TimeUnit.BATCH and int(state.timestamp.batch) % math.ceil(
+                    state.max_duration.value * eval_interval.value) == 0 and event == Event.BATCH_END:
+                last_batch_seen = state.timestamp.batch
+                return True
+            elif state.max_duration.unit == TimeUnit.SAMPLE and int(state.timestamp.sample) % math.ceil(
+                    state.max_duration.value * eval_interval.value) == 0 and event == Event.BATCH_END:
+                last_batch_seen = state.timestamp.batch
+                return True
+            elif state.max_duration.unit == TimeUnit.TOKEN and int(state.timestamp.token) % math.ceil(
+                    state.max_duration.value * eval_interval.value) == 0 and event == Event.BATCH_END:
+                last_batch_seen = state.timestamp.batch
+                return True
 
         return False
 
