@@ -117,6 +117,10 @@ class BlurPool(Algorithm):
             raise ValueError(
                 'Both replace_maxpool and replace_convs are set to False. BlurPool will not be modifying the model.')
 
+    @property
+    def is_model_surgery(self) -> bool:
+        return True
+
     def match(self, event: Event, state: State) -> bool:
         return event == Event.INIT
 

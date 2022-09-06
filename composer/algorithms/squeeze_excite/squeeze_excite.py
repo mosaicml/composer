@@ -152,6 +152,10 @@ class SqueezeExcite(Algorithm):
         self.latent_channels = latent_channels
         self.min_channels = min_channels
 
+    @property
+    def is_model_surgery(self) -> bool:
+        return True
+
     def match(self, event: Event, state: State) -> bool:
         return event == Event.INIT
 

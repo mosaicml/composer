@@ -166,6 +166,10 @@ class StochasticDepth(Algorithm):
     def find_unused_parameters(self) -> bool:
         return self.stochastic_method == 'block'
 
+    @property
+    def is_model_surgery(self) -> bool:
+        return True
+
     def match(self, event: Event, state: State) -> bool:
         return (event == Event.INIT) or (event == Event.BATCH_START and self.drop_warmup > 0.0)
 

@@ -56,10 +56,19 @@ class Algorithm(Serializable, ABC):
 
     @property
     def backwards_create_graph(self) -> bool:
-        """Return ``True`` to indicate that this algorithm requires a second derivative to be computed. Defaults to ``False``.
+        """Return ``True`` to indicate this algorithm requires a second derivative to be computed. Defaults to ``False``.
 
         If it returns ``True``, ``create_graph=True`` will be passed to :meth:`torch.Tensor.backward` which will result in
         the graph of the gradient also being constructed. This allows the computation of second order derivatives.
+        """
+        return False
+
+    @property
+    def is_model_surgery(self) -> bool:
+        """Return `True` to indicate this algorithm uses model surgery and changes the model.
+
+        If ``True``, this indicates a model trained with this algorithm requires this algorithm to be enabled in future
+        runs.
         """
         return False
 

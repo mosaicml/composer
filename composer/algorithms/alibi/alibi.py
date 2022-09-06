@@ -164,6 +164,10 @@ class Alibi(Algorithm):
         self.train_sequence_length_scaling = train_sequence_length_scaling
         self._applied = False
 
+    @property
+    def is_model_surgery(self) -> bool:
+        return True
+
     def match(self, event: Event, state: State) -> bool:
         return (event == Event.INIT and not self._applied) or event == Event.AFTER_DATALOADER
 
