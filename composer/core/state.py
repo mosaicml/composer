@@ -508,11 +508,12 @@ class State(Serializable):
         if 'algorithms' in state:
             serialized_algorithms = state['algorithms']
             import composer.algorithms as algorithms
+            existing_algorithm_types = [type(algorithm) for algorithm in state['algorithms']]
             missing_surgery_algos = []
             for algorithm_name in serialized_algorithms.keys():
                 if hasattr(algorithms, algorithm_name):
                     algorithm_cls = getattr(algorithms, algorithm_name)
-                    if algorithm_cls().is_model_surgery:
+                    if algorithm_cls().is_model_surgery and algorithm_cls not in existing_algorithm_types:
                         missing_surgery_algos.append(algorithm_name)
             if len(missing_surgery_algos) > 0:
                 raise ValueError(
