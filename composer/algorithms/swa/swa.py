@@ -262,6 +262,7 @@ class SWA(Algorithm):
             log.info('Set model to the averaged model')
 
     def state_dict(self) -> Dict[str, Any]:
+        state_dict = super().state_dict()
 
         # we pop the anneal_func from the SWALR state
         # since it is set in the SWALR __init__
@@ -276,6 +277,7 @@ class SWA(Algorithm):
             'swa_started': self.swa_started,
             'swa_scheduler': swa_scheduler_state,
             'step_counter': self.step_counter,
+            **state_dict,
         }
         return state_dict
 

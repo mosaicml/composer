@@ -163,7 +163,7 @@ class StochasticDepth(Algorithm):
                                      drop_warmup=str(self.drop_warmup))
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}('{self.target_layer_name}','{self.stochastic_method}',{self.drop_rate},'{self.drop_distribution}',{repr(self.drop_warmup)})"
+        return f"{self.__class__.__name__}(target_layer_name='{self.target_layer_name}',stochastic_method='{self.stochastic_method}',drop_rate={self.drop_rate},drop_distribution='{self.drop_distribution}',drop_warmup={repr(self.drop_warmup)})"
 
     @property
     def find_unused_parameters(self) -> bool:

@@ -358,11 +358,17 @@ class TestCheckpointLoading:
         trainer_1.fit()
         trainer_1.close()
 
+        # ValueError is raised without surgery
         resume_file = os.path.join(tmp_path, 'first', 'ep1.pt')
         with pytest.raises(ValueError) as e:
             self.get_trainer(load_path=resume_file)
-        # Verify the right ValueError was raised
         assert 'The following surgery algorithms' in str(e)
+
+        # Loads fine with surgery
+        self.get_trainer(
+            algorithms=[SqueezeExcite(latent_channels=64, min_channels=3)],
+            load_path=resume_file,
+        )
 
 
 class TestCheckpointResumption:

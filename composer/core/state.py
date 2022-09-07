@@ -7,7 +7,6 @@ from __future__ import annotations
 import collections.abc
 import logging
 import warnings
-from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Sequence, Union, cast
 
 import torch
@@ -504,28 +503,27 @@ class State(Serializable):
         """
         import composer.algorithms as algorithms
 
-        # Get the types and counts of existing algorithms
-        state_algo_counts = defaultdict(int)
+        # Get repr of existing algorithms
+        state_algos = set()
         for algo in self.algorithms:
-            state_algo_counts[type(algo).__qualname__] += 1
+            state_algos.add(algo.__repr__())
 
-        # Get the types and counts of checkpoint algorithms
-        checkpoint_algo_counts = defaultdict(int)
-        for algo in state['algorithms'].keys():
-            # Fetch class from module using name
+        # Get repr of checkpoint algorithms
+        checkpoint_algos = set()
+        for algo, serialized_value in state['algorithms'].items():
             try:
                 if getattr(algorithms, algo).required_on_load():
-                    checkpoint_algo_counts[algo] += 1
+                    checkpoint_algos.add(serialized_value['repr'])
             except AttributeError:
                 logger.warning(
                     f'Found algorithm of unknown type: {algo}. Skipping check for if it is required when loading checkpoint.'
                 )
 
         missing_surgery_algos = []
-        for algo, checkpoint_count in checkpoint_algo_counts.items():
-            state_count = state_algo_counts.get(algo, 0)
-            if checkpoint_count != state_count:
-                missing_surgery_algos.append(f'{algo} ({state_count} provided vs. {checkpoint_count} expected)')
+        for repr in checkpoint_algos:
+            if repr not in state_algos:
+                missing_surgery_algos.append(repr)
+
         if len(missing_surgery_algos) > 0:
             raise ValueError('The following surgery algorithms were enabled when training this checkpoint '
                              f"and are required to successfully load it: {', '.join(missing_surgery_algos)}. "

@@ -166,7 +166,7 @@ class GatedLinearUnits(Algorithm):
 
     def __repr__(self) -> str:
         act_fn = 'act_fn' if self.act_fn else None
-        return f'{self.__class__.__name__}({act_fn},{self.gated_layer_bias},{self.non_gated_layer_bias})'
+        return f'{self.__class__.__name__}(act_fn={act_fn},gated_layer_bias={self.gated_layer_bias},non_gated_layer_bias={self.non_gated_layer_bias})'
 
     @staticmethod
     def required_on_load() -> bool:
