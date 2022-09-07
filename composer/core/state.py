@@ -505,6 +505,7 @@ class State(Serializable):
         """
         state = _ensure_backwards_compatible_checkpointing(state)
 
+        # Verify surgery algorithms from checkpoint are also enabled in current run
         if 'algorithms' in state:
             import composer.algorithms as algorithms
 
