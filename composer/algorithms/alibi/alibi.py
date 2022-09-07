@@ -164,6 +164,9 @@ class Alibi(Algorithm):
         self.train_sequence_length_scaling = train_sequence_length_scaling
         self._applied = False
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}({self.max_sequence_length},{self.train_sequence_length_scaling})'
+
     @staticmethod
     def required_on_load() -> bool:
         return True

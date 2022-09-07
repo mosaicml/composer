@@ -507,17 +507,16 @@ class State(Serializable):
         # Get the types and counts of existing algorithms
         state_algo_counts = defaultdict(int)
         for algo in self.algorithms:
-            state_algo_counts[type(algo)] += 1
+            state_algo_counts[type(algo).__qualname__] += 1
 
         # Get the types and counts of checkpoint algorithms
         checkpoint_algo_counts = defaultdict(int)
         for algo in state['algorithms'].keys():
             # Fetch class from module using name
-            if hasattr(algorithms, algo):
-                algo_cls = getattr(algorithms, algo)
-                if algo_cls.required_on_load():
-                    checkpoint_algo_counts[algo_cls] += 1
-            else:
+            try:
+                if getattr(algorithms, algo).required_on_load():
+                    checkpoint_algo_counts[algo] += 1
+            except AttributeError:
                 logger.warning(
                     f'Found algorithm of unknown type: {algo}. Skipping check for if it is required when loading checkpoint.'
                 )
@@ -526,8 +525,7 @@ class State(Serializable):
         for algo, checkpoint_count in checkpoint_algo_counts.items():
             state_count = state_algo_counts.get(algo, 0)
             if checkpoint_count != state_count:
-                missing_surgery_algos.append(
-                    f'{algo.__qualname__} ({state_count} provided vs. {checkpoint_count} expected)')
+                missing_surgery_algos.append(f'{algo} ({state_count} provided vs. {checkpoint_count} expected)')
         if len(missing_surgery_algos) > 0:
             raise ValueError('The following surgery algorithms were enabled when training this checkpoint '
                              f"and are required to successfully load it: {', '.join(missing_surgery_algos)}. "

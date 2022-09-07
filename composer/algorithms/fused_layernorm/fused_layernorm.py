@@ -97,6 +97,9 @@ class FusedLayerNorm(Algorithm):
         # FusedLayerNorm takes no arguments
         check_if_apex_installed()
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}()'
+
     @staticmethod
     def required_on_load() -> bool:
         return True
