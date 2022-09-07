@@ -142,7 +142,6 @@ def _set_evaluator_interval_and_subset_num_batches(
 
 
 def _is_adaptive_grad_accum(grad_accum: Union[int, str], device: Device):
-    """Checks if `grad_accum='auto'` and if its compatible with current run configurations."""
     if grad_accum == 'auto':
         warnings.warn(("Setting `grad_accum='auto'` is an experimental feature which may cause "
                        'uncaught Cuda Out of Memory errors. In this case, please manually '
