@@ -187,11 +187,8 @@ class EMA(Algorithm):
             if self.training_model is not None:
                 _move_shadow_model_to_device(self.training_model, state.model)
 
-        assert (isinstance(self.training_model, ShadowModel))
-        assert (isinstance(self.ema_model, ShadowModel))
-
         # Ensure the model being trained has the correct weights
-        if event == Event.BATCH_START:
+        if event == Event.BATCH_START and self.ema_model is not None and self.training_model is not None:
             if self.ema_weights_active:
                 _copy_model(self.training_model, state.model)
                 self.ema_weights_active = False
@@ -219,7 +216,8 @@ class EMA(Algorithm):
             _copy_model(self.training_model, state.model)
             self.ema_weights_active = False
 
-        if event in [Event.BATCH_CHECKPOINT, Event.EPOCH_CHECKPOINT]:
+        if event in [Event.BATCH_CHECKPOINT, Event.EPOCH_CHECKPOINT
+                    ] and self.ema_model is not None and self.training_model is not None:
             checkpoint_savers = [cb for cb in state.callbacks if isinstance(cb, CheckpointSaver)]
             for checkpoint_saver in checkpoint_savers:
                 if checkpoint_saver.save_interval is True:
