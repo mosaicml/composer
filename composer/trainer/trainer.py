@@ -872,6 +872,10 @@ class Trainer:
 
         # Grad Accum
         self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
+        if self.adaptive_gradient_accumulation and profiler:
+            raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
+                             "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
+                             'then manually specify that in a second run with profiler.')
         grad_accum = _get_initial_grad_accum(grad_accum)
         eval_batch_split = 1
         if self.adaptive_gradient_accumulation and isinstance(self._device, DeviceTPU):
@@ -1433,6 +1437,10 @@ class Trainer:
         # Grad Accum
         if grad_accum is not None:
             self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
+            if self.adaptive_gradient_accumulation and self.state.profiler:
+                raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
+                                 "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
+                                 'then manually specify that in a second run with profiler.')
             self.state.grad_accum = _get_initial_grad_accum(grad_accum)
 
         # Precision
