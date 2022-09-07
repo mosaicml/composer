@@ -183,6 +183,7 @@ class StreamingCIFAR10Hparams(DatasetHparams):
     """Streaming CIFAR10 hyperparameters.
 
     Args:
+        version (int): Which version of streaming to use.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
             Default: ``'s3://mosaicml-internal-dataset-cifar10/mds/1/'``
         local (str): Local filesystem directory where dataset is cached during operation.
@@ -190,6 +191,7 @@ class StreamingCIFAR10Hparams(DatasetHparams):
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train'``.
     """
 
+    version: int = hp.optional('Version of streaming (1 or 2)', default=1)
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
                               default='s3://mosaicml-internal-dataset-cifar10/mds/1/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
@@ -197,11 +199,36 @@ class StreamingCIFAR10Hparams(DatasetHparams):
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
-        dataset = StreamingCIFAR10(remote=self.remote,
-                                   local=self.local,
-                                   split=self.split,
-                                   shuffle=self.shuffle,
-                                   batch_size=batch_size)
+        if self.version == 1:
+            dataset = StreamingCIFAR10(remote=self.remote,
+                                       local=self.local,
+                                       split=self.split,
+                                       shuffle=self.shuffle,
+                                       batch_size=batch_size)
+        elif self.version == 2:
+            from streaming.vision import CIFAR10
+
+            cifar10_mean = 0.4914, 0.4822, 0.4465
+            cifar10_std = 0.247, 0.243, 0.261
+
+            if self.split == 'train':
+                transform = transforms.Compose([
+                    transforms.RandomCrop(32, padding=4),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor(),
+                    transforms.Normalize(cifar10_mean, cifar10_std),
+                ])
+            else:
+                transform = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Normalize(cifar10_mean, cifar10_std),
+                ])
+
+            dataset = CIFAR10(local=self.local, remote=self.remote, split=self.split, shuffle=self.shuffle,
+                              transform=transform, batch_size=batch_size)
+        else:
+            raise ValueError(f'Invalid streaming version: {self.version}')
+
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,

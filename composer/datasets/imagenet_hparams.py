@@ -211,6 +211,7 @@ class StreamingImageNet1kHparams(DatasetHparams):
     """DatasetHparams for creating an instance of StreamingImageNet1k.
 
     Args:
+        version (int): Which version of streaming to use.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
             Default: ``'s3://mosaicml-internal-dataset-imagenet1k/mds/1/```
         local (str): Local filesystem directory where dataset is cached during operation.
@@ -220,6 +221,7 @@ class StreamingImageNet1kHparams(DatasetHparams):
         crop size (int): The crop size to use. Default: ``224``.
     """
 
+    version: int = hp.optional('Version of streaming (1 or 2)', default=1)
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
                               default='s3://mosaicml-internal-dataset-imagenet1k/mds/1/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
@@ -229,13 +231,36 @@ class StreamingImageNet1kHparams(DatasetHparams):
     crop_size: int = hp.optional('Crop size', default=224)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
-        dataset = StreamingImageNet1k(remote=self.remote,
-                                      local=self.local,
-                                      split=self.split,
-                                      shuffle=self.shuffle,
-                                      resize_size=self.resize_size,
-                                      crop_size=self.crop_size,
-                                      batch_size=batch_size)
+        if self.version == 1:
+            dataset = StreamingImageNet1k(remote=self.remote,
+                                          local=self.local,
+                                          split=self.split,
+                                          shuffle=self.shuffle,
+                                          resize_size=self.resize_size,
+                                          crop_size=self.crop_size,
+                                          batch_size=batch_size)
+        elif self.version == 2:
+            from streaming.vision import ImageNet
+            transform = []
+            if self.split == 'train':
+                # include fixed-size resize before RandomResizedCrop in training only
+                # if requested (by specifying a size > 0)
+                if self.resize_size > 0:
+                    transform.append(transforms.Resize(self.resize_size))
+                # always include RandomResizedCrop and RandomHorizontalFlip
+                transform += [
+                    transforms.RandomResizedCrop(self.crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
+                    transforms.RandomHorizontalFlip()
+                ]
+            else:
+                if self.resize_size > 0:
+                    transform.append(transforms.Resize(self.resize_size))
+                transform.append(transforms.CenterCrop(self.crop_size))
+            transform = transforms.Compose(transform)
+            dataset = ImageNet(local=self.local, remote=self.remote, split=self.split, shuffle=self.shuffle,
+                               transform=transform, batch_size=batch_size)
+        else:
+            raise ValueError(f'Invalid version: {self.version}')
         collate_fn = pil_image_collate
         device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
         return DataSpec(dataloader=dataloader_hparams.initialize_object(
