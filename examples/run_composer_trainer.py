@@ -19,7 +19,7 @@ import warnings
 
 from composer.loggers import LogLevel
 from composer.trainer.trainer_hparams import TrainerHparams
-from composer.utils import dist
+from composer.utils import dist, warn_yahp_deprecation
 from composer.utils.misc import warning_on_one_line
 
 
@@ -34,6 +34,8 @@ def _main():
         # Including the PID and thread name to help with debugging dataloader workers and callbacks that spawn background
         # threads / processes
         format=f'%(asctime)s: rank{global_rank}[%(process)d][%(threadName)s]: %(levelname)s: %(name)s: %(message)s')
+
+    warn_yahp_deprecation()
 
     if len(sys.argv) == 1:
         sys.argv.append('--help')
