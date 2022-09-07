@@ -15,7 +15,6 @@ from composer.core.data_spec import DataSpec, ensure_data_spec
 from composer.core.event import Event
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
-from composer.trainer import Trainer
 
 __all__ = ['Evaluator', 'evaluate_periodically', 'ensure_evaluator']
 
@@ -64,8 +63,8 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
 
         if eval_interval.unit == TimeUnit.DURATION:
             if state.max_duration is None:
-                raise ValueError(f'max_duration  is a required argument and must be specified when constructing the '
-                                 f'{Trainer.__name__} or when calling {Trainer.__name__}.{Trainer.fit.__name__}()')
+                raise ValueError(f'`max_duration` is a required argument and must be specified when constructing the '
+                                 f'`Trainer()` or `duration` when calling `Trainer.fit()`')
             if state.dataloader_len is None:
                 raise RuntimeError(
                     f'Evaluation interval of type `dur` or {TimeUnit.DURATION} requires the dataloader to be sized.')
