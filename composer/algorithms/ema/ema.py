@@ -98,6 +98,11 @@ class EMA(Algorithm):
             updates are done once every ten batches. Units must match the units used to specify ``half_life`` if not
             using ``smoothing``. If not specified, ``update_interval`` will default to ``1`` in the units of
             ``half_life``, or ``"1ba"`` if ``smoothing`` is specified. Value must be an integer. Default: ``None``.
+        update_bn_interval (str, optional): Time string specifying the (optional) period at which the ema model's batch
+            norm layers are trained. This uses an update step to train the normalization parameters of the ema model,
+            and does not update the training model during this step. If not specified, ema norm layers will never be
+            trained and the averaged values will be used directly. For example, an ``update_bn_interval='10ba'`` will
+            use one out of every 10 steps to update the ema model's batchnorm parameters. Default: ``"None"``.
 
     Example:
         .. testcode::
@@ -117,7 +122,8 @@ class EMA(Algorithm):
     def __init__(self,
                  half_life: Optional[str] = None,
                  update_interval: Optional[str] = None,
-                 smoothing: Optional[float] = None):
+                 smoothing: Optional[float] = None,
+                 update_bn_interval: Optional[str] = None):
         self.ema_model = None
         self.training_model = None
         self.ema_weights_active = False
@@ -165,10 +171,10 @@ class EMA(Algorithm):
             self.smoothing = smoothing
 
         # Construct the appropriate matching events
-        self.match_events = [
-            Event.FIT_START, Event.BATCH_START, Event.EVAL_START, Event.EVAL_END, Event.BATCH_CHECKPOINT,
-            Event.EPOCH_CHECKPOINT
-        ]
+        self.match_events = [Event.FIT_START, Event.BATCH_START, Event.EVAL_START, Event.EVAL_END]
+        self.checkpoint_events = [Event.BATCH_CHECKPOINT, Event.EPOCH_CHECKPOINT]
+        self.match_events += self.checkpoint_events
+
         if self.update_interval.unit == TimeUnit.EPOCH:
             self.match_events.append(Event.EPOCH_END)
         if self.update_interval.unit == TimeUnit.BATCH:
@@ -216,11 +222,10 @@ class EMA(Algorithm):
             _copy_model(self.training_model, state.model)
             self.ema_weights_active = False
 
-        if event in [Event.BATCH_CHECKPOINT, Event.EPOCH_CHECKPOINT
-                    ] and self.ema_model is not None and self.training_model is not None:
+        if event in self.checkpoint_events and self.ema_model is not None and self.training_model is not None:
             checkpoint_savers = [cb for cb in state.callbacks if isinstance(cb, CheckpointSaver)]
             for checkpoint_saver in checkpoint_savers:
-                if checkpoint_saver.save_interval is True:
+                if checkpoint_saver.save_interval(state, event) is True and self.ema_weights_active is False:
                     # Swap the training model out for the ema model for checkpointing
                     _copy_model(state.model, self.training_model)
                     _copy_model(self.ema_model, state.model)
