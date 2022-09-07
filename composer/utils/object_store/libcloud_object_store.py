@@ -74,12 +74,19 @@ class LibcloudObjectStore(ObjectStore):
             * ``region`` (str): Optional driver region. Only used by drivers which support multiple regions.
 
             .. seealso:: :class:`libcloud.storage.base.StorageDriver`
+
+        key_environ (str, optional): Environment variable name for the API Key. Only used
+            if 'key' is not in ``provider_kwargs``. Default: None.
+        secret_environ (str, optional): Envrionment varaible for the Secret password. Only
+            used if 'secret' is not in ``provider_kwargs``. Default: None.
     """
 
     def __init__(self,
                  provider: str,
                  container: str,
                  chunk_size: int = 1_024 * 1_024,
+                 key_environ: Optional[str] = None,
+                 secret_environ: Optional[str] = None,
                  provider_kwargs: Optional[Dict[str, Any]] = None) -> None:
         try:
             from libcloud.storage.providers import get_driver
@@ -88,6 +95,13 @@ class LibcloudObjectStore(ObjectStore):
         provider_cls = get_driver(provider)
         if provider_kwargs is None:
             provider_kwargs = {}
+
+        if key_environ in os.environ and 'key' not in provider_kwargs:
+            provider_kwargs['key'] = os.environ[key_environ]  # type: ignore
+
+        if secret_environ in os.environ and 'secret' not in provider_kwargs:
+            provider_kwargs['secret'] = os.environ[secret_environ]  # type: ignore
+
         self.chunk_size = chunk_size
         self._provider_name = provider
         self._provider = provider_cls(**provider_kwargs)

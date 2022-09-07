@@ -70,11 +70,20 @@ class SFTPObjectStore(ObjectStore):
         username: Optional[str] = None,
         password: Optional[str] = None,
         known_hosts_filename: Optional[Union[pathlib.Path, str]] = None,
+        known_hosts_filename_environ: str = 'COMPOSER_SFTP_KNOWN_HOSTS_FILE',
         key_filename: Optional[Union[pathlib.Path, str]] = None,
+        key_filename_environ: str = 'COMPOSER_SFTP_KEY_FILE',
         missing_host_key_policy: Union[str, paramiko.client.MissingHostKeyPolicy] = 'RejectPolicy',
         cwd: str = '',
         connect_kwargs: Optional[Dict[str, Any]] = None,
     ):
+
+        if known_hosts_filename is None:
+            known_hosts_filename = os.environ.get(known_hosts_filename_environ, None)
+
+        if key_filename is None:
+            key_filename = os.environ.get(key_filename_environ, None)
+
         if not _PARAMIKO_AVAILABLE:
             raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='paramiko')
         url = urllib.parse.urlsplit(host)

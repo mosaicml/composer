@@ -5,7 +5,6 @@
 
 import abc
 import dataclasses
-import os
 from typing import Any, Dict, Optional, Type
 
 import yahp as hp
@@ -145,6 +144,7 @@ class LibcloudObjectStoreHparams(ObjectStoreHparams):
 
     provider: str = hp.auto(LibcloudObjectStore, 'provider')
     container: str = hp.auto(LibcloudObjectStore, 'container')
+    chunk_size: int = hp.optional('Chunk size of download/updates', default=1024 * 1024)
     key_environ: Optional[str] = hp.optional(('The name of an environment variable containing '
                                               'an API key or username to use to connect to the provider.'),
                                              default=None)
@@ -161,20 +161,24 @@ class LibcloudObjectStoreHparams(ObjectStoreHparams):
         return LibcloudObjectStore
 
     def get_kwargs(self) -> Dict[str, Any]:
-        init_kwargs = {
+
+        provider_kwargs = {}
+        if self.region:
+            provider_kwargs['region'] = self.region
+        if self.host:
+            provider_kwargs['host'] = self.host
+        if self.port:
+            provider_kwargs['port'] = self.port
+        provider_kwargs.update(self.extra_init_kwargs)
+
+        return {
             'provider': self.provider,
             'container': self.container,
-            'provider_kwargs': {},
+            'chunk_size': self.chunk_size,
+            'key_environ': self.key_environ,
+            'secret_environ': self.secret_environ,
+            'provider_kwargs': provider_kwargs,
         }
-        for key in ('host', 'port', 'region'):
-            kwarg = getattr(self, key)
-            if getattr(self, key) is not None:
-                init_kwargs['provider_kwargs'][key] = kwarg
-        init_kwargs['provider_kwargs']['key'] = None if self.key_environ is None else os.environ[self.key_environ]
-        init_kwargs['provider_kwargs']['secret'] = None if self.secret_environ is None else os.environ[
-            self.secret_environ]
-        init_kwargs.update(self.extra_init_kwargs)
-        return init_kwargs
 
 
 @dataclasses.dataclass
@@ -259,16 +263,7 @@ class SFTPObjectStoreHparams(ObjectStoreHparams):
         return SFTPObjectStore
 
     def get_kwargs(self) -> Dict[str, Any]:
-        kwargs = dataclasses.asdict(self)
-        del kwargs['key_filename_environ']
-        if self.key_filename_environ in os.environ and self.key_filename is None:
-            kwargs['key_filename'] = os.environ[self.key_filename_environ]
-
-        del kwargs['known_hosts_filename_environ']
-        if self.known_hosts_filename_environ in os.environ and self.known_hosts_filename is None:
-            kwargs['known_hosts_filename'] = os.environ[self.known_hosts_filename_environ]
-
-        return kwargs
+        return dataclasses.asdict(self)
 
 
 object_store_registry: Dict[str, Type[ObjectStoreHparams]] = {
