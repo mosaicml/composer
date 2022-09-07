@@ -213,11 +213,12 @@ class EMA(Algorithm):
 
         if event == Event.EVAL_START and self.ema_model is not None and self.training_model is not None:
             # Swap out the training model for the ema model in state
-            _copy_model(state.model, self.training_model)
-            _copy_model(self.ema_model, state.model)
-            self.ema_weights_active = True
+            if self.ema_weights_active is False:
+                _copy_model(state.model, self.training_model)
+                _copy_model(self.ema_model, state.model)
+                self.ema_weights_active = True
 
-        if event == Event.EVAL_END and self.training_model is not None:
+        if event == Event.EVAL_END and self.training_model is not None and self.ema_weights_active is True:
             # Swap out the ema model for the training model in state
             _copy_model(self.training_model, state.model)
             self.ema_weights_active = False
@@ -225,7 +226,9 @@ class EMA(Algorithm):
         if event in self.checkpoint_events and self.ema_model is not None and self.training_model is not None:
             checkpoint_savers = [cb for cb in state.callbacks if isinstance(cb, CheckpointSaver)]
             for checkpoint_saver in checkpoint_savers:
+                print('Found a checkpoint saver')
                 if checkpoint_saver.save_interval(state, event) is True and self.ema_weights_active is False:
+                    print('Swapping ema model in for checkpointing')
                     # Swap the training model out for the ema model for checkpointing
                     _copy_model(state.model, self.training_model)
                     _copy_model(self.ema_model, state.model)
