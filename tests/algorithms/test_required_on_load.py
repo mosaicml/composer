@@ -18,6 +18,9 @@ def initialize_algorithm(algo_cls: Type):
     elif algo_cls == algorithms.FusedLayerNorm:
         pytest.importorskip('apex')
         return algo_cls()
+    elif algo_cls == algorithms.GatedLinearUnits:
+        pytest.importorskip('transformers')
+        return algo_cls()
     else:
         return algo_cls()
 
