@@ -107,13 +107,13 @@ def get_object_store_ctx(object_store_cls: Type[ObjectStore],
             with moto.mock_s3():
                 # create the dummy bucket
                 s3 = boto3.client('s3')
-                s3.create_bucket(Bucket=object_store_hparam_kwargs[S3ObjectStoreHparams]['bucket'])
+                s3.create_bucket(Bucket=object_store_kwargs['bucket'])
                 yield
     elif object_store_cls is LibcloudObjectStore:
         pytest.importorskip('libcloud')
         if remote:
             pytest.skip('Libcloud object store has no remote tests.')
-        monkeypatch.setenv(object_store_hparam_kwargs[LibcloudObjectStoreHparams]['key_environ'], '.')
+        monkeypatch.setenv(object_store_kwargs['key_environ'], '.')
 
         remote_dir = tmp_path / 'remote_dir'
         os.makedirs(remote_dir)
