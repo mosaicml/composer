@@ -21,21 +21,11 @@ WORLD_SIZE_OPTIONS = (1, 2)
 # Enforce deterministic mode before any tests start.
 reproducibility.configure_deterministic_mode()
 
-# during the pytest refactor transition, this flag
-# indicates whether to include the deprecated fixtures.
-# used for internal development.
-_include_deprecated_fixtures = True
-
 # Add the path of any pytest fixture files you want to make global
 pytest_plugins = [
     'tests.fixtures.new_fixtures',
     'tests.fixtures.synthetic_hf_state',
 ]
-
-if _include_deprecated_fixtures:
-    pytest_plugins += [
-        'tests.fixtures.dummy_fixtures',
-    ]
 
 
 def _add_option(parser: pytest.Parser, name: str, help: str, choices: Optional[List[str]] = None):

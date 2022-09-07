@@ -459,6 +459,7 @@ class TestTrainerInitOrFit:
                 max_duration=max_duration,
                 train_dataloader=train_dataloader,
                 precision=precision,
+                device=device,
             )
 
         if not should_error:
@@ -470,6 +471,7 @@ class TestTrainerInitOrFit:
             model=copied_model,
             max_duration=max_duration,
             train_dataloader=train_dataloader,
+            device=device,
         )
         with ctx:
             fit_trainer.fit(precision=precision)

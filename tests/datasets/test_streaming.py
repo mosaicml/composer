@@ -19,8 +19,8 @@ from composer.utils import dist
 
 @pytest.fixture
 def remote_local(tmp_path: pathlib.Path) -> Tuple[str, str]:
-    remote = tmp_path / 'remote'
-    local = tmp_path / 'local'
+    remote = tmp_path.joinpath('remote')
+    local = tmp_path.joinpath('local')
     remote.mkdir()
     local.mkdir()
     return str(remote), str(local)
@@ -28,9 +28,9 @@ def remote_local(tmp_path: pathlib.Path) -> Tuple[str, str]:
 
 @pytest.fixture
 def compressed_remote_local(tmp_path: pathlib.Path) -> Tuple[str, str, str]:
-    compressed = tmp_path / 'compressed'
-    remote = tmp_path / 'remote'
-    local = tmp_path / 'local'
+    compressed = tmp_path.joinpath('compressed')
+    remote = tmp_path.joinpath('remote')
+    local = tmp_path.joinpath('local')
     list(x.mkdir() for x in [compressed, remote, local])
     return tuple(str(x) for x in [compressed, remote, local])
 
