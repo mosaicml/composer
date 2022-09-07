@@ -359,8 +359,10 @@ class TestCheckpointLoading:
         trainer_1.close()
 
         resume_file = os.path.join(tmp_path, 'first', 'ep1.pt')
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError) as e:
             self.get_trainer(load_path=resume_file)
+        # Verify the right ValueError was raised
+        assert 'The following surgery algorithms' in str(e)
 
 
 class TestCheckpointResumption:
