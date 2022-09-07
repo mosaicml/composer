@@ -505,9 +505,23 @@ class State(Serializable):
         """
         state = _ensure_backwards_compatible_checkpointing(state)
 
+        if 'algorithms' in state:
+            serialized_algorithms = state['algorithms']
+            import composer.algorithms as algorithms
+            missing_surgery_algos = []
+            for algorithm_name in serialized_algorithms.keys():
+                if hasattr(algorithms, algorithm_name):
+                    algorithm_cls = getattr(algorithms, algorithm_name)
+                    if algorithm_cls().is_model_surgery:
+                        missing_surgery_algos.append(algorithm_name)
+            if len(missing_surgery_algos) > 0:
+                raise ValueError(
+                    f"The following surgery algorithms were enabled when training this checkpoint and are required to successfully load it: {', '.join(missing_surgery_algos)}"
+                )
+
         for attribute_name, serialized_value in state.items():
             if attribute_name not in self.serialized_attributes:
-                # it's possible some attributes we removed
+                # It's possible some attributes we removed
                 continue
 
             if attribute_name == 'model':

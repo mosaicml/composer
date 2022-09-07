@@ -355,15 +355,12 @@ class TestCheckpointLoading:
             algorithms=[SqueezeExcite(latent_channels=64, min_channels=3)],
             save_folder=os.path.join(tmp_path, 'first'),
         )
-
         trainer_1.fit()
         trainer_1.close()
 
         resume_file = os.path.join(tmp_path, 'first', 'ep1.pt')
-
-        trainer_2 = self.get_trainer(load_path=resume_file,)
-        trainer_2.fit()
-        trainer_2.close()
+        with pytest.raises(ValueError):
+            self.get_trainer(load_path=resume_file)
 
 
 class TestCheckpointResumption:
