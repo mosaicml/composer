@@ -164,8 +164,8 @@ class GatedLinearUnits(Algorithm):
         self.gated_layer_bias = gated_layer_bias
         self.non_gated_layer_bias = non_gated_layer_bias
 
-    @property
-    def is_model_surgery(self) -> bool:
+    @staticmethod
+    def is_model_surgery() -> bool:
         return True
 
     def match(self, event: Event, state: State) -> bool:

@@ -97,8 +97,8 @@ class FusedLayerNorm(Algorithm):
         # FusedLayerNorm takes no arguments
         check_if_apex_installed()
 
-    @property
-    def is_model_surgery(self) -> bool:
+    @staticmethod
+    def is_model_surgery() -> bool:
         return True
 
     def match(self, event: Event, state: State) -> bool:

@@ -521,7 +521,7 @@ class State(Serializable):
                 # Fetch class from module using name
                 if hasattr(algorithms, algorithm):
                     algorithm_cls = getattr(algorithms, algorithm)
-                    if algorithm_cls().is_model_surgery:
+                    if algorithm_cls.is_model_surgery():
                         # Update counts using class
                         if algorithm_cls not in checkpoint_algorithm_counts:
                             checkpoint_algorithm_counts[algorithm_cls] = 0

@@ -160,8 +160,8 @@ class Factorize(Algorithm):
         self.min_features = min_features
         self.latent_features = latent_features
 
-    @property
-    def is_model_surgery(self) -> bool:
+    @staticmethod
+    def is_model_surgery() -> bool:
         return True
 
     def match(self, event: Event, state: State) -> bool:

@@ -166,8 +166,8 @@ class StochasticDepth(Algorithm):
     def find_unused_parameters(self) -> bool:
         return self.stochastic_method == 'block'
 
-    @property
-    def is_model_surgery(self) -> bool:
+    @staticmethod
+    def is_model_surgery() -> bool:
         return True
 
     def match(self, event: Event, state: State) -> bool:
