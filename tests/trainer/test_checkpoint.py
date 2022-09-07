@@ -350,6 +350,21 @@ class TestCheckpointLoading:
         )
         trainer_3.fit(duration='1ba')
 
+    def test_surgery_resumption(self, tmp_path: pathlib.Path):
+        trainer_1 = self.get_trainer(
+            algorithms=[SqueezeExcite(latent_channels=64, min_channels=3)],
+            save_folder=os.path.join(tmp_path, 'first'),
+        )
+
+        trainer_1.fit()
+        trainer_1.close()
+
+        resume_file = os.path.join(tmp_path, 'first', 'ep1.pt')
+
+        trainer_2 = self.get_trainer(load_path=resume_file,)
+        trainer_2.fit()
+        trainer_2.close()
+
 
 class TestCheckpointResumption:
 
@@ -528,50 +543,6 @@ class TestCheckpointResumption:
 
         files = os.listdir(save_folder)
         assert len(files) == expected_num_files
-
-
-class TestSurgeryResumption:
-
-    def get_trainer(self, **kwargs):
-        model = SimpleConvModel()
-        optimizer = torch.optim.Adam(model.parameters())
-
-        return Trainer(
-            model=model,
-            train_dataloader=DataLoader(
-                dataset=RandomImageDataset(),
-                batch_size=8,
-                shuffle=False,
-            ),
-            eval_dataloader=DataLoader(
-                dataset=RandomImageDataset(),
-                batch_size=16,
-                shuffle=False,
-            ),
-            precision='fp32',
-            train_subset_num_batches=5,
-            max_duration='2ep',
-            optimizers=optimizer,
-            **kwargs,
-        )
-
-    def test_surgery_resumption(self, tmp_path: pathlib.Path):
-        trainer_1 = self.get_trainer(
-            algorithms=[SqueezeExcite(latent_channels=64, min_channels=3)],
-            save_folder=os.path.join(tmp_path, 'first'),
-            save_filename='ep{epoch}-rank{rank}.pt',
-            save_interval='1ep',
-            eval_interval='1ep',
-        )
-
-        trainer_1.fit()
-        trainer_1.close()
-
-        resume_file = os.path.join(tmp_path, 'first', 'ep1-rank{rank}.pt')
-
-        trainer_2 = self.get_trainer(load_path=resume_file,)
-        trainer_2.fit()
-        trainer_2.close()
 
 
 @pytest.mark.parametrize('world_size', [
