@@ -153,7 +153,7 @@ class SqueezeExcite(Algorithm):
         self.min_channels = min_channels
 
     @staticmethod
-    def is_model_surgery() -> bool:
+    def required_on_load() -> bool:
         return True
 
     def match(self, event: Event, state: State) -> bool:

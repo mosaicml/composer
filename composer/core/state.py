@@ -7,6 +7,7 @@ from __future__ import annotations
 import collections.abc
 import logging
 import warnings
+from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Sequence, Union, cast
 
 import torch
@@ -495,6 +496,44 @@ class State(Serializable):
         if len(unexpected_keys) > 0:
             logger.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
+    def _verify_required_algorithms_enabled(self, state: Dict[str, Any]):
+        """Verifies all required algorithms are enabled when loading state.
+
+        Args:
+            state (Dict[str, Any]): State from checkpoint.
+        """
+        import composer.algorithms as algorithms
+
+        # Get the types and counts of existing algorithms
+        state_algo_counts = defaultdict(int)
+        for algo in self.algorithms:
+            state_algo_counts[type(algo)] += 1
+
+        # Get the types and counts of checkpoint algorithms
+        checkpoint_algo_counts = defaultdict(int)
+        for algo in state['algorithms'].keys():
+            # Fetch class from module using name
+            if hasattr(algorithms, algo):
+                algo_cls = getattr(algorithms, algo)
+                if algo_cls.required_on_load():
+                    checkpoint_algo_counts[algo_cls] += 1
+            else:
+                logger.warning(
+                    f'Found algorithm of unknown type: {algo}. Skipping check for if it is required when loading checkpoint.'
+                )
+
+        missing_surgery_algos = []
+        for algo, checkpoint_count in checkpoint_algo_counts.items():
+            state_count = state_algo_counts.get(algo, 0)
+            if checkpoint_count != state_count:
+                missing_surgery_algos.append(
+                    f'{algo.__qualname__} ({state_count} provided vs. {checkpoint_count} expected)')
+        if len(missing_surgery_algos) > 0:
+            raise ValueError('The following surgery algorithms were enabled when training this checkpoint '
+                             f"and are required to successfully load it: {', '.join(missing_surgery_algos)}. "
+                             'If you wish to use pretrained weights and reinitialize layers which have '
+                             'undergone surgery, set `load_weights_only=True`.')
+
     def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
         """Loads the state.
 
@@ -505,44 +544,8 @@ class State(Serializable):
         """
         state = _ensure_backwards_compatible_checkpointing(state)
 
-        # Verify surgery algorithms from checkpoint are also enabled in current run
         if 'algorithms' in state:
-            import composer.algorithms as algorithms
-
-            # Get the types and counts of existing algorithms
-            existing_algorithm_counts = {}
-            for algorithm in self.algorithms:
-                if algorithm not in existing_algorithm_counts:
-                    existing_algorithm_counts[type(algorithm)] = 0
-                existing_algorithm_counts[type(algorithm)] += 1
-
-            # Get the types and counts of checkpoint algorithms
-            checkpoint_algorithm_counts = {}
-            for algorithm in state['algorithms'].keys():
-                # Fetch class from module using name
-                if hasattr(algorithms, algorithm):
-                    algorithm_cls = getattr(algorithms, algorithm)
-                    if algorithm_cls.is_model_surgery():
-                        # Update counts using class
-                        if algorithm_cls not in checkpoint_algorithm_counts:
-                            checkpoint_algorithm_counts[algorithm_cls] = 0
-                        checkpoint_algorithm_counts[algorithm_cls] += 1
-                else:
-                    logger.warning(
-                        f'Found algorithm of unknown type: {algorithm}. Skipping check for if it is required when loading checkpoint.'
-                    )
-
-            missing_surgery_algos = []
-            for algorithm in checkpoint_algorithm_counts.keys():
-                if checkpoint_algorithm_counts[algorithm] != existing_algorithm_counts.get(algorithm, 0):
-                    missing_surgery_algos.append(
-                        f'{algorithm.__qualname__} ({existing_algorithm_counts.get(algorithm, 0)} provided vs. {checkpoint_algorithm_counts[algorithm]} expected)'
-                    )
-            if len(missing_surgery_algos) > 0:
-                raise ValueError('The following surgery algorithms were enabled when training this checkpoint '
-                                 f"and are required to successfully load it: {', '.join(missing_surgery_algos)}. "
-                                 'If you wish to use pretrained weights and reinitialize layers which have '
-                                 'undergone surgery, set `load_weights_only=True`.')
+            self._verify_required_algorithms_enabled(state)
 
         for attribute_name, serialized_value in state.items():
             if attribute_name not in self.serialized_attributes:

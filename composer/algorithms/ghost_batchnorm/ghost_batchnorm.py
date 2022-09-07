@@ -80,7 +80,7 @@ class GhostBatchNorm(Algorithm):
         self.ghost_batch_size = ghost_batch_size
 
     @staticmethod
-    def is_model_surgery() -> bool:
+    def required_on_load() -> bool:
         return True
 
     def match(self, event: Event, state: State) -> bool:

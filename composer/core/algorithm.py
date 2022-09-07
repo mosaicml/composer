@@ -64,12 +64,8 @@ class Algorithm(Serializable, ABC):
         return False
 
     @staticmethod
-    def is_model_surgery() -> bool:
-        """Return `True` to indicate this algorithm uses model surgery and changes the model.
-
-        If ``True``, this indicates a model trained with this algorithm requires this algorithm to be enabled in future
-        runs.
-        """
+    def required_on_load() -> bool:
+        """Return `True` to indicate this algorithm is required when loading from a checkpoint which used it."""
         return False
 
     @abstractmethod

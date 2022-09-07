@@ -118,7 +118,7 @@ class BlurPool(Algorithm):
                 'Both replace_maxpool and replace_convs are set to False. BlurPool will not be modifying the model.')
 
     @staticmethod
-    def is_model_surgery() -> bool:
+    def required_on_load() -> bool:
         return True
 
     def match(self, event: Event, state: State) -> bool:

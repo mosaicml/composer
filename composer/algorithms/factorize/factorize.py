@@ -161,7 +161,7 @@ class Factorize(Algorithm):
         self.latent_features = latent_features
 
     @staticmethod
-    def is_model_surgery() -> bool:
+    def required_on_load() -> bool:
         return True
 
     def match(self, event: Event, state: State) -> bool:

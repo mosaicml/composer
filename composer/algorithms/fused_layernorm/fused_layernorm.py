@@ -98,7 +98,7 @@ class FusedLayerNorm(Algorithm):
         check_if_apex_installed()
 
     @staticmethod
-    def is_model_surgery() -> bool:
+    def required_on_load() -> bool:
         return True
 
     def match(self, event: Event, state: State) -> bool:
