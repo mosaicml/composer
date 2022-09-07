@@ -274,7 +274,7 @@ void runPytest(String pDockerImage, String markers, String extraDeps, Boolean is
             ),
             string(
                 name: 'P_JENKINS_USERNAME_PASSWORD_CREDENTIALS',
-                value: "WANDB_API_KEY=$cometmlCredentialsId",
+                value: "IGNORED_COMET_USERNAME,COMET_API_KEY=$cometmlCredentialsId",
             ),
             string(
                 name: 'P_JENKINS_AWS_CREDENTIALS',
