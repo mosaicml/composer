@@ -20,7 +20,7 @@ from composer.loggers.logger_hparams_registry import ObjectStoreLoggerHparams, l
 from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
 from tests.common import get_module_subclasses
-
+import os
 try:
     import wandb
     _WANDB_INSTALLED = True
@@ -38,10 +38,14 @@ except ImportError:
 try:
     import comet_ml
     _COMETML_INSTALLED = True
+    os.environ['COMET_API_KEY']
     del comet_ml  # unused
 except ImportError:
     _COMETML_INSTALLED = False
-
+# If COMET_API_KEY not set.
+except KeyError:
+    _COMETML_INSTALLED = False
+    
 try:
     import mlperf_logging
     _MLPERF_INSTALLED = True
