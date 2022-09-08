@@ -4,7 +4,7 @@
 import pathlib
 
 from composer.profiler import Profiler
-from tests.common.hparams import construct_from_yaml
+from tests.hparams.common import construct_from_yaml
 
 
 def test_profiler_is_constructable_from_hparams(tmp_path: pathlib.Path):
