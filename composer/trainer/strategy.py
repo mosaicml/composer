@@ -119,23 +119,4 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
 
 
 def prepare_fsdp_module(module: torch.nn.Module, find_unused_parameters: bool) -> torch.nn.Module:
-    """Wraps the module in a :class:`torch.nn.parallel.DistributedDataParallel` object if running distributed training.
-
-    Args:
-        module (torch.nn.Module): The module to wrap.
-        find_unused_parameters (bool): Whether or not to do a pass over the autograd graph
-            to find parameters to not expect gradients for. This is useful if there are some
-            parameters in the model that are not being trained.
-    """
-    if dist.is_available() and dist.is_initialized():
-        if any((p.requires_grad for p in module.parameters())):
-            log.debug('Wrapping model with DistributedDataParallel')
-            ddp_model = DistributedDataParallel(module, find_unused_parameters=find_unused_parameters)
-            return ddp_model
-        return module
-    if dist.is_available():
-        raise RuntimeError('Please call dist.initialize_dist() before calling ddp.prepare_module()')
-
-    raise RuntimeError('When the world size is > 1, ``torch.distributed`` must be used. However, it is '
-                       'not available in your installation of PyTorch. Please install or build PyTorch '
-                       'with distributed support.')
+    raise NotImplementedError()

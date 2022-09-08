@@ -7,6 +7,7 @@ from __future__ import annotations
 import collections.abc
 import logging
 import warnings
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Sequence, Union, cast
 
 import torch
@@ -35,6 +36,14 @@ if TYPE_CHECKING:
 __all__ = ['State']
 
 logger = logging.getLogger(__name__)
+
+
+
+@contextmanager
+def get_fsdp_rank0_cpu_save_context(obj):
+    full_state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+    with FSDP.state_dict_type(obj, StateDictType.FULL_STATE_DICT, full_state_dict_config):
+        yield
 
 
 def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
@@ -459,6 +468,11 @@ class State(Serializable):
         """Indicates if deepspeed is enabled."""
         return self.deepspeed_config is not None
 
+    @property
+    def fsdp_enabled(self):
+        """Indicates if FSDP is enabled."""
+        return is_model_fsdp(self.model)
+
     def state_dict(self) -> Dict[str, Any]:
         state_dict = {}
 
@@ -467,10 +481,8 @@ class State(Serializable):
             if attribute_name == 'model':
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                 # If it is DDP wrapped, do not save the `module.` prefix, as that is an implmentation detail
-                if is_model_fsdp(attribute_value):
-                    full_state_dict_config = FullStateDictConfig(
-                        offload_to_cpu=True, rank0_only=True)
-                    with FSDP.state_dict_type(attribute_value, StateDictType.FULL_STATE_DICT, full_state_dict_config):
+                if self.fsdp_enabled:
+                    with get_fsdp_rank0_cpu_save_context(attribute_value):
                         model_state = attribute_value.state_dict()
                 else:
                     model_state = attribute_value.state_dict()
@@ -478,13 +490,21 @@ class State(Serializable):
                 if self.is_model_ddp:
                     torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state, 'module.')
                 serialized_value = model_state
-            else:
-                if attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
+            elif attribute_name == 'optimizers':
+                if self.fsdp_enabled:
+                    serialized_value = {}
+                    for obj in ensure_tuple(attribute_value):
+                        serialized_value[type(obj).__qualname__] = FSDP.full_optim_state_dict(model=self.model, optim=obj, rank0_only=True)
+                else:
                     serialized_value = {
                         type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)
                     }
-                else:
-                    serialized_value = attribute_value
+            elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
+                serialized_value = {
+                    type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)
+                }
+            else:
+                serialized_value = attribute_value
 
             state_dict[attribute_name] = serialized_value
 
@@ -503,10 +523,8 @@ class State(Serializable):
             # with the `module.` prefix
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
 
-        if is_model_fsdp(self.model):
-            full_state_dict_config = FullStateDictConfig(
-                offload_to_cpu=True, rank0_only=True)
-            with FSDP.state_dict_type(self.model, StateDictType.FULL_STATE_DICT, full_state_dict_config):
+        if self.fsdp_enabled:
+            with get_fsdp_rank0_cpu_save_context(self.model):
                 missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
         else:
             missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
@@ -514,6 +532,21 @@ class State(Serializable):
             logger.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
         if len(unexpected_keys) > 0:
             logger.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
+
+    def load_optim_state(self, state_dict: Dict[str, Any]):
+        serialized_value = state_dict['optimizers']
+        for target in ensure_tuple(self.optimizers):
+            if type(target).__qualname__ not in serialized_value:
+                warnings.warn(
+                    f'{type(target).__qualname__} is not in the state_dict. Its state will not be restored.',
+                    category=UserWarning)
+                continue
+            source = serialized_value[type(target).__qualname__]
+            if self.fsdp_enabled:
+                sharded_osd = FSDP.scatter_full_optim_state_dict(full_optim_state_dict=source, model=self.model)
+                target.load_state_dict(sharded_osd)
+            else:
+                target.load_state_dict(source)
 
     def _verify_required_algorithms_enabled(self, state: Dict[str, Any]):
         """Verifies all required algorithms are enabled when loading state.
@@ -564,15 +597,17 @@ class State(Serializable):
             self._verify_required_algorithms_enabled(state)
 
         for attribute_name, serialized_value in state.items():
+            state_field_value = getattr(self, attribute_name)
+
             if attribute_name not in self.serialized_attributes:
                 # It's possible some attributes we removed
                 continue
 
             if attribute_name == 'model':
                 self.load_model_state(state, strict=strict)
-                continue
-            state_field_value = getattr(self, attribute_name)
-            if attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
+            elif attribute_name == 'optimizers':
+                self.load_optim_state(state)
+            elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 for target in ensure_tuple(state_field_value):
                     if type(target).__qualname__ not in serialized_value:
                         warnings.warn(
