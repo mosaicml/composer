@@ -24,6 +24,7 @@ def object_store_cls_and_kwargs(request, s3_bucket: str, sftp_uri: str, test_ses
             kwargs = {
                 'provider': 'local',
                 'container': '.',
+                'key_environ': 'OBJECT_STORE',
                 'provider_kwargs': {
                     'key': '.',
                 },
