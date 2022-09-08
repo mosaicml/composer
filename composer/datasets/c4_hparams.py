@@ -86,7 +86,11 @@ class StreamingC4Hparams(DatasetHparams):
                                   timeout=self.timeout,
                                   batch_size=batch_size)
         elif self.version == 2:
-            from streaming.text import C4
+            try:
+                from streaming.text import C4
+            except ImportError as e:
+                raise MissingConditionalImportError(extra_deps_group='streaming',
+                                                    conda_package='mosaicml-streaming') from e
             dataset = C4(tokenizer_name=self.tokenizer_name,
                          max_seq_len=self.max_seq_len,
                          group_method=self.group_method,

@@ -27,6 +27,7 @@ from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.datasets.utils import NormalizationFn, pil_image_collate
 from composer.utils import dist
+from composer.utils.import_helpers import MissingConditionalImportError
 
 # ImageNet normalization values from torchvision: https://pytorch.org/vision/stable/models.html
 IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
@@ -240,7 +241,11 @@ class StreamingImageNet1kHparams(DatasetHparams):
                                           crop_size=self.crop_size,
                                           batch_size=batch_size)
         elif self.version == 2:
-            from streaming.vision import ImageNet
+            try:
+                from streaming.vision import ImageNet
+            except ImportError as e:
+                raise MissingConditionalImportError(extra_deps_group='streaming',
+                                                    conda_package='mosaicml-streaming') from e
             transform = []
             if self.split == 'train':
                 # include fixed-size resize before RandomResizedCrop in training only
@@ -258,8 +263,12 @@ class StreamingImageNet1kHparams(DatasetHparams):
                 transform.append(transforms.CenterCrop(self.crop_size))
             transform.append(lambda image: image.convert('RGB'))
             transform = transforms.Compose(transform)
-            dataset = ImageNet(local=self.local, remote=self.remote, split=self.split, shuffle=self.shuffle,
-                               transform=transform, batch_size=batch_size)
+            dataset = ImageNet(local=self.local,
+                               remote=self.remote,
+                               split=self.split,
+                               shuffle=self.shuffle,
+                               transform=transform,
+                               batch_size=batch_size)
         else:
             raise ValueError(f'Invalid version: {self.version}')
         collate_fn = pil_image_collate

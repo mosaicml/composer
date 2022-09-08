@@ -25,6 +25,7 @@ from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.utils import dist
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['CIFAR10DatasetHparams', 'StreamingCIFAR10Hparams']
 
@@ -206,7 +207,11 @@ class StreamingCIFAR10Hparams(DatasetHparams):
                                        shuffle=self.shuffle,
                                        batch_size=batch_size)
         elif self.version == 2:
-            from streaming.vision import CIFAR10
+            try:
+                from streaming.vision import CIFAR10
+            except ImportError as e:
+                raise MissingConditionalImportError(extra_deps_group='streaming',
+                                                    conda_package='mosaicml-streaming') from e
 
             cifar10_mean = 0.4914, 0.4822, 0.4465
             cifar10_std = 0.247, 0.243, 0.261
@@ -224,8 +229,12 @@ class StreamingCIFAR10Hparams(DatasetHparams):
                     transforms.Normalize(cifar10_mean, cifar10_std),
                 ])
 
-            dataset = CIFAR10(local=self.local, remote=self.remote, split=self.split, shuffle=self.shuffle,
-                              transform=transform, batch_size=batch_size)
+            dataset = CIFAR10(local=self.local,
+                              remote=self.remote,
+                              split=self.split,
+                              shuffle=self.shuffle,
+                              transform=transform,
+                              batch_size=batch_size)
         else:
             raise ValueError(f'Invalid streaming version: {self.version}')
 
