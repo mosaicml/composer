@@ -55,7 +55,6 @@ numDaysOfBuildsToKeep = '7' // number of days to keep builds (so Jenkins doesn't
 jenkinsShellJobName = 'scratch/command2' // The jenkins job name used to spawn sub-jobs
 gitCredentialsId = '9cf9add1-2cdd-414b-8160-94bd4ac4a13d' // Jenkins credential ID to use for git clones
 wandbCredentialsId = 'e6fbcd33-e739-483f-a4a9-9b6815572c8b'
-cometmlCredentialsId = '42164c6f-e0b0-4b0e-8464-e8b71231b994'
 awsCredentialsId = 'd931e1a8-f356-42f4-bc4d-bc8582c3bf9e'
 sshCredentialsId = 'f71fda19-c867-4e7b-b6e8-3894e8288076'
 nodeSelector = 'mosaicml.com/instance-size=mosaic.a100-40sxm.1'
@@ -271,10 +270,6 @@ void runPytest(String pDockerImage, String markers, String extraDeps, Boolean is
             string(
                 name: 'P_JENKINS_USERNAME_PASSWORD_CREDENTIALS',
                 value: "IGNORED_WANDB_USERNAME,WANDB_API_KEY=$wandbCredentialsId",
-            ),
-            string(
-                name: 'P_JENKINS_USERNAME_PASSWORD_CREDENTIALS',
-                value: "IGNORED_COMET_USERNAME,COMET_API_KEY=$cometmlCredentialsId",
             ),
             string(
                 name: 'P_JENKINS_AWS_CREDENTIALS',
