@@ -1461,6 +1461,7 @@ class Trainer:
         .. seealso:: :meth:`.Engine.close` for additional information.
         """
         self.engine.close()
+        dist.barrier()
 
     def _ensure_metrics_device_and_dtype(self, metrics: Dict[str, Metric]):
         # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When
