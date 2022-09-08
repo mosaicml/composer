@@ -98,11 +98,6 @@ class EMA(Algorithm):
             updates are done once every ten batches. Units must match the units used to specify ``half_life`` if not
             using ``smoothing``. If not specified, ``update_interval`` will default to ``1`` in the units of
             ``half_life``, or ``"1ba"`` if ``smoothing`` is specified. Value must be an integer. Default: ``None``.
-        update_bn_interval (str, optional): Time string specifying the (optional) period at which the ema model's batch
-            norm layers are trained. This uses an update step to train the normalization parameters of the ema model,
-            and does not update the training model during this step. If not specified, ema norm layers will never be
-            trained and the averaged values will be used directly. For example, an ``update_bn_interval='10ba'`` will
-            use one out of every 10 steps to update the ema model's batchnorm parameters. Default: ``"None"``.
 
     Example:
         .. testcode::
@@ -122,8 +117,7 @@ class EMA(Algorithm):
     def __init__(self,
                  half_life: Optional[str] = None,
                  update_interval: Optional[str] = None,
-                 smoothing: Optional[float] = None,
-                 update_bn_interval: Optional[str] = None):
+                 smoothing: Optional[float] = None):
         self.ema_model = None
         self.training_model = None
         self.ema_weights_active = False
@@ -163,15 +157,6 @@ class EMA(Algorithm):
         if self.update_interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
             raise ValueError(f'Invalid time unit for parameter update_interval: '
                              f'{self.update_interval.unit}')
-
-        # Create the norm update interval if needed
-        if type(update_bn_interval) is str:
-            try:
-                self.update_bn_interval = Time.from_timestring(update_bn_interval)
-            except ValueError as error:
-                raise ValueError(f'Invalid time string for parameter update_bn_interval') from error
-        elif update_bn_interval is not None:
-            raise ValueError(f'update_bn_interval must be None or a time string.')
 
         # Calculate the appropriate weighting for the moving average
         if smoothing is None and self.half_life:
