@@ -8,9 +8,10 @@ from contextlib import contextmanager
 from typing import Type
 
 import torch
+from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.nn.parallel import DistributedDataParallel
 
-__all__ = ['is_model_deepspeed', 'is_notebook', 'warning_on_one_line', 'get_free_tcp_port', 'model_eval_mode']
+__all__ = ['is_model_deepspeed', 'is_model_fsdp', 'is_notebook', 'warning_on_one_line', 'get_free_tcp_port', 'model_eval_mode']
 
 
 def is_model_deepspeed(model: torch.nn.Module) -> bool:
@@ -26,6 +27,14 @@ def is_model_deepspeed(model: torch.nn.Module) -> bool:
 def is_model_ddp(model: torch.nn.Module) -> bool:
     """Whether ``model`` is an instance of a :class:`.DistributedDataParallel`."""
     return isinstance(model, DistributedDataParallel)
+
+
+def is_model_fsdp(model: torch.nn.Module) -> bool:
+    """Whether any submodule of ``model`` is an instance of a :class:`.FullyShardedDataParallel`."""
+    for module in model.modules():
+        if isinstance(module, FullyShardedDataParallel):
+            return True
+    return False
 
 
 def is_notebook():

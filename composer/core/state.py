@@ -11,6 +11,9 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Seque
 
 import torch
 import torch.nn.modules.utils
+from torch.distributed.fsdp import FullStateDictConfig
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp import StateDictType
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
 from torchmetrics import Metric
@@ -18,7 +21,7 @@ from torchmetrics import Metric
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit
-from composer.utils import batch_get, batch_set, dist, ensure_tuple, is_model_deepspeed
+from composer.utils import batch_get, batch_set, dist, ensure_tuple, is_model_deepspeed, is_model_fsdp
 
 if TYPE_CHECKING:
     import deepspeed
@@ -464,7 +467,14 @@ class State(Serializable):
             if attribute_name == 'model':
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                 # If it is DDP wrapped, do not save the `module.` prefix, as that is an implmentation detail
-                model_state = attribute_value.state_dict()
+                if is_model_fsdp(attribute_value):
+                    full_state_dict_config = FullStateDictConfig(
+                        offload_to_cpu=True, rank0_only=True)
+                    with FSDP.state_dict_type(attribute_value, StateDictType.FULL_STATE_DICT, full_state_dict_config):
+                        model_state = attribute_value.state_dict()
+                else:
+                    model_state = attribute_value.state_dict()
+
                 if self.is_model_ddp:
                     torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state, 'module.')
                 serialized_value = model_state
@@ -492,7 +502,14 @@ class State(Serializable):
             # This check is for backwards compatibility, as pre-v0.6.0 checkpoints serialized the state
             # with the `module.` prefix
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
-        missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
+
+        if is_model_fsdp(self.model):
+            full_state_dict_config = FullStateDictConfig(
+                offload_to_cpu=True, rank0_only=True)
+            with FSDP.state_dict_type(self.model, StateDictType.FULL_STATE_DICT, full_state_dict_config):
+                missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
+        else:
+            missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
         if len(missing_keys) > 0:
             logger.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
         if len(unexpected_keys) > 0:

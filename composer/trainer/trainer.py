@@ -29,7 +29,7 @@ from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDa
 from torch.distributed.fsdp.wrap import _or_policy, size_based_auto_wrap_policy
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
-from torchmetrics import Metric
+from torchmetrics import Metric, MetricCollection
 
 from composer.algorithms import GradientClipping
 from composer.callbacks import CheckpointSaver, GradMonitor
@@ -49,8 +49,8 @@ from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.activation_checkpointing import apply_activation_checkpointing_wrapper, checkpoint_wrapper
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.trainer.strategy import SyncStrategy, get_sync_context, prepare_ddp_module, prepare_fsdp_module
-from composer.utils import ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, model_eval_mode, reproducibility
-from composer.utils.checkpoint import load_checkpoint, save_checkpoint
+from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed,
+                            map_collection, model_eval_mode, reproducibility)
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.inference import ExportFormat, Transform, export_with_logger
