@@ -47,8 +47,12 @@ class SFTPObjectStore(ObjectStore):
         key_filename (pathlib.Path | str, optional): The filepath to the a private key (if required) needed to
             authenticate. Defaults to None. Any keys specified here will be tried *in addition* to any keys
             specified in ``~/.ssh/`` or via a SSH agent.
+        key_filename_environ (str, optional): Environment variable defining path to an SSH keyfile.
+            Only used if key_filename is not provided. Default: ``COMPOSER_SFTP_KEY_FILE``.
         known_hosts_filename (pathlib.Path | str, optional): The filename of the known hosts file. If not specified,
             the default SSH known hosts will be used.
+        known_hosts_filename_environ (str, optional). Environment variable defining path to a known hosts file.
+            Only used if known_hosts_filename is not provided. Default: ``COMPOSER_SFTP_KNOWN_HOSTS_FILE``.
         missing_host_key_policy (str | paramiko.client.MissingHostKeyPolicy, optional): The class name or instance of
             :class:`paramiko.client.MissingHostKeyPolicy` to use for a missing host key. Defaults to ``'RejectPolicy'``.
 
@@ -70,11 +74,22 @@ class SFTPObjectStore(ObjectStore):
         username: Optional[str] = None,
         password: Optional[str] = None,
         known_hosts_filename: Optional[Union[pathlib.Path, str]] = None,
+        known_hosts_filename_environ: str = 'COMPOSER_SFTP_KNOWN_HOSTS_FILE',
         key_filename: Optional[Union[pathlib.Path, str]] = None,
+        key_filename_environ: str = 'COMPOSER_SFTP_KEY_FILE',
         missing_host_key_policy: Union[str, paramiko.client.MissingHostKeyPolicy] = 'RejectPolicy',
         cwd: str = '',
         connect_kwargs: Optional[Dict[str, Any]] = None,
     ):
+
+        if known_hosts_filename is None:
+            known_hosts_filename = os.environ.get(known_hosts_filename_environ, None)
+        self.known_hosts_filename = known_hosts_filename
+
+        if key_filename is None:
+            key_filename = os.environ.get(key_filename_environ, None)
+        self.key_filename = key_filename
+
         if not _PARAMIKO_AVAILABLE:
             raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='paramiko')
         url = urllib.parse.urlsplit(host)

@@ -2,16 +2,72 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pathlib
-from typing import Type
+from typing import Any, Dict, Type
 
 import pytest
 
+import composer
+import composer.utils.object_store.object_store_hparams
 from composer.utils.object_store import ObjectStore
-from composer.utils.object_store.object_store_hparams import (ObjectStoreHparams, SFTPObjectStoreHparams,
+from composer.utils.object_store.object_store_hparams import (LibcloudObjectStoreHparams, ObjectStoreHparams,
+                                                              S3ObjectStoreHparams, SFTPObjectStoreHparams,
                                                               object_store_registry)
+from tests.common import get_module_subclasses
 from tests.hparams.common import assert_in_registry, construct_from_yaml
-from tests.utils.object_store.object_store_settings import (get_object_store_ctx, object_store_hparam_kwargs,
-                                                            object_store_hparams)
+from tests.utils.object_store.object_store_settings import get_object_store_ctx
+
+try:
+    import libcloud
+    _LIBCLOUD_AVAILABLE = True
+    del libcloud
+except ImportError:
+    _LIBCLOUD_AVAILABLE = False
+
+try:
+    import boto3
+    _BOTO3_AVAILABLE = True
+    del boto3
+except ImportError:
+    _BOTO3_AVAILABLE = False
+
+try:
+    import paramiko
+    _SFTP_AVAILABLE = True
+    del paramiko
+except ImportError:
+    _SFTP_AVAILABLE = False
+
+object_store_hparam_kwargs: Dict[Type[ObjectStoreHparams], Dict[str, Any]] = {
+    S3ObjectStoreHparams: {
+        'bucket': 'my-bucket',
+    },
+    LibcloudObjectStoreHparams: {
+        'provider': 'local',
+        'key_environ': 'OBJECT_STORE_KEY',
+        'container': '.',
+    },
+    SFTPObjectStoreHparams: {
+        'host': 'localhost',
+        'port': 23,
+        'username': 'test_user',
+    }
+}
+
+_object_store_marks = {
+    LibcloudObjectStoreHparams: [pytest.mark.skipif(not _LIBCLOUD_AVAILABLE, reason='Missing dependency')],
+    S3ObjectStoreHparams: [pytest.mark.skipif(not _BOTO3_AVAILABLE, reason='Missing dependency')],
+    SFTPObjectStoreHparams: [
+        pytest.mark.skipif(not _SFTP_AVAILABLE, reason='Missing dependency'),
+        pytest.mark.filterwarnings(r'ignore:setDaemon\(\) is deprecated:DeprecationWarning'),
+    ],
+}
+
+object_store_hparams = [
+    pytest.param(x, marks=_object_store_marks[x], id=x.__name__) for x in get_module_subclasses(
+        composer.utils.object_store.object_store_hparams,
+        ObjectStoreHparams,
+    )
+]
 
 
 @pytest.mark.parametrize('constructor', object_store_hparams)
@@ -30,23 +86,3 @@ def test_object_store_hparams_is_constructable(
 @pytest.mark.parametrize('constructor', object_store_hparams)
 def test_hparams_in_registry(constructor: Type[ObjectStoreHparams]):
     assert_in_registry(constructor, object_store_registry)
-
-
-@pytest.mark.parametrize('kwarg_name,environ_name', [
-    ['key_filename', 'COMPOSER_SFTP_KEY_FILE'],
-    ['known_hosts_filename', 'COMPOSER_SFTP_KNOWN_HOSTS_FILE'],
-])
-@pytest.mark.filterwarnings(r'ignore:setDaemon\(\) is deprecated:DeprecationWarning')
-def test_filenames_as_environs(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path, kwarg_name: str,
-                               environ_name: str):
-    key_filepath = str(tmp_path / 'keyfile')
-    with open(key_filepath, 'w+') as f:
-        f.write('')
-
-    monkeypatch.setenv(environ_name, key_filepath)
-    hparams = SFTPObjectStoreHparams(host='host',)
-    yaml_dict = object_store_hparam_kwargs[SFTPObjectStoreHparams]
-    assert hparams.get_kwargs()[kwarg_name] == key_filepath
-    with get_object_store_ctx(hparams.get_object_store_cls(), yaml_dict, monkeypatch, tmp_path):
-        with hparams.initialize_object() as object_store:
-            assert isinstance(object_store, ObjectStore)
