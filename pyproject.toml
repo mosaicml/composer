@@ -108,6 +108,7 @@ filterwarnings = [
     'ignore:Metric `SpearmanCorrcoef` will save all targets and predictions in the buffer:UserWarning:torchmetrics',
     # Ignore a UserWarning from torch 1.12 due to DeepSpeed's use of positional args
     'ignore:Positional args are being deprecated, use kwargs instead.*:UserWarning',
+    'ignore:yahp-based workflows are deprecated and will be removed:DeprecationWarning',
 ]
 
 # Coverage
