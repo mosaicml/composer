@@ -10,7 +10,7 @@ from composer.algorithms.algorithm_hparams_registry import algorithm_registry
 from composer.core import Algorithm
 from tests.algorithms.algorithm_settings import get_alg_kwargs, get_algs_with_marks
 from tests.common import get_module_subclasses
-from tests.common.hparams import assert_in_registry, construct_from_yaml
+from tests.hparams.common import assert_in_registry, construct_from_yaml
 
 
 @pytest.mark.parametrize('alg_cls', get_algs_with_marks())

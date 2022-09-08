@@ -37,7 +37,7 @@ def get_object_store(remote: str) -> ObjectStore:
     elif remote.startswith('sftp://'):
         return _get_sftp_object_store(remote)
     else:
-        raise ValueError('unsupported upload scheme')
+        raise ValueError('unsupported download scheme')
 
 
 def _get_s3_object_store(remote: str) -> S3ObjectStore:
@@ -60,9 +60,6 @@ def _get_sftp_object_store(remote: str) -> SFTPObjectStore:
         key_filename=key_filename,
     )
     return object_store
-
-
-__all__ = ['download_or_wait']
 
 
 def download_from_local(remote: str, local: str) -> None:
