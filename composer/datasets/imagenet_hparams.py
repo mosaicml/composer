@@ -256,6 +256,7 @@ class StreamingImageNet1kHparams(DatasetHparams):
                 if self.resize_size > 0:
                     transform.append(transforms.Resize(self.resize_size))
                 transform.append(transforms.CenterCrop(self.crop_size))
+            transform.append(lambda image: image.convert('RGB'))
             transform = transforms.Compose(transform)
             dataset = ImageNet(local=self.local, remote=self.remote, split=self.split, shuffle=self.shuffle,
                                transform=transform, batch_size=batch_size)
