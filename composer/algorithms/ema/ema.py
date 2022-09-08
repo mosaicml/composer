@@ -8,7 +8,7 @@ from __future__ import annotations
 import copy
 import itertools
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional
 
 import torch
 
@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 __all__ = ['EMA', 'compute_ema']
 
 
-def compute_ema(model: T_Model, ema_model: T_Model, smoothing: float = 0.99):
+def compute_ema(model: torch.nn.Module, ema_model: torch.nn.Module, smoothing: float = 0.99):
     r"""Updates the weights of ``ema_model`` to be closer to the weights of ``model``
     according to an exponential weighted average. Weights are updated according to
 
@@ -164,6 +164,15 @@ class EMA(Algorithm):
             raise ValueError(f'Invalid time unit for parameter update_interval: '
                              f'{self.update_interval.unit}')
 
+        # Create the norm update interval if needed
+        if type(update_bn_interval) is str:
+            try:
+                self.update_bn_interval = Time.from_timestring(update_bn_interval)
+            except ValueError as error:
+                raise ValueError(f'Invalid time string for parameter update_bn_interval') from error
+        elif update_bn_interval is not None:
+            raise ValueError(f'update_bn_interval must be None or a time string.')
+
         # Calculate the appropriate weighting for the moving average
         if smoothing is None and self.half_life:
             self.smoothing = 2**(-(self.update_interval.value / self.half_life.value))
@@ -171,7 +180,7 @@ class EMA(Algorithm):
             self.smoothing = smoothing
 
         # Construct the appropriate matching events
-        self.match_events = [Event.FIT_START, Event.BATCH_START, Event.EVAL_START, Event.EVAL_END]
+        self.match_events = [Event.INIT, Event.FIT_START, Event.BATCH_START, Event.EVAL_START, Event.EVAL_END]
         self.checkpoint_events = [Event.BATCH_CHECKPOINT, Event.EPOCH_CHECKPOINT]
         self.match_events += self.checkpoint_events
 
@@ -187,11 +196,17 @@ class EMA(Algorithm):
         assert isinstance(self.update_interval, Time)
         assert isinstance(self.smoothing, float)
 
+        if event == Event.INIT:
+            # on trainer init, we create the models
+            # so that the checkpoints can be loaded
+            self.ema_model = copy.deepcopy(state.model)
+            self.training_model = copy.deepcopy(state.model)
+
         if event == Event.FIT_START:
             if self.ema_model is not None:
-                _move_shadow_model_to_device(self.ema_model, state.model)
+                _move_params_to_device(self.ema_model, state.model)
             if self.training_model is not None:
-                _move_shadow_model_to_device(self.training_model, state.model)
+                _move_params_to_device(self.training_model, state.model)
 
         # Ensure the model being trained has the correct weights
         if event == Event.BATCH_START and self.ema_model is not None and self.training_model is not None:
@@ -204,9 +219,9 @@ class EMA(Algorithm):
             if state.timestamp.get(self.update_interval.unit).value % self.update_interval.value == 0:
                 # Initialize the shadow models if they don't exist yet
                 if self.ema_model is None:
-                    self.ema_model = ShadowModel(state.model)
+                    self.ema_model = copy.deepcopy(state.model)
                 if self.training_model is None:
-                    self.training_model = ShadowModel(state.model)
+                    self.training_model = copy.deepcopy(state.model)
 
                 # Update the ema model
                 compute_ema(state.model, self.ema_model, smoothing=self.smoothing)
@@ -250,58 +265,27 @@ class EMA(Algorithm):
         _copy_model(self.ema_model, model)
         return model
 
-    def state_dict(self) -> Dict[str, ShadowModel]:
+    def state_dict(self) -> Dict[str, Any]:
         state_dict = {}
         for attribute_name in self.serialized_attributes:
             if attribute_name in ['ema_model', 'training_model']:
-                shadow_model = getattr(self, attribute_name)
-                state_dict[attribute_name] = {}
-                state_dict[attribute_name]['parameters'] = shadow_model.parameters()
-                state_dict[attribute_name]['buffers'] = shadow_model.buffers()
+                model = getattr(self, attribute_name)
+                state_dict[attribute_name] = model.state_dict()
             else:
                 state_dict[attribute_name] = getattr(self, attribute_name)
         return state_dict
 
-    def load_shadow_model(self, name, parameters: List, buffers: List):
-        shadow_model = ShadowModel(None)
-        shadow_model.param_list = parameters
-        shadow_model.buffer_list = buffers
-        setattr(self, name, shadow_model)
-
     def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
         for attribute_name, serialized_value in state.items():
-            if attribute_name in ['ema_model', 'training_model']:
-                self.load_shadow_model(attribute_name, serialized_value['parameters'], serialized_value['buffers'])
+            if attribute_name == 'ema_model' and self.ema_model is not None:
+                self.ema_model.load_state_dict(serialized_value)
+            elif attribute_name == 'training_model' and self.training_model is not None:
+                self.training_model.load_state_dict(serialized_value)
             else:
                 setattr(self, attribute_name, serialized_value)
 
 
-class ShadowModel:
-    """A shadow model that tracks parameters and buffers from an original source model.
-
-    Args:
-        model (torch.nn.Module): the source model containing the parameters and buffers to shadow.
-    """
-
-    def __init__(self, model: Union[None, torch.nn.Module]):
-        if model is not None:
-            self.param_list = [copy.deepcopy(p.data) for p in model.parameters()]
-            self.buffer_list = [copy.deepcopy(b.data) for b in model.buffers()]
-        else:
-            self.param_list = []
-            self.buffer_list = []
-
-    def parameters(self):
-        return self.param_list
-
-    def buffers(self):
-        return self.buffer_list
-
-
-T_Model = Union[torch.nn.Module, ShadowModel]
-
-
-def _copy_model(source_model: T_Model, destination_model: T_Model):
+def _copy_model(source_model: torch.nn.Module, destination_model: torch.nn.Module):
     """Copies parameters and buffers from ``source_model`` to ``destination_model``."""
     with torch.no_grad():
         source_params = itertools.chain(source_model.parameters(), source_model.buffers())
@@ -311,13 +295,13 @@ def _copy_model(source_model: T_Model, destination_model: T_Model):
             destination_param.data = source_param.data
 
 
-def _move_shadow_model_to_device(shadow_model: ShadowModel, destination_model: torch.nn.Module):
-    """Ensures the tensors of a shadow model are on the same device as a destination model."""
+def _move_params_to_device(model: torch.nn.Module, destination_model: torch.nn.Module):
+    """Ensures the parameters of a model are on the same device as a destination model."""
     with torch.no_grad():
         destination_params = destination_model.parameters()
-        shadow_params = shadow_model.parameters()
-        shadow_model.param_list = [s.to(d.device) for s, d in zip(shadow_params, destination_params)]
+        params = model.parameters()
+        model.param_list = [s.to(d.device) for s, d in zip(params, destination_params)]
 
         destination_buffers = destination_model.buffers()
-        shadow_buffers = shadow_model.buffers()
-        shadow_model.buffer_list = [s.to(d.device) for s, d in zip(shadow_buffers, destination_buffers)]
+        buffers = model.buffers()
+        model.buffer_list = [s.to(d.device) for s, d in zip(buffers, destination_buffers)]

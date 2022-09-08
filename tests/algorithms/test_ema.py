@@ -9,7 +9,7 @@ import pytest
 import torch
 
 from composer.algorithms import EMA
-from composer.algorithms.ema.ema import ShadowModel, compute_ema
+from composer.algorithms.ema.ema import compute_ema
 from composer.core import Event, Time, Timestamp, TimeUnit
 from tests.common import SimpleConvModel, SimpleModel
 
@@ -67,8 +67,8 @@ def test_ema_algorithm(params, minimal_state, empty_logger):
     state.batch = (input, torch.Tensor())
 
     # Start EMA
-    algorithm.ema_model = ShadowModel(state.model)
-    algorithm.training_model = ShadowModel(state.model)
+    algorithm.ema_model = copy.deepcopy(state.model)
+    algorithm.training_model = copy.deepcopy(state.model)
     # Check if ema correctly calculated smoothing
     update_interval = Time.from_timestring(params['update_interval'])
     if 'half_life' in params:
