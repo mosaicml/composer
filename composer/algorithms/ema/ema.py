@@ -88,11 +88,13 @@ class EMA(Algorithm):
         half_life (str, optional): The time string specifying the half life for terms in the average. A longer half
             life means old information is remembered longer, a shorter half life means old information is discared
             sooner. A half life of ``0`` means no averaging is done, an infinite half life means no update is done.
-            Currently only units of epoch ('ep') and batch ('ba'). Value must be an integer. Ignored if ``smoothing``
-            is also specified. Default: ``"None"``.
+            Currently only units of epoch ('ep') and batch ('ba'). Value must be an integer. Cannot be used if
+            ``smoothing`` is also specified. Default: ``"None"``.
         smoothing (float, optional): The coefficient representing the degree to which older observations are kept.
-            Must be in the interval :math:`(0, 1)`. If used, the value of ``half_life`` is ignored. This value will
+            Must be in the interval :math:`(0, 1)`. Cannot be used if ``half_life`` also specified. This value will
             not be adjusted if ``update_interval`` is changed. Default: ``None``.
+        ema_start (str, optional): The time string denoting the amount of training completed before EMA begins.
+            Currently only units of duration ('dur') and epoch ('ep') are supported. Default: ``'0.0dur'``.
         update_interval (str, optional): The time string specifying the period at which updates are done. For example,
             an ``update_interval='1ep'`` means updates are done every epoch, while ``update_interval='10ba'`` means
             updates are done once every ten batches. Units must match the units used to specify ``half_life`` if not
@@ -116,24 +118,29 @@ class EMA(Algorithm):
 
     def __init__(self,
                  half_life: Optional[str] = None,
-                 update_interval: Optional[str] = None,
-                 smoothing: Optional[float] = None):
+                 smoothing: Optional[float] = None,
+                 ema_start: str = '0.0dur',
+                 update_interval: Optional[str] = None):
         self.ema_model = None
         self.training_model = None
         self.ema_weights_active = False
-
-        self.serialized_attributes = ['ema_model', 'training_model', 'ema_weights_active']
+        self.ema_started = False
+        self.serialized_attributes = ['ema_model', 'training_model', 'ema_weights_active', 'ema_started']
 
         # Verify that either half_life or smoothing has been specified
         if half_life is None and smoothing is None:
             raise ValueError(f'Either half_life or smoothing must be specified')
 
+        # Verify that only one of half_life or smoothing has been specified
+        if half_life is not None and smoothing is not None:
+            raise ValueError(f'Only one of  half_life or smoothing can be specified')
+
         # Check timestrings are parsable and convert into time object
         if half_life is not None:
-            try:
-                self.half_life = Time.from_timestring(half_life)
-            except ValueError as error:
-                raise ValueError(f'Invalid time string for parameter half_life') from error
+            self.half_life = Time.from_timestring(half_life)
+
+        # Convert start time to a time object
+        self.ema_start = Time.from_timestring(ema_start)
 
         # Create the update interval if none is specified
         if update_interval is None:
@@ -142,10 +149,7 @@ class EMA(Algorithm):
             else:
                 self.update_interval = Time(1, TimeUnit.BATCH)
         elif type(update_interval) is str:
-            try:
-                self.update_interval = Time.from_timestring(update_interval)
-            except ValueError as error:
-                raise ValueError(f'Invalid time string for parameter update_interval') from error
+            self.update_interval = Time.from_timestring(update_interval)
         else:
             raise ValueError(f'update_interval must be None or a time string.')
 
@@ -165,29 +169,53 @@ class EMA(Algorithm):
             self.smoothing = smoothing
 
         # Construct the appropriate matching events
-        self.always_match_events = [Event.BATCH_START, Event.EVAL_START, Event.EVAL_END]
+        self.match_events = [Event.FIT_START, Event.BATCH_START, Event.EVAL_START, Event.EVAL_END]
         self.checkpoint_events = [Event.BATCH_CHECKPOINT, Event.EPOCH_CHECKPOINT]
+        if self.update_interval.unit == TimeUnit.BATCH:
+            self.update_event = Event.BATCH_END
+        elif self.update_interval.unit == TimeUnit.EPOCH:
+            self.update_event = Event.EPOCH_END
+
+    def _should_start(self, state: State) -> bool:
+        if self.ema_start.unit == TimeUnit.DURATION:
+            current_time = state.get_elapsed_duration()
+            if current_time is not None:
+                should_start = (self.ema_start <= current_time)
+            else:
+                should_start = False
+        else:
+            current_time = state.timestamp.get(self.ema_start.unit).value
+            should_start = (self.ema_start.value <= current_time)
+
+        return should_start
 
     def match(self, event: Event, state: State) -> bool:
-        # Always need to run on init
-        if event in [Event.INIT, Event.FIT_START]:
+        # Always run on init
+        if event == Event.INIT:
             return True
 
+        # Check if ema should start running, and if so reinitialize models
+        if event == self.update_event and self.ema_started is False and self._should_start(state):
+            self.ema_model = copy.deepcopy(state.model)
+            self.training_model = copy.deepcopy(state.model)
+            self.ema_started = True
+
         # Match on checkpointing events if a checkpoint is to be saved
-        if event in [Event.BATCH_CHECKPOINT, Event.EPOCH_CHECKPOINT]:
+        if event in [Event.BATCH_CHECKPOINT, Event.EPOCH_CHECKPOINT] and self.ema_started:
             checkpoint_savers = [cb for cb in state.callbacks if isinstance(cb, CheckpointSaver)]
             for checkpoint_saver in checkpoint_savers:
                 if checkpoint_saver.save_interval(state, event) is True:
                     return True
 
-        # Match on appropriate event if an ema update is supposed to happen
-        if state.timestamp.get(self.update_interval.unit).value % self.update_interval.value == 0:
-            if event == Event.BATCH_END and self.update_interval.unit == TimeUnit.BATCH:
-                return True
-            if event == Event.EPOCH_END and self.update_interval.unit == TimeUnit.EPOCH:
-                return True
+        # Otherwise, always run on some events after ema has started
+        if event in self.match_events and self.ema_started:
+            return True
 
-        return event in self.always_match_events
+        # Conditionally run on the update event if ema has started
+        if event == self.update_event and self.ema_started:
+            return (state.timestamp.get(self.update_interval.unit).value % self.update_interval.value == 0)
+
+        return False
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         assert isinstance(self.update_interval, Time)
@@ -203,12 +231,12 @@ class EMA(Algorithm):
 
         if event == Event.FIT_START:
             # Ensure that params are on the right device if a checkpoint has been loaded
-            _move_params_to_device(self.ema_model, state.model)
-            _move_params_to_device(self.training_model, state.model)
+            _move_params_to_device(model=self.ema_model, destination_model=state.model)
+            _move_params_to_device(model=self.training_model, destination_model=state.model)
 
         if event == Event.BATCH_START and self.ema_weights_active:
             # Ensure the model being trained has the correct weights
-            _copy_model(self.training_model, state.model)
+            _copy_params(source_model=self.training_model, destination_model=state.model)
             self.ema_weights_active = False
 
         if event in [Event.BATCH_END, Event.EPOCH_END]:
@@ -217,19 +245,19 @@ class EMA(Algorithm):
 
         if event == Event.EVAL_START and self.ema_weights_active is False:
             # Swap out the training model for the ema model in state
-            _copy_model(state.model, self.training_model)
-            _copy_model(self.ema_model, state.model)
+            _copy_params(source_model=state.model, destination_model=self.training_model)
+            _copy_params(source_model=self.ema_model, destination_model=state.model)
             self.ema_weights_active = True
 
         if event == Event.EVAL_END:
             # Swap out the ema model for the training model in state
-            _copy_model(self.training_model, state.model)
+            _copy_params(source_model=self.training_model, destination_model=state.model)
             self.ema_weights_active = False
 
         if event in self.checkpoint_events and self.ema_weights_active is False:
             # Swap the training model out for the ema model for checkpointing
-            _copy_model(state.model, self.training_model)
-            _copy_model(self.ema_model, state.model)
+            _copy_params(source_model=state.model, destination_model=self.training_model)
+            _copy_params(source_model=self.ema_model, destination_model=state.model)
             self.ema_weights_active = True
 
     def state_dict(self) -> Dict[str, Any]:
@@ -252,7 +280,7 @@ class EMA(Algorithm):
                 setattr(self, attribute_name, serialized_value)
 
 
-def _copy_model(source_model: torch.nn.Module, destination_model: torch.nn.Module):
+def _copy_params(source_model: torch.nn.Module, destination_model: torch.nn.Module):
     """Copies parameters and buffers from ``source_model`` to ``destination_model``."""
     with torch.no_grad():
         source_params = itertools.chain(source_model.parameters(), source_model.buffers())
