@@ -6,8 +6,6 @@ from typing import Any, Dict, Tuple
 import pytest
 
 from composer.core.state import State
-from composer.datasets.dataset_hparams import DataLoaderHparams
-from composer.datasets.lm_dataset_hparams import LMDatasetHparams
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
 from composer.models import create_bert_mlm, create_gpt2
 from tests.datasets import test_synthetic_lm_data

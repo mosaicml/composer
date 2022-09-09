@@ -11,7 +11,6 @@ import pytest_httpserver
 from composer.core.time import Time, Timestamp, TimeUnit
 from composer.utils.file_helpers import (ensure_folder_has_no_conflicting_files, ensure_folder_is_empty,
                                          format_name_with_dist, format_name_with_dist_and_time, get_file, is_tar)
-from composer.utils.object_store.object_store_hparams import LibcloudObjectStoreHparams
 
 
 @pytest.mark.xfail(reason='Occassionally hits the timeout. Should refactor to use a local webserver.')
