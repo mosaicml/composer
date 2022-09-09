@@ -160,6 +160,13 @@ class Factorize(Algorithm):
         self.min_features = min_features
         self.latent_features = latent_features
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(factorize_convs={self.factorize_convs},factorize_linears={self.factorize_linears},min_channels={self.min_channels},latent_channels={self.latent_channels},min_features={self.min_features},latent_features={self.latent_features})'
+
+    @staticmethod
+    def required_on_load() -> bool:
+        return True
+
     def match(self, event: Event, state: State) -> bool:
         return event == Event.INIT
 

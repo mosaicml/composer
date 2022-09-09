@@ -117,6 +117,13 @@ class BlurPool(Algorithm):
             raise ValueError(
                 'Both replace_maxpool and replace_convs are set to False. BlurPool will not be modifying the model.')
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(replace_convs={self.replace_convs},replace_maxpools={self.replace_maxpools},blur_first={self.blur_first},min_channels={self.min_channels})'
+
+    @staticmethod
+    def required_on_load() -> bool:
+        return True
+
     def match(self, event: Event, state: State) -> bool:
         return event == Event.INIT
 

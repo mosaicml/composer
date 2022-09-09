@@ -495,6 +495,41 @@ class State(Serializable):
         if len(unexpected_keys) > 0:
             logger.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
+    def _verify_required_algorithms_enabled(self, state: Dict[str, Any]):
+        """Verifies all required algorithms are enabled when loading state.
+
+        Args:
+            state (Dict[str, Any]): State from checkpoint.
+        """
+        import composer.algorithms as algorithms
+
+        # Get repr of existing algorithms
+        state_algos = set()
+        for algo in self.algorithms:
+            state_algos.add(algo.__repr__())
+
+        # Get repr of checkpoint algorithms
+        checkpoint_algos = set()
+        for algo, serialized_value in state['algorithms'].items():
+            try:
+                if getattr(algorithms, algo).required_on_load():
+                    checkpoint_algos.add(serialized_value['repr'])
+            except AttributeError:
+                logger.warning(
+                    f'Found algorithm of unknown type: {algo}. Skipping check for if it is required when loading checkpoint.'
+                )
+
+        missing_surgery_algos = []
+        for repr in checkpoint_algos:
+            if repr not in state_algos:
+                missing_surgery_algos.append(repr)
+
+        if len(missing_surgery_algos) > 0:
+            raise ValueError('The following surgery algorithms were enabled when training this checkpoint '
+                             f"and are required to successfully load it: {', '.join(missing_surgery_algos)}. "
+                             'If you wish to use pretrained weights and reinitialize layers which have '
+                             'undergone surgery, set `load_weights_only=True`.')
+
     def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
         """Loads the state.
 
@@ -505,9 +540,12 @@ class State(Serializable):
         """
         state = _ensure_backwards_compatible_checkpointing(state)
 
+        if 'algorithms' in state:
+            self._verify_required_algorithms_enabled(state)
+
         for attribute_name, serialized_value in state.items():
             if attribute_name not in self.serialized_attributes:
-                # it's possible some attributes we removed
+                # It's possible some attributes we removed
                 continue
 
             if attribute_name == 'model':
