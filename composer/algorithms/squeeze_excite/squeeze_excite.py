@@ -152,6 +152,13 @@ class SqueezeExcite(Algorithm):
         self.latent_channels = latent_channels
         self.min_channels = min_channels
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(latent_channels={self.latent_channels},min_channels={self.min_channels})'
+
+    @staticmethod
+    def required_on_load() -> bool:
+        return True
+
     def match(self, event: Event, state: State) -> bool:
         return event == Event.INIT
 

@@ -17,6 +17,7 @@ import torch
 import torch.distributed
 from torch.utils.data import DataLoader
 
+from composer.algorithms import SqueezeExcite
 from composer.core.callback import Callback
 from composer.core.time import Time, TimeUnit
 from composer.loggers import ObjectStoreLogger
@@ -349,6 +350,26 @@ class TestCheckpointLoading:
         )
         trainer_3.fit(duration='1ba')
 
+    def test_surgery_resumption(self, tmp_path: pathlib.Path):
+        trainer_1 = self.get_trainer(
+            algorithms=[SqueezeExcite(latent_channels=64, min_channels=3)],
+            save_folder=os.path.join(tmp_path, 'first'),
+        )
+        trainer_1.fit()
+        trainer_1.close()
+
+        # ValueError is raised without surgery
+        resume_file = os.path.join(tmp_path, 'first', 'ep1.pt')
+        with pytest.raises(ValueError) as e:
+            self.get_trainer(load_path=resume_file)
+        assert 'The following surgery algorithms' in str(e)
+
+        # Loads fine with surgery
+        self.get_trainer(
+            algorithms=[SqueezeExcite(latent_channels=64, min_channels=3)],
+            load_path=resume_file,
+        )
+
 
 class TestCheckpointResumption:
 
@@ -459,9 +480,6 @@ class TestCheckpointResumption:
             resume_file = resume_file.format(rank=0)
 
         resume_file = os.path.join(save_folder, 'first', resume_file)
-
-        print(resume_file)
-        print(os.listdir(os.path.join(save_folder, 'first')))
 
         trainer_2 = self.get_trainer(
             save_folder=os.path.join(save_folder, 'second'),
