@@ -90,7 +90,6 @@ def build_ade20k_dataloader(
                               batch_size=batch_size,
                               sampler=sampler,
                               drop_last=drop_last,
-                              shuffle=shuffle,
                               collate_fn=pil_image_collate,
                               **dataloader_kwargs),
         device_transforms=device_transform_fn,
@@ -133,7 +132,6 @@ def build_synthetic_ade20k_dataloader(
             sampler=sampler,
             batch_size=batch_size,
             drop_last=drop_last,
-            shuffle=shuffle,
             **dataloader_kwargs,
         ))
 
