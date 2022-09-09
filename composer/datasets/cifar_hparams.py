@@ -32,6 +32,11 @@ __all__ = ['CIFAR10DatasetHparams', 'StreamingCIFAR10Hparams']
 log = logging.getLogger(__name__)
 
 
+# CIFAR10 mean and standard deviation for normalization.
+CIFAR10_MEAN = 0.4914, 0.4822, 0.4465
+CIFAR10_STD = 0.247, 0.243, 0.261
+
+
 @dataclass
 class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     """Defines an instance of the CIFAR-10 dataset for image classification from a local disk.
@@ -147,20 +152,17 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             if self.datadir is None:
                 raise ValueError('datadir is required if use_synthetic is False')
 
-            cifar10_mean = 0.4914, 0.4822, 0.4465
-            cifar10_std = 0.247, 0.243, 0.261
-
             if self.is_train:
                 transformation = transforms.Compose([
                     transforms.RandomCrop(32, padding=4),
                     transforms.RandomHorizontalFlip(),
                     transforms.ToTensor(),
-                    transforms.Normalize(cifar10_mean, cifar10_std),
+                    transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD),
                 ])
             else:
                 transformation = transforms.Compose([
                     transforms.ToTensor(),
-                    transforms.Normalize(cifar10_mean, cifar10_std),
+                    transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD),
                 ])
 
             with dist.run_local_rank_zero_first():
@@ -213,20 +215,17 @@ class StreamingCIFAR10Hparams(DatasetHparams):
                 raise MissingConditionalImportError(extra_deps_group='streaming',
                                                     conda_package='mosaicml-streaming') from e
 
-            cifar10_mean = 0.4914, 0.4822, 0.4465
-            cifar10_std = 0.247, 0.243, 0.261
-
             if self.split == 'train':
                 transform = transforms.Compose([
                     transforms.RandomCrop(32, padding=4),
                     transforms.RandomHorizontalFlip(),
                     transforms.ToTensor(),
-                    transforms.Normalize(cifar10_mean, cifar10_std),
+                    transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD),
                 ])
             else:
                 transform = transforms.Compose([
                     transforms.ToTensor(),
-                    transforms.Normalize(cifar10_mean, cifar10_std),
+                    transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD),
                 ])
 
             dataset = CIFAR10(local=self.local,
