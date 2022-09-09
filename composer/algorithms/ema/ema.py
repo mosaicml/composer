@@ -165,51 +165,60 @@ class EMA(Algorithm):
             self.smoothing = smoothing
 
         # Construct the appropriate matching events
-        self.match_events = [Event.INIT, Event.FIT_START, Event.BATCH_START, Event.EVAL_START, Event.EVAL_END]
+        self.always_match_events = [Event.BATCH_START, Event.EVAL_START, Event.EVAL_END]
         self.checkpoint_events = [Event.BATCH_CHECKPOINT, Event.EPOCH_CHECKPOINT]
-        self.match_events += self.checkpoint_events
-
-        if self.update_interval.unit == TimeUnit.EPOCH:
-            self.match_events.append(Event.EPOCH_END)
-        if self.update_interval.unit == TimeUnit.BATCH:
-            self.match_events.append(Event.BATCH_END)
 
     def match(self, event: Event, state: State) -> bool:
-        return event in self.match_events
+        # Always need to run on init
+        if event in [Event.INIT, Event.FIT_START]:
+            return True
+
+        # Match on checkpointing events if a checkpoint is to be saved
+        if event in [Event.BATCH_CHECKPOINT, Event.EPOCH_CHECKPOINT]:
+            checkpoint_savers = [cb for cb in state.callbacks if isinstance(cb, CheckpointSaver)]
+            for checkpoint_saver in checkpoint_savers:
+                if checkpoint_saver.save_interval(state, event) is True:
+                    return True
+
+        # Match on appropriate event if an ema update is supposed to happen
+        if state.timestamp.get(self.update_interval.unit).value % self.update_interval.value == 0:
+            if event == Event.BATCH_END and self.update_interval.unit == TimeUnit.BATCH:
+                return True
+            if event == Event.EPOCH_END and self.update_interval.unit == TimeUnit.EPOCH:
+                return True
+
+        return event in self.always_match_events
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         assert isinstance(self.update_interval, Time)
         assert isinstance(self.smoothing, float)
 
         if event == Event.INIT:
-            # on trainer init, we create the models
-            # so that the checkpoints can be loaded
+            # Create the models so that the checkpoints can be loaded
             self.ema_model = copy.deepcopy(state.model)
             self.training_model = copy.deepcopy(state.model)
 
         if event == Event.FIT_START:
+            # Ensure that params are on the right device if a checkpoint has been loaded
             if self.ema_model is not None:
                 _move_params_to_device(self.ema_model, state.model)
             if self.training_model is not None:
                 _move_params_to_device(self.training_model, state.model)
 
-        # Ensure the model being trained has the correct weights
         if event == Event.BATCH_START and self.ema_model is not None and self.training_model is not None:
+            # Ensure the model being trained has the correct weights
             if self.ema_weights_active:
                 _copy_model(self.training_model, state.model)
                 self.ema_weights_active = False
 
         if event in [Event.BATCH_END, Event.EPOCH_END]:
-            # Check if an update should happen
-            if state.timestamp.get(self.update_interval.unit).value % self.update_interval.value == 0:
-                # Initialize the shadow models if they don't exist yet
-                if self.ema_model is None:
-                    self.ema_model = copy.deepcopy(state.model)
-                if self.training_model is None:
-                    self.training_model = copy.deepcopy(state.model)
-
-                # Update the ema model
-                compute_ema(state.model, self.ema_model, smoothing=self.smoothing)
+            # Initialize the shadow models if they don't exist yet
+            if self.ema_model is None:
+                self.ema_model = copy.deepcopy(state.model)
+            if self.training_model is None:
+                self.training_model = copy.deepcopy(state.model)
+            # Update the ema model
+            compute_ema(state.model, self.ema_model, smoothing=self.smoothing)
 
         if event == Event.EVAL_START and self.ema_model is not None and self.training_model is not None:
             # Swap out the training model for the ema model in state
@@ -224,15 +233,11 @@ class EMA(Algorithm):
             self.ema_weights_active = False
 
         if event in self.checkpoint_events and self.ema_model is not None and self.training_model is not None:
-            checkpoint_savers = [cb for cb in state.callbacks if isinstance(cb, CheckpointSaver)]
-            for checkpoint_saver in checkpoint_savers:
-                print('Found a checkpoint saver')
-                if checkpoint_saver.save_interval(state, event) is True and self.ema_weights_active is False:
-                    print('Swapping ema model in for checkpointing')
-                    # Swap the training model out for the ema model for checkpointing
-                    _copy_model(state.model, self.training_model)
-                    _copy_model(self.ema_model, state.model)
-                    self.ema_weights_active = True
+            if self.ema_weights_active is False:
+                # Swap the training model out for the ema model for checkpointing
+                _copy_model(state.model, self.training_model)
+                _copy_model(self.ema_model, state.model)
+                self.ema_weights_active = True
 
     def get_ema_model(self, model: torch.nn.Module):
         """Copies ema model parameters and buffers to the input model and returns it.
