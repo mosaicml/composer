@@ -31,7 +31,6 @@ import sphinx.ext.autodoc
 import sphinx.util.logging
 import torch
 import torch.nn
-import yahp as hp
 from docutils import nodes
 from docutils.nodes import Element
 from git.repo.base import Repo
@@ -187,7 +186,6 @@ html_favicon = 'https://mosaic-ml-staging.cdn.prismic.io/mosaic-ml-staging/b1f1a
 # Don't unfold our common type aliases
 autodoc_type_aliases = {
     'Batch': 'composer.core.types.Batch',
-    'Hparams': 'yahp.hparams.Hparams',
 }
 
 autodoc_default_options = {
@@ -198,8 +196,6 @@ autodoc_default_options = {
 autodoc_inherit_docstrings = False
 
 # Monkeypatch some objects as to exclude their docstrings
-hp.Hparams.__doc__ = ''
-hp.Hparams.initialize_object.__doc__ = ''
 torch.nn.Module.forward.__doc__ = ''
 
 torch.nn.Module.forward.__doc__ = None
