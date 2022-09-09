@@ -97,7 +97,3 @@ def test_ema_algorithm(params, minimal_state, empty_logger):
     # Check if the training model is swapped back in for training
     algorithm.apply(Event.EVAL_END, state, empty_logger)
     validate_model(state.model, algorithm.training_model)
-    # Check if the ema model can be extracted correctly
-    overwrite_model = copy.deepcopy(original_model)
-    overwrite_model = algorithm.get_ema_model(overwrite_model)
-    validate_model(overwrite_model, algorithm.ema_model)

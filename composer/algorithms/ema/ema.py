@@ -198,62 +198,39 @@ class EMA(Algorithm):
             self.ema_model = copy.deepcopy(state.model)
             self.training_model = copy.deepcopy(state.model)
 
+        assert self.ema_model is not None
+        assert self.training_model is not None
+
         if event == Event.FIT_START:
             # Ensure that params are on the right device if a checkpoint has been loaded
-            if self.ema_model is not None:
-                _move_params_to_device(self.ema_model, state.model)
-            if self.training_model is not None:
-                _move_params_to_device(self.training_model, state.model)
+            _move_params_to_device(self.ema_model, state.model)
+            _move_params_to_device(self.training_model, state.model)
 
-        if event == Event.BATCH_START and self.ema_model is not None and self.training_model is not None:
+        if event == Event.BATCH_START and self.ema_weights_active:
             # Ensure the model being trained has the correct weights
-            if self.ema_weights_active:
-                _copy_model(self.training_model, state.model)
-                self.ema_weights_active = False
+            _copy_model(self.training_model, state.model)
+            self.ema_weights_active = False
 
         if event in [Event.BATCH_END, Event.EPOCH_END]:
-            # Initialize the shadow models if they don't exist yet
-            if self.ema_model is None:
-                self.ema_model = copy.deepcopy(state.model)
-            if self.training_model is None:
-                self.training_model = copy.deepcopy(state.model)
             # Update the ema model
             compute_ema(state.model, self.ema_model, smoothing=self.smoothing)
 
-        if event == Event.EVAL_START and self.ema_model is not None and self.training_model is not None:
+        if event == Event.EVAL_START and self.ema_weights_active is False:
             # Swap out the training model for the ema model in state
-            if self.ema_weights_active is False:
-                _copy_model(state.model, self.training_model)
-                _copy_model(self.ema_model, state.model)
-                self.ema_weights_active = True
+            _copy_model(state.model, self.training_model)
+            _copy_model(self.ema_model, state.model)
+            self.ema_weights_active = True
 
-        if event == Event.EVAL_END and self.training_model is not None and self.ema_weights_active is True:
+        if event == Event.EVAL_END:
             # Swap out the ema model for the training model in state
             _copy_model(self.training_model, state.model)
             self.ema_weights_active = False
 
-        if event in self.checkpoint_events and self.ema_model is not None and self.training_model is not None:
-            if self.ema_weights_active is False:
-                # Swap the training model out for the ema model for checkpointing
-                _copy_model(state.model, self.training_model)
-                _copy_model(self.ema_model, state.model)
-                self.ema_weights_active = True
-
-    def get_ema_model(self, model: torch.nn.Module):
-        """Copies ema model parameters and buffers to the input model and returns it.
-
-        Args:
-            model (torch.nn.Module): the model to convert into the ema model.
-
-        Returns:
-            torch.nn.Module: The input model with parameters and buffers replaced
-                with the averaged parameters and buffers.
-        """
-        if self.ema_model is None:
-            raise AttributeError('ema model has not been initialized yet')
-
-        _copy_model(self.ema_model, model)
-        return model
+        if event in self.checkpoint_events and self.ema_weights_active is False:
+            # Swap the training model out for the ema model for checkpointing
+            _copy_model(state.model, self.training_model)
+            _copy_model(self.ema_model, state.model)
+            self.ema_weights_active = True
 
     def state_dict(self) -> Dict[str, Any]:
         state_dict = {}
