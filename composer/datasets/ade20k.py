@@ -46,6 +46,22 @@ def build_ade20k_dataloader(
     ignore_background: bool = True,
     **dataloader_kwargs,
 ):
+    """Builds an ADE20k dataloader.
+
+    Args:
+        datadir (str): path to location of dataset.
+        batch_size (int): Batch size per device.
+        split (str): the dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
+        drop_last (bool): whether to drop last samples. Default: ``True``.
+        shuffle (bool): whether to shuffle the dataset. Default: ``True``.
+        base_size (int): initial size of the image and target before other augmentations. Default: ``512``.
+        min_resize_scale (float): the minimum value the samples can be rescaled. Default: ``0.5``.
+        max_resize_scale (float): the maximum value the samples can be rescaled. Default: ``2.0``.
+        final_size (int): the final size of the image and target. Default: ``512``.
+        ignore_background (bool): if true, ignore the background class when calculating the training loss.
+            Default: ``true``.
+        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+    """
     if split == 'train':
         both_transforms = torch.nn.Sequential(
             RandomResizePair(
@@ -108,6 +124,19 @@ def build_synthetic_ade20k_dataloader(
     memory_format: MemoryFormat = MemoryFormat.CONTIGUOUS_FORMAT,
     **dataloader_kwargs,
 ):
+    """Builds a synthetic ADE20k dataloader.
+
+    Args:
+        batch_size (int): Batch size per device.
+        split (str): the dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
+        drop_last (bool): whether to drop last samples. Default: ``True``.
+        shuffle (bool): whether to shuffle the dataset. Default: ``True``.
+        final_size (int): the final size of the image and target. Default: ``512``.
+        num_unique_samples (int): number of unique samples in synthetic dataset. Default: ``100``.
+        device (str): device with which to load the dataset. Default: ``cpu``.
+        memory_format (MemoryFormat): memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
+        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+    """
     if split == 'train':
         total_dataset_size = 20_206
     elif split == 'val':

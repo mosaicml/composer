@@ -42,12 +42,25 @@ def build_imagenet_dataloader(
     datadir: str,
     batch_size: int,
     is_train: bool = True,
-    resize_size: int = -1,
-    crop_size: int = 224,
     drop_last: bool = True,
     shuffle: bool = True,
+    resize_size: int = -1,
+    crop_size: int = 224,
     **dataloader_kwargs,
-):
+) -> DataSpec:
+    """Builds an ImageNet dataloader.
+
+    Args:
+        datadir (str): path to location of dataset.
+        batch_size (int): Batch size per device.
+        is_train (bool): Whether to load the training data or validation data. Default:
+            ``True``.
+        drop_last (bool): whether to drop last samples. Default: ``True``.
+        shuffle (bool): whether to shuffle the dataset. Default: ``True``.
+        resize_size (int, optional): The resize size to use. Use ``-1`` to not resize. Default: ``-1``.
+        crop size (int): The crop size to use. Default: ``224``.
+        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+    """
     if is_train:
         # include fixed-size resize before RandomResizedCrop in training only
         # if requested (by specifying a size > 0)
@@ -98,7 +111,21 @@ def build_synthetic_imagenet_dataloader(
     drop_last: bool = True,
     shuffle: bool = True,
     **dataloader_kwargs,
-):
+) -> DataSpec:
+    """Builds a synthetic ImageNet dataloader.
+
+    Args:
+        batch_size (int): Batch size per device.
+        num_unique_samples (int): number of unique samples in synthetic dataset. Default: ``100``.
+        device (str): device with which to load the dataset. Default: ``cpu``.
+        memory_format (MemoryFormat): memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
+        is_train (bool): Whether to load the training data or validation data. Default:
+            ``True``.
+        crop size (int): The crop size to use. Default: ``224``.
+        drop_last (bool): whether to drop last samples. Default: ``True``.
+        shuffle (bool): whether to shuffle the dataset. Default: ``True``.
+        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+    """
     total_dataset_size = 1_281_167 if is_train else 50_000
     dataset = SyntheticBatchPairDataset(
         total_dataset_size=total_dataset_size,
@@ -128,6 +155,13 @@ def write_ffcv_imagenet(
     split: str = 'train',
     num_workers: int = 8,
 ):
+    """Converts an ImageNet dataset to FFCV format.
+
+        datadir (str): Path of ImageNet dataset, in ImageFolder format.
+        savedir (str): Path to save the FFCV dataset. Default: ``/tmp/imagenet_train.ffcv``.
+        split (str): 'train' or 'val'. Default: ``train``.
+        num_workers (int): Number of workers to use for conversion. Default: ``8``.
+    """
 
     if dist.get_local_rank() == 0:
         ds = ImageFolder(os.path.join(datadir, split))
@@ -153,6 +187,20 @@ def build_ffcv_imagenet_dataloader(
     prefetch_factor: int = 2,
     num_workers: int = 8,
 ):
+    """Builds an FFCV ImageNet dataloader.
+
+    Args:
+        datadir (str): path to location of dataset.
+        batch_size (int): Batch size per device.
+        is_train (bool): Whether to load the training data or validation data. Default:
+            ``True``.
+        resize_size (int, optional): The resize size to use. Use ``-1`` to not resize. Default: ``-1``.
+        crop size (int): The crop size to use. Default: ``224``.
+        cpu_only (int): Only perform transforms on 'cpu'. Default: ``False``.
+        drop_last (bool): whether to drop last samples. Default: ``True``.
+        prefetch_factor (int): Number of batches to prefect. Default: ``2``.
+        num_workers (int): Number of workers. Default: ``8``.
+    """
     try:
         import ffcv
         from ffcv.fields.decoders import CenterCropRGBImageDecoder, IntDecoder, RandomResizedCropRGBImageDecoder
