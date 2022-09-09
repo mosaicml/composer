@@ -270,7 +270,7 @@ class StreamingImageNet1kHparams(DatasetHparams):
                                transform=transform,
                                batch_size=batch_size)
         else:
-            raise ValueError(f'Invalid version: {self.version}')
+            raise ValueError(f'Invalid streaming version: {self.version}')
         collate_fn = pil_image_collate
         device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
         return DataSpec(dataloader=dataloader_hparams.initialize_object(
