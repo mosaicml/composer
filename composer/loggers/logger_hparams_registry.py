@@ -14,6 +14,7 @@ from typing import Dict, Optional, Type, Union
 
 import yahp as hp
 
+from composer.loggers.cometml_logger import CometMLLogger
 from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger_destination import LoggerDestination
@@ -86,4 +87,5 @@ logger_registry: Dict[str, Union[Type[LoggerDestination], Type[hp.Hparams]]] = {
     'tensorboard': TensorboardLogger,
     'in_memory': InMemoryLogger,
     'object_store': ObjectStoreLoggerHparams,
+    'comet_ml': CometMLLogger,
 }

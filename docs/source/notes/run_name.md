@@ -53,13 +53,11 @@ See {class}`~.CheckpointSaver` for more information on specifying the arguments 
 
 In addition to checkpointing, loggers also use the `run_name` for default logging.
 
-#### Tensorboard Logger
+#### Experiment Tracking Loggers
 
-The {class}`~.TensorboardLogger` will save all the logs for a run to a folder called `run_name` and the name of each run in the Tensorboard GUI will be `run_name`.
-
-#### Weights and Biases Logger
-
-The `run_name` you specify will be used by the {class}`~.WandBLogger` as the run name for Weights and Biases.
+* The {class}`~.TensorboardLogger` will save all the logs for a run to a folder called `run_name` and the name of each run in the Tensorboard GUI will be `run_name`.
+* The `run_name` you specify will be used by the {class}`~.WandBLogger` as the run name for Weights and Biases.
+* The `run_name` you specify will be used by the {class}`~.CometMLLogger` as the run name for your Comet experiment.
 
 #### Object Store Logger
 
