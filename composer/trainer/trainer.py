@@ -1570,15 +1570,12 @@ class Trainer:
             reproducibility.load_rng_state(self._rng_state)
             self._rng_state = None
 
-        # Flag if the epoch finished early, so it can be tracked whether to run the epoch end events
+        self.state.model.train()
         finished_epoch_early = False
-
         last_wct = datetime.datetime.now()
 
         while self.state.timestamp < self.state.max_duration:
             try:
-                self.state.model.train()
-
                 if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
                     self.logger.log_metrics({'epoch': int(self.state.timestamp.epoch)})
@@ -1603,8 +1600,6 @@ class Trainer:
 
                     if self.deepspeed_enabled:
                         self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
-
-                    self.state.model.train()
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
