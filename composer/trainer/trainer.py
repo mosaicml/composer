@@ -45,7 +45,7 @@ from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed,
-                            map_collection, reproducibility)
+                            map_collection, model_eval_mode, reproducibility)
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.inference import ExportFormat, Transform, export_with_logger
@@ -1570,15 +1570,12 @@ class Trainer:
             reproducibility.load_rng_state(self._rng_state)
             self._rng_state = None
 
-        # Flag if the epoch finished early, so it can be tracked whether to run the epoch end events
+        self.state.model.train()
         finished_epoch_early = False
-
         last_wct = datetime.datetime.now()
 
         while self.state.timestamp < self.state.max_duration:
             try:
-                self.state.model.train()
-
                 if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
                     self.logger.log_metrics({'epoch': int(self.state.timestamp.epoch)})
@@ -1603,8 +1600,6 @@ class Trainer:
 
                     if self.deepspeed_enabled:
                         self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
-
-                    self.state.model.train()
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
@@ -1713,8 +1708,7 @@ class Trainer:
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
         assert self.state.train_metrics is not None, 'The train metrics should be set on __init__ or fit()'
 
-        self.state.model.eval()
-        with torch.no_grad():
+        with torch.no_grad(), model_eval_mode(self.state.model):
             # Retry until we successfully complete evaluation
             while True:
                 found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
@@ -2063,10 +2057,6 @@ class Trainer:
         else:
             data_spec = DataSpec(dataloader)
 
-        # Put the model into evaluation mode, but be able to restore it to training mode afterwards
-        restore_model_train = self.state.model.training
-        self.state.model.eval()
-
         # Bind the dataloader to the state, but be able to restore the previous dataloader afterwards
         original_dataloader = self.state.dataloader
         original_dataloader_label = self.state.dataloader_label
@@ -2082,7 +2072,7 @@ class Trainer:
         outputs = []
         cpu_device = DeviceCPU()
 
-        with torch.no_grad():
+        with torch.no_grad(), model_eval_mode(self.state.model):
 
             self.engine.run_event(Event.PREDICT_START)
 
@@ -2130,10 +2120,6 @@ class Trainer:
                 self.engine.run_event(Event.PREDICT_BATCH_END)
 
             self.engine.run_event(Event.PREDICT_END)
-
-        # Restore training mode
-        if restore_model_train:
-            self.state.model.train()
 
         # Restore the dataloader
         self.state.set_dataloader(original_dataloader, original_dataloader_label)
@@ -2302,8 +2288,6 @@ class Trainer:
                 ``len(eval_dataloader)``, or ``eval_dataloader`` is an :class:`.Evaluator` (which is via
                 ``Evaluator(subset_num_batches=...)``.)
         """
-        restore_model_train = self.state.model.training
-
         if subset_num_batches is None:
             subset_num_batches = -1
 
@@ -2325,8 +2309,7 @@ class Trainer:
 
         last_wct = datetime.datetime.now()
 
-        self.state.model.eval()
-        with torch.no_grad():
+        with torch.no_grad(), model_eval_mode(self.state.model):
             self.state.set_dataloader(data_spec.dataloader, dataloader_label, subset_num_batches)
             assert self.state.dataloader is not None, 'dataloader is set'
 
@@ -2446,9 +2429,6 @@ class Trainer:
             self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics)
 
             self.engine.run_event(Event.EVAL_END)
-
-        if restore_model_train:
-            self.state.model.train()
 
         self.state.set_dataloader(original_dataloader, original_dataloader_label)
         if original_num_batches is not None:
