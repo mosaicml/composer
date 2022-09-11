@@ -1740,7 +1740,7 @@ class Trainer:
                     else:
                         raise
                 # Auto eval batch split only supported on GPU
-                if isinstance(self._device, DeviceGPU):
+                if self.adaptive_gradient_accumulation:
                     # Propagate across all ranks if any rank hit CUDA OOM
                     found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
                     dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
@@ -1820,7 +1820,7 @@ class Trainer:
                     raise
 
             # Auto grad accum only supported on GPU
-            if isinstance(self._device, DeviceGPU):
+            if self.adaptive_gradient_accumulation:
                 # Propagate across all ranks if any rank hit CUDA OOM
                 found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
                 dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
@@ -2391,7 +2391,7 @@ class Trainer:
                         else:
                             raise
                     # Auto eval batch split only supported on GPU
-                    if isinstance(self._device, DeviceGPU):
+                    if self.adaptive_gradient_accumulation:
                         # Propagate across all ranks if any rank hit CUDA OOM
                         found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom],
                                                                                     dtype=torch.uint8))
