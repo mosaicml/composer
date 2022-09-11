@@ -1795,9 +1795,12 @@ class Trainer:
                 if self._use_closures():
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
-                            self.state.scaler.step(optimizer,
-                                                   closure=lambda **kwargs: self._train_microbatches(
-                                                       microbatches, total_loss_dict, **kwargs))
+
+                            def _train_microbatches_wrapper(**kwargs):
+                                kwargs.setdefault('total_loss_dict', total_loss_dict)
+                                self._train_microbatches(microbatches, **kwargs)
+
+                            self.state.scaler.step(optimizer, closure=_train_microbatches_wrapper)
                         else:
                             optimizer.step(closure=lambda **kwargs: self._train_microbatches(
                                 microbatches, total_loss_dict, **kwargs).item())
