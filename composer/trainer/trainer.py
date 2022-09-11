@@ -1798,8 +1798,10 @@ class Trainer:
 
                             def _train_microbatches_wrapper(**kwargs):
                                 # if 'total_loss_dict' not in kwargs:
-                                kwargs['total_loss_dict'] = total_loss_dict
-                                self._train_microbatches(microbatches, **kwargs)
+                                #     kwargs['total_loss_dict'] = total_loss_dict
+                                if 'total_loss_dict' in kwargs:
+                                    del kwargs['total_loss_dict']
+                                self._train_microbatches(microbatches, total_loss_dict, **kwargs)
 
                             self.state.scaler.step(optimizer, closure=_train_microbatches_wrapper)
                         else:
