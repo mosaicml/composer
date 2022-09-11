@@ -1796,12 +1796,9 @@ class Trainer:
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
 
-                            def _train_microbatches_wrapper(**kwargs):
-                                # if 'total_loss_dict' not in kwargs:
-                                #     kwargs['total_loss_dict'] = total_loss_dict
-                                if 'total_loss_dict' in kwargs:
-                                    del kwargs['total_loss_dict']
-                                self._train_microbatches(microbatches, total_loss_dict, **kwargs)
+                            def _train_microbatches_wrapper(log_losses=True, **kwargs):
+                                loss_dict = total_loss_dict if log_losses else {'loss/train/total': self._device.tensor_to_device(torch.zeros(size=(1,)))}
+                                self._train_microbatches(microbatches, loss_dict, **kwargs)
 
                             self.state.scaler.step(optimizer, closure=_train_microbatches_wrapper)
                         else:
