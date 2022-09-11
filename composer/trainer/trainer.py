@@ -871,15 +871,13 @@ class Trainer:
             optimizers = map_collection(optimizers, self._device.optimizer_to_device)
 
         # Grad Accum
-        self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
-        if self.adaptive_gradient_accumulation and profiler:
+        adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
+        if adaptive_gradient_accumulation and profiler:
             raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
                              "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
                              'then manually specify that in a second run with profiler.')
         grad_accum = _get_initial_grad_accum(grad_accum)
         eval_batch_split = 1
-        if self.adaptive_gradient_accumulation and isinstance(self._device, DeviceTPU):
-            raise NotImplementedError(f'grad_accum=auto not supported on TPUs.')
 
         # Grad Clip Norm
         if grad_clip_norm > 0:
@@ -904,16 +902,19 @@ class Trainer:
         log.info('Run name: %s', run_name)
 
         # Create the State
-        self.state = State(rank_zero_seed=rank_zero_seed,
-                           algorithms=algorithms,
-                           model=model,
-                           callbacks=callbacks,
-                           grad_accum=grad_accum,
-                           eval_batch_split=eval_batch_split,
-                           precision=precision,
-                           optimizers=optimizers,
-                           run_name=run_name,
-                           deepspeed_config=deepspeed_config)
+        self.state = State(
+            rank_zero_seed=rank_zero_seed,
+            algorithms=algorithms,
+            model=model,
+            callbacks=callbacks,
+            grad_accum=grad_accum,
+            adaptive_gradient_accumulation=adaptive_gradient_accumulation,
+            eval_batch_split=eval_batch_split,
+            precision=precision,
+            optimizers=optimizers,
+            run_name=run_name,
+            deepspeed_config=deepspeed_config,
+        )
 
         # Profiler
         if profiler is not None:
@@ -1436,8 +1437,8 @@ class Trainer:
 
         # Grad Accum
         if grad_accum is not None:
-            self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
-            if self.adaptive_gradient_accumulation and self.state.profiler:
+            self.state.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
+            if self.state.adaptive_gradient_accumulation and self.state.profiler:
                 raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
                                  "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
                                  'then manually specify that in a second run with profiler.')
@@ -1734,13 +1735,12 @@ class Trainer:
                                     )
 
                 except RuntimeError as e:
-                    if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
+                    if self.state.adaptive_gradient_accumulation and _is_cuda_oom(e):
                         log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                         found_cuda_oom = 1
                     else:
                         raise
-                # Auto eval batch split only supported on GPU
-                if self.adaptive_gradient_accumulation:
+                if self.state.adaptive_gradient_accumulation:
                     # Propagate across all ranks if any rank hit CUDA OOM
                     found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
                     dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
@@ -1813,14 +1813,13 @@ class Trainer:
                                 else:
                                     optimizer.step()
             except RuntimeError as e:
-                if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
+                if self.state.adaptive_gradient_accumulation and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     found_cuda_oom = 1
                 else:
                     raise
 
-            # Auto grad accum only supported on GPU
-            if self.adaptive_gradient_accumulation:
+            if self.state.adaptive_gradient_accumulation:
                 # Propagate across all ranks if any rank hit CUDA OOM
                 found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
                 dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
@@ -2385,13 +2384,12 @@ class Trainer:
                                         )
 
                     except RuntimeError as e:
-                        if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
+                        if self.state.adaptive_gradient_accumulation and _is_cuda_oom(e):
                             log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                             found_cuda_oom = 1
                         else:
                             raise
-                    # Auto eval batch split only supported on GPU
-                    if self.adaptive_gradient_accumulation:
+                    if self.state.adaptive_gradient_accumulation:
                         # Propagate across all ranks if any rank hit CUDA OOM
                         found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom],
                                                                                     dtype=torch.uint8))

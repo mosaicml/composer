@@ -83,6 +83,7 @@ class State(Serializable):
             size for each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
         eval_batch_split (int, optional): The mirror of grad_accum for eval. With this argument, micro batch
             size for each device becomes ``microbatch_size = eval_batch_size / (num_devices * eval_batch_split)``.
+        adaptive_gradient_accumulation (bool, optional): Whether automatic gradient accumulation is enabled.
         train_dataloader (types.DataLoader, optional): Dataloader used for training
         evaluators (Evalutor | Evaluators, optional): :class:`.Evaluator` used for evaluation.
         dataloader (types.DataLoader, optional): The active DataLoader.
@@ -235,6 +236,7 @@ class State(Serializable):
         # data configurations
         grad_accum: int = 1,
         eval_batch_split: int = 1,
+        adaptive_gradient_accumulation: bool = False,
 
         # dataloaders
         train_dataloader: Optional[Iterable] = None,
@@ -267,6 +269,7 @@ class State(Serializable):
         self.run_name = run_name
         self.grad_accum = grad_accum
         self.eval_batch_split = eval_batch_split
+        self.adaptive_gradient_accumulation = adaptive_gradient_accumulation
         self._dataloader_len = None
         self._dataloader = None
         self._dataloader_label = None
