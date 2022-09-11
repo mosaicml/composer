@@ -1797,8 +1797,8 @@ class Trainer:
                         if use_grad_scaling:
 
                             def _train_microbatches_wrapper(**kwargs):
-                                if 'total_loss_dict' not in kwargs:
-                                    kwargs['total_loss_dict'] = total_loss_dict
+                                # if 'total_loss_dict' not in kwargs:
+                                kwargs['total_loss_dict'] = total_loss_dict
                                 self._train_microbatches(microbatches, **kwargs)
 
                             self.state.scaler.step(optimizer, closure=_train_microbatches_wrapper)
