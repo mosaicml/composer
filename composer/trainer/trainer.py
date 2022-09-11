@@ -1739,14 +1739,16 @@ class Trainer:
                         found_cuda_oom = 1
                     else:
                         raise
-                # Propagate across all ranks if any rank hit CUDA OOM
-                found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
-                dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
-                if found_cuda_oom.item() == 1:
-                    device_batch_size = self._train_data_spec.get_num_samples_in_batch(device_batch)
-                    _adjust_eval_batch_split(self.state, device_batch_size)
-                    # Skip return and rerun after handling oom
-                    continue
+                # Auto eval batch split only supported on GPU
+                if isinstance(self._device, DeviceGPU):
+                    # Propagate across all ranks if any rank hit CUDA OOM
+                    found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                    dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
+                    if found_cuda_oom.item() == 1:
+                        device_batch_size = self._train_data_spec.get_num_samples_in_batch(device_batch)
+                        _adjust_eval_batch_split(self.state, device_batch_size)
+                        # Skip return and rerun after handling oom
+                        continue
                 # Return if we've successfully completed eval without OOMing.
                 return
 
@@ -2388,14 +2390,17 @@ class Trainer:
                             found_cuda_oom = 1
                         else:
                             raise
-                    # Propagate across all ranks if any rank hit CUDA OOM
-                    found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
-                    dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
-                    if found_cuda_oom.item() == 1:
-                        device_batch_size = data_spec.get_num_samples_in_batch(device_batch)
-                        _adjust_eval_batch_split(self.state, device_batch_size)
-                        # Skip return and rerun after handling oom
-                        continue
+                    # Auto eval batch split only supported on GPU
+                    if isinstance(self._device, DeviceGPU):
+                        # Propagate across all ranks if any rank hit CUDA OOM
+                        found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom],
+                                                                                    dtype=torch.uint8))
+                        dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
+                        if found_cuda_oom.item() == 1:
+                            device_batch_size = data_spec.get_num_samples_in_batch(device_batch)
+                            _adjust_eval_batch_split(self.state, device_batch_size)
+                            # Skip return and rerun after handling oom
+                            continue
                     # Break if we've successfully completed eval without OOMing.
                     break
 
