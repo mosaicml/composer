@@ -12,7 +12,6 @@ algorithms:
       resize_target: auto
   - ema:
       half_life: 100ba
-      train_with_ema_weights: false
       update_interval: 20ba
   - label_smoothing:
       smoothing: 0.13
