@@ -310,13 +310,13 @@ class SeqLengthWarmup(Algorithm):
 
             # This error/state.grad_accum handling mimics the logic in trainer._train_batch().
             except RuntimeError as e:
-                if state.adaptive_gradient_accumulation and _is_cuda_oom(e):
+                if state.auto_grad_accum and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     found_cuda_oom = 1
                 else:
                     raise
 
-            if state.adaptive_gradient_accumulation:
+            if state.auto_grad_accum:
                 devicegpu = DeviceGPU()
                 # Propagate across all ranks if any rank hit CUDA OOM
                 found_cuda_oom = devicegpu.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))

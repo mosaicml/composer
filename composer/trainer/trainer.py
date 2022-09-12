@@ -871,8 +871,8 @@ class Trainer:
             optimizers = map_collection(optimizers, self._device.optimizer_to_device)
 
         # Grad Accum
-        adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
-        if adaptive_gradient_accumulation and profiler:
+        auto_grad_accum = _is_adaptive_grad_accum(grad_accum, device=self._device)
+        if auto_grad_accum and profiler:
             raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
                              "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
                              'then manually specify that in a second run with profiler.')
@@ -908,7 +908,7 @@ class Trainer:
             model=model,
             callbacks=callbacks,
             grad_accum=grad_accum,
-            adaptive_gradient_accumulation=adaptive_gradient_accumulation,
+            auto_grad_accum=auto_grad_accum,
             eval_batch_split=eval_batch_split,
             precision=precision,
             optimizers=optimizers,
@@ -1437,8 +1437,8 @@ class Trainer:
 
         # Grad Accum
         if grad_accum is not None:
-            self.state.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
-            if self.state.adaptive_gradient_accumulation and self.state.profiler:
+            self.state.auto_grad_accum = _is_adaptive_grad_accum(grad_accum, device=self._device)
+            if self.state.auto_grad_accum and self.state.profiler:
                 raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
                                  "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
                                  'then manually specify that in a second run with profiler.')
@@ -1735,12 +1735,12 @@ class Trainer:
                                     )
 
                 except RuntimeError as e:
-                    if self.state.adaptive_gradient_accumulation and _is_cuda_oom(e):
+                    if self.state.auto_grad_accum and _is_cuda_oom(e):
                         log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                         found_cuda_oom = 1
                     else:
                         raise
-                if self.state.adaptive_gradient_accumulation:
+                if self.state.auto_grad_accum:
                     # Propagate across all ranks if any rank hit CUDA OOM
                     found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
                     dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
@@ -1813,13 +1813,13 @@ class Trainer:
                                 else:
                                     optimizer.step()
             except RuntimeError as e:
-                if self.state.adaptive_gradient_accumulation and _is_cuda_oom(e):
+                if self.state.auto_grad_accum and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     found_cuda_oom = 1
                 else:
                     raise
 
-            if self.state.adaptive_gradient_accumulation:
+            if self.state.auto_grad_accum:
                 # Propagate across all ranks if any rank hit CUDA OOM
                 found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
                 dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
@@ -2384,12 +2384,12 @@ class Trainer:
                                         )
 
                     except RuntimeError as e:
-                        if self.state.adaptive_gradient_accumulation and _is_cuda_oom(e):
+                        if self.state.auto_grad_accum and _is_cuda_oom(e):
                             log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                             found_cuda_oom = 1
                         else:
                             raise
-                    if self.state.adaptive_gradient_accumulation:
+                    if self.state.auto_grad_accum:
                         # Propagate across all ranks if any rank hit CUDA OOM
                         found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom],
                                                                                     dtype=torch.uint8))
