@@ -261,7 +261,7 @@ class EMA(Algorithm):
             self.ema_weights_active = True
 
     def state_dict(self) -> Dict[str, Any]:
-        state_dict = {}
+        state_dict = super().state_dict()
         for attribute_name in self.serialized_attributes:
             if attribute_name in ['ema_model', 'training_model']:
                 model = getattr(self, attribute_name)
@@ -272,12 +272,13 @@ class EMA(Algorithm):
 
     def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
         for attribute_name, serialized_value in state.items():
-            if attribute_name == 'ema_model' and self.ema_model is not None:
-                self.ema_model.load_state_dict(serialized_value)
-            elif attribute_name == 'training_model' and self.training_model is not None:
-                self.training_model.load_state_dict(serialized_value)
-            else:
-                setattr(self, attribute_name, serialized_value)
+            if attribute_name != 'repr':  # skip attribute added by parent class
+                if attribute_name == 'ema_model' and self.ema_model is not None:
+                    self.ema_model.load_state_dict(serialized_value)
+                elif attribute_name == 'training_model' and self.training_model is not None:
+                    self.training_model.load_state_dict(serialized_value)
+                else:
+                    setattr(self, attribute_name, serialized_value)
 
 
 def _copy_params(source_model: torch.nn.Module, destination_model: torch.nn.Module):

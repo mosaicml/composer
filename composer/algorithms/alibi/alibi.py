@@ -164,6 +164,13 @@ class Alibi(Algorithm):
         self.train_sequence_length_scaling = train_sequence_length_scaling
         self._applied = False
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(max_sequence_length={self.max_sequence_length},train_sequence_length_scaling={self.train_sequence_length_scaling})'
+
+    @staticmethod
+    def required_on_load() -> bool:
+        return True
+
     def match(self, event: Event, state: State) -> bool:
         return (event == Event.INIT and not self._applied) or event == Event.AFTER_DATALOADER
 

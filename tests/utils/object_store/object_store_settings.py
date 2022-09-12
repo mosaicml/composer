@@ -16,8 +16,6 @@ import composer.utils.object_store
 import composer.utils.object_store.object_store_hparams
 import composer.utils.object_store.sftp_object_store
 from composer.utils.object_store import LibcloudObjectStore, ObjectStore, S3ObjectStore, SFTPObjectStore
-from composer.utils.object_store.object_store_hparams import (LibcloudObjectStoreHparams, ObjectStoreHparams,
-                                                              S3ObjectStoreHparams, SFTPObjectStoreHparams)
 from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 from tests.common import get_module_subclasses
 
@@ -44,46 +42,20 @@ except ImportError:
 
 _object_store_marks = {
     LibcloudObjectStore: [pytest.mark.skipif(not _LIBCLOUD_AVAILABLE, reason='Missing dependency')],
-    LibcloudObjectStoreHparams: [pytest.mark.skipif(not _LIBCLOUD_AVAILABLE, reason='Missing dependency')],
     S3ObjectStore: [
         pytest.mark.skipif(not _BOTO3_AVAILABLE, reason='Missing dependency'),
         pytest.mark.filterwarnings(r'ignore::ResourceWarning'),
     ],
-    S3ObjectStoreHparams: [pytest.mark.skipif(not _BOTO3_AVAILABLE, reason='Missing dependency')],
     SFTPObjectStore: [
         pytest.mark.skipif(not _SFTP_AVAILABLE, reason='Missing dependency'),
         pytest.mark.filterwarnings(r'ignore:setDaemon\(\) is deprecated:DeprecationWarning'),
         pytest.mark.filterwarnings(r'ignore:Unknown .* host key:UserWarning')
     ],
-    SFTPObjectStoreHparams: [
-        pytest.mark.skipif(not _SFTP_AVAILABLE, reason='Missing dependency'),
-        pytest.mark.filterwarnings(r'ignore:setDaemon\(\) is deprecated:DeprecationWarning'),
-    ],
-}
-
-object_store_hparam_kwargs: Dict[Type[ObjectStoreHparams], Dict[str, Any]] = {
-    S3ObjectStoreHparams: {
-        'bucket': 'my-bucket',
-    },
-    LibcloudObjectStoreHparams: {
-        'provider': 'local',
-        'key_environ': 'OBJECT_STORE_KEY',
-        'container': '.',
-    },
-    SFTPObjectStoreHparams: {
-        'host': 'localhost',
-        'port': 23,
-        'username': 'test_user',
-    }
 }
 
 object_stores = [
     pytest.param(x, marks=_object_store_marks[x], id=x.__name__)
     for x in get_module_subclasses(composer.utils.object_store, ObjectStore)
-]
-object_store_hparams = [
-    pytest.param(x, marks=_object_store_marks[x], id=x.__name__)
-    for x in get_module_subclasses(composer.utils.object_store.object_store_hparams, ObjectStoreHparams)
 ]
 
 
@@ -107,13 +79,13 @@ def get_object_store_ctx(object_store_cls: Type[ObjectStore],
             with moto.mock_s3():
                 # create the dummy bucket
                 s3 = boto3.client('s3')
-                s3.create_bucket(Bucket=object_store_hparam_kwargs[S3ObjectStoreHparams]['bucket'])
+                s3.create_bucket(Bucket=object_store_kwargs['bucket'])
                 yield
     elif object_store_cls is LibcloudObjectStore:
         pytest.importorskip('libcloud')
         if remote:
             pytest.skip('Libcloud object store has no remote tests.')
-        monkeypatch.setenv(object_store_hparam_kwargs[LibcloudObjectStoreHparams]['key_environ'], '.')
+        monkeypatch.setenv(object_store_kwargs['key_environ'], '.')
 
         remote_dir = tmp_path / 'remote_dir'
         os.makedirs(remote_dir)

@@ -133,8 +133,9 @@ interacts with the :class:`.ComposerModel` is as follows:
 
     # eval loop
     for batch in eval_dataloader:
-        outputs, targets = model.validate(batch)
-        metrics.update(outputs, target)
+        outputs = model.eval_forward(batch)
+        for metric in model.get_metrics(is_train=False).values():
+            model.update_metric(batch, outputs, metric)
 
 For the actual code, see the :meth:`.Trainer.fit` and :meth:`.Trainer.eval` methods.
 

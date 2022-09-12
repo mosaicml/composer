@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Tuple
+from typing import Any, Dict, Tuple
 
 import pytest
 
@@ -9,9 +9,86 @@ from composer.core.state import State
 from composer.datasets.dataset_hparams import DataLoaderHparams
 from composer.datasets.lm_dataset_hparams import LMDatasetHparams
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
-from composer.models import BERTHparams, GPT2Hparams, create_bert_mlm, create_gpt2
-from tests.common.models import generate_dummy_model_config
+from composer.models import create_bert_mlm, create_gpt2
 from tests.datasets import test_synthetic_lm_data
+
+
+def generate_dummy_model_config(model: str, tokenizer) -> Dict[str, Any]:
+    model_to_dummy_mapping: Dict[str, Dict[str, Any]] = {
+        'bert': {
+            'architectures': ['BertForMaskedLM'],
+            'attention_probs_dropout_prob': 0.1,
+            'gradient_checkpointing': False,
+            'hidden_act': 'gelu',
+            'hidden_dropout_prob': 0.1,
+            'hidden_size': 64,
+            'initializer_range': 0.02,
+            'intermediate_size': 256,
+            'layer_norm_eps': 1e-12,
+            'max_position_embeddings': 512,
+            'model_type': 'bert',
+            'num_attention_heads': 1,
+            'num_hidden_layers': 1,
+            'pad_token_id': tokenizer.pad_token_id,
+            'position_embedding_type': 'absolute',
+            'transformers_version': '4.6.0.dev0',
+            'type_vocab_size': 2,
+            'use_cache': True,
+            'vocab_size': tokenizer.vocab_size,
+        },
+        'gpt2': {
+            'activation_function': 'gelu_new',
+            'architectures': ['GPT2LMHeadModel'],
+            'attn_pdrop': 0.1,
+            'bos_token_id': tokenizer.cls_token_id,
+            'embd_pdrop': 0.1,
+            'eos_token_id': tokenizer.cls_token_id,
+            'initializer_range': 0.02,
+            'layer_norm_epsilon': 0.00001,
+            'model_type': 'gpt2',
+            'n_ctx': 128,
+            'n_embd': 64,
+            'n_head': 1,
+            'n_layer': 1,
+            'n_positions': 128,
+            'resid_pdrop': 0.1,
+            'summary_activation': None,
+            'summary_first_dropout': 0.1,
+            'summary_proj_to_labels': True,
+            'summary_type': 'cls_index',
+            'summary_use_proj': True,
+            'task_specific_params': {
+                'text-generation': {
+                    'do_sample': True,
+                    'max_length': 50
+                }
+            },
+            'vocab_size': tokenizer.vocab_size
+        },
+        'bert_classification': {
+            'architectures': ['BertForSequenceClassification'],
+            'attention_probs_dropout_prob': 0.1,
+            'classifier_dropout': None,
+            'gradient_checkpointing': False,
+            'hidden_act': 'gelu',
+            'hidden_dropout_prob': 0.1,
+            'hidden_size': 64,
+            'initializer_range': 0.02,
+            'intermediate_size': 256,
+            'layer_norm_eps': 1e-12,
+            'max_position_embeddings': 512,
+            'model_type': 'bert',
+            'num_attention_heads': 1,
+            'num_hidden_layers': 1,
+            'pad_token_id': tokenizer.pad_token_id,
+            'position_embedding_type': 'absolute',
+            'transformers_version': '4.16.2',
+            'type_vocab_size': 2,
+            'use_cache': True,
+            'vocab_size': tokenizer.vocab_size
+        }
+    }
+    return model_to_dummy_mapping[model]
 
 
 def make_dataset_configs(model_family=('bert', 'gpt2')) -> list:
@@ -34,13 +111,11 @@ def make_lm_tokenizer(config: dict):
 
 def make_dummy_lm(model_name: str, max_position_embeddings: int, tokenizer):
     if model_name == 'gpt2':
-        class_name = GPT2Hparams
-        model_config = generate_dummy_model_config(class_name, tokenizer)
+        model_config = generate_dummy_model_config(model_name, tokenizer)
         model_config['max_position_embeddings'] = max_position_embeddings
         model = create_gpt2(model_config=model_config)
     elif model_name == 'bert':
-        class_name = BERTHparams
-        model_config = generate_dummy_model_config(class_name, tokenizer)
+        model_config = generate_dummy_model_config(model_name, tokenizer)
         model_config['max_position_embeddings'] = max_position_embeddings
         model = create_bert_mlm(model_config=model_config)
     else:

@@ -386,5 +386,5 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
     param_group = opt.param_groups[group_idx]
     new_param_list = [p for p in param_group['params'] if not _tensor_in(p, removed_params)]
     new_param_list += list(added_params)
-    log.info(f'adding {len(added_params)} new parameters to parameter group #{group_idx}')
+    log.debug(f'adding {len(added_params)} new parameters to parameter group #{group_idx}')
     param_group['params'] = new_param_list
