@@ -90,7 +90,8 @@ class SAMOptimizer(torch.optim.Optimizer):
             loss = closure(ddp_sync=False)  # type: ignore
             if loss:
                 self.first_step()  # Compute e(w) and set weights to (w + (e(w)) separately per-GPU
-                if closure():  # Compute gradient at (w + e(w))
+                loss_dict = {}  # Dummy loss dict to ignore loss logging from w + e(w)
+                if closure(loss_dict=loss_dict):  # type: ignore Compute gradient at (w + e(w))
                     self.second_step()  # Reset weights to (w) and step base optimizer
                 else:
                     self.sub_e_w()  # If second forward-backward closure fails, reset weights to (w)
