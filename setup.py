@@ -148,7 +148,7 @@ extra_deps['comet_ml'] = ['comet_ml>=3.31.12,<4.0.0']
 
 extra_deps['tensorboard'] = [
     'tensorboard>=2.9.1,<3.0.0',
-    'tensorflow-io>=0.26.0,<0.27',
+    'tensorflow-io>=0.26.0,<0.28',
 ]
 
 extra_deps['unet'] = [
