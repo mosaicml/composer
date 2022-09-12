@@ -180,6 +180,7 @@ extra_deps['mlperf'] = [
 ]
 
 extra_deps['streaming'] = [
+    'mosaicml-streaming==0.0.1a0',
     'boto3>=1.21.45,<2',
     'paramiko>=2.11.0,<3',
 ]
