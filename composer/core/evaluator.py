@@ -77,10 +77,31 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
                     state.max_duration.value * eval_interval.value) == 0 and event == Event.BATCH_END:
                 last_batch_seen = state.timestamp.batch
                 return True
-            elif state.max_duration.unit == TimeUnit.SAMPLE and int(state.timestamp.sample) % math.ceil(
-                    state.max_duration.value * eval_interval.value) == 0 and event == Event.BATCH_END:
-                last_batch_seen = state.timestamp.batch
-                return True
+            elif state.max_duration.unit == TimeUnit.SAMPLE and event == Event.BATCH_END:
+                # If the last global sample in a current batch is evenly divisible (zero remainder) by a evaluation interval duration
+                # during each evaluation cycle.
+                # E.g.: If batch_size = 2, max_duration.value = 50, eval_interval = 0.2
+                #       then, last sample in a batch: 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, ....... , 50
+                #       eval interval duration (theoretically): 10, 20, 30, 40, 50
+                #       eval interval duration (practically):   10, 20, 30, 40, 50
+                if int(state.timestamp.sample) % math.ceil(state.max_duration.value * eval_interval.value) == 0:
+                    last_batch_seen = state.timestamp.batch
+                    return True
+                # If the last global sample in a current batch is NOT evenly divisible (zero remainder) by a evaluation interval duration
+                # during each evaluation cycle, then it performs evaluation during first batch of next evaluation cycle.
+                # Logic: It should perform evaluation if the co-efficient of last global sample in a current batch by evaluation interval
+                #        duration does not match with last global sample in a previous batch by evaluation interval duration.
+                # E.g.: If batch_size = 2, max_duration.value = 50, eval_interval = 0.1
+                #       then, last sample in a batch: 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, ....... , 50
+                #       eval interval duration (theoretically): 5, 10, 15, 20, 25, 30, 35, 40, 45, 50
+                #       eval interval duration (practically):   6, 10, 16, 20, 26, 30, 36, 40, 46, 50
+                elif int(state.timestamp.batch) != 0:
+                    samples_in_a_batch = int(state.timestamp.sample) // int(state.timestamp.batch)
+                    if int(state.timestamp.sample) // math.ceil(state.max_duration.value * eval_interval) != int(
+                            state.timestamp.sample - samples_in_a_batch) // math.ceil(
+                                state.max_duration.value * eval_interval):
+                        last_batch_seen = state.timestamp.batch
+                        return True
             elif state.max_duration.unit == TimeUnit.TOKEN and int(state.timestamp.token) % math.ceil(
                     state.max_duration.value * eval_interval.value) == 0 and event == Event.BATCH_END:
                 last_batch_seen = state.timestamp.batch
