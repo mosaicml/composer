@@ -125,23 +125,20 @@ def test_trainer_eval_timestamp():
     assert trainer.state.eval_timestamp.batch == trainer.state.eval_timestamp.batch_in_epoch
 
 
-@pytest.mark.parametrize(
-    ('eval_interval', 'max_duration', 'eval_at_fit_end', 'expected_eval_start_calls',
-     'expected_eval_batch_start_calls'),
-    [
-        (1, '5ep', True, 4, 4),
-        (Time(2, TimeUnit.EPOCH), '8ep', False, 4, 4),
-        (Time(100, TimeUnit.BATCH), '8ep', False, 4, 4),
-        (Time(0.25, TimeUnit.DURATION), '4ep', False, 4, 4),
-        ('1ep', '4ep', True, 3, 3),
-        ('50ba', '4ep', False, 4, 4),
-        ('50ba', '100ba', False, 2, 2),
-        ('0.35dur', '4ep', True, 2, 2),
-        ('0.01dur', '1000ba', False, 100, 100),
-        ('0.10dur', '700sp', True, 9, 9),
-        ('0.05dur', '700sp', False, 20, 20),
-        # ('0.25dur', '1000tok', True, 3, 3),
-    ])
+@pytest.mark.parametrize(('eval_interval', 'max_duration', 'eval_at_fit_end', 'expected_eval_start_calls',
+                          'expected_eval_batch_start_calls'), [
+                              (1, '5ep', True, 4, 4),
+                              (Time(2, TimeUnit.EPOCH), '8ep', False, 4, 4),
+                              (Time(100, TimeUnit.BATCH), '8ep', False, 4, 4),
+                              (Time(0.25, TimeUnit.DURATION), '4ep', False, 4, 4),
+                              ('1ep', '4ep', True, 3, 3),
+                              ('50ba', '4ep', False, 4, 4),
+                              ('50ba', '100ba', False, 2, 2),
+                              ('0.35dur', '4ep', True, 2, 2),
+                              ('0.01dur', '1000ba', False, 100, 100),
+                              ('0.10dur', '700sp', True, 9, 9),
+                              ('0.05dur', '700sp', False, 20, 20),
+                          ])
 def test_eval_at_fit_end(eval_interval: Union[str, Time, int], max_duration: str, eval_at_fit_end: bool,
                          expected_eval_start_calls: int, expected_eval_batch_start_calls: int):
     """Test the `eval_subset_num_batches` and `eval_interval` works when specified on init."""
