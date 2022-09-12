@@ -141,7 +141,7 @@ def _set_evaluator_interval_and_subset_num_batches(
             evaluator.eval_interval = eval_interval
 
 
-def _is_adaptive_grad_accum(grad_accum: Union[int, str], device: Device):
+def _is_auto_grad_accum(grad_accum: Union[int, str], device: Device):
     if grad_accum == 'auto':
         warnings.warn(("Setting `grad_accum='auto'` is an experimental feature which may cause "
                        'uncaught Cuda Out of Memory errors. In this case, please manually '
@@ -871,7 +871,7 @@ class Trainer:
             optimizers = map_collection(optimizers, self._device.optimizer_to_device)
 
         # Grad Accum
-        auto_grad_accum = _is_adaptive_grad_accum(grad_accum, device=self._device)
+        auto_grad_accum = _is_auto_grad_accum(grad_accum, device=self._device)
         if auto_grad_accum and profiler:
             raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
                              "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
@@ -1437,7 +1437,7 @@ class Trainer:
 
         # Grad Accum
         if grad_accum is not None:
-            self.state.auto_grad_accum = _is_adaptive_grad_accum(grad_accum, device=self._device)
+            self.state.auto_grad_accum = _is_auto_grad_accum(grad_accum, device=self._device)
             if self.state.auto_grad_accum and self.state.profiler:
                 raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
                                  "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
