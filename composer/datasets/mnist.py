@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict
+from typing import Any
 
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
@@ -18,9 +18,9 @@ def build_mnist_dataloader(
     download: bool = True,
     drop_last: bool = True,
     shuffle: bool = True,
-    **dataloader_kwargs: Dict[str, Any],
+    **dataloader_kwargs: Any,
 ) -> DataLoader:
-    """Builds a MNIST dataloader.
+    """Builds an MNIST dataloader.
 
     Args:
         datadir (str): Path to the data directory
@@ -31,7 +31,7 @@ def build_mnist_dataloader(
             ``True``.
         drop_last (bool): Drop remainder samples. Default: ``True``.
         shuffle (bool): Shuffle the dataset. Default: ``True``.
-        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+        **dataloader_kwargs (Any): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
     transform = transforms.Compose([transforms.ToTensor()])
 
@@ -62,7 +62,7 @@ def build_synthetic_mnist_dataloader(
     num_unique_samples: int = 100,
     device: str = 'cpu',
     memory_format: MemoryFormat = MemoryFormat.CONTIGUOUS_FORMAT,
-    **dataloader_kwargs: Dict[str, Any],
+    **dataloader_kwargs: Any,
 ) -> DataLoader:
     """Builds a synthetic MNIST dataset.
 
@@ -75,7 +75,7 @@ def build_synthetic_mnist_dataloader(
         num_unique_samples (int): number of unique samples in synthetic dataset. Default: ``100``.
         device (str): device with which to load the dataset. Default: ``cpu``.
         memory_format (MemoryFormat): memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
-        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+        **dataloader_kwargs (Any): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
     dataset = SyntheticBatchPairDataset(
         total_dataset_size=60_000 if is_train else 10_000,
