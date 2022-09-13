@@ -45,7 +45,7 @@ from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed,
-                            map_collection, reproducibility)
+                            map_collection, model_eval_mode, reproducibility)
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.inference import ExportFormat, Transform, export_with_logger
@@ -141,13 +141,13 @@ def _set_evaluator_interval_and_subset_num_batches(
             evaluator.eval_interval = eval_interval
 
 
-def _is_adaptive_grad_accum(grad_accum: Union[int, str], device: Device):
+def _is_auto_grad_accum(grad_accum: Union[int, str], device: Device):
     if grad_accum == 'auto':
         warnings.warn(("Setting `grad_accum='auto'` is an experimental feature which may cause "
                        'uncaught Cuda Out of Memory errors. In this case, please manually '
                        'set grad_accum explicitly to an integer instead. '))
-        if isinstance(device, DeviceCPU):
-            raise ValueError('Cannot use adaptive grad_accum on CPU. Please set grad_accum >= 1')
+        if not isinstance(device, DeviceGPU):
+            raise ValueError('Can only use adaptive grad_accum on GPU. Please set grad_accum >= 1')
         return True
     else:
         return False
@@ -871,15 +871,13 @@ class Trainer:
             optimizers = map_collection(optimizers, self._device.optimizer_to_device)
 
         # Grad Accum
-        self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
-        if self.adaptive_gradient_accumulation and profiler:
+        auto_grad_accum = _is_auto_grad_accum(grad_accum, device=self._device)
+        if auto_grad_accum and profiler:
             raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
                              "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
                              'then manually specify that in a second run with profiler.')
         grad_accum = _get_initial_grad_accum(grad_accum)
         eval_batch_split = 1
-        if self.adaptive_gradient_accumulation and isinstance(self._device, DeviceTPU):
-            raise NotImplementedError(f'grad_accum=auto not supported on TPUs.')
 
         # Grad Clip Norm
         if grad_clip_norm > 0:
@@ -904,16 +902,19 @@ class Trainer:
         log.info('Run name: %s', run_name)
 
         # Create the State
-        self.state = State(rank_zero_seed=rank_zero_seed,
-                           algorithms=algorithms,
-                           model=model,
-                           callbacks=callbacks,
-                           grad_accum=grad_accum,
-                           eval_batch_split=eval_batch_split,
-                           precision=precision,
-                           optimizers=optimizers,
-                           run_name=run_name,
-                           deepspeed_config=deepspeed_config)
+        self.state = State(
+            rank_zero_seed=rank_zero_seed,
+            algorithms=algorithms,
+            model=model,
+            callbacks=callbacks,
+            grad_accum=grad_accum,
+            auto_grad_accum=auto_grad_accum,
+            eval_batch_split=eval_batch_split,
+            precision=precision,
+            optimizers=optimizers,
+            run_name=run_name,
+            deepspeed_config=deepspeed_config,
+        )
 
         # Profiler
         if profiler is not None:
@@ -1436,8 +1437,8 @@ class Trainer:
 
         # Grad Accum
         if grad_accum is not None:
-            self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
-            if self.adaptive_gradient_accumulation and self.state.profiler:
+            self.state.auto_grad_accum = _is_auto_grad_accum(grad_accum, device=self._device)
+            if self.state.auto_grad_accum and self.state.profiler:
                 raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
                                  "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
                                  'then manually specify that in a second run with profiler.')
@@ -1570,15 +1571,12 @@ class Trainer:
             reproducibility.load_rng_state(self._rng_state)
             self._rng_state = None
 
-        # Flag if the epoch finished early, so it can be tracked whether to run the epoch end events
+        self.state.model.train()
         finished_epoch_early = False
-
         last_wct = datetime.datetime.now()
 
         while self.state.timestamp < self.state.max_duration:
             try:
-                self.state.model.train()
-
                 if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
                     self.logger.log_metrics({'epoch': int(self.state.timestamp.epoch)})
@@ -1603,8 +1601,6 @@ class Trainer:
 
                     if self.deepspeed_enabled:
                         self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
-
-                    self.state.model.train()
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
@@ -1713,8 +1709,7 @@ class Trainer:
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
         assert self.state.train_metrics is not None, 'The train metrics should be set on __init__ or fit()'
 
-        self.state.model.eval()
-        with torch.no_grad():
+        with torch.no_grad(), model_eval_mode(self.state.model):
             # Retry until we successfully complete evaluation
             while True:
                 found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
@@ -1740,17 +1735,16 @@ class Trainer:
                                     )
 
                 except RuntimeError as e:
-                    if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
+                    if self.state.auto_grad_accum and _is_cuda_oom(e):
                         log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                         found_cuda_oom = 1
                     else:
                         raise
-                # Auto grad accum only supported on GPU
-                if isinstance(self._device, DeviceGPU):
+                if self.state.auto_grad_accum:
                     # Propagate across all ranks if any rank hit CUDA OOM
-                    found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom],
-                                                                                dtype=torch.uint8)).item()
-                    if found_cuda_oom == 1:
+                    found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                    dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
+                    if found_cuda_oom.item() == 1:
                         device_batch_size = self._train_data_spec.get_num_samples_in_batch(device_batch)
                         _adjust_eval_batch_split(self.state, device_batch_size)
                         # Skip return and rerun after handling oom
@@ -1802,8 +1796,8 @@ class Trainer:
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
                             self.state.scaler.step(optimizer,
-                                                   closure=lambda **kwargs: self._train_microbatches(
-                                                       microbatches, total_loss_dict, **kwargs))
+                                                   closure=lambda loss_dict=total_loss_dict, **kwargs: self.
+                                                   _train_microbatches(microbatches, loss_dict, **kwargs))
                         else:
                             optimizer.step(closure=lambda **kwargs: self._train_microbatches(
                                 microbatches, total_loss_dict, **kwargs).item())
@@ -1819,14 +1813,13 @@ class Trainer:
                                 else:
                                     optimizer.step()
             except RuntimeError as e:
-                if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
+                if self.state.auto_grad_accum and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     found_cuda_oom = 1
                 else:
                     raise
 
-            # Auto grad accum only supported on GPU
-            if isinstance(self._device, DeviceGPU):
+            if self.state.auto_grad_accum:
                 # Propagate across all ranks if any rank hit CUDA OOM
                 found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
                 dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
@@ -2063,10 +2056,6 @@ class Trainer:
         else:
             data_spec = DataSpec(dataloader)
 
-        # Put the model into evaluation mode, but be able to restore it to training mode afterwards
-        restore_model_train = self.state.model.training
-        self.state.model.eval()
-
         # Bind the dataloader to the state, but be able to restore the previous dataloader afterwards
         original_dataloader = self.state.dataloader
         original_dataloader_label = self.state.dataloader_label
@@ -2082,7 +2071,7 @@ class Trainer:
         outputs = []
         cpu_device = DeviceCPU()
 
-        with torch.no_grad():
+        with torch.no_grad(), model_eval_mode(self.state.model):
 
             self.engine.run_event(Event.PREDICT_START)
 
@@ -2130,10 +2119,6 @@ class Trainer:
                 self.engine.run_event(Event.PREDICT_BATCH_END)
 
             self.engine.run_event(Event.PREDICT_END)
-
-        # Restore training mode
-        if restore_model_train:
-            self.state.model.train()
 
         # Restore the dataloader
         self.state.set_dataloader(original_dataloader, original_dataloader_label)
@@ -2302,8 +2287,6 @@ class Trainer:
                 ``len(eval_dataloader)``, or ``eval_dataloader`` is an :class:`.Evaluator` (which is via
                 ``Evaluator(subset_num_batches=...)``.)
         """
-        restore_model_train = self.state.model.training
-
         if subset_num_batches is None:
             subset_num_batches = -1
 
@@ -2325,8 +2308,7 @@ class Trainer:
 
         last_wct = datetime.datetime.now()
 
-        self.state.model.eval()
-        with torch.no_grad():
+        with torch.no_grad(), model_eval_mode(self.state.model):
             self.state.set_dataloader(data_spec.dataloader, dataloader_label, subset_num_batches)
             assert self.state.dataloader is not None, 'dataloader is set'
 
@@ -2402,13 +2384,12 @@ class Trainer:
                                         )
 
                     except RuntimeError as e:
-                        if self.adaptive_gradient_accumulation and _is_cuda_oom(e):
+                        if self.state.auto_grad_accum and _is_cuda_oom(e):
                             log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                             found_cuda_oom = 1
                         else:
                             raise
-                    # Auto grad accum only supported on GPU
-                    if isinstance(self._device, DeviceGPU):
+                    if self.state.auto_grad_accum:
                         # Propagate across all ranks if any rank hit CUDA OOM
                         found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom],
                                                                                     dtype=torch.uint8))
@@ -2446,9 +2427,6 @@ class Trainer:
             self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics)
 
             self.engine.run_event(Event.EVAL_END)
-
-        if restore_model_train:
-            self.state.model.train()
 
         self.state.set_dataloader(original_dataloader, original_dataloader_label)
         if original_num_batches is not None:

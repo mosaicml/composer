@@ -131,7 +131,7 @@ extra_deps['dev'] = [
     'GitPython==3.1.27',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
-    'cryptography==37.0.4',
+    'cryptography==38.0.1',
     'pytest-httpserver>=1.0.4,<1.1',
 ]
 
@@ -147,7 +147,7 @@ extra_deps['comet_ml'] = ['comet_ml>=3.31.12,<4.0.0']
 
 extra_deps['tensorboard'] = [
     'tensorboard>=2.9.1,<3.0.0',
-    'tensorflow-io>=0.26.0,<0.27',
+    'tensorflow-io>=0.26.0,<0.28',
 ]
 
 extra_deps['unet'] = [
