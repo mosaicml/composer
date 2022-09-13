@@ -213,7 +213,7 @@ class EMA(Algorithm):
         return model
 
     def state_dict(self) -> Dict[str, ShadowModel]:
-        state_dict = {}
+        state_dict = super().state_dict()
         for attribute_name in self.serialized_attributes:
             shadow_model = getattr(self, attribute_name)
             state_dict[attribute_name] = {}
@@ -229,7 +229,8 @@ class EMA(Algorithm):
 
     def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
         for attribute_name, serialized_value in state.items():
-            self.load_shadow_model(attribute_name, serialized_value['parameters'], serialized_value['buffers'])
+            if attribute_name != 'repr':  # skip attribute added by parent class
+                self.load_shadow_model(attribute_name, serialized_value['parameters'], serialized_value['buffers'])
 
 
 class ShadowModel:

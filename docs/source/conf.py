@@ -139,7 +139,7 @@ source_suffix = ['.rst', '.md']
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'examples/imagenet/README.md']
 
 napoleon_custom_sections = [('Returns', 'params_style')]
 
@@ -163,10 +163,8 @@ html_static_path = ['_static']
 html_title = ' Composer'
 
 # Customize CSS
-html_css_files = ['css/custom.css']
-html_js_files = [
-    'js/posthog.js',
-]
+html_css_files = ['css/custom.css', 'https://cdn.jsdelivr.net/npm/@docsearch/css@3']
+html_js_files = ['js/posthog.js']
 
 # Mosaic logo
 # html_logo = 'https://storage.googleapis.com/docs.mosaicml.com/images/logo-dark-bg.png'

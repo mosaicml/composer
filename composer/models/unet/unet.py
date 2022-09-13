@@ -4,11 +4,11 @@
 """A U-Net model extending :class:`.ComposerModel`."""
 
 import logging
-from typing import Any, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Union
 
 import torch
 import torch.nn as nn
-from torchmetrics import Metric, MetricCollection
+from torchmetrics import Metric
 
 from composer.metrics.metrics import Dice
 from composer.models.base import ComposerModel
@@ -58,8 +58,8 @@ class UNet(ComposerModel):
     def metric_mean(name, outputs):
         return torch.stack([out[name] for out in outputs]).mean(dim=0)
 
-    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
-        return self.dice
+    def get_metrics(self, is_train: bool = False) -> Dict[str, Metric]:
+        return {'Dice': self.dice}
 
     def forward(self, batch: Any) -> torch.Tensor:
         x, _ = batch
@@ -86,11 +86,11 @@ class UNet(ComposerModel):
             preds = preds[batch_pad:]  # type: ignore
         return torch.transpose(preds, 0, 1).unsqueeze(0)
 
-    def validate(self, batch: Any) -> Tuple[Any, Any]:
+    def eval_forward(self, batch: Any, outputs: Optional[Any] = None):
         assert self.training is False, 'For validation, model must be in eval mode'
-        image, target = batch
+        image, _ = batch
         pred = self.inference2d(image)
-        return pred, target[:, 0].long()  # type: ignore
+        return pred
 
     def build_nnunet(self) -> torch.nn.Module:
         kernels = [[3, 3]] * 6

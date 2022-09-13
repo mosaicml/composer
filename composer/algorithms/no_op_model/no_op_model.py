@@ -6,11 +6,11 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import torch
 import torch.nn.functional as F
-from torchmetrics import Metric, MetricCollection
+from torchmetrics import Metric
 from torchmetrics.classification.accuracy import Accuracy
 
 from composer.core import Algorithm, Event, State
@@ -57,13 +57,17 @@ class NoOpModelClass(ComposerModel):
         assert isinstance(y, torch.Tensor)
         return y * self.weights
 
-    def metrics(self, train: bool) -> Union[Metric, MetricCollection]:
-        return Accuracy()
+    def get_metrics(self, is_train: bool) -> Dict[str, Metric]:
+        return {'Accuracy': Accuracy()}
 
-    def validate(self, batch: Batch) -> Tuple[Any, Any]:
+    def eval_forward(self, batch: Batch, outputs: Optional[Any] = None):
         x, y = batch
         del x  # unused
-        return y, y
+        return y
+
+    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
+        _, targets = batch
+        metric.update(outputs, targets)
 
 
 class NoOpModel(Algorithm):
