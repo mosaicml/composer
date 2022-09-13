@@ -139,7 +139,7 @@ class WandBLogger(LoggerDestination):
         import wandb
         del logger  # unused
 
-        # Use the logger run name if the name is not set.
+        # Use the state run name if the name is not set.
         if 'name' not in self._init_kwargs or self._init_kwargs['name'] is None:
             self._init_kwargs['name'] = state.run_name
 

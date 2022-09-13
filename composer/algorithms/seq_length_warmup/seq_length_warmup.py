@@ -3,6 +3,7 @@
 
 """Core code for sequence length warmup."""
 
+import logging
 import textwrap
 from math import ceil
 from typing import Dict, Mapping, Optional
@@ -18,6 +19,8 @@ from composer.loggers import Logger
 from composer.models import HuggingFaceModel
 from composer.trainer.devices import DeviceGPU
 from composer.utils import dist, ensure_tuple
+
+log = logging.getLogger(__name__)
 
 __all__ = ['SeqLengthWarmup', 'set_batch_sequence_length']
 
@@ -271,14 +274,15 @@ class SeqLengthWarmup(Algorithm):
         # truncate all sequence-shaped tensors to the max sequence length
         batch_clone = {k: torch.clone(v) for k, v in state.batch.items()}
         device_batch_size = 0
-        device = None
         for k, v in batch_clone.items():
             if v.ndim < 2:
                 raise ValueError(f'Sequence Length Warmup requires that all tensors are sequence-shaped. '
                                  f'Tensor "{k}" has shape {v.shape}.')
             batch_clone[k] = v[:, :self.max_seq_length].contiguous()
             device_batch_size = v.shape[0]
-            device = v.device
+
+        # In-line to avoid circular dependency
+        from composer.trainer.trainer import _adjust_grad_accum, _is_cuda_oom
 
         # This loop tries to do a forward/backward pass using the current microbatch size.
         # If it hits an OOM error, it doubles `state.grad_accum` and tries again until
@@ -306,16 +310,13 @@ class SeqLengthWarmup(Algorithm):
 
             # This error/state.grad_accum handling mimics the logic in trainer._train_batch().
             except RuntimeError as e:
-                if 'CUDA out of memory' in str(e):
+                if state.auto_grad_accum and _is_cuda_oom(e):
+                    log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     found_cuda_oom = 1
                 else:
                     raise
 
-            # In-line to avoid circular dependency
-            from composer.trainer.trainer import _adjust_grad_accum
-
-            # Auto grad accum only supported on GPU
-            if device and device.type == 'gpu':
+            if state.auto_grad_accum:
                 devicegpu = DeviceGPU()
                 # Propagate across all ranks if any rank hit CUDA OOM
                 found_cuda_oom = devicegpu.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))

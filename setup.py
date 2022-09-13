@@ -101,7 +101,7 @@ extra_deps['dev'] = [
     'junitparser==2.8.0',
     'coverage[toml]==6.4.4',
     'fasteners==0.17.3',  # object store tests require fasteners
-    'pytest==7.1.2',
+    'pytest==7.1.3',
     'toml==0.10.2',
     'ipython==7.32.0',
     'ipykernel==6.15.2',
@@ -132,7 +132,7 @@ extra_deps['dev'] = [
     'GitPython==3.1.27',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
-    'cryptography==37.0.4',
+    'cryptography==38.0.1',
     'pytest-httpserver>=1.0.4,<1.1',
 ]
 
@@ -144,9 +144,11 @@ extra_deps['wandb'] = [
     'wandb>=0.13.2,<0.14',
 ]
 
+extra_deps['comet_ml'] = ['comet_ml>=3.31.12,<4.0.0']
+
 extra_deps['tensorboard'] = [
     'tensorboard>=2.9.1,<3.0.0',
-    'tensorflow-io>=0.26.0,<0.27',
+    'tensorflow-io>=0.26.0,<0.28',
 ]
 
 extra_deps['unet'] = [

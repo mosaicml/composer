@@ -79,6 +79,13 @@ class GhostBatchNorm(Algorithm):
     def __init__(self, ghost_batch_size: int = 32):
         self.ghost_batch_size = ghost_batch_size
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(ghost_batch_size={self.ghost_batch_size})'
+
+    @staticmethod
+    def required_on_load() -> bool:
+        return True
+
     def match(self, event: Event, state: State) -> bool:
         return event == Event.INIT
 

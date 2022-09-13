@@ -1,16 +1,18 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Iterable, List, Optional
+from typing import List, Optional
 
 import pytest
 import torch
 import torch.nn as nn
 from torch import Tensor
+from torch.utils.data import DataLoader
 
 from composer.core import State
 from composer.trainer.ddp import ddp_sync_context, prepare_ddp_module
 from composer.utils import dist
+from tests.common.datasets import RandomClassificationDataset
 
 
 class MinimalConditionalModel(nn.Module):
@@ -45,8 +47,11 @@ class MinimalConditionalModel(nn.Module):
     pytest.param('forced_sync', ([-1, None, None], [-1, -1, None], [-1.5, -1.5, None]), id='forced_sync'),
 ])
 @pytest.mark.world_size(2)
-def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[List[Optional[float]]],
-                           dummy_train_dataloader: Iterable, rank_zero_seed: int):
+def test_ddp_sync_strategy(
+    ddp_sync_strategy: str,
+    expected_grads: List[List[Optional[float]]],
+    rank_zero_seed: int,
+):
     original_model = MinimalConditionalModel()
     # ddp = DDP(backend="gloo", find_unused_parameters=True, sync_strategy=ddp_sync_strategy, timeout=5.)
     optimizer = torch.optim.SGD(original_model.parameters(), 0.1)
@@ -57,7 +62,7 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[List[Opt
         optimizers=optimizer,
         grad_accum=2,
         max_duration='1ep',
-        dataloader=dummy_train_dataloader,
+        dataloader=DataLoader(RandomClassificationDataset()),
         dataloader_label='train',
         precision='fp32',
     )
