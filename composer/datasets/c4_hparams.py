@@ -30,7 +30,8 @@ class StreamingC4Hparams(DatasetHparams):
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-c4/'``
         split (str): What split of the dataset to use. Either ``'train'`` or ``'val'``. Default: ``'train'``.
-        tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with. Default: ``'bert-base-uncased'``.
+        tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with. Default:
+            ``'bert-base-uncased'``.
         max_seq_len (int): The max sequence length of each token sample. Default: ``512``.
         group_method (str): How to group text samples into token samples. Currently only `truncate` is supported.
         mlm (bool): Whether or not to use masked language modeling. Default: ``False``.
