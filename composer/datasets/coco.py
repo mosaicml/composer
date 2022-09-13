@@ -45,12 +45,6 @@ def build_coco_detection_dataloader(
         split (str): the dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
         drop_last (bool): whether to drop last samples. Default: ``True``.
         shuffle (bool): whether to shuffle the dataset. Default: ``True``.
-        batch_Size
-
-        download (bool, optional): Whether to download the dataset, if needed. Default:
-            ``True``.
-        drop_last (bool): Drop remainder samples. Default: ``True``.
-        shuffle (bool): Shuffle the dataset. Default: ``True``.
         **dataloader_kwargs (Any): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
 
