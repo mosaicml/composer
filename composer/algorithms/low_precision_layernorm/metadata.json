@@ -1,0 +1,15 @@
+{
+    "fused_layernorm": {
+        "name": "Low Precision LayerNorm",
+        "class_name": "LowPrecisionLayerNorm",
+        "functional": "apply_low_precision_layernorm",
+        "tldr": "Forces LayerNorm to fp16 or bf16",
+        "attribution": "",
+        "link": "",
+        "domains": [
+            "nlp"
+        ],
+        "summary": "Autocast does not support `torch.nn.LayerNorm`, so this algorithm manually specifies the module into low precision",
+        "use": "LayerNorm normalization operations."
+    }
+}
