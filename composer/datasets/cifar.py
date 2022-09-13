@@ -8,7 +8,7 @@ The CIFAR datasets are a collection of labeled 32x32 colour images. Please refer
 """
 
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 from PIL import Image
@@ -31,7 +31,7 @@ def build_cifar10_dataloader(
     download: bool = True,
     drop_last: bool = True,
     shuffle: bool = True,
-    **dataloader_kwargs: Dict[str, Any],
+    **dataloader_kwargs: Any,
 ) -> DataLoader:
     """Builds a CIFAR-10 dataloader with default transforms.
 
@@ -88,7 +88,7 @@ def build_synthetic_cifar10_dataloader(
     num_unique_samples: int = 100,
     device: str = 'cpu',
     memory_format: MemoryFormat = MemoryFormat.CONTIGUOUS_FORMAT,
-    **dataloader_kwargs: Dict[str, Any],
+    **dataloader_kwargs: Any,
 ) -> DataLoader:
     """Builds a synthetic CIFAR-10 dataset for debugging or profiling.
 
