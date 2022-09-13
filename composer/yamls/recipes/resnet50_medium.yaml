@@ -41,7 +41,6 @@ eval_batch_size: 2048
 eval_interval: 1
 loggers:
   - progress_bar:
-      console_log_level: EPOCH
       stream: stderr
 model:
   resnet:

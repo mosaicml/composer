@@ -162,9 +162,16 @@ class StochasticDepth(Algorithm):
                                      drop_distribution=self.drop_distribution,
                                      drop_warmup=str(self.drop_warmup))
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(target_layer_name='{self.target_layer_name}',stochastic_method='{self.stochastic_method}',drop_rate={self.drop_rate},drop_distribution='{self.drop_distribution}',drop_warmup={repr(self.drop_warmup)})"
+
     @property
     def find_unused_parameters(self) -> bool:
         return self.stochastic_method == 'block'
+
+    @staticmethod
+    def required_on_load() -> bool:
+        return True
 
     def match(self, event: Event, state: State) -> bool:
         return (event == Event.INIT) or (event == Event.BATCH_START and self.drop_warmup > 0.0)
@@ -183,7 +190,7 @@ class StochasticDepth(Algorithm):
                                    drop_rate=self.drop_rate,
                                    drop_distribution=self.drop_distribution)
             self.num_stochastic_layers = module_surgery.count_module_instances(state.model, target_block)
-            logger.data_epoch({'stochastic_depth/num_stochastic_layers': self.num_stochastic_layers})
+            logger.log_metrics({'stochastic_depth/num_stochastic_layers': self.num_stochastic_layers})
 
         elif event == Event.BATCH_START and self.num_stochastic_layers:
             elapsed_duration = state.get_elapsed_duration()
@@ -197,7 +204,7 @@ class StochasticDepth(Algorithm):
                                   module_count=self.num_stochastic_layers)
             else:
                 current_drop_rate = self.drop_rate
-            logger.data_batch({'stochastic_depth/drop_rate': current_drop_rate})
+            logger.log_metrics({'stochastic_depth/drop_rate': current_drop_rate})
 
 
 def _validate_stochastic_hparams(target_layer_name: str,

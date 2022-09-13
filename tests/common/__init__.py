@@ -5,12 +5,10 @@ import types
 from typing import List, Type
 
 from tests.common.compare import deep_compare
-from tests.common.datasets import (RandomClassificationDataset, RandomClassificationDatasetHparams, RandomImageDataset,
-                                   configure_dataset_hparams_for_synthetic)
+from tests.common.datasets import RandomClassificationDataset, RandomImageDataset
 from tests.common.events import EventCounterCallback
 from tests.common.markers import device, world_size
-from tests.common.models import (SimpleConvModel, SimpleConvModelHparams, SimpleModel, SimpleModelHparams,
-                                 configure_model_hparams_for_synthetic)
+from tests.common.models import SimpleConvModel, SimpleModel
 from tests.common.state import assert_state_equivalent
 
 
@@ -22,17 +20,12 @@ def get_module_subclasses(module: types.ModuleType, cls: Type) -> List[Type]:
 __all__ = [
     'assert_state_equivalent',
     'RandomClassificationDataset',
-    'RandomClassificationDatasetHparams',
     'RandomImageDataset',
-    'configure_dataset_hparams_for_synthetic',
     'SimpleConvModel',
     'SimpleModel',
-    'SimpleModelHparams',
-    'SimpleConvModelHparams',
     'EventCounterCallback',
     'deep_compare',
     'device',
     'world_size',
-    'configure_model_hparams_for_synthetic',
     'get_module_subclasses',
 ]

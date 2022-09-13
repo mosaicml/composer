@@ -1,23 +1,13 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-import dataclasses
-from typing import List, Optional, Sequence
+from typing import Sequence
 
-import pytest
 import torch
 import torch.utils.data
-import yahp as hp
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.datasets import VisionDataset
-
-from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
-from composer.datasets.glue_hparams import GLUEHparams
-from composer.datasets.lm_dataset_hparams import LMDatasetHparams
-from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
-from composer.models import ModelHparams
-from tests.common.models import model_hparams_to_tokenizer_family
 
 
 class RandomClassificationDataset(Dataset):
@@ -39,32 +29,6 @@ class RandomClassificationDataset(Dataset):
 
     def __getitem__(self, index: int):
         return self.x[index], self.y[index]
-
-
-@dataclasses.dataclass
-class RandomClassificationDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
-
-    data_shape: List[int] = hp.optional('data shape', default_factory=lambda: [1, 1, 1])
-    num_classes: int = hp.optional('num_classes', default=2)
-
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
-        assert self.data_shape is not None
-        assert self.num_classes is not None
-        dataset = RandomClassificationDataset(
-            size=self.synthetic_num_unique_samples,
-            shape=self.data_shape,
-            num_classes=self.num_classes,
-        )
-        if self.shuffle:
-            sampler = torch.utils.data.RandomSampler(dataset)
-        else:
-            sampler = torch.utils.data.SequentialSampler(dataset)
-        return dataloader_hparams.initialize_object(
-            dataset=dataset,
-            batch_size=batch_size,
-            sampler=sampler,
-            drop_last=self.drop_last,
-        )
 
 
 class RandomImageDataset(VisionDataset):
@@ -110,21 +74,3 @@ class RandomImageDataset(VisionDataset):
             return self.transform(x), y
         else:
             return x, y
-
-
-def configure_dataset_hparams_for_synthetic(
-    dataset_hparams: DatasetHparams,
-    model_hparams: Optional[ModelHparams] = None,
-) -> None:
-    if not isinstance(dataset_hparams, SyntheticHparamsMixin):
-        pytest.xfail(f'{dataset_hparams.__class__.__name__} does not support synthetic data or num_total_batches')
-
-    assert isinstance(dataset_hparams, SyntheticHparamsMixin)
-
-    dataset_hparams.use_synthetic = True
-
-    if model_hparams and type(model_hparams) in model_hparams_to_tokenizer_family:
-        tokenizer_family = model_hparams_to_tokenizer_family[type(model_hparams)]
-        assert isinstance(dataset_hparams, (GLUEHparams, LMDatasetHparams))
-        dataset_hparams.tokenizer_name = tokenizer_family
-        dataset_hparams.max_seq_length = 128
