@@ -45,6 +45,7 @@ def build_coco_detection_dataloader(
         split (str): the dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
         drop_last (bool): whether to drop last samples. Default: ``True``.
         shuffle (bool): whether to shuffle the dataset. Default: ``True``.
+        input_size (int): the size of the input image, keep this at `300` for SSD300. Default: ``300``.
         **dataloader_kwargs (Any): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
 
