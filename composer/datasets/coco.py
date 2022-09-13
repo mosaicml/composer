@@ -37,7 +37,7 @@ def build_coco_detection_dataloader(
     input_size: int = 300,
     **dataloader_kwargs,
 ):
-    """Builds a COCO Detection dataloader with default transforms.
+    """Builds a COCO Detection dataloader with default transforms for SSD300.
 
     Args:
         batch_size (int): Batch size per device.
