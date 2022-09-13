@@ -44,7 +44,7 @@ def build_cifar10_dataloader(
             ``True``.
         drop_last (bool): Drop remainder samples. Default: ``True``.
         shuffle (bool): Shuffle the dataset. Default: ``True``.
-        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+        **dataloader_kwargs (Any): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
     cifar10_mean = 0.4914, 0.4822, 0.4465
     cifar10_std = 0.247, 0.243, 0.261
@@ -101,7 +101,7 @@ def build_synthetic_cifar10_dataloader(
         num_unique_samples (int): number of unique samples in synthetic dataset. Default: ``100``.
         device (str): device with which to load the dataset. Default: ``cpu``.
         memory_format (MemoryFormat): memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
-        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+        **dataloader_kwargs (Any): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
     dataset = SyntheticBatchPairDataset(
         total_dataset_size=50_000 if is_train else 10_000,
