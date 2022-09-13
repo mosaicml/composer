@@ -6,11 +6,12 @@ from __future__ import annotations
 
 import abc
 import copy
-from typing import Any, Optional, Sequence, Tuple, Union
+import warnings
+from typing import Any, Dict, Optional, Sequence, Union
 
 import torch
 from torch import Tensor
-from torchmetrics import Metric, MetricCollection
+from torchmetrics import Metric
 
 from composer.core.types import Batch
 from composer.loggers import Logger
@@ -22,8 +23,8 @@ class ComposerModel(torch.nn.Module, abc.ABC):
     """The interface needed to make a PyTorch model compatible with :class:`composer.Trainer`.
 
     To create a :class:`.Trainer`\\-compatible model, subclass :class:`.ComposerModel` and
-    implement :meth:`forward` and :meth:`loss`. For full functionality (logging and validation), implement :meth:`metrics`
-    and :meth:`validate`.
+    implement :meth:`forward` and :meth:`loss`. For full functionality (logging and validation), implement :meth:`get_metrics`
+    and :meth:`eval_forward`.
 
     See the :doc:`Composer Model walk through </composer_model>` for more details.
 
@@ -159,7 +160,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         """
         pass
 
-    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
+    def metrics(self, train: bool = False) -> Dict[str, Metric]:
         """Get metrics for evaluating the model. Metrics should be instances of :class:`torchmetrics.Metric` defined in
         :meth:`__init__`. This format enables accurate distributed logging. Metrics consume the outputs of
         :meth:`validate`. To track multiple metrics, return a list of metrics in a :ref:`MetricCollection
@@ -195,41 +196,64 @@ class ComposerModel(torch.nn.Module, abc.ABC):
             def metrics(self, train: bool = False):
                 return self.train_acc if train else MetricCollection([self.val_acc, self.val_loss])
         """
-        raise NotImplementedError('Implement metrics in your ComposerModel to run validation.')
+        warnings.warn(
+            DeprecationWarning(
+                'Using ``metrics()`` is no longer supported and will be removed in a future version. Please use ``get_metrics()`` instead.'
+            ))
+        return self.get_metrics(train)
 
-    def validate(self, batch: Batch) -> Tuple[Any, Any]:
-        """Compute model outputs on provided data. Will be called by the trainer with :class:`torch.no_grad` enabled.
+    def eval_forward(
+        self,
+        batch: Any,
+        outputs: Optional[Any] = None,
+    ) -> Any:
+        """Run the evaluation forward pass.
 
-        The output of this function will be directly used as input
-        to all metrics returned by :meth:`metrics`.
+		By default, it returns the ``outputs`` if they are not None. Otherwise,
+		``self(batch)`` is returned.
+
+		Override this method for models that require custom validation logic -- e.g. self-supervised learning.
+
+		Args:
+			batch: The dataloader batch.
+			outputs (Any, optional): If training, the outputs from the forward pass. Otherwise, None.
+
+		Returns:
+			Any: The evaluation outputs.
+		"""
+        raise NotImplementedError()
+
+    def update_metric(
+        self,
+        batch: Any,
+        outputs: Any,
+        metric: Metric,
+    ) -> None:
+        """Update the given metric.
+
+		Args:
+			batch: The dataloader batch
+			outputs: The output from :meth:`eval_forward`
+			metric (Metric): The metric to update.
+		"""
+        raise NotImplementedError()
+
+    def get_metrics(self, is_train: bool) -> Dict[str, Metric]:
+        """Get the metrics.
+
+        This method will be called by the trainer immediately after :attr:`.Event.INIT`.
+
+        .. note::
+
+            Each item in the returned dictionary will be ``copy.deepcopy`` before it is used. This is to ensure that each dataloader (e.g. train, eval)
+            will be accumulating metrics separately.
+
+            To share a metric across all dataloaders, wrap it with ``MetricSpec(metric=metric, share=False)``.
 
         Args:
-            batch (~composer.core.types.Batch): The output batch from dataloader
+            is_train (bool): Whether the training metrics or evaluation metrics should be returned.
 
         Returns:
-            Tuple[Any, Any]: A Tuple of (``outputs``, ``targets``) that is passed directly to the
-                :meth:`~torchmetrics.Metric.update` methods of the metrics returned by :meth:`metrics`.
-
-        Example:
-
-        .. code-block:: python
-
-            def validate(self, batch): # batch is the output of the dataloader
-                inputs, targets = batch
-                outputs = self.model(inputs)
-                return outputs, targets # return a tuple of (outputs, targets)
-
-
-        This pseudocode illustrates how :meth:`validate` outputs are passed to :meth:`metrics`:
-
-        .. code-block:: python
-
-            metrics = model.metrics(train=False) # get torchmetrics
-
-            for batch in val_dataloader:
-                outputs, targets = model.validate(batch)
-                metrics.update(outputs, targets)  # update metrics with output, targets for each batch
-
-            metrics.compute() # compute final metrics
+            Dict[str, Metric]: A mapping of the metric name to a Metric.
         """
-        raise NotImplementedError('Implement validate in your ComposerModel to run validation.')
+        return {}

@@ -5,7 +5,10 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Callable, Dict, Iterable, List, Optional, Union
+
+from torchmetrics import Metric, MetricCollection
 
 from composer.core.data_spec import DataSpec, ensure_data_spec
 from composer.core.event import Event
@@ -118,13 +121,25 @@ class Evaluator:
         label: str,
         dataloader: Union[DataSpec, Iterable, Dict[str, Any]],
         metric_names: Optional[List[str]] = None,
+        metrics: Optional[Union[Metric, MetricCollection]] = None,
         subset_num_batches: Optional[int] = None,
         eval_interval: Optional[Union[int, str, Time, Callable[[State, Event], bool]]] = None,
     ):
         self.label = label
         self.dataloader = ensure_data_spec(dataloader)
 
-        self.metric_names = metric_names if metric_names else []
+        self.metric_names = []
+        if metric_names or metrics:
+            if (metric_names and metrics):
+                raise ValueError('only one of ``metrics`` or ``metric_names`` should be specified.')
+            if metric_names:
+                self.metric_names = metric_names
+            elif metrics:
+                warnings.warn(DeprecationWarning('``metrics`` is deprecated and will be removed in a future release.'))
+                if isinstance(metrics, Metric):
+                    self.metric_names = [metrics.__class__.__name__]
+                else:
+                    self.metric_names = [str(k) for k, _ in metrics.items()]
 
         self.subset_num_batches = subset_num_batches
         self._eval_interval = None

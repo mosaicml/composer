@@ -19,3 +19,12 @@
 .card-body p {
     display: inline;
 }
+
+.sidebar-container {
+    width: 255px;
+}
+
+kbd:not(.compound) {
+    box-shadow: none!important;
+    color: black;
+}

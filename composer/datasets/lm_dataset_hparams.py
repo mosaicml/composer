@@ -135,7 +135,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         merged_dataset = [item for sublist in merged_dataset for item in sublist]
         lm_datasets = datasets.concatenate_datasets(merged_dataset)  #type: ignore (thirdparty)
 
-        total_num_samples = len(lm_datasets)
+        total_num_samples = len(lm_datasets)  # type: ignore
         tokens_per_sample = len(lm_datasets[0]['input_ids'])  #type: ignore (thirdparty)
         total_num_tokens = total_num_samples * tokens_per_sample
 
@@ -154,7 +154,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         else:
             log.warning('No subsampling going on!')
 
-        lm_datasets = lm_datasets.select(range(num_samples))
+        lm_datasets = lm_datasets.select(range(num_samples))  # type: ignore (thirdparty)
         log.info(f'LM datasets: {lm_datasets}')
         log.info(f'Subsample ratio: {self.subsample_ratio}')
         log.info(f'Total number of samples: {num_samples:e}')
