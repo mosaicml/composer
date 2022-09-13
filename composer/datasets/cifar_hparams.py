@@ -31,7 +31,6 @@ __all__ = ['CIFAR10DatasetHparams', 'StreamingCIFAR10Hparams']
 
 log = logging.getLogger(__name__)
 
-
 # CIFAR10 mean and standard deviation for normalization.
 CIFAR10_MEAN = 0.4914, 0.4822, 0.4465
 CIFAR10_STD = 0.247, 0.243, 0.261
