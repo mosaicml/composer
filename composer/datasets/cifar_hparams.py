@@ -213,7 +213,6 @@ class StreamingCIFAR10Hparams(DatasetHparams):
             except ImportError as e:
                 raise MissingConditionalImportError(extra_deps_group='streaming',
                                                     conda_package='mosaicml-streaming') from e
-
             if self.split == 'train':
                 transform = transforms.Compose([
                     transforms.RandomCrop(32, padding=4),
@@ -226,7 +225,6 @@ class StreamingCIFAR10Hparams(DatasetHparams):
                     transforms.ToTensor(),
                     transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD),
                 ])
-
             dataset = CIFAR10(local=self.local,
                               remote=self.remote,
                               split=self.split,
