@@ -212,7 +212,7 @@ class StreamingImageNet1kHparams(DatasetHparams):
     """DatasetHparams for creating an instance of StreamingImageNet1k.
 
     Args:
-        version (int): Which version of streaming to use.
+        version (int): Which version of streaming to use. Default: ``2``.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
             Default: ``'s3://mosaicml-internal-dataset-imagenet1k/mds/1/```
         local (str): Local filesystem directory where dataset is cached during operation.
@@ -222,7 +222,7 @@ class StreamingImageNet1kHparams(DatasetHparams):
         crop size (int): The crop size to use. Default: ``224``.
     """
 
-    version: int = hp.optional('Version of streaming (1 or 2)', default=1)
+    version: int = hp.optional('Version of streaming (1 or 2)', default=2)
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
                               default='s3://mosaicml-internal-dataset-imagenet1k/mds/1/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',

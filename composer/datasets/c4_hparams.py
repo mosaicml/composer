@@ -24,7 +24,7 @@ class StreamingC4Hparams(DatasetHparams):
     """Builds a :class:`.DataSpec` for the StreamingC4 (Colossal Cleaned Common Crawl) dataset.
 
     Args:
-        version (int): Which version of streaming to use.
+        version (int): Which version of streaming to use. Default: ``2``.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
             Default: ``'s3://mosaicml-internal-dataset-c4/mds/1/'``
         local (str): Local filesystem directory where dataset is cached during operation.
@@ -40,7 +40,7 @@ class StreamingC4Hparams(DatasetHparams):
         timeout (float): How long to wait for shard to download before raising an exception. Default: 120 sec.
     """
 
-    version: int = hp.optional('Version of streaming (1 or 2)', default=1)
+    version: int = hp.optional('Version of streaming (1 or 2)', default=2)
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
                               default='s3://mosaicml-internal-dataset-c4/mds/1/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
