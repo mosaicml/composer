@@ -102,7 +102,7 @@ CutMix is intended to improve generalization performance, and we empirically fou
 
 > 🚧 Composing Regularization Methods
 >
-> As general rule, composing regularization methods may lead to diminishing returns in quality improvements. CutMix is one such regularization method. We do not see improvements when combining CutMix with other regularization and augmentation methods such as Mixup and Label Smoothing.
+> As general rule, composing regularization methods may lead to diminishing returns in quality improvements. CutMix is one such regularization method.
 
 Data augmentation techniques can sometimes put additional load on the CPU, potentially to the point where the CPU becomes a bottleneck for training.
 To prevent this from happening, our implementation of CutMix (1) takes place on the GPU and (2) uses the same patch and interpolation for all examples in the minibatch.
