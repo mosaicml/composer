@@ -57,7 +57,7 @@ The informed reader may note that PyTorch already provides a `torch.optim.AdamW`
 ## Suggested Hyperparameters
 
 Optimizers with decoupled weight decay can be used as drop-in replacements for their
-non-decoupled counterparts, however the optimal `weight_decay` value for decoupled
+non-decoupled counterparts. However, the optimal `weight_decay` value for decoupled
 optimizers will typically be larger than for their non-decoupled counterparts, because
 decoupled weight decay is not scaled by the learning rate.
 ## Technical Details
