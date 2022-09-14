@@ -122,4 +122,6 @@ Freezing layers is an old and common practice, but our precise freezing scheme m
 
 ## API Reference
 
-See {mod}`composer.algorithms.layer_freezing`
+**Algorithm class:** {class}`composer.algorithms.LayerFreezing`
+
+**Functional:** {func}`composer.functional.freeze_layers`

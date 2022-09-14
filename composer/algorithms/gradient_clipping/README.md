@@ -170,4 +170,6 @@ TODO(eracah): fill in this section.
 
 ## API Reference
 
-See {mod}`composer.algorithms.gradient_clipping`
+**Algorithm class:** {class}`composer.algorithms.GradientClipping`
+
+**Functional:** {func}`composer.functional.apply_gradient_clipping`

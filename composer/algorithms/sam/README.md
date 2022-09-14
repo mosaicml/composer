@@ -94,4 +94,4 @@ We did not find that SAM provides any improvement on GPT-style language modeling
 
 ## API Reference
 
-See {mod}`composer.algorithms.sam`
+**Algorithm class:** {class}`composer.algorithms.SAM`

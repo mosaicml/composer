@@ -198,4 +198,6 @@ The implementation in Composer currently only supports computer vision.
 
 ## API Reference
 
-See {mod}`composer.algorithms.mixup`
+**Algorithm class:** {class}`composer.algorithms.MixUp`
+
+**Functional:** {func}`composer.functional.mixup_batch`

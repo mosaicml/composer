@@ -138,4 +138,4 @@ BlurPool tends to compose well with other methods. We are not aware of an exampl
 
 **Algorithm class:** {class}`composer.algorithms.BlurPool`
 
-**Functional:** {class}`composer.functional.apply_blurpool`
+**Functional:** {func}`composer.functional.apply_blurpool`

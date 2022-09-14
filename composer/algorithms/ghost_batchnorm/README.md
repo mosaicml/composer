@@ -129,4 +129,4 @@ The original paper on Ghost BatchNorm reports a 0-3% accuracy change across a nu
 
 **Algorithm class:** {class}`composer.algorithms.GhostBatchNorm`
 
-**Functional:** {class}`composer.functional.apply_ghost_batchnorm`
+**Functional:** {func}`composer.functional.apply_ghost_batchnorm`

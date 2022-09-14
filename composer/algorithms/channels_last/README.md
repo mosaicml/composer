@@ -105,4 +105,4 @@ We currently implement this method by casting the user’s model to channels-las
 
 **Algorithm class:** {class}`composer.algorithms.ChannelsLast`
 
-**Functional:** {class}`composer.functional.apply_channels_last`
+**Functional:** {func}`composer.functional.apply_channels_last`

@@ -108,4 +108,6 @@ One of the key design decisions when performing Sequence Length Warmup is the ma
 
 ## API Reference
 
-See {mod}`composer.algorithms.seq_length_warmup`
+**Algorithm class:** {class}`composer.algorithms.SeqLengthWarmup`
+
+**Functional:** {func}`composer.functional.set_batch_sequence_length`

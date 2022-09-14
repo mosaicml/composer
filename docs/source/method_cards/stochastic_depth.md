@@ -56,4 +56,6 @@ Because block-wise stochastic depth reduces model capacity by probabilistically 
 
 ## API Reference
 
-See {mod}`composer.algorithms.stochastic_depth`
+**Algorithm class:** {class}`composer.algorithms.StochasticDepth`
+
+**Functional:** {func}`composer.functional.apply_stochastic_depth`

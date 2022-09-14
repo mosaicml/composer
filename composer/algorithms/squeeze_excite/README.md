@@ -130,4 +130,7 @@ Because SE modules slow down the model, they compose well with methods that make
 
 ## API Reference
 
-See {mod}`composer.algorithms.squeeze_excite`
+**Algorithm class:** {class}`composer.algorithms.SqueezeExcite`,
+{class}`composer.algorithms.SqueezeExcite2d`, {class}`composer.algorithms.SqueezeExciteConv2d`
+
+**Functional:** {func}`composer.functional.apply_squeeze_excite`

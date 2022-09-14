@@ -74,7 +74,7 @@ Fused LayerNorm does not have any hyperparameters. It utilizes the existing `nor
 APEX's FusedLayerNorm achieves a substantial speedup over PyTorch by doing a few things:
 1. Instead of a naive implementation, which requires two passes over the input in order to estimate variances, it uses [Welford's Online Algorithm](https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm) to estimate the variances in a single step, creating a substantive wall-clock speedup.
 2. Instead of requiring multiple CUDA kernel launches, it computes everything in a single
-   kernel launch, improving GPU utilization.
+   kernel launch, therefore improving GPU utilization.
 
 > ✅ Fused LayerNorm Improves Training Speed
 >
@@ -89,4 +89,4 @@ APEX's FusedLayerNorm achieves a substantial speedup over PyTorch by doing a few
 
 **Algorithm class:** {class}`composer.algorithms.FusedLayerNorm`
 
-**Functional:** {class}`composer.functional.apply_fused_layernorm`
+**Functional:** {func}`composer.functional.apply_fused_layernorm`

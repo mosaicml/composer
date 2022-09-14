@@ -123,4 +123,4 @@ Doing so avoids putting additional work on the CPU (since augmentation occurs on
 
 **Algorithm class:** {class}`composer.algorithms.CutMix`
 
-**Functional:** {class}`composer.functional.cutmix_batch`
+**Functional:** {func}`composer.functional.cutmix_batch`

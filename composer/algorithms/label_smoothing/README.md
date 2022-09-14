@@ -121,4 +121,6 @@ We did not observe label smoothing to affect throughput in any way, although it 
 
 ## API Reference
 
-See {mod}`composer.algorithms.label_smoothing`
+**Algorithm class:** {class}`composer.algorithms.LabelSmoothing`
+
+**Functional:** {func}`composer.functional.smooth_labels`

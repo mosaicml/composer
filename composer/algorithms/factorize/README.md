@@ -140,4 +140,4 @@ Our factorization structure most closely matches that in:
 
 **Algorithm class:** {class}`composer.algorithms.Factorize`
 
-**Functional:** {class}`composer.functional.apply_factorization`
+**Functional:** {func}`composer.functional.apply_factorization`

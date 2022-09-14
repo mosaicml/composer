@@ -126,4 +126,6 @@ For both ResNet-50 and ResNet-101 on ImageNet, we measure a +0.4% absolute accur
 
 ## API Reference
 
-See {mod}`composer.algorithms.stochastic_depth`
+**Algorithm class:** {class}`composer.algorithms.StochasticDepth`
+
+**Functional:** {func}`composer.functional.apply_stochastic_depth`

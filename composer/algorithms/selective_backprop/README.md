@@ -116,4 +116,6 @@ We have explored Selective Backprop primarily on image recognition tasks such as
 
 ## API Reference
 
-See {mod}`composer.algorithms.selective_backprop`
+**Algorithm class:** {class}`composer.algorithms.SelectiveBackprop`
+
+**Functional:** {func}`composer.functional.select_using_loss`, {func}`composer.functional.should_selective_backprop`

@@ -97,4 +97,4 @@ Transformer*](https://arxiv.org/abs/2002.05202) by Shazeer. Posted to arXiv in 2
 
 **Algorithm class:** {class}`composer.algorithms.GatedLinearUnits`
 
-**Functional:** {class}`composer.functional.apply_gated_linear_units`
+**Functional:** {func}`composer.functional.apply_gated_linear_units`

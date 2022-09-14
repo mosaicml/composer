@@ -134,4 +134,4 @@ The implementation in Composer currently only supports computer vision.
 
 **Algorithm class:** {class}`composer.algorithms.CutOut`
 
-**Functional:** {class}`composer.functional.cutout_batch`
+**Functional:** {func}`composer.functional.cutout_batch`

@@ -156,4 +156,6 @@ For example, applying RandAugment with `depth=2`, `severity=9`, yields a 0.31% a
 
 ## API Reference
 
-See {mod}`composer.algorithms.randaugment`
+**Algorithm class:** {class}`composer.algorithms.RandAugment`, {class}`composer.algorithms.RandAugmentTransform`
+
+**Functional:** {func}`composer.functional.randaugment_image`

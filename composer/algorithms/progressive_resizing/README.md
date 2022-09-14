@@ -148,4 +148,6 @@ This method was inspired by work on Progressive Resizing by [fast.ai](https://gi
 
 ## API Reference
 
-See {mod}`composer.algorithms.progressive_resizing`
+**Algorithm class:** {class}`composer.algorithms.ProgressiveResizing`
+
+**Functional:** {func}`composer.functional.resize_batch`

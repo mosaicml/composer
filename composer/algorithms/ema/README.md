@@ -113,4 +113,4 @@ Our implementation of EMA was inspired by [Tensorflow's Exponential Moving Avera
 
 **Algorithm class:** {class}`composer.algorithms.EMA`
 
-**Functional:** {class}`composer.functional.compute_ema`
+**Functional:** {func}`composer.functional.compute_ema`

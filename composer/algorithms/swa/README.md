@@ -80,4 +80,4 @@ rate schedule, but we found that these did not have a substantial impact on trai
 
 ## API Reference
 
-See {mod}`composer.algorithms.swa`
+**Algorithm class:** {class}`composer.algorithms.SWA`
