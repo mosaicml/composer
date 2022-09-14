@@ -103,6 +103,10 @@ For small ghost batch sizes, this method might run more slowly than normal batch
 This method may either help or harm the model’s accuracy. There is some evidence that it is more likely to help when using batch sizes in the thousands.
 The original paper on Ghost BatchNorm reports a 0-3% accuracy change across a number of models and small-scale datasets. For ResNet-50 on ImageNet, we found Top-1 accuracy changes between -.3% to +.3%.
 
+>❗ Ghost BatchNorm Slows Down Training
+>
+> We observed throughput decreases of around 5% fewer samles per second for ResNet-50 on ImageNet.
+
 > 🚧 Ghost BatchNorm Provided Limited Benefits in Our Experiments
 >
 > In our experiments on ResNets for ImageNet, Ghost BatchNorm provided little or no improvement in accuracy and led to a slight decrease in throughput.
@@ -123,4 +127,6 @@ The original paper on Ghost BatchNorm reports a 0-3% accuracy change across a nu
 
 ## API Reference
 
-See {mod}`composer.algorithms.ghost_batchnorm`
+**Algorithm class:** {class}`composer.algorithms.GhostBatchNorm`
+
+**Functional:** {class}`composer.functional.apply_ghost_batchnorm`

@@ -3,7 +3,7 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
- `Natural Language Processing`, `Math-Equivalent`
+ `Natural Language Processing`, `Math Equivalent`
 
 Fused LayerNorm replaces implementations of `torch.nn.LayerNorm` with a `apex.normalization.fused_layer_norm`. The fused kernel provides increased GPU utilization.
 
@@ -87,4 +87,6 @@ APEX's FusedLayerNorm achieves a substantial speedup over PyTorch by doing a few
 
 ## API Reference
 
-See {mod}`composer.algorithms.fused_layernorm`
+**Algorithm class:** {class}`composer.algorithms.FusedLayerNorm`
+
+**Functional:** {class}`composer.functional.apply_fused_layernorm`

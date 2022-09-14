@@ -138,4 +138,6 @@ Our factorization structure most closely matches that in:
 
 ## API Reference
 
-See {mod}`composer.algorithms.factorize`
+**Algorithm class:** {class}`composer.algorithms.Factorize`
+
+**Functional:** {class}`composer.functional.apply_factorization`

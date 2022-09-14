@@ -108,3 +108,9 @@ Our implementation of EMA also provides the option to use the EMA weights as the
 Our implementation of EMA was inspired by [Tensorflow's Exponential Moving Average](https://www.tensorflow.org/api_docs/python/tf/train/ExponentialMovingAverage)
 
 *This Composer implementation of this method and the accompanying documentation were produced by Cory Stephenson at MosaicML.*
+
+## API Reference
+
+**Algorithm class:** {class}`composer.algorithms.EMA`
+
+**Functional:** {class}`composer.functional.compute_ema`
