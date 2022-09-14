@@ -307,7 +307,8 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.checkpoint_save_path = checkpoint_save_path
 
         self.checkpoint_filename = PartialFilePath(checkpoint_filename.lstrip('/'), checkpoint_save_path)
-        self.latest_checkpoint_filename = PartialFilePath(latest_checkpoint_filename.lstrip('/'), checkpoint_save_path) if latest_checkpoint_filename else None
+        self.latest_checkpoint_filename = PartialFilePath(latest_checkpoint_filename.lstrip('/'),
+                                                          checkpoint_save_path) if latest_checkpoint_filename else None
 
         self.artifact_name = PartialFilePath(artifact_name) if artifact_name else None
         self.latest_artifact_name = PartialFilePath(latest_artifact_name) if latest_artifact_name else None
@@ -326,7 +327,8 @@ class CheckpointSaver(Callback):  # noqa: D101
             # checks that checkpoint_save_path contains no files with a timestamp after the current timestamp,
             # which has potential for future conflicts.
             checkpoint_save_path = format_name_with_dist(self.checkpoint_save_path, state.run_name)
-            ensure_folder_has_no_conflicting_files(checkpoint_save_path, self.checkpoint_filename.filename, state.timestamp)
+            ensure_folder_has_no_conflicting_files(checkpoint_save_path, self.checkpoint_filename.filename,
+                                                   state.timestamp)
 
         dist.barrier()  # holds all ranks until checkpoint_save_path check is done
 
@@ -364,7 +366,8 @@ class CheckpointSaver(Callback):  # noqa: D101
         is_deepspeed = is_model_deepspeed(state.model)
 
         if is_deepspeed and '{rank}' not in self.checkpoint_filename.filename:
-            raise ValueError(f'Save checkpoint_filename {self.checkpoint_filename.filename} must have {{rank}} for deepspeed.')
+            raise ValueError(
+                f'Save checkpoint_filename {self.checkpoint_filename.filename} must have {{rank}} for deepspeed.')
 
         # save the checkpoint to the filename
         checkpoint_filename = self.checkpoint_filename.format(state, is_deepspeed)

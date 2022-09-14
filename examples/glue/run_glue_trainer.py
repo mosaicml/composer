@@ -509,7 +509,8 @@ def run_pretrainer(training_scheme: str, file: str, finetune_hparams: GLUETraine
         finetune_hparams.finetune_ckpts = get_ckpt_names(hp, run_name, dataloader_len)
 
     # call via composer to ensure pretraining done distributedly across all available GPUs
-    subprocess.run(args=['composer', training_script, '-f', tmp_file, '--checkpoint_save_path', checkpoint_save_path], check=True)
+    subprocess.run(args=['composer', training_script, '-f', tmp_file, '--checkpoint_save_path', checkpoint_save_path],
+                   check=True)
 
 
 def run_finetuner(training_scheme: str, file: str, save_locally: bool, load_locally: bool, checkpoint_save_path: str,
@@ -566,8 +567,8 @@ def _main() -> None:
     # Finetune
     if training_scheme in ('finetune', 'all'):
         assert finetune_hparams.checkpoint_save_path is not None
-        results = run_finetuner(training_scheme, file, save_locally, load_locally, finetune_hparams.checkpoint_save_path,
-                                finetune_hparams)
+        results = run_finetuner(training_scheme, file, save_locally, load_locally,
+                                finetune_hparams.checkpoint_save_path, finetune_hparams)
         print('FINETUNING COMPLETE')
 
         # Process and print the collected results into final GLUE metrics

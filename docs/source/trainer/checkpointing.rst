@@ -377,7 +377,7 @@ should be the path to the checkpoint file *within the container/bucket*.
 
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
-    
+
     from composer.utils import LibcloudObjectStore
     from composer.trainer import Trainer
 

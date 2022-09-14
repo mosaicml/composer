@@ -819,7 +819,11 @@ class TestTrainerEquivalence():
         config = copy.deepcopy(config)  # ensure the reference model is not passed to tests
 
         checkpoint_save_path = tmp_path_factory.mktemp('{device}-{precision}'.format(**config))
-        config.update({'checkpoint_save_interval': '1ep', 'checkpoint_save_path': str(checkpoint_save_path), 'save_filename': 'ep{epoch}.pt'})
+        config.update({
+            'checkpoint_save_interval': '1ep',
+            'checkpoint_save_path': str(checkpoint_save_path),
+            'save_filename': 'ep{epoch}.pt'
+        })
 
         trainer = Trainer(**config)
         trainer.fit()

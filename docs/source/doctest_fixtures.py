@@ -53,14 +53,12 @@ from composer.optim.scheduler import ConstantScheduler
 from composer.utils import LibcloudObjectStore
 from composer.utils import ensure_tuple as ensure_tuple
 
-
 try:
     import wandb
     _WANDB_INSTALLED = True
     del wandb  # unused
 except ImportError:
     _WANDB_INSTALLED = False
-
 
 try:
     import libcloud
