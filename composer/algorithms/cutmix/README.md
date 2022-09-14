@@ -99,7 +99,6 @@ The final set of targets `y` is created by sampling a value `interpolation` (bet
 CutMix is intended to improve generalization performance, and we empirically found this to be the case in our image classification settings. The original paper also reports improvements in object localization and robustness.
 
 
-
 > 🚧 Composing Regularization Methods
 >
 > As general rule, composing regularization methods may lead to diminishing returns in quality improvements. CutMix is one such regularization method.
