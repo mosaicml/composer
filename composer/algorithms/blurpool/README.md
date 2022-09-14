@@ -2,7 +2,7 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested
 Hyperparameters\]](#suggested-hyperparameters) - [\[Technical
-Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference) - [\[API Reference\]](#api-reference)
+Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
 `Computer Vision`
 
@@ -136,4 +136,6 @@ BlurPool tends to compose well with other methods. We are not aware of an exampl
 
 ## API Reference
 
-See {mod}`composer.algorithms.blurpool`
+**Algorithm class:** {class}`composer.algorithms.BlurPool`
+
+**Functional:** {class}`composer.functional.apply_blurpool`

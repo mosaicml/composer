@@ -121,4 +121,6 @@ Doing so avoids putting additional work on the CPU (since augmentation occurs on
 
 ## API Reference
 
-See {mod}`composer.algorithms.cutmix`
+**Algorithm class:** {class}`composer.algorithms.CutMix`
+
+**Functional:** {class}`composer.functional.cutmix_batch`

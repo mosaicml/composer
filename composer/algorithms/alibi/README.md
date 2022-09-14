@@ -168,4 +168,6 @@ We conducted experiments on the GPT-2 model family trained on OpenWebText on 8x 
 
 ## API Reference
 
-See {mod}`composer.algorithms.alibi`
+**Algorithm class:** {class}`composer.algorithms.Alibi`
+
+**Functional:** {func}`composer.functional.apply_alibi`

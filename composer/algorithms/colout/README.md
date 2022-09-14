@@ -124,4 +124,6 @@ ColOut will show diminishing returns when composed with other methods that chang
 
 ## API Reference
 
-See {mod}`composer.algorithms.colout`
+**Algorithm class:** {class}`composer.algorithms.ColOut`, {class}`composer.algorithms.ColOutTransform`
+
+**Functional:** {class}`composer.functional.colout_batch`

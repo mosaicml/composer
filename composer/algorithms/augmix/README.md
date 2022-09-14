@@ -172,4 +172,6 @@ Doing so can allow models to reach higher quality, but this typically requires (
 
 ## API Reference
 
-See {mod}`composer.algorithms.augmix`
+**Algorithm class:** {class}`composer.algorithms.AugMix`, {class}`composer.algorithms.AugmentAndMixTransform`
+
+**Functional:** {func}`composer.functional.augmix_image`

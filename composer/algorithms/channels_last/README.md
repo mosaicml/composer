@@ -103,4 +103,6 @@ We currently implement this method by casting the user’s model to channels-las
 
 ## API Reference
 
-See {mod}`composer.algorithms.channels_last`
+**Algorithm class:** {class}`composer.algorithms.ChannelsLast`
+
+**Functional:** {class}`composer.functional.apply_channels_last`

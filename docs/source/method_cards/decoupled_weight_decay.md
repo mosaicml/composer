@@ -68,4 +68,11 @@ Weight decay is a regularization technique and thus is expected to yield diminis
 
 ## Attribution
 
-*[Decoupled Weight Decay Regularization](https://arxiv.org/abs/1711.05101)*, by Ilya Loshchilov and Frank Hutter. Published as a conference paper at ICLR 2019.
+*[Decoupled Weight Decay Regularization](https://arxiv.org/abs/1711.05101)*, by Ilya
+Loshchilov and Frank Hutter. Published as a conference paper at ICLR 2019.
+
+## API Reference
+
+**Optimizer classes:** {class}`composer.optim.DecoupledAdamW`, {class}`composer.optim.DecoupledSGDW`
+
+**Optimizer module:** {mod}`composer.optim`
