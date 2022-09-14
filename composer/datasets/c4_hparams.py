@@ -24,12 +24,14 @@ class StreamingC4Hparams(DatasetHparams):
     """Builds a :class:`.DataSpec` for the StreamingC4 (Colossal Cleaned Common Crawl) dataset.
 
     Args:
+        version (int): Which version of streaming to use. Default: ``2``.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-            Default: ``'s3://mosaicml-internal-dataset-c4/mds/1/'``
+            Default: ``'s3://mosaicml-internal-dataset-c4/mds/2/'``
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-c4/'``
         split (str): What split of the dataset to use. Either ``'train'`` or ``'val'``. Default: ``'train'``.
-        tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with. Default: ``'bert-base-uncased'``.
+        tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with. Default:
+            ``'bert-base-uncased'``.
         max_seq_len (int): The max sequence length of each token sample. Default: ``512``.
         group_method (str): How to group text samples into token samples. Currently only `truncate` is supported.
         mlm (bool): Whether or not to use masked language modeling. Default: ``False``.
@@ -38,8 +40,9 @@ class StreamingC4Hparams(DatasetHparams):
         timeout (float): How long to wait for shard to download before raising an exception. Default: 120 sec.
     """
 
+    version: int = hp.optional('Version of streaming (1 or 2)', default=2)
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
-                              default='s3://mosaicml-internal-dataset-c4/mds/1/')
+                              default='s3://mosaicml-internal-dataset-c4/mds/2/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
                              default='/tmp/mds-cache/mds-c4/')
     split: str = hp.optional('What split of the dataset to use. Either `train` or `val`.', default='train')
@@ -72,16 +75,35 @@ class StreamingC4Hparams(DatasetHparams):
             raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
         # Get StreamingC4 dataset
-        dataset = StreamingC4(remote=self.remote,
-                              local=self.local,
-                              split=self.split,
-                              shuffle=self.shuffle,
-                              tokenizer_name=self.tokenizer_name,
-                              max_seq_len=self.max_seq_len,
-                              group_method=self.group_method,
-                              max_retries=self.max_retries,
-                              timeout=self.timeout,
-                              batch_size=batch_size)
+        if self.version == 1:
+            dataset = StreamingC4(remote=self.remote,
+                                  local=self.local,
+                                  split=self.split,
+                                  shuffle=self.shuffle,
+                                  tokenizer_name=self.tokenizer_name,
+                                  max_seq_len=self.max_seq_len,
+                                  group_method=self.group_method,
+                                  max_retries=self.max_retries,
+                                  timeout=self.timeout,
+                                  batch_size=batch_size)
+        elif self.version == 2:
+            try:
+                from streaming.text import C4
+            except ImportError as e:
+                raise MissingConditionalImportError(extra_deps_group='streaming',
+                                                    conda_package='mosaicml-streaming') from e
+            dataset = C4(tokenizer_name=self.tokenizer_name,
+                         max_seq_len=self.max_seq_len,
+                         group_method=self.group_method,
+                         local=self.local,
+                         remote=self.remote,
+                         split=self.split,
+                         shuffle=self.shuffle,
+                         retry=self.max_retries,
+                         timeout=self.timeout,
+                         batch_size=batch_size)
+        else:
+            raise ValueError(f'Invalid streaming version: {self.version}')
 
         # Get collate_fn
         collate_fn = transformers.DataCollatorForLanguageModeling(tokenizer=dataset.tokenizer,
