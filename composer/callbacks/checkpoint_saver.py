@@ -111,7 +111,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         ...         checkpoint_filename="ep{{epoch}}-ba{{batch}}-rank{{rank}}",
         ...         latest_checkpoint_filename="latest-rank{{rank}}",
         ...         checkpoint_save_interval="1ep",
-        ...         weights_only=False,
+        ...         save_model_weights_only=False,
         ...     )
         ... ])
 
@@ -238,7 +238,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             To disable symlinks in logger, set this parameter to ``None``.
 
-        overwrite (bool, optional): Whether existing checkpoints should be overridden.
+        overwrite_checkpoints (bool, optional): Whether existing checkpoints should be overwritten.
             If ``False`` (the default), then the ``checkpoint_save_path`` must not exist or must not contain checkpoints which may conflict
             with the current run. Default: ``False``.
 
@@ -256,7 +256,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             progress). It should return ``True`` if a checkpoint should be saved given the current state and
             event.
 
-        weights_only (bool): If ``True``, save only the model weights instead of the entire training state.
+        save_model_weights_only (bool): If ``True``, save only the model weights instead of the entire training state.
             This parmeter must be ``False`` when using DeepSpeed. Default: ``False``.
 
 
@@ -296,9 +296,9 @@ class CheckpointSaver(Callback):  # noqa: D101
         latest_artifact_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
         checkpoint_save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = '1ep',
         *,
-        overwrite: bool = False,
+        overwrite_checkpoints: bool = False,
         num_checkpoints_to_keep: int = -1,
-        weights_only: bool = False,
+        save_model_weights_only: bool = False,
     ):
         if not callable(checkpoint_save_interval):
             checkpoint_save_interval = checkpoint_periodically(checkpoint_save_interval)
@@ -313,17 +313,17 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.artifact_name = PartialFilePath(artifact_name) if artifact_name else None
         self.latest_artifact_name = PartialFilePath(latest_artifact_name) if latest_artifact_name else None
 
-        self.overwrite = overwrite
+        self.overwrite_checkpoints = overwrite_checkpoints
         self.saved_checkpoints: List[str] = []
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
-        self.weights_only = weights_only
+        self.save_model_weights_only = save_model_weights_only
 
     def init(self, state: State, logger: Logger) -> None:
         checkpoint_save_path = format_name_with_dist(self.checkpoint_save_path, state.run_name)
         os.makedirs(checkpoint_save_path, exist_ok=True)
 
     def fit_start(self, state: State, logger: Logger) -> None:
-        if not self.overwrite:
+        if not self.overwrite_checkpoints:
             # checks that checkpoint_save_path contains no files with a timestamp after the current timestamp,
             # which has potential for future conflicts.
             checkpoint_save_path = format_name_with_dist(self.checkpoint_save_path, state.run_name)
@@ -332,8 +332,8 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         dist.barrier()  # holds all ranks until checkpoint_save_path check is done
 
-        if is_model_deepspeed(state.model) and self.weights_only:
-            raise NotImplementedError('weights_only=True is not supported when using DeepSpeed.')
+        if is_model_deepspeed(state.model) and self.save_model_weights_only:
+            raise NotImplementedError('save_model_weights_only=True is not supported when using DeepSpeed.')
 
     def batch_checkpoint(self, state: State, logger: Logger):
         if self.checkpoint_save_interval(state, Event.BATCH_CHECKPOINT):
@@ -375,7 +375,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         saved_path = checkpoint.save_checkpoint(
             state=state,
             filename=checkpoint_filename,
-            weights_only=self.weights_only,
+            weights_only=self.save_model_weights_only,
         )
 
         if not saved_path:  # not all ranks save
@@ -400,7 +400,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             logger.file_artifact(log_level=log_level,
                                  artifact_name=artifact_name,
                                  file_path=checkpoint_filename,
-                                 overwrite=self.overwrite)
+                                 overwrite=self.overwrite_checkpoints)
 
             if self.latest_artifact_name is not None:
                 symlink_name = self.latest_artifact_name.format(
