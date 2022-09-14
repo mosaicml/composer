@@ -102,7 +102,7 @@ The class form of RandAugment runs on `Event.FIT_START` and inserts `RandAugment
 
 ## Suggested Hyperparameters
 
-As per [Cubuk et al. (2020)](https://openaccess.thecvf.com/content_CVPRW_2020/html/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.html), we found that `depth=1` (applying a chain of two augmentations to each image) and `severity=9` (each augmentation is applied quite strongly) works well for different models of the ResNet family on ImageNet. For `depth≥3`, we find diminishing accuracy gains (due to over-regularization) and substantial training slowdown (due to the CPU becoming a bottleneck because of the amount of augmentation it must perform). We also recommend `augmentation_set=all` (using all available augmentation techniques).
+As per [Cubuk et al. (2020)](https://openaccess.thecvf.com/content_CVPRW_2020/html/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.html), we found that `depth=1` (applying a single augmentation to each image) and `severity=9` (each augmentation is applied quite strongly) works well for different models of the ResNet family on ImageNet. For `depth≥3`, we find diminishing accuracy gains (due to over-regularization) and substantial training slowdown (due to the CPU becoming a bottleneck because of the amount of augmentation it must perform). We also recommend `augmentation_set=all` (using all available augmentation techniques).
 
 > ❗ Potential CPU Bottleneck
 >
