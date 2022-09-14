@@ -3,10 +3,9 @@
 
 """BraTS (Brain Tumor Segmentation) dataset hyperparameters."""
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Optional
 
-import torch
 import yahp as hp
 
 from composer.datasets.brats import build_brats_dataloader
@@ -25,12 +24,9 @@ class BratsDatasetHparams(DatasetHparams):
     is_train: bool = hp.optional('Whether to load the training data (the default) or validation data.', default=True)
     datadir: Optional[str] = hp.optional('The path to the data directory', default=None)
 
-    def validate(self):
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
         if self.datadir is None:
             raise ValueError('datadir must be specified.')
-
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
-        self.validate()
 
         return build_brats_dataloader(datadir=self.datadir,
                                       batch_size=batch_size,

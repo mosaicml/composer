@@ -36,8 +36,6 @@ def build_brats_dataloader(datadir: str,
     Args:
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
-    dataset = PytTrain(x_train, y_train, oversampling) if is_train else PytVal(x_val, y_val)
-
     x_train, y_train, x_val, y_val = get_data_split(datadir)
     dataset = PytTrain(x_train, y_train, oversampling) if is_train else PytVal(x_val, y_val)
     collate_fn = None if is_train else _my_collate
