@@ -6,7 +6,7 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested
 Hyperparameters\]](#suggested-hyperparameters) - [\[Technical
-Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference) - [\[API Reference\]](#api-reference)
+Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
 L2 regularization is typically considered equivalent to weight decay, but this equivalence only holds for certain optimizer implementations. Common optimizer implementations typically scale the weight decay by the learning rate, which complicates model tuning and hyperparameter sweeps by coupling the learning rate and weight decay. Implementing weight decay explicitly and separately from L2 regularization allows for a new means of tuning regularization in models.
 
