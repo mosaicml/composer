@@ -429,9 +429,9 @@ def get_finetune_hparams() -> Tuple[GLUETrainerHparams, str, bool, bool]:
 def get_ckpt_names(hp: TrainerHparams, run_name: str, dataloader_len: int) -> List[str]:
     """Extract list of checkpoints that will be saved by the given configuration."""
     ckpt_names = []
-    assert hp.save_interval is not None
+    assert hp.checkpoint_save_interval is not None
     assert hp.max_duration is not None
-    interval = Time.from_timestring(str(hp.save_interval))
+    interval = Time.from_timestring(str(hp.checkpoint_save_interval))
     duration = Time.from_timestring(str(hp.max_duration))
 
     ep = 0

@@ -333,7 +333,7 @@ class Trainer:
             eval_interval="1ep",
             checkpoint_save_path="checkpoints",
             save_filename="ep{epoch}.pt",
-            save_interval="1ep",
+            checkpoint_save_interval="1ep",
             save_overwrite=True,
         )
 
@@ -633,7 +633,7 @@ class Trainer:
             This parameter has no effect if ``checkpoint_save_path`` is None. (default: ``False``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-        save_interval (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
+        checkpoint_save_interval (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
             This parameter has no effect if ``checkpoint_save_path`` is ``None``. (default: ``'1ep'``)
 
@@ -786,7 +786,7 @@ class Trainer:
         save_latest_filename: Optional[str] = 'latest-rank{rank}.pt',
         save_latest_artifact_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
         save_overwrite: bool = False,
-        save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
+        checkpoint_save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
         save_num_checkpoints_to_keep: int = -1,
 
@@ -956,7 +956,7 @@ class Trainer:
                 latest_artifact_name=save_latest_artifact_name,
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
-                save_interval=save_interval,
+                checkpoint_save_interval=checkpoint_save_interval,
                 num_checkpoints_to_keep=save_num_checkpoints_to_keep,
             )
             self.state.callbacks.append(self._checkpoint_saver)

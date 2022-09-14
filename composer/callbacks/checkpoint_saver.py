@@ -39,7 +39,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
             and at the end of training.
 
     Returns:
-        Callable[[State, Event], bool]: A function that can be passed as the ``save_interval``
+        Callable[[State, Event], bool]: A function that can be passed as the ``checkpoint_save_interval``
             argument into the :class:`.CheckpointSaver`.
     """
     if isinstance(interval, str):
@@ -57,7 +57,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
 
     last_checkpoint_batch: Optional[Time] = None
 
-    def save_interval(state: State, event: Event):
+    def checkpoint_save_interval(state: State, event: Event):
         nonlocal last_checkpoint_batch
         elapsed_duration = state.get_elapsed_duration()
         assert elapsed_duration is not None, 'elapsed_duration is set on the BATCH_CHECKPOINT and EPOCH_CHECKPOINT'
@@ -83,7 +83,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
 
         return False
 
-    return save_interval
+    return checkpoint_save_interval
 
 
 class CheckpointSaver(Callback):  # noqa: D101
@@ -110,7 +110,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         ...         folder='{{run_name}}/checkpoints',
         ...         filename="ep{{epoch}}-ba{{batch}}-rank{{rank}}",
         ...         latest_filename="latest-rank{{rank}}",
-        ...         save_interval="1ep",
+        ...         checkpoint_save_interval="1ep",
         ...         weights_only=False,
         ...     )
         ... ])
@@ -242,7 +242,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             If ``False`` (the default), then the ``folder`` must not exist or must not contain checkpoints which may conflict
             with the current run. Default: ``False``.
 
-        save_interval (Time | str | int | (State, Event) -> bool): A :class:`.Time`, time-string, integer (in epochs),
+        checkpoint_save_interval (Time | str | int | (State, Event) -> bool): A :class:`.Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
 
             If an integer, checkpoints will be saved every n epochs.
@@ -294,15 +294,15 @@ class CheckpointSaver(Callback):  # noqa: D101
         artifact_name: Optional[str] = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
         latest_filename: Optional[str] = 'latest-rank{rank}.pt',
         latest_artifact_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
-        save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = '1ep',
+        checkpoint_save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = '1ep',
         *,
         overwrite: bool = False,
         num_checkpoints_to_keep: int = -1,
         weights_only: bool = False,
     ):
-        if not callable(save_interval):
-            save_interval = checkpoint_periodically(save_interval)
-        self.save_interval = save_interval
+        if not callable(checkpoint_save_interval):
+            checkpoint_save_interval = checkpoint_periodically(checkpoint_save_interval)
+        self.checkpoint_save_interval = checkpoint_save_interval
 
         self.folder = folder
 
@@ -334,7 +334,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             raise NotImplementedError('weights_only=True is not supported when using DeepSpeed.')
 
     def batch_checkpoint(self, state: State, logger: Logger):
-        if self.save_interval(state, Event.BATCH_CHECKPOINT):
+        if self.checkpoint_save_interval(state, Event.BATCH_CHECKPOINT):
             self._save_checkpoint(
                 state,
                 logger,
@@ -342,7 +342,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             )
 
     def epoch_checkpoint(self, state: State, logger: Logger):
-        if self.save_interval(state, Event.EPOCH_CHECKPOINT):
+        if self.checkpoint_save_interval(state, Event.EPOCH_CHECKPOINT):
             self._save_checkpoint(
                 state,
                 logger,

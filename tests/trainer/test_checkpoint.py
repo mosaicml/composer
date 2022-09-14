@@ -158,7 +158,7 @@ class TestCheckpointLoading:
             grad_accum=2,
             precision='fp32',
             train_subset_num_batches=5,
-            save_interval='1ep',
+            checkpoint_save_interval='1ep',
             eval_interval='1ba',
             save_filename='ep{epoch}.pt',
             max_duration='2ep',
@@ -411,7 +411,7 @@ class TestCheckpointResumption:
         pytest.param('gpu', 2, id='deepspeed-zero2', marks=pytest.mark.gpu),
     ])
     @pytest.mark.parametrize(
-        'seed,save_interval,save_filename,resume_file,final_checkpoint',
+        'seed,checkpoint_save_interval,save_filename,resume_file,final_checkpoint',
         [
             [None, '1ep', 'ep{epoch}-rank{rank}.pt', 'ep1-rank{rank}.pt', 'latest-rank{rank}.pt'
             ],  # test randomized seed saving and symlinking
@@ -431,7 +431,7 @@ class TestCheckpointResumption:
         device: str,
         world_size: int,
         deepspeed_zero_stage: Optional[int],
-        save_interval: str,
+        checkpoint_save_interval: str,
         save_filename: str,
         resume_file: str,
         final_checkpoint: str,
@@ -457,8 +457,8 @@ class TestCheckpointResumption:
         trainer_1 = self.get_trainer(
             checkpoint_save_path=os.path.join(checkpoint_save_path, 'first'),
             save_filename=save_filename,
-            save_interval=save_interval,
-            eval_interval=save_interval,
+            checkpoint_save_interval=checkpoint_save_interval,
+            eval_interval=checkpoint_save_interval,
             deepspeed_config=deepspeed_config,
             seed=seed,
             device=device,
@@ -469,7 +469,7 @@ class TestCheckpointResumption:
 
         self._assert_expected_num_checkpoints(
             checkpoint_save_path=os.path.join(checkpoint_save_path, 'first'),
-            save_interval=save_interval,
+            checkpoint_save_interval=checkpoint_save_interval,
             num_epochs=2,  # set in get_trainer()
             num_batches_per_epoch=5,  # set in get_trainer()
             is_deepspeed=deepspeed_config is not None,
@@ -484,8 +484,8 @@ class TestCheckpointResumption:
         trainer_2 = self.get_trainer(
             checkpoint_save_path=os.path.join(checkpoint_save_path, 'second'),
             save_filename=save_filename,
-            save_interval=save_interval,
-            eval_interval=save_interval,
+            checkpoint_save_interval=checkpoint_save_interval,
+            eval_interval=checkpoint_save_interval,
             deepspeed_config=deepspeed_config,
             seed=seed,
             device=device,
@@ -530,12 +530,12 @@ class TestCheckpointResumption:
     def _assert_expected_num_checkpoints(
         self,
         checkpoint_save_path: str,
-        save_interval: str,
+        checkpoint_save_interval: str,
         num_epochs: int,
         num_batches_per_epoch: int,
         is_deepspeed: bool,
     ):
-        interval = Time.from_timestring(save_interval)
+        interval = Time.from_timestring(checkpoint_save_interval)
         if interval.unit == TimeUnit.EPOCH:
             expected_num_files = ((num_epochs - 1) // interval.value) + 1
         else:
@@ -584,7 +584,7 @@ def test_rotate_checkpoints(
         train_dataloader=DataLoader(dataset=RandomImageDataset()),
         checkpoint_save_path=str(checkpoint_save_path),
         save_filename='checkpoint_{rank}_{batch}.pt',
-        save_interval='1ba',
+        checkpoint_save_interval='1ba',
         max_duration='10ba',
         save_num_checkpoints_to_keep=num_keep,
         device=device,
