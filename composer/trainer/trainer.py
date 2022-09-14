@@ -949,7 +949,7 @@ class Trainer:
         self._checkpoint_saver = None
         if checkpoint_save_path is not None:
             self._checkpoint_saver = CheckpointSaver(
-                folder=checkpoint_save_path,
+                checkpoint_save_path=checkpoint_save_path,
                 filename=save_filename,
                 artifact_name=save_artifact_name,
                 latest_filename=save_latest_filename,
