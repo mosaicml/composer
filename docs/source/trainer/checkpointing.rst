@@ -206,13 +206,13 @@ or other checkpoint saving parameters directly on the trainer.
         ...,
         callbacks=[
             CheckpointSaver(
-                folder='full_checkpoints',
+                checkpoint_save_path='full_checkpoints',
                 checkpoint_save_interval='5ep',
                 overwrite=True,
                 num_checkpoints_to_keep=1,  # only keep the latest, full checkpoint
             ),
             CheckpointSaver(
-                folder='weights_only_checkpoints',
+                checkpoint_save_path='weights_only_checkpoints',
                 weights_only=True,
                 overwrite=True,
             ),
