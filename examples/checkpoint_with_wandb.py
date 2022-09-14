@@ -48,7 +48,7 @@ trainer = Trainer(
 
     # Checkpoint Saving Configuration
     loggers=wandb_logger,  # Log checkpoints via the WandB Logger
-    save_folder='/tmp/checkpoints',  # The trainer requires that checkpoints must be saved locally before being upload
+    checkpoint_save_path='/tmp/checkpoints',  # The trainer requires that checkpoints must be saved locally before being upload
     save_interval='1ep',
     save_artifact_name='epoch{epoch}.pt',  # Name checkpoints like epoch1.pt, epoch2.pt, etc...
     save_num_checkpoints_to_keep=0,  # Do not keep any checkpoints locally after they have been uploaded to W & B
@@ -84,7 +84,7 @@ trainer = Trainer(
 
     #  (Optional) Checkpoint Saving Configuration to continue to save new checkpoints
     loggers=wandb_logger,  # Log checkpoints via the WandB Logger
-    save_folder='/tmp/checkpoints',  # The trainer requires that checkpoints must be saved locally before being upload
+    checkpoint_save_path='/tmp/checkpoints',  # The trainer requires that checkpoints must be saved locally before being upload
     save_interval='1ep',
     save_artifact_name='epoch{epoch}.pt',  # Name checkpoints like epoch1.pt, epoch2.pt, etc...
     save_num_checkpoints_to_keep=0,  # Do not keep any checkpoints locally after they have been uploaded to W & B

@@ -1,16 +1,16 @@
 |:white_check_mark:| Checkpointing
 ==================================
 
-Composer can be configured to automatically save training checkpoints by passing the argument ``save_folder`` when
+Composer can be configured to automatically save training checkpoints by passing the argument ``checkpoint_save_path`` when
 creating the :class:`.Trainer`.
 
-To customize the filenames of checkpoints inside ``save_folder``, you can set the ``save_filename`` argument.
-By default, checkpoints will be named like ``'ep{epoch}-ba{batch}-rank{rank}'`` within the ``save_folder``.
+To customize the filenames of checkpoints inside ``checkpoint_save_path``, you can set the ``save_filename`` argument.
+By default, checkpoints will be named like ``'ep{epoch}-ba{batch}-rank{rank}'`` within the ``checkpoint_save_path``.
 
 In addition, the trainer creates a symlink called ``'latest-rank{rank}'``, which points to the latest saved checkpoint
 file. You can customize this symlink name by setting the ``save_latest_filename`` argument.
 
-The ``save_folder``, ``save_filename``, and ``save_latest`` arguments are Python format strings, so you can customize the folder
+The ``checkpoint_save_path``, ``save_filename``, and ``save_latest`` arguments are Python format strings, so you can customize the folder
 structure to include information such as the rank of the Python process or the current training progress. Please see
 the :class:`~.CheckpointSaver` for the full list of available format variables.
 
@@ -24,7 +24,7 @@ For example:
         model=model,
         train_dataloader=train_dataloader,
         max_duration="2ep",
-        save_folder="./path/to/checkpoints",
+        checkpoint_save_path="./path/to/checkpoints",
         save_filename="ep{epoch}",
         save_latest_filename="latest",
         save_overwrite=True,
@@ -59,7 +59,7 @@ Putting this together, here's how to save checkpoints:
         train_dataloader=train_dataloader,
         max_duration="1ep",
         save_filename="ep{epoch}.pt",
-        save_folder="./path/to/checkpoints",
+        checkpoint_save_path="./path/to/checkpoints",
         save_overwrite=True,
         save_interval="1ep",  # Save checkpoints every epoch
     )
@@ -102,7 +102,7 @@ will continue training from where the checkpoint left off.
         train_dataloader=train_dataloader,
         max_duration="1ep",
         save_filename="ep{epoch}.pt",
-        save_folder="./path/to/checkpoints",
+        checkpoint_save_path="./path/to/checkpoints",
         save_overwrite=True,
         save_interval="1ep",  # Save checkpoints every epoch
     )
@@ -180,7 +180,7 @@ only the model weights in a checkpoint, set ``save_weights_only=True``.
 
     trainer = Trainer(
         ...,
-        save_folder="checkpoints",
+        checkpoint_save_path="checkpoints",
         save_weights_only=True,
         save_overwrite=True,
     )
@@ -194,7 +194,7 @@ To save multiple checkpoint types, such as full checkpoints and weights-only che
 :class:`~.CheckpointSaver` can be passed directly into the ``callbacks`` argument of the trainer.
 Each :class:`~.CheckpointSaver` can have its own save folder, interval, and other parameters.
 
-When configuring checkpoints via the ``callbacks``, it is not necessary to specify the ``save_folder``
+When configuring checkpoints via the ``callbacks``, it is not necessary to specify the ``checkpoint_save_path``
 or other checkpoint saving parameters directly on the trainer.
 
 .. testcode::
@@ -244,7 +244,7 @@ Parameters with different names will ignored.
         train_dataloader=train_dataloader,
         max_duration="1ep",
         save_filename="ep{epoch}.pt",
-        save_folder="./path/to/checkpoints",
+        checkpoint_save_path="./path/to/checkpoints",
         save_overwrite=True,
         save_interval="1ep",  # Save checkpoints every epoch
     )
@@ -353,7 +353,7 @@ Once you've configured your object store logger per above, all that's left is to
         model=model,
         train_dataloader=train_dataloader,
         max_duration='90ep',
-        save_folder='checkpoints',
+        checkpoint_save_path='checkpoints',
         save_interval='1ep',
         save_overwrite=True,
         save_artifact_name='checkpoints/ep{epoch}.pt',

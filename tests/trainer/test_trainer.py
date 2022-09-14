@@ -818,14 +818,14 @@ class TestTrainerEquivalence():
         """Trains the reference model, and saves checkpoints."""
         config = copy.deepcopy(config)  # ensure the reference model is not passed to tests
 
-        save_folder = tmp_path_factory.mktemp('{device}-{precision}'.format(**config))
-        config.update({'save_interval': '1ep', 'save_folder': str(save_folder), 'save_filename': 'ep{epoch}.pt'})
+        checkpoint_save_path = tmp_path_factory.mktemp('{device}-{precision}'.format(**config))
+        config.update({'save_interval': '1ep', 'checkpoint_save_path': str(checkpoint_save_path), 'save_filename': 'ep{epoch}.pt'})
 
         trainer = Trainer(**config)
         trainer.fit()
 
         self.reference_model = trainer.state.model
-        self.reference_folder = save_folder
+        self.reference_folder = checkpoint_save_path
 
     def test_determinism(self, config, *args):
         trainer = Trainer(**config)
