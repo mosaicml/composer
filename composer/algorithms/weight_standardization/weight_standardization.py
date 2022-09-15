@@ -4,6 +4,7 @@
 import torch
 import torch.nn.utils.parametrize as parametrize
 from torch import nn
+from torch.fx import symbolic_trace
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
@@ -23,24 +24,33 @@ class WeightStandardizer(nn.Module):
         return _standardize_weights(W)
 
 
-def apply_weight_standardization(model: torch.nn.Module):
+def apply_weight_standardization(model: torch.nn.Module, ignore_last_layer: bool = False):
     count = 0
-    for module in model.modules():
+    model_trace = symbolic_trace(model)
+    for module in model_trace.modules():
         if (isinstance(module, nn.Conv1d) or isinstance(module, nn.Conv2d) or isinstance(module, nn.Conv3d)):
-
             parametrize.register_parametrization(module, 'weight', WeightStandardizer())
             count += 1
+
+    if ignore_last_layer:
+        for module in model_trace.modules()[::-1]:
+            if (isinstance(module, nn.Conv1d) or isinstance(module, nn.Conv2d) or isinstance(module, nn.Conv3d)):
+                parametrize.remove_parametrization(module, 'weight', leave_parametrized=False)
+                count -= 1
+                break
+
     return count
 
 
 class WeightStandardization(Algorithm):
 
-    def __init__(self):
-        pass
+    # TODO: Maybe make this ignore last n layers in case there are multiple prediction heads? Would this work?
+    def __init__(self, ignore_last_layer: bool = False):
+        self.ignore_last_layer = ignore_last_layer
 
     def match(self, event: Event, state: State):
         return (event == Event.INIT)
 
     def apply(self, event: Event, state: State, logger: Logger):
-        count = apply_weight_standardization(state.model)
+        count = apply_weight_standardization(state.model, ignore_last_layer=self.ignore_last_layer)
         logger.data_fit({'WeightStandardization/num_weights_standardized': count})
