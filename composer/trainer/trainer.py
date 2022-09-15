@@ -44,8 +44,8 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
-from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed,
-                            map_collection, model_eval_mode, reproducibility)
+from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, is_model_deepspeed, map_collection,
+                            model_eval_mode, reproducibility)
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.inference import ExportFormat, Transform, export_with_logger
@@ -332,9 +332,7 @@ class Trainer:
             device="cpu",
             eval_interval="1ep",
             checkpoint_save_path="checkpoints",
-            save_filename="ep{epoch}.pt",
             checkpoint_save_interval="1ep",
-            save_overwrite=True,
         )
 
         # Fit and run evaluation for 1 epoch.
@@ -608,38 +606,9 @@ class Trainer:
                 For fine-grained control on checkpoint saving (e.g. to save different types of checkpoints
                 at different intervals), leave this parameter as ``None``, and instead pass
                 instance(s) of :class:`~.CheckpointSaver` directly as ``callbacks``.
-        save_filename (str, optional): A format string describing how to name checkpoints.
-            This parameter has no effect if ``checkpoint_save_path`` is ``None``.
-            (default: ``"ep{epoch}-ba{batch}-rank{rank}.pt"``)
-
-            .. seealso:: :class:`~.CheckpointSaver`
-        save_artifact_name (str, optional): A format string describing how to name checkpoints in loggers.
-            This parameter has no effect if ``checkpoint_save_path`` is ``None``.
-            (default: ``"{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}"``)
-
-            .. seealso:: :class:`~.CheckpointSaver` and :doc:`Artifact Logging</trainer/artifact_logging>` notes.
-        save_latest_filename (str, optional): A format string for the name of a symlink
-            (relative to ``checkpoint_save_path``) that points to the last saved checkpoint.
-            This parameter has no effect if ``checkpoint_save_path`` is ``None``.
-            To disable symlinking, set this to ``None``. (default: ``"latest-rank{rank}.pt"``)
-
-            .. seealso:: :class:`~.CheckpointSaver`
-        save_latest_artifact_name (str, optional): A format string describing how to name symlinks in loggers.
-            This parameter has no effect if ``checkpoint_save_path``, ``save_latest_filename``, or ``save_artifact_name`` are ``None``.
-            To disable symlinking in logger, set this or ``save_latest_filename`` to ``None``. (default: ``"{run_name}/checkpoints/latest-rank{rank}"``)
-
-            .. seealso:: :class:`~.CheckpointSaver` and :doc:`Artifact Logging</trainer/artifact_logging>` notes.
-        save_overwrite (bool, optional): Whether existing checkpoints should be overridden.
-            This parameter has no effect if ``checkpoint_save_path`` is None. (default: ``False``)
-
-            .. seealso:: :class:`~.CheckpointSaver`
         checkpoint_save_interval (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
             This parameter has no effect if ``checkpoint_save_path`` is ``None``. (default: ``'1ep'``)
-
-            .. seealso:: :class:`~.CheckpointSaver`
-        save_weights_only (bool, optional): Whether to save only the model weights instead of the entire training
-            state. This parameter has no effect if ``checkpoint_save_path`` is ``None``. (default: ``False``)
 
             .. seealso:: :class:`~.CheckpointSaver`
         num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
@@ -654,10 +623,10 @@ class Trainer:
             artifact stores.
         autoresume (bool, optional): Whether or not to enable autoresume, which allows for stopping and resuming
             training. This allows use of spot instances, as the training run is now fault tolerant.  This parameter
-            requires ``checkpoint_save_path`` and ``run_name`` to be specified and ``save_overwrite`` to be ``False``.
+            requires ``checkpoint_save_path`` and ``run_name`` to be specified.
             (default: ``False``)
 
-            When enabled, the checkpoint_save_path is checked for checkpoints of the format ``"{checkpoint_save_path}/{save_latest_filename}"``,
+            When enabled, the checkpoint_save_path is checked for checkpoints of the format ``"{checkpoint_save_path}/{latest_checkpoint_filename}"``,
             which are loaded to continue training. If no local checkpoints are found, each logger is checked for potential
             checkpoints named ``save_latest_artifact_name``. Finally, if no logged checkpoints are found, ``load_path`` is
             used to load a checkpoint if specified. This should only occur at the start of a run using autoresume.
@@ -781,13 +750,7 @@ class Trainer:
 
         # Save Checkpoint
         checkpoint_save_path: Optional[str] = None,
-        save_filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
-        save_artifact_name: str = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
-        save_latest_filename: Optional[str] = 'latest-rank{rank}.pt',
-        save_latest_artifact_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
-        save_overwrite: bool = False,
         checkpoint_save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
-        save_weights_only: bool = False,
         num_checkpoints_to_keep: int = -1,
 
         # Graceful Resumption
@@ -945,21 +908,23 @@ class Trainer:
         # Callbacks
         self.state.callbacks[:] = list(cast(List[Callback], loggers)) + self.state.callbacks
 
+        checkpoint_callbacks = [callback for callback in self.state.callbacks if isinstance(callback, CheckpointSaver)]
         # Checkpoint Saving
+
         self._checkpoint_saver = None
+        # If the user specifies Checkpointing arguments in the Trainer, then create
+        # a _checkpoint_saver callback from their args.
         if checkpoint_save_path is not None:
             self._checkpoint_saver = CheckpointSaver(
                 checkpoint_save_path=checkpoint_save_path,
-                checkpoint_filename=save_filename,
-                artifact_name=save_artifact_name,
-                latest_checkpoint_filename=save_latest_filename,
-                latest_artifact_name=save_latest_artifact_name,
-                overwrite=save_overwrite,
-                weights_only=save_weights_only,
                 checkpoint_save_interval=checkpoint_save_interval,
                 num_checkpoints_to_keep=num_checkpoints_to_keep,
             )
             self.state.callbacks.append(self._checkpoint_saver)
+        # If the user specified a checkpoint callback, then use that as the _checkpoint_saver callback.
+        # TODO(eracah): deal with multiple CheckpointSaver callbacks.
+        elif checkpoint_callbacks:
+            self._checkpoint_saver = checkpoint_callbacks[0]
 
         # The Engine
         self.engine = Engine(state=self.state, logger=self.logger)
@@ -1087,16 +1052,21 @@ class Trainer:
         # If autoresume is enabled, first check for existing checkpoints to load
         if autoresume:
             log.info('Searching for a previous checkpoint to autoresume')
-            if checkpoint_save_path is None:
-                raise ValueError('The `checkpoint_save_path` must be specified when autoresume is enabled.')
-            if save_overwrite:
+            # If user does not use Trainer args or CheckpointSaver callback.
+            if checkpoint_save_path is None and self._checkpoint_saver is None:
                 raise ValueError(
-                    'The flag `save_overwrite` must be False when autoresume is enabled as autoresume always loads the '
-                    'latest existing checkpoint in `checkpoint_save_path`.')
-            if save_latest_filename is None:
+                    'The `checkpoint_save_path` must be specified when autoresume is enabled or a CheckpointSaver callback must be specified.'
+                )
+            assert self._checkpoint_saver is not None  # to get pyright type checks to pass.
+            if self._checkpoint_saver.overwrite_checkpoints:
                 raise ValueError(
-                    'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from.')
-            if save_latest_artifact_name is None:
+                    'The flag `overwrite_checkpoints` must be False when autoresume is enabled as autoresume always loads the '
+                    'latest existing checkpoint in `save_folder`.')
+            if self._checkpoint_saver.latest_checkpoint_filename is None:
+                raise ValueError(
+                    'The `latest_checkpoint_filename` must be specified so autoresume knows where to load checkpoints from.'
+                )
+            if self._checkpoint_saver.latest_artifact_name is None:
                 raise ValueError(
                     'The `save_latest_artifact_name` must be specified so autoresume can load the latest checkpoint.')
             if run_name is None:
@@ -1104,9 +1074,9 @@ class Trainer:
                     'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
                 )
             autoresume_checkpoint_path = self._get_autoresume_checkpoint(
-                checkpoint_save_path=checkpoint_save_path,
-                save_latest_filename=save_latest_filename,
-                save_latest_artifact_name=save_latest_artifact_name,
+                checkpoint_save_path=self._checkpoint_saver.checkpoint_save_path,
+                latest_checkpoint_filename=self._checkpoint_saver.latest_checkpoint_filename,
+                save_latest_artifact_name=self._checkpoint_saver.latest_artifact_name,
                 loggers=loggers,
                 load_progress_bar=load_progress_bar)
             # Found latest checkpoint path, load that instead
@@ -1170,8 +1140,8 @@ class Trainer:
     def _get_autoresume_checkpoint(
         self,
         checkpoint_save_path: str,
-        save_latest_filename: str,
-        save_latest_artifact_name: str,
+        latest_checkpoint_filename: checkpoint.PartialFilePath,
+        save_latest_artifact_name: checkpoint.PartialFilePath,
         loggers: Sequence[LoggerDestination],
         load_progress_bar: bool,
     ):
@@ -1184,10 +1154,8 @@ class Trainer:
         Returns:
             Optional[str]: The path to the latest checkpoint, if found, otherwise None.
         """
-        save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
-        checkpoint_save_path = format_name_with_dist(checkpoint_save_path, self.state.run_name)
-        save_latest_artifact_name = format_name_with_dist(save_latest_artifact_name, self.state.run_name)
-        latest_checkpoint_path = os.path.join(checkpoint_save_path, save_latest_filename)
+        latest_checkpoint_path = latest_checkpoint_filename.format(self.state, self.deepspeed_enabled)
+        latest_artifact_path = save_latest_artifact_name.format(self.state, self.deepspeed_enabled)
 
         # If latest checkpoint is not saved locally, try to fetch from loggers
         if not os.path.exists(latest_checkpoint_path):
@@ -1197,7 +1165,7 @@ class Trainer:
                 try:
                     # Fetch from logger. If it succeeds, stop trying the rest of the loggers
                     get_file(
-                        path=save_latest_artifact_name,
+                        path=latest_artifact_path,
                         destination=latest_checkpoint_path,
                         object_store=logger,
                         overwrite=True,

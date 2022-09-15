@@ -18,6 +18,7 @@ import torch.distributed
 from torch.utils.data import DataLoader
 
 from composer.algorithms import SqueezeExcite
+from composer.callbacks import CheckpointSaver
 from composer.core.callback import Callback
 from composer.core.time import Time, TimeUnit
 from composer.loggers import ObjectStoreLogger
@@ -141,10 +142,19 @@ class TestCheckpointLoading:
         for p1, p2 in zip(m1.parameters(), m2.parameters()):
             torch.testing.assert_close(p1, p2)
 
-    def get_trainer(self, **kwargs):
+    def get_trainer(self, checkpoint_save_path=None, overwrite_checkpoints=None, **kwargs):
         model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
 
+        checkpoint_saver_kwargs = {}
+        if checkpoint_save_path:
+            checkpoint_saver_kwargs.update({'checkpoint_save_path': checkpoint_save_path})
+        if overwrite_checkpoints:
+            checkpoint_saver_kwargs.update({'overwrite_checkpoints': overwrite_checkpoints})
+
+        checkpoint_saver = CheckpointSaver(checkpoint_filename='ep{epoch}.pt',
+                                           checkpoint_save_interval='1ep',
+                                           **checkpoint_saver_kwargs)
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
@@ -158,13 +168,11 @@ class TestCheckpointLoading:
             grad_accum=2,
             precision='fp32',
             train_subset_num_batches=5,
-            checkpoint_save_interval='1ep',
             eval_interval='1ba',
-            save_filename='ep{epoch}.pt',
             max_duration='2ep',
             optimizers=optimizer,
             schedulers=ExponentialScheduler(gamma=0.9),
-            callbacks=[DummyStatefulCallback()],
+            callbacks=[DummyStatefulCallback(), checkpoint_saver],
             **kwargs,
         )
 
@@ -315,8 +323,8 @@ class TestCheckpointLoading:
         assert trainer_1.state.run_name != trainer_2.state.run_name
 
     @device('cpu', 'gpu')
-    @pytest.mark.parametrize('save_overwrite', [True, False])
-    def test_save_overwrite(self, device, save_overwrite):
+    @pytest.mark.parametrize('overwrite_checkpoints', [True, False])
+    def test_overwrite_checkpoints(self, device, overwrite_checkpoints):
 
         trainer_1 = self.get_trainer(
             checkpoint_save_path='first',
@@ -326,25 +334,25 @@ class TestCheckpointLoading:
         trainer_1.close()
 
         ctx = None
-        if save_overwrite:
+        if overwrite_checkpoints:
             ctx = contextlib.nullcontext()
         else:
             ctx = pytest.raises(FileExistsError)
 
-        with ctx:  # expect FileExistsError if save_overwrite=False
+        with ctx:  # expect FileExistsError if overwrite_checkpoints=False
             trainer_2 = self.get_trainer(
                 checkpoint_save_path='first',
-                save_overwrite=save_overwrite,
+                overwrite_checkpoints=overwrite_checkpoints,
                 load_path=os.path.join('first', 'ep1.pt'),
                 device=device,
             )
             trainer_2.fit(duration='1ba')
 
         # loading from the last checkpoint should work regardless
-        # of save_overwrite, as new checkpoints are later in time.
+        # of overwrite_checkpoints, as new checkpoints are later in time.
         trainer_3 = self.get_trainer(
             checkpoint_save_path='first',
-            save_overwrite=save_overwrite,
+            overwrite_checkpoints=overwrite_checkpoints,
             load_path=os.path.join('first', 'ep2.pt'),
             device=device,
         )
@@ -373,10 +381,19 @@ class TestCheckpointLoading:
 
 class TestCheckpointResumption:
 
-    def get_trainer(self, **kwargs):
+    def get_trainer(self, checkpoint_save_interval=None, checkpoint_save_path=None, checkpoint_filename=None, **kwargs):
         model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
 
+        checkpoint_saver_kwargs = {}
+        if checkpoint_filename:
+            checkpoint_saver_kwargs.update({'checkpoint_filename': checkpoint_filename})
+        if checkpoint_save_path:
+            checkpoint_saver_kwargs.update({'checkpoint_save_path': checkpoint_save_path})
+        if checkpoint_save_interval:
+            checkpoint_saver_kwargs.update({'checkpoint_save_interval': checkpoint_save_interval})
+
+        checkpoint_saver = CheckpointSaver(**checkpoint_saver_kwargs)
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
@@ -395,7 +412,7 @@ class TestCheckpointResumption:
             max_duration='2ep',
             optimizers=optimizer,
             schedulers=ExponentialScheduler(gamma=0.9),
-            callbacks=[DummyStatefulCallback()],
+            callbacks=[DummyStatefulCallback(), checkpoint_saver],
             **kwargs,
         )
 
@@ -456,7 +473,7 @@ class TestCheckpointResumption:
 
         trainer_1 = self.get_trainer(
             checkpoint_save_path=os.path.join(checkpoint_save_path, 'first'),
-            save_filename=save_filename,
+            checkpoint_filename=save_filename,
             checkpoint_save_interval=checkpoint_save_interval,
             eval_interval=checkpoint_save_interval,
             deepspeed_config=deepspeed_config,
@@ -483,7 +500,7 @@ class TestCheckpointResumption:
 
         trainer_2 = self.get_trainer(
             checkpoint_save_path=os.path.join(checkpoint_save_path, 'second'),
-            save_filename=save_filename,
+            checkpoint_filename=save_filename,
             checkpoint_save_interval=checkpoint_save_interval,
             eval_interval=checkpoint_save_interval,
             deepspeed_config=deepspeed_config,
@@ -579,17 +596,18 @@ def test_rotate_checkpoints(
     else:
         deepseed_config = None
 
-    trainer = Trainer(
-        model=SimpleConvModel(),
-        train_dataloader=DataLoader(dataset=RandomImageDataset()),
+    checkpoint_saver = CheckpointSaver(
+        checkpoint_filename='checkpoint_{rank}_{batch}.pt',
         checkpoint_save_path=str(checkpoint_save_path),
-        save_filename='checkpoint_{rank}_{batch}.pt',
         checkpoint_save_interval='1ba',
-        max_duration='10ba',
         num_checkpoints_to_keep=num_keep,
-        device=device,
-        deepspeed_config=deepseed_config,
     )
+    trainer = Trainer(model=SimpleConvModel(),
+                      train_dataloader=DataLoader(dataset=RandomImageDataset()),
+                      max_duration='10ba',
+                      device=device,
+                      deepspeed_config=deepseed_config,
+                      callbacks=[checkpoint_saver])
 
     trainer.fit()
 

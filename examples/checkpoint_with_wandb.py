@@ -11,6 +11,7 @@ from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor
 
 from composer import Trainer
+from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.loggers import WandBLogger
 from composer.models.classify_mnist import mnist_model
 
@@ -33,6 +34,7 @@ eval_dataloader = torch.utils.data.DataLoader(
     dataset=MNIST('~/datasets', train=True, download=True, transform=ToTensor()),
     batch_size=2048,
 )
+
 trainer = Trainer(
     model=model,
     max_duration='1ep',
@@ -48,11 +50,15 @@ trainer = Trainer(
 
     # Checkpoint Saving Configuration
     loggers=wandb_logger,  # Log checkpoints via the WandB Logger
-    checkpoint_save_path=
-    '/tmp/checkpoints',  # The trainer requires that checkpoints must be saved locally before being upload
-    checkpoint_save_interval='1ep',
-    save_artifact_name='epoch{epoch}.pt',  # Name checkpoints like epoch1.pt, epoch2.pt, etc...
-    num_checkpoints_to_keep=0,  # Do not keep any checkpoints locally after they have been uploaded to W & B
+    callbacks=[
+        CheckpointSaver(
+            checkpoint_save_path=
+            '/tmp/checkpoints',  # The trainer requires that checkpoints must be saved locally before being upload
+            checkpoint_save_interval='1ep',
+            artifact_name='epoch{epoch}.pt',  # Name checkpoints like epoch1.pt, epoch2.pt, etc...
+            num_checkpoints_to_keep=0,  # Do not keep any checkpoints locally after they have been uploaded to W & B)
+        )
+    ],
 )
 
 # Train!
@@ -85,12 +91,15 @@ trainer = Trainer(
 
     #  (Optional) Checkpoint Saving Configuration to continue to save new checkpoints
     loggers=wandb_logger,  # Log checkpoints via the WandB Logger
-    checkpoint_save_path=
-    '/tmp/checkpoints',  # The trainer requires that checkpoints must be saved locally before being upload
-    checkpoint_save_interval='1ep',
-    save_artifact_name='epoch{epoch}.pt',  # Name checkpoints like epoch1.pt, epoch2.pt, etc...
-    num_checkpoints_to_keep=0,  # Do not keep any checkpoints locally after they have been uploaded to W & B
-)
+    callbacks=[
+        CheckpointSaver(
+            checkpoint_save_path=
+            '/tmp/checkpoints',  # The trainer requires that checkpoints must be saved locally before being upload
+            checkpoint_save_interval='1ep',
+            artifact_name='epoch{epoch}.pt',  # Name checkpoints like epoch1.pt, epoch2.pt, etc...
+            num_checkpoints_to_keep=0,  # Do not keep any checkpoints locally after they have been uploaded to W & B
+        )
+    ])
 
 # Verify that we loaded the checkpoint. This should print 1ep, since we already trained for 1 epoch.
 print(f'\nResuming training at epoch {trainer.state.timestamp.epoch}\n')

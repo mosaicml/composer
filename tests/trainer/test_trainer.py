@@ -19,6 +19,7 @@ from composer import Callback, Evaluator, Trainer
 from composer.algorithms import CutOut, LabelSmoothing
 from composer.algorithms.gradient_clipping.gradient_clipping import GradientClipping
 from composer.callbacks import LRMonitor
+from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.state import State
@@ -819,12 +820,14 @@ class TestTrainerEquivalence():
         config = copy.deepcopy(config)  # ensure the reference model is not passed to tests
 
         checkpoint_save_path = tmp_path_factory.mktemp('{device}-{precision}'.format(**config))
-        config.update({
+        checkpoint_saver_kwargs = {
             'checkpoint_save_interval': '1ep',
             'checkpoint_save_path': str(checkpoint_save_path),
-            'save_filename': 'ep{epoch}.pt'
-        })
+            'checkpoint_filename': 'ep{epoch}.pt'
+        }
+        checkpoint_saver = CheckpointSaver(**checkpoint_saver_kwargs)
 
+        config.update({'callbacks': [checkpoint_saver]})
         trainer = Trainer(**config)
         trainer.fit()
 
