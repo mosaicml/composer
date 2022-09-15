@@ -24,6 +24,7 @@ from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.datasets.utils import NormalizationFn, pil_image_collate
 from composer.utils import dist
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['ADE20kDatasetHparams', 'StreamingADE20kHparams']
 
@@ -151,8 +152,9 @@ class StreamingADE20kHparams(DatasetHparams):
     """DatasetHparams for creating an instance of StreamingADE20k.
 
     Args:
+        version (int): Which version of streaming to use. Default: ``2``.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-            Default: ``'s3://mosaicml-internal-dataset-ade20k/mds/1/```
+            Default: ``'s3://mosaicml-internal-dataset-ade20k/mds/2/```
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-ade20k/```
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
@@ -164,8 +166,9 @@ class StreamingADE20kHparams(DatasetHparams):
             Default: ``true``.
     """
 
+    version: int = hp.optional('Version of streaming (1 or 2)', default=2)
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
-                              default='s3://mosaicml-internal-dataset-ade20k/mds/1/')
+                              default='s3://mosaicml-internal-dataset-ade20k/mds/2/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
                              default='/tmp/mds-cache/mds-ade20k/')
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')
@@ -176,15 +179,61 @@ class StreamingADE20kHparams(DatasetHparams):
     ignore_background: bool = hp.optional('If true, ignore the background class in training loss', default=True)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
-        dataset = StreamingADE20k(remote=self.remote,
-                                  local=self.local,
-                                  split=self.split,
-                                  shuffle=self.shuffle,
-                                  base_size=self.base_size,
-                                  min_resize_scale=self.min_resize_scale,
-                                  max_resize_scale=self.max_resize_scale,
-                                  final_size=self.final_size,
-                                  batch_size=batch_size)
+        if self.version == 1:
+            dataset = StreamingADE20k(remote=self.remote,
+                                      local=self.local,
+                                      split=self.split,
+                                      shuffle=self.shuffle,
+                                      base_size=self.base_size,
+                                      min_resize_scale=self.min_resize_scale,
+                                      max_resize_scale=self.max_resize_scale,
+                                      final_size=self.final_size,
+                                      batch_size=batch_size)
+        elif self.version == 2:
+            try:
+                from streaming.vision import ADE20K
+            except ImportError as e:
+                raise MissingConditionalImportError(extra_deps_group='streaming',
+                                                    conda_package='mosaicml-streaming') from e
+            # Define data transformations based on data split
+            if self.split == 'train':
+                both_transforms = torch.nn.Sequential(
+                    RandomResizePair(min_scale=self.min_resize_scale,
+                                     max_scale=self.max_resize_scale,
+                                     base_size=(self.base_size, self.base_size)),
+                    RandomCropPair(
+                        crop_size=(self.final_size, self.final_size),
+                        class_max_percent=0.75,
+                        num_retry=10,
+                    ),
+                    RandomHFlipPair(),
+                )
+
+                # Photometric distoration values come from mmsegmentation:
+                # https://github.com/open-mmlab/mmsegmentation/blob/aa50358c71fe9c4cccdd2abe42433bdf702e757b/mmseg/datasets/pipelines/transforms.py#L861
+                r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
+                image_transforms = torch.nn.Sequential(
+                    PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
+                    PadToSize(size=(self.final_size, self.final_size), fill=(int(r_mean), int(g_mean), int(b_mean))))
+
+                target_transforms = PadToSize(size=(self.final_size, self.final_size), fill=0)
+            else:
+                both_transforms = None
+                image_transforms = transforms.Resize(size=(self.final_size, self.final_size),
+                                                     interpolation=TF.InterpolationMode.BILINEAR)
+                target_transforms = transforms.Resize(size=(self.final_size, self.final_size),
+                                                      interpolation=TF.InterpolationMode.NEAREST)
+
+            dataset = ADE20K(local=self.local,
+                             remote=self.remote,
+                             split=self.split,
+                             shuffle=self.shuffle,
+                             both_transforms=both_transforms,
+                             transform=image_transforms,
+                             target_transform=target_transforms,
+                             batch_size=batch_size)
+        else:
+            raise ValueError(f'Invalid streaming version: {self.version}')
         collate_fn = pil_image_collate
         device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
                                               std=IMAGENET_CHANNEL_STD,
