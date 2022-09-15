@@ -42,7 +42,7 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
     last_batch_seen = -1
 
     def should_eval(state: State, event: Event):
-        # `TimeUnit.Duration` value is a floating value and ranges from `[0.0, 1.0)`
+        # `TimeUnit.Duration` value is a float from `[0.0, 1.0)`
         if not eval_interval.unit == TimeUnit.DURATION and int(eval_interval) <= 0:
             return False
         nonlocal last_batch_seen  # required to use the last_batch_seen from the outer function scope
@@ -62,9 +62,7 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
             return True
 
         if eval_interval.unit == TimeUnit.DURATION:
-            if state.max_duration is None:
-                raise ValueError(f'`max_duration` is a required argument and must be specified when constructing the '
-                                 f'`Trainer()` or `duration` when calling `Trainer.fit()`')
+            assert state.max_duration is not None, 'max_duration should not be None'
             if state.dataloader_len is None:
                 raise RuntimeError(
                     f'Evaluation interval of type `dur` or {TimeUnit.DURATION} requires the dataloader to be sized.')
