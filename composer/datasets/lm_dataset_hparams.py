@@ -5,7 +5,7 @@
 
 import logging
 from dataclasses import dataclass
-from typing import List, Optional, cast, Union
+from typing import List, Optional, cast
 
 import yahp as hp
 from torch.utils.data import DataLoader, Dataset
@@ -66,11 +66,11 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
     def validate(self):
         try:
-            import datasets
-            import transformers
+            import datasets  # type: ignore
+            import transformers  # type: ignore
         except ImportError as e:
             raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
-    
+
         if not self.use_synthetic:
             if self.datadir is None:
                 raise ValueError('A data directory must be specified.')
@@ -102,30 +102,28 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             return build_synthetic_lm_dataloader(
                 synthetic_num_unique_samples=self.synthetic_num_unique_samples,
                 dataloader_hparams=dataloader_hparams,
-                tokenizer_name=self.tokenizer_name, # type: ignore
+                tokenizer_name=self.tokenizer_name,  # type: ignore
                 batch_size=batch_size,
-                split=self.split, # type: ignore
+                split=self.split,  # type: ignore
                 shuffle=self.shuffle,
                 drop_last=self.drop_last,
                 use_masked_lm=self.use_masked_lm,
                 num_tokens=self.num_tokens,
                 mlm_probability=self.mlm_probability,
-                subsample_ratio=self.subsample_ratio
-            )
+                subsample_ratio=self.subsample_ratio)
         else:
             return build_lm_dataloader(
                 datadir=self.datadir,
                 dataloader_hparams=dataloader_hparams,
-                tokenizer_name=self.tokenizer_name, # type: ignore
+                tokenizer_name=self.tokenizer_name,  # type: ignore
                 batch_size=batch_size,
-                split=self.split, # type: ignore
+                split=self.split,  # type: ignore
                 shuffle=self.shuffle,
                 drop_last=self.drop_last,
                 use_masked_lm=self.use_masked_lm,
                 num_tokens=self.num_tokens,
                 mlm_probability=self.mlm_probability,
-                subsample_ratio=self.subsample_ratio                
-            )
+                subsample_ratio=self.subsample_ratio)
 
 
 def build_lm_dataloader(
@@ -207,11 +205,10 @@ def build_lm_dataloader(
 
     # for some tokenizers, e.g. GPT-2, they don't have padding tokens. Hence, we cannot use the LM collator.
     if tokenizer.pad_token_id is None:
-        data_collator = transformers.default_data_collator
+        data_collator = transformers.default_data_collator  # type: ignore
     else:
-        data_collator = transformers.DataCollatorForLanguageModeling(tokenizer=tokenizer,
-                                                                        mlm=use_masked_lm,
-                                                                        mlm_probability=mlm_probability)
+        data_collator = transformers.DataCollatorForLanguageModeling(  # type: ignore
+            tokenizer=tokenizer, mlm=use_masked_lm, mlm_probability=mlm_probability)
 
     sampler = dist.get_sampler(
         cast(Dataset, dataset),  # HF datasets do not subclass torch datasets, so this cast is needed
@@ -268,13 +265,13 @@ def build_synthetic_lm_dataloader(
     """
 
     assert tokenizer_name is not None
-    
+
     column_names = ['text']
 
     # we just use the max sequence length in tokens to upper bound the sequence length in characters
     lm_datasets = synthetic_hf_dataset_builder(num_samples=synthetic_num_unique_samples,
-                                                chars_per_sample=max_seq_length,
-                                                column_names=column_names)
+                                               chars_per_sample=max_seq_length,
+                                               column_names=column_names)
 
     tokenizer = generate_synthetic_tokenizer(tokenizer_family=tokenizer_name, dataset=lm_datasets)
 
@@ -328,11 +325,10 @@ def build_synthetic_lm_dataloader(
 
     # for some tokenizers, e.g. GPT-2, they don't have padding tokens. Hence, we cannot use the LM collator.
     if tokenizer.pad_token_id is None:
-        data_collator = transformers.default_data_collator
+        data_collator = transformers.default_data_collator  # type: ignore
     else:
-        data_collator = transformers.DataCollatorForLanguageModeling(tokenizer=tokenizer,
-                                                                        mlm=use_masked_lm,
-                                                                        mlm_probability=mlm_probability)
+        data_collator = transformers.DataCollatorForLanguageModeling(  # type: ignore
+            tokenizer=tokenizer, mlm=use_masked_lm, mlm_probability=mlm_probability)
 
     sampler = dist.get_sampler(
         cast(Dataset, dataset),  # HF datasets do not subclass torch datasets, so this cast is needed

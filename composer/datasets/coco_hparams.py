@@ -39,13 +39,14 @@ class COCODatasetHparams(DatasetHparams):
 
         self.validate()
 
-        return build_coco_detection_dataloader(batch_size=batch_size,
-                                               datadir=self.datadir,
-                                               split=self.split,
-                                               drop_last=self.drop_last,
-                                               shuffle=self.shuffle,
-                                               input_size=self.input_size,
-                                               **asdict(dataloader_hparams))
+        return build_coco_detection_dataloader(
+            batch_size=batch_size,
+            datadir=self.datadir,  #type: ignore
+            split=self.split,
+            drop_last=self.drop_last,
+            shuffle=self.shuffle,
+            input_size=self.input_size,
+            **asdict(dataloader_hparams))
 
 
 @dataclass
