@@ -85,7 +85,7 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
                         last_batch_seen = state.timestamp.batch
                         return True
             elif state.max_duration.unit == TimeUnit.TOKEN and event == Event.BATCH_END:
-                raise ValueError(f'Evaluation interval of type `dur` is not support yet for max_duration as `tok`')
+                raise ValueError(f'Evaluation interval of type `dur` is not supported yet for max_duration as `tok`')
         return False
 
     return should_eval
