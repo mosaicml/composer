@@ -10,6 +10,7 @@ from typing import List, Optional, cast
 import yahp as hp
 from torch.utils.data import DataLoader, Dataset
 
+from composer.core.data_spec import DataSpec
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
@@ -133,6 +134,7 @@ def build_lm_dataloader(
     num_tokens: int = 0,
     mlm_probability: float = 0.15,
     subsample_ratio: float = 1.0,
+    **dataloader_kwargs,
 ):
     """Builds a dataloader for a generic language modeling dataset.
 
@@ -155,6 +157,7 @@ def build_lm_dataloader(
             probability with which tokens will be masked. Default: ``0.15``.
         subsample_ratio (float, optional): Proportion of the dataset to use. Default:
             ``1.0``.
+        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
 
     try:
@@ -216,17 +219,17 @@ def build_lm_dataloader(
         drop_last=drop_last,
         shuffle=shuffle)
 
-    return dataloader_hparams.initialize_object(
+    return DataSpec(dataloader=DataLoader(
         dataset=dataset,  # type: ignore
         batch_size=batch_size,
         sampler=sampler,
         drop_last=drop_last,
-        collate_fn=data_collator)
+        collate_fn=data_collator,
+        **dataloader_kwargs))
 
 
 def build_synthetic_lm_dataloader(
     synthetic_num_unique_samples: int,
-    dataloader_hparams: DataLoaderHparams,
     tokenizer_name: str,
     batch_size: int,
     *,
@@ -238,13 +241,12 @@ def build_synthetic_lm_dataloader(
     mlm_probability: float = 0.15,
     subsample_ratio: float = 1.0,
     max_seq_length: int = 1024,
+    **dataloader_kwargs,
 ):
     """Builds a synthetic dataloader for a generic language modeling dataset.
 
     Args:
         synthetic_num_unique_samples (int): Number of unique synthetic samples to generate.
-        dataloader_hparams (DataLoaderHparams): DataLoaderHparams object.
-            Datasets directory.
         tokenizer_name (str): The name of the HuggingFace tokenizer to
             preprocess text with. See `HuggingFace documentation
             <https://huggingface.co/models>`_.
@@ -263,6 +265,7 @@ def build_synthetic_lm_dataloader(
             ``1.0``.
         max_seq_length (int, optional): Maximum sequence length for datasets.
             Default: ``1024``.
+        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
 
     try:
@@ -287,7 +290,7 @@ def build_synthetic_lm_dataloader(
         lambda inp: tokenizer(
             text=inp[column_names[0]], padding='max_length', max_length=max_seq_length, truncation=True),
         batched=True,
-        num_proc=None if dataloader_hparams.num_workers == 0 else dataloader_hparams.num_workers,
+        num_proc=None if num_workers == 0 else num_workers,  # type: ignore
         remove_columns=columns_to_remove,
         keep_in_memory=True)
 
@@ -343,9 +346,10 @@ def build_synthetic_lm_dataloader(
         drop_last=drop_last,
         shuffle=shuffle)
 
-    return dataloader_hparams.initialize_object(
+    return DataSpec(dataloader=DataLoader(
         dataset=dataset,  # type: ignore
         batch_size=batch_size,
         sampler=sampler,
         drop_last=drop_last,
-        collate_fn=data_collator)
+        collate_fn=data_collator,
+        **dataloader_kwargs))
