@@ -12,6 +12,7 @@ import logging
 import os
 import random
 import re
+from subprocess import call
 import time
 import warnings
 from copy import deepcopy
@@ -908,8 +909,12 @@ class Trainer:
         # Callbacks
         self.state.callbacks[:] = list(cast(List[Callback], loggers)) + self.state.callbacks
 
+        checkpoint_callbacks = [callback for callback in self.state.callbacks if isinstance(callback, CheckpointSaver)]
         # Checkpoint Saving
+
         self._checkpoint_saver = None
+        # If the user specifies Checkpointing arguments in the Trainer, then create
+        # a _checkpoint_saver callback from their args.
         if checkpoint_save_path is not None:
             self._checkpoint_saver = CheckpointSaver(
                 checkpoint_save_path=checkpoint_save_path,
@@ -917,6 +922,11 @@ class Trainer:
                 num_checkpoints_to_keep=num_checkpoints_to_keep,
             )
             self.state.callbacks.append(self._checkpoint_saver)
+        # If the user specified a checkpoint callback, then use that as the _checkpoint_saver callback.
+        # TODO(eracah): deal with multiple CheckpointSaver callbacks.
+        elif checkpoint_callbacks:
+            self._checkpoint_saver = checkpoint_callbacks[0]
+
 
         # The Engine
         self.engine = Engine(state=self.state, logger=self.logger)
@@ -1044,16 +1054,17 @@ class Trainer:
         # If autoresume is enabled, first check for existing checkpoints to load
         if autoresume:
             log.info('Searching for a previous checkpoint to autoresume')
-            if checkpoint_save_path is None:
-                raise ValueError('The `checkpoint_save_path` must be specified when autoresume is enabled.')
+            # If user does not use Trainer args or CheckpointSaver callback.
+            if checkpoint_save_path is None and self._checkpoint_saver is None:
+                raise ValueError('The `checkpoint_save_path` must be specified when autoresume is enabled or a CheckpointSaver callback must be specified.')
             if run_name is None:
                 raise ValueError(
                     'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
                 )
             autoresume_checkpoint_path = self._get_autoresume_checkpoint(
-                checkpoint_save_path=checkpoint_save_path,
+                checkpoint_save_path=self._checkpoint_saver.checkpoint_save_path,
                 latest_checkpoint_filename=self._checkpoint_saver.latest_checkpoint_filename,
-                save_latest_artifact_name=self._checkpoint_saver.save_latest_artifact_name,
+                save_latest_artifact_name=self._checkpoint_saver.latest_artifact_name,
                 loggers=loggers,
                 load_progress_bar=load_progress_bar)
             # Found latest checkpoint path, load that instead
@@ -1117,8 +1128,8 @@ class Trainer:
     def _get_autoresume_checkpoint(
         self,
         checkpoint_save_path: str,
-        latest_checkpoint_filename: str,
-        save_latest_artifact_name: str,
+        latest_checkpoint_filename: checkpoint.PartialFilePath,
+        save_latest_artifact_name: checkpoint.PartialFilePath,
         loggers: Sequence[LoggerDestination],
         load_progress_bar: bool,
     ):
@@ -1131,10 +1142,8 @@ class Trainer:
         Returns:
             Optional[str]: The path to the latest checkpoint, if found, otherwise None.
         """
-        latest_checkpoint_filename = format_name_with_dist(latest_checkpoint_filename, self.state.run_name)
-        checkpoint_save_path = format_name_with_dist(checkpoint_save_path, self.state.run_name)
-        save_latest_artifact_name = format_name_with_dist(save_latest_artifact_name, self.state.run_name)
-        latest_checkpoint_path = os.path.join(checkpoint_save_path, latest_checkpoint_filename)
+        latest_checkpoint_path = latest_checkpoint_filename.format(self.state, self.deepspeed_enabled)
+        save_latest_artifact_name = save_latest_artifact_name.format(self.state, self.deepspeed_enabled)
 
         # If latest checkpoint is not saved locally, try to fetch from loggers
         if not os.path.exists(latest_checkpoint_path):
