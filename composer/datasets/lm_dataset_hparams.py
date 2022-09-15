@@ -65,12 +65,6 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         default=1024, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
 
     def validate(self):
-        try:
-            import datasets  # type: ignore
-            import transformers  # type: ignore
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
-
         if not self.use_synthetic:
             if self.datadir is None:
                 raise ValueError('A data directory must be specified.')
@@ -162,6 +156,12 @@ def build_lm_dataloader(
         subsample_ratio (float, optional): Proportion of the dataset to use. Default:
             ``1.0``.
     """
+
+    try:
+        import datasets  # type: ignore
+        import transformers  # type: ignore
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
     assert tokenizer_name is not None
 
@@ -263,6 +263,12 @@ def build_synthetic_lm_dataloader(
         max_seq_length (int, optional): Maximum sequence length for datasets.
             Default: ``1024``.
     """
+
+    try:
+        import datasets  # type: ignore
+        import transformers  # type: ignore
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
     assert tokenizer_name is not None
 
