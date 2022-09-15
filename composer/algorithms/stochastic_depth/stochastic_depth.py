@@ -162,9 +162,16 @@ class StochasticDepth(Algorithm):
                                      drop_distribution=self.drop_distribution,
                                      drop_warmup=str(self.drop_warmup))
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(target_layer_name='{self.target_layer_name}',stochastic_method='{self.stochastic_method}',drop_rate={self.drop_rate},drop_distribution='{self.drop_distribution}',drop_warmup={repr(self.drop_warmup)})"
+
     @property
     def find_unused_parameters(self) -> bool:
         return self.stochastic_method == 'block'
+
+    @staticmethod
+    def required_on_load() -> bool:
+        return True
 
     def match(self, event: Event, state: State) -> bool:
         return (event == Event.INIT) or (event == Event.BATCH_START and self.drop_warmup > 0.0)

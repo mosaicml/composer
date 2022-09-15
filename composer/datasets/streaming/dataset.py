@@ -149,8 +149,9 @@ class StreamingDataset(IterableDataset):
                     self.compression_scheme = compression_scheme if compression_scheme != '' else None
                     if remote == local and self.compression_scheme is not None:
                         raise DatasetCompressionException('cannot decompress when remote == local')
-
-            except FileNotFoundError:
+            except DatasetCompressionException:
+                raise
+            except:
                 compression_local = os.path.join(self.local, get_compression_scheme_basename() + '.old')
                 with open(compression_local, 'x') as fp:
                     fp.write('')

@@ -164,6 +164,14 @@ class GatedLinearUnits(Algorithm):
         self.gated_layer_bias = gated_layer_bias
         self.non_gated_layer_bias = non_gated_layer_bias
 
+    def __repr__(self) -> str:
+        act_fn = 'act_fn' if self.act_fn else None
+        return f'{self.__class__.__name__}(act_fn={act_fn},gated_layer_bias={self.gated_layer_bias},non_gated_layer_bias={self.non_gated_layer_bias})'
+
+    @staticmethod
+    def required_on_load() -> bool:
+        return True
+
     def match(self, event: Event, state: State) -> bool:
         del state  # unused
         return event == Event.INIT
