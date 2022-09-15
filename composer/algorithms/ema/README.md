@@ -75,17 +75,17 @@ EMA also uses a bit of extra compute to calculate the moving average. This can l
 
 The Composer Trainer implementation of EMA has several hyperparameters:
 
-- `half_life` - The half life for terms in the average. A longer half life means old information is remembered longer, a shorter half life means old information is discared sooner.
+- `half_life` - The half life for terms in the average. A longer half life means old information is remembered longer, a shorter half life means old information is discared sooner. Defaults to `'1000ba'`
 - `update_interval` - The period at which updates to the moving average are computed. A longer update interval means that updates are computed less frequently. If left unspecified, this defaults to `1` in the units of `half_life`, or `1ba` if using `smoothing`.
 - `ema_start` -  The amount of training completed before SWA is applied. The default value is `'0.0dur'` which starts EMA at the start of training.
 
-A good typical starting value for `half_life` is `half_life="100ba"`, for a half life of 100 batches. At the same time, `update_interval` can be left unspecified which will default to `update_interval="1ba"`, or set to a larger value such as `update_interval="10ba"` to improve runtime. Shorter update intervals typically result in better generalization performance at the cost of somewhat increased runtime.
+A good typical starting value for `half_life` is `half_life="1000ba"`, for a half life of 1000 batches. At the same time, `update_interval` can be left unspecified which will default to `update_interval="1ba"`, or set to a larger value such as `update_interval="10ba"` to improve runtime. Shorter update intervals typically result in better generalization performance at the cost of somewhat increased runtime.
 
 For compatibility with other implementations, there is also an option to specify the value of `smoothing` directly.
 
 - `smoothing` - The coefficient representing the degree to which older observations are kept. The default (unspecified) value is `None`. Should only be used if `half_life` is not used.
 
-To use this, `half_life` should be left unspecified or set to `half_life=None`, and the value of smoothing given instead. This value is not modified when `update_interval` is changed, and so changes to `update_interval` when using `smoothing` will result in changes to the time scale of the average.
+To use this, `half_life` should be set to `half_life=None`, and the value of smoothing given instead. This value is not modified when `update_interval` is changed, and so changes to `update_interval` when using `smoothing` will result in changes to the time scale of the average.
 
 
 ## Technical Details

@@ -56,12 +56,12 @@ def test_ema_algorithm(params, minimal_state, empty_logger):
 
     # Initialize input tensor
     input = torch.rand((32, 5))
-    if 'half_life' in params:
+    if 'smoothing' in params:
+        smoothing, update_interval = params['smoothing'], params['update_interval']
+        algorithm = EMA(half_life=None, smoothing=smoothing, update_interval=update_interval)
+    else:
         half_life, update_interval = params['half_life'], params['update_interval']
         algorithm = EMA(half_life=half_life, update_interval=update_interval)
-    else:
-        smoothing, update_interval = params['smoothing'], params['update_interval']
-        algorithm = EMA(smoothing=smoothing, update_interval=update_interval)
     state = minimal_state
     state.model = SimpleConvModel()
     state.batch = (input, torch.Tensor())

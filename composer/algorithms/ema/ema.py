@@ -88,24 +88,26 @@ class EMA(Algorithm):
         half_life (str, optional): The time string specifying the half life for terms in the average. A longer half
             life means old information is remembered longer, a shorter half life means old information is discared
             sooner. A half life of ``0`` means no averaging is done, an infinite half life means no update is done.
-            Currently only units of epoch ('ep') and batch ('ba'). Value must be an integer. Cannot be used if
-            ``smoothing`` is also specified. Default: ``"None"``.
+            Currently only units of epoch ('ep') and batch ('ba'). Time must be an integer value in the units
+            specified. Cannot be used if ``smoothing`` is also specified. Default: ``"1000ba"``.
         smoothing (float, optional): The coefficient representing the degree to which older observations are kept.
             Must be in the interval :math:`(0, 1)`. Cannot be used if ``half_life`` also specified. This value will
             not be adjusted if ``update_interval`` is changed. Default: ``None``.
         ema_start (str, optional): The time string denoting the amount of training completed before EMA begins.
-            Currently only units of duration ('dur') and epoch ('ep') are supported. Default: ``'0.0dur'``.
+            Currently only units of duration ('dur'), batch ('ba') and epoch ('ep') are supported.
+            Default: ``'0.0dur'``.
         update_interval (str, optional): The time string specifying the period at which updates are done. For example,
             an ``update_interval='1ep'`` means updates are done every epoch, while ``update_interval='10ba'`` means
             updates are done once every ten batches. Units must match the units used to specify ``half_life`` if not
             using ``smoothing``. If not specified, ``update_interval`` will default to ``1`` in the units of
-            ``half_life``, or ``"1ba"`` if ``smoothing`` is specified. Value must be an integer. Default: ``None``.
+            ``half_life``, or ``"1ba"`` if ``smoothing`` is specified. Time must be an integer value in the units
+            specified. Default: ``None``.
 
     Example:
         .. testcode::
 
             from composer.algorithms import EMA
-            algorithm = EMA(half_life='50ba', update_interval='1ba')
+            algorithm = EMA(half_life='1000ba', update_interval='1ba')
             trainer = Trainer(
                 model=model,
                 train_dataloader=train_dataloader,
@@ -117,7 +119,7 @@ class EMA(Algorithm):
     """
 
     def __init__(self,
-                 half_life: Optional[str] = None,
+                 half_life: Optional[str] = '1000ba',
                  smoothing: Optional[float] = None,
                  ema_start: str = '0.0dur',
                  update_interval: Optional[str] = None):
