@@ -3,13 +3,13 @@
 
 import contextlib
 import copy
-from distutils.command import check
 import os
 import pathlib
 import shutil
 import tarfile
 import tempfile
 import time
+from distutils.command import check
 from glob import glob
 from typing import Any, Dict, List, Optional, Union
 
@@ -153,11 +153,9 @@ class TestCheckpointLoading:
         if overwrite_checkpoints:
             checkpoint_saver_kwargs.update({'overwrite_checkpoints': overwrite_checkpoints})
 
-        checkpoint_saver = CheckpointSaver(
-            checkpoint_filename='ep{epoch}.pt',
-            checkpoint_save_interval='1ep',
-            **checkpoint_saver_kwargs
-            )
+        checkpoint_saver = CheckpointSaver(checkpoint_filename='ep{epoch}.pt',
+                                           checkpoint_save_interval='1ep',
+                                           **checkpoint_saver_kwargs)
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
@@ -177,7 +175,7 @@ class TestCheckpointLoading:
             schedulers=ExponentialScheduler(gamma=0.9),
             callbacks=[DummyStatefulCallback(), checkpoint_saver],
             **kwargs,
-        ) 
+        )
 
     def get_logger(self, tmp_path: pathlib.Path):
         """Returns an object store logger that saves locally."""
@@ -388,8 +386,6 @@ class TestCheckpointResumption:
         model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
 
-   
-
         checkpoint_saver_kwargs = {}
         if checkpoint_filename:
             checkpoint_saver_kwargs.update({'checkpoint_filename': checkpoint_filename})
@@ -398,9 +394,7 @@ class TestCheckpointResumption:
         if checkpoint_save_interval:
             checkpoint_saver_kwargs.update({'checkpoint_save_interval': checkpoint_save_interval})
 
-        checkpoint_saver = CheckpointSaver(
-            **checkpoint_saver_kwargs
-            )
+        checkpoint_saver = CheckpointSaver(**checkpoint_saver_kwargs)
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
@@ -608,15 +602,13 @@ def test_rotate_checkpoints(
         checkpoint_save_path=str(checkpoint_save_path),
         checkpoint_save_interval='1ba',
         num_checkpoints_to_keep=num_keep,
-        )
-    trainer = Trainer(
-        model=SimpleConvModel(),
-        train_dataloader=DataLoader(dataset=RandomImageDataset()),
-        max_duration='10ba',
-        device=device,
-        deepspeed_config=deepseed_config,
-        callbacks=[checkpoint_saver]
     )
+    trainer = Trainer(model=SimpleConvModel(),
+                      train_dataloader=DataLoader(dataset=RandomImageDataset()),
+                      max_duration='10ba',
+                      device=device,
+                      deepspeed_config=deepseed_config,
+                      callbacks=[checkpoint_saver])
 
     trainer.fit()
 

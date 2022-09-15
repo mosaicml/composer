@@ -12,10 +12,10 @@ import logging
 import os
 import random
 import re
-from subprocess import call
 import time
 import warnings
 from copy import deepcopy
+from subprocess import call
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
 
 import coolname
@@ -927,7 +927,6 @@ class Trainer:
         elif checkpoint_callbacks:
             self._checkpoint_saver = checkpoint_callbacks[0]
 
-
         # The Engine
         self.engine = Engine(state=self.state, logger=self.logger)
 
@@ -1056,7 +1055,9 @@ class Trainer:
             log.info('Searching for a previous checkpoint to autoresume')
             # If user does not use Trainer args or CheckpointSaver callback.
             if checkpoint_save_path is None and self._checkpoint_saver is None:
-                raise ValueError('The `checkpoint_save_path` must be specified when autoresume is enabled or a CheckpointSaver callback must be specified.')
+                raise ValueError(
+                    'The `checkpoint_save_path` must be specified when autoresume is enabled or a CheckpointSaver callback must be specified.'
+                )
             if run_name is None:
                 raise ValueError(
                     'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
