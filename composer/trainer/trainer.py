@@ -15,7 +15,6 @@ import re
 import time
 import warnings
 from copy import deepcopy
-from subprocess import call
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
 
 import coolname
@@ -45,8 +44,8 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
-from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed,
-                            map_collection, model_eval_mode, reproducibility)
+from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, is_model_deepspeed, map_collection,
+                            model_eval_mode, reproducibility)
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.inference import ExportFormat, Transform, export_with_logger
@@ -1058,6 +1057,18 @@ class Trainer:
                 raise ValueError(
                     'The `checkpoint_save_path` must be specified when autoresume is enabled or a CheckpointSaver callback must be specified.'
                 )
+            assert self._checkpoint_saver is not None  # to get pyright type checks to pass.
+            if self._checkpoint_saver.overwrite_checkpoints:
+                raise ValueError(
+                    'The flag `overwrite_checkpoints` must be False when autoresume is enabled as autoresume always loads the '
+                    'latest existing checkpoint in `save_folder`.')
+            if self._checkpoint_saver.latest_checkpoint_filename is None:
+                raise ValueError(
+                    'The `latest_checkpoint_filename` must be specified so autoresume knows where to load checkpoints from.'
+                )
+            if self._checkpoint_saver.latest_artifact_name is None:
+                raise ValueError(
+                    'The `save_latest_artifact_name` must be specified so autoresume can load the latest checkpoint.')
             if run_name is None:
                 raise ValueError(
                     'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
@@ -1144,7 +1155,7 @@ class Trainer:
             Optional[str]: The path to the latest checkpoint, if found, otherwise None.
         """
         latest_checkpoint_path = latest_checkpoint_filename.format(self.state, self.deepspeed_enabled)
-        save_latest_artifact_name = save_latest_artifact_name.format(self.state, self.deepspeed_enabled)
+        latest_artifact_path = save_latest_artifact_name.format(self.state, self.deepspeed_enabled)
 
         # If latest checkpoint is not saved locally, try to fetch from loggers
         if not os.path.exists(latest_checkpoint_path):
@@ -1154,7 +1165,7 @@ class Trainer:
                 try:
                     # Fetch from logger. If it succeeds, stop trying the rest of the loggers
                     get_file(
-                        path=save_latest_artifact_name,
+                        path=latest_artifact_path,
                         destination=latest_checkpoint_path,
                         object_store=logger,
                         overwrite=True,

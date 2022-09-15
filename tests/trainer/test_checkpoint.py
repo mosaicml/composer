@@ -9,7 +9,6 @@ import shutil
 import tarfile
 import tempfile
 import time
-from distutils.command import check
 from glob import glob
 from typing import Any, Dict, List, Optional, Union
 
@@ -19,7 +18,7 @@ import torch.distributed
 from torch.utils.data import DataLoader
 
 from composer.algorithms import SqueezeExcite
-from composer.callbacks import CheckpointSaver, checkpoint_saver
+from composer.callbacks import CheckpointSaver
 from composer.core.callback import Callback
 from composer.core.time import Time, TimeUnit
 from composer.loggers import ObjectStoreLogger

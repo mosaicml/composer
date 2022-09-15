@@ -47,6 +47,7 @@ import yaml
 from nlp_trainer_hparams import GLUETrainerHparams, NLPTrainerHparams
 from tabulate import tabulate
 
+from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.core.data_spec import DataSpec
 from composer.core.time import Time, Timestamp, TimeUnit
 from composer.loggers.object_store_logger import ObjectStoreLogger
@@ -284,7 +285,6 @@ def train_finetune(
         torch.cuda.current_device())  # set device manually to force finetuning to happen on one GPU
     ft_hparams.log_to_console = False
     ft_hparams.progress_bar = False
-    ft_hparams.save_overwrite = True
 
     if load_ignore_keys is not None:
         if ft_hparams.load_ignore_keys:
@@ -309,16 +309,18 @@ def train_finetune(
 
     # saving single checkpoint at the end of training the task
     if save_ckpt:
+        checkpoint_save_path = f'{checkpoint_save_path}/{task}-{parent_idx:03d}'
         # add task specific artifact logging information
-        ft_hparams.checkpoint_save_path = f'{checkpoint_save_path}/{task}-{parent_idx:03d}'
-        save_artifact_name = f'{checkpoint_save_path}/{task}-{parent_idx:03d}/ep{{epoch}}-ba{{batch}}-rank{{rank}}'  # ignored if not uploading
-        save_latest_artifact_name = f'{checkpoint_save_path}/{task}-{parent_idx:03d}/latest-rank{{rank}}'
-        ft_hparams.save_artifact_name = save_artifact_name
-        ft_hparams.save_latest_artifact_name = save_latest_artifact_name
-
+        checkpoint_saver = CheckpointSaver(
+            overwrite_checkpoints=True,
+            checkpoint_save_path=checkpoint_save_path,
+            artifact_name=
+            f'{checkpoint_save_path}/{task}-{parent_idx:03d}/ep{{epoch}}-ba{{batch}}-rank{{rank}}',  # ignored if not uploading
+            latest_artifact_name=f'{checkpoint_save_path}/{task}-{parent_idx:03d}/latest-rank{{rank}}')
+        ft_hparams.callbacks = [checkpoint_saver]
         if save_locally:
-            if not os.path.exists(ft_hparams.checkpoint_save_path):
-                os.makedirs(ft_hparams.checkpoint_save_path)
+            if not os.path.exists(checkpoint_save_path):
+                os.makedirs(checkpoint_save_path)
 
     else:
         # Disable saving
