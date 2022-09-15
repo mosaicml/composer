@@ -158,14 +158,14 @@ def build_lm_dataloader(
     """
 
     try:
-        import datasets  # type: ignore
-        import transformers  # type: ignore
+        import datasets
+        import transformers
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
     assert tokenizer_name is not None
 
-    tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_name)  #type: ignore (thirdparty)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_name)
     # loads a dataset that is assumed to be pre-tokenized
     lm_datasets = [datasets.load_from_disk(i) for i in datadir]  #type: ignore (thirdparty)
 
@@ -205,10 +205,11 @@ def build_lm_dataloader(
 
     # for some tokenizers, e.g. GPT-2, they don't have padding tokens. Hence, we cannot use the LM collator.
     if tokenizer.pad_token_id is None:
-        data_collator = transformers.default_data_collator  # type: ignore
+        data_collator = transformers.default_data_collator
     else:
-        data_collator = transformers.DataCollatorForLanguageModeling(  # type: ignore
-            tokenizer=tokenizer, mlm=use_masked_lm, mlm_probability=mlm_probability)
+        data_collator = transformers.DataCollatorForLanguageModeling(tokenizer=tokenizer,
+                                                                     mlm=use_masked_lm,
+                                                                     mlm_probability=mlm_probability)
 
     sampler = dist.get_sampler(
         cast(Dataset, dataset),  # HF datasets do not subclass torch datasets, so this cast is needed
@@ -265,8 +266,8 @@ def build_synthetic_lm_dataloader(
     """
 
     try:
-        import datasets  # type: ignore
-        import transformers  # type: ignore
+        import datasets
+        import transformers
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
@@ -331,10 +332,11 @@ def build_synthetic_lm_dataloader(
 
     # for some tokenizers, e.g. GPT-2, they don't have padding tokens. Hence, we cannot use the LM collator.
     if tokenizer.pad_token_id is None:
-        data_collator = transformers.default_data_collator  # type: ignore
+        data_collator = transformers.default_data_collator
     else:
-        data_collator = transformers.DataCollatorForLanguageModeling(  # type: ignore
-            tokenizer=tokenizer, mlm=use_masked_lm, mlm_probability=mlm_probability)
+        data_collator = transformers.DataCollatorForLanguageModeling(tokenizer=tokenizer,
+                                                                     mlm=use_masked_lm,
+                                                                     mlm_probability=mlm_probability)
 
     sampler = dist.get_sampler(
         cast(Dataset, dataset),  # HF datasets do not subclass torch datasets, so this cast is needed
