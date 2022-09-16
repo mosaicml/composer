@@ -1,23 +1,116 @@
 # 🧊 Stochastic Depth (Block)
 
-AKA: Progressive Layer Dropping
-
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
-Block-wise stochastic depth assigns every residual block a probability of dropping the transformation function, leaving only the skip connection, to regularize and reduce the amount of computation.
+Block-wise stochastic depth assigns every residual block a probability of dropping the transformation function, leaving only the skip connection. This regularizes and reduces the amount of computation.
 
 ![block_wise_stochastic_depth.png](https://storage.googleapis.com/docs.mosaicml.com/images/methods/block_wise_stochastic_depth.png)
 
-From *[Deep Networks with Stochastic Depth](https://arxiv.org/abs/1603.09382)* by Huang et al. 2016
+## How to Use
 
+### Functional Interface
+
+<!--pytest.mark.gpu-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomImageDataset
+
+train_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
+```
+-->
+<!--pytest-codeblocks:cont-->
+```python
+# Run the Stochastic Depth algorithm directly on the model using the composer functional API
+
+import torch
+import torch.nn.functional as F
+
+import composer.functional as cf
+from composer.models import composer_resnet
+
+# Training
+
+# Stochastic depth can only be run on ResNet-50/101/152
+model = composer_resnet('resnet50')
+
+opt = torch.optim.Adam(model.parameters())
+
+cf.apply_stochastic_depth(
+    model,
+    target_layer_name='ResNetBottleneck',
+    stochastic_method='block',
+    drop_rate=0.2,
+    drop_distribution='linear'
+)
+
+loss_fn = F.cross_entropy
+model.train()
+
+for epoch in range(1):
+    for X, y in train_dataloader:
+        y_hat = model([X, y])
+        loss = loss_fn(y_hat, y)
+        loss.backward()
+        opt.step()
+        opt.zero_grad()
+        break
+```
+
+### Composer Trainer
+
+<!--pytest.mark.gpu-->
+<!--
+```python
+from torch.utils.data import DataLoader
+from tests.common import RandomImageDataset
+
+train_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
+eval_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
+```
+-->
+<!--pytest-codeblocks:cont-->
+```python
+# Instantiate the algorithm and pass it into the Trainer
+# The trainer will automatically run it at the appropriate point in the training loop
+
+from composer.algorithms import StochasticDepth
+from composer.models import composer_resnet
+from composer.trainer import Trainer
+
+# Train model
+
+# Stochastic depth can only be run on ResNet-50/101/152
+model = composer_resnet('resnet50')
+
+stochastic_depth = StochasticDepth(
+    target_layer_name='ResNetBottleneck',
+    stochastic_method='block',
+    drop_rate=0.2,
+    drop_distribution='linear'
+)
+
+trainer = Trainer(
+    model=model,
+    train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
+    max_duration='1ep',
+    algorithms=[stochastic_depth]
+)
+
+trainer.fit()
+```
+
+### Implementation Details
+
+The Composer implementation of Stochastic Depth uses model surgery to replace residual bottleneck blocks with analogous stochastic versions. When training, stochastic bottleneck blocks have a probability (`drop_rate`) of randomly dropping the transformation function in the residual block. If a transformation function is dropped, only the skip connection is used in the residual block. During inference, no transformation functions are dropped, but the activation added to the residual connection is scaled by (1 - `drop_rate`) to compensate for the drop frequency during training.
 ## Suggested Hyperparameters
 
-The drop rate will primarily depend on the model depth. For ResNet50 on ImageNet, we find that a drop rate of 0.2 with a linear drop distribution has the largest reduction in training time while maintaining the same accuracy. We do not use any drop warmup and drop the same blocks across all GPUs.
+The drop rate will primarily depend on the model depth. For ResNet50 on ImageNet, we find that a drop rate of 0.1 with a linear drop distribution has the largest reduction in training time with a minimal reduction in accuracy. We do not use any drop warmup.
 
-- `drop_rate = 0.2`
+- `drop_rate = 0.1`
 - `drop_distribution = "linear"`
 - `drop_warmup = 0.0dur`
-- `use_same_gpu_seed = True`
 
 ## Technical Details
 

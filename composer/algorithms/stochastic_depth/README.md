@@ -25,10 +25,9 @@ train_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
 
 import torch
 import torch.nn.functional as F
+
 import composer.functional as cf
 from composer.models import composer_resnet
-
-from torchvision.models import resnet50
 
 # Training
 
@@ -37,8 +36,6 @@ model = composer_resnet('resnet50')
 
 opt = torch.optim.Adam(model.parameters())
 
-# only need to pass in opt if apply_stochastic_depth is used after the optimizer
-# creation; otherwise only the model needs to be passed in
 cf.apply_stochastic_depth(
     model,
     target_layer_name='ResNetBottleneck',
