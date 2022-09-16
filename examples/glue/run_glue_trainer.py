@@ -441,10 +441,22 @@ def get_ckpt_names(hp: TrainerHparams, run_name: str, dataloader_len: int) -> Li
     loop = True
     save = False
     save_last_batch = False
+
+    checkpoint_saver = None
+    assert hp.callbacks is not None
+    checkpoint_callbacks = [callback for callback in hp.callbacks if isinstance(callback, CheckpointSaver)]
+    if checkpoint_callbacks:
+        checkpoint_saver = checkpoint_callbacks.pop()
+        assert checkpoint_saver.artifact_name is not None
+        save_artifact_name = checkpoint_saver.artifact_name.filename
+    else:
+        save_artifact_name = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}'
+
     while loop:
         if save:
+
             time = Timestamp(epoch=ep, batch=ba)
-            formatted_ckpt_name = format_name_with_dist_and_time(hp.save_artifact_name, run_name, time)
+            formatted_ckpt_name = format_name_with_dist_and_time(save_artifact_name, run_name, time)
             ckpt_names.append(formatted_ckpt_name)
             save = False
 
@@ -475,7 +487,7 @@ def get_ckpt_names(hp: TrainerHparams, run_name: str, dataloader_len: int) -> Li
     # save very last batch if incrementing batches passed it
     if save_last_batch:
         time = Timestamp(epoch=ep, batch=ba)
-        formatted_ckpt_name = format_name_with_dist_and_time(hp.save_artifact_name, run_name, time)
+        formatted_ckpt_name = format_name_with_dist_and_time(save_artifact_name, run_name, time)
         ckpt_names.append(formatted_ckpt_name)
 
     return ckpt_names
