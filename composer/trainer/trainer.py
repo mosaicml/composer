@@ -625,8 +625,10 @@ class Trainer:
             requires ``checkpoint_save_path`` and ``run_name`` to be specified.
             (default: ``False``)
 
-            When enabled, the checkpoint_save_path is checked for checkpoints of the format ``"{checkpoint_save_path}/{latest_checkpoint_filename}"``,
-            which are loaded to continue training. If no local checkpoints are found, each logger is checked for potential
+            When enabled, the checkpoint_save_path is checked for checkpoints of the format ``"{checkpoint_save_path}/latest-rank{rank}.pt"``,
+            which are loaded to continue training. The ``latest-rank{rank}.pt`` pattern can be configured using the `latest_checkpoint_filename`
+            argument in :class:`~.CheckpointSaver`.
+             If no local checkpoints are found, each logger is checked for potential
             checkpoints named ``save_latest_artifact_name``. Finally, if no logged checkpoints are found, ``load_path`` is
             used to load a checkpoint if specified. This should only occur at the start of a run using autoresume.
 
