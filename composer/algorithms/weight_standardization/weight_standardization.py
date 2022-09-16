@@ -35,7 +35,7 @@ def apply_weight_standardization(model: torch.nn.Module, ignore_last_layer: bool
     if ignore_last_layer:
         for module in list(model_trace.modules())[::-1]:
             if (isinstance(module, nn.Conv1d) or isinstance(module, nn.Conv2d) or isinstance(module, nn.Conv3d)):
-                parametrize.remove_parametrization(module, 'weight', leave_parametrized=False)
+                parametrize.remove_parametrizations(module, 'weight', leave_parametrized=False)
                 count -= 1
                 break
 
