@@ -180,7 +180,7 @@ class StreamingADE20kHparams(DatasetHparams):
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
         if self.version == 1:
-            warn_streaming_dataset_deprecation(old_version=1, new_version=2)
+            warn_streaming_dataset_deprecation(old_version=self.version, new_version=2)
             dataset = StreamingADE20k(remote=self.remote,
                                       local=self.local,
                                       split=self.split,
