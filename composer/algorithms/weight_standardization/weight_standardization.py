@@ -24,7 +24,7 @@ class WeightStandardizer(nn.Module):
         return _standardize_weights(W)
 
 
-def apply_weight_standardization(model: torch.nn.Module, ignore_last_layer: bool = False):
+def apply_weight_standardization(model: torch.nn.Module, n_last_layers_ignore: bool = False):
     count = 0
     model_trace = symbolic_trace(model)
     for module in model_trace.modules():
@@ -32,12 +32,14 @@ def apply_weight_standardization(model: torch.nn.Module, ignore_last_layer: bool
             parametrize.register_parametrization(module, 'weight', WeightStandardizer())
             count += 1
 
-    if ignore_last_layer:
-        for module in list(model_trace.modules())[::-1]:
-            if (isinstance(module, nn.Conv1d) or isinstance(module, nn.Conv2d) or isinstance(module, nn.Conv3d)):
-                parametrize.remove_parametrizations(module, 'weight', leave_parametrized=False)
-                count -= 1
-                break
+    target_ws_layers = count - n_last_layers_ignore
+
+    for module in list(model_trace.modules())[::-1]:
+        if target_ws_layers == count:
+            break
+        if (isinstance(module, nn.Conv1d) or isinstance(module, nn.Conv2d) or isinstance(module, nn.Conv3d)):
+            parametrize.remove_parametrizations(module, 'weight', leave_parametrized=False)
+            count -= 1
 
     return count
 
@@ -52,12 +54,12 @@ class WeightStandardization(Algorithm):
     """
 
     # TODO: Maybe make this ignore last n layers in case there are multiple prediction heads? Would this work?
-    def __init__(self, ignore_last_layer: bool = False):
-        self.ignore_last_layer = ignore_last_layer
+    def __init__(self, n_last_layers_ignore: bool = False):
+        self.n_last_layers_ignore = n_last_layers_ignore
 
     def match(self, event: Event, state: State):
         return (event == Event.INIT)
 
     def apply(self, event: Event, state: State, logger: Logger):
-        count = apply_weight_standardization(state.model, ignore_last_layer=self.ignore_last_layer)
+        count = apply_weight_standardization(state.model, n_last_layers_ignore=self.n_last_layers_ignore)
         logger.data_fit({'WeightStandardization/num_weights_standardized': count})
