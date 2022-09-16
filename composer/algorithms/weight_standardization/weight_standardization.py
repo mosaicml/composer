@@ -43,6 +43,13 @@ def apply_weight_standardization(model: torch.nn.Module, ignore_last_layer: bool
 
 
 class WeightStandardization(Algorithm):
+    """Weight standardization.
+
+    Weight standardization.
+
+    Args:
+        ignore_last_layer (bool): ignores the laste layer. Default: ``False``.
+    """
 
     # TODO: Maybe make this ignore last n layers in case there are multiple prediction heads? Would this work?
     def __init__(self, ignore_last_layer: bool = False):
