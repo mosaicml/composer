@@ -4,7 +4,7 @@
 """Generic hyperparameters for self-supervised training of autoregressive and masked language models."""
 
 import logging
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import List, Optional
 
 import yahp as hp
@@ -103,11 +103,12 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 use_masked_lm=self.use_masked_lm,
                 num_tokens=self.num_tokens,
                 mlm_probability=self.mlm_probability,
-                subsample_ratio=self.subsample_ratio)
+                subsample_ratio=self.subsample_ratio,
+                **asdict(dataloader_hparams),
+            )
         else:
             return build_lm_dataloader(
                 datadir=self.datadir,
-                dataloader_hparams=dataloader_hparams,
                 tokenizer_name=self.tokenizer_name,  # type: ignore
                 batch_size=batch_size,
                 split=self.split,  # type: ignore
@@ -116,4 +117,6 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 use_masked_lm=self.use_masked_lm,
                 num_tokens=self.num_tokens,
                 mlm_probability=self.mlm_probability,
-                subsample_ratio=self.subsample_ratio)
+                subsample_ratio=self.subsample_ratio,
+                **asdict(dataloader_hparams),
+            )

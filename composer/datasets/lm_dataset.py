@@ -185,13 +185,11 @@ def build_synthetic_lm_dataloader(
     tokenizer = generate_synthetic_tokenizer(tokenizer_family=tokenizer_name, dataset=lm_datasets)
 
     columns_to_remove = ['idx'] + column_names
-    lm_datasets = lm_datasets.map(
-        lambda inp: tokenizer(
-            text=inp[column_names[0]], padding='max_length', max_length=max_seq_length, truncation=True),
-        batched=True,
-        num_proc=None if num_workers == 0 else num_workers,  # type: ignore
-        remove_columns=columns_to_remove,
-        keep_in_memory=True)
+    lm_datasets = lm_datasets.map(lambda inp: tokenizer(
+        text=inp[column_names[0]], padding='max_length', max_length=max_seq_length, truncation=True),
+                                  batched=True,
+                                  remove_columns=columns_to_remove,
+                                  keep_in_memory=True)
 
     # override sizing to able use of synthetic datasets
     num_tokens = 0
