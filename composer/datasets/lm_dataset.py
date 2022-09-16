@@ -53,10 +53,13 @@ def build_lm_dataloader(
 
     try:
         import transformers
-
-        import datasets
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
+
+    try:
+        import datasets
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='datasets') from e
 
     assert tokenizer_name is not None
 
