@@ -100,7 +100,6 @@ parser.add_argument('--eval_interval',
                     type=Time.from_timestring,
                     default='1ep')
 
-# Local storage checkpointing
 args = parser.parse_args()
 
 
