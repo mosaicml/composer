@@ -342,7 +342,7 @@ class Trainer:
     Load the checkpoint and resume training:
 
     .. testcode::
-    
+
         # Get the saved checkpoint filepath
         checkpoint_path = trainer.saved_checkpoints.pop()
 
