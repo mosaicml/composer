@@ -111,7 +111,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         ...         checkpoint_filename="ep{{epoch}}-ba{{batch}}-rank{{rank}}",
         ...         latest_checkpoint_filename="latest-rank{{rank}}",
         ...         checkpoint_save_interval="1ep",
-        ...         save_model_weights_only=False,
+        ...         save_weights_only=False,
         ...     )
         ... ])
 
@@ -256,7 +256,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             progress). It should return ``True`` if a checkpoint should be saved given the current state and
             event.
 
-        save_model_weights_only (bool): If ``True``, save only the model weights instead of the entire training state.
+        save_weights_only (bool): If ``True``, save only the model weights instead of the entire training state.
             This parmeter must be ``False`` when using DeepSpeed. Default: ``False``.
 
 
@@ -298,7 +298,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         *,
         overwrite_checkpoints: bool = False,
         num_checkpoints_to_keep: int = -1,
-        save_model_weights_only: bool = False,
+        save_weights_only: bool = False,
     ):
         if not callable(checkpoint_save_interval):
             checkpoint_save_interval = checkpoint_periodically(checkpoint_save_interval)
@@ -316,7 +316,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.overwrite_checkpoints = overwrite_checkpoints
         self.saved_checkpoints: List[str] = []
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
-        self.save_model_weights_only = save_model_weights_only
+        self.save_weights_only = save_weights_only
 
     def init(self, state: State, logger: Logger) -> None:
         checkpoint_save_path = format_name_with_dist(self.checkpoint_save_path, state.run_name)
@@ -332,8 +332,8 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         dist.barrier()  # holds all ranks until checkpoint_save_path check is done
 
-        if is_model_deepspeed(state.model) and self.save_model_weights_only:
-            raise NotImplementedError('save_model_weights_only=True is not supported when using DeepSpeed.')
+        if is_model_deepspeed(state.model) and self.save_weights_only:
+            raise NotImplementedError('save_weights_only=True is not supported when using DeepSpeed.')
 
     def batch_checkpoint(self, state: State, logger: Logger):
         if self.checkpoint_save_interval(state, Event.BATCH_CHECKPOINT):
@@ -375,7 +375,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         saved_path = checkpoint.save_checkpoint(
             state=state,
             filename=checkpoint_filename,
-            weights_only=self.save_model_weights_only,
+            weights_only=self.save_weights_only,
         )
 
         if not saved_path:  # not all ranks save
