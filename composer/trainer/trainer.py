@@ -307,14 +307,14 @@ if _is_tpu_installed():
 class Trainer:
     """Train models with Composer algorithms.
 
-    The trainer supports models with :class:`~composer.models.base.ComposerModel` instances.
-    The :class:`.Trainer` is highly customizable and can support a wide variety of workloads.
-    See the :doc:`training guide</trainer/using_the_trainer>` for more information.
+    .. note::
+
+        The trainer supports models with :class:`~composer.models.base.ComposerModel` instances.
+        The :class:`.Trainer` is highly customizable and can support a wide variety of workloads.
+        See the :doc:`training guide</trainer/using_the_trainer>` for more information.
+
 
     Example
-    --------
-
-    Train a model and save a checkpoint:
 
     .. testcode::
 
@@ -342,7 +342,7 @@ class Trainer:
     Load the checkpoint and resume training:
 
     .. testcode::
-
+    
         # Get the saved checkpoint filepath
         checkpoint_path = trainer.saved_checkpoints.pop()
 

@@ -9,15 +9,18 @@ Resuming from checkpoints is commonly used to recover from hardware failures (e.
     import shutil
 
     from composer import Trainer
+    from composer.callbacks import CheckpointSaver
 
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
         max_duration="1ep",
-        save_filename="ep{epoch}.pt",
-        checkpoint_save_path="./path/to/checkpoints",
-        save_overwrite=True,
-        checkpoint_save_interval="1ep",  # Save checkpoints every epoch
+        callbacks=[CheckpointSaver(
+            checkpoint_filename="ep{epoch}.pt",
+            checkpoint_save_path="./path/to/checkpoints",
+            overwrite_checkpoints=True,
+            checkpoint_save_interval="1ep",  # Save checkpoints every epoch
+            )],
     )
     trainer.fit()
 
@@ -35,7 +38,7 @@ Resuming from checkpoints is commonly used to recover from hardware failures (e.
         model=model,
         train_dataloader=train_dataloader,
         max_duration="90ep",
-        save_overwrite=True,
+        callbacks=[CheckpointSaver(overwrite_checkpoints=True)],
         load_path="./path/to/checkpoints/ep25.pt",
     )
     trainer.fit()
@@ -94,10 +97,11 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
     trainer = Trainer(
         ...,
         autoresume=True,
-        checkpoint_save_path='checkpoints',
-        num_checkpoints_to_keep=0,  # delete all checkpoints locally
+        callbacks=[CheckpointSaver(
+            checkpoint_save_path='checkpoints',
+            num_checkpoints_to_keep=0,  # delete all checkpoints locally
+            save_artifact_name='checkpoints/ep{epoch}.pt',)],
         run_name='my_cool_run',
-        save_artifact_name='checkpoints/ep{epoch}.pt',
         loggers=[object_store_logger],
     )
 
@@ -114,6 +118,8 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
 .. testsetup:: fine_tune
     :skipif: not _LIBCLOUD_INSTALLED
 
+
+    from composer.callbacks import CheckpointSaver
     from composer.loggers import ObjectStoreLogger
     from composer.utils.object_store import S3ObjectStore
 
@@ -128,8 +134,9 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
     # so we can load and resume from it
     trainer = Trainer(
         ...,
-        save_filename='pretrained_weights/model.pt',
-        checkpoint_save_path='.',
+        callbacks=[CheckpointSaver(
+                    checkpoint_filename='pretrained_weights/model.pt',
+                    checkpoint_save_path='.',)],
         run_name='my_cool_run',
     )
 

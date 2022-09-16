@@ -4,13 +4,13 @@
 Composer can be configured to automatically save training checkpoints by passing the argument ``checkpoint_save_path`` when
 creating the :class:`.Trainer`.
 
-To customize the filenames of checkpoints inside ``checkpoint_save_path``, you can set the ``save_filename`` argument.
+To customize the filenames of checkpoints inside ``checkpoint_save_path``, you can set the ``checkpoint_filename`` argument.
 By default, checkpoints will be named like ``'ep{epoch}-ba{batch}-rank{rank}'`` within the ``checkpoint_save_path``.
 
 In addition, the trainer creates a symlink called ``'latest-rank{rank}'``, which points to the latest saved checkpoint
 file. You can customize this symlink name by setting the ``save_latest_filename`` argument.
 
-The ``checkpoint_save_path``, ``save_filename``, and ``save_latest`` arguments are Python format strings, so you can customize the folder
+The ``checkpoint_save_path``, ``checkpoint_filename``, and ``save_latest`` arguments are Python format strings, so you can customize the folder
 structure to include information such as the rank of the Python process or the current training progress. Please see
 the :class:`~.CheckpointSaver` for the full list of available format variables.
 
@@ -18,16 +18,18 @@ For example:
 
 .. testcode::
 
+    from composer.callbacks import CheckpointSaver
     from composer import Trainer
 
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
         max_duration="2ep",
-        checkpoint_save_path="./path/to/checkpoints",
-        save_filename="ep{epoch}",
-        save_latest_filename="latest",
-        save_overwrite=True,
+        callbacks=[CheckpointSaver(
+            checkpoint_save_path="./path/to/checkpoints",
+            checkpoint_filename="ep{epoch}",
+            latest_checkpoint_filename="latest",
+            overwrite_checkpoints=True,)],
     )
 
     trainer.fit()
@@ -53,15 +55,18 @@ Putting this together, here's how to save checkpoints:
 .. testcode::
 
     from composer import Trainer
+    from composer.callbacks import CheckpointSaver
 
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
         max_duration="1ep",
-        save_filename="ep{epoch}.pt",
-        checkpoint_save_path="./path/to/checkpoints",
-        save_overwrite=True,
-        checkpoint_save_interval="1ep",  # Save checkpoints every epoch
+        callbacks=[CheckpointSaver(
+            checkpoint_filename="ep{epoch}.pt",
+            checkpoint_save_path="./path/to/checkpoints",
+            overwrite_checkpoints=True,
+            checkpoint_save_interval="1ep",  # Save checkpoints every epoch
+            )]
     )
     trainer.fit()
 
@@ -96,15 +101,18 @@ will continue training from where the checkpoint left off.
     import shutil
 
     from composer import Trainer
+    from composer.callbacks import CheckpointSaver
 
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
         max_duration="1ep",
-        save_filename="ep{epoch}.pt",
-        checkpoint_save_path="./path/to/checkpoints",
-        save_overwrite=True,
-        checkpoint_save_interval="1ep",  # Save checkpoints every epoch
+        callbacks=[CheckpointSaver(
+            checkpoint_filename="ep{epoch}.pt",
+            checkpoint_save_path="./path/to/checkpoints",
+            overwrite_checkpoints=True,
+            checkpoint_save_interval="1ep",  # Save checkpoints every epoch
+            ),],
     )
     trainer.fit()
 
@@ -121,7 +129,8 @@ will continue training from where the checkpoint left off.
         model=model,
         train_dataloader=train_dataloader,
         max_duration="90ep",
-        save_overwrite=True,
+        callbacks=[CheckpointSaver(
+                overwrite_checkpoints=True,)],
         load_path="./path/to/checkpoints/ep25.pt",
     )
     trainer.fit()
@@ -177,12 +186,14 @@ only the model weights in a checkpoint, set ``save_weights_only=True``.
 .. testcode::
 
     from composer.trainer import Trainer
+    from composer.callbacks import CheckpointSaver
 
     trainer = Trainer(
         ...,
-        checkpoint_save_path="checkpoints",
-        save_weights_only=True,
-        save_overwrite=True,
+        callbacks=[CheckpointSaver(
+            checkpoint_save_path="checkpoints",
+            save_weights_only=True,
+            overwrite_checkpoints=True,)],
     )
 
     trainer.fit()
@@ -208,13 +219,13 @@ or other checkpoint saving parameters directly on the trainer.
             CheckpointSaver(
                 checkpoint_save_path='full_checkpoints',
                 checkpoint_save_interval='5ep',
-                overwrite=True,
+                overwrite_checkpoints=True,
                 num_checkpoints_to_keep=1,  # only keep the latest, full checkpoint
             ),
             CheckpointSaver(
                 checkpoint_save_path='weights_only_checkpoints',
-                weights_only=True,
-                overwrite=True,
+                save_weights_only=True,
+                overwrite_checkpoints=True,
             ),
         ],
     )
@@ -238,15 +249,18 @@ Parameters with different names will ignored.
     import os
     import shutil
     from composer import Trainer
+    from composer.callbacks import CheckpointSaver
 
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
         max_duration="1ep",
-        save_filename="ep{epoch}.pt",
-        checkpoint_save_path="./path/to/checkpoints",
-        save_overwrite=True,
-        checkpoint_save_interval="1ep",  # Save checkpoints every epoch
+        callbacks=[CheckpointSaver(
+            checkpoint_filename="ep{epoch}.pt",
+            checkpoint_save_path="./path/to/checkpoints",
+            overwrite_checkpoints=True,
+            checkpoint_save_interval="1ep",  # Save checkpoints every epoch
+            ),],
     )
     trainer.fit()
 
@@ -337,6 +351,7 @@ Once you've configured your object store logger per above, all that's left is to
     :skipif: not _LIBCLOUD_INSTALLED
 
     from composer.loggers import ObjectStoreLogger
+    from composer.callbacks import CheckpointSaver
 
     object_store_logger = ObjectStoreLogger(
         object_store_cls=LibcloudObjectStore,
@@ -355,11 +370,13 @@ Once you've configured your object store logger per above, all that's left is to
         model=model,
         train_dataloader=train_dataloader,
         max_duration='90ep',
-        checkpoint_save_path='checkpoints',
-        checkpoint_save_interval='1ep',
-        save_overwrite=True,
-        save_artifact_name='checkpoints/ep{epoch}.pt',
-        num_checkpoints_to_keep=0,  # delete all checkpoints locally
+        callbacks=[CheckpointSaver(
+            checkpoint_save_path='checkpoints',
+            checkpoint_save_interval='1ep',
+            overwrite_checkpoints=True,
+            artifact_name='checkpoints/ep{epoch}.pt',
+            num_checkpoints_to_keep=0,  # delete all checkpoints locally
+            ),],
         loggers=[object_store_logger],
     )
 
