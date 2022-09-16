@@ -50,11 +50,11 @@ class WeightStandardization(Algorithm):
     Weight standardization.
 
     Args:
-        ignore_last_layer (bool): ignores the laste layer. Default: ``False``.
+        n_last_layers_ignore (int): ignores the laste layer. Default: ``False``.
     """
 
     # TODO: Maybe make this ignore last n layers in case there are multiple prediction heads? Would this work?
-    def __init__(self, n_last_layers_ignore: bool = False):
+    def __init__(self, n_last_layers_ignore: int = 0):
         self.n_last_layers_ignore = n_last_layers_ignore
 
     def match(self, event: Event, state: State):
