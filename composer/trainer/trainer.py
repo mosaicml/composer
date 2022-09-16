@@ -602,10 +602,9 @@ class Trainer:
             .. seealso:: :class:`~.CheckpointSaver`
 
             .. note::
-
-                For fine-grained control on checkpoint saving (e.g. to save different types of checkpoints
-                at different intervals), leave this parameter as ``None``, and instead pass
-                instance(s) of :class:`~.CheckpointSaver` directly as ``callbacks``.
+            For fine-grained control on checkpoint saving (e.g. to save different types of checkpoints
+            at different intervals), leave this parameter as ``None``, and instead pass
+            instance(s) of :class:`~.CheckpointSaver` directly as ``callbacks``.
         checkpoint_save_interval (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
             This parameter has no effect if ``checkpoint_save_path`` is ``None``. (default: ``'1ep'``)
