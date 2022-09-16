@@ -24,7 +24,16 @@ def warn_yahp_deprecation():
     warnings.warn(
         'yahp-based workflows are deprecated and will be removed in a future release. Please'
         'migrate to using other configuration managers and create the Trainer objects directly.'
-        'v0.10 will be the last release to support yahp.', DeprecationWarning)
+        'v0.10 will be the last release to support yahp.',
+        DeprecationWarning,
+        stacklevel=2)
+
+
+def warn_streaming_dataset_deprecation(old_version: int, new_version: int):
+    warnings.warn(
+        f'streaming dataset version {old_version} is deprecated and will be removed in the future. Please migrate to using streaming dataset version {new_version}',
+        DeprecationWarning,
+        stacklevel=2)
 
 
 __all__ = [
