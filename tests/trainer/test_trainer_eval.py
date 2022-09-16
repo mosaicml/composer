@@ -125,17 +125,28 @@ def test_trainer_eval_timestamp():
     assert trainer.state.eval_timestamp.batch == trainer.state.eval_timestamp.batch_in_epoch
 
 
-@pytest.mark.parametrize('eval_at_fit_end', [
-    True,
-    False,
-])
-def test_eval_at_fit_end(eval_at_fit_end: bool):
+@pytest.mark.parametrize(('eval_interval', 'max_duration', 'eval_at_fit_end', 'expected_eval_start_calls',
+                          'expected_eval_batch_start_calls'), [
+                              (1, '5ep', True, 4, 4),
+                              (Time(2, TimeUnit.EPOCH), '8ep', False, 4, 4),
+                              (Time(100, TimeUnit.BATCH), '8ep', False, 4, 4),
+                              (Time(0.25, TimeUnit.DURATION), '4ep', False, 4, 4),
+                              ('1ep', '4ep', True, 3, 3),
+                              ('50ba', '4ep', False, 4, 4),
+                              ('50ba', '100ba', False, 2, 2),
+                              ('0.35dur', '4ep', True, 2, 2),
+                              ('0.01dur', '1000ba', False, 100, 100),
+                              ('0.10dur', '700sp', True, 9, 9),
+                              ('0.05dur', '700sp', False, 20, 20),
+                          ])
+def test_eval_at_fit_end(eval_interval: Union[str, Time, int], max_duration: str, eval_at_fit_end: bool,
+                         expected_eval_start_calls: int, expected_eval_batch_start_calls: int):
     """Test the `eval_subset_num_batches` and `eval_interval` works when specified on init."""
 
     # Construct the trainer
-    train_dataloader = DataLoader(dataset=RandomClassificationDataset())
+    train_dataloader = DataLoader(dataset=RandomClassificationDataset(), batch_size=2)
     event_counter_callback = EventCounterCallback()
-    eval_interval = '2ep'
+    eval_interval = eval_interval
     evaluator = Evaluator(
         label='eval',
         dataloader=DataLoader(dataset=RandomClassificationDataset()),
@@ -152,15 +163,12 @@ def test_eval_at_fit_end(eval_at_fit_end: bool):
         train_dataloader=train_dataloader,
         eval_dataloader=evaluator,
         eval_subset_num_batches=1,
-        max_duration='3ep',
+        max_duration=max_duration,
         callbacks=[event_counter_callback],
     )
 
     # Train (should evaluate once)
     trainer.fit()
-
-    expected_eval_start_calls = 1
-    expected_eval_batch_start_calls = 1
 
     # depending on eval_at_fit_end, ensure the appropriate amount of calls are invoked
     if eval_at_fit_end:
