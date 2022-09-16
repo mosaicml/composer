@@ -602,9 +602,11 @@ class Trainer:
             .. seealso:: :class:`~.CheckpointSaver`
 
             .. note::
-            For fine-grained control on checkpoint saving (e.g. to save different types of checkpoints
-            at different intervals), leave this parameter as ``None``, and instead pass
-            instance(s) of :class:`~.CheckpointSaver` directly as ``callbacks``.
+
+                For fine-grained control on checkpoint saving (e.g. to save different types of checkpoints
+                at different intervals), leave this parameter as ``None``, and instead pass
+                instance(s) of :class:`~.CheckpointSaver` directly as ``callbacks``.
+
         checkpoint_save_interval (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
             This parameter has no effect if ``checkpoint_save_path`` is ``None``. (default: ``'1ep'``)
@@ -628,7 +630,7 @@ class Trainer:
             When enabled, the checkpoint_save_path is checked for checkpoints of the format ``"{checkpoint_save_path}/latest-rank{rank}.pt"``,
             which are loaded to continue training. The ``latest-rank{rank}.pt`` pattern can be configured using the `latest_checkpoint_filename`
             argument in :class:`~.CheckpointSaver`.
-             If no local checkpoints are found, each logger is checked for potential
+            If no local checkpoints are found, each logger is checked for potential
             checkpoints named ``save_latest_artifact_name``. Finally, if no logged checkpoints are found, ``load_path`` is
             used to load a checkpoint if specified. This should only occur at the start of a run using autoresume.
 
