@@ -142,19 +142,16 @@ class TestCheckpointLoading:
         for p1, p2 in zip(m1.parameters(), m2.parameters()):
             torch.testing.assert_close(p1, p2)
 
-    def get_trainer(self, checkpoint_save_path=None, overwrite_checkpoints=None, **kwargs):
+    def get_trainer(self, **kwargs):
         model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
 
-        checkpoint_saver_kwargs = {}
-        if checkpoint_save_path:
-            checkpoint_saver_kwargs.update({'checkpoint_save_path': checkpoint_save_path})
-        if overwrite_checkpoints:
-            checkpoint_saver_kwargs.update({'overwrite_checkpoints': overwrite_checkpoints})
+        if 'callbacks' in kwargs:
+            callbacks = kwargs.pop('callbacks')
+            callbacks.append(DummyStatefulCallback())
+        else:
+            callbacks = [DummyStatefulCallback()]
 
-        checkpoint_saver = CheckpointSaver(checkpoint_filename='ep{epoch}.pt',
-                                           checkpoint_save_interval='1ep',
-                                           **checkpoint_saver_kwargs)
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
@@ -172,7 +169,7 @@ class TestCheckpointLoading:
             max_duration='2ep',
             optimizers=optimizer,
             schedulers=ExponentialScheduler(gamma=0.9),
-            callbacks=[DummyStatefulCallback(), checkpoint_saver],
+            callbacks=callbacks,
             **kwargs,
         )
 
@@ -199,7 +196,13 @@ class TestCheckpointLoading:
     @pytest.mark.parametrize('load_weights_only', [True, False])
     def test_load_weights(self, device, load_weights_only):
 
-        trainer_1 = self.get_trainer(checkpoint_save_path='first', device=device)
+        checkpoint_save_kwargs = {
+            'checkpoint_filename': 'ep{epoch}.pt',
+            'checkpoint_save_interval': '1ep',
+            'checkpoint_save_path': 'first',
+        }
+
+        trainer_1 = self.get_trainer(callbacks=[CheckpointSaver(**checkpoint_save_kwargs)], device=device)
         trainer_1.fit()
         trainer_1.close()
 
@@ -238,8 +241,14 @@ class TestCheckpointLoading:
 
         pytest.importorskip('libcloud')
 
+        checkpoint_save_kwargs = {
+            'checkpoint_filename': 'ep{epoch}.pt',
+            'checkpoint_save_interval': '1ep',
+            'checkpoint_save_path': 'first',
+        }
+
         trainer_1 = self.get_trainer(
-            checkpoint_save_path='first',
+            callbacks=[CheckpointSaver(**checkpoint_save_kwargs)],
             loggers=[self.get_logger(tmp_path)],
             run_name='electric-zebra',
         )
@@ -269,6 +278,13 @@ class TestCheckpointLoading:
         use_object_store: bool,
         delete_local: bool,
     ):
+
+        checkpoint_save_kwargs = {
+            'checkpoint_filename': 'ep{epoch}.pt',
+            'checkpoint_save_interval': '1ep',
+            'checkpoint_save_path': 'first'
+        }
+
         if delete_local and not use_object_store:
             pytest.skip('Invalid test setting.')
 
@@ -276,7 +292,7 @@ class TestCheckpointLoading:
             pytest.importorskip('libcloud')
 
         trainer_1 = self.get_trainer(
-            checkpoint_save_path='first',
+            callbacks=[CheckpointSaver(**checkpoint_save_kwargs)],
             device=device,
             run_name='big-chungus',
             loggers=[self.get_logger(tmp_path)] if use_object_store else [],
@@ -291,7 +307,7 @@ class TestCheckpointLoading:
             shutil.rmtree('first')
 
         trainer_2 = self.get_trainer(
-            checkpoint_save_path='first',
+            callbacks=[CheckpointSaver(**checkpoint_save_kwargs)],
             device=device,
             run_name='big-chungus',
             autoresume=True,
@@ -308,8 +324,14 @@ class TestCheckpointLoading:
 
     def test_different_run_names(self):
 
+        checkpoint_save_kwargs = {
+            'checkpoint_filename': 'ep{epoch}.pt',
+            'checkpoint_save_interval': '1ep',
+            'checkpoint_save_path': 'first',
+        }
+
         trainer_1 = self.get_trainer(
-            checkpoint_save_path='first/',
+            callbacks=[CheckpointSaver(**checkpoint_save_kwargs)],
             seed=12345,
         )
         trainer_1.fit()
@@ -326,8 +348,14 @@ class TestCheckpointLoading:
     @pytest.mark.parametrize('overwrite_checkpoints', [True, False])
     def test_overwrite_checkpoints(self, device, overwrite_checkpoints):
 
+        checkpoint_save_kwargs = {
+            'checkpoint_filename': 'ep{epoch}.pt',
+            'checkpoint_save_interval': '1ep',
+            'checkpoint_save_path': 'first',
+        }
+
         trainer_1 = self.get_trainer(
-            checkpoint_save_path='first',
+            callbacks=[CheckpointSaver(**checkpoint_save_kwargs)],
             device=device,
         )
         trainer_1.fit()
@@ -341,8 +369,7 @@ class TestCheckpointLoading:
 
         with ctx:  # expect FileExistsError if overwrite_checkpoints=False
             trainer_2 = self.get_trainer(
-                checkpoint_save_path='first',
-                overwrite_checkpoints=overwrite_checkpoints,
+                callbacks=[CheckpointSaver(overwrite_checkpoints=overwrite_checkpoints, **checkpoint_save_kwargs)],
                 load_path=os.path.join('first', 'ep1.pt'),
                 device=device,
             )
@@ -351,17 +378,21 @@ class TestCheckpointLoading:
         # loading from the last checkpoint should work regardless
         # of overwrite_checkpoints, as new checkpoints are later in time.
         trainer_3 = self.get_trainer(
-            checkpoint_save_path='first',
-            overwrite_checkpoints=overwrite_checkpoints,
+            callbacks=[CheckpointSaver(overwrite_checkpoints=overwrite_checkpoints, **checkpoint_save_kwargs)],
             load_path=os.path.join('first', 'ep2.pt'),
             device=device,
         )
         trainer_3.fit(duration='1ba')
 
     def test_surgery_resumption(self, tmp_path: pathlib.Path):
+        checkpoint_save_kwargs = {
+            'checkpoint_filename': 'ep{epoch}.pt',
+            'checkpoint_save_interval': '1ep',
+            'checkpoint_save_path': os.path.join(tmp_path, 'first'),
+        }
         trainer_1 = self.get_trainer(
             algorithms=[SqueezeExcite(latent_channels=64, min_channels=3)],
-            checkpoint_save_path=os.path.join(tmp_path, 'first'),
+            callbacks=[CheckpointSaver(**checkpoint_save_kwargs)],
         )
         trainer_1.fit()
         trainer_1.close()
@@ -381,19 +412,16 @@ class TestCheckpointLoading:
 
 class TestCheckpointResumption:
 
-    def get_trainer(self, checkpoint_save_interval=None, checkpoint_save_path=None, checkpoint_filename=None, **kwargs):
+    def get_trainer(self, **kwargs):
         model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
 
-        checkpoint_saver_kwargs = {}
-        if checkpoint_filename:
-            checkpoint_saver_kwargs.update({'checkpoint_filename': checkpoint_filename})
-        if checkpoint_save_path:
-            checkpoint_saver_kwargs.update({'checkpoint_save_path': checkpoint_save_path})
-        if checkpoint_save_interval:
-            checkpoint_saver_kwargs.update({'checkpoint_save_interval': checkpoint_save_interval})
+        if 'callbacks' in kwargs:
+            callbacks = kwargs.pop('callbacks')
+            callbacks.append(DummyStatefulCallback())
+        else:
+            callbacks = [DummyStatefulCallback()]
 
-        checkpoint_saver = CheckpointSaver(**checkpoint_saver_kwargs)
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
@@ -412,7 +440,7 @@ class TestCheckpointResumption:
             max_duration='2ep',
             optimizers=optimizer,
             schedulers=ExponentialScheduler(gamma=0.9),
-            callbacks=[DummyStatefulCallback(), checkpoint_saver],
+            callbacks=callbacks,
             **kwargs,
         )
 
@@ -472,9 +500,13 @@ class TestCheckpointResumption:
             deepspeed_config = None
 
         trainer_1 = self.get_trainer(
-            checkpoint_save_path=os.path.join(checkpoint_save_path, 'first'),
-            checkpoint_filename=save_filename,
-            checkpoint_save_interval=checkpoint_save_interval,
+            callbacks=[
+                CheckpointSaver(
+                    checkpoint_save_path=os.path.join(checkpoint_save_path, 'first'),
+                    checkpoint_filename=save_filename,
+                    checkpoint_save_interval=checkpoint_save_interval,
+                )
+            ],
             eval_interval=checkpoint_save_interval,
             deepspeed_config=deepspeed_config,
             seed=seed,
@@ -499,9 +531,13 @@ class TestCheckpointResumption:
         resume_file = os.path.join(checkpoint_save_path, 'first', resume_file)
 
         trainer_2 = self.get_trainer(
-            checkpoint_save_path=os.path.join(checkpoint_save_path, 'second'),
-            checkpoint_filename=save_filename,
-            checkpoint_save_interval=checkpoint_save_interval,
+            callbacks=[
+                CheckpointSaver(
+                    checkpoint_save_path=os.path.join(checkpoint_save_path, 'second'),
+                    checkpoint_filename=save_filename,
+                    checkpoint_save_interval=checkpoint_save_interval,
+                )
+            ],
             eval_interval=checkpoint_save_interval,
             deepspeed_config=deepspeed_config,
             seed=seed,
