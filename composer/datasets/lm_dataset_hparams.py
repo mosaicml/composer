@@ -94,7 +94,6 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         if self.use_synthetic:
             return build_synthetic_lm_dataloader(
                 synthetic_num_unique_samples=self.synthetic_num_unique_samples,
-                dataloader_hparams=dataloader_hparams,
                 tokenizer_name=self.tokenizer_name,  # type: ignore
                 batch_size=batch_size,
                 split=self.split,  # type: ignore
