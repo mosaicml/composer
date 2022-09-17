@@ -6,7 +6,6 @@ from typing import List, cast
 
 from torch.utils.data import DataLoader, Dataset
 
-from composer.core.data_spec import DataSpec
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
 from composer.utils import MissingConditionalImportError, dist
 
@@ -114,13 +113,13 @@ def build_lm_dataloader(
         drop_last=drop_last,
         shuffle=shuffle)
 
-    return DataSpec(dataloader=DataLoader(
+    return DataLoader(
         dataset=dataset,  # type: ignore
         batch_size=batch_size,
         sampler=sampler,
         drop_last=drop_last,
         collate_fn=data_collator,
-        **dataloader_kwargs))
+        **dataloader_kwargs)
 
 
 def build_synthetic_lm_dataloader(
@@ -243,10 +242,10 @@ def build_synthetic_lm_dataloader(
         drop_last=drop_last,
         shuffle=shuffle)
 
-    return DataSpec(dataloader=DataLoader(
+    return DataLoader(
         dataset=dataset,  # type: ignore
         batch_size=batch_size,
         sampler=sampler,
         drop_last=drop_last,
         collate_fn=data_collator,
-        **dataloader_kwargs))
+        **dataloader_kwargs)
