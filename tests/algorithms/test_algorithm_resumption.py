@@ -41,7 +41,6 @@ def test_algorithm_resumption(
 
     shared_config = {
         'max_duration': '2ep',
-        'callbacks': [CheckpointSaver(checkpoint_filename='ep{epoch}-rank{rank}',),],
         'train_subset_num_batches': 2,
         'precision': 'amp',
     }
@@ -54,6 +53,7 @@ def test_algorithm_resumption(
         schedulers=scheduler,
         checkpoint_save_path=folder1,
         algorithms=alg_cls(**alg_kwargs),
+        callbacks=[CheckpointSaver(checkpoint_filename='ep{epoch}-rank{rank}',),],
         **shared_config,
     )
     trainer1.fit()
@@ -73,6 +73,7 @@ def test_algorithm_resumption(
         optimizers=optimizer,
         schedulers=scheduler,
         checkpoint_save_path=folder2,
+        callbacks=[CheckpointSaver(checkpoint_filename='ep{epoch}-rank{rank}',),],
         algorithms=alg_cls(**alg_kwargs),
         **shared_config,
     )
