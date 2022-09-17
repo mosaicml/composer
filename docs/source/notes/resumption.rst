@@ -100,7 +100,7 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
         callbacks=[CheckpointSaver(
             checkpoint_save_path='checkpoints',
             num_checkpoints_to_keep=0,  # delete all checkpoints locally
-            save_artifact_name='checkpoints/ep{epoch}.pt',)],
+            artifact_name='checkpoints/ep{epoch}.pt',)],
         run_name='my_cool_run',
         loggers=[object_store_logger],
     )
