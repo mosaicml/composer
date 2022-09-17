@@ -925,8 +925,11 @@ class Trainer:
             )
             self.state.callbacks.append(self._checkpoint_saver)
         # If the user specified a checkpoint callback, then use that as the _checkpoint_saver callback.
-        # TODO(eracah): deal with multiple CheckpointSaver callbacks.
         elif checkpoint_callbacks:
+            if len(checkpoint_callbacks) > 1:
+                warnings.warn("More than one CheckpointSaver callback is not accepted," 
+                                f" but {len(checkpoint_callbacks)} were passed. Using "
+                                "just the first callback...")
             self._checkpoint_saver = checkpoint_callbacks[0]
 
         # The Engine
