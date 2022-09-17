@@ -10,6 +10,7 @@ import pytest
 import torch
 
 from composer import Algorithm, Trainer
+from composer.callbacks import CheckpointSaver
 from composer.algorithms import SAM, LayerFreezing, StochasticDepth
 from tests.algorithms.algorithm_settings import get_alg_dataloader, get_alg_kwargs, get_alg_model, get_algs_with_marks
 from tests.common import deep_compare
@@ -40,7 +41,7 @@ def test_algorithm_resumption(
 
     shared_config = {
         'max_duration': '2ep',
-        'save_filename': 'ep{epoch}-rank{rank}',
+        'callbacks': [CheckpointSaver(checkpoint_filename='ep{epoch}-rank{rank}',),],
         'train_subset_num_batches': 2,
         'precision': 'amp',
     }
