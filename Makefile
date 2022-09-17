@@ -20,4 +20,7 @@ test-dist:
 test-dist-gpu:
 	$(PYTHON) -m composer.cli.launcher -n $(WORLD_SIZE) --master_port $(MASTER_PORT) $(EXTRA_LAUNCHER_ARGS) -m $(PYTEST) -m gpu $(EXTRA_ARGS)
 
-.PHONY: test test-gpu test-dist test-dist-gpu
+test-all:
+	make test test-gpu test-dist test-dist-gpu
+
+.PHONY: test test-gpu test-dist test-dist-gpu test-all

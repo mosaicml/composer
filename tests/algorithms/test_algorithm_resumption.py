@@ -10,8 +10,8 @@ import pytest
 import torch
 
 from composer import Algorithm, Trainer
-from composer.callbacks import CheckpointSaver
 from composer.algorithms import SAM, LayerFreezing, StochasticDepth
+from composer.callbacks import CheckpointSaver
 from tests.algorithms.algorithm_settings import get_alg_dataloader, get_alg_kwargs, get_alg_model, get_algs_with_marks
 from tests.common import deep_compare
 
