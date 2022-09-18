@@ -10,7 +10,7 @@ import pathlib
 import re
 import tempfile
 import uuid
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 import requests
 import tqdm
@@ -32,6 +32,34 @@ __all__ = [
     'is_tar',
     'create_symlink_file',
 ]
+
+
+def _get_dist_config(strict: bool = True) -> Dict[str, Any]:
+    """Returns a dict of distributed settings (rank, world_size, etc.).
+
+    If ``strict=True``, will error if a setting is not available (e.g. the
+    environment variable is not set). Otherwise, will only return settings
+    that are availalbe.
+    """
+    settings = {
+        'rank': dist.get_global_rank,
+        'local_rank': dist.get_local_rank,
+        'world_size': dist.get_world_size,
+        'local_world_size': dist.get_local_world_size,
+        'node_rank': dist.get_node_rank,
+    }
+
+    dist_config = {}
+    for name, func in settings.items():
+        try:
+            value = func()
+        except dist.MissingEnvironmentError as e:
+            if strict:
+                raise e
+        else:
+            dist_config[name] = value
+
+    return dist_config
 
 
 def is_tar(name: Union[str, pathlib.Path]) -> bool:
@@ -89,11 +117,7 @@ def ensure_folder_has_no_conflicting_files(folder_name: Union[str, pathlib.Path]
             pattern = pattern.replace(f'{{{unit}}}', f'(?P<{unit}>\\d+)')
 
     # Format rank information
-    pattern = pattern.format(rank=dist.get_global_rank(),
-                             local_rank=dist.get_local_rank(),
-                             world_size=dist.get_world_size(),
-                             local_world_size=dist.get_local_world_size(),
-                             node_rank=dist.get_node_rank())
+    pattern = pattern.format(**_get_dist_config(strict=False))
 
     template = re.compile(pattern)
 
@@ -143,11 +167,7 @@ FORMAT_NAME_WITH_DIST_TABLE = """
 def format_name_with_dist(format_str: str, run_name: str, **extra_format_kwargs: object):  # noqa: D103
     formatted_str = format_str.format(
         run_name=run_name,
-        rank=dist.get_global_rank(),
-        local_rank=dist.get_local_rank(),
-        world_size=dist.get_world_size(),
-        local_world_size=dist.get_local_world_size(),
-        node_rank=dist.get_node_rank(),
+        **_get_dist_config(strict=False),
         **extra_format_kwargs,
     )
     return formatted_str
@@ -240,11 +260,6 @@ def format_name_with_dist_and_time(
 ):  # noqa: D103
     formatted_str = format_str.format(
         run_name=run_name,
-        rank=dist.get_global_rank(),
-        local_rank=dist.get_local_rank(),
-        world_size=dist.get_world_size(),
-        local_world_size=dist.get_local_world_size(),
-        node_rank=dist.get_node_rank(),
         epoch=int(timestamp.epoch),
         batch=int(timestamp.batch),
         batch_in_epoch=int(timestamp.batch_in_epoch),
@@ -255,6 +270,7 @@ def format_name_with_dist_and_time(
         total_wct=timestamp.total_wct.total_seconds(),
         epoch_wct=timestamp.epoch_wct.total_seconds(),
         batch_wct=timestamp.batch_wct.total_seconds(),
+        **_get_dist_config(strict=False),
         **extra_format_kwargs,
     )
     return formatted_str
