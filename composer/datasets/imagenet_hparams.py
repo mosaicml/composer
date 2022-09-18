@@ -26,7 +26,7 @@ from composer.datasets.imagenet import StreamingImageNet1k
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.datasets.utils import NormalizationFn, pil_image_collate
-from composer.utils import dist
+from composer.utils import dist, warn_streaming_dataset_deprecation
 from composer.utils.import_helpers import MissingConditionalImportError
 
 # ImageNet normalization values from torchvision: https://pytorch.org/vision/stable/models.html
@@ -212,9 +212,9 @@ class StreamingImageNet1kHparams(DatasetHparams):
     """DatasetHparams for creating an instance of StreamingImageNet1k.
 
     Args:
-        version (int): Which version of streaming to use. Default: ``2``.
+        version (int): Which version of streaming to use. Default: ``1``.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-            Default: ``'s3://mosaicml-internal-dataset-imagenet1k/mds/2/```
+            Default: ``'s3://mosaicml-internal-dataset-imagenet1k/mds/1/```
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-imagenet1k/```
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
@@ -222,9 +222,9 @@ class StreamingImageNet1kHparams(DatasetHparams):
         crop size (int): The crop size to use. Default: ``224``.
     """
 
-    version: int = hp.optional('Version of streaming (1 or 2)', default=2)
+    version: int = hp.optional('Version of streaming (1 or 2)', default=1)
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
-                              default='s3://mosaicml-internal-dataset-imagenet1k/mds/2/')
+                              default='s3://mosaicml-internal-dataset-imagenet1k/mds/1/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
                              default='/tmp/mds-cache/mds-imagenet1k/')
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')
@@ -233,6 +233,7 @@ class StreamingImageNet1kHparams(DatasetHparams):
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
         if self.version == 1:
+            warn_streaming_dataset_deprecation(old_version=self.version, new_version=2)
             dataset = StreamingImageNet1k(remote=self.remote,
                                           local=self.local,
                                           split=self.split,

@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 from composer.core.data_spec import DataSpec
 from composer.datasets.c4 import C4Dataset, StreamingC4
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
+from composer.utils import warn_streaming_dataset_deprecation
 from composer.utils.import_helpers import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
@@ -24,9 +25,9 @@ class StreamingC4Hparams(DatasetHparams):
     """Builds a :class:`.DataSpec` for the StreamingC4 (Colossal Cleaned Common Crawl) dataset.
 
     Args:
-        version (int): Which version of streaming to use. Default: ``2``.
+        version (int): Which version of streaming to use. Default: ``1``.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-            Default: ``'s3://mosaicml-internal-dataset-c4/mds/2/'``
+            Default: ``'s3://mosaicml-internal-dataset-c4/mds/1/'``
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-c4/'``
         split (str): What split of the dataset to use. Either ``'train'`` or ``'val'``. Default: ``'train'``.
@@ -40,9 +41,9 @@ class StreamingC4Hparams(DatasetHparams):
         timeout (float): How long to wait for shard to download before raising an exception. Default: 120 sec.
     """
 
-    version: int = hp.optional('Version of streaming (1 or 2)', default=2)
+    version: int = hp.optional('Version of streaming (1 or 2)', default=1)
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
-                              default='s3://mosaicml-internal-dataset-c4/mds/2/')
+                              default='s3://mosaicml-internal-dataset-c4/mds/1/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
                              default='/tmp/mds-cache/mds-c4/')
     split: str = hp.optional('What split of the dataset to use. Either `train` or `val`.', default='train')
@@ -76,6 +77,7 @@ class StreamingC4Hparams(DatasetHparams):
 
         # Get StreamingC4 dataset
         if self.version == 1:
+            warn_streaming_dataset_deprecation(old_version=self.version, new_version=2)
             dataset = StreamingC4(remote=self.remote,
                                   local=self.local,
                                   split=self.split,
