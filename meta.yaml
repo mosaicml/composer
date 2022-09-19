@@ -17,7 +17,7 @@ build:
 requirements:
   host:
     - python >=3.7
-    - setuptools
+    - setuptools <=59.5.0
     - git
   run:
     - python >=3.7,<4
