@@ -28,7 +28,7 @@ def apply_weight_standardization(model: torch.nn.Module, n_last_layers_ignore: b
     count = 0
     model_trace = symbolic_trace(model)
     for module in model_trace.modules():
-        if (isinstance(module, nn.Conv1d) or isinstance(module, nn.Conv2d) or isinstance(module, nn.Conv3d)):
+        if isinstance(module, (nn.Conv1d, nn.Conv2d, nn.Conv3d)) and module.groups == 1:
             parametrize.register_parametrization(module, 'weight', WeightStandardizer())
             count += 1
 
@@ -37,7 +37,7 @@ def apply_weight_standardization(model: torch.nn.Module, n_last_layers_ignore: b
     for module in list(model_trace.modules())[::-1]:
         if target_ws_layers == count:
             break
-        if (isinstance(module, nn.Conv1d) or isinstance(module, nn.Conv2d) or isinstance(module, nn.Conv3d)):
+        if isinstance(module, (nn.Conv1d, nn.Conv2d, nn.Conv3d)) and module.groups == 1:
             parametrize.remove_parametrizations(module, 'weight', leave_parametrized=False)
             count -= 1
 
