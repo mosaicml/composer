@@ -41,9 +41,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             Default: ``5``.
         subsample_ratio (float, optional): Proportion of the dataset to use. Default:
             ``1.0``.
-        train_sequence_length (int, optional): Sequence length for training dataset.
-            Default: ``1024``.
-        val_sequence_length (int, optional): Sequence length for validation dataset.
+        max_seq_length: (int, optional): Custom sequence length for the training dataset.
             Default: ``1024``.
     """
 
@@ -103,6 +101,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 num_tokens=self.num_tokens,
                 mlm_probability=self.mlm_probability,
                 subsample_ratio=self.subsample_ratio,
+                max_seq_length=self.max_seq_length,
                 **asdict(dataloader_hparams),
             )
         else:

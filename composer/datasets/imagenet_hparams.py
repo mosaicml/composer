@@ -20,7 +20,7 @@ from composer.datasets.imagenet import (StreamingImageNet1k, build_ffcv_imagenet
                                         build_synthetic_imagenet_dataloader, write_ffcv_imagenet)
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.datasets.utils import NormalizationFn, pil_image_collate
-from composer.utils import dist, warn_streaming_dataset_deprecation
+from composer.utils import warn_streaming_dataset_deprecation
 from composer.utils.import_helpers import MissingConditionalImportError
 
 # ImageNet normalization values from torchvision: https://pytorch.org/vision/stable/models.html

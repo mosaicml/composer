@@ -11,7 +11,7 @@ from composer.core import DataSpec
 from composer.datasets.coco import StreamingCOCO, build_coco_detection_dataloader, split_coco_batch
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.models.ssd.utils import SSDTransformer, dboxes300_coco
-from composer.utils import dist, warn_streaming_dataset_deprecation
+from composer.utils import warn_streaming_dataset_deprecation
 from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['COCODatasetHparams', 'StreamingCOCOHparams']

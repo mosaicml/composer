@@ -22,7 +22,7 @@ from composer.datasets.ade20k import (IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_ST
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.datasets.utils import NormalizationFn, pil_image_collate
-from composer.utils import dist, warn_streaming_dataset_deprecation
+from composer.utils import warn_streaming_dataset_deprecation
 from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['ADE20kDatasetHparams', 'StreamingADE20kHparams']

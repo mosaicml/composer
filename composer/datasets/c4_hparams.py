@@ -9,7 +9,7 @@ from typing import Optional
 import yahp as hp
 
 from composer.core.data_spec import DataSpec
-from composer.datasets.c4 import build_c4_dataloader, build_streamingc4_dataloader
+from composer.datasets.c4 import StreamingC4, build_c4_dataloader
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.utils import warn_streaming_dataset_deprecation
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -69,6 +69,11 @@ class StreamingC4Hparams(DatasetHparams):
             raise ValueError("Must provide a positive 'mlm_probability' when using masked language modeling.")
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
+
+        try:
+            import transformers
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
         # Get StreamingC4 dataset
         if self.version == 1:
