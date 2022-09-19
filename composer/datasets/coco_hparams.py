@@ -12,7 +12,7 @@ from composer.core import DataSpec
 from composer.datasets.coco import COCODetection, StreamingCOCO, split_dict_fn
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.models.ssd.utils import SSDTransformer, dboxes300_coco
-from composer.utils import dist
+from composer.utils import dist, warn_streaming_dataset_deprecation
 from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['COCODatasetHparams', 'StreamingCOCOHparams']
@@ -75,23 +75,24 @@ class StreamingCOCOHparams(DatasetHparams):
     """DatasetHparams for creating an instance of StreamingCOCO.
 
     Args:
-        version (int): Which version of streaming to use. Default: ``2``.
+        version (int): Which version of streaming to use. Default: ``1``.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-            Default: ``'s3://mosaicml-internal-dataset-coco/mds/2/```
+            Default: ``'s3://mosaicml-internal-dataset-coco/mds/1/```
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-coco/```
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
     """
 
-    version: int = hp.optional('Version of streaming (1 or 2)', default=2)
+    version: int = hp.optional('Version of streaming (1 or 2)', default=1)
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
-                              default='s3://mosaicml-internal-dataset-coco/mds/2/')
+                              default='s3://mosaicml-internal-dataset-coco/mds/1/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
                              default='/tmp/mds-cache/mds-coco/')
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
         if self.version == 1:
+            warn_streaming_dataset_deprecation(old_version=self.version, new_version=2)
             dataset = StreamingCOCO(remote=self.remote,
                                     local=self.local,
                                     split=self.split,
