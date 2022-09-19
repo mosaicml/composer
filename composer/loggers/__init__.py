@@ -12,6 +12,7 @@ See the :class:`~.logger_destination.LoggerDestination` documentation for an exa
 define a custom logger and use it when training.
 """
 
+from composer.loggers.cometml_logger import CometMLLogger
 from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger import Logger, LogLevel
@@ -32,4 +33,5 @@ __all__ = [
     'WandBLogger',
     'ObjectStoreLogger',
     'TensorboardLogger',
+    'CometMLLogger',
 ]

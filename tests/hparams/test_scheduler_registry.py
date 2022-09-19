@@ -11,7 +11,7 @@ from composer.optim.scheduler import (ComposerScheduler, ConstantWithWarmupSched
                                       MultiStepWithWarmupScheduler, PolynomialScheduler, PolynomialWithWarmupScheduler,
                                       StepScheduler)
 from composer.optim.scheduler_hparams_registry import scheduler_registry
-from tests.common.hparams import construct_from_yaml
+from tests.hparams.common import construct_from_yaml
 
 # Cannot query the module and use an isinstance check because schedulers have no base class -- they're just functions
 # that return functions. Instead, using the registry

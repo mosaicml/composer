@@ -39,6 +39,8 @@ from pypandoc.pandoc_download import download_pandoc
 from sphinx.ext.autodoc import ClassDocumenter, _
 from sphinx.writers.html5 import HTML5Translator
 
+import composer
+
 if not shutil.which('pandoc'):
     # Install pandoc if it is not installed.
     # Pandoc is required by nbconvert but it is not included in the pypandoc pip package
@@ -137,7 +139,7 @@ source_suffix = ['.rst', '.md']
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'examples/imagenet/README.md']
 
 napoleon_custom_sections = [('Returns', 'params_style')]
 
@@ -161,10 +163,8 @@ html_static_path = ['_static']
 html_title = ' Composer'
 
 # Customize CSS
-html_css_files = ['css/custom.css']
-html_js_files = [
-    'js/posthog.js',
-]
+html_css_files = ['css/custom.css', 'https://cdn.jsdelivr.net/npm/@docsearch/css@3']
+html_js_files = ['js/posthog.js']
 
 # Mosaic logo
 # html_logo = 'https://storage.googleapis.com/docs.mosaicml.com/images/logo-dark-bg.png'
@@ -269,167 +269,6 @@ with open(os.path.join(os.path.dirname(__file__), 'doctest_cleanup.py'), 'r') as
     doctest_global_cleanup = f.read()
 
 
-def determine_sphinx_path(item: Union[Type[object], Type[BaseException], types.MethodType, types.FunctionType],
-                          module_name: str) -> Optional[str]:
-    """Returns the path to where an item is documented.
-
-    #. If ``item`` is private, then a Sphinx warning is emitted, as private members should not be documented
-    #. If ``item`` is in a private module, but ``item`` itself is public, the parents of ``item`` are searched to see if
-    ``item`` is reimported. If so, the most nested, public reimport is used.
-    #. If no re-import of ``item`` is found, then a sphinx warning is emitted.
-        This is likely to happen for modules missing ``__all__`` and that have external imports,
-        or could be a very unlikely edge condition where a public item in a private module is reimported only by
-        sibling module(s), not any (grand)parents.
-    """
-    # Check to see if `item` is itself private
-    if item.__name__.startswith('_'):
-        public_name = item.__name__
-        while public_name.startswith('_'):
-            public_name = public_name[1:]
-
-        if item.__qualname__.startswith('composer'):
-            log.warning(
-                textwrap.dedent(f"""\
-                {item.__qualname__} is private, so it should not be re-exported.
-                To fix, please make it public by renaming to {public_name}"""))
-
-    # Find and import the most nested public module of the path
-    module_parts = module_name.split('.')
-    public_module_parts = filter(lambda x: not x.startswith('_'), module_parts)
-    public_module_name = '.'.join(public_module_parts)
-    public_module = importlib.import_module(public_module_name)
-
-    # See if item is imported in `public_module`
-    for name, val in vars(public_module).items():
-        if val is item:
-            # Found the item re-imported in `public_module` as `name`
-            return f'{public_module_name}.{name}'
-
-    # `item` was not found in `public_module`. Recursively search the parent module
-    parent_module_name = '.'.join(public_module_name.split('.')[:-1])
-    if parent_module_name == '':
-        log.warning(f'{item.__name__} in {module_name} is not re-imported by any public parent or grandparent module.')
-        return None
-    return determine_sphinx_path(item, parent_module_name)
-
-
-def add_module_summary_tables(
-    app: sphinx.application.Sphinx,
-    what: str,
-    name: str,
-    obj: Any,
-    options: sphinx.ext.autodoc.Options,
-    lines: List[str],
-):
-    """Add summary tables for each module, documenting all functions, exceptions, classes, and attributes.
-
-    It links reimported imports to their original source, as not to create a duplicate, indexed toctree entry.
-    It automatically inserts itself at the end of each module docstring.
-    """
-    del app, options  # unused
-    functions: List[Tuple[str, types.FunctionType]] = []
-    exceptions: List[Tuple[str, Type[BaseException]]] = []
-    classes: List[Tuple[str, Type[object]]] = []
-    methods: List[Tuple[str, types.MethodType]] = []
-    attributes: List[Tuple[str, object]] = []
-    if len(lines) == 0:
-        # insert a stub docstring so it doesn't start with functions/exceptions/classes/attributes
-        lines.append(f'Module :mod:`~{name}`.')
-
-    if what == 'module':
-
-        try:
-            all_members = list(obj.__all__)
-        except AttributeError:
-            all_members = list(vars(obj).keys())
-
-        for item_name, val in vars(obj).items():
-            if item_name.startswith('_'):
-                # Skip private members
-                continue
-
-            if item_name not in all_members:
-                # Skip members not in `__all__``
-                continue
-
-            if isinstance(val, types.ModuleType):
-                # Skip modules; those are documented by autosummary
-                continue
-
-            if isinstance(val, types.FunctionType):
-                functions.append((item_name, val))
-            elif isinstance(val, types.MethodType):
-                methods.append((item_name, val))
-            elif isinstance(val, type) and issubclass(val, BaseException):
-                exceptions.append((item_name, val))
-            elif isinstance(val, type):
-                assert issubclass(val, object)
-                classes.append((item_name, val))
-            else:
-                attributes.append((item_name, val))
-                continue
-
-        # Sort by the reimported name
-        functions.sort(key=lambda x: x[0])
-        exceptions.sort(key=lambda x: x[0])
-        classes.sort(key=lambda x: x[0])
-        attributes.sort(key=lambda x: x[0])
-
-        # separate hparams classes with other classes
-        hparams = [(n, c) for (n, c) in classes if issubclass(c, hp.Hparams)]
-        classes = [(n, c) for (n, c) in classes if not issubclass(c, hp.Hparams)]
-
-        for category, category_name in ((functions, 'Functions'), (classes, 'Classes'), (hparams, 'Hparams'),
-                                        (exceptions, 'Exceptions')):
-            sphinx_lines = []
-            for item_name, item in category:
-                sphinx_path = determine_sphinx_path(item, item.__module__)
-                if sphinx_path is not None:
-                    sphinx_lines.append(f'      ~{sphinx_path}')
-            if len(sphinx_lines) > 0:
-                lines.append('')
-                lines.append(f'.. rubric:: {category_name}')
-                lines.append('')
-                if category_name == 'Hparams':
-                    lines.append('These classes are used with :mod:`yahp` for ``YAML``-based configuration.')
-                    lines.append('')
-                lines.append('.. autosummary::')
-                lines.append('      :nosignatures:')
-                lines.append('')
-                lines.extend(sphinx_lines)
-
-        if len(attributes) > 0:
-            # Documenting attributes as a list instead of a summary table because
-            # an attribute's summary docstring is the type's docstring, (e.g. the docstring for dict)
-            # not the docstring for the attribute.
-            lines.append('')
-            lines.append(f'.. rubric:: Attributes')
-            lines.append('')
-            for item_name, item in attributes:
-                lines.append(f'* :attr:`~{name}.{item_name}`')
-
-        if len(methods) > 0:
-            # Documenting bound methods as a list instead of a summary table because
-            # autosummary doesn't work for bound methods
-            sphinx_lines = []
-            for item_name, item in methods:
-                # Get the path to the class where this method is defined
-                item_cls = item.__self__
-                if not isinstance(item_cls, type):
-                    continue
-                assert issubclass(item_cls, object)
-                sphinx_cls_path = determine_sphinx_path(item_cls, item_cls.__module__)
-                # Get the name of this method in the class
-                cls_method_name = item.__func__.__name__
-                if sphinx_cls_path is not None:
-                    sphinx_lines.append(f'* :meth:`~{sphinx_cls_path}.{cls_method_name}`')
-            if len(sphinx_lines) > 0:
-                lines.append('')
-                lines.append(f'.. rubric:: Methods')
-                lines.append('')
-                lines.extend(sphinx_lines)
-
-
 def rstjinja(app, docname, source):
     """Render our pages as a jinja template for fancy templating goodness."""
     # Make sure we're outputting HTML
@@ -477,6 +316,167 @@ html_context = {'metadata': get_algorithms_metadata()}
 # From https://stackoverflow.com/questions/46279030/how-can-i-prevent-sphinx-from-listing-object-as-a-base-class
 add_line = ClassDocumenter.add_line
 line_to_delete = _('Bases: %s') % u':py:class:`object`'
+
+
+def _auto_rst_for_module(module: types.ModuleType, exclude_members: List[Any]) -> str:
+    """Generate the content of an rst file documenting a module.
+
+    Includes the module docstring, followed by tables for the functions,
+    classes, yahp hparams, and exceptions
+
+    Args:
+        module: The module object to document
+        exclude_members: A list of Python objects to exclude from the
+            documentation. Providing objects that are not imported in
+            ``module`` are ignored.
+
+    Returns:
+        The rst content for the module
+    """
+    name = module.__name__
+    lines = []
+
+    functions: List[Tuple[str, types.FunctionType]] = []
+    exceptions: List[Tuple[str, Type[BaseException]]] = []
+    classes: List[Tuple[str, Type[object]]] = []
+    methods: List[Tuple[str, types.MethodType]] = []
+    attributes: List[Tuple[str, object]] = []
+
+    # add title and module docstring
+    lines.append(f'{name}')
+    lines.append(f'{"=" * len(name)}\n')
+    lines.append(f'.. automodule:: {name}\n')
+
+    # set prefix so that we can use short names in the autosummaries
+    lines.append(f'.. currentmodule:: {name}')
+
+    try:
+        all_members = list(module.__all__)
+    except AttributeError:
+        all_members = list(vars(module).keys())
+
+    for item_name, val in vars(module).items():
+        if val in exclude_members:
+            continue
+
+        if item_name.startswith('_'):
+            # Skip private members
+            continue
+
+        if item_name not in all_members:
+            # Skip members not in `__all__``
+            continue
+
+        if isinstance(val, types.ModuleType):
+            # Skip modules; those are documented by autosummary
+            continue
+
+        if isinstance(val, types.FunctionType):
+            functions.append((item_name, val))
+        elif isinstance(val, types.MethodType):
+            methods.append((item_name, val))
+        elif isinstance(val, type) and issubclass(val, BaseException):
+            exceptions.append((item_name, val))
+        elif isinstance(val, type):
+            assert issubclass(val, object)
+            classes.append((item_name, val))
+        else:
+            attributes.append((item_name, val))
+            continue
+
+    # Sort by the reimported name
+    functions.sort(key=lambda x: x[0])
+    exceptions.sort(key=lambda x: x[0])
+    classes.sort(key=lambda x: x[0])
+    attributes.sort(key=lambda x: x[0])
+
+    # separate hparams classes from other classes
+    hparams = [(n, c) for (n, c) in classes if issubclass(c, hp.Hparams)]
+    classes = [(n, c) for (n, c) in classes if not issubclass(c, hp.Hparams)]
+
+    for category, category_name in ((functions, 'Functions'), (classes, 'Classes'), (hparams, 'Hparams'),
+                                    (exceptions, 'Exceptions')):
+        sphinx_lines = []
+        for item_name, _ in category:
+            sphinx_lines.append(f'      {item_name}')
+        if len(sphinx_lines) > 0:
+            lines.append(f'\n.. rubric:: {category_name}\n')
+            if category_name == 'Hparams':
+                lines.append('These classes are used with :mod:`yahp` for ``YAML``-based configuration.')
+                lines.append('')
+            lines.append('.. autosummary::')
+            lines.append('      :toctree: generated')
+            lines.append('      :nosignatures:')
+            if category_name in ('Classes', 'Hparams'):
+                lines.append('      :template: classtemplate.rst')
+            elif category_name == 'Functions':
+                lines.append('      :template: functemplate.rst')
+            lines.append('')
+            lines.extend(sphinx_lines)
+            lines.append('')
+
+    lines.append('.. This file autogenerated by docs/source/conf.py\n')
+
+    return '\n'.join(lines)
+
+
+def _modules_to_rst() -> List[types.ModuleType]:
+    """Return the list of modules for which to generate API reference rst files."""
+    # adding composer.functional to the below list yields:
+    #   AttributeError: module 'composer' has no attribute 'functional'
+    import composer.functional as cf
+
+    document_modules: List[types.Module] = [
+        composer,
+        cf,
+        composer.utils.dist,
+        composer.utils.reproducibility,
+        composer.core.types,
+    ]
+    exclude_modules: List[types.Module] = [composer.trainer, composer._version]
+    for name in composer.__dict__:
+        obj = composer.__dict__[name]
+        if isinstance(obj, types.ModuleType) and obj not in exclude_modules:
+            document_modules.append(obj)
+
+    return document_modules
+
+
+def _generate_rst_files_for_modules() -> None:
+    """Generate .rst files for each module to include in the API reference.
+
+    These files contain the module docstring followed by tables listing all
+    the functions, classes, etc.
+    """
+    docs_dir = os.path.abspath(os.path.dirname(__file__))
+    module_rst_save_dir = os.path.join(docs_dir, 'api_reference')
+    # gather up modules to generate rst files for
+    document_modules = _modules_to_rst()
+
+    # rip out types that are duplicated in top-level composer module
+    composer_imported_types = []
+    for name in composer.__all__:
+        obj = composer.__dict__[name]
+        if not isinstance(obj, types.ModuleType):
+            composer_imported_types.append(obj)
+
+    document_modules = sorted(document_modules, key=lambda x: x.__name__)
+    os.makedirs(module_rst_save_dir, exist_ok=True)
+    for module in document_modules:
+        saveas = os.path.join(module_rst_save_dir, module.__name__ + '.rst')
+        print(f'Generating rst file {saveas} for module: {module.__name__}')
+
+        # avoid duplicate entries in docs. We add torch's _LRScheduler to
+        # types, so we get a ``WARNING: duplicate object description`` if we
+        # don't exclude it
+        exclude_members = [torch.optim.lr_scheduler._LRScheduler]
+        if module is not composer:
+            exclude_members += composer_imported_types
+
+        content = _auto_rst_for_module(module, exclude_members=exclude_members)
+
+        with open(saveas, 'w') as f:
+            f.write(content)
 
 
 def _add_line_no_object_base(self, text, *args, **kwargs):
@@ -608,7 +608,7 @@ class PatchedHTMLTranslator(HTML5Translator):
 
 def setup(app: sphinx.application.Sphinx):
     """Setup hook."""
+    _generate_rst_files_for_modules()
     app.connect('autodoc-skip-member', skip_redundant_namedtuple_attributes)
-    app.connect('autodoc-process-docstring', add_module_summary_tables)
     app.connect('source-read', rstjinja)
     app.set_translator('html', PatchedHTMLTranslator)

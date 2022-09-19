@@ -12,10 +12,11 @@ from composer.loggers import ObjectStoreLogger
 from composer.loggers.logger_hparams_registry import ObjectStoreLoggerHparams, logger_registry
 from composer.profiler import JSONTraceHandler, SystemProfiler, TorchProfiler, TraceHandler
 from tests.callbacks.callback_settings import get_cb_hparams_and_marks, get_cb_kwargs, get_cbs_and_marks
-from tests.common.hparams import assert_in_registry, construct_from_yaml
+from tests.hparams.common import assert_in_registry, construct_from_yaml
 
 
 @pytest.mark.parametrize('constructor', get_cb_hparams_and_marks())
+@pytest.mark.filterwarnings(r'ignore:Call to deprecated create function:DeprecationWarning')
 def test_callback_hparams_is_constructable(
     constructor: Union[Type[Callback], Type[hp.Hparams]],
     monkeypatch: pytest.MonkeyPatch,

@@ -5,12 +5,12 @@
 
 import os
 import tempfile
-from typing import Any, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Union
 
 import numpy as np
 import requests
 from torch import Tensor
-from torchmetrics import Metric, MetricCollection
+from torchmetrics import Metric
 
 from composer.models.base import ComposerModel
 from composer.models.ssd.base_model import Loss
@@ -75,15 +75,15 @@ class SSD(ComposerModel):
         loss = self.loss_func(ploc, plabel, gloc, glabel)
         return loss
 
-    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
-        return self.MAP
+    def get_metrics(self, is_train: bool = False) -> Dict[str, Metric]:
+        return {'CocoMAP': self.MAP}
 
     def forward(self, batch: Any) -> Tensor:
         (img, _, _, _, _) = batch  #type: ignore
         ploc, plabel = self.module(img)
         return ploc, plabel  #type: ignore
 
-    def validate(self, batch: Any) -> Tuple[Any, Any]:
+    def eval_forward(self, batch: Any, outputs: Optional[Any] = None):
         inv_map = {v: k for k, v in self.val_coco.label_map.items()}
         ret = []
         overlap_threshold = self.overlap_threshold
@@ -117,7 +117,7 @@ class SSD(ComposerModel):
                                 prob_,
                                 inv_map[label_]])
 
-        return ret, ret
+        return ret
 
 
 class coco_map(Metric):

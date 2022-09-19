@@ -100,25 +100,30 @@ To compute metrics during training, implement the following methods:
 
 .. code:: python
 
-   def validate (self, batch) -> outputs, targets:
+   def eval_forward (self, batch, outputs) -> outputs:
        ...
 
-   def metrics(self, train=False) -> Metrics:
+   def get_metrics(self, is_train=False) -> Dict[str, Metric]:
        ...
 
-where ``Metrics`` should be compatible with the ``torchmetrics`` package. We
-require that the output of :meth:`.ComposerModel.validate` be consumable by
-``torchmetrics``. Specifically, the validation loop does something like this:
+   def update_metric(self, batch, outputs, metric) -> None:
+       ...
+
+where ``Metrics`` should be compatible with the ``torchmetrics.Metrics`` protocol. We
+require that the output of :meth:`.ComposerModel.eval_forward` be consumable by
+that protocol. Specifically, the validation loop does something like this:
 
 .. code:: python
 
-    metrics = model.metrics(train=False)
+    metrics = model.get_metrics(is_train=False)
 
     for batch in val_dataloader:
-        outputs, targets = model.validate(batch)
-        metrics.update(outputs, targets)  # implements the torchmetrics interface
+        outputs = model.eval_forward(batch)
+        for m in metrics.values():
+            model.update_metric(batch, outputs, m)
 
-    metrics.compute()
+    for metric in metrics.values():
+        metric.compute()
 
 A full example of a validation implementation would be:
 
@@ -134,14 +139,20 @@ A full example of a validation implementation would be:
 
         ...
 
-        def validate(self, batch):
-            inputs, targets = batch
+        def eval_forward(self, batch, outputs):
+            if outputs:
+                return outputs
+            inputs, _ = batch
             outputs = self.model(inputs)
-            return outputs, targets
+            return outputs
 
-        def metrics(self, train=False):
+        def update_metric(self, batch, outputs, metric):
+            _, targets = batch
+            metric.update(outputs, targets)
+
+        def get_metrics(self, is_train=False):
             # defines which metrics to use in each phase of training
-            return self.train_accuracy if train else self.val_accuracy
+            return {'Accuracy': self.train_accuracy} if train else {'Accuracy': self.val_accuracy}
 
 .. note::
 
@@ -171,10 +182,8 @@ To run multiple metrics, wrap them in a :class:`torchmetrics.MetricCollection`.
 
     from torchmetrics.collections import MetricCollection
 
-    def metrics(self, train: bool = False) -> Metrics:
-        if train:
-            return MetricCollection([self.train_loss, self.train_accuracy])
-        return MetricCollection([self.val_loss, self.val_accuracy])
+    model.train_metrics = MetricCollection([self.train_loss, self.train_accuracy])
+    model.eval_metrics = MetricCollection([self.val_loss, self.val_accuracy])
 
 .. note::
 

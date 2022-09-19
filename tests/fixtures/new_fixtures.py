@@ -9,6 +9,7 @@ import time
 
 import coolname
 import pytest
+import torch
 from torch.utils.data import DataLoader
 
 from composer.core import State
@@ -93,3 +94,32 @@ def test_session_name(configure_dist: None) -> str:
     # ensure all ranks have the same name
     dist.broadcast_object_list(name_list)
     return name_list[0]
+
+
+@pytest.fixture()
+def dummy_state(
+    rank_zero_seed: int,
+    request: pytest.FixtureRequest,
+) -> State:
+
+    model = SimpleModel()
+    if request.node.get_closest_marker('gpu') is not None:
+        # If using `dummy_state`, then not using the trainer, so move the model to the correct device
+        model = model.cuda()
+
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda _: 1.0)
+
+    state = State(
+        model=model,
+        run_name='dummy_run_name',
+        precision='fp32',
+        grad_accum=1,
+        rank_zero_seed=rank_zero_seed,
+        optimizers=optimizer,
+        max_duration='10ep',
+    )
+    state.schedulers = scheduler
+    state.set_dataloader(DataLoader(RandomClassificationDataset()), 'train')
+
+    return state

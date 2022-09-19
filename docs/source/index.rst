@@ -7,8 +7,7 @@ Composer
 It contains many state-of-the-art methods for accelerating neural network training and improving generalization, along with
 an optional :doc:`Trainer<trainer/using_the_trainer>` API that makes `composing` many different enhancements easy.
 
-We implemented dozens of papers and `trained thousands of models <https://app.mosaicml.com/explorer/imagenet>`_ so you don't have to,
-and built strong baselines to rigorously measure their effect.
+We implemented dozens of papers and `trained thousands of models <https://app.mosaicml.com/explorer/imagenet>`_ so you don't have to.
 
 With Composer, you can build recipes to:
 
@@ -16,6 +15,11 @@ With Composer, you can build recipes to:
    :parser: myst_parser.sphinx_
    :start-after: <!-- start numbers -->
    :end-before: <!-- end numbers -->
+
+.. include:: ../../README.md
+   :parser: myst_parser.sphinx_
+   :start-after: <!-- start main results -->
+   :end-before: <!-- end main results -->
 
 
 Composer features:
@@ -57,7 +61,6 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    examples/functional_api.ipynb
    examples/medical_image_segmentation.ipynb
    examples/custom_speedup_methods.ipynb
-   examples/nlp_models.ipynb
    examples/ffcv_dataloaders.ipynb
    examples/huggingface_models.ipynb
    examples/migrate_from_ptl.ipynb
@@ -69,6 +72,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    examples/exporting_for_inference.ipynb
    examples/glue/glue_entrypoint.ipynb
    examples/TPU_Training_in_composer.ipynb
+   tutorials/train_resnet50_on_aws.md
 
 .. toctree::
    :hidden:
@@ -159,8 +163,10 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    :hidden:
    :caption: API Reference
    :maxdepth: 1
+   :glob:
 
-   api_reference.rst
+   api_reference/*
+
 
 .. _Twitter: https://twitter.com/mosaicml
 .. _Email: mailto:community@mosaicml.com

@@ -24,6 +24,7 @@ def object_store_cls_and_kwargs(request, s3_bucket: str, sftp_uri: str, test_ses
             kwargs = {
                 'provider': 'local',
                 'container': '.',
+                'key_environ': 'OBJECT_STORE',
                 'provider_kwargs': {
                     'key': '.',
                 },
@@ -148,3 +149,28 @@ class TestObjectStore:
     def test_download_not_found(self, object_store: ObjectStore, remote: bool):
         with pytest.raises(FileNotFoundError):
             object_store.download_object('not_found_object', filename='not used')
+
+
+@pytest.mark.filterwarnings(r'ignore:setDaemon\(\) is deprecated:DeprecationWarning')
+def test_filenames_as_environs(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path):
+
+    key_filepath = tmp_path / 'keyfile'
+    key_filepath.touch()
+
+    monkeypatch.setenv('COMPOSER_SFTP_KEY_FILE', str(key_filepath))
+
+    hosts_file = tmp_path / 'host_file'
+    hosts_file.touch()
+
+    monkeypatch.setenv('COMPOSER_SFTP_KNOWN_HOSTS_FILE', str(hosts_file))
+
+    kwargs = {
+        'host': 'host',
+        'username': 'tester',
+    }
+
+    with get_object_store_ctx(SFTPObjectStore, kwargs, monkeypatch, tmp_path):
+        object_store = SFTPObjectStore(**kwargs)
+
+        assert object_store.key_filename == str(key_filepath)
+        assert object_store.known_hosts_filename == str(hosts_file)

@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from composer.core.serializable import Serializable
 
@@ -56,12 +56,20 @@ class Algorithm(Serializable, ABC):
 
     @property
     def backwards_create_graph(self) -> bool:
-        """Return ``True`` to indicate that this algorithm requires a second derivative to be computed. Defaults to ``False``.
+        """Return ``True`` to indicate this algorithm requires a second derivative to be computed. Defaults to ``False``.
 
         If it returns ``True``, ``create_graph=True`` will be passed to :meth:`torch.Tensor.backward` which will result in
         the graph of the gradient also being constructed. This allows the computation of second order derivatives.
         """
         return False
+
+    @staticmethod
+    def required_on_load() -> bool:
+        """Return `True` to indicate this algorithm is required when loading from a checkpoint which used it."""
+        return False
+
+    def state_dict(self) -> Dict[str, Any]:
+        return {'repr': self.__repr__()}
 
     @abstractmethod
     def match(self, event: Event, state: State) -> bool:

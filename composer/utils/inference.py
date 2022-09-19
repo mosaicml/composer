@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import functools
 import logging
 import os
 import tempfile
@@ -20,7 +21,7 @@ import torch.nn as nn
 from composer.utils import dist
 from composer.utils.checkpoint import download_checkpoint
 from composer.utils.iter_helpers import ensure_tuple
-from composer.utils.misc import is_model_ddp, is_model_deepspeed
+from composer.utils.misc import is_model_ddp, is_model_deepspeed, model_eval_mode
 from composer.utils.object_store import ObjectStore
 from composer.utils.string_enum import StringEnum
 
@@ -29,9 +30,20 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-__all__ = ['export_for_inference', 'ExportFormat', 'export_with_logger']
+__all__ = ['export_for_inference', 'ExportFormat', 'export_with_logger', 'quantize_dynamic']
 
 Transform = Callable[[nn.Module], nn.Module]
+
+# This is the most common way to use dynamic quantization.
+#  Example:
+#    from composer.utils import quantize_dynamic
+#    export_for_inference(
+#        ...
+#        transforms = [quantize_dynamic],
+#        ...
+#    )
+#  A user can always redefine it with extra options. This also serves as an example of what to pass to transforms.
+quantize_dynamic = functools.partial(torch.quantization.quantize_dynamic, qconfig_spec={torch.nn.Linear})
 
 
 class ExportFormat(StringEnum):
@@ -131,53 +143,54 @@ def export_for_inference(
             if len(unexpected_keys) > 0:
                 log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
-    model.eval()
-    # Apply transformations (i.e., inference optimizations) in the given order
-    for transform in ensure_tuple(transforms):
-        model = transform(model)
+    with model_eval_mode(model):
+        # Apply transformations (i.e., inference optimizations) in the given order
+        for transform in ensure_tuple(transforms):
+            model = transform(model)
 
-    is_remote_store = save_object_store is not None
-    tempdir_ctx = tempfile.TemporaryDirectory() if is_remote_store else contextlib.nullcontext(None)
-    with tempdir_ctx as tempdir:
-        if is_remote_store:
-            local_save_path = os.path.join(str(tempdir), 'model.export')
-        else:
-            local_save_path = save_path
+        is_remote_store = save_object_store is not None
+        tempdir_ctx = tempfile.TemporaryDirectory() if is_remote_store else contextlib.nullcontext(None)
+        with tempdir_ctx as tempdir:
+            if is_remote_store:
+                local_save_path = os.path.join(str(tempdir), 'model.export')
+            else:
+                local_save_path = save_path
 
-        if save_format == ExportFormat.TORCHSCRIPT:
-            export_model = None
-            try:
-                export_model = torch.jit.script(model)
-            except Exception as e:
-                log.warning(
-                    'Scripting with torch.jit.script failed with the following exception. Trying torch.jit.trace!',
-                    exc_info=True)
-                if sample_input is not None:
-                    export_model = torch.jit.trace(model, sample_input)
+            if save_format == ExportFormat.TORCHSCRIPT:
+                export_model = None
+                try:
+                    export_model = torch.jit.script(model)
+                except Exception:
+                    if sample_input is not None:
+                        log.warning('Scripting with torch.jit.script failed. Trying torch.jit.trace!',)
+                        export_model = torch.jit.trace(model, sample_input)
+                    else:
+                        log.warning(
+                            'Scripting with torch.jit.script failed and sample inputs are not provided for tracing '
+                            'with torch.jit.trace',
+                            exc_info=True)
+
+                if export_model is not None:
+                    torch.jit.save(export_model, local_save_path)
                 else:
-                    raise RuntimeError(
-                        'Scripting with torch.jit.script failed and sample inputs are not provided for tracing with torch.jit.trace'
-                    ) from e
+                    raise RuntimeError('Scritping and tracing failed! No model is getting exported.')
 
-            if export_model is not None:
-                torch.jit.save(export_model, local_save_path)
+            if save_format == ExportFormat.ONNX:
+                if sample_input is None:
+                    raise ValueError(f'sample_input argument is required for onnx export')
+                sample_input = ensure_tuple(sample_input)
 
-        if save_format == ExportFormat.ONNX:
-            if sample_input is None:
-                raise ValueError(f'sample_input argument is required for onnx export')
-            sample_input = ensure_tuple(sample_input)
+                torch.onnx.export(
+                    model,
+                    sample_input,
+                    local_save_path,
+                    input_names=['input'],
+                    output_names=['output'],
+                )
 
-            torch.onnx.export(
-                model,
-                sample_input,
-                local_save_path,
-                input_names=['input'],
-                output_names=['output'],
-            )
-
-        # upload if required.
-        if is_remote_store:
-            save_object_store.upload_object(save_path, local_save_path)
+            # upload if required.
+            if is_remote_store:
+                save_object_store.upload_object(save_path, local_save_path)
 
 
 def export_with_logger(

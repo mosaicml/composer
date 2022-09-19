@@ -50,10 +50,10 @@ class TestMLPerfCallbackEvents:
     @pytest.fixture
     def mock_state(self):
         """Mocks a state at epoch 1 with Accuracy 0.99."""
-        current_metrics = {'eval': {'Accuracy': 0.99}}
+        eval_metrics = {'eval': {'Accuracy': 0.99}}
 
         state = Mock()
-        state.current_metrics = current_metrics
+        state.eval_metrics = eval_metrics
         state.timestamp.epoch.value = 1
 
         return state

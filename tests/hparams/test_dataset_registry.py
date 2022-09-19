@@ -79,6 +79,17 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
 }
 
 
+@pytest.fixture
+def dummy_dataloader_hparams() -> DataLoaderHparams:
+    return DataLoaderHparams(
+        num_workers=0,
+        prefetch_factor=2,
+        persistent_workers=False,
+        pin_memory=False,
+        timeout=0.0,
+    )
+
+
 @pytest.mark.parametrize('dataset_name', dataset_registry.keys())
 def test_dataset(dataset_name: str, dummy_dataloader_hparams: DataLoaderHparams) -> None:
     hparams_cls = dataset_registry[dataset_name]

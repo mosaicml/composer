@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import dataclasses
 import os
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import yahp as hp
 
@@ -41,6 +41,10 @@ class GLUETrainerHparams(hp.Hparams):
         loggers (List[LoggerDestination], optional): See :class:`.Trainer`.
         run_name (str, optional): See :class:`.Trainer`.
         save_folder (str, optional): See :class:`.Trainer`.
+        seed_overrides (Dict[str, List[int]], optional): A dictionary mapping task names to the list of seed overrides it should use
+            per checkpoint. Each key must correspond to one of the GLUE tasks. This lets you train multiple fine-tune runs per
+            checkpoint on a single task (one for each seed). Tasks that are not included in the dictionary use the (single) seed
+            in their default YAML.
 
     Example:
         Specifying ``save_folder: path/to/example/folder`` in a yaml will force all glue tasks in composer/yamls/models/glue/ to
@@ -57,6 +61,12 @@ class GLUETrainerHparams(hp.Hparams):
     loggers: Optional[List[LoggerDestination]] = hp.auto(Trainer, 'loggers')
     run_name: Optional[str] = hp.auto(Trainer, 'run_name')
     save_folder: Optional[str] = hp.auto(Trainer, 'save_folder')
+    seed_overrides: Optional[Dict[str, List[int]]] = hp.optional(
+        doc='A dictionary mapping task names to the list of seed overrides it should use '
+        'per checkpoint. Each key must correspond to one of the GLUE tasks. This lets you train multiple fine-tune runs per '
+        'checkpoint on a single task (one for each seed). Tasks that are not included in the dictionary use the (single) seed '
+        'in their default YAML.',
+        default=None)
 
     hparams_registry = {
         'algorithms': algorithm_registry,

@@ -2,30 +2,30 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import contextlib
-from typing import Iterable, List, Optional, Type
+from typing import List, Optional, Type
 
 import pytest
-import torch
-import torch.utils.data
+from torch.utils.data import DataLoader
 
 from composer.core import State, Time
 from composer.core.time import TimeUnit
-from composer.models.base import ComposerModel
 from composer.optim.scheduler import (ComposerScheduler, ConstantWithWarmupScheduler, CosineAnnealingScheduler,
                                       CosineAnnealingWarmRestartsScheduler, CosineAnnealingWithWarmupScheduler,
                                       ExponentialScheduler, LinearScheduler, LinearWithWarmupScheduler,
                                       MultiStepScheduler, MultiStepWithWarmupScheduler, PolynomialScheduler,
                                       PolynomialWithWarmupScheduler, StepScheduler)
 from composer.trainer.trainer import Trainer
+from tests.common.datasets import RandomClassificationDataset
+from tests.common.models import SimpleModel
 
 MAX_DURATION = '1000ep'
 STEPS_PER_EPOCH = 1000
 
 
 @pytest.fixture
-def dummy_schedulers_state(dummy_model: torch.nn.Module, rank_zero_seed: int):
+def dummy_schedulers_state(rank_zero_seed: int):
     state = State(
-        model=dummy_model,
+        model=SimpleModel(),
         run_name='run_name',
         rank_zero_seed=rank_zero_seed,
         max_duration=MAX_DURATION,
@@ -153,12 +153,16 @@ def test_scheduler_init(scheduler: ComposerScheduler, ssr: float, test_times: Li
         (lambda state: 0.01, 1.5,
          ValueError),  # this should error since the ssr != 1.0 and the lambda doesn't support ssr
     ])
-def test_scheduler_trains(scheduler: ComposerScheduler, ssr: float, dummy_model: ComposerModel, rank_zero_seed: int,
-                          dummy_train_dataloader: Iterable, should_raise: Optional[Type[Exception]]):
+def test_scheduler_trains(
+    scheduler: ComposerScheduler,
+    ssr: float,
+    rank_zero_seed: int,
+    should_raise: Optional[Type[Exception]],
+):
     with pytest.raises(should_raise) if should_raise is not None else contextlib.nullcontext():
         trainer = Trainer(
-            model=dummy_model,
-            train_dataloader=dummy_train_dataloader,
+            model=SimpleModel(),
+            train_dataloader=DataLoader(RandomClassificationDataset()),
             max_duration='2ep',
             train_subset_num_batches=5,
             scale_schedule_ratio=ssr,

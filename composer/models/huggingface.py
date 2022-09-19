@@ -5,16 +5,18 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional, Union
+import logging
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from torchmetrics import Metric
-from torchmetrics.collections import MetricCollection
 
 from composer.models.base import ComposerModel
 from composer.utils.import_helpers import MissingConditionalImportError
 
 if TYPE_CHECKING:
     import transformers
+
+log = logging.getLogger(__name__)
 
 __all__ = ['HuggingFaceModel']
 
@@ -67,15 +69,23 @@ class HuggingFaceModel(ComposerModel):
             assert tokenizer.model_input_names is not None, 'the tokenizer should have a model input name'
             self.model_inputs = set(tokenizer.model_input_names)
 
+            if self.config.vocab_size != len(tokenizer):
+                # set model's word embedding matrix and final lm_head to vocab size according to tokenizer
+                log.warning(
+                    f'The number of tokens in the tokenizer and the number of tokens in the model are different.'
+                    f' Resizing the model tokenizer to {len(tokenizer)} from {self.config.vocab_size}.')
+                self.model.resize_token_embeddings(len(tokenizer))
+
         self.use_logits = use_logits
 
         self.train_metrics = None
-        self.valid_metrics = None
+        self.val_metrics = None
 
         if metrics:
-            metric_collection = MetricCollection(metrics)
-            self.train_metrics = metric_collection.clone(prefix='train_')
-            self.valid_metrics = metric_collection.clone(prefix='val_')
+            self.train_metrics = {metric.__class__.__name__: metric for metric in metrics}
+            self.val_metrics = {metric.__class__.__name__: metric for metric in metrics}
+
+        self.labels = None  # set in eval_forward() if exists
 
     def forward(self, batch):
         for key in self.model_inputs:
@@ -88,23 +98,28 @@ class HuggingFaceModel(ComposerModel):
     def loss(self, outputs, batch):
         return outputs['loss']
 
-    def validate(self, batch):
+    def eval_forward(self, batch, outputs: Optional[Any] = None):
+        output = outputs if outputs else self.forward(batch)
         if self.use_logits:
-            labels = batch.pop('labels')
-            output = self.forward(batch)
+            self.labels = batch.pop('labels')
             output = output['logits']
 
             # if we are in the single class case, then remove the classes dimension
             if output.shape[1] == 1:
                 output = output.squeeze(dim=1)
 
-            return output, labels
-        else:
-            output = self.forward(batch)
-            return output, None
+        return output
 
-    def metrics(self, train: bool = False):
-        return self.train_metrics if train else self.valid_metrics
+    def get_metrics(self, is_train: bool = False) -> Dict[str, Metric]:
+        if is_train:
+            metrics = self.train_metrics
+        else:
+            metrics = self.val_metrics
+
+        return metrics if metrics else {}
+
+    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
+        metric.update(outputs, self.labels)
 
     def get_model_inputs(self):
         """Returns a set of inputs that the model expects in the forward pass.
