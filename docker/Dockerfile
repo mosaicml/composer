@@ -214,7 +214,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
 # Install Flash Attention
 ##########################
 RUN if [ -n "$CUDA_VERSION" ] ; then \
-        pip${PYTHON_VERSION} install --no-cache-dir git+https://github.com/HazyResearch@main ; \
+        pip${PYTHON_VERSION} install --no-cache-dir git+https://github.com/HazyResearch/flash-attention@main ; \
     fi
 
 
