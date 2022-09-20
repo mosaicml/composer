@@ -134,6 +134,7 @@ extra_deps['dev'] = [
     'mock-ssh-server==0.9.1',
     'cryptography==38.0.1',
     'pytest-httpserver>=1.0.4,<1.1',
+    'setuptools<=59.5.0',
 ]
 
 extra_deps['deepspeed'] = [
@@ -180,6 +181,7 @@ extra_deps['mlperf'] = [
 ]
 
 extra_deps['streaming'] = [
+    'mosaicml-streaming',
     'boto3>=1.21.45,<2',
     'paramiko>=2.11.0,<3',
 ]
