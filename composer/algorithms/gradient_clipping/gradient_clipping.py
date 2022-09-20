@@ -19,7 +19,7 @@ __all__ = ['GradientClipping', 'apply_gradient_clipping']
 
 
 def apply_gradient_clipping(parameters: Union[torch.Tensor, Iterable[torch.Tensor]], clipping_type: str,
-                            clipping_threshold: float):
+                            clipping_threshold: float) -> None:
     """Clips all gradients in model based on specified clipping_type.
 
     Args:

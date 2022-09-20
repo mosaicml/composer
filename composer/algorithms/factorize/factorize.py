@@ -28,7 +28,7 @@ def apply_factorization(model: torch.nn.Module,
                         latent_channels: Union[int, float] = 0.25,
                         min_features: int = 512,
                         latent_features: Union[int, float] = 0.25,
-                        optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> torch.nn.Module:
+                        optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> None:
     """Replaces :class:`torch.nn.Linear` and :class:`torch.nn.Conv2d` modules with
     :class:`.FactorizedLinear` and :class:`.FactorizedConv2d` modules.
 
@@ -71,9 +71,6 @@ def apply_factorization(model: torch.nn.Module,
             then it is safe to omit this parameter. These optimizers will see
             the correct model parameters.
 
-    Returns:
-        The modified model
-
     Example:
         .. testcode::
 
@@ -92,7 +89,6 @@ def apply_factorization(model: torch.nn.Module,
                                   min_features=min_features,
                                   latent_features=latent_features,
                                   optimizers=optimizers)
-    return model
 
 
 class Factorize(Algorithm):

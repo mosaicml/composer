@@ -33,7 +33,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
                            target_layer_name: str,
                            stochastic_method: str = 'block',
                            drop_rate: float = 0.2,
-                           drop_distribution: str = 'linear') -> torch.nn.Module:
+                           drop_distribution: str = 'linear') -> None:
     """Applies Stochastic Depth (`Huang et al, 2016 <https://arxiv.org/abs/1603.09382>`_) to the specified model.
 
     The algorithm replaces the specified target layer with a stochastic version
@@ -67,9 +67,6 @@ def apply_stochastic_depth(model: torch.nn.Module,
             starting with 0 drop rate and ending with ``drop_rate``.
             Default: ``"linear"``.
 
-    Returns:
-        The modified model
-
     Example:
         .. testcode::
 
@@ -95,7 +92,6 @@ def apply_stochastic_depth(model: torch.nn.Module,
                                                      stochastic_method=stochastic_method)
     transforms[target_layer] = stochastic_from_target_layer
     module_surgery.replace_module_classes(model, policies=transforms)
-    return model
 
 
 class StochasticDepth(Algorithm):
