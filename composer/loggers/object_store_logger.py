@@ -378,7 +378,7 @@ class ObjectStoreLogger(LoggerDestination):
                         # so break. Some files may not be uploaded.
                         break
 
-            time.sleep(0.2) # Yield lock for `self.log_file_artifact`
+            time.sleep(0.2)  # Yield lock for `self.log_file_artifact`
 
     def get_file_artifact(
         self,
@@ -403,8 +403,8 @@ class ObjectStoreLogger(LoggerDestination):
         self.wait_for_workers()
 
     def wait_for_workers(self):
-        """Wait for all tasks to be completed. 
-        
+        """Wait for all tasks to be completed.
+
         This is called after fit/eval/predict. If we don't wait, then a worker might not schedule
         an upload before the interpreter is shutdown and garbage collection begins. While
         post_close logic ensures existing uploads are completed, trying to schedule new uploads
@@ -415,7 +415,7 @@ class ObjectStoreLogger(LoggerDestination):
             with self._object_lock:
                 if len(self._logged_objects) == 0:
                     break
-            time.sleep(0.2) # Yield lock for enqueue thread
+            time.sleep(0.2)  # Yield lock for enqueue thread
         # Verify all tasks have been completed
         while not self._file_upload_queue.empty():
             time.sleep(0.2)
