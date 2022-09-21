@@ -68,6 +68,10 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 
+class MissingEnvironmentError(Exception):
+    pass
+
+
 def _get_distributed_config_var(
     env_var: str,
     human_name: str,
@@ -91,8 +95,8 @@ def _get_distributed_config_var(
         return int(os.environ[env_var])
 
     if dist.is_initialized():
-        raise RuntimeError('Torch distributed is initialized but environment variable '
-                           f'{env_var} is not set.')
+        raise MissingEnvironmentError('Torch distributed is initialized but environment variable '
+                                      f'{env_var} is not set.')
 
     return default
 

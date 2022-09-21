@@ -24,7 +24,7 @@ from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
-from composer.utils import dist
+from composer.utils import dist, warn_streaming_dataset_deprecation
 from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['CIFAR10DatasetHparams', 'StreamingCIFAR10Hparams']
@@ -185,23 +185,24 @@ class StreamingCIFAR10Hparams(DatasetHparams):
     """Streaming CIFAR10 hyperparameters.
 
     Args:
-        version (int): Which version of streaming to use. Default: ``2``.
+        version (int): Which version of streaming to use. Default: ``1``.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-            Default: ``'s3://mosaicml-internal-dataset-cifar10/mds/2/'``
+            Default: ``'s3://mosaicml-internal-dataset-cifar10/mds/1/'``
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-cifar10/'``
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train'``.
     """
 
-    version: int = hp.optional('Version of streaming (1 or 2)', default=2)
+    version: int = hp.optional('Version of streaming (1 or 2)', default=1)
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
-                              default='s3://mosaicml-internal-dataset-cifar10/mds/2/')
+                              default='s3://mosaicml-internal-dataset-cifar10/mds/1/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
                              default='/tmp/mds-cache/mds-cifar10/')
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
         if self.version == 1:
+            warn_streaming_dataset_deprecation(old_version=self.version, new_version=2)
             dataset = StreamingCIFAR10(remote=self.remote,
                                        local=self.local,
                                        split=self.split,
