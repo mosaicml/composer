@@ -229,7 +229,6 @@ class ObjectStoreLogger(LoggerDestination):
         # Event to signal the enqueue thread to shut down.
         self._enqueue_thread_flag = None
 
-
         if use_procs:
             mp_ctx = multiprocessing.get_context('spawn')
             self._file_upload_queue: Union[queue.Queue[Tuple[str, str, bool]],
