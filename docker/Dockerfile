@@ -36,9 +36,6 @@ ARG PILLOW_SIMD_VERSION=7.0.0.post3
 # Levave blank for no Mellanox Drivers
 ARG MOFED_VERSION=5.5-1.0.3.2
 
-# Pandoc is needed for the documentation buid and is a nuisance to install via pip so just installing via dpkg
-ARG PANDOC_VERSION=2.19.2
-
 ########################
 # Vision Image Arguments
 ########################
@@ -223,9 +220,10 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
 ###########################
 # Install Pandoc Dependency
 ###########################
-RUN wget https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-1-amd64.deb && \
-    dpkg -i pandoc-${PANDOC_VERSION}-1-amd64.deb && \
-    rm pandoc-${PANDOC_VERSION}-1-amd64.deb
+# Pandoc is needed for the documentation buid and is a nuisance to install via pip so just installing via dpkg
+RUN wget https://github.com/jgm/pandoc/releases/download/2.19.2/pandoc-2.19.2-1-amd64.deb && \
+    dpkg -i pandoc-2.19.2-1-amd64.deb && \
+    rm pandoc-2.19.2-1-amd64.deb
 
 ################################
 # Use the correct python version
