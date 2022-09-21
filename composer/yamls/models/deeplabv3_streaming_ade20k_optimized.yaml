@@ -1,6 +1,5 @@
 train_dataset:
   streaming_ade20k:
-    version: 2
     remote: your-bucket-here
     local: /tmp/mds-cache/mds-ade20k/
     split: train
@@ -13,7 +12,6 @@ train_dataset:
     shuffle: true
 val_dataset:
   streaming_ade20k:
-    version: 2
     remote: your-bucket-here
     local: /tmp/mds-cache/mds-ade20k/
     split: val
