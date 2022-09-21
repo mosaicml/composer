@@ -8,7 +8,6 @@ model:
 # Train the model on the English C4 corpus
 train_dataset:
   streaming_c4:
-    version: 2
     remote: s3://mosaicml-internal-dataset-c4/mds/2/
     local: /tmp/mds-cache/mds-c4/
     split: train
@@ -32,7 +31,6 @@ evaluators:
   - label: bert_pre_training
     eval_dataset:
       streaming_c4:
-        version: 2
         remote: s3://mosaicml-internal-dataset-c4/mds/2/
         local: /tmp/mds-cache/mds-c4/
         split: val
