@@ -410,7 +410,6 @@ class ObjectStoreLogger(LoggerDestination):
         post_close logic ensures existing uploads are completed, trying to schedule new uploads
         during this time will error.
         """
-        print("Waiting for workers")
         # Verify enqueue thread has processed all tasks
         while True:
             with self._object_lock:
