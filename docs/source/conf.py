@@ -55,7 +55,7 @@ if not shutil.which('pandoc'):
                 target_folder = '/Applications/pandoc'
             # Not handling windows; nobody uses root on windows lol
 
-        download_pandoc(version='2.18', download_folder=tmpdir, targetfolder=target_folder, delete_installer=True)
+        download_pandoc(version='2.19.2', download_folder=tmpdir, targetfolder=target_folder, delete_installer=True)
 
 sys.path.insert(0, os.path.abspath('..'))
 
