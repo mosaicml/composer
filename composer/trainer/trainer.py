@@ -28,7 +28,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
 from composer.algorithms import GradientClipping
-from composer.callbacks import CheckpointSaver
+from composer.callbacks import CheckpointSaver, GradMonitor
 from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp,
                            ensure_data_spec, ensure_evaluator, ensure_time)
 from composer.core.precision import get_precision_context
@@ -1046,6 +1046,12 @@ class Trainer:
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
+            for callback in self.state.callbacks:
+                if isinstance(callback, GradMonitor):
+                    raise TypeError('GradMonitor is not supported with DeepSpeed because DeepSpeed clears '
+                                    'the gradients before in the last call to .backward see: '
+                                    'https://github.com/microsoft/DeepSpeed/issues/2329 for more details.')
+
             try:
                 import deepspeed
             except ImportError as e:
