@@ -903,8 +903,11 @@ class Trainer:
                     )
 
                     if self.fsdp_config.get('activation_checkpointing', False):
-                        checkpoint_wrapper_fn = lambda module: checkpoint_wrapper(
-                            module, offload_to_cpu=self.fsdp_config.get('activation_checkpointing_offload_to_cpu', False))
+                        if self.fsdp_config.get('activation_checkpointing_offload_to_cpu', False):
+                            checkpoint_wrapper_fn = lambda module: checkpoint_wrapper(
+                                checkpoint_wrapper(module), offload_to_cpu=True)
+                        else:
+                            checkpoint_wrapper_fn = checkpoint_wrapper
                         check_fn = obj.activation_checkpointing_fn
 
                         apply_activation_checkpointing_wrapper(fsdp_obj,
