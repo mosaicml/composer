@@ -37,7 +37,7 @@ ARG PILLOW_SIMD_VERSION=7.0.0.post3
 ARG MOFED_VERSION=5.5-1.0.3.2
 
 # Pandoc is needed for the documentation buid and is a nuisance to install via pip so just installing via dpkg
-ARG PANDOC_VERSION=2.18
+ARG PANDOC_VERSION=2.19.2
 
 ########################
 # Vision Image Arguments
