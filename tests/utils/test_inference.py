@@ -18,7 +18,7 @@ from composer.core import State
 from composer.loggers import InMemoryLogger, Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.models import composer_resnet
-from composer.trainer.ddp import prepare_ddp_module
+from composer.trainer.strategy import prepare_ddp_module
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, export_with_logger, inference
 from tests.common.datasets import RandomImageDataset
