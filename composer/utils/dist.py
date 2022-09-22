@@ -42,8 +42,15 @@ import torch
 import torch.distributed as dist
 import torch.utils.data
 
+from composer.utils.misc import is_torch_xla_installed
+
 if TYPE_CHECKING:
     from composer.trainer.devices import Device
+
+if is_torch_xla_installed():
+    import torch_xla.core.xla_env_vars as xenv
+    import torch_xla.core.xla_model as xm
+    import torch_xla.distributed.xla_multiprocessing as xmp
 
 TObj = TypeVar('TObj')
 
@@ -171,6 +178,24 @@ def barrier() -> None:
                        'support.')
 
 
+def _get_xm_reduce_type(reduce_operation: str = 'SUM') -> str:
+    reduce_op_upper = reduce_operation.upper()
+    if reduce_op_upper == 'SUM':
+        return xm.REDUCE_SUM
+    elif reduce_op_upper == 'PRODUCT':
+        return xm.REDUCE_MUL
+    elif reduce_op_upper == 'MIN':
+        return xm.REDUCE_MIN
+    elif reduce_op_upper == 'MAX':
+        return xm.REDUCE_MAX
+    elif reduce_op_upper == 'BAND':
+        return xm.REDUCE_AND
+    elif reduce_op_upper == 'BOR':
+        return xm.REDUCE_OR
+    else:
+        raise RuntimeError(f'Unsupported reduce type ({reduce_operation}) with xla device!')
+
+
 def all_reduce(
     tensor: torch.Tensor,
     reduce_operation: str = 'SUM',
@@ -203,6 +228,10 @@ def all_reduce(
     Returns:
         None: ``tensor`` is modified in-place.
     """
+    if is_torch_xla_installed() and xm.is_xla_tensor(tensor):
+        xm.all_reduce(_get_xm_reduce_type(reduce_operation), tensor)
+        return
+
     if dist.is_available() and dist.is_initialized():
         reduce_op = getattr(dist.ReduceOp, reduce_operation.upper())
         dist.all_reduce(tensor, op=reduce_op)
@@ -216,6 +245,26 @@ def all_reduce(
                        'support.')
 
 
+def broadcast_xla(tensor: torch.Tensor, src: int) -> None:
+    """Broadcasts the tensor to the whole group.
+
+    ``tensor`` is assumed to be on an xla device.
+
+    In the current release of torch_xla, xm.broadcast doesn't exist. However, in future releases
+    it will be available as xm.collective_broadcast.
+
+    Args:
+        tensor (torch.Tensor): Data to be sent if ``src`` is the rank of current process,
+            and tensor to be used to save received data otherwise.
+        src (int): Source rank
+
+    """
+    with torch.no_grad():
+        scale = torch.tensor(1 if xm.get_ordinal() == src else 0, dtype=tensor.dtype, device=tensor.device)
+        tensor.mul_(scale)
+    all_reduce(tensor)
+
+
 def broadcast(tensor: torch.Tensor, src: int) -> None:
     """Broadcasts the tensor to the whole group.
 
@@ -227,6 +276,9 @@ def broadcast(tensor: torch.Tensor, src: int) -> None:
             and tensor to be used to save received data otherwise.
         src (int): Source rank
     """
+    if is_torch_xla_installed() and xm.is_xla_tensor(tensor):
+        return broadcast_xla(tensor, src)
+
     if dist.is_available() and dist.is_initialized():
         dist.broadcast(tensor, src)
         return
@@ -256,6 +308,9 @@ def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
     Returns:
         None:  ``object_list`` will be modified in-place and set to values of ``object_list`` from the ``src`` rank.
     """
+    if is_torch_xla_installed():
+        raise RuntimeError(f'broadcast_object_list is not supported with torch_xla')
+
     if dist.is_available() and dist.is_initialized():
         dist.broadcast_object_list(object_list, src)
         # torch.distributed will replace the None's in obj_gather_list with the gathered objects on rank 0
@@ -305,6 +360,9 @@ def all_gather_object(obj: TObj) -> List[TObj]:
     Returns:
         List[TObj]: A list of objects indexed by rank.
     """
+    if is_torch_xla_installed():
+        raise RuntimeError(f'all_gather_object is not supported with torch_xla')
+
     if dist.is_available() and dist.is_initialized():
         obj_gather_list = [None for _ in range(get_world_size())]
         dist.all_gather_object(obj_gather_list, obj)
@@ -375,6 +433,8 @@ def initialize_dist(device: Device, timeout: datetime.timedelta):
                                f'of the current process group ({dist.get_backend()}). If you '
                                'wish to change backends, please restart the python process.')
         return
+    elif is_torch_xla_installed() and xenv.LOCAL_WORKER in os.environ:
+        return
 
     # If any of these variables are set, and they do not match the single rank defaults,
     # then do not automatically configure distributed. There are no reasonable defaults to infer
@@ -406,6 +466,15 @@ def initialize_dist(device: Device, timeout: datetime.timedelta):
         # Fill in the remaining single-rank variables
         os.environ.update(dist_env_var_defaults)
         dist.init_process_group(device.dist_backend, store=dist.HashStore(), world_size=1, rank=0)
+    elif is_torch_xla_installed() and xmp._is_xla_config():
+        dev_kind = 'TPU'
+        if xenv.GPU_NUM_DEVICES in os.environ:
+            dev_kind = 'GPU'
+        if xenv.CPU_NUM_DEVICES in os.environ:
+            dev_kind = 'CPU'
+        pf_cfg = xmp.PreForkConfig(dev_kind=dev_kind, num_devices=get_world_size())
+        xmp._prepare_env_for_index(get_local_rank(), pf_cfg)
+        xmp._setup_replication()
     else:
         dist.init_process_group(device.dist_backend, timeout=timeout)
 

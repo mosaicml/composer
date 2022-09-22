@@ -37,8 +37,8 @@ from composer.profiler import Profiler
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceTPU
 from composer.trainer.devices.device_hparams_registry import device_registry
-from composer.trainer.trainer import Trainer, _is_tpu_installed
-from composer.utils import dist, reproducibility
+from composer.trainer.trainer import Trainer
+from composer.utils import dist, is_torch_xla_installed, reproducibility
 from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
 
 if TYPE_CHECKING:
@@ -476,7 +476,7 @@ class TrainerHparams(hp.Hparams):
         model = self.model.initialize_object()
         # on TPUs, model must be moved to device before optimizer creation
         if isinstance(device, DeviceTPU):
-            if not _is_tpu_installed():
+            if not is_torch_xla_installed():
                 raise ImportError(
                     'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla'
                 )

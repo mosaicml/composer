@@ -22,11 +22,14 @@ import psutil
 import torch
 
 import composer
-from composer.utils.misc import get_free_tcp_port
+from composer.utils.misc import get_free_tcp_port, is_torch_xla_installed
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
 log = logging.getLogger(__name__)
+
+if is_torch_xla_installed():
+    import torch_xla.distributed.xla_multiprocessing as xmp
 
 
 def _get_parser():
@@ -476,6 +479,9 @@ def main():
         args.stdout = f'{log_tmpdir.name}/rank{{rank}}.stdout.txt'
     if args.stderr is None:
         args.stderr = f'{log_tmpdir.name}/rank{{rank}}.stderr.txt'
+
+    if is_torch_xla_installed() and xmp._is_xla_config():
+        xmp._pre_fork_setup(args.nproc)
 
     try:
         _launch_processes(nproc=args.nproc,

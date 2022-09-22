@@ -4,6 +4,7 @@
 """Helpers for running distributed data parallel training."""
 
 import logging
+import os
 from contextlib import contextmanager, nullcontext
 from typing import Callable, ContextManager, Union, cast
 
@@ -11,8 +12,11 @@ import torch.nn
 from torch.nn.parallel import DistributedDataParallel
 
 from composer.core.state import State
-from composer.utils import dist
+from composer.utils import dist, is_torch_xla_installed
 from composer.utils.string_enum import StringEnum
+
+if is_torch_xla_installed():
+    import torch_xla.core.xla_env_vars as xenv
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module']
 
@@ -104,6 +108,10 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
             to find parameters to not expect gradients for. This is useful if there are some
             parameters in the model that are not being trained.
     """
+    # No ddp wrapping for torch_xla devices
+    if is_torch_xla_installed() and xenv.LOCAL_WORKER in os.environ:
+        return module
+
     if dist.is_available() and dist.is_initialized():
         if any((p.requires_grad for p in module.parameters())):
             log.debug('Wrapping model with DistributedDataParallel')

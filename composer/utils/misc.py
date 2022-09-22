@@ -10,7 +10,10 @@ from typing import Type
 import torch
 from torch.nn.parallel import DistributedDataParallel
 
-__all__ = ['is_model_deepspeed', 'is_notebook', 'warning_on_one_line', 'get_free_tcp_port', 'model_eval_mode']
+__all__ = [
+    'is_model_deepspeed', 'is_notebook', 'warning_on_one_line', 'get_free_tcp_port', 'model_eval_mode',
+    'is_torch_xla_installed'
+]
 
 
 def is_model_deepspeed(model: torch.nn.Module) -> bool:
@@ -62,3 +65,14 @@ def model_eval_mode(model: torch.nn.Module):
         yield
     finally:
         model.train(mode=is_training)
+
+
+def is_torch_xla_installed() -> bool:
+    """Whether torch_xla is installed in the current environment."""
+    try:
+        import torch_xla.core.xla_model as xm
+        del xm
+    except ModuleNotFoundError:
+        return False
+    else:
+        return True

@@ -27,9 +27,12 @@ class DeviceTPU(Device):
     """
 
     def __init__(self):
-        import torch_xla.core.xla_model as xm
-
-        self._device = xm.xla_device()
+        # Can't use xm.xla_device() api here!
+        # Device is created before distributed is initialized.
+        # Initializing distributed after making a call to xm.xla_device
+        # results in the following error at dist init
+        # RuntimeError: Cannot replicate if number of devices (1) is different from 8
+        self._device = torch.device(f'xla:0')
 
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
 

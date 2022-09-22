@@ -45,7 +45,7 @@ from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed,
-                            map_collection, model_eval_mode, reproducibility)
+                            is_torch_xla_installed, map_collection, model_eval_mode, reproducibility)
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.inference import ExportFormat, Transform, export_with_logger
@@ -236,7 +236,7 @@ def _get_device(device: Optional[Union[str, Device]]):
         elif device.lower() == 'mps':
             device = DeviceMPS()
         elif device.lower() == 'tpu':
-            if not _is_tpu_installed():
+            if not is_torch_xla_installed():
                 raise ImportError(
                     'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla'
                 )
@@ -289,17 +289,7 @@ def _generate_run_name() -> str:
     return generated_run_name
 
 
-def _is_tpu_installed() -> bool:
-    try:
-        import torch_xla.core.xla_model as xm
-        del xm
-    except ImportError:
-        return False
-    else:
-        return True
-
-
-if _is_tpu_installed():
+if is_torch_xla_installed():
     import torch_xla.core.xla_model as xm
     import torch_xla.distributed.parallel_loader as pl
 
