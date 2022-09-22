@@ -5,6 +5,8 @@
 # - https://github.com/pytorch/pytorch/blob/caa0ab557dd10e04ca413c1508f76ec8ae5adea3/torch/utils/checkpoint.py
 # TODO: once torch 1.13 is released, import functions as needed directly from torch and delete this file.
 
+import warnings
+import weakref
 from enum import Enum, auto
 from functools import partial
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Set, Tuple, cast
@@ -772,7 +774,7 @@ def _checkpoint_without_reentrant(function, preserve_rng_state=True, *args, **kw
 
     with torch.autograd.graph.saved_tensors_hooks(pack, unpack):
         output = function(*args, **kwargs)
-        if torch.cuda._initialized and preserve_rng_state and not had_cuda_in_fwd:
+        if torch.cuda._initialized and preserve_rng_state and not had_cuda_in_fwd: # type: ignore
             # Cuda was not initialized before running the forward, so we didn't
             # stash the CUDA state.
             raise RuntimeError(
