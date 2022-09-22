@@ -15,7 +15,6 @@ import re
 import time
 import warnings
 from copy import deepcopy
-from functools import partial
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
 
 import coolname
@@ -24,12 +23,10 @@ import torch.distributed
 import torch.nn as nn
 import torch.utils.data
 from torch.cuda.amp.grad_scaler import GradScaler
-from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
-                                    ShardingStrategy)
-from torch.distributed.fsdp.wrap import _or_policy, size_based_auto_wrap_policy
+from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
-from torchmetrics import Metric, MetricCollection
+from torchmetrics import Metric
 
 from composer.algorithms import GradientClipping
 from composer.callbacks import CheckpointSaver, GradMonitor
@@ -46,7 +43,6 @@ from composer.profiler import Profiler
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
-from composer.trainer.activation_checkpointing import apply_activation_checkpointing_wrapper, checkpoint_wrapper
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.trainer.strategy import SyncStrategy, get_sync_context, prepare_ddp_module, prepare_fsdp_module
 from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed,
@@ -837,7 +833,6 @@ class Trainer:
             precision = Precision.AMP if isinstance(self._device, DeviceGPU) else Precision.FP32
         if isinstance(precision, str):
             precision = Precision(precision)
-
         _validate_precision(precision, self._device, self.deepspeed_enabled)
 
         # Distributed
@@ -848,87 +843,9 @@ class Trainer:
 
         # Handle FSDP sharding
         if self.fsdp_config is not None:
-            sharding_map = {
-                'NO_SHARD': ShardingStrategy.NO_SHARD,
-                'SHARD_GRAD_OP': ShardingStrategy.SHARD_GRAD_OP,
-                'FULL_SHARD': ShardingStrategy.FULL_SHARD,
-            }
-            cpu_offload = CPUOffload(offload_params=True) if self.fsdp_config.get('cpu_offload', False) else None
-            if cpu_offload is not None:
-                raise ValueError('FSDP CPU Offload not supported yet.')
+            prepare_fsdp_module(model, optimizers, fsdp_config, precision, self._device._device)
 
-            dtype_map = {
-                Precision.FP32: torch.float32,
-                Precision.AMP: torch.float16,
-                Precision.BF16: torch.bfloat16,
-            }
-            mixed_precision = MixedPrecision(
-                param_dtype=(torch.float32 if self.fsdp_config.get('fp32_master_weights', True) else dtype_map[precision]),
-                reduce_dtype=dtype_map[precision],
-                buffer_dtype=(torch.float32 if self.fsdp_config.get('fp32_master_weights', True) else dtype_map[precision])
-            )
-            backward_prefetch = BackwardPrefetch.BACKWARD_POST
-
-            def _custom_policy(module: nn.Module, recurse: bool, unwrapped_params: int):
-                if recurse:
-                    # always recurse
-                    return True
-                else:
-                    # if not recursing, decide whether we should wrap for the leaf node or reminder
-                    return obj.fsdp_wrap_fn(module)
-
-            _size_based_policy = partial(size_based_auto_wrap_policy,
-                                         min_num_params=int(self.fsdp_config.get('min_params', 1e8)))
-
-            auto_wrap_policy = partial(_or_policy, policies=[_custom_policy, _size_based_policy])
-
-            for attr in dir(model):
-                obj = getattr(model, attr)
-                if isinstance(obj, torch.nn.Module) and not isinstance(obj, (Metric, MetricCollection)):
-
-                    # This is called on meta modules that FSDP is wrapping
-                    def _param_init_fn(module):
-                        module.to_empty(device=self._device._device)
-                        module.apply(obj.param_init_fn)
-
-                    fsdp_obj = FullyShardedDataParallel(
-                        obj,
-                        sharding_strategy=sharding_map[self.fsdp_config.get('sharding_strategy', 'FULL_SHARD').upper()],
-                        auto_wrap_policy=auto_wrap_policy,
-                        cpu_offload=cpu_offload,
-                        mixed_precision=mixed_precision,
-                        backward_prefetch=backward_prefetch,
-                        param_init_fn=_param_init_fn,
-                        device_id=self._device._device,
-                    )
-
-                    if self.fsdp_config.get('activation_checkpointing', False):
-                        if self.fsdp_config.get('activation_checkpointing_offload_to_cpu', False):
-                            checkpoint_wrapper_fn = lambda module: checkpoint_wrapper(
-                                checkpoint_wrapper(module), offload_to_cpu=True)
-                        else:
-                            checkpoint_wrapper_fn = checkpoint_wrapper
-                        check_fn = obj.activation_checkpointing_fn
-
-                        apply_activation_checkpointing_wrapper(fsdp_obj,
-                                                               checkpoint_wrapper_fn=checkpoint_wrapper_fn,
-                                                               check_fn=check_fn)
-
-                    setattr(model, attr, fsdp_obj)
-
-            if self.fsdp_config.get('verbose', False):
-                print(model)
-
-            if optimizers:
-                optimizers_tuple = ensure_tuple(optimizers)
-                if len(optimizers_tuple) != 1:
-                    raise NotImplementedError(
-                        f'Only one optimizer is supported; found {len(optimizers_tuple)} optimizers')
-                optim = optimizers_tuple[0]
-                optim.param_groups = []
-                optim.add_param_group({'params': list(model.parameters())})
-
-        # Detect pre-wrapped FSDP and store reference to original model
+        # Detect if ComposerModel itself was wrapped with FSDP and store reference to original model
         if isinstance(model, FullyShardedDataParallel):
             self._original_model = model._fsdp_wrapped_module._fpw_module
         else:
