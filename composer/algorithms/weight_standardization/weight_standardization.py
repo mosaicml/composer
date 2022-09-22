@@ -8,6 +8,7 @@ from torch.fx import symbolic_trace
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
+from composer.utils import module_surgery
 
 __all__ = ['apply_weight_standardization', 'WeightStandardization']
 
@@ -15,7 +16,7 @@ __all__ = ['apply_weight_standardization', 'WeightStandardization']
 def _standardize_weights(W: torch.Tensor):
     reduce_dims = list(range(1, W.dim()))
     W_var, W_mean = torch.var_mean(W, dim=reduce_dims, keepdim=True, unbiased=False)
-    return (W - W_mean) / (torch.sqrt(W_var + 1e-5))
+    return (W - W_mean) / (torch.sqrt(W_var + 1e-10))
 
 
 class WeightStandardizer(nn.Module):
@@ -24,24 +25,32 @@ class WeightStandardizer(nn.Module):
         return _standardize_weights(W)
 
 
-def apply_weight_standardization(model: torch.nn.Module, n_last_layers_ignore: bool = False):
-    count = 0
-    model_trace = symbolic_trace(model)
-    for module in model_trace.modules():
-        if isinstance(module, (nn.Conv1d, nn.Conv2d, nn.Conv3d)) and module.groups == 1:
-            parametrize.register_parametrization(module, 'weight', WeightStandardizer())
-            count += 1
+def apply_weight_standardization(module: torch.nn.Module, n_last_layers_ignore: int = 0):
+    modules_to_reparametrize = (nn.Conv1d, nn.Conv2d, nn.Conv3d)
+    # Attempt to symbolically trace a module, so the results of .modules() will be in the order of execution
+    try:
+        module_trace = symbolic_trace(module)
+    except:
+        module_trace = module
 
-    target_ws_layers = count - n_last_layers_ignore
+    # Count the number of convolution modules in the model
+    conv_count = module_surgery.count_module_instances(module_trace, modules_to_reparametrize)
 
-    for module in list(model_trace.modules())[::-1]:
-        if target_ws_layers == count:
+    # Calculate how many convs to reparametrize based on conv_count and n_last_layers_ignore
+    target_ws_count = max(conv_count - n_last_layers_ignore, 0)
+
+    # Reparametrize conv modules to use weight standardization
+    current_ws_count = 0
+    for m in module_trace.modules():
+        # If the target number of weight standardized layers is reached, end for loop
+        if current_ws_count == target_ws_count:
             break
-        if isinstance(module, (nn.Conv1d, nn.Conv2d, nn.Conv3d)) and module.groups == 1:
-            parametrize.remove_parametrizations(module, 'weight', leave_parametrized=False)
-            count -= 1
 
-    return count
+        if isinstance(m, modules_to_reparametrize):
+            parametrize.register_parametrization(m, 'weight', WeightStandardizer())
+            current_ws_count += 1
+
+    return current_ws_count
 
 
 class WeightStandardization(Algorithm):
