@@ -190,11 +190,17 @@ def export_for_inference(
                     raise ValueError(f'sample_input argument is required for onnx export')
                 sample_input = ensure_tuple(sample_input)
 
+                input_names = ['input']
+
+                # Extract input names from sample_input if it is a dict
+                if isinstance(sample_input[0], dict):
+                    input_names = list(sample_input[0].keys())
+
                 torch.onnx.export(
                     model,
                     sample_input,
                     local_save_path,
-                    input_names=['input'],
+                    input_names=input_names,
                     output_names=['output'],
                 )
 

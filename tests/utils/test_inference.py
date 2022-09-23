@@ -109,12 +109,11 @@ def test_huggingface_export_for_inference_onnx():
         onnx.checker.check_model(loaded_model)
 
         ort_session = ort.InferenceSession(save_path)
-        onnx_input = inference.convert_hf_input_to_onnx(loaded_model, sample_input)
 
-        loaded_model_out = ort_session.run(
-            None,
-            onnx_input,
-        )
+        for key, value in sample_input.items():
+            sample_input[key] = value.numpy()
+
+        loaded_model_out = ort_session.run(None, sample_input)
 
         torch.testing.assert_close(
             orig_out['logits'].detach().numpy(),
