@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-# From https://github.com/Lightning-AI/metrics/blob/1c42f6643f9241089e55a4d899f14da480021e16/torchmetrics/detection/map.py
+# Adapted from https://github.com/Lightning-AI/metrics/blob/1c42f6643f9241089e55a4d899f14da480021e16/torchmetrics/detection/map.py
 # Current versions of MAP in torchmetrics are incorrect or slow as of 9/21/22.
 # Relevant issues:
 # https://github.com/Lightning-AI/metrics/issues/1024
@@ -17,19 +17,9 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 import torch
 from torch import Tensor
 from torchmetrics.metric import Metric
-from torchmetrics.utilities.imports import (_PYCOCOTOOLS_AVAILABLE, _TORCHVISION_AVAILABLE,
-                                            _TORCHVISION_GREATER_EQUAL_0_8)
+from torchvision.ops import box_convert
 
-if _TORCHVISION_AVAILABLE and _TORCHVISION_GREATER_EQUAL_0_8:
-    from torchvision.ops import box_convert
-else:
-    box_convert = None
-
-if _PYCOCOTOOLS_AVAILABLE:
-    from pycocotools.coco import COCO
-    from pycocotools.cocoeval import COCOeval
-else:
-    COCO, COCOeval = None, None
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['MAP']
 
@@ -192,13 +182,14 @@ class MAP(Metric):
             process_group=process_group,
             dist_sync_fn=dist_sync_fn,
         )
+        try:
+            from pycocotools.coco import COCO
+            from pycocotools.cocoeval import COCOeval
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='coco', conda_package='pycocotools') from e
 
-        if not _PYCOCOTOOLS_AVAILABLE:
-            raise ImportError('`MAP` metric requires that `pycocotools` installed.'
-                              ' Please install with `pip install pycocotools` or `pip install torchmetrics[detection]`')
-        if not (_TORCHVISION_AVAILABLE and _TORCHVISION_GREATER_EQUAL_0_8):
-            raise ImportError('`MAP` metric requires that `torchvision` version 0.8.0 or newer is installed.'
-                              ' Please install with `pip install torchvision` or `pip install torchmetrics[detection]`')
+        self.COCO = COCO
+        self.COCOeval = COCOeval
 
         if not isinstance(class_metrics, bool):
             raise ValueError('Expected argument `class_metrics` to be a boolean')
@@ -286,7 +277,7 @@ class MAP(Metric):
             - map_per_class: ``torch.Tensor`` (-1 if class metrics are disabled)
             - mar_100_per_class: ``torch.Tensor`` (-1 if class metrics are disabled)
         """
-        coco_target, coco_preds = COCO(), COCO()  # type: ignore
+        coco_target, coco_preds = self.COCO(), self.COCO()  # type: ignore
         coco_target.dataset = self._get_coco_format(self.groundtruth_boxes, self.groundtruth_labels)  # type: ignore
         coco_preds.dataset = self._get_coco_format(  # type: ignore
             self.detection_boxes,  # type: ignore
@@ -296,7 +287,7 @@ class MAP(Metric):
         with _hide_prints():
             coco_target.createIndex()
             coco_preds.createIndex()
-            coco_eval = COCOeval(coco_target, coco_preds, 'bbox')  # type: ignore
+            coco_eval = self.COCOeval(coco_target, coco_preds, 'bbox')  # type: ignore
             coco_eval.evaluate()
             coco_eval.accumulate()
             coco_eval.summarize()
