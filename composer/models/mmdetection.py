@@ -12,7 +12,7 @@ import torch
 from torchmetrics import Metric
 from torchmetrics.collections import MetricCollection
 
-from composer import ComposerModel
+from composer.models import ComposerModel
 
 if TYPE_CHECKING:
     import mmdetection as mmdet
@@ -31,10 +31,13 @@ class MMDetModel(ComposerModel):
     .. warning:: This wrapper is designed to work with mmdet datasets.
 
     Example:
+
     .. testcode::
+
         from mmdet.models import build_model
         from mmcv import ConfigDict
         from composer.models import MMDetModel
+
         yolox_s_config = dict(
             type='YOLOX',
             input_size=(640, 640),
@@ -46,6 +49,7 @@ class MMDetModel(ComposerModel):
             train_cfg=dict(assigner=dict(type='SimOTAAssigner', center_radius=2.5)),
             test_cfg=dict(score_thr=0.01, nms=dict(type='nms', iou_threshold=0.65)))
         yolox = build_model(ConfigDict(yolox_s_config))
+        yolox.init_weights()
         model = MMDetModel(yolox)
     """
 
