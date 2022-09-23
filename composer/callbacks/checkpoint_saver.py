@@ -62,13 +62,12 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
         elapsed_duration = state.get_elapsed_duration()
         assert elapsed_duration is not None, 'elapsed_duration is set on the BATCH_CHECKPOINT and EPOCH_CHECKPOINT'
 
-        if elapsed_duration >= 1.0:
-            # if doing batch-wise checkpointing, and we saved a checkpoint at the batch_checkpoint event
-            # right before the epoch_checkpoint event, do not save another checkpoint at the epoch_checkpoint
-            # event if the batch count didn't increase.
-            if state.timestamp.batch != last_checkpoint_batch:
-                last_checkpoint_batch = state.timestamp.batch
-                return True
+        if elapsed_duration >= 1.0 and event == Event.BATCH_CHECKPOINT and state.timestamp.batch != last_checkpoint_batch:
+            # Checkpoint on last Event.BATCH_CHECKPOINT if we didn't already checkpoint this batch.
+            # Don't update last_checkpoint_batch or duplicate calls with no longer return True
+            # for this event. Don't use Event.EPOCH_CHECKPOINT as it will be skipped if
+            # max_duration is reached mid-epoch.
+            return True
 
         if save_event == Event.EPOCH_CHECKPOINT:
             count = state.timestamp.epoch
@@ -257,7 +256,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             event.
 
         weights_only (bool): If ``True``, save only the model weights instead of the entire training state.
-            This parmeter must be ``False`` when using DeepSpeed. Default: ``False``.
+            This parameter must be ``False`` when using DeepSpeed. Default: ``False``.
 
 
         num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
