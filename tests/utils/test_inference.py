@@ -106,19 +106,14 @@ def test_huggingface_export_for_inference_onnx():
         )
         loaded_model = onnx.load(save_path)
 
-        onnx_inputs = loaded_model.graph.input
-
         onnx.checker.check_model(loaded_model)
 
         ort_session = ort.InferenceSession(save_path)
+        onnx_input = inference.convert_hf_input_to_onnx(loaded_model, sample_input)
+
         loaded_model_out = ort_session.run(
             None,
-            {
-                onnx_inputs[0].name: sample_input['input_ids'].numpy(),
-                onnx_inputs[1].name: sample_input['labels'].numpy(),
-                onnx_inputs[2].name: sample_input['token_type_ids'].numpy(),
-                onnx_inputs[3].name: sample_input['attention_mask'].numpy(),
-            },
+            onnx_input,
         )
 
         torch.testing.assert_close(

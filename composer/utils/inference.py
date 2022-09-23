@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-__all__ = ['export_for_inference', 'ExportFormat', 'export_with_logger', 'quantize_dynamic']
+__all__ = ['convert_hf_input_to_onnx', 'export_for_inference', 'ExportFormat', 'export_with_logger', 'quantize_dynamic']
 
 Transform = Callable[[nn.Module], nn.Module]
 
@@ -55,6 +55,16 @@ class ExportFormat(StringEnum):
     """
     TORCHSCRIPT = 'torchscript'
     ONNX = 'onnx'
+
+
+def convert_hf_input_to_onnx(onnx_model, huggingface_input: dict):
+    """Converts Composer HuggingFaceModel inputs into ONNX inputs."""
+    onnx_inputs = onnx_model.graph.input
+    onnx_converted_inputs = {}
+    hf_input_keys = huggingface_input.keys()
+    for i, key in enumerate(hf_input_keys):
+        onnx_converted_inputs[onnx_inputs[i].name] = huggingface_input[key].numpy()
+    return onnx_converted_inputs
 
 
 def export_for_inference(
