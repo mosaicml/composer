@@ -258,6 +258,7 @@ and make it compatible with our trainer.
         test_cfg=dict(score_thr=0.01, nms=dict(type='nms', iou_threshold=0.65)))
 
     yolox = build_model(ConfigDict(yolox_s_config))
+    yolox.init_weights()
     model = MMDetModel(yolox)
 
 .. |forward| replace:: :meth:`~.ComposerModel.forward`
