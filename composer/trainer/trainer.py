@@ -2575,5 +2575,5 @@ class Trainer:
                            save_path=save_path,
                            logger=self.logger,
                            save_object_store=save_object_store,
-                           sample_input=(sample_input,),
+                           sample_input=(sample_input, {}),
                            transforms=transforms)

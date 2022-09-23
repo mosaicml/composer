@@ -310,6 +310,7 @@ def test_export_with_file_artifact_logger(model_cls, sample_input):
                 model=model,
                 save_format=save_format,
                 save_path=save_path,
+                sample_input=(sample_input, {}),
                 logger=mock_logger,
             )
 
