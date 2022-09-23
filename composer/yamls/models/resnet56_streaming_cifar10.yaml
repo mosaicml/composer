@@ -1,6 +1,5 @@
 train_dataset:
   streaming_cifar10:
-    version: 2
     remote: your-bucket-here
     local: /tmp/mds-cache/mds-cifar10/
     split: train
@@ -8,7 +7,6 @@ train_dataset:
     drop_last: true
 val_dataset:
   streaming_cifar10:
-    version: 2
     remote: your-bucket-here
     local: /tmp/mds-cache/mds-cifar10/
     split: val
