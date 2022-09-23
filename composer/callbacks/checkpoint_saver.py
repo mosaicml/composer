@@ -55,18 +55,12 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
         raise NotImplementedError(
             f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH or TimeUnit.BATCH.')
 
-    last_checkpoint_batch: Optional[Time] = None
-
     def checkpoint_save_interval(state: State, event: Event):
-        nonlocal last_checkpoint_batch
         elapsed_duration = state.get_elapsed_duration()
         assert elapsed_duration is not None, 'elapsed_duration is set on the BATCH_CHECKPOINT and EPOCH_CHECKPOINT'
 
-        if elapsed_duration >= 1.0 and event == Event.BATCH_CHECKPOINT and state.timestamp.batch != last_checkpoint_batch:
-            # Checkpoint on last Event.BATCH_CHECKPOINT if we didn't already checkpoint this batch.
-            # Don't update last_checkpoint_batch or duplicate calls with no longer return True
-            # for this event. Don't use Event.EPOCH_CHECKPOINT as it will be skipped if
-            # max_duration is reached mid-epoch.
+        # Always checkpoint at end of training
+        if elapsed_duration >= 1.0:
             return True
 
         if save_event == Event.EPOCH_CHECKPOINT:
@@ -77,7 +71,6 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
             raise RuntimeError(f'Invalid save_event: {save_event}')
 
         if event == save_event and int(count) % int(interval) == 0:
-            last_checkpoint_batch = state.timestamp.batch
             return True
 
         return False
@@ -302,6 +295,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         if not callable(checkpoint_save_interval):
             checkpoint_save_interval = checkpoint_periodically(checkpoint_save_interval)
         self.checkpoint_save_interval = checkpoint_save_interval
+        self.last_checkpoint_batch: Optional[Time] = None
 
         self.checkpoint_save_path = checkpoint_save_path
 
@@ -335,7 +329,8 @@ class CheckpointSaver(Callback):  # noqa: D101
             raise NotImplementedError('weights_only=True is not supported when using DeepSpeed.')
 
     def batch_checkpoint(self, state: State, logger: Logger):
-        if self.checkpoint_save_interval(state, Event.BATCH_CHECKPOINT):
+        if self.checkpoint_save_interval(
+                state, Event.BATCH_CHECKPOINT) and self.last_checkpoint_batch != state.timestamp.batch:
             self._save_checkpoint(
                 state,
                 logger,
@@ -343,7 +338,8 @@ class CheckpointSaver(Callback):  # noqa: D101
             )
 
     def epoch_checkpoint(self, state: State, logger: Logger):
-        if self.checkpoint_save_interval(state, Event.EPOCH_CHECKPOINT):
+        if self.checkpoint_save_interval(
+                state, Event.EPOCH_CHECKPOINT) and self.last_checkpoint_batch != state.timestamp.batch:
             self._save_checkpoint(
                 state,
                 logger,
@@ -362,6 +358,8 @@ class CheckpointSaver(Callback):  # noqa: D101
         }
 
     def _save_checkpoint(self, state: State, logger: Logger, log_level: LogLevel):
+        self.last_checkpoint_batch = state.timestamp.batch
+
         is_deepspeed = is_model_deepspeed(state.model)
 
         if is_deepspeed and '{rank}' not in self.checkpoint_filename.filename:
