@@ -121,7 +121,7 @@ def _input_validator(preds: List[Dict[str, torch.Tensor]], targets: List[Dict[st
 
 
 class MAP(Metric):
-    """Computes the `Mean-Average-Precision (mAP) and Mean-Average-Recall (mAR) for object detection predictions.
+    """Computes the Mean-Average-Precision (mAP) and Mean-Average-Recall (mAR) for object detection predictions.
 
     Optionally, the mAP and mAR values can be calculated per class.
     Predicted boxes and targets have to be in Pascal VOC format \
