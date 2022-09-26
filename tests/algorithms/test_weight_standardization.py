@@ -1,5 +1,9 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 import pytest
 import torch
+import torch.nn.utils.parametrize as parametrize
 
 from composer.algorithms import WeightStandardization
 from composer.core import Event, State
@@ -11,7 +15,7 @@ from tests.common import SimpleConvModel
 def _count_parametrize(module: torch.nn.Module):
     count = 0
     for m in module.modules():
-        if torch.nn.utils.parametrize.is_parametrized(m, 'weight'):
+        if parametrize.is_parametrized(m, 'weight'):
             count += 1
     return count
 
@@ -30,7 +34,7 @@ def test_ws_calculation():
 
 @pytest.mark.parametrize('n_last_layers_ignore', [0, 1, 3])
 def test_ws_replacement(n_last_layers_ignore: int):
-    """Check if the proper number of layers have been reparametrized."""
+    """Check if the proper number of layers have been parametrized."""
     model = SimpleConvModel()
     apply_weight_standardization(module=model, n_last_layers_ignore=n_last_layers_ignore)
     ws_count = _count_parametrize(model)
