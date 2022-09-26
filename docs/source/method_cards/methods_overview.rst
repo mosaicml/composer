@@ -223,7 +223,7 @@
 
    ---
    .. link-button:: weight_standardization.html
-      :text: WeightStandardization
+      :text: Weight Standardization
       :classes: card-title
 
    :badge:`CV,badge-primary`
