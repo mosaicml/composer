@@ -32,7 +32,7 @@ class MMDetModel(ComposerModel):
 
     Example:
 
-    .. testcode::
+    .. code-block:: python
 
         from mmdet.models import build_model
         from mmcv import ConfigDict
