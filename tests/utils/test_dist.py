@@ -12,10 +12,8 @@ from tests.common import world_size
 
 
 @world_size(2)
-@pytest.mark.parametrize('success', [True, False])
-def test_run_local_rank_first_context(success, world_size):
-    if success:
-        dist.initialize_dist(DeviceGPU(), timeout=datetime.timedelta(seconds=30))
-    with contextlib.nullcontext() if success else pytest.raises(RuntimeError):
+def test_run_local_rank_first_context(world_size):
+    with pytest.raises(RuntimeError) as e:
         with dist.run_local_rank_zero_first():
             pass
+    assert 'If calling this function outside Trainer' in str(e) # Verify error raised is intended
