@@ -57,8 +57,7 @@ class MIoU(Metric):
         """Aggregate state across all processes and compute final metric."""
         total_intersect = self.total_intersect[self.total_union != 0]  # type: ignore (third-party)
         total_union = self.total_union[self.total_union != 0]  # type: ignore (third-party)
-        per_class_miou = total_intersect / total_union
-        return 100 * per_class_miou.mean()
+        return 100 * (total_intersect / total_union).mean()
 
 
 class Dice(Metric):
