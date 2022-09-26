@@ -1,1 +1,1 @@
-composer/algorithms/weight_standardization/README.md
+../../../composer/algorithms/weight_standardization/README.md
