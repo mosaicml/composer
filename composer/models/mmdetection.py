@@ -15,7 +15,7 @@ from torchmetrics.collections import MetricCollection
 from composer.models import ComposerModel
 
 if TYPE_CHECKING:
-    import mmdetection as mmdet
+    import mmdet
 
 __all__ = ['MMDetModel']
 
@@ -70,22 +70,31 @@ class MMDetModel(ComposerModel):
 
     def forward(self, batch):
         return self.model(
-            **batch)  # this will return a dictionary of 3 losses in train mode and model outputs in test mode
+            **batch)  # this will return a dictionary of losses in train mode and model outputs in test mode.
 
     def loss(self, outputs, batch, **kwargs):
         return outputs
 
-    def eval_forward(self, batch, outputs):
+    def eval_forward(self, batch, outputs: Optional[Any] = None):
+        """
+        Args:
+            batch: A eval batch of the format {'img': list of image tensors (batch, c, h , w],
+                                                img_metas': (1, batch_size) list of image_meta dicts}
+        Returns: model predictions: A batch_size length list of dictionaries containg detection boxes in (x,y, x2, y2) format, class labels, and class probabilities.
+        """
         device = batch['img'][0].device
-        outputs = self.model(return_loss=False, rescale=True, **batch)  # models behave differently in eval mode
+        batch.pop('gt_labels')
+        batch.pop('gt_bboxes')
+        results = self.model(return_loss=False, rescale=True, **batch)  # models behave differently in eval mode
 
+        # outputs are a list of bbox results (x, y, x2, y2, score)
         # pack mmdet bounding boxes and labels into the format for torchmetrics MAP expects
         preds = []
-        for bbox_result in outputs:
+        for bbox_result in results:
             boxes_scores = np.vstack(bbox_result)
             boxes, scores = torch.from_numpy(boxes_scores[..., :-1]).to(device), torch.from_numpy(
                 boxes_scores[..., -1]).to(device)
-            labels = [np.full(bbox.shape[0], i, dtype=np.int32) for i, bbox in enumerate(bbox_result)]
+            labels = [np.full(result.shape[0], i, dtype=np.int32) for i, result in enumerate(bbox_result)]
             pred = {
                 'labels': torch.from_numpy(np.concatenate(labels)).to(device).long(),
                 'boxes': boxes.float(),

@@ -253,7 +253,7 @@ and make it compatible with our trainer.
         random_size_interval=10,
         backbone=dict(type='CSPDarknet', deepen_factor=0.33, widen_factor=0.5),
         neck=dict(type='YOLOXPAFPN', in_channels=[128, 256, 512], out_channels=128, num_csp_blocks=1),
-        bbox_head=dict(type='YOLOXHead', num_classes=num_classes, in_channels=128, feat_channels=128),
+        bbox_head=dict(type='YOLOXHead', num_classes=80, in_channels=128, feat_channels=128),
         train_cfg=dict(assigner=dict(type='SimOTAAssigner', center_radius=2.5)),
         test_cfg=dict(score_thr=0.01, nms=dict(type='nms', iou_threshold=0.65)))
 

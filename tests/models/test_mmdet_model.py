@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import numpy as np
 import pytest
 import torch
 
@@ -16,12 +17,34 @@ def mmdet_detection_batch():
             'ori_filename': 'fake_image.jpg',
             'img_shape': (image_size, image_size, 3),
             'ori_shape': (image_size, image_size, 3),
-            'pad_shape': (image_size, image_size, 3)
+            'pad_shape': (image_size, image_size, 3),
+            'scale_factor': np.array([1., 1., 1., 1.], dtype=np.float32)
         }] * batch_size,
         'img':
             torch.zeros(batch_size, 3, image_size, image_size, dtype=torch.float32),
         'gt_bboxes': [torch.zeros(num_labels_per_image, 4, dtype=torch.float32)] * batch_size,
         'gt_labels': [torch.zeros(num_labels_per_image, dtype=torch.int64)] * batch_size
+    }
+
+
+@pytest.fixture
+def mmdet_detection_eval_batch():
+    # Eval settings for mmdetection datasets have an extra list around inputs.
+    batch_size = 2
+    num_labels_per_image = 20
+    image_size = 224
+    return {
+        'img_metas': [[{
+            'filename': '../../data/coco/train2017/fake_img.jpg',
+            'ori_filename': 'fake_image.jpg',
+            'img_shape': (image_size, image_size, 3),
+            'ori_shape': (image_size, image_size, 3),
+            'pad_shape': (image_size, image_size, 3),
+            'scale_factor': np.array([1., 1., 1., 1.], dtype=np.float32),
+        }] * batch_size],
+        'img': [torch.zeros(batch_size, 3, image_size, image_size, dtype=torch.float32)],
+        'gt_bboxes': [[torch.zeros(num_labels_per_image, 4, dtype=torch.float32)] * batch_size],
+        'gt_labels': [[torch.zeros(num_labels_per_image, dtype=torch.int64)] * batch_size]
     }
 
 
@@ -47,17 +70,14 @@ def faster_rcnn_config():
     # modified from https://github.com/open-mmlab/mmdetection/blob/master/configs/_base_/models/faster_rcnn_r50_fpn.py
     return dict(
         type='FasterRCNN',
-        backbone=dict(
-            type='ResNet',
-            depth=50,
-            num_stages=4,
-            out_indices=(0, 1, 2, 3),
-            frozen_stages=1,
-            norm_cfg=dict(type='BN', requires_grad=True),
-            norm_eval=True,
-            style='pytorch',
-            # init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50')
-        ),
+        backbone=dict(type='ResNet',
+                      depth=50,
+                      num_stages=4,
+                      out_indices=(0, 1, 2, 3),
+                      frozen_stages=1,
+                      norm_cfg=dict(type='BN', requires_grad=True),
+                      norm_eval=True,
+                      style='pytorch'),
         neck=dict(type='FPN', in_channels=[256, 512, 1024, 2048], out_channels=256, num_outs=5),
         rpn_head=dict(type='RPNHead',
                       in_channels=256,
@@ -142,6 +162,24 @@ def test_mmdet_model_forward_yolox(mmdet_detection_batch, yolox_config):
     model = MMDetModel(model=model)
     out = model(mmdet_detection_batch)
     assert list(out.keys()) == ['loss_cls', 'loss_bbox', 'loss_obj']
+
+
+def test_mmdet_model_eval_forward_yolox(mmdet_detection_eval_batch, yolox_config):
+    pytest.importorskip('mmdet')
+
+    from mmcv import ConfigDict
+    from mmdet.models import build_detector
+
+    from composer.models import MMDetModel
+
+    config = ConfigDict(yolox_config)
+    # non pretrained model to avoid a slow test that downloads the weights.
+    model = build_detector(config)
+    model.init_weights()
+    model = MMDetModel(model=model)
+    out = model.eval_forward(mmdet_detection_eval_batch)
+    assert len(out) == mmdet_detection_eval_batch['img'][0].shape[0]  # batch size
+    assert list(out[0].keys()) == ['labels', 'boxes', 'scores']
 
 
 def test_mmdet_model_forward_faster_rcnn(mmdet_detection_batch, faster_rcnn_config):
