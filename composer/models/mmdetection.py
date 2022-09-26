@@ -21,8 +21,7 @@ __all__ = ['MMDetModel']
 
 
 class MMDetModel(ComposerModel):
-    """
-    A wrapper class that adapts mmdetection detectors to composer models.
+    """A wrapper class that adapts mmdetection detectors to composer models.
 
     Args:
         model (mmdet.models.detectors.BaseDetector): An MMdetection Detector
