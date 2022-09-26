@@ -6,6 +6,10 @@
 
 Weight Standardization is a reparametrization of convolutional weights such that the input channel and kernel dimensions have zero mean and unit variance. The authors suggested using this method when the per-device batch size is too small to work well with batch normalization models. Additionally, the authors suggest this method enables using other normalization layers instead of batch normalizaiton while maintaining similar performance. We have been unable to verify either of these claims on Composer benchmarks. Instead, we have found weight standardization to improve performance with a small throughput degradation when training ResNet architectures on image classification and semantic segmentation tasks. There are a few papers that have found weight standardization useful as well.
 
+| ![WeightStandardization](https://storage.googleapis.com/docs.mosaicml.com/images/methods/weight_standardization.png) |
+|:--|
+| *Comparing various normalization layers applied to activations (blue) and weight standardization applied to convolutional weights (orange). This figure is Figure 2 in [Qiao et al., 2019](https://arxiv.org/abs/1903.10520).* |
+
 ## How to Use
 
 ### Functional Interface
