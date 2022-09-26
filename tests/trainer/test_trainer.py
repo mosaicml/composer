@@ -14,7 +14,6 @@ import pytest
 import torch
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
-from torchmetrics import Accuracy
 
 from composer import Callback, Evaluator, Trainer
 from composer.algorithms import CutOut, LabelSmoothing
@@ -128,14 +127,12 @@ class TestTrainerInitOrFit:
         return Time(1, TimeUnit.EPOCH)
 
     @pytest.mark.parametrize('train_subset_num_batches', [-1, 1])
-    @pytest.mark.parametrize('compute_training_metrics', [True, False])
     def test_train_dataloader(
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
         max_duration: Time[int],
         train_subset_num_batches: int,
-        compute_training_metrics: bool,
     ):
         # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
         copied_model = copy.deepcopy(model)
@@ -146,7 +143,6 @@ class TestTrainerInitOrFit:
             max_duration=max_duration,
             train_dataloader=train_dataloader,
             train_subset_num_batches=train_subset_num_batches,
-            compute_training_metrics=compute_training_metrics,
         )
         init_trainer.fit()
 
@@ -158,7 +154,6 @@ class TestTrainerInitOrFit:
         fit_trainer.fit(
             train_dataloader=train_dataloader,
             train_subset_num_batches=train_subset_num_batches,
-            compute_training_metrics=compute_training_metrics,
         )
 
         # Assert that the states are equivalent
@@ -285,12 +280,16 @@ class TestTrainerInitOrFit:
         'eval_dataloader',
         [
             DataLoader(RandomClassificationDataset(size=2)),  # a normal dataloader
-            Evaluator(label='eval', dataloader=DataLoader(RandomClassificationDataset(size=2)),
-                      metrics=Accuracy()),  # an evaluator
+            Evaluator(label='eval',
+                      dataloader=DataLoader(RandomClassificationDataset(size=2)),
+                      metric_names=['Accuracy']),  # an evaluator
             [  # multiple evaluators
-                Evaluator(label='eval1', dataloader=DataLoader(RandomClassificationDataset(size=2)),
-                          metrics=Accuracy()),
-                Evaluator(label='eval2', dataloader=DataLoader(RandomClassificationDataset(size=2)), metrics=Accuracy())
+                Evaluator(label='eval1',
+                          dataloader=DataLoader(RandomClassificationDataset(size=2)),
+                          metric_names=['Accuracy']),
+                Evaluator(label='eval2',
+                          dataloader=DataLoader(RandomClassificationDataset(size=2)),
+                          metric_names=['Accuracy'])
             ],
         ])
     def test_eval_dataloader(
@@ -460,6 +459,7 @@ class TestTrainerInitOrFit:
                 max_duration=max_duration,
                 train_dataloader=train_dataloader,
                 precision=precision,
+                device=device,
             )
 
         if not should_error:
@@ -471,6 +471,7 @@ class TestTrainerInitOrFit:
             model=copied_model,
             max_duration=max_duration,
             train_dataloader=train_dataloader,
+            device=device,
         )
         with ctx:
             fit_trainer.fit(precision=precision)
@@ -817,14 +818,18 @@ class TestTrainerEquivalence():
         """Trains the reference model, and saves checkpoints."""
         config = copy.deepcopy(config)  # ensure the reference model is not passed to tests
 
-        save_folder = tmp_path_factory.mktemp('{device}-{precision}'.format(**config))
-        config.update({'save_interval': '1ep', 'save_folder': str(save_folder), 'save_filename': 'ep{epoch}.pt'})
+        checkpoint_save_path = tmp_path_factory.mktemp('{device}-{precision}'.format(**config))
+        config.update({
+            'checkpoint_save_interval': '1ep',
+            'checkpoint_save_path': str(checkpoint_save_path),
+            'save_filename': 'ep{epoch}.pt'
+        })
 
         trainer = Trainer(**config)
         trainer.fit()
 
         self.reference_model = trainer.state.model
-        self.reference_folder = save_folder
+        self.reference_folder = checkpoint_save_path
 
     def test_determinism(self, config, *args):
         trainer = Trainer(**config)
@@ -869,6 +874,20 @@ class TestTrainerEquivalence():
 
         self.assert_models_equal(trainer.state.model, self.reference_model)
 
+    def test_tuple_loss_trainer(self, config, *args):
+
+        def tuple_loss(outputs, targets, *args, **kwargs):
+            loss1 = 0.25 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+            loss2 = 0.75 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+            return (loss1, loss2)
+
+        config['model']._loss_fn = tuple_loss
+
+        trainer = Trainer(**config)
+        trainer.fit()
+
+        self.assert_models_equal(trainer.state.model, self.reference_model)
+
     def test_dict_loss_trainer(self, config, *args):
 
         def dict_loss(outputs, targets, *args, **kwargs):
@@ -878,6 +897,22 @@ class TestTrainerEquivalence():
             return losses
 
         config['model']._loss_fn = dict_loss
+
+        trainer = Trainer(**config)
+        trainer.fit()
+
+        self.assert_models_equal(trainer.state.model, self.reference_model)
+
+    def test_dict_loss_total_trainer(self, config, *args):
+
+        def dict_loss_total(outputs, targets, *args, **kwargs):
+            losses = {}
+            losses['cross_entropy1'] = 2 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+            losses['cross_entropy2'] = 3 * soft_cross_entropy(outputs, targets, *args, **kwargs)
+            losses['total'] = soft_cross_entropy(outputs, targets, *args, **kwargs)
+            return losses
+
+        config['model']._loss_fn = dict_loss_total
 
         trainer = Trainer(**config)
         trainer.fit()

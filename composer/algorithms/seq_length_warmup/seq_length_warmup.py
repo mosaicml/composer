@@ -3,6 +3,7 @@
 
 """Core code for sequence length warmup."""
 
+import logging
 import textwrap
 from math import ceil
 from typing import Dict, Mapping, Optional
@@ -16,7 +17,10 @@ from composer.core.time import TimeUnit
 from composer.core.types import Batch
 from composer.loggers import Logger
 from composer.models import HuggingFaceModel
+from composer.trainer.devices import DeviceGPU
 from composer.utils import dist, ensure_tuple
+
+log = logging.getLogger(__name__)
 
 __all__ = ['SeqLengthWarmup', 'set_batch_sequence_length']
 
@@ -270,14 +274,15 @@ class SeqLengthWarmup(Algorithm):
         # truncate all sequence-shaped tensors to the max sequence length
         batch_clone = {k: torch.clone(v) for k, v in state.batch.items()}
         device_batch_size = 0
-        device = None
         for k, v in batch_clone.items():
             if v.ndim < 2:
                 raise ValueError(f'Sequence Length Warmup requires that all tensors are sequence-shaped. '
                                  f'Tensor "{k}" has shape {v.shape}.')
             batch_clone[k] = v[:, :self.max_seq_length].contiguous()
             device_batch_size = v.shape[0]
-            device = v.device
+
+        # In-line to avoid circular dependency
+        from composer.trainer.trainer import _adjust_grad_accum, _is_cuda_oom
 
         # This loop tries to do a forward/backward pass using the current microbatch size.
         # If it hits an OOM error, it doubles `state.grad_accum` and tries again until
@@ -286,7 +291,7 @@ class SeqLengthWarmup(Algorithm):
             per_gpu_batch = ceil(per_gpu_macrobatch / state.grad_accum)
             model_inputs = {k: v[:per_gpu_batch] for k, v in batch_clone.items()}
 
-            should_handle_cuda_oom = 0
+            found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             try:
                 # start by running a forward and backward pass
                 # of the maximum sequence length to allocate cache.
@@ -305,28 +310,24 @@ class SeqLengthWarmup(Algorithm):
 
             # This error/state.grad_accum handling mimics the logic in trainer._train_batch().
             except RuntimeError as e:
-                if 'CUDA out of memory' in str(e):
-                    should_handle_cuda_oom = 1
+                if state.auto_grad_accum and _is_cuda_oom(e):
+                    log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
+                    found_cuda_oom = 1
                 else:
                     raise
 
-            # Propagate across all ranks if any rank hit CUDA OOM
-            should_handle_cuda_oom = torch.tensor([should_handle_cuda_oom], dtype=torch.uint8, device=device)
-            dist.all_reduce(should_handle_cuda_oom, reduce_operation='MAX')
-            if int(should_handle_cuda_oom.item()) == 1:
-                # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_timeout_error since
-                # it is likely transient, e.g. timeout because certain ranks OOMed and didn't reach barrier.
-                # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
-                if state.grad_accum == device_batch_size:
-                    raise RuntimeError(
-                        ('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
-                         'The GPU does not have enough memory to process even 1 sample.'))
-                else:
-                    state.grad_accum = min(2 * state.grad_accum, device_batch_size)
-                    logger.data_batch({'trainer/grad_accum': state.grad_accum})
-            else:
-                self._activated = True
-                return
+            if state.auto_grad_accum:
+                devicegpu = DeviceGPU()
+                # Propagate across all ranks if any rank hit CUDA OOM
+                found_cuda_oom = devicegpu.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
+                if found_cuda_oom.item() == 1:
+                    _adjust_grad_accum(state, device_batch_size)
+                    # Skip return and rerun after handling oom
+                    continue
+            # Activate and return if we've completed without OOMing.
+            self._activated = True
+            return
 
     def match(self, event: Event, state: State) -> bool:
         return (event == Event.INIT and self._original_model is None) or event == Event.AFTER_DATALOADER
@@ -375,7 +376,7 @@ class SeqLengthWarmup(Algorithm):
         state.batch = set_batch_sequence_length(state.batch, curr_seq_len, self.truncate, self.preserve_end_of_sequence)
 
         batch_size = state.batch['input_ids'].shape[0]
-        logger.data_batch({
+        logger.log_metrics({
             'seq_length_warmup/curr_seq_len': curr_seq_len,
             'seq_length_warmup/curr_bs': batch_size,
         })

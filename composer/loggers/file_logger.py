@@ -30,8 +30,6 @@ class FileLogger(LoggerDestination):  # noqa: D101
             file_logger = FileLogger(
                 filename="{{run_name}}/logs-rank{{rank}}.txt",
                 buffer_size=1,
-                log_level=LogLevel.BATCH,
-                log_interval=2,
                 flush_interval=50
             )
             trainer = Trainer(
@@ -99,20 +97,9 @@ class FileLogger(LoggerDestination):  # noqa: D101
         capture_stderr (bool, optional): Whether to include the ``stderr``in ``filename``. (default: ``True``)
         buffer_size (int, optional): Buffer size. See :py:func:`open`.
             Default: ``1`` for line buffering.
-        log_level (LogLevel, optional):
-            :class:`~.logger.LogLevel` (i.e. unit of resolution) at
-            which to record. Default: :attr:`~.LogLevel.EPOCH`.
-        log_interval (int, optional):
-            Frequency to print logs. If ``log_level`` is :attr:`~.LogLevel.EPOCH`,
-            logs will only be recorded every n epochs. If ``log_level`` is
-            :attr:`~.LogLevel.BATCH`, logs will be printed every n batches.  Otherwise, if
-            ``log_level`` is :attr:`~.LogLevel.FIT`, this parameter is ignored, as calls
-            at the :attr:`~.LogLevel.FIT` log level are always recorded. Default: ``1``.
-        flush_interval (int, optional): How frequently to flush the log to the file,
-            relative to the ``log_level``. For example, if the ``log_level`` is
-            :attr:`~.LogLevel.EPOCH`, then the logfile will be flushed every n epochs.  If
-            the ``log_level`` is :attr:`~.LogLevel.BATCH`, then the logfile will be
-            flushed every n batches. Default: ``100``.
+        log_traces (bool, optional): Whether to log algorithm traces. See :class:`~.Engine` for more detail.
+        flush_interval (int, optional): How frequently to flush the log to the file in batches
+            Default: ``100``.
         overwrite (bool, optional): Whether to overwrite an existing logfile. (default: ``False``)
     """
 
@@ -124,8 +111,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
         capture_stdout: bool = True,
         capture_stderr: bool = True,
         buffer_size: int = 1,
-        log_level: LogLevel = LogLevel.EPOCH,
-        log_interval: int = 1,
+        log_traces: bool = True,
         flush_interval: int = 100,
         overwrite: bool = False,
     ) -> None:
@@ -134,8 +120,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
             artifact_name = filename.replace(os.path.sep, '/')
         self.artifact_name_format = artifact_name
         self.buffer_size = buffer_size
-        self.log_level = log_level
-        self.log_interval = log_interval
+        self.should_log_traces = log_traces
         self.flush_interval = flush_interval
         self.is_batch_interval = False
         self.is_epoch_interval = False
@@ -184,39 +169,34 @@ class FileLogger(LoggerDestination):  # noqa: D101
 
         return name
 
-    def batch_start(self, state: State, logger: Logger) -> None:
-        self.is_batch_interval = (int(state.timestamp.batch) + 1) % self.log_interval == 0
-
     def epoch_start(self, state: State, logger: Logger) -> None:
-        self.is_epoch_interval = (int(state.timestamp.epoch) + 1) % self.log_interval == 0
         # Flush any log calls that occurred during INIT or FIT_START
         self._flush_file(logger)
 
-    def _will_log(self, log_level: LogLevel) -> bool:
-        if log_level == LogLevel.FIT:
-            return True  # fit is always logged
-        if log_level == LogLevel.EPOCH:
-            if self.log_level < LogLevel.EPOCH:
-                return False
-            if self.log_level > LogLevel.EPOCH:
-                return True
-            return self.is_epoch_interval
-        if log_level == LogLevel.BATCH:
-            if self.log_level < LogLevel.BATCH:
-                return False
-            if self.log_level > LogLevel.BATCH:
-                return True
-            return self.is_batch_interval
-        raise ValueError(f'Unknown log level: {log_level}')
+    def log_traces(self, traces: Dict[str, Any]):
+        if self.should_log_traces:
+            for trace_name, trace in traces.items():
+                trace_str = format_log_data_value(trace)
+                self.write(
+                    f'[trace]: {trace_name}:',
+                    trace_str + '\n',
+                )
 
-    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
-        if not self._will_log(log_level):
-            return
-        data_str = format_log_data_value(data)
-        self.write(
-            f'[{log_level.name}][batch={int(state.timestamp.batch)}]: ',
-            data_str + '\n',
-        )
+    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+        for metric_name, metric in metrics.items():
+            metric_str = format_log_data_value(metric)
+            self.write(
+                f'[metric][batch={step}]: ',
+                f'{metric_name}: {metric_str} \n',
+            )
+
+    def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
+        for hparam_name, hparam_value in hyperparameters.items():
+            hparam_str = format_log_data_value(hparam_value)
+            self.write(
+                f'[hyperparameter]: ',
+                f'{hparam_name}: {hparam_str} \n',
+            )
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -233,7 +213,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
 
     def batch_end(self, state: State, logger: Logger) -> None:
         assert self.file is not None
-        if self.log_level == LogLevel.BATCH and int(state.timestamp.batch) % self.flush_interval == 0:
+        if int(state.timestamp.batch) % self.flush_interval == 0:
             self._flush_file(logger)
 
     def eval_start(self, state: State, logger: Logger) -> None:
@@ -241,8 +221,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
         self._flush_file(logger)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
-        if self.log_level > LogLevel.EPOCH or self.log_level == LogLevel.EPOCH and int(
-                state.timestamp.epoch) % self.flush_interval == 0:
+        if int(state.timestamp.epoch) % self.flush_interval == 0:
             self._flush_file(logger)
 
     def write(self, prefix: str, s: str):

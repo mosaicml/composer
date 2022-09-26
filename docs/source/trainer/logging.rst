@@ -10,12 +10,14 @@ Biases <https://www.wandb.com/>`__ and also saves them to the file
 ``log.txt``.
 
 .. testsetup::
+    :skipif: not _WANDB_INSTALLED
 
     import os
 
     os.environ["WANDB_MODE"] = "disabled"
 
 .. testcode::
+    :skipif: not _WANDB_INSTALLED
 
     from composer import Trainer
     from composer.loggers import WandBLogger, FileLogger
@@ -31,6 +33,7 @@ Biases <https://www.wandb.com/>`__ and also saves them to the file
     )
 
 .. testcleanup::
+    :skipif: not _WANDB_INSTALLED
 
     trainer.engine.close()
     os.remove("log.txt")
@@ -45,6 +48,7 @@ Available Loggers
 
     ~file_logger.FileLogger
     ~wandb_logger.WandBLogger
+    ~cometml_logger.CometMLLogger
     ~progress_bar_logger.ProgressBarLogger
     ~tensorboard_logger.TensorboardLogger
     ~in_memory_logger.InMemoryLogger
@@ -78,7 +82,7 @@ Each of its methods has access to the :class:`.Logger`.
     class EpochMonitor(Callback):
 
         def epoch_end(self, state: State, logger: Logger):
-            logger.data_epoch({"Epoch": int(state.timestamp.epoch)})
+            logger.log_metrics({"Epoch": int(state.timestamp.epoch)})
 
 .. testcleanup::
 
@@ -93,16 +97,6 @@ to log any desired information.
 
     :doc:`Algorithms<algorithms>` and :doc:`Callbacks<callbacks>`
 
-Logging Levels
---------------
-
-:class:`.LogLevel` specifies three logging levels that denote where in
-the training loop log messages are generated. The logging levels are:
-
--  :attr:`.LogLevel.FIT`: metrics logged once per training
-   run, typically before the first epoch.
--  :attr:`.LogLevel.EPOCH`: metrics logged once per epoch.
--  :attr:`.LogLevel.BATCH`: metrics logged once per batch.
 
 Custom Logger Destinations
 --------------------------
@@ -113,25 +107,22 @@ into a dictionary:
 
 .. testcode::
 
-    from typing import Any, Dict
+    from typing import Any, Dict, Optional
 
     from composer.loggers.logger_destination import LoggerDestination
-    from composer.loggers.logger import LogLevel
     from composer.core.time import Timestamp
     from composer.core.state import State
 
     class DictionaryLogger(LoggerDestination):
-        def __init__(self, log_level: LogLevel = LogLevel.BATCH):
-            self.log_level = log_level
+        def __init__(self):
             # Dictionary to store logged data
             self.data = {}
 
-        def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
-            if log_level <= self.log_level:
-                for k, v in data.items():
-                    if k not in self.data:
-                        self.data[k] = []
-                    self.data[k].append((state.timestamp, log_level, v))
+        def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None):
+            for k, v in self.data.items():
+                if k not in self.data:
+                    self.data[k] = []
+                self.data[k].append((state.timestamp, v))
 
     # Construct a trainer using this logger
     trainer = Trainer(..., loggers=[DictionaryLogger()])

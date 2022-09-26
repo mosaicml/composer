@@ -409,7 +409,6 @@ In one terminal, run:
 source path/to/composer_venv/bin/activate  # activate your composer virtual env
 cd composer/docs  # cd to the docs folder insde your composer clone
 make clean
-rm -rf source/api_reference  # make clean doesn't remove this folder
 make html
 ```
 
@@ -477,7 +476,6 @@ Assuming you already have a development install of Composer (see these [instruct
 source path/to/composer_venv/bin/activate  # activate your composer virtual env
 cd composer/docs  # cd to the docs folder insde your composer clone
 make clean
-rm -rf source/api_reference  # make clean doesn't remove this folder
 make html  # the html build must be completed first to ensure all doctests are identified
 make doctest 2>/dev/null # For more verbosity, do not direct stderr to /dev/null
 ```

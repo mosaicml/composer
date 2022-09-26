@@ -11,7 +11,8 @@ import pytest_httpserver
 from composer.core.time import Time, Timestamp, TimeUnit
 from composer.utils.file_helpers import (ensure_folder_has_no_conflicting_files, ensure_folder_is_empty,
                                          format_name_with_dist, format_name_with_dist_and_time, get_file, is_tar)
-from composer.utils.object_store.object_store_hparams import LibcloudObjectStoreHparams
+from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
+from tests.common.markers import world_size
 
 
 @pytest.mark.xfail(reason='Occassionally hits the timeout. Should refactor to use a local webserver.')
@@ -42,11 +43,12 @@ def test_get_file_object_store(tmp_path: pathlib.Path, monkeypatch: pytest.Monke
     remote_dir = tmp_path / 'remote_dir'
     os.makedirs(remote_dir)
     monkeypatch.setenv('OBJECT_STORE_KEY', str(remote_dir))  # for the local option, the key is the path
-    provider = LibcloudObjectStoreHparams(
+    provider = LibcloudObjectStore(
         provider='local',
         key_environ='OBJECT_STORE_KEY',
         container='.',
-    ).initialize_object()
+    )
+
     with open(str(remote_dir / 'checkpoint.txt'), 'wb') as f:
         f.write(b'checkpoint1')
     get_file(
@@ -64,11 +66,11 @@ def test_get_file_object_store_with_symlink(tmp_path: pathlib.Path, monkeypatch:
     remote_dir = tmp_path / 'remote_dir'
     os.makedirs(remote_dir)
     monkeypatch.setenv('OBJECT_STORE_KEY', str(remote_dir))  # for the local option, the key is the path
-    provider = LibcloudObjectStoreHparams(
+    provider = LibcloudObjectStore(
         provider='local',
         key_environ='OBJECT_STORE_KEY',
         container='.',
-    ).initialize_object()
+    )
     # Add file to object store
     with open(str(remote_dir / 'checkpoint.txt'), 'wb') as f:
         f.write(b'checkpoint1')
@@ -100,11 +102,11 @@ def test_get_file_object_store_not_found(tmp_path: pathlib.Path, monkeypatch: py
     remote_dir = tmp_path / 'remote_dir'
     os.makedirs(remote_dir)
     monkeypatch.setenv('OBJECT_STORE_KEY', str(remote_dir))  # for the local option, the key is the path
-    provider = LibcloudObjectStoreHparams(
+    provider = LibcloudObjectStore(
         provider='local',
         key_environ='OBJECT_STORE_KEY',
         container='.',
-    ).initialize_object()
+    )
     with pytest.raises(FileNotFoundError):
         get_file(
             path='checkpoint.txt',
@@ -150,6 +152,28 @@ def test_format_name_with_dist():
     format_str = ','.join(f'{x}={{{x}}}' for x in vars)
     expected_str = 'run_name=awesome_run,rank=0,node_rank=0,world_size=1,local_world_size=1,local_rank=0,extra=42'
     assert format_name_with_dist(format_str, 'awesome_run', extra=42) == expected_str
+
+
+@world_size(2)
+def test_safe_format_name_with_dist(monkeypatch: pytest.MonkeyPatch, world_size):
+    """node rank deleted, but not in format string, so format should complete."""
+    vars = ['run_name', 'world_size']
+    format_str = ','.join(f'{x}={{{x}}}' for x in vars)
+    expected_str = 'run_name=awesome_run,world_size=2'
+
+    monkeypatch.delenv('NODE_RANK')
+    assert format_name_with_dist(format_str, 'awesome_run') == expected_str
+
+
+@world_size(2)
+def test_unsafe_format_name_with_dist(monkeypatch: pytest.MonkeyPatch, world_size):
+    """Node rank is deleted, but also in the format string, so expect error."""
+    vars = ['run_name', 'node_rank']
+    format_str = ','.join(f'{x}={{{x}}}' for x in vars)
+
+    monkeypatch.delenv('NODE_RANK')
+    with pytest.raises(KeyError):
+        assert format_name_with_dist(format_str, 'awesome_run') == 'run_name=awesome_run,node_rank=3'
 
 
 def test_format_name_with_dist_and_time():

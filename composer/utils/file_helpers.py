@@ -10,12 +10,12 @@ import pathlib
 import re
 import tempfile
 import uuid
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 import requests
 import tqdm
 
-from composer.core.time import Time, Timestamp
+from composer.core.time import Timestamp
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
 from composer.utils.object_store import ObjectStore
@@ -32,6 +32,34 @@ __all__ = [
     'is_tar',
     'create_symlink_file',
 ]
+
+
+def _get_dist_config(strict: bool = True) -> Dict[str, Any]:
+    """Returns a dict of distributed settings (rank, world_size, etc.).
+
+    If ``strict=True``, will error if a setting is not available (e.g. the
+    environment variable is not set). Otherwise, will only return settings
+    that are availalbe.
+    """
+    settings = {
+        'rank': dist.get_global_rank,
+        'local_rank': dist.get_local_rank,
+        'world_size': dist.get_world_size,
+        'local_world_size': dist.get_local_world_size,
+        'node_rank': dist.get_node_rank,
+    }
+
+    dist_config = {}
+    for name, func in settings.items():
+        try:
+            value = func()
+        except dist.MissingEnvironmentError as e:
+            if strict:
+                raise e
+        else:
+            dist_config[name] = value
+
+    return dist_config
 
 
 def is_tar(name: Union[str, pathlib.Path]) -> bool:
@@ -82,50 +110,33 @@ def ensure_folder_has_no_conflicting_files(folder_name: Union[str, pathlib.Path]
     """
     # Prepare regex pattern by replacing f-string formatting with regex.
     pattern = f'^{filename}$'
-    # Format time vars for capture
-    time_names = ['epoch', 'batch', 'sample', 'token', 'batch_in_epoch', 'sample_in_epoch', 'token_in_epoch']
-    captured_names = {time_name: f'{{{time_name}}}' in filename for time_name in time_names}
-    for time_name, is_captured in captured_names.items():
-        if is_captured:
-            pattern = pattern.replace(f'{{{time_name}}}', f'(?P<{time_name}>\\d+)')
+
+    # Format time vars for regex match
+    for unit in ['epoch', 'batch', 'sample', 'token', 'batch_in_epoch', 'sample_in_epoch', 'token_in_epoch']:
+        if unit in filename:
+            pattern = pattern.replace(f'{{{unit}}}', f'(?P<{unit}>\\d+)')
+
     # Format rank information
-    pattern = pattern.format(rank=dist.get_global_rank(),
-                             local_rank=dist.get_local_rank(),
-                             world_size=dist.get_world_size(),
-                             local_world_size=dist.get_local_world_size(),
-                             node_rank=dist.get_node_rank())
+    pattern = pattern.format(**_get_dist_config(strict=False))
 
     template = re.compile(pattern)
 
     for file in os.listdir(folder_name):
         match = template.match(file)
-        # Encountered an invalid match
+
         if match is not None:
-            valid_match = True
-            # Check each base unit of time and flag later checkpoints
-            if captured_names['token'] and Time.from_token(int(match.group('token'))) > timestamp.token:
-                valid_match = False
-            elif captured_names['sample'] and Time.from_sample(int(match.group('sample'))) > timestamp.sample:
-                valid_match = False
-            elif captured_names['batch'] and Time.from_batch(int(match.group('batch'))) > timestamp.batch:
-                valid_match = False
-            elif captured_names['epoch'] and Time.from_epoch(int(match.group('epoch'))) > timestamp.epoch:
-                valid_match = False
-            # If epoch count is same, check batch_in_epoch, sample_in_epoch, token_in_epoch
-            elif captured_names['epoch'] and Time.from_epoch(int(match.group('epoch'))) == timestamp.epoch:
-                if captured_names['token_in_epoch'] and Time.from_token(int(
-                        match.group('token_in_epoch'))) > timestamp.token_in_epoch:
-                    valid_match = False
-                elif captured_names['sample_in_epoch'] and Time.from_sample(int(
-                        match.group('sample_in_epoch'))) > timestamp.sample_in_epoch:
-                    valid_match = False
-                elif captured_names['batch_in_epoch'] and Time.from_batch(int(
-                        match.group('batch_in_epoch'))) > timestamp.batch_in_epoch:
-                    valid_match = False
-            if not valid_match:
-                raise FileExistsError(
-                    f'{os.path.join(folder_name, file)} exists and conflicts in namespace with a future checkpoint of the current run.'
-                )
+            match = match.groupdict()
+            for unit, value in match.items():
+                if unit.endswith('_in_epoch'):
+                    if 'epoch' not in match:
+                        raise ValueError(f'{filename} has {{unit}} but not {{epoch}}. Add {{epoch}} for uniqueness.')
+                    if int(match['epoch']) != timestamp.epoch:
+                        continue  # only check _in_epoch if both files have same epoch count
+
+                if int(value) > int(getattr(timestamp, unit)):
+                    raise FileExistsError(
+                        f'{os.path.join(folder_name, file)} may conflict with a future checkpoint of the current run.'
+                        'Please delete that file, change to a new folder, or set overwrite=True.')
 
 
 FORMAT_NAME_WITH_DIST_TABLE = """
@@ -156,11 +167,7 @@ FORMAT_NAME_WITH_DIST_TABLE = """
 def format_name_with_dist(format_str: str, run_name: str, **extra_format_kwargs: object):  # noqa: D103
     formatted_str = format_str.format(
         run_name=run_name,
-        rank=dist.get_global_rank(),
-        local_rank=dist.get_local_rank(),
-        world_size=dist.get_world_size(),
-        local_world_size=dist.get_local_world_size(),
-        node_rank=dist.get_node_rank(),
+        **_get_dist_config(strict=False),
         **extra_format_kwargs,
     )
     return formatted_str
@@ -253,11 +260,6 @@ def format_name_with_dist_and_time(
 ):  # noqa: D103
     formatted_str = format_str.format(
         run_name=run_name,
-        rank=dist.get_global_rank(),
-        local_rank=dist.get_local_rank(),
-        world_size=dist.get_world_size(),
-        local_world_size=dist.get_local_world_size(),
-        node_rank=dist.get_node_rank(),
         epoch=int(timestamp.epoch),
         batch=int(timestamp.batch),
         batch_in_epoch=int(timestamp.batch_in_epoch),
@@ -268,6 +270,7 @@ def format_name_with_dist_and_time(
         total_wct=timestamp.total_wct.total_seconds(),
         epoch_wct=timestamp.epoch_wct.total_seconds(),
         batch_wct=timestamp.batch_wct.total_seconds(),
+        **_get_dist_config(strict=False),
         **extra_format_kwargs,
     )
     return formatted_str

@@ -33,6 +33,5 @@ def test_loggers_on_callbacks(logger_cls: Type[LoggerDestination], callback_cls:
         max_duration='1ep',
         callbacks=callback,
         loggers=logger,
-        compute_training_metrics=True,
     )
     trainer.fit()

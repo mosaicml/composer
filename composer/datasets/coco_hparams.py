@@ -12,7 +12,8 @@ from composer.core import DataSpec
 from composer.datasets.coco import COCODetection, StreamingCOCO, split_dict_fn
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.models.ssd.utils import SSDTransformer, dboxes300_coco
-from composer.utils import dist
+from composer.utils import dist, warn_streaming_dataset_deprecation
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['COCODatasetHparams', 'StreamingCOCOHparams']
 
@@ -74,6 +75,7 @@ class StreamingCOCOHparams(DatasetHparams):
     """DatasetHparams for creating an instance of StreamingCOCO.
 
     Args:
+        version (int): Which version of streaming to use. Default: ``1``.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
             Default: ``'s3://mosaicml-internal-dataset-coco/mds/1/```
         local (str): Local filesystem directory where dataset is cached during operation.
@@ -81,6 +83,7 @@ class StreamingCOCOHparams(DatasetHparams):
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
     """
 
+    version: int = hp.optional('Version of streaming (1 or 2)', default=1)
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
                               default='s3://mosaicml-internal-dataset-coco/mds/1/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
@@ -88,11 +91,34 @@ class StreamingCOCOHparams(DatasetHparams):
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
-        dataset = StreamingCOCO(remote=self.remote,
-                                local=self.local,
-                                split=self.split,
-                                shuffle=self.shuffle,
-                                batch_size=batch_size)
+        if self.version == 1:
+            warn_streaming_dataset_deprecation(old_version=self.version, new_version=2)
+            dataset = StreamingCOCO(remote=self.remote,
+                                    local=self.local,
+                                    split=self.split,
+                                    shuffle=self.shuffle,
+                                    batch_size=batch_size)
+        elif self.version == 2:
+            try:
+                from streaming.vision import COCO
+            except ImportError as e:
+                raise MissingConditionalImportError(extra_deps_group='streaming',
+                                                    conda_package='mosaicml-streaming') from e
+            # Define custom transforms
+            dboxes = dboxes300_coco()
+            input_size = 300
+            if self.split == 'train':
+                transform = SSDTransformer(dboxes, (input_size, input_size), val=False, num_cropping_iterations=1)
+            else:
+                transform = SSDTransformer(dboxes, (input_size, input_size), val=True)
+            dataset = COCO(local=self.local,
+                           remote=self.remote,
+                           split=self.split,
+                           shuffle=self.shuffle,
+                           transform=transform,
+                           batch_size=batch_size)
+        else:
+            raise ValueError(f'Invalid streaming version: {self.version}')
         return DataSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,
             drop_last=self.drop_last,

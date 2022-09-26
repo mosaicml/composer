@@ -24,11 +24,16 @@ from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
-from composer.utils import dist
+from composer.utils import dist, warn_streaming_dataset_deprecation
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['CIFAR10DatasetHparams', 'StreamingCIFAR10Hparams']
 
 log = logging.getLogger(__name__)
+
+# CIFAR10 mean and standard deviation for normalization.
+CIFAR10_MEAN = 0.4914, 0.4822, 0.4465
+CIFAR10_STD = 0.247, 0.243, 0.261
 
 
 @dataclass
@@ -146,20 +151,17 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             if self.datadir is None:
                 raise ValueError('datadir is required if use_synthetic is False')
 
-            cifar10_mean = 0.4914, 0.4822, 0.4465
-            cifar10_std = 0.247, 0.243, 0.261
-
             if self.is_train:
                 transformation = transforms.Compose([
                     transforms.RandomCrop(32, padding=4),
                     transforms.RandomHorizontalFlip(),
                     transforms.ToTensor(),
-                    transforms.Normalize(cifar10_mean, cifar10_std),
+                    transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD),
                 ])
             else:
                 transformation = transforms.Compose([
                     transforms.ToTensor(),
-                    transforms.Normalize(cifar10_mean, cifar10_std),
+                    transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD),
                 ])
 
             with dist.run_local_rank_zero_first():
@@ -183,6 +185,7 @@ class StreamingCIFAR10Hparams(DatasetHparams):
     """Streaming CIFAR10 hyperparameters.
 
     Args:
+        version (int): Which version of streaming to use. Default: ``1``.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
             Default: ``'s3://mosaicml-internal-dataset-cifar10/mds/1/'``
         local (str): Local filesystem directory where dataset is cached during operation.
@@ -190,6 +193,7 @@ class StreamingCIFAR10Hparams(DatasetHparams):
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train'``.
     """
 
+    version: int = hp.optional('Version of streaming (1 or 2)', default=1)
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
                               default='s3://mosaicml-internal-dataset-cifar10/mds/1/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
@@ -197,11 +201,40 @@ class StreamingCIFAR10Hparams(DatasetHparams):
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
-        dataset = StreamingCIFAR10(remote=self.remote,
-                                   local=self.local,
-                                   split=self.split,
-                                   shuffle=self.shuffle,
-                                   batch_size=batch_size)
+        if self.version == 1:
+            warn_streaming_dataset_deprecation(old_version=self.version, new_version=2)
+            dataset = StreamingCIFAR10(remote=self.remote,
+                                       local=self.local,
+                                       split=self.split,
+                                       shuffle=self.shuffle,
+                                       batch_size=batch_size)
+        elif self.version == 2:
+            try:
+                from streaming.vision import CIFAR10
+            except ImportError as e:
+                raise MissingConditionalImportError(extra_deps_group='streaming',
+                                                    conda_package='mosaicml-streaming') from e
+            if self.split == 'train':
+                transform = transforms.Compose([
+                    transforms.RandomCrop(32, padding=4),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor(),
+                    transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD),
+                ])
+            else:
+                transform = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD),
+                ])
+            dataset = CIFAR10(local=self.local,
+                              remote=self.remote,
+                              split=self.split,
+                              shuffle=self.shuffle,
+                              transform=transform,
+                              batch_size=batch_size)
+        else:
+            raise ValueError(f'Invalid streaming version: {self.version}')
+
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,

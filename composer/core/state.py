@@ -10,10 +10,10 @@ import warnings
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Sequence, Union, cast
 
 import torch
-import torch.nn
 import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
+from torchmetrics import Metric
 
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
@@ -81,6 +81,9 @@ class State(Serializable):
         run_name (str): The name for this training run.
         grad_accum (int, optional): The number of gradient accumulation steps to use. With this argument, micro batch
             size for each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
+        eval_batch_split (int, optional): The mirror of grad_accum for eval. With this argument, micro batch
+            size for each device becomes ``microbatch_size = eval_batch_size / (num_devices * eval_batch_split)``.
+        auto_grad_accum (bool, optional): Whether automatic gradient accumulation is enabled.
         train_dataloader (types.DataLoader, optional): Dataloader used for training
         evaluators (Evalutor | Evaluators, optional): :class:`.Evaluator` used for evaluation.
         dataloader (types.DataLoader, optional): The active DataLoader.
@@ -107,23 +110,39 @@ class State(Serializable):
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
             microbatch between :attr:`.Event.BATCH_START` and :attr:`.Event.BATCH_END`.
-        current_metrics (Dict[str, Dict[str, Any]]): The current computed metrics, organized by dataloader label
-            and then by metric name. The train dataloader is labeled ``'train'``. If not using an :class:`.Evaluator`,
-            the eval dataloader is labeled ``'eval'``. Otherwise, the evaluator label is used.
+        train_metrics (Dict[str, Metric]): The current train metrics, organized by metric name. ``train_metrics`` will be deep-copied to
+            ensure that each evaluator updates only its ``train_metrics``.
 
             For example:
 
             >>> trainer = Trainer(
             ...     ...,
-            ...     compute_training_metrics=True,
             ...     train_dataloader=train_dataloader,
             ...     eval_dataloader=eval_dataloader,
             ... )
             >>> trainer.fit()
-            >>> trainer.state.current_metrics
-            {'train': {'Accuracy': tensor(...)}, 'eval': {'CrossEntropy': tensor(...), 'Accuracy': tensor(...)}}
+            >>> trainer.state.train_metrics
+            {'Accuracy': Accuracy()}
 
-            Or, when using an :class:`.Evaluator`:
+        eval_metrics (Dict[str, Dict[str, Metric]]): The current evaluation metrics, organized
+            by dataloader label and then by metric name. If not using an :class:`.Evaluator`,
+            the eval dataloader is labeled ``'eval'``. Otherwise, in the case of having multiple evaluation datasets,
+            the evaluator label is used. See the `Multiple Datasets Documentation <https://docs.mosaicml.com/en/stable/trainer/evaluation.html#multiple-datasets>`_
+            for more information. ``eval_metrics`` will be deep-copied to ensure that each evaluator updates only its ``eval_metrics``.
+
+            For example:
+            >>> from torchmetrics import Accuracy
+            >>> from composer.metrics.metrics import CrossEntropy
+            >>> trainer = Trainer(
+            ...     ...,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=eval_dataloader,
+            ... )
+            >>> trainer.fit()
+            >>> trainer.state.eval_metrics
+            {'eval': {'CrossEntropy': CrossEntropy(), 'Accuracy': Accuracy()}}
+
+            Or, when using an :class:`.Evaluator` for multiple evaluation datasets:
 
             .. testsetup::
 
@@ -134,16 +153,15 @@ class State(Serializable):
             >>> from composer.core import Evaluator
             >>> trainer = Trainer(
             ...     ...,
-            ...     compute_training_metrics=True,
             ...     train_dataloader=train_dataloader,
             ...     eval_dataloader=[
-            ...         Evaluator(label='eval1', dataloader=eval_1_dl, metrics=Accuracy()),
-            ...         Evaluator(label='eval2', dataloader=eval_2_dl, metrics=Accuracy()),
+            ...         Evaluator(label='eval1', dataloader=eval_1_dl, metric_names=['Accuracy']),
+            ...         Evaluator(label='eval2', dataloader=eval_2_dl, metric_names=['Accuracy']),
             ...     ],
             ... )
             >>> trainer.fit()
-            >>> trainer.state.current_metrics
-            {'train': {'Accuracy': tensor(...)}, 'eval1': {'Accuracy': tensor(...)}, 'eval2': {'Accuracy': tensor(...)}}
+            >>> trainer.state.eval_metrics
+            {'eval1': {'Accuracy': Accuracy()}, 'eval2': {'Accuracy': Accuracy()}}
         eval_timestamp (Timestamp): The timestamp for the current evaluation dataloader. This timestamp is reset
             before the dataloader is evaluated. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
             ``0``.
@@ -190,7 +208,9 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
             | rank_zero_seed        | The seed of the rank zero process.                          |
             +-----------------------+-------------------------------------------------------------+
-            | current_metrics       | The current metrics.                                        |
+            | train_metrics         | The current training metrics                                |
+            +-----------------------+-------------------------------------------------------------+
+            | eval_metrics          | The current evaluation metrics                              |
             +-----------------------+-------------------------------------------------------------+
             | run_name              | The run name for training.                                  |
             +-----------------------+-------------------------------------------------------------+
@@ -215,6 +235,8 @@ class State(Serializable):
 
         # data configurations
         grad_accum: int = 1,
+        eval_batch_split: int = 1,
+        auto_grad_accum: bool = False,
 
         # dataloaders
         train_dataloader: Optional[Iterable] = None,
@@ -246,6 +268,8 @@ class State(Serializable):
         self.model = model
         self.run_name = run_name
         self.grad_accum = grad_accum
+        self.eval_batch_split = eval_batch_split
+        self.auto_grad_accum = auto_grad_accum
         self._dataloader_len = None
         self._dataloader = None
         self._dataloader_label = None
@@ -295,11 +319,20 @@ class State(Serializable):
             'scaler',
             'timestamp',
             'rank_zero_seed',
-            'current_metrics',
+            'train_metrics',
+            'eval_metrics',
             'run_name',
         ]
 
-        self.current_metrics: Dict[str, Dict[str, Any]] = {}
+        self.train_metrics: Dict[str, Metric] = {}
+        self.eval_metrics: Dict[str, Dict[str, Metric]] = {}
+
+    @property
+    def current_metrics(self):
+        warnings.warn(
+            'The ``current_metrics`` argument for a :class:`Trainer`. state is deprecated and will be removed in the future. Please use ``train_metrics`` and'
+            '``eval_metrics`` instead.')
+        return {'train': self.train_metrics, **self.eval_metrics}
 
     @property
     def seed(self):
@@ -465,6 +498,41 @@ class State(Serializable):
         if len(unexpected_keys) > 0:
             logger.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
+    def _verify_required_algorithms_enabled(self, state: Dict[str, Any]):
+        """Verifies all required algorithms are enabled when loading state.
+
+        Args:
+            state (Dict[str, Any]): State from checkpoint.
+        """
+        import composer.algorithms as algorithms
+
+        # Get repr of existing algorithms
+        state_algos = set()
+        for algo in self.algorithms:
+            state_algos.add(algo.__repr__())
+
+        # Get repr of checkpoint algorithms
+        checkpoint_algos = set()
+        for algo, serialized_value in state['algorithms'].items():
+            try:
+                if getattr(algorithms, algo).required_on_load():
+                    checkpoint_algos.add(serialized_value['repr'])
+            except AttributeError:
+                logger.warning(
+                    f'Found algorithm of unknown type: {algo}. Skipping check for if it is required when loading checkpoint.'
+                )
+
+        missing_surgery_algos = []
+        for repr in checkpoint_algos:
+            if repr not in state_algos:
+                missing_surgery_algos.append(repr)
+
+        if len(missing_surgery_algos) > 0:
+            raise ValueError('The following surgery algorithms were enabled when training this checkpoint '
+                             f"and are required to successfully load it: {', '.join(missing_surgery_algos)}. "
+                             'If you wish to use pretrained weights and reinitialize layers which have '
+                             'undergone surgery, set `load_weights_only=True`.')
+
     def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
         """Loads the state.
 
@@ -475,9 +543,12 @@ class State(Serializable):
         """
         state = _ensure_backwards_compatible_checkpointing(state)
 
+        if 'algorithms' in state:
+            self._verify_required_algorithms_enabled(state)
+
         for attribute_name, serialized_value in state.items():
             if attribute_name not in self.serialized_attributes:
-                # it's possible some attributes we removed
+                # It's possible some attributes we removed
                 continue
 
             if attribute_name == 'model':
@@ -512,7 +583,7 @@ class State(Serializable):
 
         By default, the training dataloader is called ``'train'``. The evaluator dataloader
         is called ``'eval'``, or when multiple evaluators are used, the name of the evaluator.
-        However, the dataloader label can be explicitely specified in :meth:`.Trainer.fit`
+        However, the dataloader label can be explicitly specified in :meth:`.Trainer.fit`
         and :meth:`.Trainer.eval`.
 
         Returns:

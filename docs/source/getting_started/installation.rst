@@ -23,6 +23,7 @@ the following installation targets are available:
 * ``pip install 'mosaicml[unet]'``: Installs Composer with support for :doc:`Unet </model_cards/unet>`.
 * ``pip install 'mosaicml[timm]'``: Installs Composer with support for :mod:`timm`.
 * ``pip install 'mosaicml[wandb]'``: Installs Composer with support for :mod:`wandb`.
+* ``pip install 'mosaicml[comet_ml]'``: Installs Composer with support for :mod:`comet_ml`.
 * ``pip install 'mosaicml[all]'``: Install all optional dependencies.
 
 For a developer install, clone directly:

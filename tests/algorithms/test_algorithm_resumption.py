@@ -51,7 +51,7 @@ def test_algorithm_resumption(
         train_dataloader=get_alg_dataloader(alg_cls),
         optimizers=optimizer,
         schedulers=scheduler,
-        save_folder=folder1,
+        checkpoint_save_path=folder1,
         algorithms=alg_cls(**alg_kwargs),
         **shared_config,
     )
@@ -71,7 +71,7 @@ def test_algorithm_resumption(
         load_strict_model_weights=False,
         optimizers=optimizer,
         schedulers=scheduler,
-        save_folder=folder2,
+        checkpoint_save_path=folder2,
         algorithms=alg_cls(**alg_kwargs),
         **shared_config,
     )
@@ -111,6 +111,12 @@ def _assert_checkpoints_equal(file1, file2):
     # delete run_name since its time dependent
     del checkpoint1['state']['run_name']
     del checkpoint2['state']['run_name']
+
+    # Remove algorithm representations, which may be memory addresses
+    for algorithm in checkpoint1['state']['algorithms'].keys():
+        del checkpoint1['state']['algorithms'][algorithm]['repr']
+    for algorithm in checkpoint2['state']['algorithms'].keys():
+        del checkpoint2['state']['algorithms'][algorithm]['repr']
 
     deep_compare(checkpoint1['state'], checkpoint2['state'])
 

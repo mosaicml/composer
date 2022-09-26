@@ -15,7 +15,7 @@ Composer's trainer.
     :delim: |
     :widths: 30, 40, 30
 
-    {% for name, data in metadata.items() %}
+    {% for name, data in metadata.items()|sort(attribute='1.name') %}
     {% if data.functional %}
     :doc:`{{ data.class_name }}</method_cards/{{name}}>` | {{ data.tldr }} | :func:`~composer.functional.{{ data.functional }}`
     {% else %}

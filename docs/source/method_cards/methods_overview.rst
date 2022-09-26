@@ -6,15 +6,6 @@
    :card: shadow
 
    ---
-   .. link-button:: agc.html
-      :text: AGC
-      :classes: card-title
-
-   :badge:`CV,badge-primary`
-   ++++++++++++++
-   Clips gradients based on the ratio of their norms with weights' norms.
-
-   ---
    .. link-button:: alibi.html
       :text: Alibi
       :classes: card-title
@@ -78,32 +69,40 @@
    Randomly erases rectangular blocks from the image.
 
    ---
+   .. link-button:: ema.html
+      :text: EMA
+      :classes: card-title
+
+   :badge:`CV,badge-primary` :badge:`NLP,badge-success`
+   ++++++++++++++
+   Maintains an exponential moving average of model weights for use in evaluation.
+
+   ---
    .. link-button:: factorize.html
       :text: Factorize
       :classes: card-title
 
    :badge:`CV,badge-primary` :badge:`NLP,badge-success`
    ++++++++++++++
-   Uses Fused LayerNorm kernels for increased GPU utilization.
+   Factorize GEMMs into smaller GEMMs
 
    ---
    .. link-button:: fused_layernorm.html
-      :text: Fused LayerNorm
-      :classes: card-title
-
-   :badge:`CV,badge-primary` :badge:`NLP,badge-success`
-   ++++++++++++++
-   Swaps linear layers for Gated Linear Units in the feed-forward network.
-
-   ---
-   .. link-button:: gated_linear_units.html
-      :text: Gated Linear Units
+      :text: FusedLayerNorm
       :classes: card-title
 
    :badge:`NLP,badge-success`
    ++++++++++++++
+   Fuses underlying LayerNorm kernels into single kernel
 
-   Factorize GEMMs into smaller GEMMs
+   ---
+   .. link-button:: gated_linear_units.html
+      :text: GatedLinearUnits
+      :classes: card-title
+
+   :badge:`NLP,badge-success`
+   ++++++++++++++
+   Swaps the building block from a Linear layer to a Gated Linear layer.
 
    ---
    .. link-button:: ghost_batchnorm.html
@@ -112,7 +111,16 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Use smaller samples to compute batchnorm
+   Use smaller # samples to compute batchnorm
+
+   ---
+   .. link-button:: gradient_clipping.html
+      :text: GradientClipping
+      :classes: card-title
+
+   :badge:`CV,badge-primary` :badge:`NLP,badge-success`
+   ++++++++++++++
+   Clips all gradients in model based on specified clipping_type
 
    ---
    .. link-button:: label_smoothing.html
@@ -167,15 +175,6 @@
    :badge:`CV,badge-primary`
    ++++++++++++++
    SAM optimizer measures sharpness of optimization space
-
-   ---
-   .. link-button:: scale_schedule.html
-      :text: ScaleSchedule
-      :classes: card-title
-
-
-   ++++++++++++++
-   Scale the learning rate schedule by a factor
 
    ---
    .. link-button:: selective_backprop.html

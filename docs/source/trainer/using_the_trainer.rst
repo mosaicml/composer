@@ -78,11 +78,12 @@ objects.
 
     trainer.fit()
 
-When training is complete, metrics can be accessed from the trainer state.
+When training is complete, both training and evaluation metrics can be accessed from the trainer state.
 
 .. code:: python
 
-    print(trainer.state.current_metrics)
+    print(trainer.state.train_metrics)
+    print(trainer.state.eval_metrics)
 
 In the background, we automatically add the :class:`.ProgressBarLogger` to log
 training progress to the console.
@@ -132,8 +133,9 @@ interacts with the :class:`.ComposerModel` is as follows:
 
     # eval loop
     for batch in eval_dataloader:
-        outputs, targets = model.validate(batch)
-        metrics.update(outputs, target)
+        outputs = model.eval_forward(batch)
+        for metric in model.get_metrics(is_train=False).values():
+            model.update_metric(batch, outputs, metric)
 
 For the actual code, see the :meth:`.Trainer.fit` and :meth:`.Trainer.eval` methods.
 
@@ -477,8 +479,8 @@ points during training and (2) load them back to resume training later.
         max_duration='160ep',
         device='gpu',
         # Checkpointing params
-        save_folder: 'checkpoints',
-        save_interval: '1ep'
+        checkpoint_save_path: 'checkpoints',
+        checkpoint_save_interval: '1ep'
     )
 
     # will save checkpoints to the 'checkpoints' folder every epoch
