@@ -128,7 +128,7 @@ extra_deps['dev'] = [
     'traitlets==5.4.0',
     'nbsphinx==0.8.9',
     'pandoc==2.2',
-    'pypandoc==1.8.1',
+    'pypandoc==1.9',
     'GitPython==3.1.27',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
