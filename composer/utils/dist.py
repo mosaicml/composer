@@ -459,14 +459,19 @@ def run_local_rank_zero_first():
     ranks attempt to download the dataset to the
     same location.
     """
-    if not is_initialized():
+    if dist.is_available() and dist.is_initialized():
+        # hold non-zero ranks until rank zero done
+        if get_local_rank() != 0:
+            dist.barrier()
+            yield
+        else:
+            yield
+            dist.barrier()
+    world_size = get_world_size()
+    if world_size == 1:
         yield
         return
-
-    # hold non-zero ranks until rank zero done
-    if get_local_rank() != 0:
-        dist.barrier()
-        yield
-    else:
-        yield
-        dist.barrier()
+    raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
+                       'available or has not been initialized. Please check you have initialized '
+                       'the distributed runtime and that PyTorch has been built with distributed '
+                       'support.')
