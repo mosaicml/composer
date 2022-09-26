@@ -39,7 +39,7 @@ def training_loop(model, train_dataloader):
     model.train()
 
     for epoch in range(1):
-        for X, y in train_loader:
+        for X, y in train_dataloader:
             y_hat = model(X)
             loss = loss_fn(y_hat, y)
             loss.backward()
@@ -54,7 +54,7 @@ training_loop(my_cnn_model, my_train_dataloader)
 <!--pytest.mark.gpu-->
 <!--
 ```python
-from composer.model import composer_resnet
+from composer.models import composer_resnet
 from torch.utils.data import DataLoader
 from tests.common import RandomImageDataset
 
@@ -108,3 +108,5 @@ For ResNet-50 trained on ImageNet, we measured a +0.08% improvement when using w
 ## Attribution
 
 [*Micro-Batch Training with Batch-Channel Normalization and Weight Standardization*](https://arxiv.org/abs/1903.10520) by Siyuan Qiao, Huiyu Wang, Chenxi Liu, Wei Shen, Alan Yuille. arXiv preprint arXiv:1903.10520 (2019).
+
+*The Composer implementation of this method and the accompanying documentation were produced by Landan Seguin at MosaicML.*
