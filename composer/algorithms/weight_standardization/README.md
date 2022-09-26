@@ -12,12 +12,12 @@ Weight Standardization is a reparametrization of convolutional weights such that
 <!--pytest.mark.gpu-->
 <!--
 ```python
-from composer.models import composer_resnet
+from torchvision import models
 from torch.utils.data import DataLoader
 from tests.common import RandomImageDataset
 
 my_train_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
-my_cnn_model = composer_resnet('resnet50')
+my_cnn_model = models.resnet18()
 ```
 -->
 <!--pytest-codeblocks:cont-->
