@@ -220,3 +220,12 @@
    :badge:`CV,badge-primary` :badge:`NLP,badge-success`
    ++++++++++++++
    Computes running average of model weights.
+
+   ---
+   .. link-button:: weight_standardization.html
+      :text: WeightStandardization
+      :classes: card-title
+
+   :badge:`CV,badge-primary`
+   ++++++++++++++
+   Reparametrizes convolutional weight to be standardized.
