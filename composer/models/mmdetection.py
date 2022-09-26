@@ -24,7 +24,7 @@ class MMDetModel(ComposerModel):
     """A wrapper class that adapts mmdetection detectors to composer models.
 
     Args:
-        model (mmdet.models.detectors.BaseDetector): An MMdetection Detector
+        model (mmdet.models.detectors.BaseDetector): An MMdetection Detector.
         metrics (list[Metric], optional): list of torchmetrics to apply to the output of `eval_forward`. Default: ``None``.
 
     .. warning:: This wrapper is designed to work with mmdet datasets.
