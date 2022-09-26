@@ -237,7 +237,7 @@ class MAP(Metric):
             ValueError:
                 If any box is not type float and of length 4
             ValueError:
-                If any class is not type int and of length 1
+                If any label is not type int and of length 1
             ValueError:
                 If any score is not type float and of length 1
         """
