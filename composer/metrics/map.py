@@ -127,7 +127,7 @@ class MAP(Metric):
     Predicted boxes and targets have to be in Pascal VOC format \
     (xmin-top left, ymin-top left, xmax-bottom right, ymax-bottom right).
     See the :meth:`update` method for more information about the input format to this metric.
-    See <https://jonathan-hui.medium.com/map-mean-average-precision-for-object-detection-45c121a31173>`_ for more details on (mAP)
+    See `this blog <https://jonathan-hui.medium.com/map-mean-average-precision-for-object-detection-45c121a31173>`_ for more details on (mAP)
     and (mAR).
 
     .. note::
