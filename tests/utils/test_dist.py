@@ -12,4 +12,5 @@ def test_run_local_rank_first_context(world_size):
     with pytest.raises(RuntimeError) as e:
         with dist.run_local_rank_zero_first():
             pass
-    assert 'If calling this function outside Trainer' in str(e)  # Verify error raised is intended
+    # Verify error raised is intended
+    assert 'the distributed package is not available or has not been initialized' in str(e)
