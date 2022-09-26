@@ -4,7 +4,7 @@
 
 `Computer Vision`
 
-Weight Standardization is a reparametrization of convolution layer weights such that the input channel and kernel dimensions have zero mean and unit variance. The authors suggested using this method when per-device batch size is too small to work well with batch normalization. Additionally, the authors suggest this method enables using other normalization layers instead of batch normalizaiton while maintaining similar performance. We have been unable to verify either of these claims. We have found weight standardization to improve performance with a small throughput degradation for ResNet architectures when training on image classification and semantic segmentation tasks. There are a few papers that have found weight standardization useful as well.
+Weight Standardization is a reparametrization of convolutional weights such that the input channel and kernel dimensions have zero mean and unit variance. The authors suggested using this method when the per-device batch size is too small to work well with batch normalization models. Additionally, the authors suggest this method enables using other normalization layers instead of batch normalizaiton while maintaining similar performance. We have been unable to verify either of these claims on Composer benchmarks. Instead, we have found weight standardization to improve performance with a small throughput degradation when training ResNet architectures on image classification and semantic segmentation tasks. There are a few papers that have found weight standardization useful as well.
 
 ## How to Use
 
@@ -89,17 +89,17 @@ trainer.fit()
 
 ### Implementation Details
 
-The Composer implementation of Weight Standardization utilizes [PyTorch's parametrization](https://pytorch.org/tutorials/intermediate/parametrizations.html) to reparametrize convolution layer weights to have zero mean and unit standard deviation across the input channel and kernel dimensions. This standardization is computed on each forward pass during training.
+Weight standardization is implemented using [PyTorch's parametrization package](https://pytorch.org/tutorials/intermediate/parametrizations.html) to reparametrize convolutional weights to have zero mean and unit standard deviation across the input channel and kernel dimensions. This standardization is computed on each forward pass during training.
 
-The only parameter `n_last_layers_ignore` specifies how many layers at the end of the network to skip applying weight standardization. This is essential if the classification layer(s) are convolutional since weight standardization should not be applied to the classification layer(s). Before applying weight standardization, the model is symbolically traced with [PyTorch's torch.fx](https://pytorch.org/docs/stable/fx.html). The symbolic trace provides the model's modules in the order they are executed instead of the order they are defined. Depending on the model, the symbolic trace could fail, resulting in a warning and potentially incorrect behavior when using `n_last_layers_ignore`
+The parameter `n_last_layers_ignore` specifies how many layers at the end of the network to ignore when applying weight standardization. This is essential if the classification layer(s) are convolutional since weight standardization should not be applied to the classification layer(s). Before applying weight standardization, the model is symbolically traced with [PyTorch's torch.fx](https://pytorch.org/docs/stable/fx.html). The symbolic trace provides the model's modules in the order they are executed instead of the order they are defined. Depending on the model, the symbolic trace could fail, resulting in a warning and potentially incorrect behavior when using `n_last_layers_ignore`.
 
 ## Suggested Hyperparameters
 
-We found the best performance resulted from setting `n_last_layers_ignore` equal to the number of classification layers that are convolution. For example, we set `n_last_layers_ignore=0` for training ResNet-50 on ImageNet since classification is a single linear layer and we set `n_last_layers_ignore=15` for training DeepLabv3+ on ADE20k since the DeepLabv3+ classification head consists of 15 convolution layers.
+We found the best performance resulted from setting `n_last_layers_ignore` equal to the number of classification layers that are convolutional. For example, we set `n_last_layers_ignore=0` for training ResNet-50 on ImageNet since the classification is a single linear layer and we set `n_last_layers_ignore=15` for training DeepLabv3+ on ADE20k since the DeepLabv3+ classification head consists of 15 convolution layers.
 
 ## Technical Details
 
-For ResNet-50 trained on ImageNet, we measured a +0.08% improvement when using weight standardization. For DeepLabv3+ with a ResNet-101 backbone trained on ADE20k, we measured a +0.7 mIoU improvement when using `n_last_layers_ignore=15`. In addition to the improvements at the end of training, we observed larger improvements early in training and sometimes a decrease in training loss, suggesting the potential for weight standardized models to be trained with more regularization. We have only tested the performance improvement from this method on ResNet architectures.
+For ResNet-50 trained on ImageNet, we measured a +0.08% improvement when using weight standardization. For DeepLabv3+ with a ResNet-101 backbone trained on ADE20k, we measured a +0.7 mIoU improvement when using `n_last_layers_ignore=15`. In addition to the improvements at the end of training, we observed larger improvements early in training and sometimes a decrease in training loss. This suggests the potential for weight standardized models to be trained with more regularization. We have only tested the performance improvement from this method on ResNet architectures.
 
 🚧 Note
 >
