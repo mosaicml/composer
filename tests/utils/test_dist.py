@@ -13,7 +13,7 @@ from tests.common import world_size
 
 @world_size(2)
 @pytest.mark.parametrize('success', [True, False])
-def test_run_local_rank_first_context(success):
+def test_run_local_rank_first_context(success, world_size):
     if success:
         dist.initialize_dist(DeviceGPU(), timeout=datetime.timedelta(seconds=30))
     with contextlib.nullcontext() if success else pytest.raises(RuntimeError):
