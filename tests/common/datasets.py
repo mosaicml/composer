@@ -6,8 +6,10 @@ from typing import Sequence
 import torch
 import torch.utils.data
 from PIL import Image
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
 from torchvision.datasets import VisionDataset
+
+from composer.utils import dist
 
 
 class RandomClassificationDataset(Dataset):
@@ -74,3 +76,12 @@ class RandomImageDataset(VisionDataset):
             return self.transform(x), y
         else:
             return x, y
+
+
+def get_random_image_dataloader(batch_size: int = 2):
+    dataset = RandomClassificationDataset()
+    if dist.get_world_size() > 1:
+        return DataLoader(dataset=dataset,
+                          batch_size=batch_size,
+                          sampler=dist.get_sampler(dataset, drop_last=False, shuffle=True))
+    return DataLoader(dataset=dataset, batch_size=batch_size)
