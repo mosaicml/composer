@@ -16,15 +16,153 @@ import numpy as np
 import torch
 import torchvision.transforms.functional as TF
 from PIL import Image
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
+from composer.core.data_spec import DataSpec
+from composer.core.types import MemoryFormat
 from composer.datasets.streaming import StreamingDataset
+from composer.datasets.synthetic import SyntheticBatchPairDataset
+from composer.datasets.utils import NormalizationFn, pil_image_collate
+from composer.utils import dist
 
 __all__ = ['ADE20k', 'StreamingADE20k']
 
 IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
 IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
+
+
+def build_ade20k_dataloader(
+    batch_size: int,
+    datadir: str,
+    *,
+    split: str = 'train',
+    drop_last: bool = True,
+    shuffle: bool = True,
+    base_size: int = 512,
+    min_resize_scale: float = 0.5,
+    max_resize_scale: float = 2.0,
+    final_size: int = 512,
+    ignore_background: bool = True,
+    **dataloader_kwargs,
+):
+    """Builds an ADE20k dataloader.
+
+    Args:
+        datadir (str): path to location of dataset.
+        batch_size (int): Batch size per device.
+        split (str): the dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
+        drop_last (bool): whether to drop last samples. Default: ``True``.
+        shuffle (bool): whether to shuffle the dataset. Default: ``True``.
+        base_size (int): initial size of the image and target before other augmentations. Default: ``512``.
+        min_resize_scale (float): the minimum value the samples can be rescaled. Default: ``0.5``.
+        max_resize_scale (float): the maximum value the samples can be rescaled. Default: ``2.0``.
+        final_size (int): the final size of the image and target. Default: ``512``.
+        ignore_background (bool): if true, ignore the background class when calculating the training loss.
+            Default: ``true``.
+        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+    """
+    if split == 'train':
+        both_transforms = torch.nn.Sequential(
+            RandomResizePair(
+                min_scale=min_resize_scale,
+                max_scale=max_resize_scale,
+                base_size=(base_size, base_size),
+            ),
+            RandomCropPair(
+                crop_size=(final_size, final_size),
+                class_max_percent=0.75,
+                num_retry=10,
+            ),
+            RandomHFlipPair(),
+        )
+
+        # Photometric distoration values come from mmsegmentation:
+        # https://github.com/open-mmlab/mmsegmentation/blob/aa50358c71fe9c4cccdd2abe42433bdf702e757b/mmseg/datasets/pipelines/transforms.py#L861
+        r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
+        image_transforms = torch.nn.Sequential(
+            PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
+            PadToSize(size=(final_size, final_size), fill=(int(r_mean), int(g_mean), int(b_mean))))
+
+        target_transforms = PadToSize(size=(final_size, final_size), fill=0)
+    else:
+        both_transforms = None
+        image_transforms = transforms.Resize(size=(final_size, final_size), interpolation=TF.InterpolationMode.BILINEAR)
+        target_transforms = transforms.Resize(size=(final_size, final_size), interpolation=TF.InterpolationMode.NEAREST)
+
+    dataset = ADE20k(datadir=datadir,
+                     split=split,
+                     both_transforms=both_transforms,
+                     image_transforms=image_transforms,
+                     target_transforms=target_transforms)
+
+    sampler = dist.get_sampler(dataset, drop_last=drop_last, shuffle=shuffle)
+    device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
+                                          std=IMAGENET_CHANNEL_STD,
+                                          ignore_background=ignore_background)
+
+    return DataSpec(
+        dataloader=DataLoader(dataset=dataset,
+                              batch_size=batch_size,
+                              sampler=sampler,
+                              drop_last=drop_last,
+                              collate_fn=pil_image_collate,
+                              **dataloader_kwargs),
+        device_transforms=device_transform_fn,
+    )
+
+
+def build_synthetic_ade20k_dataloader(
+    batch_size: int,
+    *,
+    split: str = 'train',
+    drop_last: bool = True,
+    shuffle: bool = True,
+    final_size: int = 512,
+    num_unique_samples: int = 100,
+    device: str = 'cpu',
+    memory_format: MemoryFormat = MemoryFormat.CONTIGUOUS_FORMAT,
+    **dataloader_kwargs,
+):
+    """Builds a synthetic ADE20k dataloader.
+
+    Args:
+        batch_size (int): Batch size per device.
+        split (str): the dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
+        drop_last (bool): whether to drop last samples. Default: ``True``.
+        shuffle (bool): whether to shuffle the dataset. Default: ``True``.
+        final_size (int): the final size of the image and target. Default: ``512``.
+        num_unique_samples (int): number of unique samples in synthetic dataset. Default: ``100``.
+        device (str): device with which to load the dataset. Default: ``cpu``.
+        memory_format (MemoryFormat): memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
+        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+    """
+    if split == 'train':
+        total_dataset_size = 20_206
+    elif split == 'val':
+        total_dataset_size = 2_000
+    else:
+        total_dataset_size = 3_352
+
+    dataset = SyntheticBatchPairDataset(
+        total_dataset_size=total_dataset_size,
+        data_shape=[3, final_size, final_size],
+        label_shape=[final_size, final_size],
+        num_classes=150,
+        num_unique_samples_to_create=num_unique_samples,
+        device=device,
+        memory_format=memory_format,
+    )
+    sampler = dist.get_sampler(dataset, drop_last=drop_last, shuffle=shuffle)
+
+    return DataSpec(
+        DataLoader(
+            dataset=dataset,
+            sampler=sampler,
+            batch_size=batch_size,
+            drop_last=drop_last,
+            **dataloader_kwargs,
+        ))
 
 
 class RandomResizePair(torch.nn.Module):
