@@ -228,4 +228,4 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Reparametrizes convolutional weight to be standardized.
+   Makes convolution weights always have zero mean and unit variance.
