@@ -6,11 +6,14 @@ from __future__ import annotations
 
 import collections.abc
 import textwrap
+import warnings
 from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
 import torch
 import torch.utils.data
+from torch.utils.data.distributed import DistributedSampler
 
+from composer.utils import dist
 from composer.utils.iter_helpers import ensure_tuple
 
 if TYPE_CHECKING:
@@ -163,7 +166,6 @@ class DataSpec:
         self.get_num_tokens_in_batch = self._default_get_num_tokens_in_batch if get_num_tokens_in_batch is None else get_num_tokens_in_batch
         if num_samples is not None:
             self.num_samples = num_samples
-
         else:
             if isinstance(dataloader, torch.utils.data.DataLoader) and isinstance(dataloader.dataset,
                                                                                   collections.abc.Sized):
@@ -174,14 +176,22 @@ class DataSpec:
             else:
                 self.num_samples = None
 
-        if isinstance(dataloader, torch.utils.data.DataLoader) and dataloader._iterator is not None:
-            raise ValueError(
-                ('The dataloader has an active iterator. This could occur '
-                 'if `persistent_workers=True` and the dataloader has already been iterated, '
-                 'or if the dataloader is mid-epoch. It is required that the training dataloader '
-                 'does not have an active iterator, so CPU dataset augmentations can be '
-                 'correctly inserted. To fix, please do not iterate over the dataloader before passing it into '
-                 'the Trainer.'))
+        if isinstance(dataloader, torch.utils.data.DataLoader):
+            if dataloader._iterator is not None:
+                raise ValueError(
+                    ('The dataloader has an active iterator. This could occur '
+                     'if `persistent_workers=True` and the dataloader has already been iterated, '
+                     'or if the dataloader is mid-epoch. It is required that the training dataloader '
+                     'does not have an active iterator, so CPU dataset augmentations can be '
+                     'correctly inserted. To fix, please do not iterate over the dataloader before passing it into '
+                     'the Trainer.'))
+            world_size = dist.get_world_size()
+            if world_size > 1 and (dataloader.sampler and not isinstance(dataloader.sampler, DistributedSampler) or
+                                   dataloader.batch_sampler and
+                                   not isinstance(dataloader.batch_sampler, DistributedSampler)):
+                warnings.warn(f'The world_size({world_size}) > 1 but dataloader does not use '
+                              'DistributedSampler. This will cause all ranks to train on the same '
+                              'data, removing any benefit from multi-GPU training.')
 
     def _default_device_transforms(self, batch: Batch):
         return batch
