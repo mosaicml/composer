@@ -40,6 +40,9 @@
     <a href="https://github.com/mosaicml/composer/blob/dev/LICENSE">
         <img alt="License" src="https://img.shields.io/badge/License-Apache%202.0-green.svg?logo=slack">
     </a>
+    <a href="https://www.comet.com/">
+        <img alt="Comet ML" src="https://custom-icon-badges.herokuapp.com/badge/comet__ml-3.31.12+-orange?logo=logo_comet_ml">
+    </a>
 </p>
 <br />
 
