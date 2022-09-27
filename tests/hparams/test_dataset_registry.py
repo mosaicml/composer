@@ -59,7 +59,7 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
         ),
     COCODatasetHparams:
         lambda: COCODatasetHparams(
-            is_train=False,
+            split='val',
             datadir='hello',
             drop_last=False,
             shuffle=False,
