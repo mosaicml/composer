@@ -33,6 +33,17 @@ class RandomClassificationDataset(Dataset):
         return self.x[index], self.y[index]
 
 
+def get_random_classification_dataloader(batch_size: int = 2):
+    dataset = RandomClassificationDataset()
+    if dist.get_world_size() > 1:
+        return DataLoader(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=dist.get_sampler(dataset, drop_last=False, shuffle=True),
+        )
+    return DataLoader(dataset=dataset, batch_size=batch_size)
+
+
 class RandomImageDataset(VisionDataset):
     """ Image Classification dataset with values drawn from a normal distribution
     Args:
@@ -79,9 +90,11 @@ class RandomImageDataset(VisionDataset):
 
 
 def get_random_image_dataloader(batch_size: int = 2):
-    dataset = RandomClassificationDataset()
+    dataset = RandomImageDataset()
     if dist.get_world_size() > 1:
-        return DataLoader(dataset=dataset,
-                          batch_size=batch_size,
-                          sampler=dist.get_sampler(dataset, drop_last=False, shuffle=True))
+        return DataLoader(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=dist.get_sampler(dataset, drop_last=False, shuffle=True),
+        )
     return DataLoader(dataset=dataset, batch_size=batch_size)

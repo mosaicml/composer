@@ -5,7 +5,8 @@ import types
 from typing import List, Type
 
 from tests.common.compare import deep_compare
-from tests.common.datasets import RandomClassificationDataset, RandomImageDataset, get_random_image_dataloader
+from tests.common.datasets import (RandomClassificationDataset, RandomImageDataset,
+                                   get_random_classification_dataloader, get_random_image_dataloader)
 from tests.common.events import EventCounterCallback
 from tests.common.markers import device, world_size
 from tests.common.models import SimpleConvModel, SimpleModel
@@ -21,6 +22,7 @@ __all__ = [
     'assert_state_equivalent',
     'RandomClassificationDataset',
     'RandomImageDataset',
+    'get_random_classification_dataloader',
     'get_random_image_dataloader',
     'SimpleConvModel',
     'SimpleModel',

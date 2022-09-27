@@ -35,8 +35,8 @@ from composer.trainer.devices import Device
 from composer.trainer.trainer import _generate_run_name
 from composer.utils import dist, is_model_deepspeed, reproducibility
 from composer.utils.iter_helpers import map_collection
-from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
-                          get_random_image_dataloader, world_size)
+from tests.common import (RandomImageDataset, SimpleConvModel, SimpleModel, device,
+                          get_random_classification_dataloader, get_random_image_dataloader, world_size)
 from tests.common.events import EventCounterCallback
 from tests.test_state import assert_state_equivalent
 
@@ -87,7 +87,7 @@ class TestTrainerInit():
         device: str,
     ):
         # Train a model
-        train_dataloader = DataLoader(RandomClassificationDataset())
+        train_dataloader = get_random_classification_dataloader()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
         max_duration = '2ba'
         trainer = Trainer(
@@ -116,7 +116,7 @@ class TestTrainerInitOrFit:
 
     @pytest.fixture
     def train_dataloader(self):
-        return get_random_image_dataloader()
+        return get_random_classification_dataloader()
 
     @pytest.fixture
     def model(self):
@@ -279,12 +279,12 @@ class TestTrainerInitOrFit:
     @pytest.mark.parametrize(
         'eval_dataloader',
         [
-            get_random_image_dataloader(),  # a normal dataloader
-            Evaluator(label='eval', dataloader=get_random_image_dataloader(), metric_names=['Accuracy'
-                                                                                           ]),  # an evaluator
+            get_random_classification_dataloader(),  # normal dataloader
+            Evaluator(label='eval', dataloader=get_random_classification_dataloader(), metric_names=['Accuracy'
+                                                                                                    ]),  # evaluator
             [  # multiple evaluators
-                Evaluator(label='eval1', dataloader=get_random_image_dataloader(), metric_names=['Accuracy']),
-                Evaluator(label='eval2', dataloader=get_random_image_dataloader(), metric_names=['Accuracy'])
+                Evaluator(label='eval1', dataloader=get_random_classification_dataloader(), metric_names=['Accuracy']),
+                Evaluator(label='eval2', dataloader=get_random_classification_dataloader(), metric_names=['Accuracy'])
             ],
         ])
     def test_eval_dataloader(
@@ -510,7 +510,7 @@ class TestTrainerInitOrFit:
         assert_state_equivalent(init_trainer.state, algo_trainer.state)
 
     def test_dataloader_active_iterator_error(self, model: ComposerModel):
-        dataloader = get_random_image_dataloader()
+        dataloader = get_random_classification_dataloader()
 
         # spin one sample
         _ = next(dataloader.__iter__())
@@ -568,7 +568,7 @@ class TestTrainerInitOrFit:
             model=model,
             train_dataloader=train_dataloader,
             train_subset_num_batches=2,  # make training fast
-            eval_dataloader=DataLoader(dataset=RandomClassificationDataset(), batch_size=2),
+            eval_dataloader=get_random_classification_dataloader(),
             callbacks=[sleepy_callback, event_counter_callback],
             eval_interval=eval_interval,
             max_duration='2ep',
@@ -788,8 +788,8 @@ class TestTrainerEquivalence():
 
         return {
             'model': SimpleModel(),
-            'train_dataloader': get_random_image_dataloader(),
-            'eval_dataloader': get_random_image_dataloader(),
+            'train_dataloader': get_random_classification_dataloader(),
+            'eval_dataloader': get_random_classification_dataloader(),
             'max_duration': '2ep',
             'seed': rank_zero_seed,
             'device': device,
