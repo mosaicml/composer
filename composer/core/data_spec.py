@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import collections.abc
 import textwrap
-import warnings
 from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
 import torch
@@ -189,9 +188,10 @@ class DataSpec:
             if world_size > 1 and (dataloader.sampler and not isinstance(dataloader.sampler, DistributedSampler) or
                                    dataloader.batch_sampler and
                                    not isinstance(dataloader.batch_sampler, DistributedSampler)):
-                warnings.warn(f'The world_size({world_size}) > 1 but dataloader does not use '
-                              'DistributedSampler. This will cause all ranks to train on the same '
-                              'data, removing any benefit from multi-GPU training.')
+                raise ValueError(f'The world_size({world_size}) > 1 but dataloader does not use '
+                                 'DistributedSampler. This will cause all ranks to train on the same '
+                                 'data, removing any benefit from multi-GPU training. If using '
+                                 'multiple GPUs, please instantiate dataloader with a DistributedSampler.')
 
     def _default_device_transforms(self, batch: Batch):
         return batch
