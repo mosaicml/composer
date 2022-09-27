@@ -190,8 +190,12 @@ class DataSpec:
                                    not isinstance(dataloader.batch_sampler, DistributedSampler)):
                 raise ValueError(f'The world_size({world_size}) > 1 but dataloader does not use '
                                  'DistributedSampler. This will cause all ranks to train on the same '
-                                 'data, removing any benefit from multi-GPU training. If using '
-                                 'multiple GPUs, please instantiate dataloader with a DistributedSampler.')
+                                 'data, removing any benefit from multi-GPU training. To resolve this, '
+                                 'create a Dataloader with with DistributedSampler. For example, '
+                                 'DataLoader(..., sampler=composer.utils.dist.get_sampler(...)).'
+                                 'Alternatively, the process group can be instantiated with '
+                                 'composer.utils.dist.instantiate_dist(...) and DistributedSampler can '
+                                 'directly be created with DataLoader(..., sampler=DistributedSampler(...)).')
 
     def _default_device_transforms(self, batch: Batch):
         return batch
