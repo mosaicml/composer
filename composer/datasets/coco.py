@@ -14,14 +14,69 @@ from typing import Any, Callable, Optional, Sequence
 import numpy as np
 import torch
 from PIL import Image
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
 from torchvision.datasets import VisionDataset
 
+from composer.core import DataSpec
 from composer.core.types import Batch
 from composer.datasets.streaming import StreamingDataset
-from composer.models.ssd.utils import SSDTransformer, dboxes300_coco
+from composer.models.ssd.utils import DefaultBoxes, SSDTransformer
+from composer.utils import dist
 
-__all__ = ['COCODetection', 'StreamingCOCO']
+__all__ = ['COCODetection', 'StreamingCOCO', 'build_coco_detection_dataloader']
+
+
+def build_coco_detection_dataloader(
+    batch_size: int,
+    datadir: str,
+    *,
+    split: str = 'train',
+    drop_last: bool = True,
+    shuffle: bool = True,
+    input_size: int = 300,
+    **dataloader_kwargs,
+):
+    """Builds a COCO Detection dataloader with default transforms for SSD300.
+
+    Args:
+        batch_size (int): Batch size per device.
+        datadir (str): Path to the data directory
+        split (str): the dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
+        drop_last (bool): whether to drop last samples. Default: ``True``.
+        shuffle (bool): whether to shuffle the dataset. Default: ``True``.
+        input_size (int): the size of the input image, keep this at `300` for SSD300. Default: ``300``.
+        **dataloader_kwargs (Any): Additional settings for the dataloader (e.g. num_workers, etc.)
+    """
+
+    # default boxes set for SSD300
+    default_boxes = DefaultBoxes(fig_size=input_size,
+                                 feat_size=[38, 19, 10, 5, 3, 1],
+                                 steps=[8, 16, 32, 64, 100, 300],
+                                 scales=[21, 45, 99, 153, 207, 261, 315],
+                                 aspect_ratios=[[2], [2, 3], [2, 3], [2, 3], [2], [2]],
+                                 scale_xy=0.1,
+                                 scale_wh=0.2)
+
+    if split == 'train':
+        transforms = SSDTransformer(default_boxes, (input_size, input_size), val=False, num_cropping_iterations=1)
+        annotate_file = os.path.join(datadir, 'annotations/instances_train2017.json')
+        image_folder = os.path.join(datadir, 'train2017')
+
+    else:
+        transforms = SSDTransformer(default_boxes, (input_size, input_size), val=True)
+        annotate_file = os.path.join(datadir, 'annotations/instances_val2017.json')
+        image_folder = os.path.join(datadir, 'val2017')
+
+    dataset = COCODetection(img_folder=image_folder, annotate_file=annotate_file, transforms=transforms)
+
+    sampler = dist.get_sampler(dataset, drop_last=drop_last, shuffle=shuffle)
+
+    return DataSpec(dataloader=DataLoader(dataset=dataset,
+                                          batch_size=batch_size,
+                                          sampler=sampler,
+                                          drop_last=drop_last,
+                                          **dataloader_kwargs),
+                    split_batch=split_coco_batch)
 
 
 class COCODetection(Dataset):
@@ -31,10 +86,10 @@ class COCODetection(Dataset):
         img_folder (str): the path to the COCO folder.
         annotate_file (str): path to a file that contains image id, annotations (e.g., bounding boxes and object
             classes) etc.
-        transform (torch.nn.Module): transformations to apply to the image.
+        transforms (torch.nn.Module): transformations to apply to the image.
     """
 
-    def __init__(self, img_folder: str, annotate_file: str, transform: Optional[Callable] = None):
+    def __init__(self, img_folder: str, annotate_file: str, transforms: Optional[Callable] = None):
         self.img_folder = img_folder
         self.annotate_file = annotate_file
 
@@ -75,7 +130,7 @@ class COCODetection(Dataset):
                 self.images.pop(k)
 
         self.img_keys = list(self.images.keys())
-        self.transform = transform
+        self.transforms = transforms
 
     #@property
     def labelnum(self):
@@ -106,14 +161,14 @@ class COCODetection(Dataset):
         bbox_sizes = torch.tensor(bbox_sizes)
         bbox_labels = torch.tensor(bbox_labels)
 
-        if self.transform != None:
+        if self.transforms != None:
             img, (htot, wtot), bbox_sizes, bbox_labels = \
-                self.transform(img, (htot, wtot), bbox_sizes, bbox_labels)
+                self.transforms(img, (htot, wtot), bbox_sizes, bbox_labels)
 
         return img, img_id, (htot, wtot), bbox_sizes, bbox_labels
 
 
-def split_dict_fn(batch: Batch, num_microbatches: int) -> Sequence[Batch]:  #type: ignore
+def split_coco_batch(batch: Batch, num_microbatches: int) -> Sequence[Batch]:  #type: ignore
     if not isinstance(batch, Sequence):
         raise ValueError(f'split_fn requires batch be a tuple of tensors, got {type(batch)}')
     img, img_id, img_size, bbox_sizes, bbox_labels = batch  #type: ignore
@@ -189,12 +244,19 @@ class StreamingCOCO(StreamingDataset, VisionDataset):
                          batch_size=batch_size)
 
         # Define custom transforms
-        dboxes = dboxes300_coco()
+        # default boxes set for SSD300
         input_size = 300
+        default_boxes = DefaultBoxes(fig_size=input_size,
+                                     feat_size=[38, 19, 10, 5, 3, 1],
+                                     steps=[8, 16, 32, 64, 100, 300],
+                                     scales=[21, 45, 99, 153, 207, 261, 315],
+                                     aspect_ratios=[[2], [2, 3], [2, 3], [2, 3], [2], [2]],
+                                     scale_xy=0.1,
+                                     scale_wh=0.2)
         if split == 'train':
-            transform = SSDTransformer(dboxes, (input_size, input_size), val=False, num_cropping_iterations=1)
+            transform = SSDTransformer(default_boxes, (input_size, input_size), val=False, num_cropping_iterations=1)
         else:
-            transform = SSDTransformer(dboxes, (input_size, input_size), val=True)
+            transform = SSDTransformer(default_boxes, (input_size, input_size), val=True)
         VisionDataset.__init__(self, root=local, transform=transform)
 
     def __getitem__(self, idx: int) -> Any:
