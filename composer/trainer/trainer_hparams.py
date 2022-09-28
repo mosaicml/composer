@@ -34,9 +34,9 @@ from composer.optim import ComposerScheduler
 from composer.optim.optimizer_hparams_registry import OptimizerHparams, optimizer_registry
 from composer.optim.scheduler_hparams_registry import scheduler_registry
 from composer.profiler import Profiler
+from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceTPU
 from composer.trainer.devices.device_hparams_registry import device_registry
-from composer.trainer.strategy import SyncStrategy
 from composer.trainer.trainer import Trainer, _is_tpu_installed
 from composer.utils import dist, reproducibility
 from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
@@ -268,7 +268,7 @@ class TrainerHparams(hp.Hparams):
         deterministic_mode (bool, optional): See :class:`.Trainer`.
 
         dist_timeout (float, optional): See :class:`.Trainer`.
-        sync_strategy (SyncStrategy, optional): See :class:`.Trainer`.
+        ddp_sync_strategy (DDPSyncStrategy, optional): See :class:`.Trainer`.
 
         grad_clip_norm (float, optional): See :class:`.Trainer`.
 
@@ -378,7 +378,7 @@ class TrainerHparams(hp.Hparams):
 
     # Distributed
     dist_timeout: float = hp.auto(Trainer, 'dist_timeout')
-    sync_strategy: Optional[SyncStrategy] = hp.auto(Trainer, 'sync_strategy')
+    ddp_sync_strategy: Optional[DDPSyncStrategy] = hp.auto(Trainer, 'ddp_sync_strategy')
 
     # Grad Clip Norm
     grad_clip_norm: float = hp.auto(Trainer, 'grad_clip_norm')
@@ -584,7 +584,7 @@ class TrainerHparams(hp.Hparams):
 
             # Distributed
             dist_timeout=self.dist_timeout,
-            sync_strategy=self.sync_strategy,
+            ddp_sync_strategy=self.ddp_sync_strategy,
 
             # Grad Clip Norm
             grad_clip_norm=self.grad_clip_norm,

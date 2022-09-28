@@ -10,7 +10,7 @@ from torch import Tensor
 from torch.utils.data import DataLoader
 
 from composer.core import State
-from composer.trainer.strategy import get_sync_context, prepare_ddp_module
+from composer.trainer.dist_strategy import ddp_sync_context, prepare_ddp_module
 from composer.utils import dist
 from tests.common.datasets import RandomClassificationDataset
 
@@ -72,7 +72,7 @@ def test_ddp_sync_strategy(
     optimizer.zero_grad()
 
     for microbatch_idx in range(2):
-        with get_sync_context(state, microbatch_idx == 1, sync_strategy=ddp_sync_strategy):
+        with ddp_sync_context(state, microbatch_idx == 1, sync_strategy=ddp_sync_strategy):
             input, target = batches[microbatch_idx][dist.get_local_rank()]
 
             output = state.model.forward(input)

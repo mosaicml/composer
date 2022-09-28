@@ -44,7 +44,7 @@ from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _par
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
-from composer.trainer.strategy import SyncStrategy, get_sync_context, prepare_ddp_module, prepare_fsdp_module
+from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
 from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed,
                             map_collection, model_eval_mode, reproducibility)
 from composer.utils.file_helpers import get_file
@@ -267,15 +267,15 @@ def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
     return rank_zero_seed, seed
 
 
-def _get_sync_strategy(sync_strategy: Optional[Union[str, SyncStrategy]], find_unused_parameters: bool):
-    if sync_strategy is None:
+def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]], find_unused_parameters: bool):
+    if ddp_sync_strategy is None:
         if find_unused_parameters:
-            sync_strategy = SyncStrategy.MULTI_AUTO_SYNC
+            ddp_sync_strategy = DDPSyncStrategy.MULTI_AUTO_SYNC
         else:
-            sync_strategy = SyncStrategy.SINGLE_AUTO_SYNC
+            ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC
     else:
-        sync_strategy = SyncStrategy(sync_strategy)
-    return sync_strategy
+        ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
+    return ddp_sync_strategy
 
 
 def _generate_run_name() -> str:
@@ -712,8 +712,8 @@ class Trainer:
             .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
             (default: ``15.0``)
-        sync_strategy (str | SyncStrategy, optional): The strategy to use for synchronizing gradients.
-            Leave unset to let the trainer auto-configure this. See :class:`.SyncStrategy`
+        ddp_sync_strategy (str | DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
+            Leave unset to let the trainer auto-configure this. See :class:`.DDPSyncStrategy`
             for more details.
         grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to ``-1`` for no gradient
             clipping. (default: ``-1``).
@@ -809,7 +809,7 @@ class Trainer:
 
         # Distributed Training
         dist_timeout: float = 300.0,
-        sync_strategy: Optional[Union[str, SyncStrategy]] = None,
+        ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
 
         # Grad Clip Norm
         grad_clip_norm: float = -1.0,
@@ -1057,7 +1057,7 @@ class Trainer:
         # Some algorithms require specific settings
         self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, self.state.algorithms))
         self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, self.state.algorithms))
-        self._sync_strategy = _get_sync_strategy(sync_strategy, self._find_unused_parameters)
+        self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
             for callback in self.state.callbacks:
@@ -1920,10 +1920,10 @@ class Trainer:
         device_batch = deepcopy(self.state.batch)
 
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-        sync_context = contextlib.nullcontext() if self.deepspeed_enabled else get_sync_context(
+        sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
             self.state,
             is_final_microbatch,
-            self._sync_strategy,
+            self._ddp_sync_strategy,
         )
 
         with sync_context:
