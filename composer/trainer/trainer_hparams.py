@@ -26,10 +26,12 @@ from composer.datasets.dataset_hparams_registry import dataset_registry
 from composer.datasets.evaluator_hparams import EvaluatorHparams
 from composer.loggers import LoggerDestination
 from composer.loggers.logger_hparams_registry import logger_registry
-from composer.models import (BERTForClassificationHparams, BERTHparams, DeepLabV3Hparams, EfficientNetB0Hparams,
-                             GPT2Hparams, MnistClassifierHparams, ModelHparams, ResNetCIFARHparams, ResNetHparams,
-                             SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
+from composer.models import (BERTForClassificationHparams, BERTHparams, BERTUnpaddedHparams, DeepLabV3Hparams,
+                             EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
+                             ResNetCIFARHparams, ResNetHparams, SSDHparams, TimmHparams, UnetHparams,
+                             ViTSmallPatch16Hparams)
 from composer.models.base import ComposerModel
+from composer.models.bert.bert_hparams import BERTUnpaddedHparams
 from composer.optim import ComposerScheduler
 from composer.optim.optimizer_hparams_registry import OptimizerHparams, optimizer_registry
 from composer.optim.scheduler_hparams_registry import scheduler_registry
@@ -63,6 +65,7 @@ model_registry = {
     'gpt2': GPT2Hparams,
     'bert': BERTHparams,
     'bert_classification': BERTForClassificationHparams,
+    'bert_unpadded': BERTUnpaddedHparams,
     'timm': TimmHparams,
     'vit_small_patch16': ViTSmallPatch16Hparams
 }

@@ -6,7 +6,12 @@ Transformers <https://huggingface.co/transformers/>`_."""
 
 from composer.models.bert.bert_hparams import BERTForClassificationHparams as BERTForClassificationHparams
 from composer.models.bert.bert_hparams import BERTHparams as BERTHparams
+from composer.models.bert.bert_hparams import BERTUnpaddedHparams as BERTUnpaddedHparams
 from composer.models.bert.model import create_bert_classification as create_bert_classification
 from composer.models.bert.model import create_bert_mlm as create_bert_mlm
+from composer.models.bert.model import create_bert_unpadded_mlm as create_bert_unpadded_mlm
 
-__all__ = ['BERTHparams', 'BERTForClassificationHparams', 'create_bert_classification', 'create_bert_mlm']
+__all__ = [
+    'BERTHparams', 'BERTForClassificationHparams', 'BERTUnpaddedHparams', 'create_bert_classification',
+    'create_bert_mlm', 'create_bert_unpadded_mlm'
+]

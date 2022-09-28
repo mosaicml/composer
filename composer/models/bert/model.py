@@ -19,7 +19,7 @@ from composer.models.huggingface import HuggingFaceModel
 from composer.utils import module_surgery
 from composer.utils.import_helpers import MissingConditionalImportError
 
-__all__ = ['create_bert_mlm', 'create_bert_classification']
+__all__ = ['create_bert_unpadded_mlm', 'create_bert_mlm', 'create_bert_classification']
 
 
 def create_bert_mlm(use_pretrained: Optional[bool] = False,
