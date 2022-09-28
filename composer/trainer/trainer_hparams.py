@@ -31,7 +31,6 @@ from composer.models import (BERTForClassificationHparams, BERTHparams, BERTUnpa
                              ResNetCIFARHparams, ResNetHparams, SSDHparams, TimmHparams, UnetHparams,
                              ViTSmallPatch16Hparams)
 from composer.models.base import ComposerModel
-from composer.models.bert.bert_hparams import BERTUnpaddedHparams
 from composer.optim import ComposerScheduler
 from composer.optim.optimizer_hparams_registry import OptimizerHparams, optimizer_registry
 from composer.optim.scheduler_hparams_registry import scheduler_registry
