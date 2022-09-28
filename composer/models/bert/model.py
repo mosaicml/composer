@@ -5,15 +5,18 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Dict, Optional, Type
 
+import torch
 from torchmetrics import MeanSquaredError
 from torchmetrics.classification.accuracy import Accuracy
 from torchmetrics.classification.matthews_corrcoef import MatthewsCorrCoef
 from torchmetrics.regression.spearman import SpearmanCorrCoef
 
 from composer.metrics.nlp import BinaryF1Score, LanguageCrossEntropy, MaskedAccuracy
+from composer.models.bert.unpadded_layers import BertModel
 from composer.models.huggingface import HuggingFaceModel
+from composer.utils import module_surgery
 from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['create_bert_mlm', 'create_bert_classification']
@@ -105,6 +108,64 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
         MaskedAccuracy(ignore_index=-100)
     ]
     return HuggingFaceModel(model=model, tokenizer=tokenizer, use_logits=True, metrics=metrics)
+
+
+def create_bert_unpadded_mlm(use_pretrained: Optional[bool] = False,
+                             pretrained_model_name: Optional[str] = None,
+                             model_config: Optional[dict] = None,
+                             tokenizer_name: Optional[str] = None,
+                             gradient_checkpointing: Optional[bool] = False):
+    """BERT model based on HazyResearch's MLPerf 2.0 submission and HuggingFace transformer"""
+    try:
+        import transformers
+        from transformers.models.bert import modeling_bert
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
+
+    def from_encoder(layer: torch.nn.Module, module_index: int) -> BertModel:
+        """Defines a replacement policy from a `modeling_bert.BertModel` to a `composer.models.bert.unpadded_layers.BertModel`"""
+        return BertModel(layer.config)
+
+    if not model_config:
+        model_config = {}
+
+    if not pretrained_model_name:
+        pretrained_model_name = 'bert-base-uncased'
+
+    if use_pretrained:
+        assert transformers.AutoModelForMaskedLM.from_pretrained is not None, 'AutoModelForMaskedLM has from_pretrained method'
+        model = transformers.AutoModelForMaskedLM.from_pretrained(pretrained_model_name_or_path=pretrained_model_name,
+                                                                  **model_config)
+    else:
+        config = transformers.AutoConfig.from_pretrained(pretrained_model_name, **model_config)
+        assert transformers.AutoModelForMaskedLM.from_config is not None, 'AutoModelForMaskedLM has from_config method'
+        config.unpad = True
+        config.unpad_flash_attn = True
+        config.return_dict = False
+        model = transformers.AutoModelForMaskedLM.from_config(config)
+
+    if gradient_checkpointing:
+        model.gradient_checkpointing_enable()  # type: ignore
+
+    # setup the tokenizer
+    if tokenizer_name:
+        tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_name)
+    else:
+        tokenizer = None
+
+    metrics = [
+        LanguageCrossEntropy(ignore_index=-100, vocab_size=model.config.vocab_size),
+        MaskedAccuracy(ignore_index=-100)
+    ]
+
+    hf_model = HuggingFaceModel(model=model, tokenizer=tokenizer, use_logits=True, metrics=metrics)
+
+    policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {modeling_bert.BertModel: from_encoder}
+    replaced_instances = module_surgery.replace_module_classes(module=hf_model, policies=policy)
+    if len(replaced_instances) == 0:
+        raise ValueError('Could not create Unpadded BERT model.')
+
+    return hf_model
 
 
 def create_bert_classification(num_labels: Optional[int] = 2,
