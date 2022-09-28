@@ -155,7 +155,8 @@ class BertEncoder(nn.Module):
                 #        hidden_states[ntokens_unpad,hidden] -> hidden_states[ntokens,hidden]
                 hidden_states = pad_input(hidden_states, indices, batch, seqlen)
             else:
-                for layer_module in self.layer[:-1]:
+                for i in range(len(self.layer) - 1):
+                    layer_module = self.layer[i]
                     hidden_states = layer_module(hidden_states, cu_seqlens, max_seqlen_in_batch)
                     if output_all_encoded_layers:
                         all_encoder_layers.append(hidden_states)
@@ -256,6 +257,9 @@ class BertModel(BertPreTrainedModel):
 
         embedding_output = self.embeddings(input_ids, token_type_ids, position_ids)
 
+        subset_mask = []
+        first_col_mask = []
+
         if masked_tokens_mask is None:
             subset_mask = None
         else:
@@ -274,7 +278,7 @@ class BertModel(BertPreTrainedModel):
         else:
             # TD [2022-03-01]: the indexing here is very tricky.
             attention_mask_bool = attention_mask.bool()
-            subset_idx = subset_mask[attention_mask_bool]
+            subset_idx = subset_mask[attention_mask_bool]  # type: ignore
             sequence_output = encoder_outputs[-1][masked_tokens_mask[attention_mask_bool][subset_idx]]
             pool_input = encoder_outputs[-1][first_col_mask[attention_mask_bool][subset_idx]]
             pooled_output = (self.pooler(pool_input, pool=False) if self.pooler is not None else None)
