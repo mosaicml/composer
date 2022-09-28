@@ -35,7 +35,9 @@ def test_comet_ml_logging(monkeypatch, tmp_path):
     comet_logger.log_hyperparameters(dict(zip(param_names, param_values)))
     for step, metric_value in zip(steps, metric_values):
         comet_logger.log_metrics({'my_test_metric': metric_value}, step=step)
-    comet_logger.experiment.end()
+
+    # Simulate the post_close event to end the CometML experiment
+    comet_logger.post_close()
 
     # Open, decompress, decode, and extract offline dump of metrics.
     comet_exp_dump_filepath = str(Path(offline_directory) / Path(comet_logger.experiment.id).with_suffix('.zip'))
