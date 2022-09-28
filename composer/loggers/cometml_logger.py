@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Log to `Comet <https://www.comet.com/docs/v2/>`_."""
+"""Log to `Comet <https://www.comet.com/?utm_source=mosaicml&utm_medium=partner&utm_campaign=mosaicml_comet_integration>`_."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ __all__ = ['CometMLLogger']
 
 
 class CometMLLogger(LoggerDestination):
-    """Log to `Comet <https://www.comet.com/docs/v2/>`_.
+    """Log to `Comet <https://www.comet.com/?utm_source=mosaicml&utm_medium=partner&utm_campaign=mosaicml_comet_integration>`_.
 
     Args:
         workspace (str, optional): The name of the workspace which contains the project
@@ -36,7 +36,7 @@ class CometMLLogger(LoggerDestination):
             (default: ``False``).
         exp_kwargs (Dict[str, Any], optional): Any additional kwargs to
             comet_ml.Experiment(see
-            `Comet documentation <https://www.comet.com/docs/v2/api-and-sdk/python-sdk/reference/Experiment/>`_).
+            `Comet documentation <https://www.comet.com/docs/v2/api-and-sdk/python-sdk/reference/Experiment/?utm_source=mosaicml&utm_medium=partner&utm_campaign=mosaicml_comet_integration>`_).
     """
 
     def __init__(
