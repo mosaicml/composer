@@ -1,0 +1,15 @@
+{
+    "weight_standardization": {
+        "name": "Weight Standardization",
+        "class_name": "WeightStandardization",
+        "functional": "apply_weight_standardization",
+        "tldr": "Standardizes convolutional weights along input channels and kernel axes.",
+        "attribution": "(Qiao 2019)",
+        "link": "https://arxiv.org/abs/1903.10520",
+        "domains": [
+            "cv"
+        ],
+        "summary": "Standardizes convolutional weights along input channels and kernel axes.",
+        "use": "Convolutional Neural Networks"
+    }
+}
