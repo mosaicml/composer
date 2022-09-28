@@ -16,11 +16,45 @@ import torch
 import torch.utils.data
 import torchvision
 
+from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
 
 PATCH_SIZE = [1, 192, 160]
 
 __all__ = ['PytTrain', 'PytVal']
+
+
+def build_brats_dataloader(datadir: str,
+                           batch_size: int,
+                           oversampling: float = 0.33,
+                           is_train: bool = True,
+                           drop_last: bool = True,
+                           shuffle: bool = True,
+                           **dataloader_kwargs):
+    """Builds a BRaTS dataloader
+
+    Args:
+        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+    """
+    x_train, y_train, x_val, y_val = get_data_split(datadir)
+    dataset = PytTrain(x_train, y_train, oversampling) if is_train else PytVal(x_val, y_val)
+    collate_fn = None if is_train else _my_collate
+    sampler = dist.get_sampler(dataset, drop_last=drop_last, shuffle=shuffle)
+
+    return torch.utils.data.DataLoader(dataset=dataset,
+                                       batch_size=batch_size,
+                                       sampler=sampler,
+                                       drop_last=drop_last,
+                                       collate_fn=collate_fn,
+                                       **dataloader_kwargs)
+
+
+def _my_collate(batch):
+    """Custom collate function to handle images with different depths."""
+    data = [item[0] for item in batch]
+    target = [item[1] for item in batch]
+
+    return [torch.Tensor(data), torch.Tensor(target)]
 
 
 def _coin_flip(prob):
