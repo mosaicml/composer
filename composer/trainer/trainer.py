@@ -844,10 +844,6 @@ class Trainer:
         if self.fsdp_config is not None:
             prepare_fsdp_module(model, optimizers, self.fsdp_config, precision)
 
-        self._original_model = model
-        if not isinstance(self._original_model, ComposerModel):
-            raise ValueError('Provided model should be a subclass of ComposerModel.')
-
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, self._device)
         # If hparams is used to create the Trainer this function is called twice
@@ -976,7 +972,7 @@ class Trainer:
         self.engine = Engine(state=self.state, logger=self.logger)
 
         # Set the logger
-        self._original_model.logger = self.logger
+        self.state.model.logger = self.logger
 
         # Run Event.INIT
         self.engine.run_event(Event.INIT)
@@ -1159,7 +1155,11 @@ class Trainer:
         log.info(f'Setting seed to {self.state.seed}')
         reproducibility.seed_all(self.state.seed)
 
-        # Move the model and optimizers to the specified device
+        # If using DDP, we need to wrap the ComposerModel
+        # But store a reference to the original model for functions like `eval_forward`, `get_metrics`, etc.
+        self._original_model = self.state.model
+        if not isinstance(self._original_model, ComposerModel):
+            raise ValueError('self.state.model must be a subclass of ComposerModel.')
         if not (self.deepspeed_enabled or self.fsdp_enabled) and dist.get_world_size() > 1:
             # Only wrap the module if required
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
