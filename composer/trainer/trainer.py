@@ -45,8 +45,8 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
-from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed,
-                            map_collection, model_eval_mode, reproducibility)
+from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, map_collection,
+                            model_eval_mode, reproducibility)
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.inference import ExportFormat, Transform, export_with_logger
@@ -837,8 +837,8 @@ class Trainer:
 
         # Distributed
         if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
-            # deepspeed and FSDP requires torch.distributed to be initialized, even if the world size is 1
-            # distributed is always required with multi-rank training
+            # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
+            # And torch.distributed is always required for multi-rank training
             dist.initialize_dist(self._device, datetime.timedelta(seconds=dist_timeout))
 
         # Handle FSDP sharding

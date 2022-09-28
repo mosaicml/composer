@@ -5,10 +5,9 @@
 
 import logging
 from contextlib import contextmanager, nullcontext
-from functools import partial
-from typing import Any, Callable, ContextManager, Dict, Tuple, Union, cast
+from typing import Any, Callable, ContextManager, Dict, Optional, Sequence, Union, cast
 
-import torch.nn
+import torch
 from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
                                     ShardingStrategy)
 from torch.nn.parallel import DistributedDataParallel
@@ -124,7 +123,18 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
                        'with distributed support.')
 
 
-def prepare_fsdp_module(model: torch.nn.Module, optimizers: torch.optim.Optimizer, fsdp_config: Dict[str, Any], precision: Precision, device: str) -> None:
+def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch.optim.Optimizer,
+                                                                           Sequence[torch.optim.Optimizer]]],
+                        fsdp_config: Dict[str, Any], precision: Precision, device: torch.device) -> None:
+    """Prepare a module (assumed ComposerModel) and optimizer for use with :class:`torch.distributed.fsdp.FullyShardedDataParallel`.
+
+    Args:
+        model (torch.nn.Module): The model to wrap.
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer for `model`, assumed to have a single param group := model.parameters().
+        fsdp_config (Dict[str, Any]): todo
+        precision: (Precision): todo
+        device (torch.device): todo
+    """
     sharding_map = {
         'NO_SHARD': ShardingStrategy.NO_SHARD,
         'SHARD_GRAD_OP': ShardingStrategy.SHARD_GRAD_OP,
@@ -163,33 +173,35 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: torch.optim.Optimize
     )
     backward_prefetch = BackwardPrefetch.BACKWARD_POST
 
-    # We choose to not wrap the ComposerModel directly, but instead wrap any submodules
-    for attr in dir(model):
-        obj = getattr(model, attr)
-        if isinstance(obj, torch.nn.Module) and not isinstance(obj, (Metric, MetricCollection)):
+    # We choose to not wrap the ComposerModel directly, but instead wrap any submodules like `ComposerModel.model`
+    # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
+    # may make calls to sharded submodules. If we only wrap the submodules, then any call that ComposerModel makes
+    # to a FSDP-wrapped submodule's `forward()` function will be safe and all-gather the necessary weights before `forward()`.
+    for name, obj in model.named_children():
+        if not isinstance(obj, (Metric, MetricCollection)):
 
-            # If `obj`` contains meta tensors, try to use `obj.param_init_fn` to initialize them
-            def _param_init_fn(module):
+            # If `obj` contains meta tensors, try to use `obj.param_init_fn` to initialize them
+            def _param_init_fn(module: torch.nn.Module) -> None:
                 module.to_empty(device=device)
-                if hasattr(obj, 'param_init_fn'):
+                if hasattr(obj, 'param_init_fn') and isinstance(obj.param_init_fn, Callable):
                     module.apply(obj.param_init_fn)
-                else:
+                elif hasattr(module, 'reset_parameters') and isinstance(module.reset_parameters, Callable):
                     module.reset_parameters()
 
             # Choose which modules to FSDP wrap according to the following priority:
             # If module has attribute `module._fsdp_wrap = ...`, always respect it
             # Otherwise wrap if root object `obj.fsdp_wrap_fn(module)` is true
             # Or if unwrapped params in module in greater than or equal to fsdp_config.min_params
-            def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: int):
+            def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:
                 min_params = int(fsdp_config.get('min_params', 1e8))
                 if recurse:
                     return True
                 else:
                     if hasattr(module, '_fsdp_wrap'):
-                        return module._fsdp_wrap
+                        return bool(module._fsdp_wrap)
 
                     is_large = unwrapped_params >= min_params
-                    if hasattr(obj, 'fsdp_wrap_fn'):
+                    if hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
                         return obj.fsdp_wrap_fn(module) or is_large
                     else:
                         return is_large
@@ -208,26 +220,29 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: torch.optim.Optimize
             # Activation Checkpointing
             if fsdp_config.get('activation_checkpointing', False):
                 if fsdp_config.get('activation_checkpointing_offload_to_cpu', False):
-                    checkpoint_wrapper_fn = lambda module: checkpoint_wrapper(
-                        checkpoint_wrapper(module), offload_to_cpu=True)
+                    checkpoint_wrapper_fn = lambda module: checkpoint_wrapper(checkpoint_wrapper(module),
+                                                                              offload_to_cpu=True)
                 else:
                     checkpoint_wrapper_fn = checkpoint_wrapper
 
                 # Choose which modules to activation checkpoint according to the following priority:
                 # If module has attribute `module._activation_checkpointing = ...`, always respect it
                 # Otherwise checkpoint if root object `obj.activation_checkpointing_fn(module)` is true
-                def _check_fn(module):
+                def _check_fn(module: torch.nn.Module) -> bool:
                     if hasattr(module, '_activation_checkpointing'):
-                        return module._activation_checkpointing
-                    if hasattr(obj, 'activation_checkpointing_fn'):
+                        return bool(module._activation_checkpointing)
+                    if hasattr(obj, 'activation_checkpointing_fn') and isinstance(obj.activation_checkpointing_fn,
+                                                                                  Callable):
                         return obj.activation_checkpointing_fn(module)
                     return False
 
-                apply_activation_checkpointing_wrapper(fsdp_obj,
-                                                        checkpoint_wrapper_fn=checkpoint_wrapper_fn,
-                                                        check_fn=_check_fn)
+                apply_activation_checkpointing_wrapper(
+                    fsdp_obj,
+                    checkpoint_wrapper_fn=checkpoint_wrapper_fn,  # type: ignore
+                    check_fn=_check_fn,  # type: ignore
+                )
 
-            setattr(model, attr, fsdp_obj)
+            setattr(model, name, fsdp_obj)
 
     # Print model arch for debugging
     if fsdp_config.get('verbose', False):
@@ -237,9 +252,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: torch.optim.Optimize
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
         if len(optimizers_tuple) != 1:
-            raise NotImplementedError(
-                f'Only one optimizer is supported; found {len(optimizers_tuple)} optimizers')
+            raise NotImplementedError(f'Only one optimizer is supported; found {len(optimizers_tuple)} optimizers')
         optim = optimizers_tuple[0]
         optim.param_groups = []
         optim.add_param_group({'params': list(model.parameters())})
-
