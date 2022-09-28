@@ -53,7 +53,7 @@ def test_ddp_sync_strategy(
     rank_zero_seed: int,
 ):
     original_model = MinimalConditionalModel()
-    # ddp = DDP(backend="gloo", find_unused_parameters=True, ddp_sync_strategy=ddp_ddp_sync_strategy, timeout=5.)
+    # ddp = DDP(backend="gloo", find_unused_parameters=True, sync_strategy=ddp_sync_strategy, timeout=5.)
     optimizer = torch.optim.SGD(original_model.parameters(), 0.1)
     state = State(
         model=original_model,
@@ -72,7 +72,7 @@ def test_ddp_sync_strategy(
     optimizer.zero_grad()
 
     for microbatch_idx in range(2):
-        with ddp_sync_context(state, microbatch_idx == 1, ddp_sync_strategy=ddp_sync_strategy):
+        with ddp_sync_context(state, microbatch_idx == 1, sync_strategy=ddp_sync_strategy):
             input, target = batches[microbatch_idx][dist.get_local_rank()]
 
             output = state.model.forward(input)

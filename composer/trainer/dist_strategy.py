@@ -54,14 +54,14 @@ class DDPSyncStrategy(StringEnum):
 
 
 @contextmanager
-def ddp_sync_context(state: State, is_final_microbatch: bool, ddp_sync_strategy: Union[str, DDPSyncStrategy]):
+def ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Union[str, DDPSyncStrategy]):
     """A context manager for handling the :class:`DDPSyncStrategy`.
 
     Args:
         state (State): The state of the :class:`.Trainer`.
         is_final_microbatch (bool): Whether or not the context is being used during the final
             microbatch of the gradient accumulation steps.
-        ddp_sync_strategy (str | DDPSyncStrategy): The ddp sync strategy to use. If a string
+        sync_strategy (str | DDPSyncStrategy): The ddp sync strategy to use. If a string
             is provided, the string must be one of the values in :class:`DDPSyncStrategy`.
     """
     if not isinstance(state.model, DistributedDataParallel):
@@ -69,21 +69,21 @@ def ddp_sync_context(state: State, is_final_microbatch: bool, ddp_sync_strategy:
         return
 
     assert state.optimizers is not None, 'optimizers have not been initialized'
-    ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
+    sync_strategy = DDPSyncStrategy(sync_strategy)
 
     no_sync_context = cast(Callable[[], ContextManager], state.model.no_sync)
     auto_sync_context = nullcontext
 
-    if ddp_sync_strategy == DDPSyncStrategy.SINGLE_AUTO_SYNC:
+    if sync_strategy == DDPSyncStrategy.SINGLE_AUTO_SYNC:
         context = auto_sync_context if is_final_microbatch else no_sync_context
         with context():
             yield
 
-    elif ddp_sync_strategy == DDPSyncStrategy.MULTI_AUTO_SYNC:
+    elif sync_strategy == DDPSyncStrategy.MULTI_AUTO_SYNC:
         with auto_sync_context():
             yield
 
-    elif ddp_sync_strategy == DDPSyncStrategy.FORCED_SYNC:
+    elif sync_strategy == DDPSyncStrategy.FORCED_SYNC:
         try:
             with no_sync_context():
                 yield
@@ -97,7 +97,7 @@ def ddp_sync_context(state: State, is_final_microbatch: bool, ddp_sync_strategy:
                                 p.grad = p.grad / dist.get_world_size()
 
     else:
-        raise ValueError('Unknown sync strategy', ddp_sync_strategy)
+        raise ValueError('Unknown sync strategy', sync_strategy)
 
 
 def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) -> torch.nn.Module:
