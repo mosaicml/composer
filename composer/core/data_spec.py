@@ -185,9 +185,9 @@ class DataSpec:
                      'correctly inserted. To fix, please do not iterate over the dataloader before passing it into '
                      'the Trainer.'))
             world_size = dist.get_world_size()
-            if world_size > 1 and (dataloader.sampler and not isinstance(dataloader.sampler, DistributedSampler) or
-                                   dataloader.batch_sampler and
-                                   not isinstance(dataloader.batch_sampler, DistributedSampler)):
+            if world_size > 1 and not (
+                (dataloader.sampler and isinstance(dataloader.sampler, DistributedSampler)) or
+                (dataloader.batch_sampler and isinstance(dataloader.batch_sampler, DistributedSampler))):
                 raise ValueError(f'The world_size({world_size}) > 1 but dataloader does not use '
                                  'DistributedSampler. This will cause all ranks to train on the same '
                                  'data, removing any benefit from multi-GPU training. To resolve this, '
