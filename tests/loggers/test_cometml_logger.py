@@ -44,6 +44,7 @@ def test_comet_ml_logging(monkeypatch, tmp_path):
     jd = JSONDecoder()
     metric_msgs = []
     param_msgs = []
+    log_other_ws_msgs = []
     with open(comet_logs_path) as f:
         for line in f.readlines():
             comet_msg = jd.decode(line)
@@ -53,11 +54,20 @@ def test_comet_ml_logging(monkeypatch, tmp_path):
             if comet_msg['type'] == 'parameter_msg' and (
                     comet_msg['payload']['param']['paramName'].startswith('my_cool')):
                 param_msgs.append(comet_msg['payload']['param'])
+            if comet_msg['type'] == 'ws_msg' and 'log_other' in comet_msg['payload']:
+                log_other_ws_msgs.append(comet_msg['payload']['log_other'])
 
     # Assert dummy metrics input to log_metrics are the same as
     # those written to offline dump.
     assert [msg['metricValue'] for msg in metric_msgs] == metric_values
     assert [msg['step'] for msg in metric_msgs] == steps
     assert all([msg['metricName'] == metric_name for msg in metric_msgs])
+
+    # Assert dummy params input to log_hyperparameters are the same as
+    # those written to offline dump
     assert [msg['paramValue'] for msg in param_msgs] == param_values
     assert [msg['paramName'] for msg in param_msgs] == param_names
+
+    # Assert 'Created from' key is correctly logged
+    expected_created_from_log = {'key': 'Created from', 'val': 'mosaicml-composer'}
+    assert any([msg == expected_created_from_log for msg in log_other_ws_msgs])
