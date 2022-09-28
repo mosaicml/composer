@@ -125,7 +125,7 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
 
 def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch.optim.Optimizer,
                                                                            Sequence[torch.optim.Optimizer]]],
-                        fsdp_config: Dict[str, Any], precision: Precision, device: torch.device) -> None:
+                        fsdp_config: Dict[str, Any], precision: Precision) -> None:
     """Prepare a module (assumed ComposerModel) and optimizer for use with :class:`torch.distributed.fsdp.FullyShardedDataParallel`.
 
     Args:
@@ -133,7 +133,6 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer for `model`, assumed to have a single param group := model.parameters().
         fsdp_config (Dict[str, Any]): todo
         precision: (Precision): todo
-        device (torch.device): todo
     """
     sharding_map = {
         'NO_SHARD': ShardingStrategy.NO_SHARD,
@@ -182,7 +181,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
 
             # If `obj` contains meta tensors, try to use `obj.param_init_fn` to initialize them
             def _param_init_fn(module: torch.nn.Module) -> None:
-                module.to_empty(device=device)
+                module.to_empty(device=torch.cuda.current_device())
                 if hasattr(obj, 'param_init_fn') and isinstance(obj.param_init_fn, Callable):
                     module.apply(obj.param_init_fn)
                 elif hasattr(module, 'reset_parameters') and isinstance(module.reset_parameters, Callable):
@@ -214,7 +213,6 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                 mixed_precision=mixed_precision,
                 backward_prefetch=backward_prefetch,
                 param_init_fn=_param_init_fn,
-                device_id=device,
             )
 
             # Activation Checkpointing

@@ -23,7 +23,6 @@ import torch.distributed
 import torch.nn as nn
 import torch.utils.data
 from torch.cuda.amp.grad_scaler import GradScaler
-from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
@@ -843,13 +842,9 @@ class Trainer:
 
         # Handle FSDP sharding
         if self.fsdp_config is not None:
-            prepare_fsdp_module(model, optimizers, fsdp_config, precision, self._device._device)
+            prepare_fsdp_module(model, optimizers, self.fsdp_config, precision)
 
-        # Detect if ComposerModel itself was wrapped with FSDP and store reference to original model
-        if isinstance(model, FullyShardedDataParallel):
-            self._original_model = model._fsdp_wrapped_module._fpw_module
-        else:
-            self._original_model = model
+        self._original_model = model
         if not isinstance(self._original_model, ComposerModel):
             raise ValueError('Provided model should be a subclass of ComposerModel.')
 
