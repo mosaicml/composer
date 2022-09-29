@@ -21,7 +21,7 @@ from torchmetrics import Metric
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit
-from composer.utils import batch_get, batch_set, dist, ensure_tuple, is_model_deepspeed, is_model_fsdp
+from composer.utils import batch_get, batch_set, dist, ensure_tuple, is_model_deepspeed
 
 if TYPE_CHECKING:
     import deepspeed
@@ -491,7 +491,14 @@ class State(Serializable):
     @property
     def fsdp_enabled(self):
         """Indicates if FSDP is enabled."""
-        return is_model_fsdp(self.model)
+        if version.parse(torch.__version__) < version.parse('1.12.0'):
+            raise RuntimeError('To use FSDP with Composer, you must use torch>=1.12.0.')
+        else:
+            from torch.distributed.fsdp import FullyShardedDataParallel
+            for module in self.model.modules():
+                if isinstance(module, FullyShardedDataParallel):
+                    return True
+            return False
 
     def state_dict(self) -> Dict[str, Any]:
         state_dict = {}
