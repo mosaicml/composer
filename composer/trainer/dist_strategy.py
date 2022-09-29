@@ -122,6 +122,19 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
                        'with distributed support.')
 
 
+def get_torch_dtype(dtype: Union[Precision, str]):
+    """Convert common string representations of dtypes to torch dtypes."""
+    dtype = dtype.value if isinstance(dtype, Precision) else dtype
+    if dtype in ['float32', 'torch.float32', 'fp32']:
+        return torch.float32
+    elif dtype in ['float16', 'torch.float16', 'half', 'fp16', 'amp', 'amp_fp16']:
+        return torch.float16
+    elif dtype in ['bfloat16', 'bfloat', 'torch.bfloat16', 'bf16', 'amp_bf16']:
+        return torch.bfloat16
+    else:
+        raise ValueError(f'Not sure how to convert dtype={dtype} to a torch dtype.')
+
+
 def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch.optim.Optimizer,
                                                                            Sequence[torch.optim.Optimizer]]],
                         fsdp_config: Dict[str, Any], precision: Precision) -> None:
@@ -136,7 +149,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     if version.parse(torch.__version__) < version.parse('1.12.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.12.0.')
     from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
-                                            ShardingStrategy)
+                                        ShardingStrategy)
 
     sharding_map = {
         'NO_SHARD': ShardingStrategy.NO_SHARD,
@@ -149,24 +162,13 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     if cpu_offload is not None:
         raise ValueError('FSDP CPU Offload not supported yet.')
 
-    def _get_torch_dtype(dtype: Union[Precision, str]):
-        dtype = dtype.value if isinstance(dtype, Precision) else dtype
-        if dtype in ['float32', 'torch.float32', 'fp32']:
-            return torch.float32
-        elif dtype in ['float16', 'torch.float16', 'half', 'fp16', 'amp', 'amp_fp16']:
-            return torch.float16
-        elif dtype in ['bfloat16', 'bfloat', 'torch.bfloat16', 'bf16', 'amp_bf16']:
-            return torch.bfloat16
-        else:
-            raise ValueError(f'Not sure how to convert dtype={dtype} to a torch dtype.')
-
     if fsdp_config.get('mixed_precision', None):
-        param_dtype = _get_torch_dtype(fsdp_config['mixed_precision']['param_dtype'])
-        reduce_dtype = _get_torch_dtype(fsdp_config['mixed_precision']['reduce_dtype'])
-        buffer_dtype = _get_torch_dtype(fsdp_config['mixed_precision']['buffer_dtype'])
+        param_dtype = get_torch_dtype(fsdp_config['mixed_precision']['param_dtype'])
+        reduce_dtype = get_torch_dtype(fsdp_config['mixed_precision']['reduce_dtype'])
+        buffer_dtype = get_torch_dtype(fsdp_config['mixed_precision']['buffer_dtype'])
     else:
-        param_dtype = torch.float32 if fsdp_config.get('fp32_master_weights', True) else _get_torch_dtype(precision)
-        reduce_dtype = _get_torch_dtype(precision)
+        param_dtype = torch.float32 if fsdp_config.get('fp32_master_weights', True) else get_torch_dtype(precision)
+        reduce_dtype = get_torch_dtype(precision)
         buffer_dtype = param_dtype
 
     mixed_precision = MixedPrecision(
