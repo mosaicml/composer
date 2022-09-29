@@ -162,21 +162,41 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     if cpu_offload is not None:
         raise ValueError('FSDP CPU Offload not supported yet.')
 
-    if fsdp_config.get('mixed_precision', None):
-        param_dtype = get_torch_dtype(fsdp_config['mixed_precision']['param_dtype'])
-        reduce_dtype = get_torch_dtype(fsdp_config['mixed_precision']['reduce_dtype'])
-        buffer_dtype = get_torch_dtype(fsdp_config['mixed_precision']['buffer_dtype'])
-    else:
-        param_dtype = torch.float32 if fsdp_config.get('fp32_master_weights', True) else get_torch_dtype(precision)
+    mixed_precision = fsdp_config.get('mixed_precision', 'default')
+    if isinstance(mixed_precision, dict):
+        param_dtype = get_torch_dtype(mixed_precision.get('param_dtype', 'float32'))
+        reduce_dtype = get_torch_dtype(mixed_precision.get('reduce_dtype', 'float32'))
+        buffer_dtype = get_torch_dtype(mixed_precision.get('buffer_dtype', 'float32'))
+    elif mixed_precision == 'full':
+        param_dtype = torch.float32
+        reduce_dtype = torch.float32
+        buffer_dtype = torch.float32
+    elif mixed_precision == 'default':
+        param_dtype = torch.float32
         reduce_dtype = get_torch_dtype(precision)
-        buffer_dtype = param_dtype
+        buffer_dtype = torch.float32
+    elif mixed_precision == 'pure':
+        param_dtype = get_torch_dtype(precision)
+        reduce_dtype = get_torch_dtype(precision)
+        buffer_dtype = get_torch_dtype(precision)
+    else:
+        raise ValueError(f'Unable to interpret mixed_precision={mixed_precision}')
 
     mixed_precision = MixedPrecision(
         param_dtype=param_dtype,
         reduce_dtype=reduce_dtype,
         buffer_dtype=buffer_dtype,
     )
-    backward_prefetch = BackwardPrefetch.BACKWARD_POST
+
+    backward_prefetch_map = {
+        'NONE': None,
+        'BACKWARD_PRE': BackwardPrefetch.BACKWARD_PRE,
+        'BACKWARD_POST': BackwardPrefetch.BACKWARD_POST,
+    }
+    backward_prefetch = backward_prefetch_map[fsdp_config.get('backward_prefetch', 'BACKWARD_POST').upper()]
+    min_params = int(fsdp_config.get('min_params', 1e8))
+    activation_checkpointing = fsdp_config.get('activation_checkpointing', False)
+    activation_cpu_offload = fsdp_config.get('activation_cpu_offload', False)
 
     # We choose to not wrap the ComposerModel directly, but instead wrap any submodules like `ComposerModel.model`
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
@@ -198,7 +218,6 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
             # Otherwise wrap if root object `obj.fsdp_wrap_fn(module)` is true
             # Or if unwrapped params in module in greater than or equal to fsdp_config.min_params
             def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:
-                min_params = int(fsdp_config.get('min_params', 1e8))
                 if recurse:
                     return True
                 else:
@@ -222,12 +241,10 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
             )
 
             # Activation Checkpointing
-            if fsdp_config.get('activation_checkpointing', False):
-                if fsdp_config.get('activation_checkpointing_offload_to_cpu', False):
-                    checkpoint_wrapper_fn = lambda module: checkpoint_wrapper(checkpoint_wrapper(module),
-                                                                              offload_to_cpu=True)
-                else:
-                    checkpoint_wrapper_fn = checkpoint_wrapper
+            if activation_checkpointing or activation_cpu_offload:
+                first_wrap_fn = checkpoint_wrapper if activation_checkpointing else (lambda module: module)
+                second_wrap_fn = (lambda module: checkpoint_wrapper(first_wrap_fn(module), offload_to_cpu=True)
+                                 ) if activation_cpu_offload else first_wrap_fn
 
                 # Choose which modules to activation checkpoint according to the following priority:
                 # If module has attribute `module._activation_checkpointing = ...`, always respect it
@@ -242,15 +259,23 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
 
                 apply_activation_checkpointing_wrapper(
                     fsdp_obj,
-                    checkpoint_wrapper_fn=checkpoint_wrapper_fn,  # type: ignore
+                    checkpoint_wrapper_fn=second_wrap_fn,  # type: ignore
                     check_fn=_check_fn,  # type: ignore
                 )
 
             setattr(model, name, fsdp_obj)
 
-    # Print model arch for debugging
+    # Print FSDP wrapped model and FSDP config if `verbose=True`
     if fsdp_config.get('verbose', False):
+        print(f'FSDP: Wrapped Model:')
         print(model)
+        print(f'FSDP: Using sharding_strategy={sharding_strategy}')
+        print(f'FSDP: Using cpu_offload={cpu_offload}')
+        print(f'FSDP: Using mixed_precision={mixed_precision}')
+        print(f'FSDP: Using backward_prefetch={backward_prefetch}')
+        print(f'FSDP: Using min_params={min_params}')
+        print(f'FSDP: Using activation_checkpointing={activation_checkpointing}')
+        print(f'FSDP: Using activation_cpu_offload={activation_cpu_offload}')
 
     # Rebuild optimizer now that parameters are sharded
     if optimizers:
