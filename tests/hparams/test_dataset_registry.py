@@ -11,7 +11,8 @@ from composer.datasets.dataset_hparams_registry import (ADE20kDatasetHparams, Br
                                                         ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams,
                                                         StreamingADE20kHparams, StreamingC4Hparams,
                                                         StreamingCIFAR10Hparams, StreamingCOCOHparams,
-                                                        StreamingImageNet1kHparams, dataset_registry)
+                                                        StreamingEnWikiHparams, StreamingImageNet1kHparams,
+                                                        dataset_registry)
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 
 # for testing, we provide values for required hparams fields
@@ -76,6 +77,8 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
         ),
     StreamingC4Hparams:
         lambda: StreamingC4Hparams(split='val'),
+    StreamingEnWikiHparams:
+        lambda: StreamingEnWikiHparams(split='val'),
 }
 
 
