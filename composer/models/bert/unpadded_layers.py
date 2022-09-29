@@ -8,8 +8,10 @@ import torch.nn as nn
 from einops import rearrange, repeat
 from flash_attn.bert_padding import pad_input, unpad_input
 from flash_attn.flash_attn_interface import flash_attn_unpadded_qkvpacked_func
+from performance.ops.fused_dense import FusedDenseResidual  # FusedDenseTD
+from performance.ops.fused_dense import fused_dense_function_td
 from transformers.models.bert.modeling_bert import (BertAttention, BertEmbeddings, BertIntermediate, BertOutput,
-                                                    BertPreTrainedModel, BertSelfOutput)
+                                                    BertPredictionHeadTransform, BertPreTrainedModel, BertSelfOutput)
 
 
 class IndexFirstAxis(torch.autograd.Function):
@@ -50,10 +52,10 @@ class BertFlashSelfAttention(nn.Module):
         self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
         self.p_dropout = config.attention_probs_dropout_prob
-        # TODO: Consider adding back in fuse_bias
-        self.fuse_bias = False # getattr(config, 'fused_bias_mha', False)
-        
-        linear_cls = nn.Linear  # if not self.fuse_bias else FusedDenseResidual
+
+        self.fuse_bias = getattr(config, 'fused_bias_mha', False)
+
+        linear_cls = nn.Linear if not self.fuse_bias else FusedDenseResidual
         self.Wqkv = linear_cls(self.all_head_size, 3 * config.hidden_size)
 
     def forward(self, hidden_states, cu_seqlens, max_seqlen_in_batch):
@@ -83,6 +85,8 @@ class BertFlashAttention(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.self = BertFlashSelfAttention(config)
+        # TODO: Use custom BertSelfOutput instead of HuggingFace version
+        # to use FusedDenseTD
         self.output = BertSelfOutput(config)
 
     def forward(self, input_tensor, cu_seqlens, max_s, subset_idx=None):
@@ -286,3 +290,24 @@ class BertModel(BertPreTrainedModel):
         if not output_all_encoded_layers:
             encoder_outputs = sequence_output
         return encoder_outputs, pooled_output
+
+
+class BertLMPredictionHead(nn.Module):
+
+    def __init__(self, config, bert_model_embedding_weights):
+        super().__init__()
+        self.fused_fc = getattr(config, 'fused_bias_fc_loss_head', False)
+        self.transform = BertPredictionHeadTransform(config)
+        # The output weights are the same as the input embeddings, but there is
+        # an output-only bias for each token.
+        self.decoder = nn.Linear(bert_model_embedding_weights.size(1), bert_model_embedding_weights.size(0), bias=False)
+        self.bias = nn.Parameter(torch.zeros(bert_model_embedding_weights.size(0)))
+        self.decoder.weight = bert_model_embedding_weights
+
+    def forward(self, hidden_states):
+        hidden_states = self.transform(hidden_states)
+        if not self.fused_fc:
+            hidden_states = self.decoder(hidden_states) + self.bias
+        else:
+            hidden_states = fused_dense_function_td(hidden_states, self.decoder.weight, self.bias)
+        return hidden_states
