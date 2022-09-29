@@ -99,4 +99,5 @@ class CometMLLogger(LoggerDestination):
             self.experiment.log_parameters(hyperparameters)
 
     def post_close(self):
-        self.experiment.end()
+        if self._enabled:
+            self.experiment.end()
