@@ -375,11 +375,10 @@ class ObjectStoreLogger(LoggerDestination):
                             break
                     else:
                         # If any worker died, then it's impossible to recover since the file was already popped off of the queue,
-                        # so break.Some files may not be uploaded.
+                        # so break. Some files may not be uploaded.
                         break
 
-            # Yield the lock, so it can be acquired by `self.log_file_artifact`
-            time.sleep(0.2)
+            time.sleep(0.2)  # Yield lock for `self.log_file_artifact`
 
     def get_file_artifact(
         self,
@@ -393,6 +392,33 @@ class ObjectStoreLogger(LoggerDestination):
                  object_store=self.object_store,
                  overwrite=overwrite,
                  progress_bar=progress_bar)
+
+    def fit_end(self, state: State, logger: Logger):
+        self.wait_for_workers()
+
+    def eval_end(self, state: State, logger: Logger):
+        self.wait_for_workers()
+
+    def predict_end(self, state: State, logger: Logger):
+        self.wait_for_workers()
+
+    def wait_for_workers(self):
+        """Wait for all tasks to be completed.
+
+        This is called after fit/eval/predict. If we don't wait, then a worker might not schedule
+        an upload before the interpreter is shutdown and garbage collection begins. While
+        post_close logic ensures existing uploads are completed, trying to schedule new uploads
+        during this time will error.
+        """
+        # Verify enqueue thread has processed all tasks
+        while True:
+            with self._object_lock:
+                if len(self._logged_objects) == 0:
+                    break
+            time.sleep(0.2)  # Yield lock for enqueue thread
+        # Verify all tasks have been completed
+        while not self._file_upload_queue.empty():
+            time.sleep(0.2)
 
     def post_close(self):
         # Shutdown logic:

@@ -220,3 +220,12 @@
    :badge:`CV,badge-primary` :badge:`NLP,badge-success`
    ++++++++++++++
    Computes running average of model weights.
+
+   ---
+   .. link-button:: weight_standardization.html
+      :text: Weight Standardization
+      :classes: card-title
+
+   :badge:`CV,badge-primary`
+   ++++++++++++++
+   Makes convolution weights always have zero mean and unit variance.

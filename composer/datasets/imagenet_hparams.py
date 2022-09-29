@@ -8,25 +8,19 @@ Dataset <http://image-net.org/>`_ for more details.
 """
 
 import os
-import textwrap
-from dataclasses import dataclass
-from typing import List, Optional
+from dataclasses import asdict, dataclass
+from typing import Optional
 
-import numpy as np
-import torch
-import torch.utils.data
 import yahp as hp
 from torchvision import transforms
-from torchvision.datasets import ImageFolder
 
 from composer.core import DataSpec
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
-from composer.datasets.ffcv_utils import ffcv_monkey_patches, write_ffcv_dataset
-from composer.datasets.imagenet import StreamingImageNet1k
-from composer.datasets.synthetic import SyntheticBatchPairDataset
+from composer.datasets.imagenet import (StreamingImageNet1k, build_ffcv_imagenet_dataloader, build_imagenet_dataloader,
+                                        build_synthetic_imagenet_dataloader, write_ffcv_imagenet)
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.datasets.utils import NormalizationFn, pil_image_collate
-from composer.utils import dist, warn_streaming_dataset_deprecation
+from composer.utils import warn_streaming_dataset_deprecation
 from composer.utils.import_helpers import MissingConditionalImportError
 
 # ImageNet normalization values from torchvision: https://pytorch.org/vision/stable/models.html
@@ -69,142 +63,58 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
 
         if self.use_synthetic:
-            total_dataset_size = 1_281_167 if self.is_train else 50_000
-            dataset = SyntheticBatchPairDataset(
-                total_dataset_size=total_dataset_size,
-                data_shape=[3, self.crop_size, self.crop_size],
-                num_classes=1000,
-                num_unique_samples_to_create=self.synthetic_num_unique_samples,
-                device=self.synthetic_device,
-                memory_format=self.synthetic_memory_format,
-            )
-            collate_fn = None
-            device_transform_fn = None
-        elif self.use_ffcv:
-            try:
-                import ffcv
-                from ffcv.fields.decoders import CenterCropRGBImageDecoder, IntDecoder, RandomResizedCropRGBImageDecoder
-                from ffcv.pipeline.operation import Operation
-            except ImportError:
-                raise ImportError(
-                    textwrap.dedent("""\
-                    Composer was installed without ffcv support.
-                    To use ffcv with Composer, please install ffcv in your environment."""))
-
-            if self.is_train:
-                split = 'train'
-            else:
-                split = 'val'
-            dataset_filepath = os.path.join(self.ffcv_dir, self.ffcv_dest)
-            # always create if ffcv_write_dataset is true
-            if self.ffcv_write_dataset:
-                if dist.get_local_rank() == 0:
-                    if self.datadir is None:
-                        raise ValueError(
-                            'datadir is required if use_synthetic is False and ffcv_write_dataset is True.')
-                    ds = ImageFolder(os.path.join(self.datadir, split))
-                    write_ffcv_dataset(dataset=ds,
-                                       write_path=dataset_filepath,
-                                       max_resolution=500,
-                                       num_workers=dataloader_hparams.num_workers,
-                                       compress_probability=0.50,
-                                       jpeg_quality=90)
-                # Wait for the local rank 0 to be done creating the dataset in ffcv format.
-                dist.barrier()
-
-            this_device = torch.device(f'cuda:{dist.get_local_rank()}')
-            label_pipeline: List[Operation] = [
-                IntDecoder(),
-                ffcv.transforms.ToTensor(),
-                ffcv.transforms.Squeeze(),
-                ffcv.transforms.ToDevice(this_device, non_blocking=True)
-            ]
-            image_pipeline: List[Operation] = []
-            if self.is_train:
-                image_pipeline.extend([
-                    RandomResizedCropRGBImageDecoder((self.crop_size, self.crop_size)),
-                    ffcv.transforms.RandomHorizontalFlip()
-                ])
-                dtype = np.float16
-            else:
-                ratio = self.crop_size / self.resize_size if self.resize_size > 0 else 1.0
-                image_pipeline.extend([CenterCropRGBImageDecoder((self.crop_size, self.crop_size), ratio=ratio)])
-                dtype = np.float32
-            # Common transforms for train and test
-            if self.ffcv_cpu_only:
-                image_pipeline.extend([
-                    ffcv.transforms.NormalizeImage(np.array(IMAGENET_CHANNEL_MEAN), np.array(IMAGENET_CHANNEL_STD),
-                                                   dtype),
-                    ffcv.transforms.ToTensor(),
-                    ffcv.transforms.ToTorchImage(),
-                ])
-            else:
-                image_pipeline.extend([
-                    ffcv.transforms.ToTensor(),
-                    ffcv.transforms.ToDevice(this_device, non_blocking=True),
-                    ffcv.transforms.ToTorchImage(),
-                    ffcv.transforms.NormalizeImage(np.array(IMAGENET_CHANNEL_MEAN), np.array(IMAGENET_CHANNEL_STD),
-                                                   dtype),
-                ])
-
-            is_distributed = dist.get_world_size() > 1
-
-            ffcv_monkey_patches()
-            ordering = ffcv.loader.OrderOption.RANDOM if self.is_train else ffcv.loader.OrderOption.SEQUENTIAL
-
-            return ffcv.Loader(
-                dataset_filepath,
+            return build_synthetic_imagenet_dataloader(
                 batch_size=batch_size,
-                num_workers=dataloader_hparams.num_workers,
-                order=ordering,
-                distributed=is_distributed,
-                pipelines={
-                    'image': image_pipeline,
-                    'label': label_pipeline
-                },
-                batches_ahead=dataloader_hparams.prefetch_factor,
+                num_unique_samples=self.synthetic_num_unique_samples,
+                memory_format=self.synthetic_memory_format,
+                device=self.synthetic_device,
+                is_train=self.is_train,
+                crop_size=self.crop_size,
                 drop_last=self.drop_last,
+                shuffle=self.shuffle,
+                **asdict(dataloader_hparams),
+            )
+        elif self.use_ffcv:
+
+            ffcv_dir = os.path.join(self.ffcv_dir, self.ffcv_dest)
+
+            if self.ffcv_write_dataset:
+                if self.datadir is None:
+                    raise ValueError('datadir must be provided when writing FFCV dataset.')
+
+                write_ffcv_imagenet(
+                    datadir=self.datadir,
+                    savedir=ffcv_dir,
+                    split='train' if self.is_train else 'val',
+                    num_workers=dataloader_hparams.num_workers,
+                )
+
+            return build_ffcv_imagenet_dataloader(
+                datadir=ffcv_dir,
+                batch_size=batch_size,
+                is_train=self.is_train,
+                resize_size=self.resize_size,
+                crop_size=self.crop_size,
+                cpu_only=self.ffcv_cpu_only,
+                drop_last=self.drop_last,
+                prefetch_factor=dataloader_hparams.prefetch_factor,
+                num_workers=dataloader_hparams.num_workers,
             )
 
         else:
-
-            if self.is_train:
-                # include fixed-size resize before RandomResizedCrop in training only
-                # if requested (by specifying a size > 0)
-                train_transforms: List[torch.nn.Module] = []
-                if self.resize_size > 0:
-                    train_transforms.append(transforms.Resize(self.resize_size))
-                # always include RandomResizedCrop and RandomHorizontalFlip
-                train_transforms += [
-                    transforms.RandomResizedCrop(self.crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
-                    transforms.RandomHorizontalFlip()
-                ]
-                transformation = transforms.Compose(train_transforms)
-                split = 'train'
-            else:
-                val_transforms: List[torch.nn.Module] = []
-                if self.resize_size > 0:
-                    val_transforms.append(transforms.Resize(self.resize_size))
-                val_transforms.append(transforms.CenterCrop(self.crop_size))
-                transformation = transforms.Compose(val_transforms)
-                split = 'val'
-
-            device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
-            collate_fn = pil_image_collate
-
             if self.datadir is None:
                 raise ValueError('datadir must be specified if self.synthetic is False')
-            dataset = ImageFolder(os.path.join(self.datadir, split), transformation)
-        sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
-        return DataSpec(dataloader=dataloader_hparams.initialize_object(
-            dataset=dataset,
-            batch_size=batch_size,
-            sampler=sampler,
-            drop_last=self.drop_last,
-            collate_fn=collate_fn,
-        ),
-                        device_transforms=device_transform_fn)
+            return build_imagenet_dataloader(
+                datadir=self.datadir,
+                batch_size=batch_size,
+                is_train=self.is_train,
+                resize_size=self.resize_size,
+                crop_size=self.crop_size,
+                drop_last=self.drop_last,
+                shuffle=self.shuffle,
+                **asdict(dataloader_hparams),
+            )
 
 
 @dataclass
