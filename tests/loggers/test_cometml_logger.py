@@ -148,7 +148,6 @@ def test_comet_ml_log_metrics_and_hyperparameters(monkeypatch, tmp_path):
     jd = JSONDecoder()
     metric_msgs = []
     param_msgs = []
-    log_other_ws_msgs = []
     with open(comet_logs_path) as f:
         for line in f.readlines():
             comet_msg = jd.decode(line)
@@ -158,8 +157,6 @@ def test_comet_ml_log_metrics_and_hyperparameters(monkeypatch, tmp_path):
             if comet_msg['type'] == 'parameter_msg' and (
                     comet_msg['payload']['param']['paramName'].startswith('my_cool')):
                 param_msgs.append(comet_msg['payload']['param'])
-            if comet_msg['type'] == 'ws_msg' and 'log_other' in comet_msg['payload']:
-                log_other_ws_msgs.append(comet_msg['payload']['log_other'])
 
     # Assert dummy metrics input to log_metrics are the same as
     # those written to offline dump.
