@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import collections.abc
+import contextlib
 import logging
 import warnings
 from contextlib import contextmanager
@@ -36,7 +37,6 @@ if TYPE_CHECKING:
 __all__ = ['State']
 
 logger = logging.getLogger(__name__)
-
 
 
 @contextmanager
@@ -481,10 +481,8 @@ class State(Serializable):
             if attribute_name == 'model':
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                 # If it is DDP wrapped, do not save the `module.` prefix, as that is an implmentation detail
-                if self.fsdp_enabled:
-                    with get_fsdp_rank0_cpu_save_context(attribute_value):
-                        model_state = attribute_value.state_dict()
-                else:
+                with get_fsdp_rank0_cpu_save_context(
+                        attribute_value) if self.fsdp_enabled else contextlib.nullcontext():
                     model_state = attribute_value.state_dict()
 
                 if self.is_model_ddp:
@@ -494,15 +492,16 @@ class State(Serializable):
                 if self.fsdp_enabled:
                     serialized_value = {}
                     for obj in ensure_tuple(attribute_value):
-                        serialized_value[type(obj).__qualname__] = FSDP.full_optim_state_dict(model=self.model, optim=obj, rank0_only=True)
+                        serialized_value = {
+                            type(obj).__qualname__:
+                                FSDP.full_optim_state_dict(model=self.model, optim=obj, rank0_only=True)
+                        }
                 else:
                     serialized_value = {
                         type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)
                     }
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
-                serialized_value = {
-                    type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)
-                }
+                serialized_value = {type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)}
             else:
                 serialized_value = attribute_value
 
@@ -523,10 +522,7 @@ class State(Serializable):
             # with the `module.` prefix
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
 
-        if self.fsdp_enabled:
-            with get_fsdp_rank0_cpu_save_context(self.model):
-                missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
-        else:
+        with get_fsdp_rank0_cpu_save_context(self.model) if self.fsdp_enabled else contextlib.nullcontext():
             missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
         if len(missing_keys) > 0:
             logger.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
@@ -537,9 +533,8 @@ class State(Serializable):
         serialized_value = state_dict['optimizers']
         for target in ensure_tuple(self.optimizers):
             if type(target).__qualname__ not in serialized_value:
-                warnings.warn(
-                    f'{type(target).__qualname__} is not in the state_dict. Its state will not be restored.',
-                    category=UserWarning)
+                warnings.warn(f'{type(target).__qualname__} is not in the state_dict. Its state will not be restored.',
+                              category=UserWarning)
                 continue
             source = serialized_value[type(target).__qualname__]
             if self.fsdp_enabled:
@@ -597,8 +592,6 @@ class State(Serializable):
             self._verify_required_algorithms_enabled(state)
 
         for attribute_name, serialized_value in state.items():
-            state_field_value = getattr(self, attribute_name)
-
             if attribute_name not in self.serialized_attributes:
                 # It's possible some attributes we removed
                 continue
@@ -608,6 +601,7 @@ class State(Serializable):
             elif attribute_name == 'optimizers':
                 self.load_optim_state(state)
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
+                state_field_value = getattr(self, attribute_name)
                 for target in ensure_tuple(state_field_value):
                     if type(target).__qualname__ not in serialized_value:
                         warnings.warn(

@@ -181,7 +181,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
 
             # If `obj` contains meta tensors, try to use `obj.param_init_fn` to initialize them
             def _param_init_fn(module: torch.nn.Module) -> None:
-                module.to_empty(device=torch.cuda.current_device())
+                module.to_empty(device=f'cuda:{torch.cuda.current_device()}')
                 if hasattr(obj, 'param_init_fn') and isinstance(obj.param_init_fn, Callable):
                     module.apply(obj.param_init_fn)
                 elif hasattr(module, 'reset_parameters') and isinstance(module.reset_parameters, Callable):
