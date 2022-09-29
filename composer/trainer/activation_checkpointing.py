@@ -19,7 +19,8 @@ from torch.autograd.graph import save_on_cpu
 ######### torch.distributed.algorithms._checkpoint/checkpoint_wrapper ########
 ##############################################################################
 
-_CHECKPOINT_PREFIX = "_checkpoint_wrapped_module"
+_CHECKPOINT_PREFIX = '_checkpoint_wrapped_module'
+
 
 class CheckpointImpl(Enum):
     REENTRANT = auto()
@@ -32,6 +33,7 @@ class CheckpointWrapper(torch.nn.Module):
     module is not meant to be used directly, but instead it is to be used
     through the ``checkpoint_wrapper`` function.
     """
+
     def __init__(
         self,
         mod: torch.nn.Module,
@@ -52,9 +54,7 @@ class CheckpointWrapper(torch.nn.Module):
                 # use torch.utils.checkpoint
                 self.checkpoint_fn = partial(
                     checkpoint,
-                    use_reentrant=(
-                        self.checkpoint_impl == CheckpointImpl.REENTRANT
-                    ),
+                    use_reentrant=(self.checkpoint_impl == CheckpointImpl.REENTRANT),
                 )
             else:
                 self.checkpoint_fn = partial(
@@ -67,9 +67,7 @@ class CheckpointWrapper(torch.nn.Module):
         self._register_state_dict_hook(self._post_state_dict_hook)
         # load_state_dict pre-hook to allow loading back into
         # checkpoint-wrapped module.
-        self._register_load_state_dict_pre_hook(
-            self._pre_load_state_dict_hook, with_module=True
-        )
+        self._register_load_state_dict_pre_hook(self._pre_load_state_dict_hook, with_module=True)
 
     def __getattr__(self, name: str) -> Any:
         """Forward missing attributes to wrapped module."""
@@ -99,13 +97,9 @@ class CheckpointWrapper(torch.nn.Module):
                 # function, and runs that function.
                 def my_function(*inputs):
                     # unpack back into args and kwargs
-                    unpacked_args, unpacked_kwargs = _unpack_kwargs(
-                        inputs, kwarg_keys
-                    )
+                    unpacked_args, unpacked_kwargs = _unpack_kwargs(inputs, kwarg_keys)
                     # run original module
-                    return self._checkpoint_wrapped_module(
-                        *unpacked_args, **unpacked_kwargs
-                    )
+                    return self._checkpoint_wrapped_module(*unpacked_args, **unpacked_kwargs)
 
                 # Pass the function that only takes packed args into reentrant
                 # checkpoint API.
@@ -115,10 +109,7 @@ class CheckpointWrapper(torch.nn.Module):
                 )
             else:
                 return self.checkpoint_fn(  # type: ignore[misc]
-                    self._checkpoint_wrapped_module,
-                    *args,
-                    **kwargs
-                )
+                    self._checkpoint_wrapped_module, *args, **kwargs)
 
     def named_parameters(
         self,
@@ -130,7 +121,7 @@ class CheckpointWrapper(torch.nn.Module):
         remove all occurrences of _CHECKPOINT_PREFIX.
         """
         for param_name, param in super().named_parameters(*args, **kwargs):
-            yield param_name.replace(f"{_CHECKPOINT_PREFIX}.", ""), param
+            yield param_name.replace(f'{_CHECKPOINT_PREFIX}.', ''), param
 
     @staticmethod
     def _post_state_dict_hook(
@@ -147,7 +138,7 @@ class CheckpointWrapper(torch.nn.Module):
         checkpoint-wrapped modules as this class adds the prefix back before
         loading the state_dict.
         """
-        _replace_by_prefix(state_dict, f"{prefix}{_CHECKPOINT_PREFIX}.", prefix)
+        _replace_by_prefix(state_dict, f'{prefix}{_CHECKPOINT_PREFIX}.', prefix)
         return state_dict
 
     @staticmethod
@@ -163,7 +154,8 @@ class CheckpointWrapper(torch.nn.Module):
         prefix so that non-checkpointed modules can be loaded into
         checkpoint_wrapper modules properly.
         """
-        _replace_by_prefix(state_dict, prefix, prefix + f"{_CHECKPOINT_PREFIX}.")
+        _replace_by_prefix(state_dict, prefix, prefix + f'{_CHECKPOINT_PREFIX}.')
+
 
 def _wrap(module: nn.Module, wrapper_cls: Callable, **kwargs) -> nn.Module:
     assert wrapper_cls is not None
@@ -176,6 +168,7 @@ def _wrap(module: nn.Module, wrapper_cls: Callable, **kwargs) -> nn.Module:
         return wrapper_cls(module, **overrides)
 
     return wrapper_cls(module, **kwargs)
+
 
 def checkpoint_wrapper(
     module: torch.nn.Module,
@@ -223,14 +216,11 @@ def checkpoint_wrapper(
             Wrapped module
     """
 
-    return CheckpointWrapper(
-        module, checkpoint_impl, offload_to_cpu, checkpoint_fn, checkpoint_fn_args, checkpoint_fn_kwargs
-    )
+    return CheckpointWrapper(module, checkpoint_impl, offload_to_cpu, checkpoint_fn, checkpoint_fn_args,
+                             checkpoint_fn_kwargs)
 
 
-def apply_activation_checkpointing_wrapper(
-    model, checkpoint_wrapper_fn=checkpoint_wrapper, check_fn=lambda _: True
-):
+def apply_activation_checkpointing_wrapper(model, checkpoint_wrapper_fn=checkpoint_wrapper, check_fn=lambda _: True):
     """
     Applies :func:`checkpoint_wrapper` to modules within `model` based on a user-defined
     configuration. For each module within `model`, the `check_fn` is used to decide
@@ -258,18 +248,18 @@ def apply_activation_checkpointing_wrapper(
             ``True`` or ``False`` depending on whether input layer should be wrapped.
     Returns: None (`model` is modified inplace)
     """
-    return _recursive_wrap(
-        module=model,
-        auto_wrap_policy=partial(lambda_auto_wrap_policy, lambda_fn=check_fn),
-        wrapper_cls=checkpoint_wrapper_fn,
-        ignored_modules=set(),
-        ignored_params=set(),
-        only_wrap_children=True
-    )
+    return _recursive_wrap(module=model,
+                           auto_wrap_policy=partial(lambda_auto_wrap_policy, lambda_fn=check_fn),
+                           wrapper_cls=checkpoint_wrapper_fn,
+                           ignored_modules=set(),
+                           ignored_params=set(),
+                           only_wrap_children=True)
+
 
 ##############################################################################
 ########################## torch.distributed.utils ###########################
 ##############################################################################
+
 
 def _pack_kwargs(*args: Any, **kwargs: Any) -> Tuple[Tuple[Any, ...], Tuple[str, ...]]:
     """
@@ -297,14 +287,16 @@ def _pack_kwargs(*args: Any, **kwargs: Any) -> Tuple[Tuple[Any, ...], Tuple[str,
 
     return tuple(flat_args), tuple(kwarg_keys)
 
+
 def _unpack_kwargs(flat_args: Tuple[Any, ...], kwarg_keys: Tuple[str, ...]) -> Tuple[Tuple[Any, ...], Dict[str, Any]]:
     """See _pack_kwargs."""
-    assert len(kwarg_keys) <= len(flat_args), f"too many keys {len(kwarg_keys)} vs. {len(flat_args)}"
+    assert len(kwarg_keys) <= len(flat_args), f'too many keys {len(kwarg_keys)} vs. {len(flat_args)}'
     if len(kwarg_keys) == 0:
         return flat_args, {}
-    args = flat_args[: -len(kwarg_keys)]
-    kwargs = {k: v for k, v in zip(kwarg_keys, flat_args[-len(kwarg_keys) :])}
+    args = flat_args[:-len(kwarg_keys)]
+    kwargs = {k: v for k, v in zip(kwarg_keys, flat_args[-len(kwarg_keys):])}
     return args, kwargs
+
 
 def _replace_by_prefix(
     state_dict: Dict[str, Any],
@@ -319,11 +311,11 @@ def _replace_by_prefix(
         assert state_dict == {"module.layer.xyz": torch.tensor(1)}
     """
     if old_prefix == new_prefix:
-        raise ValueError("old_prefix and new_prefix must be distinct")
+        raise ValueError('old_prefix and new_prefix must be distinct')
     for key in list(state_dict.keys()):
         if not key.startswith(old_prefix):
             continue
-        new_key = new_prefix + key[len(old_prefix) :]
+        new_key = new_prefix + key[len(old_prefix):]
         state_dict[new_key] = state_dict[key]
         del state_dict[key]
 
@@ -332,12 +324,8 @@ def _replace_by_prefix(
 ######################## torch.distributed.fsdp.wrap #########################
 ##############################################################################
 
-def lambda_auto_wrap_policy(
-    module: nn.Module,
-    recurse: bool,
-    unwrapped_params: int,
-    lambda_fn: Callable
-) -> bool:
+
+def lambda_auto_wrap_policy(module: nn.Module, recurse: bool, unwrapped_params: int, lambda_fn: Callable) -> bool:
     """
     A convenient auto wrap policy to wrap submodules based on an arbitrary user
     function. If `lambda_fn(submodule) == True``, the submodule will be wrapped as
@@ -365,15 +353,14 @@ def lambda_auto_wrap_policy(
         # if not recursing, decide whether we should wrap for the leaf node or reminder
         return lambda_fn(module)
 
-def _recursive_wrap(
-    module: nn.Module,
-    auto_wrap_policy: Callable,
-    wrapper_cls: Callable,
-    ignored_modules: Set[nn.Module],
-    ignored_params: Set[nn.Parameter],
-    only_wrap_children: bool = False,
-    **kwargs: Any
-) -> Tuple[nn.Module, int]:
+
+def _recursive_wrap(module: nn.Module,
+                    auto_wrap_policy: Callable,
+                    wrapper_cls: Callable,
+                    ignored_modules: Set[nn.Module],
+                    ignored_params: Set[nn.Parameter],
+                    only_wrap_children: bool = False,
+                    **kwargs: Any) -> Tuple[nn.Module, int]:
     """
     Automatically wrap child modules of *module* that meet the given
     criteria with :func:`auto_wrap`. Does not rely on _ConfigAutoWrap.
@@ -391,8 +378,8 @@ def _recursive_wrap(
         (nn.Module, int):
             Wrapped module and the number parameters wrapped recursively.
     """
-    assert auto_wrap_policy is not None, "Must specify auto_wrap_policy."
-    assert wrapper_cls is not None, "Must specify wrapper_cls"
+    assert auto_wrap_policy is not None, 'Must specify auto_wrap_policy.'
+    assert wrapper_cls is not None, 'Must specify wrapper_cls'
     # Make sure no child is already wrapped.
     for _, child in module.named_modules():
         if child in ignored_modules:
@@ -404,9 +391,7 @@ def _recursive_wrap(
             pass
 
     # We count all params, assuming none of them are already wrapped.
-    num_params = sum(
-        p.numel() for p in module.parameters() if p not in ignored_params
-    )
+    num_params = sum(p.numel() for p in module.parameters() if p not in ignored_params)
 
     assert auto_wrap_policy is not None
     if auto_wrap_policy(module=module, recurse=True, unwrapped_params=num_params):
@@ -429,9 +414,7 @@ def _recursive_wrap(
         # decide if we need to wrap the current module,
         # since the left over parameters exceed the number of params to wrap
         remainder = num_params - total_wrapped_params
-        if not only_wrap_children and auto_wrap_policy(
-            module=module, recurse=False, unwrapped_params=remainder
-        ):
+        if not only_wrap_children and auto_wrap_policy(module=module, recurse=False, unwrapped_params=remainder):
             # Leaf node or final wrapping of the remainder both happen here.
             return _wrap(module, wrapper_cls, **kwargs), num_params
         else:
@@ -442,6 +425,7 @@ def _recursive_wrap(
 ##############################################################################
 ########################### torch.utils.checkpoint ###########################
 ##############################################################################
+
 
 def detach_variable(inputs: Tuple[Any, ...]) -> Tuple[torch.Tensor, ...]:
     if isinstance(inputs, tuple):
@@ -456,13 +440,12 @@ def detach_variable(inputs: Tuple[Any, ...]) -> Tuple[torch.Tensor, ...]:
             out.append(x)
         return tuple(out)
     else:
-        raise RuntimeError(
-            "Only tuple of tensors is supported. Got Unsupported input type: ", type(inputs).__name__)
+        raise RuntimeError('Only tuple of tensors is supported. Got Unsupported input type: ', type(inputs).__name__)
 
 
 def check_backward_validity(inputs: Iterable[Any]) -> None:
     if not any(inp.requires_grad for inp in inputs if isinstance(inp, torch.Tensor)):
-        warnings.warn("None of the inputs have requires_grad=True. Gradients will be None")
+        warnings.warn('None of the inputs have requires_grad=True. Gradients will be None')
 
 
 # We can't know if the run_fn will internally move some args to different devices,
@@ -475,8 +458,7 @@ def check_backward_validity(inputs: Iterable[Any]) -> None:
 def get_device_states(*args) -> Tuple[List[int], List[torch.Tensor]]:
     # This will not error out if "arg" is a CPU tensor or a non-tensor type because
     # the conditionals short-circuit.
-    fwd_gpu_devices = list(set(arg.get_device() for arg in args
-                               if isinstance(arg, torch.Tensor) and arg.is_cuda))
+    fwd_gpu_devices = list(set(arg.get_device() for arg in args if isinstance(arg, torch.Tensor) and arg.is_cuda))
 
     fwd_gpu_states = []
     for device in fwd_gpu_devices:
@@ -491,16 +473,22 @@ def set_device_states(devices, states) -> None:
         with torch.cuda.device(device):
             torch.cuda.set_rng_state(state)
 
-def _get_autocast_kwargs():
-    gpu_autocast_kwargs = {"enabled": torch.is_autocast_enabled(),
-                           "dtype": torch.get_autocast_gpu_dtype(),
-                           "cache_enabled": torch.is_autocast_cache_enabled()}
 
-    cpu_autocast_kwargs = {"enabled": torch.is_autocast_cpu_enabled(),
-                           "dtype": torch.get_autocast_cpu_dtype(),
-                           "cache_enabled": torch.is_autocast_cache_enabled()}
+def _get_autocast_kwargs():
+    gpu_autocast_kwargs = {
+        'enabled': torch.is_autocast_enabled(),
+        'dtype': torch.get_autocast_gpu_dtype(),
+        'cache_enabled': torch.is_autocast_cache_enabled()
+    }
+
+    cpu_autocast_kwargs = {
+        'enabled': torch.is_autocast_cpu_enabled(),
+        'dtype': torch.get_autocast_cpu_dtype(),
+        'cache_enabled': torch.is_autocast_cache_enabled()
+    }
 
     return gpu_autocast_kwargs, cpu_autocast_kwargs
+
 
 class CheckpointFunction(torch.autograd.Function):
 
@@ -544,10 +532,9 @@ class CheckpointFunction(torch.autograd.Function):
     @staticmethod
     def backward(ctx, *args):
         if not torch.autograd._is_checkpoint_valid():
-            raise RuntimeError(
-                "Checkpointing is not compatible with .grad() or when an `inputs` parameter"
-                " is passed to .backward(). Please use .backward() and do not pass its `inputs`"
-                " argument.")
+            raise RuntimeError('Checkpointing is not compatible with .grad() or when an `inputs` parameter'
+                               ' is passed to .backward(). Please use .backward() and do not pass its `inputs`'
+                               ' argument.')
         # Copy the list to avoid modifying original list.
         inputs = list(ctx.inputs)
         tensor_indices = ctx.tensor_indices
@@ -585,12 +572,10 @@ class CheckpointFunction(torch.autograd.Function):
                 outputs_with_grad.append(outputs[i])
                 args_with_grad.append(args[i])
         if len(outputs_with_grad) == 0:
-            raise RuntimeError(
-                "none of output has requires_grad=True,"
-                " this checkpoint() is not necessary")
+            raise RuntimeError('none of output has requires_grad=True,'
+                               ' this checkpoint() is not necessary')
         torch.autograd.backward(outputs_with_grad, args_with_grad)
-        grads = tuple(inp.grad if isinstance(inp, torch.Tensor) else None
-                      for inp in detached_inputs)
+        grads = tuple(inp.grad if isinstance(inp, torch.Tensor) else None for inp in detached_inputs)
 
         return (None, None) + grads
 
@@ -667,7 +652,7 @@ def checkpoint(function, *args, use_reentrant: bool = True, **kwargs):
     # Hack to mix *args with **kwargs in a python 2.7-compliant way
     preserve = kwargs.pop('preserve_rng_state', True)
     if kwargs and use_reentrant:
-        raise ValueError("Unexpected keyword arguments: " + ",".join(arg for arg in kwargs))
+        raise ValueError('Unexpected keyword arguments: ' + ','.join(arg for arg in kwargs))
 
     if use_reentrant:
         return CheckpointFunction.apply(function, preserve, *args)
@@ -678,6 +663,7 @@ def checkpoint(function, *args, use_reentrant: bool = True, **kwargs):
             *args,
             **kwargs,
         )
+
 
 def _checkpoint_without_reentrant(function, preserve_rng_state=True, *args, **kwargs):
     """Checkpointining without re-entrant autograd
@@ -711,6 +697,7 @@ def _checkpoint_without_reentrant(function, preserve_rng_state=True, *args, **kw
     # Custom class to be able to take weak references
     class Holder():
         pass
+
     # The Holder object for each of the saved object is saved directly on the
     # SavedVariable and is cleared when reset_data() is called on it. We MUST make
     # sure that this is the only object having an owning reference to ensure that
@@ -726,10 +713,10 @@ def _checkpoint_without_reentrant(function, preserve_rng_state=True, *args, **kw
         weak_holder_list.append(weakref.ref(res))
         return res
 
-
     def unpack(x):
         unpack_counter = 0
         if len(storage) == 0:
+
             def inner_pack(inner):
                 nonlocal unpack_counter
                 unpack_counter += 1
@@ -743,7 +730,7 @@ def _checkpoint_without_reentrant(function, preserve_rng_state=True, *args, **kw
                 return
 
             def inner_unpack(packed):
-                raise RuntimeError("You are calling backwards on a tensor that is never exposed. Please open an issue.")
+                raise RuntimeError('You are calling backwards on a tensor that is never exposed. Please open an issue.')
 
             # Stash the surrounding rng state, and mimic the state that was
             # present at this time during forward.  Restore the surrounding state
@@ -764,22 +751,19 @@ def _checkpoint_without_reentrant(function, preserve_rng_state=True, *args, **kw
                     _unused = function(*args, **kwargs)
 
         if x not in storage:
-            raise RuntimeError(
-                "Attempt to retrieve a tensor saved by autograd multiple times without checkpoint"
-                " recomputation being triggered in between, this is not currently supported. Please"
-                " open an issue with details on your use case so that we can prioritize adding this."
-            )
+            raise RuntimeError('Attempt to retrieve a tensor saved by autograd multiple times without checkpoint'
+                               ' recomputation being triggered in between, this is not currently supported. Please'
+                               ' open an issue with details on your use case so that we can prioritize adding this.')
 
         return storage[x]
 
     with torch.autograd.graph.saved_tensors_hooks(pack, unpack):
         output = function(*args, **kwargs)
-        if torch.cuda._initialized and preserve_rng_state and not had_cuda_in_fwd: # type: ignore
+        if torch.cuda._initialized and preserve_rng_state and not had_cuda_in_fwd:  # type: ignore
             # Cuda was not initialized before running the forward, so we didn't
             # stash the CUDA state.
-            raise RuntimeError(
-                "PyTorch's CUDA state was initialized in the forward pass "
-                "of a Checkpoint, which is not allowed. Please open an issue "
-                "if you need this feature.")
+            raise RuntimeError("PyTorch's CUDA state was initialized in the forward pass "
+                               'of a Checkpoint, which is not allowed. Please open an issue '
+                               'if you need this feature.')
 
     return output
