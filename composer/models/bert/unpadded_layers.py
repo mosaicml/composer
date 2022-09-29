@@ -2,20 +2,22 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
+import warnings
+from typing import Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
 from einops import rearrange, repeat
 from flash_attn.bert_padding import pad_input, unpad_input
 from flash_attn.flash_attn_interface import flash_attn_unpadded_qkvpacked_func
+from transformers.modeling_outputs import MaskedLMOutput
+from transformers.models.bert.modeling_bert import (BertAttention, BertEmbeddings, BertIntermediate,
+                                                    BertOutput, BertPredictionHeadTransform, BertPreTrainedModel,
+                                                    BertSelfOutput)
+
 from composer.models.bert.ops.fused_dense import FusedDenseResidual  # FusedDenseTD
 from composer.models.bert.ops.fused_dense import fused_dense_function_td
-from transformers.models.bert.modeling_bert import (BertAttention, BertEmbeddings, BertIntermediate, BertOutput,
-                                                    BertOnlyMLMHead, BertPredictionHeadTransform, 
-                                                    BertPreTrainedModel, BertSelfOutput)
-from transformers.modeling_outputs import MaskedLMOutput
-from typing import Optional, Tuple, Union
-from torch.nn import CrossEntropyLoss
+
 
 class IndexFirstAxis(torch.autograd.Function):
 
@@ -238,15 +240,6 @@ class BertModel(BertPreTrainedModel):
     def set_input_embeddings(self, value):
         self.embeddings.word_embeddings = value
 
-    def _prune_heads(self, heads_to_prune):
-        """
-        Prunes heads of the model. heads_to_prune: dict of {layer_num: list of heads to prune in this layer} See base
-        class PreTrainedModel
-        """
-        for layer, heads in heads_to_prune.items():
-            self.encoder.layer[layer].attention.prune_heads(heads)
-
-
     def forward(self,
                 input_ids,
                 token_type_ids=None,
@@ -331,19 +324,35 @@ class BertLMPredictionHead(nn.Module):
         return hidden_states
 
 
+class BertOnlyMLMHead(nn.Module):
+
+    def __init__(self, config, bert_model_embedding_weights):
+        super().__init__()
+        self.predictions = BertLMPredictionHead(config, bert_model_embedding_weights)
+
+    def forward(self, sequence_output: torch.Tensor) -> torch.Tensor:
+        prediction_scores = self.predictions(sequence_output)
+        return prediction_scores
+
+
+#####################
+# Model class
+#####################
 class BertForMaskedLM(BertPreTrainedModel):
 
     def __init__(self, config):
         super().__init__(config)
 
         if config.is_decoder:
-            logger.warning(
-                "If you want to use `BertForMaskedLM` make sure `config.is_decoder=False` for "
-                "bi-directional self-attention."
-            )
+            warnings.warn('If you want to use `BertForMaskedLM` make sure `config.is_decoder=False` for '
+                          'bi-directional self-attention.')
 
-        self.bert = BertModel(config) 
-        self.cls = BertOnlyMLMHead(config)
+        self.bert = BertModel(config)
+        self.cls = BertOnlyMLMHead(config, self.bert.embeddings.word_embeddings.weight)
+
+        # if dense_seq_output, prediction scores are only computed for masked tokens,
+        # and the (bs, seqlen) dimensions are flattened
+        self.dense_seq_output = getattr(config, 'dense_seq_output', False)
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -397,7 +406,7 @@ class BertForMaskedLM(BertPreTrainedModel):
 
         masked_lm_loss = None
         if labels is not None:
-            loss_fct = CrossEntropyLoss()  # -100 index = padding token
+            loss_fct = nn.CrossEntropyLoss()  # -100 index = padding token
             masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), labels.view(-1))
 
         if not return_dict:
@@ -411,20 +420,19 @@ class BertForMaskedLM(BertPreTrainedModel):
             attentions=outputs.attentions,
         )
 
-    def prepare_inputs_for_generation(self, input_ids, attention_mask=None, **model_kwargs):
+    def prepare_inputs_for_generation(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, **model_kwargs):
         input_shape = input_ids.shape
         effective_batch_size = input_shape[0]
 
         #  add a dummy token
         if self.config.pad_token_id is None:
-            raise ValueError("The PAD token should be defined for generation")
+            raise ValueError('The PAD token should be defined for generation')
 
         attention_mask = torch.cat([attention_mask, attention_mask.new_zeros((attention_mask.shape[0], 1))], dim=-1)
-        dummy_token = torch.full(
-            (effective_batch_size, 1), self.config.pad_token_id, dtype=torch.long, device=input_ids.device
-        )
+        dummy_token = torch.full((effective_batch_size, 1),
+                                 self.config.pad_token_id,
+                                 dtype=torch.long,
+                                 device=input_ids.device)
         input_ids = torch.cat([input_ids, dummy_token], dim=1)
 
-        return {"input_ids": input_ids, "attention_mask": attention_mask}
-
-
+        return {'input_ids': input_ids, 'attention_mask': attention_mask}
