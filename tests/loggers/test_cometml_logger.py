@@ -35,9 +35,12 @@ def test_comet_ml_logging_train_loop(monkeypatch, tmp_path):
     )
     trainer.fit()
 
+    run_name = trainer.state.run_name
+
     del trainer
 
     assert comet_logger.experiment is not None
+    assert comet_logger.experiment.ended
 
     # Open, decompress, decode, and extract offline dump of metrics.
     comet_exp_dump_filepath = str(Path(offline_directory) / Path(comet_logger.experiment.id).with_suffix('.zip'))
@@ -52,8 +55,8 @@ def test_comet_ml_logging_train_loop(monkeypatch, tmp_path):
             msg_type_to_msgs[parsed_line['type']].append(parsed_line['payload'])
 
     # Check that init set the run name
-    assert comet_logger.name is not None
-    assert comet_logger.experiment.name is not None
+    assert comet_logger.name == run_name
+    assert comet_logger.experiment.name == run_name
 
     # Check that basic metrics appear in the comet logs
     assert len([
@@ -62,7 +65,8 @@ def test_comet_ml_logging_train_loop(monkeypatch, tmp_path):
 
     # Check that basic params appear in the comet logs
     assert len([
-        metric_msg for metric_msg in msg_type_to_msgs['metric_msg'] if metric_msg['metric']['metricName'] == 'epoch'
+        param_msg for param_msg in msg_type_to_msgs['parameter_msg']
+        if param_msg['param']['paramName'] == 'rank_zero_seed'
     ]) > 0
 
 
