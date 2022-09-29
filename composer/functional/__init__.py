@@ -37,6 +37,7 @@ from composer.algorithms.selective_backprop import select_using_loss, should_sel
 from composer.algorithms.seq_length_warmup import set_batch_sequence_length
 from composer.algorithms.squeeze_excite import apply_squeeze_excite
 from composer.algorithms.stochastic_depth import apply_stochastic_depth
+from composer.algorithms.weight_standardization import apply_weight_standardization
 
 # All must be manually defined so sphinx automodule will work properly
 __all__ = [
@@ -63,4 +64,5 @@ __all__ = [
     'set_batch_sequence_length',
     'apply_squeeze_excite',
     'apply_stochastic_depth',
+    'apply_weight_standardization',
 ]

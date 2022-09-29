@@ -3,23 +3,13 @@
 
 """BraTS (Brain Tumor Segmentation) dataset hyperparameters."""
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Optional
 
-import torch
 import yahp as hp
 
-from composer.datasets.brats import PytTrain, PytVal, get_data_split
+from composer.datasets.brats import build_brats_dataloader
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
-from composer.utils import dist
-
-
-def _my_collate(batch):
-    """Custom collate function to handle images with different depths."""
-    data = [item[0] for item in batch]
-    target = [item[1] for item in batch]
-
-    return [torch.Tensor(data), torch.Tensor(target)]
 
 
 @dataclass
@@ -35,20 +25,13 @@ class BratsDatasetHparams(DatasetHparams):
     datadir: Optional[str] = hp.optional('The path to the data directory', default=None)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
-
-        oversampling = self.oversampling
-
         if self.datadir is None:
             raise ValueError('datadir must be specified.')
-        x_train, y_train, x_val, y_val = get_data_split(self.datadir)
-        dataset = PytTrain(x_train, y_train, oversampling) if self.is_train else PytVal(x_val, y_val)
-        collate_fn = None if self.is_train else _my_collate
-        sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
-        return dataloader_hparams.initialize_object(
-            dataset=dataset,
-            batch_size=batch_size,
-            sampler=sampler,
-            drop_last=self.drop_last,
-            collate_fn=collate_fn,
-        )
+        return build_brats_dataloader(datadir=self.datadir,
+                                      batch_size=batch_size,
+                                      oversampling=self.oversampling,
+                                      is_train=self.is_train,
+                                      drop_last=self.drop_last,
+                                      shuffle=self.shuffle,
+                                      **asdict(dataloader_hparams))

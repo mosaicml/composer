@@ -139,6 +139,7 @@ Weights & Biases Artifacts
     The :class:`~composer.loggers.wandb_logger.WandBLogger` API Reference.
 
 .. testcode::
+    :skipif: not _WANDB_INSTALLED
 
     from composer.loggers import WandBLogger
     from composer import Trainer
@@ -169,6 +170,7 @@ with the :class:`~composer.utils.object_store.s3_object_store.S3ObjectStore` bac
     :class:`~composer.utils.object_store.s3_object_store.S3ObjectStore` API Reference.
 
 .. testcode::
+    :skipif: not _LIBCLOUD_INSTALLED
 
     from composer.loggers import ObjectStoreLogger
     from composer.utils.object_store import S3ObjectStore
@@ -204,6 +206,7 @@ Similar to the S3 Example above, we can log artifacts to a remote SFTP filesyste
     :class:`~composer.utils.object_store.sftp_object_store.SFTPObjectStore` API Reference.
 
 .. testcode::
+    :skipif: not _LIBCLOUD_INSTALLED
 
     from composer.loggers import ObjectStoreLogger
     from composer.utils.object_store import SFTPObjectStore

@@ -30,6 +30,7 @@ from composer.algorithms.seq_length_warmup import SeqLengthWarmup
 from composer.algorithms.squeeze_excite import SqueezeExcite
 from composer.algorithms.stochastic_depth import StochasticDepth
 from composer.algorithms.swa import SWA
+from composer.algorithms.weight_standardization import WeightStandardization
 from composer.core.algorithm import Algorithm
 
 algorithm_registry: Dict[str, Union[Type[Algorithm], Type[hp.Hparams]]] = {
@@ -58,4 +59,5 @@ algorithm_registry: Dict[str, Union[Type[Algorithm], Type[hp.Hparams]]] = {
     'alibi': Alibi,
     'selective_backprop': SelectiveBackprop,
     'gradient_clipping': GradientClipping,
+    'weight_standardization': WeightStandardization,
 }
