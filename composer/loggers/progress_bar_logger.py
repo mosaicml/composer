@@ -7,12 +7,13 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import Any, Dict, List, Optional, TextIO, Union
+from typing import Any, Callable, Dict, List, Optional, TextIO, Union
 
 import tqdm.auto
 
+from composer.core import Event, State
 from composer.core.state import State
-from composer.core.time import Timestamp, TimeUnit
+from composer.core.time import Time, Timestamp, TimeUnit
 from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist, is_notebook
@@ -129,6 +130,9 @@ class ProgressBarLogger(LoggerDestination):
 
             The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is
             ``False``.
+        console_log_interval (int | str | Time): How frequently in batches to log metrics to console.
+            Will log metrics to console every ``console_log_interval`` batches.
+            If ``log_to_console`` is True, this argument is ignored (default: '100ba').
         stream (str | TextIO, optional): The console stream to use. If a string, it can either be ``'stdout'`` or
             ``'stderr'``. (default: :attr:`sys.stderr`)
     """
@@ -137,6 +141,7 @@ class ProgressBarLogger(LoggerDestination):
         self,
         progress_bar: bool = True,
         log_to_console: Optional[bool] = None,
+        console_log_interval: Union[int, str, Time] = '100ba',
         stream: Union[str, TextIO] = sys.stderr,
     ) -> None:
 
@@ -148,9 +153,20 @@ class ProgressBarLogger(LoggerDestination):
         self.train_pbar: Optional[_ProgressBar] = None
         self.eval_pbar: Optional[_ProgressBar] = None
 
-        self.should_log_to_console = log_to_console
-        if self.should_log_to_console is None:
-            self.should_log_to_console = not progress_bar
+        self.console_logging_enabled = log_to_console
+        if self.console_logging_enabled is None:
+            self.console_logging_enabled = not progress_bar
+
+        if isinstance(console_log_interval, str):
+            console_log_interval = Time.from_timestring(console_log_interval)
+        if isinstance(console_log_interval, int):
+            console_log_interval = Time(console_log_interval, TimeUnit.BATCH)
+
+        if console_log_interval.unit != TimeUnit.BATCH:
+            raise NotImplementedError(
+                f'Unknown log_to_console interval: {console_log_interval.unit}. Must be TimeUnit.BATCH.')
+
+        self.console_log_interval = console_log_interval
 
         # set the stream
         if isinstance(stream, str):
@@ -169,13 +185,15 @@ class ProgressBarLogger(LoggerDestination):
         return self._show_pbar and dist.get_local_rank() == 0
 
     def log_traces(self, traces: Dict[str, Any]):
-        if self.should_log_to_console:
+        if self.console_logging_enabled:
             for trace_name, trace in traces.items():
                 trace_str = format_log_data_value(trace)
-                self._log_to_console(f'[trace]: {trace_name}:' + trace_str + '\n')
+                if (self.console_logging_enabled and
+                        int(self.state.timestamp.batch) % int(self.console_log_interval) == 0):
+                    self._log_to_console(f'[trace]: {trace_name}:' + trace_str + '\n')
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
-        if self.should_log_to_console:
+        if self.console_logging_enabled:
             for hparam_name, hparam in hyperparameters.items():
                 hparam_str = format_log_data_value(hparam)
                 log_str = f'[hyperparameter]: {hparam_name}: {hparam_str}'
@@ -187,7 +205,7 @@ class ProgressBarLogger(LoggerDestination):
             if 'metric' in metric_name or 'loss' in metric_name:
                 if self._show_pbar:
                     self.log_to_pbar(data={metric_name: metric_value})
-            if self.should_log_to_console:
+            if (self.console_logging_enabled and int(self.state.timestamp.batch) % int(self.console_log_interval) == 0):
                 self.log_to_console(data={metric_name: metric_value})
 
     def log_to_pbar(self, data: Dict[str, Any]):
@@ -385,3 +403,34 @@ class ProgressBarLogger(LoggerDestination):
             state['unit'] = state['unit'].value.lower()
 
         return state
+
+
+def log_to_console_periodically(interval: Union[str, int, Time]) -> Callable[[State], bool]:
+    r"""Helper function to log_to_console interval according to a specified interval.
+
+    Args:
+        interval (Union[str, int, :class:`.Time`]): The interval describing how often
+            console logs should be saved. If an integer, it will be assumed to be in :attr:`.TimeUnit.EPOCH`\s.
+            Otherwise, the unit must be either :attr:`.TimeUnit.EPOCH` or :attr:`.TimeUnit.BATCH`.
+
+            Metrics will be logged every ``n`` batches or epochs (depending on the unit).
+
+    Returns:
+        Callable[[State, Event], bool]: A function that can be used to determine when to
+            log to console.
+    """
+    if isinstance(interval, str):
+        interval = Time.from_timestring(interval)
+    if isinstance(interval, int):
+        interval = Time(interval, TimeUnit.BATCH)
+
+    if interval.unit != TimeUnit.BATCH:
+        raise NotImplementedError(f'Unknown log_to_console interval: {interval.unit}. Must be TimeUnit.BATCH.')
+
+    def log_to_console_interval(state: State):
+        if int(state.timestamp.batch) % int(interval) == 0:
+            return True
+
+        return False
+
+    return log_to_console_interval

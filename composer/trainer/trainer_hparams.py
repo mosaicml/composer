@@ -224,6 +224,7 @@ class TrainerHparams(hp.Hparams):
         run_name (str, optional): See :class:`.Trainer`.
         progress_bar (bool, optional): See :class:`.Trainer`.
         log_to_console (bool, optional): See :class:`.Trainer`.
+        console_log_level (int | str | Time): How frequently in batches to log metrics to console.
         console_stream (bool, optional): See :class:`.Trainer`.
         python_log_level (str): The Python log level to use for log statements in the :mod:`composer`
             module. (default: ``INFO``)
@@ -331,6 +332,7 @@ class TrainerHparams(hp.Hparams):
     run_name: Optional[str] = hp.auto(Trainer, 'run_name')
     progress_bar: bool = hp.auto(Trainer, 'progress_bar')
     log_to_console: Optional[bool] = hp.auto(Trainer, 'log_to_console')
+    console_log_interval: Union[int, str, Time] = hp.auto(Trainer, 'console_log_interval')
     console_stream: str = hp.auto(Trainer, 'console_stream')
     python_log_level: str = hp.optional(doc='Python loglevel to use composer', default='INFO')
 
@@ -546,6 +548,7 @@ class TrainerHparams(hp.Hparams):
             run_name=self.run_name,
             progress_bar=self.progress_bar,
             log_to_console=self.log_to_console,
+            console_log_interval=self.console_log_interval,
             console_stream=self.console_stream,
 
             # Checkpoint Loading

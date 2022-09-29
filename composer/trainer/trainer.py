@@ -492,7 +492,9 @@ class Trainer:
         log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
 
             The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is ``False``.
-
+        console_log_interval (int | str | Time): How frequently in batches to log metrics to console.
+            Will log metrics to console every ``console_log_interval`` batches.
+            If ``log_to_console`` is True or ``progress_bar`` is False, this argument is ignored (default: '100ba').
         console_stream (TextIO | str, optional): The stream to write to. If a string, it can either be
             ``'stdout'`` or ``'stderr'``. (default: :attr:`sys.stderr`)
         load_path (str, optional):  The path format string to an existing checkpoint file.
@@ -769,6 +771,7 @@ class Trainer:
         run_name: Optional[str] = None,
         progress_bar: bool = True,
         log_to_console: Optional[bool] = None,
+        console_log_interval: Union[int, str, Time] = '100ba',
         console_stream: Union[str, TextIO] = 'stderr',
 
         # Load Checkpoint
@@ -943,6 +946,7 @@ class Trainer:
                 ProgressBarLogger(
                     progress_bar=progress_bar,
                     log_to_console=log_to_console,
+                    console_log_interval=console_log_interval,
                     stream=console_stream,
                 ))
 
