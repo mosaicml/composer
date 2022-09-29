@@ -8,8 +8,7 @@ from contextlib import contextmanager, nullcontext
 from typing import Any, Callable, ContextManager, Dict, Optional, Sequence, Union, cast
 
 import torch
-from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
-                                    ShardingStrategy)
+from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
 
@@ -134,6 +133,12 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         fsdp_config (Dict[str, Any]): todo
         precision: (Precision): todo
     """
+    if version.parse(torch.__version__) < version.parse('1.12.0'):
+        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.12.0.')
+    else:
+        from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
+                                            ShardingStrategy)
+
     sharding_map = {
         'NO_SHARD': ShardingStrategy.NO_SHARD,
         'SHARD_GRAD_OP': ShardingStrategy.SHARD_GRAD_OP,

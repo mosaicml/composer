@@ -13,9 +13,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Seque
 
 import torch
 import torch.nn.modules.utils
-from torch.distributed.fsdp import FullStateDictConfig
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import StateDictType
+from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
 from torchmetrics import Metric
@@ -40,10 +38,32 @@ logger = logging.getLogger(__name__)
 
 
 @contextmanager
-def get_fsdp_rank0_cpu_save_context(obj):
-    full_state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
-    with FSDP.state_dict_type(obj, StateDictType.FULL_STATE_DICT, full_state_dict_config):
-        yield
+def get_fsdp_rank0_cpu_save_context(obj: torch.nn.Module):
+    if version.parse(torch.__version__) < version.parse('1.12.0'):
+        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.12.0.')
+    else:
+        from torch.distributed.fsdp import FullStateDictConfig
+        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+        from torch.distributed.fsdp import StateDictType
+        full_state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+        with FSDP.state_dict_type(obj, StateDictType.FULL_STATE_DICT, full_state_dict_config):
+            yield
+
+
+def get_fsdp_sharded_optim_state_dict(full_optim_state_dict: Dict[str, Any], model: torch.nn.Module):
+    if version.parse(torch.__version__) < version.parse('1.12.0'):
+        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.12.0.')
+    else:
+        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+        return FSDP.scatter_full_optim_state_dict(full_optim_state_dict=full_optim_state_dict, model=model)
+
+
+def get_fsdp_full_optim_state_dict(model: torch.nn.Module, optim: torch.optim.Optimizer, rank0_only: bool = True):
+    if version.parse(torch.__version__) < version.parse('1.12.0'):
+        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.12.0.')
+    else:
+        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+        return FSDP.full_optim_state_dict(model=model, optim=optim, rank0_only=rank0_only)
 
 
 def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
@@ -494,7 +514,7 @@ class State(Serializable):
                     for obj in ensure_tuple(attribute_value):
                         serialized_value = {
                             type(obj).__qualname__:
-                                FSDP.full_optim_state_dict(model=self.model, optim=obj, rank0_only=True)
+                                get_fsdp_full_optim_state_dict(model=self.model, optim=obj, rank0_only=True)
                         }
                 else:
                     serialized_value = {
@@ -538,7 +558,7 @@ class State(Serializable):
                 continue
             source = serialized_value[type(target).__qualname__]
             if self.fsdp_enabled:
-                sharded_osd = FSDP.scatter_full_optim_state_dict(full_optim_state_dict=source, model=self.model)
+                sharded_osd = get_fsdp_sharded_optim_state_dict(full_optim_state_dict=source, model=self.model)
                 target.load_state_dict(sharded_osd)
             else:
                 target.load_state_dict(source)
