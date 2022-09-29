@@ -60,9 +60,8 @@ def get_fsdp_sharded_optim_state_dict(full_optim_state_dict: Dict[str, Any], mod
 def get_fsdp_full_optim_state_dict(model: torch.nn.Module, optim: torch.optim.Optimizer, rank0_only: bool = True):
     if version.parse(torch.__version__) < version.parse('1.12.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.12.0.')
-    else:
-        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-        return FSDP.full_optim_state_dict(model=model, optim=optim, rank0_only=rank0_only)
+    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+    return FSDP.full_optim_state_dict(model=model, optim=optim, rank0_only=rank0_only)
 
 
 def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
