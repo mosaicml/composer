@@ -135,8 +135,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     """
     if version.parse(torch.__version__) < version.parse('1.12.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.12.0.')
-    else:
-        from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
+    from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
                                             ShardingStrategy)
 
     sharding_map = {
