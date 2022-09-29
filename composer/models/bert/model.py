@@ -14,7 +14,7 @@ from torchmetrics.classification.matthews_corrcoef import MatthewsCorrCoef
 from torchmetrics.regression.spearman import SpearmanCorrCoef
 
 from composer.metrics.nlp import BinaryF1Score, LanguageCrossEntropy, MaskedAccuracy
-from composer.models.bert.unpadded_layers import BertLMPredictionHead, BertModel
+from composer.models.bert.unpadded_layers import BertForMaskedLM, BertLMPredictionHead, BertModel
 from composer.models.huggingface import HuggingFaceModel
 from composer.utils import module_surgery
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -125,10 +125,11 @@ def create_bert_unpadded_mlm(use_pretrained: Optional[bool] = False,
     def from_encoder(layer: torch.nn.Module, module_index: int) -> BertModel:
         """Defines a replacement policy from a `modeling_bert.BertModel` to a `composer.models.bert.unpadded_layers.BertModel`"""
         return BertModel(layer.config)
-
+    
+    config = {}
     def from_prediction_head(layer: torch.nn.Module, module_index: int) -> BertLMPredictionHead:
         """Defines a replacement policy from a `modeling_bert.BertLMPredictionHead` to a `composer.models.bert.unpadded_layers.BertLMPredictionHead`"""
-        return BertLMPredictionHead(layer.config, layer.bert_model_embedding_weights)
+        return BertLMPredictionHead(config, layer.decoder.weight)
 
     if not model_config:
         model_config = {}
@@ -146,9 +147,9 @@ def create_bert_unpadded_mlm(use_pretrained: Optional[bool] = False,
         config.unpad = True
         config.unpad_flash_attn = True
         config.return_dict = False
-        config.fused_bias_fc_loss_head = True
+        # config.fused_bias_fc_loss_head = True
         config.fused_bias_mha = True
-        model = transformers.AutoModelForMaskedLM.from_config(config)
+        model = BertForMaskedLM(config) # Previously transformers.AutoModelForMaskedLM.from_config(config)
 
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()  # type: ignore
@@ -166,13 +167,17 @@ def create_bert_unpadded_mlm(use_pretrained: Optional[bool] = False,
 
     hf_model = HuggingFaceModel(model=model, tokenizer=tokenizer, use_logits=True, metrics=metrics)
 
+    # When using BertForMaskedLM instead of AutoModelForMaskedLM.from_config(config), don't use surgery.
+    """
     policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
         modeling_bert.BertModel: from_encoder,
-        modeling_bert.BertLMPredictionHead: from_prediction_head,
+        # modeling_bert.BertLMPredictionHead: from_prediction_head,
     }
+
     replaced_instances = module_surgery.replace_module_classes(module=hf_model, policies=policy)
     if len(replaced_instances) == 0:
         raise ValueError('Could not create Unpadded BERT model.')
+    """
 
     return hf_model
 
