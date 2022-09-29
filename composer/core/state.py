@@ -52,9 +52,8 @@ def get_fsdp_rank0_cpu_save_context(obj: torch.nn.Module):
 def get_fsdp_sharded_optim_state_dict(full_optim_state_dict: Dict[str, Any], model: torch.nn.Module):
     if version.parse(torch.__version__) < version.parse('1.12.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.12.0.')
-    else:
-        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-        return FSDP.scatter_full_optim_state_dict(full_optim_state_dict=full_optim_state_dict, model=model)
+    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+    return FSDP.scatter_full_optim_state_dict(full_optim_state_dict=full_optim_state_dict, model=model)
 
 
 def get_fsdp_full_optim_state_dict(model: torch.nn.Module, optim: torch.optim.Optimizer, rank0_only: bool = True):
