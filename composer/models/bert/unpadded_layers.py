@@ -14,6 +14,7 @@ from transformers.modeling_outputs import MaskedLMOutput
 from transformers.models.bert.modeling_bert import (BertAttention, BertEmbeddings, BertIntermediate, BertOutput,
                                                     BertPredictionHeadTransform, BertPreTrainedModel, BertSelfOutput)
 
+from composer.models.bert.losses.cross_entropy_apex import CrossEntropyLossApex
 from composer.models.bert.ops.fused_dense import FusedDenseResidual  # FusedDenseTD
 from composer.models.bert.ops.fused_dense import fused_dense_function_td
 
@@ -415,7 +416,7 @@ class BertForMaskedLM(BertPreTrainedModel):
         # Compute loss in dense_seq_output case and non-dense
         masked_lm_loss = None
         if masked_lm_labels is not None:
-            loss_fct = nn.CrossEntropyLoss(ignore_index=0)
+            loss_fct = CrossEntropyLossApex(ignore_index=0)
             if masked_token_idx is not None:  # prediction_scores are already flattened
                 masked_lm_loss = loss_fct(prediction_scores, masked_lm_labels.flatten()[masked_token_idx])
             else:
