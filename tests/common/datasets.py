@@ -36,7 +36,7 @@ class RandomClassificationDataset(Dataset):
 def get_random_classification_dataloader(
     batch_size: int = 2,
     drop_last: bool = False,
-    shuffle: bool = True,
+    shuffle: bool = False,
     **dataloader_kwargs,
 ):
     dataset = RandomClassificationDataset()
@@ -44,6 +44,7 @@ def get_random_classification_dataloader(
         dataset=dataset,
         batch_size=batch_size,
         sampler=dist.get_sampler(dataset, drop_last=drop_last, shuffle=shuffle),
+        shuffle=shuffle,
         **dataloader_kwargs,
     )
 
@@ -96,7 +97,7 @@ class RandomImageDataset(VisionDataset):
 def get_random_image_dataloader(
     batch_size: int = 2,
     drop_last: bool = False,
-    shuffle: bool = True,
+    shuffle: bool = False,
     **dataloader_kwargs,
 ):
     dataset = RandomImageDataset()
@@ -104,5 +105,6 @@ def get_random_image_dataloader(
         dataset=dataset,
         batch_size=batch_size,
         sampler=dist.get_sampler(dataset, drop_last=drop_last, shuffle=shuffle),
+        shuffle=shuffle,
         **dataloader_kwargs,
     )

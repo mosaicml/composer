@@ -372,8 +372,8 @@ class TestCheckpointResumption:
 
         return Trainer(
             model=model,
-            train_dataloader=get_random_image_dataloader(batch_size=8, shuffle=False),
-            eval_dataloader=get_random_image_dataloader(batch_size=16, shuffle=False),
+            train_dataloader=get_random_image_dataloader(batch_size=8),
+            eval_dataloader=get_random_image_dataloader(batch_size=16),
             grad_accum=2,
             precision='fp32',
             train_subset_num_batches=5,
