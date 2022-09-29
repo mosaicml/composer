@@ -143,8 +143,8 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     Args:
         model (torch.nn.Module): The model to wrap.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer for `model`, assumed to have a single param group := model.parameters().
-        fsdp_config (Dict[str, Any]): todo
-        precision: (Precision): todo
+        fsdp_config (Dict[str, Any]): The FSDP config. TODO: fill in configuration documentation
+        precision: (Precision): The precision being used by the Trainer, used to fill in defaults for FSDP `mixed_precision` settings.
     """
     if version.parse(torch.__version__) < version.parse('1.12.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.12.0.')
