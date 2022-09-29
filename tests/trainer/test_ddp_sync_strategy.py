@@ -10,7 +10,7 @@ from torch import Tensor
 from torch.utils.data import DataLoader
 
 from composer.core import State
-from composer.trainer.ddp import ddp_sync_context, prepare_ddp_module
+from composer.trainer.dist_strategy import ddp_sync_context, prepare_ddp_module
 from composer.utils import dist
 from tests.common.datasets import RandomClassificationDataset
 
