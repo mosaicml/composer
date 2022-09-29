@@ -37,6 +37,8 @@ def test_comet_ml_logging_train_loop(monkeypatch, tmp_path):
 
     del trainer
 
+    assert comet_logger.experiment is not None
+
     # Open, decompress, decode, and extract offline dump of metrics.
     comet_exp_dump_filepath = str(Path(offline_directory) / Path(comet_logger.experiment.id).with_suffix('.zip'))
     zf = zipfile.ZipFile(comet_exp_dump_filepath)
@@ -78,6 +80,7 @@ def test_comet_ml_post_close(monkeypatch, tmp_path):
     comet_logger = CometMLLogger()
     comet_logger.post_close()
 
+    assert comet_logger.experiment is not None
     assert comet_logger.experiment.ended
 
 
@@ -94,6 +97,8 @@ def test_comet_ml_log_created_from_key(monkeypatch, tmp_path):
 
     comet_logger = CometMLLogger()
     comet_logger.post_close()
+
+    assert comet_logger.experiment is not None
 
     # Open, decompress, decode, and check for Created from key logged
     comet_exp_dump_filepath = str(Path(offline_directory) / Path(comet_logger.experiment.id).with_suffix('.zip'))
@@ -140,6 +145,8 @@ def test_comet_ml_log_metrics_and_hyperparameters(monkeypatch, tmp_path):
 
     # Simulate the post_close call to end the CometML experiment
     comet_logger.post_close()
+
+    assert comet_logger.experiment is not None
 
     # Open, decompress, decode, and extract offline dump of metrics.
     comet_exp_dump_filepath = str(Path(offline_directory) / Path(comet_logger.experiment.id).with_suffix('.zip'))
