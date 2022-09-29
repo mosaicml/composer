@@ -3,12 +3,11 @@
 
 import pytest
 import torch
-from torch.utils.data import DataLoader
 
 from composer import Trainer
 from composer.core import Event, Time
 from composer.core.time import TimeUnit
-from tests.common import RandomClassificationDataset, SimpleModel
+from tests.common import SimpleModel, get_random_classification_dataloader
 from tests.common.events import EventCounterCallback
 
 
@@ -28,16 +27,8 @@ class TestEventCalls:
 
         return Trainer(
             model=model,
-            train_dataloader=DataLoader(
-                dataset=RandomClassificationDataset(),
-                batch_size=8,
-                shuffle=False,
-            ),
-            eval_dataloader=DataLoader(
-                dataset=RandomClassificationDataset(),
-                batch_size=16,
-                shuffle=False,
-            ),
+            train_dataloader=get_random_classification_dataloader(batch_size=8, shuffle=False),
+            eval_dataloader=get_random_classification_dataloader(batch_size=16, shuffle=False),
             grad_accum=2,
             precision='fp32',
             train_subset_num_batches=self.train_subset_num_batches,

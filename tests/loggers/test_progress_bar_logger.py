@@ -4,14 +4,13 @@
 from unittest.mock import MagicMock
 
 import pytest
-import torch.utils.data
 from _pytest.monkeypatch import MonkeyPatch
 from tqdm import auto
 
 from composer.core.time import Time, TimeUnit
 from composer.trainer.trainer import Trainer
 from composer.utils import dist
-from tests.common import RandomClassificationDataset, SimpleModel
+from tests.common import SimpleModel, get_random_classification_dataloader
 
 
 @pytest.mark.parametrize('world_size', [
@@ -49,16 +48,14 @@ def test_progress_bar_logger(max_duration: Time[int], monkeypatch: MonkeyPatch, 
     eval_interval = 1
     eval_subset_num_batches = 2
     batch_size = 10
-    train_dataset = RandomClassificationDataset()
-    eval_dataset = RandomClassificationDataset()
 
     trainer = Trainer(
         model=model,
         max_duration=max_duration,
         eval_interval=eval_interval,
         progress_bar=True,
-        train_dataloader=torch.utils.data.DataLoader(train_dataset, batch_size=batch_size),
-        eval_dataloader=torch.utils.data.DataLoader(eval_dataset, batch_size=batch_size),
+        train_dataloader=get_random_classification_dataloader(batch_size=batch_size),
+        eval_dataloader=get_random_classification_dataloader(batch_size=batch_size),
         eval_subset_num_batches=eval_subset_num_batches,
     )
 

@@ -15,7 +15,6 @@ from typing import Any, Dict, List, Optional, Union
 import pytest
 import torch
 import torch.distributed
-from torch.utils.data import DataLoader
 
 from composer.algorithms import SqueezeExcite
 from composer.core.callback import Callback
@@ -26,7 +25,7 @@ from composer.trainer.trainer import Trainer
 from composer.utils import dist, is_tar
 from composer.utils.checkpoint import glob_filter
 from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
-from tests.common import RandomImageDataset, SimpleConvModel, deep_compare, device
+from tests.common import SimpleConvModel, deep_compare, device, get_random_image_dataloader
 
 
 class DummyStatefulCallback(Callback):
@@ -147,14 +146,8 @@ class TestCheckpointLoading:
 
         return Trainer(
             model=model,
-            train_dataloader=DataLoader(
-                dataset=RandomImageDataset(),
-                batch_size=8,
-            ),
-            eval_dataloader=DataLoader(
-                dataset=RandomImageDataset(),
-                batch_size=16,
-            ),
+            train_dataloader=get_random_image_dataloader(batch_size=8),
+            eval_dataloader=get_random_image_dataloader(batch_size=16),
             grad_accum=2,
             precision='fp32',
             train_subset_num_batches=5,
@@ -379,16 +372,8 @@ class TestCheckpointResumption:
 
         return Trainer(
             model=model,
-            train_dataloader=DataLoader(
-                dataset=RandomImageDataset(),
-                batch_size=8,
-                shuffle=False,
-            ),
-            eval_dataloader=DataLoader(
-                dataset=RandomImageDataset(),
-                batch_size=16,
-                shuffle=False,
-            ),
+            train_dataloader=get_random_image_dataloader(batch_size=8, shuffle=False),
+            eval_dataloader=get_random_image_dataloader(batch_size=16, shuffle=False),
             grad_accum=2,
             precision='fp32',
             train_subset_num_batches=5,
@@ -581,7 +566,7 @@ def test_rotate_checkpoints(
 
     trainer = Trainer(
         model=SimpleConvModel(),
-        train_dataloader=DataLoader(dataset=RandomImageDataset()),
+        train_dataloader=get_random_image_dataloader(),
         checkpoint_save_path=str(checkpoint_save_path),
         save_filename='checkpoint_{rank}_{batch}.pt',
         checkpoint_save_interval='1ba',
