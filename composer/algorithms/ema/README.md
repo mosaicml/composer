@@ -82,7 +82,7 @@ A good typical starting value for `half_life` is `half_life="1000ba"`, for a hal
 
 For compatibility with other implementations, there is also an option to specify the value of `smoothing` directly.
 
-- `smoothing` - The coefficient representing the degree to which older observations are kept. The default (unspecified) value is `None`. Should only be used if `half_life` is not used.
+- `smoothing` - The coefficient representing the degree to which older observations are kept. The default (unspecified) value is `None`. Should only be used if `half_life` is not used
 
 To use this, `half_life` should be set to `half_life=None`, and the value of smoothing given instead. This value is not modified when `update_interval` is changed, and so changes to `update_interval` when using `smoothing` will result in changes to the time scale of the average.
 
