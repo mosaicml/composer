@@ -11,9 +11,8 @@ from einops import rearrange, repeat
 from flash_attn.bert_padding import pad_input, unpad_input
 from flash_attn.flash_attn_interface import flash_attn_unpadded_qkvpacked_func
 from transformers.modeling_outputs import MaskedLMOutput
-from transformers.models.bert.modeling_bert import (BertAttention, BertEmbeddings, BertIntermediate,
-                                                    BertOutput, BertPredictionHeadTransform, BertPreTrainedModel,
-                                                    BertSelfOutput)
+from transformers.models.bert.modeling_bert import (BertAttention, BertEmbeddings, BertIntermediate, BertOutput,
+                                                    BertPredictionHeadTransform, BertPreTrainedModel, BertSelfOutput)
 
 from composer.models.bert.ops.fused_dense import FusedDenseResidual  # FusedDenseTD
 from composer.models.bert.ops.fused_dense import fused_dense_function_td
@@ -385,9 +384,11 @@ class BertForMaskedLM(BertPreTrainedModel):
             config.vocab_size]` (see `input_ids` docstring) Tokens with indices set to `-100` are ignored (masked), the
             loss is only computed for the tokens with labels in `[0, ..., config.vocab_size]`
         """
+        masked_lm_labels = labels
 
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
+        # masked_tokens_mask = masked_lm_labels > 0 if (self.last_layer_subset and masked_lm_labels is not None) else None
         outputs = self.bert(
             input_ids,
             attention_mask=attention_mask,
@@ -401,14 +402,25 @@ class BertForMaskedLM(BertPreTrainedModel):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
-
         sequence_output = outputs[0]
+
+        masked_token_idx = None
+        if self.dense_seq_output and masked_lm_labels is not None:
+            masked_token_idx = torch.nonzero(masked_lm_labels.flatten() > 0, as_tuple=False).flatten()
+            if not self.last_layer_subset:
+                sequence_output = index_first_axis(rearrange(sequence_output, 'b s d -> (b s) d'), masked_token_idx)
+
         prediction_scores = self.cls(sequence_output)
 
+        # Compute loss in dense_seq_output case and non-dense
         masked_lm_loss = None
-        if labels is not None:
-            loss_fct = nn.CrossEntropyLoss()  # -100 index = padding token
-            masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), labels.view(-1))
+        if masked_lm_labels is not None:
+            loss_fct = nn.CrossEntropyLoss(ignore_index=0)
+            if masked_token_idx is not None:  # prediction_scores are already flattened
+                masked_lm_loss = loss_fct(prediction_scores, masked_lm_labels.flatten()[masked_token_idx])
+            else:
+                # Standard HuggingFace model loss computation
+                masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), masked_lm_labels.view(-1))
 
         if not return_dict:
             output = (prediction_scores,) + outputs[2:]
