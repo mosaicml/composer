@@ -4,8 +4,7 @@
 """English Wikipedia 2020-01-01 dataset hyperparameters."""
 
 import logging
-from dataclasses import asdict, dataclass
-from typing import Optional
+from dataclasses import dataclass
 
 import yahp as hp
 
