@@ -51,8 +51,8 @@ class BertFlashSelfAttention(nn.Module):
         self.all_head_size = self.num_attention_heads * self.attention_head_size
         self.p_dropout = config.attention_probs_dropout_prob
         # TODO: Consider adding back in fuse_bias
-        # self.fuse_bias = getattr(config, 'fused_bias_mha', False)
-
+        self.fuse_bias = False # getattr(config, 'fused_bias_mha', False)
+        
         linear_cls = nn.Linear  # if not self.fuse_bias else FusedDenseResidual
         self.Wqkv = linear_cls(self.all_head_size, 3 * config.hidden_size)
 

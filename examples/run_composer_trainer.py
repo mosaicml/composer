@@ -17,6 +17,8 @@ import sys
 import tempfile
 import warnings
 
+import performance
+
 from composer.loggers import LogLevel
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, warn_yahp_deprecation
@@ -39,6 +41,8 @@ def _main():
 
     if len(sys.argv) == 1:
         sys.argv.append('--help')
+
+    performance.register_all_algorithms()
 
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
 

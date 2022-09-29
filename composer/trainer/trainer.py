@@ -1145,6 +1145,8 @@ class Trainer:
         if not self.deepspeed_enabled and dist.get_world_size() > 1:
             # Only wrap the module if required
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
+    
+        print("MODEL:", self.state.model)
 
     @property
     def deepspeed_enabled(self):

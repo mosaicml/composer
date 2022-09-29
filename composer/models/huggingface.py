@@ -102,10 +102,9 @@ class HuggingFaceModel(ComposerModel):
             return outputs[0]
 
     def eval_forward(self, batch, outputs: Optional[Any] = None):
-        output = outputs if outputs else self.forward(batch)
         if self.use_logits:
             self.labels = batch.pop('labels')
-            output = output['logits']
+            output = self.forward(batch)
             if self.config.use_return_dict:
                 output = output['logits']
             else:
@@ -113,8 +112,8 @@ class HuggingFaceModel(ComposerModel):
             # if we are in the single class case, then remove the classes dimension
             if output.shape[1] == 1:
                 output = output.squeeze(dim=1)
-
-        return output
+            return output
+        return outputs
 
     def get_metrics(self, is_train: bool = False) -> Dict[str, Metric]:
         if is_train:
