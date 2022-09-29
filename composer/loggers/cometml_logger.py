@@ -73,8 +73,9 @@ class CometMLLogger(LoggerDestination):
         self.name = name
         self._rank_zero_only = rank_zero_only
         self._exp_kwargs = exp_kwargs
-        self.experiment = Experiment(**self._exp_kwargs)
-        self.experiment.log_other('Created from', 'mosaicml-composer')
+        if self._enabled:
+            self.experiment = Experiment(**self._exp_kwargs)
+            self.experiment.log_other('Created from', 'mosaicml-composer')
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
