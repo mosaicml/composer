@@ -1875,7 +1875,10 @@ class Trainer:
 
             if not self.deepspeed_enabled:
                 for optimizer in self.state.optimizers:
-                    optimizer.zero_grad(set_to_none=True)
+                    try:
+                        optimizer.zero_grad(set_to_none=True)
+                    except TypeError:
+                        optimizer.zero_grad()
 
             # tracker for gradient accumulation
             current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(batch) for batch in microbatches])
