@@ -510,7 +510,7 @@ class TestTrainerInitOrFit:
         assert_state_equivalent(init_trainer.state, algo_trainer.state)
 
     def test_dataloader_active_iterator_error(self, model: ComposerModel):
-        dataloader = get_random_classification_dataloader()
+        dataloader = get_random_classification_dataloader(num_workers=1, persistent_workers=True)
 
         # spin one sample
         _ = next(dataloader.__iter__())

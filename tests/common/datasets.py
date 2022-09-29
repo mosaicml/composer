@@ -33,12 +33,18 @@ class RandomClassificationDataset(Dataset):
         return self.x[index], self.y[index]
 
 
-def get_random_classification_dataloader(batch_size: int = 2, drop_last: bool = False, shuffle: bool = True):
+def get_random_classification_dataloader(
+    batch_size: int = 2,
+    drop_last: bool = False,
+    shuffle: bool = True,
+    **dataloader_kwargs,
+):
     dataset = RandomClassificationDataset()
     return DataLoader(
         dataset=dataset,
         batch_size=batch_size,
         sampler=dist.get_sampler(dataset, drop_last=drop_last, shuffle=shuffle),
+        **dataloader_kwargs,
     )
 
 
@@ -87,10 +93,16 @@ class RandomImageDataset(VisionDataset):
             return x, y
 
 
-def get_random_image_dataloader(batch_size: int = 2, drop_last: bool = False, shuffle: bool = True):
+def get_random_image_dataloader(
+    batch_size: int = 2,
+    drop_last: bool = False,
+    shuffle: bool = True,
+    **dataloader_kwargs,
+):
     dataset = RandomImageDataset()
     return DataLoader(
         dataset=dataset,
         batch_size=batch_size,
         sampler=dist.get_sampler(dataset, drop_last=drop_last, shuffle=shuffle),
+        **dataloader_kwargs,
     )
