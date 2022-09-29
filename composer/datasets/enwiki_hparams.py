@@ -75,8 +75,7 @@ class StreamingEnWikiHparams(DatasetHparams):
         try:
             from streaming.text import EnWiki
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='streaming',
-                                                conda_package='mosaicml-streaming') from e
+            raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
         dataset = EnWiki(tokenizer_name=self.tokenizer_name,
                          max_seq_len=self.max_seq_len,
                          group_method=self.group_method,
