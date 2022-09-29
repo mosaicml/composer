@@ -188,14 +188,17 @@ class DataSpec:
             if world_size > 1 and not (
                 (dataloader.sampler and isinstance(dataloader.sampler, DistributedSampler)) or
                 (dataloader.batch_sampler and isinstance(dataloader.batch_sampler, DistributedSampler))):
-                raise ValueError(f'The world_size({world_size}) > 1 but dataloader does not use '
-                                 'DistributedSampler. This will cause all ranks to train on the same '
-                                 'data, removing any benefit from multi-GPU training. To resolve this, '
-                                 'create a Dataloader with with DistributedSampler. For example, '
-                                 'DataLoader(..., sampler=composer.utils.dist.get_sampler(...)).'
-                                 'Alternatively, the process group can be instantiated with '
-                                 'composer.utils.dist.instantiate_dist(...) and DistributedSampler can '
-                                 'directly be created with DataLoader(..., sampler=DistributedSampler(...)).')
+                raise ValueError(
+                    f'The world_size({world_size}) > 1 but dataloader does not use '
+                    'DistributedSampler. This will cause all ranks to train on the same '
+                    'data, removing any benefit from multi-GPU training. To resolve this, '
+                    'create a Dataloader with DistributedSampler. For example, '
+                    'DataLoader(..., sampler=composer.utils.dist.get_sampler(...)).'
+                    'Alternatively, the process group can be instantiated with '
+                    'composer.utils.dist.instantiate_dist(...) and DistributedSampler can '
+                    'directly be created with DataLoader(..., sampler=DistributedSampler(...)). '
+                    'For more information, see https://pytorch.org/docs/stable/data.html#torch.utils.data.distributed.DistributedSampler.'
+                )
 
     def _default_device_transforms(self, batch: Batch):
         return batch
