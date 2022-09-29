@@ -158,8 +158,6 @@ class Alibi(Algorithm):
     """
 
     def __init__(self, max_sequence_length: int, train_sequence_length_scaling: float = 0.25) -> None:
-
-        # self.position_embedding_attribute = position_embedding_attribute
         self.max_sequence_length = max_sequence_length
         self.train_sequence_length_scaling = train_sequence_length_scaling
         self._applied = False

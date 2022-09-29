@@ -217,6 +217,13 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --no-cache-dir git+https://github.com/mvpatel2000/flash-attention@main ; \
     fi
 
+###########################
+# Install Pandoc Dependency
+###########################
+# Pandoc is needed for the documentation buid and is a nuisance to install via pip so just installing via dpkg
+RUN wget https://github.com/jgm/pandoc/releases/download/2.19.2/pandoc-2.19.2-1-amd64.deb && \
+    dpkg -i pandoc-2.19.2-1-amd64.deb && \
+    rm pandoc-2.19.2-1-amd64.deb
 
 ################################
 # Use the correct python version
