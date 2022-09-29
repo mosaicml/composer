@@ -3,15 +3,15 @@
 
 """C4 (Colossal Cleaned Common Crawl) dataset hyperparameters."""
 import logging
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Optional
 
 import yahp as hp
-from torch.utils.data import DataLoader
 
 from composer.core.data_spec import DataSpec
-from composer.datasets.c4 import C4Dataset, StreamingC4
+from composer.datasets.c4 import StreamingC4, build_c4_dataloader
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
+from composer.utils import warn_streaming_dataset_deprecation
 from composer.utils.import_helpers import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
@@ -24,9 +24,9 @@ class StreamingC4Hparams(DatasetHparams):
     """Builds a :class:`.DataSpec` for the StreamingC4 (Colossal Cleaned Common Crawl) dataset.
 
     Args:
-        version (int): Which version of streaming to use. Default: ``2``.
+        version (int): Which version of streaming to use. Default: ``1``.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-            Default: ``'s3://mosaicml-internal-dataset-c4/mds/2/'``
+            Default: ``'s3://mosaicml-internal-dataset-c4/mds/1/'``
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-c4/'``
         split (str): What split of the dataset to use. Either ``'train'`` or ``'val'``. Default: ``'train'``.
@@ -40,9 +40,9 @@ class StreamingC4Hparams(DatasetHparams):
         timeout (float): How long to wait for shard to download before raising an exception. Default: 120 sec.
     """
 
-    version: int = hp.optional('Version of streaming (1 or 2)', default=2)
+    version: int = hp.optional('Version of streaming (1 or 2)', default=1)
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
-                              default='s3://mosaicml-internal-dataset-c4/mds/2/')
+                              default='s3://mosaicml-internal-dataset-c4/mds/1/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
                              default='/tmp/mds-cache/mds-c4/')
     split: str = hp.optional('What split of the dataset to use. Either `train` or `val`.', default='train')
@@ -69,6 +69,7 @@ class StreamingC4Hparams(DatasetHparams):
             raise ValueError("Must provide a positive 'mlm_probability' when using masked language modeling.")
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
+
         try:
             import transformers
         except ImportError as e:
@@ -76,6 +77,7 @@ class StreamingC4Hparams(DatasetHparams):
 
         # Get StreamingC4 dataset
         if self.version == 1:
+            warn_streaming_dataset_deprecation(old_version=self.version, new_version=2)
             dataset = StreamingC4(remote=self.remote,
                                   local=self.local,
                                   split=self.split,
@@ -125,13 +127,13 @@ class C4DatasetHparams(DatasetHparams):
     """Builds a :class:`.DataSpec` for the C4 (Colossal Cleaned Common Crawl) dataset.
 
     Args:
-        split (str): What split of the dataset to use. Either ``'train'`` or ``'validation'``. Default: ``None``.
+        split (str): What split of the dataset to use. Either ``'train'`` or ``'validation'``. Default: ``'train'``.
         num_samples (int): The number of post-processed token samples, used to set epoch size of the
             :class:`torch.utils.data.IterableDataset`. Default: ``None``.
-        tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with. Default: ``None``.
-        max_seq_len (int): The max sequence length of each token sample. Default: ``None``.
+        tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with. Default: ``'bert-base-uncased'``.
+        max_seq_len (int): The max sequence length of each token sample. Default: ``512``.
         group_method (str): How to group text samples into token samples. Either `truncate` or `concat`.
-            Default: ``None``.
+            Default: ``'truncate'``.
         mlm (bool): Whether or not to use masked language modeling. Default: ``False``.
         mlm_probability (float): If ``mlm==True``, the probability that tokens are masked. Default: ``0.15``.
         shuffle (bool): Whether to shuffle the samples in the dataset. Currently, shards are assigned and consumed with
@@ -145,15 +147,14 @@ class C4DatasetHparams(DatasetHparams):
         DataLoader: A PyTorch :class:`~torch.utils.data.DataLoader` object.
     """
 
-    split: Optional[str] = hp.optional('What split of the dataset to use. Either `train` or `validation`.',
-                                       default=None)
+    split: str = hp.optional('What split of the dataset to use. Either `train` or `validation`.', default='train')
     num_samples: Optional[int] = hp.optional(
         'The number of post-processed token samples, used to set epoch size of the IterableDataset.', default=None)
-    tokenizer_name: Optional[str] = hp.optional('The name of the HuggingFace tokenizer to preprocess text with.',
-                                                default=None)
-    max_seq_len: Optional[int] = hp.optional('The max sequence length of each token sample.', default=None)
-    group_method: Optional[str] = hp.optional(
-        'How to group text samples into token samples. Either `truncate` or `concat`.', default=None)
+    tokenizer_name: str = hp.optional('The name of the HuggingFace tokenizer to preprocess text with.',
+                                      default='bert-base-uncased')
+    max_seq_len: int = hp.optional('The max sequence length of each token sample.', default=512)
+    group_method: str = hp.optional('How to group text samples into token samples. Either `truncate` or `concat`.',
+                                    default='truncate')
     mlm: bool = hp.optional('Whether or not to use masked language modeling.', default=False)
     mlm_probability: float = hp.optional('If `mlm==True`, the probability that tokens are masked.', default=0.15)
     shuffle: bool = hp.optional(
@@ -179,34 +180,20 @@ class C4DatasetHparams(DatasetHparams):
         if self.mlm and self.mlm_probability <= 0:
             raise ValueError("Must provide a positive 'mlm_probability' when using masked language modeling.")
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
-        try:
-            import transformers
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
 
-        if dataloader_hparams.num_workers > 1:
-            log.warning('C4 Dataset not compatible with num_workers > 1. Overwriting value to num_workers=1')
-            dataloader_hparams.num_workers = 1
-
-        # Get C4 dataset
-        c4_dataset = C4Dataset(split=self.split,
-                               num_samples=self.num_samples,
-                               tokenizer_name=self.tokenizer_name,
-                               max_seq_len=self.max_seq_len,
-                               group_method=self.group_method,
-                               shuffle=self.shuffle,
-                               shuffle_buffer_size=self.shuffle_buffer_size,
-                               seed=self.seed)
-
-        # Get collate_fn
-        collate_fn = transformers.DataCollatorForLanguageModeling(tokenizer=c4_dataset.tokenizer,
-                                                                  mlm=self.mlm,
-                                                                  mlm_probability=self.mlm_probability)
-
-        return dataloader_hparams.initialize_object(
-            dataset=c4_dataset,  # type: ignore
+        return build_c4_dataloader(
+            num_samples=self.num_samples,  # type: ignore
             batch_size=batch_size,
-            sampler=None,
+            split=self.split,
+            shuffle=self.shuffle,
             drop_last=self.drop_last,
-            collate_fn=collate_fn)
+            tokenizer_name=self.tokenizer_name,
+            max_seq_len=self.max_seq_len,
+            group_method=self.group_method,
+            mlm=self.mlm,
+            mlm_probability=self.mlm_probability,
+            seed=self.seed,
+            shuffle_buffer_size=self.shuffle_buffer_size,
+            **asdict(dataloader_hparams),
+        )

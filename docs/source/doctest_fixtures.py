@@ -53,6 +53,27 @@ from composer.optim.scheduler import ConstantScheduler
 from composer.utils import LibcloudObjectStore
 from composer.utils import ensure_tuple as ensure_tuple
 
+try:
+    import wandb
+    _WANDB_INSTALLED = True
+    del wandb  # unused
+except ImportError:
+    _WANDB_INSTALLED = False
+
+try:
+    import comet_ml
+    _COMETML_INSTALLED = True
+    del comet_ml  # unused
+except ImportError:
+    _COMETML_INSTALLED = False
+
+try:
+    import libcloud
+    _LIBCLOUD_INSTALLED = True
+    del libcloud  # unused
+except ImportError:
+    _LIBCLOUD_INSTALLED = False
+
 # Need to insert the repo root at the beginning of the path, since there may be other modules named `tests`
 # Assuming that docs generation is running from the `docs` directory
 _docs_dir = os.path.abspath('.')

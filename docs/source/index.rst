@@ -145,6 +145,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/stochastic_depth.md
    method_cards/stochastic_depth_samplewise.md
    method_cards/swa.md
+   method_cards/weight_standardization.md
 
 .. toctree::
    :hidden:

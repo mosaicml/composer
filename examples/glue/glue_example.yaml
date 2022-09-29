@@ -71,10 +71,10 @@ pretrain_hparams:
   grad_clip_norm: -1.0               # Turn off gradient clipping
   grad_accum: 'auto'                 # Use automatic gradient accumulation to avoid OOMs
 
-  save_folder: &folder checkpoints   # The directory to save checkpoints to, aliased as 'folder' for future reference in this file
-  save_interval: 3500ba              # Save checkpoints every 3500 batches
+  checkpoint_save_path: &folder checkpoints   # The directory to save checkpoints to, aliased as 'folder' for future reference in this file
+  checkpoint_save_interval: 3500ba              # Save checkpoints every 3500 batches
   save_artifact_name: '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}' # comment if you do not want to checkpoint to cloud
-  save_num_checkpoints_to_keep: 0
+  num_checkpoints_to_keep: 0
   save_overwrite: True
 
   loggers:
@@ -97,4 +97,4 @@ finetune_hparams:
         - finetune
   load_object_store:
     *bucket
-  save_folder: *folder                # Refers to previously defined alias of 'folder'
+  checkpoint_save_path: *folder                # Refers to previously defined alias of 'folder'
