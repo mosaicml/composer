@@ -1049,6 +1049,13 @@ class Trainer:
         self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, self.state.algorithms))
         self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, self.state.algorithms))
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
+
+        # If using DDP or DeepSpeed, we need to wrap the ComposerModel
+        # But store a reference to the original model for functions like `eval_forward`, `get_metrics`, etc.
+        self._original_model = self.state.model
+        if not isinstance(self._original_model, ComposerModel):
+            raise ValueError('self.state.model must be a subclass of ComposerModel.')
+
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
             for callback in self.state.callbacks:
@@ -1155,11 +1162,6 @@ class Trainer:
         log.info(f'Setting seed to {self.state.seed}')
         reproducibility.seed_all(self.state.seed)
 
-        # If using DDP, we need to wrap the ComposerModel
-        # But store a reference to the original model for functions like `eval_forward`, `get_metrics`, etc.
-        self._original_model = self.state.model
-        if not isinstance(self._original_model, ComposerModel):
-            raise ValueError('self.state.model must be a subclass of ComposerModel.')
         if not (self.deepspeed_enabled or self.fsdp_enabled) and dist.get_world_size() > 1:
             # Only wrap the module if required
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)

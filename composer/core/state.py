@@ -490,12 +490,11 @@ class State(Serializable):
         """Indicates if FSDP is enabled."""
         if version.parse(torch.__version__) < version.parse('1.12.0'):
             raise RuntimeError('To use FSDP with Composer, you must use torch>=1.12.0.')
-        else:
-            from torch.distributed.fsdp import FullyShardedDataParallel
-            for module in self.model.modules():
-                if isinstance(module, FullyShardedDataParallel):
-                    return True
-            return False
+        from torch.distributed.fsdp import FullyShardedDataParallel
+        for module in self.model.modules():
+            if isinstance(module, FullyShardedDataParallel):
+                return True
+        return False
 
     def state_dict(self) -> Dict[str, Any]:
         state_dict = {}
