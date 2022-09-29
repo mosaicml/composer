@@ -314,11 +314,12 @@ class BertLMPredictionHead(nn.Module):
         self.decoder = nn.Linear(bert_model_embedding_weights.size(1), bert_model_embedding_weights.size(0), bias=False)
         self.bias = nn.Parameter(torch.zeros(bert_model_embedding_weights.size(0)))
         self.decoder.weight = bert_model_embedding_weights
+        self.decoder.bias = self.bias
 
     def forward(self, hidden_states):
         hidden_states = self.transform(hidden_states)
         if not self.fused_fc:
-            hidden_states = self.decoder(hidden_states) + self.bias
+            hidden_states = self.decoder(hidden_states)
         else:
             hidden_states = fused_dense_function_td(hidden_states, self.decoder.weight, self.bias)
         return hidden_states
