@@ -1,6 +1,6 @@
 # 🏛️ ColOut
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
 `Computer Vision`
 
@@ -111,11 +111,6 @@ The variability induced by randomly dropping rows and columns can negatively aff
 > We also found it to be worthwhile in composition with other methods.
 > We recommend that you carefully evaluate whether ColOut is also a pareto improvement in the context of your application.
 
-ColOut currently has two implementations.
-One implementation, accessed by passing `batch=False`, acts as an additional data augmentation for use in PyTorch dataloaders. It runs on the CPU and applies ColOut independently to each training example.
-A second implementation, accessed by passing `batch=True`, runs immediately before the training example is provided to the model. It runs on the GPU and drops the same rows and columns for all training examples in a mini-batch.
-The GPU-based, batch-wise implementation suffers a drop in validation accuracy compared to the CPU-based example-wise implementation (0.2% on CIFAR-10 and 0.1% on ImageNet)
-
 > 🚧 CPU/GPU Tradeoff
 >
 > If the workload is CPU heavy, it may make sense to run ColOut batch-wise on GPU so that it does not bottleneck training on the CPU. If the workload is GPU-bottlenecked, it will make sense to run ColOut sample-wise on the CPU, avoiding the accuracy reduction of running it batch-wise and improving GPU throughput.
@@ -126,3 +121,9 @@ ColOut will show diminishing returns when composed with other methods that chang
 
 
 *This method and the accompanying documentation were created and implemented by Cory Stephenson at MosaicML.*
+
+## API Reference
+
+**Algorithm class:** {class}`composer.algorithms.ColOut`, {class}`composer.algorithms.ColOutTransform`
+
+**Functional:** {func}`composer.functional.colout_batch`

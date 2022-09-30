@@ -1,6 +1,6 @@
 # 🧩 Stochastic Weight Averaging
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
  `Computer Vision`, `Natural Language Processing`
 
@@ -76,3 +76,8 @@ rate schedule, but we found that these did not have a substantial impact on trai
 ## Attribution
 
 [*Averaging Weights Leads to Wider Optima and Better Generalization*](https://arxiv.org/abs/1803.05407) by Pavel Izmailov, Dmitrii Podoprikhin, Timur Garipov, Dmitry Vetrov, and Andrew Gordon Wilson. Presented at the 2018 Conference on Uncertainty in Artificial Intelligence.
+
+
+## API Reference
+
+**Algorithm class:** {class}`composer.algorithms.SWA`

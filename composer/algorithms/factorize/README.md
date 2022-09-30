@@ -1,7 +1,7 @@
 # ➗ Factorize
 
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
  `Computer Vision`,  `Natural Language Processing`
 
@@ -108,9 +108,10 @@ Based on ResNet-50 experiments, we have not observed Factorize to ever be helpfu
 Even with conservative settings like `min_channels=512`, `latent_channels=128`, we observe over a 1% accuracy loss and only a small (<5%) throughput increase.
 We have provided this implementation and method card for informational purposes, since factorization is a popular technique in the research literature.
 
-> ❗ There is No Evidence that Factorization Improves Accuracy or Efficiency
+> ❗ Factorize Did Not Improve Efficiency in Our Experiments
 >
-> We have only found Factorize to hurt accuracy and reduce throughput.
+> Factorize provided no improvements in (and often decreased) accuracy, and provided very modest throughput increases in our experiments.
+> It is possible that Factorize may still be helpful in other settings.
 
 At present, only factorization before training is supported. This is because of limitations of PyTorch Distributed Data Parallel.
 We hope to allow factorization during training in the future.
@@ -134,3 +135,9 @@ Our factorization structure most closely matches that in:
 * [*Accelerating Very Deep Convolutional Networks for Classification and Detection*](https://ieeexplore.ieee.org/abstract/document/7332968) by Xiangyu Zhang, Jianhua Zou, Kaiming He, and Jian Sun. Published in IEEE TPAMI in 2016.
 
 *The Composer implementation of this method and the accompanying documentation were produced by Davis Blalock at MosaicML.*
+
+## API Reference
+
+**Algorithm class:** {class}`composer.algorithms.Factorize`
+
+**Functional:** {func}`composer.functional.apply_factorization`
