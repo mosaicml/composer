@@ -788,7 +788,7 @@ class TestTrainerEquivalence():
 
         return {
             'model': SimpleModel(),
-            'train_dataloader': get_random_classification_dataloader(),
+            'train_dataloader': get_random_classification_dataloader(batch_size=4),
             'eval_dataloader': get_random_classification_dataloader(),
             'max_duration': '2ep',
             'seed': rank_zero_seed,
