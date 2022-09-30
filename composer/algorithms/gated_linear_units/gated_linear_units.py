@@ -14,8 +14,9 @@ import torch
 from composer.models.huggingface import HuggingFaceModel
 
 try:
-    from transformers import BertForMaskedLM, BertForSequenceClassification
+    from transformers import BertModel, BertPreTrainedModel
     from transformers.models.bert.modeling_bert import BertIntermediate, BertOutput
+    
     IS_TRANSFORMERS_INSTALLED = True
 except ImportError as e:
     IS_TRANSFORMERS_INSTALLED = False
@@ -81,14 +82,11 @@ def apply_gated_linear_units(model: torch.nn.Module,
     if not IS_TRANSFORMERS_INSTALLED:
         raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers')
 
-    # ensure that the model is an instance of a BERT model, since our replacement policy is only defined for BERTs
     unwrapped_model = model.model if isinstance(model, HuggingFaceModel) else model
 
-    if not isinstance(unwrapped_model, BERTModel):
-       raise TypeError('Gated Linear Units only has a surgery policy defined for instances of BERT models.')
-    
-    if not (isinstance(unwrapped_model, BertForMaskedLM) or isinstance(unwrapped_model, BertForSequenceClassification))):
-        raise TypeError('Gated Linear Units only has a surgery policy defined for instances of BERT models with BertForMaskedLM or BertForSequenceClassification modules.')
+    # ensure that the model is an instance of a Hugging Face BertPreTrainedModel or BertModel class, since our replacement policy is only defined for BERTs
+    if not (isinstance(unwrapped_model, BertPreTrainedModel) or isinstance(unwrapped_model, BertModel)):
+        raise TypeError('Gated Linear Units only has a surgery policy defined for instances of the transformers.BertPreTrainedModel or transformers.BertModel classes.')
 
     if act_fn is None:
         intermediate_modules = {module for module in model.modules() if isinstance(module, BertIntermediate)}
