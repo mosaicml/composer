@@ -177,11 +177,6 @@ Doing so avoids putting additional work on the CPU (since augmentation occurs on
 > This is fine for loss functions that are linear in the targets, such as cross entropy,
 > but may produce unexpected results for other loss functions.
 
-> 🚧 MixUp May Interact with Other Methods that Modify Targets
->
-> This method interacts with other methods (such as Label Smoothing) that alter the targets.
-> While such methods may still compose well with label smoothing in terms of improved accuracy, it is important to ensure that the implementations of these methods compose.
-
 > 🚧 Composing Regularization Methods
 >
 > As a general rule, composing regularization methods may lead to diminishing returns in quality improvements. MixUp is one such regularization method.
