@@ -1721,7 +1721,9 @@ class Trainer:
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
         assert self.state.train_metrics is not None, 'The train metrics should be set on __init__ or fit()'
 
-        with torch.no_grad(), model_eval_mode(self.state.model), get_precision_context(self.state.precision):
+        with torch.no_grad(),\
+                model_eval_mode(self.state.model),\
+                get_precision_context(self.state.precision):
             if hasattr(self._original_model, 'validate'):  # backwards compatibility check
                 warnings.warn(
                     'Using validate() is no longer supported and will be removed in a future version. Please use eval_forward() instead.'
