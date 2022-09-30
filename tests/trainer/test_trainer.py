@@ -783,7 +783,7 @@ class TestTrainerEquivalence():
             torch.testing.assert_close(param1, param2, **threshold)
 
     @pytest.fixture
-    def config(self, device: Device, precision: Precision, world_size: int, rank_zero_seed: int):
+    def _config(self, device: Device, precision: Precision, world_size: int, rank_zero_seed: int):
         """Returns the reference config."""
 
         return {
@@ -796,6 +796,10 @@ class TestTrainerEquivalence():
             'precision': precision,
             'loggers': [],  # no progress bar
         }
+
+    @pytest.fixture
+    def config(self, _config):
+        return copy.deepcopy(_config)
 
     @pytest.fixture(autouse=True)
     def create_reference_model(self, config, tmp_path_factory: pytest.TempPathFactory, *args):
