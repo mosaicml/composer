@@ -473,6 +473,7 @@ def run_local_rank_zero_first():
         else:
             yield
             dist.barrier()
+        return
     world_size = get_world_size()
     if world_size == 1:
         yield
