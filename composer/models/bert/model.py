@@ -117,20 +117,8 @@ def create_bert_unpadded_mlm(use_pretrained: Optional[bool] = False,
     """BERT model based on HazyResearch's MLPerf 2.0 submission and HuggingFace transformer"""
     try:
         import transformers
-
-        # from transformers.models.bert import modeling_bert
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
-
-    # def from_encoder(layer: torch.nn.Module, module_index: int) -> BertModel:
-    #     """Defines a replacement policy from a `modeling_bert.BertModel` to a `composer.models.bert.unpadded_layers.BertModel`"""
-    #     return BertModel(layer.config)
-
-    # config = {}
-
-    # def from_prediction_head(layer: torch.nn.Module, module_index: int) -> BertLMPredictionHead:
-    #     """Defines a replacement policy from a `modeling_bert.BertLMPredictionHead` to a `composer.models.bert.unpadded_layers.BertLMPredictionHead`"""
-    #     return BertLMPredictionHead(config, layer.decoder.weight)
 
     if not model_config:
         model_config = {}
@@ -150,7 +138,7 @@ def create_bert_unpadded_mlm(use_pretrained: Optional[bool] = False,
         config.return_dict = False
         # config.fused_bias_fc_loss_head = True
         config.fused_bias_mha = True
-        config.dense_seq_output = True # Requires BertForMaskedLM
+        config.dense_seq_output = True  # Requires BertForMaskedLM
         config.last_layer_subset = True
         model = BertForMaskedLM(config)  # Previously transformers.AutoModelForMaskedLM.from_config(config)
 
@@ -169,19 +157,6 @@ def create_bert_unpadded_mlm(use_pretrained: Optional[bool] = False,
     ]
 
     hf_model = HuggingFaceModel(model=model, tokenizer=tokenizer, use_logits=True, metrics=metrics)
-
-    # When using BertForMaskedLM instead of AutoModelForMaskedLM.from_config(config), don't use surgery.
-
-    """
-    policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
-        modeling_bert.BertModel: from_encoder,
-        # modeling_bert.BertLMPredictionHead: from_prediction_head,
-    }
-
-    replaced_instances = module_surgery.replace_module_classes(module=hf_model, policies=policy)
-    if len(replaced_instances) == 0:
-        raise ValueError('Could not create Unpadded BERT model.')
-    """
 
     return hf_model
 
