@@ -783,7 +783,7 @@ class TestTrainerEquivalence():
             torch.testing.assert_close(param1, param2, **threshold)
 
     @pytest.fixture
-    def _config(self, device: Device, precision: Precision, world_size: int, rank_zero_seed: int):
+    def config(self, device: Device, precision: Precision, world_size: int, rank_zero_seed: int):
         """Returns the reference config."""
 
         return {
@@ -796,10 +796,6 @@ class TestTrainerEquivalence():
             'precision': precision,
             'loggers': [],  # no progress bar
         }
-
-    @pytest.fixture
-    def config(self, _config):
-        return copy.deepcopy(_config)
 
     @pytest.fixture(autouse=True)
     def create_reference_model(self, config, tmp_path_factory: pytest.TempPathFactory, *args):
@@ -819,12 +815,6 @@ class TestTrainerEquivalence():
         self.reference_model = trainer.state.model
         self.reference_folder = checkpoint_save_path
 
-    def test_determinism(self, config, *args):
-        trainer = Trainer(**config)
-        trainer.fit()
-
-        self.assert_models_equal(trainer.state.model, self.reference_model)
-
     def test_grad_accum(self, config, precision, *args):
         # grad accum requires non-zero tolerance
         # Precision.AMP requires a even higher tolerance.
@@ -841,6 +831,12 @@ class TestTrainerEquivalence():
         trainer.fit()
 
         self.assert_models_equal(trainer.state.model, self.reference_model, threshold=threshold)
+
+    def test_determinism(self, config, *args):
+        trainer = Trainer(**config)
+        trainer.fit()
+
+        self.assert_models_equal(trainer.state.model, self.reference_model)
 
     def test_max_duration(self, config, *args):
         num_batches = 2 * len(config['train_dataloader'])  # convert 2ep to batches
