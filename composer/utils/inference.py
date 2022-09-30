@@ -63,6 +63,7 @@ def export_for_inference(
     save_path: str,
     save_object_store: Optional[ObjectStore] = None,
     sample_input: Optional[Any] = None,
+    dynamic_axes: Optional[Any] = None,
     surgery_algs: Optional[Union[Callable[[nn.Module], nn.Module], Sequence[Callable[[nn.Module], nn.Module]]]] = None,
     transforms: Optional[Sequence[Transform]] = None,
     load_path: Optional[str] = None,
@@ -118,11 +119,23 @@ def export_for_inference(
     if dist.get_global_rank() != 0:
         return
 
-    # make a copy of the model so that we don't modify the original model
+    # Make a copy of the model so that we don't modify the original model
     model = copy.deepcopy(model)
 
-    # make a copy of the sample input so that we don't modify the original sample input
+    # Make a copy of the sample input so that we don't modify the original sample input
     sample_input = copy.deepcopy(sample_input)
+
+    # Move model and sample input to CPU for export
+    cpu = torch.device('cpu')
+    model.to(device=cpu)
+    if sample_input is not None:
+        for i in range(len(sample_input)):
+            if isinstance(sample_input[i], torch.Tensor):
+                sample_input[i] = sample_input[i].to(cpu)
+            elif isinstance(sample_input[i], dict):
+                for key, value in sample_input[i].items():
+                    if isinstance(value, torch.Tensor):
+                        sample_input[i][key] = value.to(cpu)
 
     # Apply surgery algorithms in the given order
     for alg in ensure_tuple(surgery_algs):
@@ -180,11 +193,16 @@ def export_for_inference(
                     raise ValueError(f'sample_input argument is required for onnx export')
                 sample_input = ensure_tuple(sample_input)
 
-                input_names = ['input']
+                input_names = []
 
-                # Extract input names from sample_input if it is a dict
-                if isinstance(sample_input[0], dict):
-                    input_names = list(sample_input[0].keys())
+                # Extract input names from sample_input if it contains dicts
+                for i in range(len(sample_input)):
+                    if isinstance(sample_input[i], dict):
+                        input_names += list(sample_input[i].keys())
+
+                # Default input name if no dict present
+                if input_names == []:
+                    input_names = ['input']
 
                 torch.onnx.export(
                     model,
@@ -192,6 +210,7 @@ def export_for_inference(
                     local_save_path,
                     input_names=input_names,
                     output_names=['output'],
+                    dynamic_axes=dynamic_axes,
                 )
 
             # upload if required.
