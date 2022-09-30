@@ -20,11 +20,13 @@ from composer.utils import checkpoint, dist, is_model_deepspeed, reproducibility
 from composer.utils.checkpoint import PartialFilePath
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
                                          create_symlink_file, ensure_folder_has_no_conflicting_files,
-                                         format_name_with_dist, format_name_with_dist_and_time)
+                                         format_name_with_dist, format_name_with_dist_and_time, is_tar)
 
 from urllib.parse import urlparse, ParseResult
 from composer.utils.object_store import S3ObjectStore, SFTPObjectStore
 from composer.utils.object_store.object_store import ObjectStore
+from pathlib import Path
+from typing import Callable, List, Optional, Union
 
 log = logging.getLogger(__name__)
 
@@ -282,12 +284,28 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.weights_only = weights_only
 
     def init(self, state: State, logger: Logger) -> None:
-        self.checkpoint_save_path = format_name_with_dist(self.checkpoint_save_path, state.run_name)
-        self.checkpoint_filename = format_name_with_dist_and_time(self.checkpoint_filename,
-                                                              state.run_name, state.timestamp)
-        self.latest_checkpoint_filename = format_name_with_dist_and_time(self.latest_checkpoint_filename,
-        backend, _, filepath = urlparse(full_checkpoint_file_path)
+        checkpoint_save_path = format_name_with_dist(self.checkpoint_save_path, state.run_name)
         os.makedirs(checkpoint_save_path, exist_ok=True)
+        is_deepspeed = is_model_deepspeed(state.model)
+        self.checkpoint_save_path = format_name_with_dist(self.checkpoint_save_path, state.run_name)
+        self.checkpoint_filename = format_name_with_dist_and_time(self.checkpoint_filename, state.run_name,
+                                                                state.timestamp)
+        self.checkpoint_filename += ('.tar' if is_deepspeed and not is_tar(self.checkpoint_filename) else '')
+        self.latest_checkpoint_filename = format_name_with_dist_and_time(self.latest_checkpoint_filename,
+                                                                        state.run_name, state.timestamp)
+        self.checkpoint_filename += ('.tar' if is_deepspeed and not is_tar(self.checkpoint_filename) else '')
+        self.checkpoint_file_path = Path(self.checkpoint_save_path) / Path(self.checkpoint_filename)
+        self.latest_checkpoint_file_path = Path(self.checkpoint_save_path) / Path(self.latest_checkpoint_filename)
+        self.backend, _, filepath = urlparse(str(self.checkpoint_file_path))
+        # Make local checkpoint directory
+        os.makedirs(Path(filepath).parent, exist_ok=True)
+        # self.local_save_path = filepath
+        # _, _, latest_filepath = urlparse(full_latest_checkpoint_file_path)
+        # self.local_latest_save_path = latest_filepath
+        if backend is not '':
+            self.path_to_artifact = filepath
+            self.path_to_latest_artifact = latest_filepath
+        os.makedirs(self.local_save_path, exist_ok=True)
 
     def fit_start(self, state: State, logger: Logger) -> None:
         if not self.overwrite:
