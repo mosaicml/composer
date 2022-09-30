@@ -62,6 +62,7 @@ from composer.algorithms.seq_length_warmup import SeqLengthWarmup
 from composer.algorithms.squeeze_excite import SqueezeExcite, SqueezeExcite2d, SqueezeExciteConv2d
 from composer.algorithms.stochastic_depth import StochasticDepth
 from composer.algorithms.swa import SWA
+from composer.algorithms.weight_standardization import WeightStandardization
 
 __all__ = [
     'Alibi',
@@ -94,4 +95,5 @@ __all__ = [
     'SqueezeExciteConv2d',
     'StochasticDepth',
     'SWA',
+    'WeightStandardization',
 ]
