@@ -1,11 +1,12 @@
 # ✂️ CutMix
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
 `Computer Vision`
 
 CutMix is a data augmentation technique that modifies images by cutting out a small patch and replacing it with a different image.
-It is a regularization technique that improves the generalization accuracy of models for computer vision.
+It is a regularization technique that can improve the generalization accuracy of computer
+vision models.
 
 | ![CutMix](https://storage.googleapis.com/docs.mosaicml.com/images/methods/cutmix.png) |
 |:--:
@@ -98,7 +99,6 @@ The final set of targets `y` is created by sampling a value `interpolation` (bet
 CutMix is intended to improve generalization performance, and we empirically found this to be the case in our image classification settings. The original paper also reports improvements in object localization and robustness.
 
 
-
 > 🚧 Composing Regularization Methods
 >
 > As general rule, composing regularization methods may lead to diminishing returns in quality improvements. CutMix is one such regularization method.
@@ -117,3 +117,9 @@ Doing so avoids putting additional work on the CPU (since augmentation occurs on
 [*CutMix: Regularization Strategy to Train Strong Classifiers with Localizable Features*](https://arxiv.org/abs/1905.04899) by Sangdoo Yun, Dongyoon Han, Seong Joon Oh, Sanghyuk Chun, Junsuk Choe, and Youngjoon Yoo. Published in ICCV 2019.
 
 *This Composer implementation of this method and the accompanying documentation were produced by Cory Stephenson at MosaicML.*
+
+## API Reference
+
+**Algorithm class:** {class}`composer.algorithms.CutMix`
+
+**Functional:** {func}`composer.functional.cutmix_batch`
