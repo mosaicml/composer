@@ -22,7 +22,7 @@ from composer.trainer.dist_strategy import prepare_ddp_module
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, export_with_logger, inference
 from tests.common.datasets import RandomImageDataset
-
+from composer.functional import apply_gated_linear_units
 
 class MockFileArtifactLogger(LoggerDestination):
     """Mocks a generic file artifact logger interface."""
@@ -86,13 +86,24 @@ def test_huggingface_export_for_inference_onnx():
         'token_type_ids': token_type_ids,
         'attention_mask': attention_mask,
     }
-
+    dynamic_axes = {
+        'input_ids': {0: 'batch_size', 1: 'seq_len'},
+        'labels': {0: 'batch_size'},
+        'token_type_ids': {0: 'batch_size', 1: 'seq_len'},
+        'attention_mask': {0: 'batch_size', 1: 'seq_len'},
+    }
+    # dynamic_axes = None
     # non pretrained model to avoid a slow test that downloads the weights.
     config = transformers.AutoConfig.from_pretrained('bert-base-uncased', num_labels=2, hidden_act='gelu_new')
     hf_model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
 
     model = HuggingFaceModel(hf_model)
+    
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
+    apply_gated_linear_units(model, optimizer)
+    
     model.eval()
+
     orig_out = model(sample_input)
 
     save_format = 'onnx'
@@ -103,6 +114,7 @@ def test_huggingface_export_for_inference_onnx():
             save_format=save_format,
             save_path=save_path,
             sample_input=(sample_input, {}),
+            dynamic_axes=dynamic_axes,
         )
         loaded_model = onnx.load(save_path)
 

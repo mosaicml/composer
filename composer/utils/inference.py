@@ -211,6 +211,7 @@ def export_for_inference(
                     input_names=input_names,
                     output_names=['output'],
                     dynamic_axes=dynamic_axes,
+                    opset_version=13,
                 )
 
             # upload if required.
