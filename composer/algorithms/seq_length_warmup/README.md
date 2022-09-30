@@ -1,7 +1,7 @@
 # 🔆 Sequence Length Warmup
 
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
  `Natural Language Processing`
 
@@ -105,3 +105,9 @@ One of the key design decisions when performing Sequence Length Warmup is the ma
 [*Curriculum Learning: A Regularization Method for Efficient and Stable Billion-Scale GPT Model Pre-Training*](https://arxiv.org/abs/2108.06084) by Conglong Li, Minjia Zhang, and Yuxiong He. Posted to arXiv in 2021.
 
 *The Composer implementation of this method and the accompanying documentation were produced by Moin Nadeem at MosaicML.*
+
+## API Reference
+
+**Algorithm class:** {class}`composer.algorithms.SeqLengthWarmup`
+
+**Functional:** {func}`composer.functional.set_batch_sequence_length`

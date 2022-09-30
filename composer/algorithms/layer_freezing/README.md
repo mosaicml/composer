@@ -1,7 +1,7 @@
 # ❄️ Layer Freezing
 
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
  `Computer Vision`
 
@@ -119,3 +119,9 @@ For ResNet-56 on CIFAR-100, we have observed an accuracy lift from 75.82% to 76.
 Freezing layers is an old and common practice, but our precise freezing scheme most closely resembles [*Freezeout: Accelerate training by progressively freezing layers*](https://arxiv.org/abs/1706.04983) by Andrew Brock, Theodore Lim, J.M. Ritchie, and Nick Westin (posted on arXiv in 2017) and [*SVCCA: Singular Vector Canonical Correlation Analysis for Deep Learning Dynamics and Interpretability*](https://arxiv.org/abs/1706.05806) by Maithra Raghu, Justin Gilmer, Jason Yosinski, and Jascha Sohl-Dickstein (published in NeurIPS 2017).
 
 *The Composer implementation of this method and the accompanying documentation were produced by Cory Stephenson at MosaicML.*
+
+## API Reference
+
+**Algorithm class:** {class}`composer.algorithms.LayerFreezing`
+
+**Functional:** {func}`composer.functional.freeze_layers`

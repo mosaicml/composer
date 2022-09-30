@@ -1,6 +1,6 @@
 # ⏮️ Selective Backprop
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
 `Computer Vision`
 
@@ -113,3 +113,9 @@ We have explored Selective Backprop primarily on image recognition tasks such as
 [*Accelerating Deep Learning by Focusing on the Biggest Losers*](https://arxiv.org/abs/1910.00762) by Angela H. Jiang, Daniel L. K. Wong, Giulio Zhou, David G. Andersen, Jeffrey Dean, Gregory R. Ganger, Gauri Joshi, Michael Kaminsky, Michael Kozuch, Zachary C. Lipton, and Padmanabhan Pillai. Released on arXiv in 2019.
 
 *The Composer implementation of this method and the accompanying documentation were produced by Abhi Venigalla at MosaicML.*
+
+## API Reference
+
+**Algorithm class:** {class}`composer.algorithms.SelectiveBackprop`
+
+**Functional:** {func}`composer.functional.select_using_loss`, {func}`composer.functional.should_selective_backprop`
