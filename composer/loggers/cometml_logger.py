@@ -73,7 +73,10 @@ class CometMLLogger(LoggerDestination):
         self.name = name
         self._rank_zero_only = rank_zero_only
         self._exp_kwargs = exp_kwargs
-        self.experiment = Experiment(**self._exp_kwargs)
+        self.experiment = None
+        if self._enabled:
+            self.experiment = Experiment(**self._exp_kwargs)
+            self.experiment.log_other('Created from', 'mosaicml-composer')
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -87,12 +90,20 @@ class CometMLLogger(LoggerDestination):
             self.name += f'-rank{dist.get_global_rank()}'
 
         if self._enabled:
+            assert self.experiment is not None
             self.experiment.set_name(self.name)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:
+            assert self.experiment is not None
             self.experiment.log_metrics(dic=metrics, step=step)
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         if self._enabled:
+            assert self.experiment is not None
             self.experiment.log_parameters(hyperparameters)
+
+    def post_close(self):
+        if self._enabled:
+            assert self.experiment is not None
+            self.experiment.end()
