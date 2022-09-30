@@ -815,6 +815,12 @@ class TestTrainerEquivalence():
         self.reference_model = trainer.state.model
         self.reference_folder = checkpoint_save_path
 
+    def test_determinism(self, config, *args):
+        trainer = Trainer(**config)
+        trainer.fit()
+
+        self.assert_models_equal(trainer.state.model, self.reference_model)
+
     def test_grad_accum(self, config, precision, *args):
         # grad accum requires non-zero tolerance
         # Precision.AMP requires a even higher tolerance.
@@ -831,12 +837,6 @@ class TestTrainerEquivalence():
         trainer.fit()
 
         self.assert_models_equal(trainer.state.model, self.reference_model, threshold=threshold)
-
-    def test_determinism(self, config, *args):
-        trainer = Trainer(**config)
-        trainer.fit()
-
-        self.assert_models_equal(trainer.state.model, self.reference_model)
 
     def test_max_duration(self, config, *args):
         num_batches = 2 * len(config['train_dataloader'])  # convert 2ep to batches
