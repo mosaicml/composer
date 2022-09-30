@@ -15,8 +15,8 @@ from transformers.models.bert.modeling_bert import (BertAttention, BertEmbedding
                                                     BertPredictionHeadTransform, BertPreTrainedModel, BertSelfOutput)
 
 # from composer.models.bert.losses.cross_entropy_apex import CrossEntropyLossApex
-from composer.models.bert.ops.fused_dense import FusedDenseResidual  # FusedDenseTD
-from composer.models.bert.ops.fused_dense import fused_dense_function_td
+from composer.models.bert.fused_dense import FusedDenseResidual  # FusedDenseTD
+from composer.models.bert.fused_dense import fused_dense_function_td
 
 
 class IndexFirstAxis(torch.autograd.Function):
@@ -297,7 +297,7 @@ class BertModel(BertPreTrainedModel):
 
         if not output_all_encoded_layers:
             encoder_outputs = sequence_output
-        return encoder_outputs, None 
+        return encoder_outputs, None
 
 
 class BertLMPredictionHead(nn.Module):
