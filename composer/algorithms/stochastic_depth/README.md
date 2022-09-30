@@ -1,6 +1,6 @@
 # 🎰 Stochastic Depth (Sample)
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
  `Computer Vision`
 
@@ -25,10 +25,9 @@ train_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
 
 import torch
 import torch.nn.functional as F
+
 import composer.functional as cf
 from composer.models import composer_resnet
-
-from torchvision.models import resnet50
 
 # Training
 
@@ -37,8 +36,6 @@ model = composer_resnet('resnet50')
 
 opt = torch.optim.Adam(model.parameters())
 
-# only need to pass in opt if apply_stochastic_depth is used after the optimizer
-# creation; otherwise only the model needs to be passed in
 cf.apply_stochastic_depth(
     model,
     target_layer_name='ResNetBottleneck',
@@ -123,3 +120,9 @@ For both ResNet-50 and ResNet-101 on ImageNet, we measure a +0.4% absolute accur
 [EfficientNet model in the TPU Github repository](https://github.com/tensorflow/tpu/tree/master/models/official/efficientnet) from Google
 
 [EfficientNet model in gen-efficientnet-pytorch Github repository](https://github.com/rwightman/gen-efficientnet-pytorch) by Ross Wightman
+
+## API Reference
+
+**Algorithm class:** {class}`composer.algorithms.StochasticDepth`
+
+**Functional:** {func}`composer.functional.apply_stochastic_depth`

@@ -1,6 +1,6 @@
 # 🏔️ Sharpness Aware Minimization (SAM)
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
 `Computer Vision`
 
@@ -77,7 +77,10 @@ In our experiments we used a value of `interval=10` to limit SAM’s impact on t
 >
 > In our experiments, SAM improves the attainable tradeoffs between training speed and the final quality of the trained model.
 > Although it causes a reduction in training throughput, the `interval` hyperparameter can be used to minimize the extent of this reduction.
-> The corresponding accuracy increases were a worthwhile tradeoff for the throughput reduction in our experiments on ResNets on ImageNet.
+> The corresponding accuracy increases were a worthwhile tradeoff for the throughput
+> reduction in our experiments on ResNets on ImageNet. We did not find SAM to be
+> beneficial when the model only sees training samples once or a few times (e.g. most NLP
+> training regimes).
 
 Foret et al. introduced SAM on CNNs for image classification tasks.
 These results have been replicated and/or extended by [Brock et al., (2021)](https://arxiv.org/abs/2102.06171) and MosaicML and extended to vision transformers by [Chen et al., (2021)](https://arxiv.org/abs/2106.01548). As a generic optimization algorithm, SAM should be applicable across all models and tasks.
@@ -88,3 +91,7 @@ We did not find that SAM provides any improvement on GPT-style language modeling
 [*Sharpness-Aware Minimization for Efficiently Improving Generalization*](https://arxiv.org/abs/2010.01412) by Pierre Foret, Ariel Kleiner, Hossein Mobahi, and Behnam Neyshabur. Published in ICLR 2021.
 
 *The Composer implementation of this method and the accompanying documentation were produced by Abhi Venigalla at MosaicML.*
+
+## API Reference
+
+**Algorithm class:** {class}`composer.algorithms.SAM`

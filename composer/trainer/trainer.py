@@ -42,10 +42,10 @@ from composer.profiler import Profiler
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
-from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
-from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed,
-                            map_collection, model_eval_mode, reproducibility)
+from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
+from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, map_collection,
+                            model_eval_mode, reproducibility)
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.inference import ExportFormat, Transform, export_with_logger
@@ -795,6 +795,7 @@ class Trainer:
 
         # DeepSpeed
         deepspeed_config: Optional[Dict[str, Any]] = None,
+        fsdp_config: Optional[Dict[str, Any]] = None,
 
         # System/Numerics
         device: Optional[Union[str, Device]] = None,
@@ -817,17 +818,31 @@ class Trainer:
     ):
         algorithms = list(ensure_tuple(algorithms))
 
-        # Determine whether DeepSpeed is enabled
-        deepspeed_enabled = deepspeed_config is not None
-
         # Device
         self._device = _get_device(device)
 
+        # Determine whether DeepSpeed and FSDP are enabled
+        self.deepspeed_config = deepspeed_config
+        self.fsdp_config = fsdp_config
+        self.deepspeed_enabled = self.deepspeed_config is not None
+        self.fsdp_enabled = self.fsdp_config is not None
+
+        # Precision
+        if precision is None:
+            precision = Precision.AMP if isinstance(self._device, DeviceGPU) else Precision.FP32
+        if isinstance(precision, str):
+            precision = Precision(precision)
+        _validate_precision(precision, self._device, self.deepspeed_enabled)
+
         # Distributed
-        if deepspeed_enabled or dist.get_world_size() > 1:
-            # deepspeed requires torch.distributed to be initialized, even if the world size is 1
-            # distributed is always required with multi-rank training
+        if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
+            # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
+            # And torch.distributed is always required for multi-rank training
             dist.initialize_dist(self._device, datetime.timedelta(seconds=dist_timeout))
+
+        # Handle FSDP sharding
+        if self.fsdp_config is not None:
+            prepare_fsdp_module(model, optimizers, self.fsdp_config, precision)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, self._device)
@@ -837,17 +852,9 @@ class Trainer:
         if deterministic_mode:
             reproducibility.configure_deterministic_mode()
 
-        # Precision
-        if precision is None:
-            precision = Precision.AMP if isinstance(self._device, DeviceGPU) else Precision.FP32
-        if isinstance(precision, str):
-            precision = Precision(precision)
-
-        _validate_precision(precision, self._device, deepspeed_enabled)
-
         # Optimizers and Schedulers
         if not optimizers:
-            optimizers = DecoupledSGDW(list(model.parameters()), lr=0.1)
+            optimizers = DecoupledSGDW(model.parameters(), lr=0.1)
             # hard-coding the optimizer in the warning, as repr(optimizers) would print an annoying, multi-line warning
             warnings.warn(('No optimizer was specified. Defaulting to '
                            f"{type(optimizers).__name__}(lr={optimizers.defaults['lr']})"))
@@ -858,7 +865,7 @@ class Trainer:
 
         # Move the model and optimizers to the device
 
-        if not deepspeed_enabled:
+        if not (self.deepspeed_enabled or self.fsdp_enabled):
             # check if model is already on tpu
             if isinstance(self._device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
                 raise ValueError(
@@ -965,7 +972,7 @@ class Trainer:
         self.engine = Engine(state=self.state, logger=self.logger)
 
         # Set the logger
-        model.logger = self.logger
+        self.state.model.logger = self.logger
 
         # Run Event.INIT
         self.engine.run_event(Event.INIT)
@@ -1026,8 +1033,6 @@ class Trainer:
 
         self.logger.log_hyperparameters({'rank_zero_seed': rank_zero_seed})
 
-        self._original_model = self.state.model
-
         # Schedulers
         self.state.schedulers = _compile_schedulers(schedulers, self.state, scale_schedule_ratio)
         if scale_schedule_ratio != 1.0:
@@ -1044,6 +1049,13 @@ class Trainer:
         self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, self.state.algorithms))
         self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, self.state.algorithms))
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
+
+        # If using DDP or DeepSpeed, we need to wrap the ComposerModel
+        # But store a reference to the original model for functions like `eval_forward`, `get_metrics`, etc.
+        self._original_model = self.state.model
+        if not isinstance(self._original_model, ComposerModel):
+            raise ValueError('self.state.model must be a subclass of ComposerModel.')
+
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
             for callback in self.state.callbacks:
@@ -1083,10 +1095,13 @@ class Trainer:
         # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
         # DDP.
 
-        # surpressing GradScaler warnings as they are always created
+        # suppressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
         self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
+
+        # suppressing FSDP warning when auto grad accum exits the forward pass before completing
+        warnings.filterwarnings(action='ignore', message='Forward order differs from that of the first iteration')
 
         # Load Checkpoint
         self._rng_state = None
@@ -1147,18 +1162,9 @@ class Trainer:
         log.info(f'Setting seed to {self.state.seed}')
         reproducibility.seed_all(self.state.seed)
 
-        # Move the model and optimizers to the specified device
-        if not self.deepspeed_enabled and dist.get_world_size() > 1:
+        if not (self.deepspeed_enabled or self.fsdp_enabled) and dist.get_world_size() > 1:
             # Only wrap the module if required
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
-
-    @property
-    def deepspeed_enabled(self):
-        """Whether DeepSpeed is enabled.
-
-        .. seealso:: `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_
-        """
-        return is_model_deepspeed(self.state.model)
 
     @property
     def saved_checkpoints(self) -> List[str]:
@@ -1869,7 +1875,10 @@ class Trainer:
 
             if not self.deepspeed_enabled:
                 for optimizer in self.state.optimizers:
-                    optimizer.zero_grad()
+                    try:
+                        optimizer.zero_grad(set_to_none=True)
+                    except TypeError:
+                        optimizer.zero_grad()
 
             # tracker for gradient accumulation
             current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(batch) for batch in microbatches])
