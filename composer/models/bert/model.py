@@ -151,6 +151,7 @@ def create_bert_unpadded_mlm(use_pretrained: Optional[bool] = False,
         # config.fused_bias_fc_loss_head = True
         config.fused_bias_mha = True
         config.dense_seq_output = True # Requires BertForMaskedLM
+        config.last_layer_subset = True
         model = BertForMaskedLM(config)  # Previously transformers.AutoModelForMaskedLM.from_config(config)
 
     if gradient_checkpointing:

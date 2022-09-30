@@ -289,18 +289,15 @@ class BertModel(BertPreTrainedModel):
 
         if masked_tokens_mask is None:
             sequence_output = encoder_outputs[-1]
-            pooled_output = self.pooler(sequence_output) if self.pooler is not None else None
         else:
             # TD [2022-03-01]: the indexing here is very tricky.
             attention_mask_bool = attention_mask.bool()
             subset_idx = subset_mask[attention_mask_bool]  # type: ignore
             sequence_output = encoder_outputs[-1][masked_tokens_mask[attention_mask_bool][subset_idx]]
-            pool_input = encoder_outputs[-1][first_col_mask[attention_mask_bool][subset_idx]]
-            pooled_output = (self.pooler(pool_input, pool=False) if self.pooler is not None else None)
 
         if not output_all_encoded_layers:
             encoder_outputs = sequence_output
-        return encoder_outputs, pooled_output
+        return encoder_outputs, None 
 
 
 class BertLMPredictionHead(nn.Module):
