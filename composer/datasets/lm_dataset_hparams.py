@@ -4,16 +4,15 @@
 """Generic hyperparameters for self-supervised training of autoregressive and masked language models."""
 
 import logging
-from dataclasses import dataclass
-from typing import List, Optional, cast
+from dataclasses import asdict, dataclass
+from typing import List, Optional
 
 import yahp as hp
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
+from composer.datasets.lm_dataset import build_lm_dataloader, build_synthetic_lm_dataloader
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
-from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
-from composer.utils import MissingConditionalImportError, dist
 
 __all__ = ['LMDatasetHparams']
 
@@ -42,9 +41,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             Default: ``5``.
         subsample_ratio (float, optional): Proportion of the dataset to use. Default:
             ``1.0``.
-        train_sequence_length (int, optional): Sequence length for training dataset.
-            Default: ``1024``.
-        val_sequence_length (int, optional): Sequence length for validation dataset.
+        max_seq_length: (int, optional): Custom sequence length for the training dataset.
             Default: ``1024``.
     """
 
@@ -90,93 +87,34 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             log.warning('For best hardware acceleration, it is recommended that sequence lengths be multiples of 8.')
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
-        try:
-            import datasets
-            import transformers
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
-
         self.validate()
-        assert self.tokenizer_name is not None
+
         if self.use_synthetic:
-            column_names = ['text']
-
-            # we just use the max sequence length in tokens to upper bound the sequence length in characters
-            lm_datasets = synthetic_hf_dataset_builder(num_samples=self.synthetic_num_unique_samples,
-                                                       chars_per_sample=self.max_seq_length,
-                                                       column_names=column_names)
-
-            tokenizer = generate_synthetic_tokenizer(tokenizer_family=self.tokenizer_name, dataset=lm_datasets)
-
-            columns_to_remove = ['idx'] + column_names
-            lm_datasets = lm_datasets.map(
-                lambda inp: tokenizer(
-                    text=inp[column_names[0]], padding='max_length', max_length=self.max_seq_length, truncation=True),
-                batched=True,
-                num_proc=None if dataloader_hparams.num_workers == 0 else dataloader_hparams.num_workers,
-                remove_columns=columns_to_remove,
-                keep_in_memory=True)
-
-            # override sizing to able use of synthetic datasets
-            self.num_tokens = 0
-            self.subsample_ratio = 1.0
-            lm_datasets = [{self.split: lm_datasets}]
+            return build_synthetic_lm_dataloader(
+                synthetic_num_unique_samples=self.synthetic_num_unique_samples,
+                tokenizer_name=self.tokenizer_name,  # type: ignore
+                batch_size=batch_size,
+                split=self.split,  # type: ignore
+                shuffle=self.shuffle,
+                drop_last=self.drop_last,
+                use_masked_lm=self.use_masked_lm,
+                num_tokens=self.num_tokens,
+                mlm_probability=self.mlm_probability,
+                subsample_ratio=self.subsample_ratio,
+                max_seq_length=self.max_seq_length,
+                **asdict(dataloader_hparams),
+            )
         else:
-            tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
-            self.config = transformers.AutoConfig.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
-            # loads a dataset that is assumed to be pre-tokenized
-            lm_datasets = [datasets.load_from_disk(i) for i in self.datadir]  #type: ignore (thirdparty)
-
-        # merge the dataset to re-sample from
-        if self.split is None:
-            raise ValueError('A dataset split is required')
-        merged_dataset = [[d[self.split]] for d in lm_datasets]
-        # flatten merged_dataset
-        merged_dataset = [item for sublist in merged_dataset for item in sublist]
-        lm_datasets = datasets.concatenate_datasets(merged_dataset)  #type: ignore (thirdparty)
-
-        total_num_samples = len(lm_datasets)  # type: ignore
-        tokens_per_sample = len(lm_datasets[0]['input_ids'])  #type: ignore (thirdparty)
-        total_num_tokens = total_num_samples * tokens_per_sample
-
-        # truncate the dataset to a specified size
-        num_samples = total_num_samples
-        if self.num_tokens > 0:
-            assert self.num_tokens <= total_num_tokens, f'Requested {self.num_tokens} tokens must be <= total_num_tokens={total_num_tokens}'
-            assert self.num_tokens % tokens_per_sample == 0, f'Requested {self.num_tokens} tokens is not divisible by tokens_per_sample={tokens_per_sample}'
-            num_samples = self.num_tokens // tokens_per_sample
-            self.subsample_ratio = num_samples / total_num_samples
-        elif self.subsample_ratio < 1.0:
-            num_samples = round(total_num_samples * self.subsample_ratio)
-            self.num_tokens = num_samples * tokens_per_sample
-        elif self.subsample_ratio == 1.0 and self.num_tokens == 0:
-            self.num_tokens = total_num_tokens
-        else:
-            log.warning('No subsampling going on!')
-
-        lm_datasets = lm_datasets.select(range(num_samples))  # type: ignore (thirdparty)
-        log.info(f'LM datasets: {lm_datasets}')
-        log.info(f'Subsample ratio: {self.subsample_ratio}')
-        log.info(f'Total number of samples: {num_samples:e}')
-        log.info(f'Total number of tokens: {self.num_tokens:e}')
-        dataset = lm_datasets
-
-        # for some tokenizers, e.g. GPT-2, they don't have padding tokens. Hence, we cannot use the LM collator.
-        if tokenizer.pad_token_id is None:
-            data_collator = transformers.default_data_collator
-        else:
-            data_collator = transformers.DataCollatorForLanguageModeling(tokenizer=tokenizer,
-                                                                         mlm=self.use_masked_lm,
-                                                                         mlm_probability=self.mlm_probability)
-
-        sampler = dist.get_sampler(
-            cast(Dataset, dataset),  # HF datasets do not subclass torch datasets, so this cast is needed
-            drop_last=self.drop_last,
-            shuffle=self.shuffle)
-
-        return dataloader_hparams.initialize_object(
-            dataset=dataset,  # type: ignore
-            batch_size=batch_size,
-            sampler=sampler,
-            drop_last=self.drop_last,
-            collate_fn=data_collator)
+            return build_lm_dataloader(
+                datadir=self.datadir,
+                tokenizer_name=self.tokenizer_name,  # type: ignore
+                batch_size=batch_size,
+                split=self.split,  # type: ignore
+                shuffle=self.shuffle,
+                drop_last=self.drop_last,
+                use_masked_lm=self.use_masked_lm,
+                num_tokens=self.num_tokens,
+                mlm_probability=self.mlm_probability,
+                subsample_ratio=self.subsample_ratio,
+                **asdict(dataloader_hparams),
+            )

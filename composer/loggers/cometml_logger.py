@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Log to `Comet <https://www.comet.com/docs/v2/>`_."""
+"""Log to `Comet <https://www.comet.com/?utm_source=mosaicml&utm_medium=partner&utm_campaign=mosaicml_comet_integration>`_."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ __all__ = ['CometMLLogger']
 
 
 class CometMLLogger(LoggerDestination):
-    """Log to `Comet <https://www.comet.com/docs/v2/>`_.
+    """Log to `Comet <https://www.comet.com/?utm_source=mosaicml&utm_medium=partner&utm_campaign=mosaicml_comet_integration>`_.
 
     Args:
         workspace (str, optional): The name of the workspace which contains the project
@@ -36,7 +36,7 @@ class CometMLLogger(LoggerDestination):
             (default: ``False``).
         exp_kwargs (Dict[str, Any], optional): Any additional kwargs to
             comet_ml.Experiment(see
-            `Comet documentation <https://www.comet.com/docs/v2/api-and-sdk/python-sdk/reference/Experiment/>`_).
+            `Comet documentation <https://www.comet.com/docs/v2/api-and-sdk/python-sdk/reference/Experiment/?utm_source=mosaicml&utm_medium=partner&utm_campaign=mosaicml_comet_integration>`_).
     """
 
     def __init__(
@@ -73,7 +73,10 @@ class CometMLLogger(LoggerDestination):
         self.name = name
         self._rank_zero_only = rank_zero_only
         self._exp_kwargs = exp_kwargs
-        self.experiment = Experiment(**self._exp_kwargs)
+        self.experiment = None
+        if self._enabled:
+            self.experiment = Experiment(**self._exp_kwargs)
+            self.experiment.log_other('Created from', 'mosaicml-composer')
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -87,12 +90,20 @@ class CometMLLogger(LoggerDestination):
             self.name += f'-rank{dist.get_global_rank()}'
 
         if self._enabled:
+            assert self.experiment is not None
             self.experiment.set_name(self.name)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:
+            assert self.experiment is not None
             self.experiment.log_metrics(dic=metrics, step=step)
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         if self._enabled:
+            assert self.experiment is not None
             self.experiment.log_parameters(hyperparameters)
+
+    def post_close(self):
+        if self._enabled:
+            assert self.experiment is not None
+            self.experiment.end()
