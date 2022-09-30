@@ -14,13 +14,17 @@ from typing import Callable, List, Optional, Union
 from composer.core import Event, State
 from composer.core.callback import Callback
 from composer.core.time import Time, TimeUnit
-from composer.loggers import Logger
+from composer.loggers import Logger, WandBLogger, ObjectStoreLogger
 from composer.loggers.logger import LogLevel
-from composer.utils import checkpoint, dist, is_model_deepspeed, reproducibility
+from composer.utils import checkpoint, dist, is_model_deepspeed, reproducibility, object_store
 from composer.utils.checkpoint import PartialFilePath
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
                                          create_symlink_file, ensure_folder_has_no_conflicting_files,
-                                         format_name_with_dist)
+                                         format_name_with_dist, format_name_with_dist_and_time)
+
+from urllib.parse import urlparse, ParseResult
+from composer.utils.object_store import S3ObjectStore, SFTPObjectStore
+from composer.utils.object_store.object_store import ObjectStore
 
 log = logging.getLogger(__name__)
 
@@ -167,19 +171,6 @@ class CheckpointSaver(Callback):  # noqa: D101
                 awesome-training-run/checkpoints/ep1-ba42-rank2.tar
                 ...
 
-        artifact_name (str, optional): Format string for the checkpoint's artifact name.
-            Default: ``"{{run_name}}/checkpoints/ep{{epoch}}-ba{{batch}}-rank{{rank}}"``.
-
-            After the checkpoint is saved, it will be periodically logged as a file artifact.
-            The artifact name will be determined by this format string.
-
-            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
-
-            The same format variables for ``checkpoint_filename`` are available.
-
-            Leading slashes (``'/'``) will be stripped.
-
-            To disable logging trace files as file artifacts, set this parameter to ``None``.
         latest_checkpoint_filename (str, optional): A format string for a symlink which points to the last saved checkpoint.
             Default: ``'latest-rank{{rank}}.pt'``.
 
@@ -216,20 +207,6 @@ class CheckpointSaver(Callback):  # noqa: D101
                 awesome-training-run/checkpoints/latest-rank1.tar -> awesome-training-run/checkpoints/ep1-ba42-rank1.tar
                 awesome-training-run/checkpoints/latest-rank2.tar -> awesome-training-run/checkpoints/ep1-ba42-rank2.tar
                 ...
-        latest_artifact_name (str, optional): Format string for the checkpoint's latest symlink artifact name.
-            Default: ``'{{run_name}}/checkpoints/latest-rank{{rank}}"``.
-
-            Whenever a new checkpoint is saved, a symlink artifact is created or updated to point to the latest checkpoint's ``artifact_name``.
-            The artifact name will be determined by this format string. This parameter has no effect if ``latest_checkpoint_filename`` or ``artifact_name`` is ``None``.
-
-            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
-
-            The same format variables for ``checkpoint_filename`` are available.
-
-            Leading slashes (``'/'``) will be stripped.
-
-            To disable symlinks in logger, set this parameter to ``None``.
-
         overwrite (bool, optional): Whether existing checkpoints should be overridden.
             If ``False`` (the default), then the ``checkpoint_save_path`` must not exist or must not contain checkpoints which may conflict
             with the current run. Default: ``False``.
@@ -283,9 +260,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         self,
         checkpoint_save_path: str = '{run_name}/checkpoints',
         checkpoint_filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
-        artifact_name: Optional[str] = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
         latest_checkpoint_filename: Optional[str] = 'latest-rank{rank}.pt',
-        latest_artifact_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
         checkpoint_save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = '1ep',
         *,
         overwrite: bool = False,
@@ -299,20 +274,19 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         self.checkpoint_save_path = checkpoint_save_path
 
-        self.checkpoint_filename = PartialFilePath(checkpoint_filename.lstrip('/'), checkpoint_save_path)
-        self.latest_checkpoint_filename = PartialFilePath(latest_checkpoint_filename.lstrip('/'),
-                                                          checkpoint_save_path) if latest_checkpoint_filename else None
-
-        self.artifact_name = PartialFilePath(artifact_name) if artifact_name else None
-        self.latest_artifact_name = PartialFilePath(latest_artifact_name) if latest_artifact_name else None
-
+        self.checkpoint_filename = checkpoint_filename
+        self.latest_checkpoint_filename = latest_checkpoint_filename
         self.overwrite = overwrite
         self.saved_checkpoints: List[str] = []
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
 
     def init(self, state: State, logger: Logger) -> None:
-        checkpoint_save_path = format_name_with_dist(self.checkpoint_save_path, state.run_name)
+        self.checkpoint_save_path = format_name_with_dist(self.checkpoint_save_path, state.run_name)
+        self.checkpoint_filename = format_name_with_dist_and_time(self.checkpoint_filename,
+                                                              state.run_name, state.timestamp)
+        self.latest_checkpoint_filename = format_name_with_dist_and_time(self.latest_checkpoint_filename,
+        backend, _, filepath = urlparse(full_checkpoint_file_path)
         os.makedirs(checkpoint_save_path, exist_ok=True)
 
     def fit_start(self, state: State, logger: Logger) -> None:
