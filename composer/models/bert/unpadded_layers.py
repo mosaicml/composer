@@ -355,7 +355,7 @@ class BertForMaskedLM(BertPreTrainedModel):
         # and the (bs, seqlen) dimensions are flattened
         self.dense_seq_output = getattr(config, 'dense_seq_output', False)
         self.last_layer_subset = getattr(config, 'last_layer_subset', False)
-        
+
         # Initialize weights and apply final processing
         self.post_init()
 
@@ -390,7 +390,7 @@ class BertForMaskedLM(BertPreTrainedModel):
 
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        # masked_tokens_mask = masked_lm_labels > 0 if (self.last_layer_subset and masked_lm_labels is not None) else None
+        masked_tokens_mask = masked_lm_labels > 0 if (self.last_layer_subset and masked_lm_labels is not None) else None
         outputs = self.bert(
             input_ids,
             attention_mask=attention_mask,
@@ -403,6 +403,7 @@ class BertForMaskedLM(BertPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            masked_tokens_mask=masked_tokens_mask,
         )
         sequence_output = outputs[0]
 
@@ -417,7 +418,7 @@ class BertForMaskedLM(BertPreTrainedModel):
         # Compute loss in dense_seq_output case and non-dense
         masked_lm_loss = None
         if masked_lm_labels is not None:
-            loss_fct = nn.CrossEntropyLoss() # CrossEntropyLossApex(ignore_index=0)
+            loss_fct = nn.CrossEntropyLoss()  # CrossEntropyLossApex(ignore_index=0)
             if masked_token_idx is not None:  # prediction_scores are already flattened
                 masked_lm_loss = loss_fct(prediction_scores, masked_lm_labels.flatten()[masked_token_idx])
             else:
