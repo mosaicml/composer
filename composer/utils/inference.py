@@ -87,6 +87,8 @@ def export_for_inference(
         sample_input (Any, optional): Example model inputs used for tracing. This is needed for "onnx" export.
             The ``sample_input`` need not match the batch size you intend to use for inference. However, the model
             should accept the ``sample_input`` as is. (default: ``None``)
+        dynamic_axes (Any, optional): Dictionary specifying the axes of input/output tensors as dynamic. May be required
+            for exporting models using older versions of PyTorch when types cannot be inferred.
         surgery_algs (Union[Callable, Sequence[Callable]], optional): Algorithms that should be applied to the model
             before loading a checkpoint. Each should be callable that takes a model and returns modified model.
             ``surgery_algs`` are applied before ``transforms``. (default: ``None``)
