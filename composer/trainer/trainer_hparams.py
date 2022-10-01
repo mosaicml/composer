@@ -242,7 +242,7 @@ class TrainerHparams(hp.Hparams):
         load_progress_bar (bool, optional): See :class:`.Trainer`.
         load_ignore_keys (List[str] | (Dict) -> None, optional): See :class:`.Trainer`.
 
-        checkpoint_save_path (str, optional): See :class:`.CheckpointSaver`.
+        save_folder (str, optional): See :class:`.CheckpointSaver`.
         save_filename (str, optional): See :class:`.CheckpointSaver`.
         save_artifact_name (str, optional): See :class:`.CheckpointSaver`.
         save_latest_filename (str, optional): See
@@ -352,7 +352,7 @@ class TrainerHparams(hp.Hparams):
     load_progress_bar: bool = hp.auto(Trainer, 'load_progress_bar')
 
     # Save Checkpoint
-    checkpoint_save_path: Optional[str] = hp.auto(Trainer, 'checkpoint_save_path')
+    save_folder: Optional[str] = hp.auto(Trainer, 'save_folder')
     save_filename: str = hp.auto(Trainer, 'save_filename')
     save_artifact_name: str = hp.auto(Trainer, 'save_artifact_name')
     save_latest_filename: str = hp.auto(Trainer, 'save_latest_filename')
@@ -557,7 +557,7 @@ class TrainerHparams(hp.Hparams):
             load_ignore_keys=self.load_ignore_keys,
 
             # Checkpoint Saving
-            checkpoint_save_path=self.checkpoint_save_path,
+            save_folder=self.save_folder,
             save_overwrite=self.save_overwrite,
             save_filename=self.save_filename,
             save_latest_filename=self.save_latest_filename,

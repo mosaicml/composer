@@ -71,7 +71,7 @@ precision: amp # Use mixed-precision training
 grad_clip_norm: -1.0 # Turn off gradient clipping
 grad_accum: auto # Use automatic gradient accumulation to avoid OOMs
 
-checkpoint_save_path: bert_checkpoints # The directory to save checkpoints to
+save_folder: bert_checkpoints # The directory to save checkpoints to
 save_interval: 3500ba # Save checkpoints every 3500 batches
 
 loggers:

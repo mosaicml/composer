@@ -331,7 +331,7 @@ class Trainer:
             schedulers=scheduler,
             device="cpu",
             eval_interval="1ep",
-            checkpoint_save_path="checkpoints",
+            save_folder="checkpoints",
             save_filename="ep{epoch}.pt",
             save_interval="1ep",
             save_overwrite=True,
@@ -598,7 +598,7 @@ class Trainer:
 
             (default: ``None``)
 
-        checkpoint_save_path (str, optional): Format string for the folder where checkpoints are saved.
+        save_folder (str, optional): Format string for the folder where checkpoints are saved.
             If ``None``, checkpoints will not be saved. (default: ``None``)
 
             .. seealso:: :class:`~.CheckpointSaver`
@@ -609,37 +609,37 @@ class Trainer:
                 at different intervals), leave this parameter as ``None``, and instead pass
                 instance(s) of :class:`~.CheckpointSaver` directly as ``callbacks``.
         save_filename (str, optional): A format string describing how to name checkpoints.
-            This parameter has no effect if ``checkpoint_save_path`` is ``None``.
+            This parameter has no effect if ``save_folder`` is ``None``.
             (default: ``"ep{epoch}-ba{batch}-rank{rank}.pt"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
         save_artifact_name (str, optional): A format string describing how to name checkpoints in loggers.
-            This parameter has no effect if ``checkpoint_save_path`` is ``None``.
+            This parameter has no effect if ``save_folder`` is ``None``.
             (default: ``"{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}"``)
 
             .. seealso:: :class:`~.CheckpointSaver` and :doc:`Artifact Logging</trainer/artifact_logging>` notes.
         save_latest_filename (str, optional): A format string for the name of a symlink
-            (relative to ``checkpoint_save_path``) that points to the last saved checkpoint.
-            This parameter has no effect if ``checkpoint_save_path`` is ``None``.
+            (relative to ``save_folder``) that points to the last saved checkpoint.
+            This parameter has no effect if ``save_folder`` is ``None``.
             To disable symlinking, set this to ``None``. (default: ``"latest-rank{rank}.pt"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
         save_latest_artifact_name (str, optional): A format string describing how to name symlinks in loggers.
-            This parameter has no effect if ``checkpoint_save_path``, ``save_latest_filename``, or ``save_artifact_name`` are ``None``.
+            This parameter has no effect if ``save_folder``, ``save_latest_filename``, or ``save_artifact_name`` are ``None``.
             To disable symlinking in logger, set this or ``save_latest_filename`` to ``None``. (default: ``"{run_name}/checkpoints/latest-rank{rank}"``)
 
             .. seealso:: :class:`~.CheckpointSaver` and :doc:`Artifact Logging</trainer/artifact_logging>` notes.
         save_overwrite (bool, optional): Whether existing checkpoints should be overridden.
-            This parameter has no effect if ``checkpoint_save_path`` is None. (default: ``False``)
+            This parameter has no effect if ``save_folder`` is None. (default: ``False``)
 
             .. seealso:: :class:`~.CheckpointSaver`
         save_interval (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
-            This parameter has no effect if ``checkpoint_save_path`` is ``None``. (default: ``'1ep'``)
+            This parameter has no effect if ``save_folder`` is ``None``. (default: ``'1ep'``)
 
             .. seealso:: :class:`~.CheckpointSaver`
         save_weights_only (bool, optional): Whether to save only the model weights instead of the entire training
-            state. This parameter has no effect if ``checkpoint_save_path`` is ``None``. (default: ``False``)
+            state. This parameter has no effect if ``save_folder`` is ``None``. (default: ``False``)
 
             .. seealso:: :class:`~.CheckpointSaver`
         num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
@@ -654,10 +654,10 @@ class Trainer:
             artifact stores.
         autoresume (bool, optional): Whether or not to enable autoresume, which allows for stopping and resuming
             training. This allows use of spot instances, as the training run is now fault tolerant.  This parameter
-            requires ``checkpoint_save_path`` and ``run_name`` to be specified and ``save_overwrite`` to be ``False``.
+            requires ``save_folder`` and ``run_name`` to be specified and ``save_overwrite`` to be ``False``.
             (default: ``False``)
 
-            When enabled, the checkpoint_save_path is checked for checkpoints of the format ``"{checkpoint_save_path}/{save_latest_filename}"``,
+            When enabled, the save_folder is checked for checkpoints of the format ``"{save_folder}/{save_latest_filename}"``,
             which are loaded to continue training. If no local checkpoints are found, each logger is checked for potential
             checkpoints named ``save_latest_artifact_name``. Finally, if no logged checkpoints are found, ``load_path`` is
             used to load a checkpoint if specified. This should only occur at the start of a run using autoresume.
@@ -780,7 +780,7 @@ class Trainer:
         load_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
 
         # Save Checkpoint
-        checkpoint_save_path: Optional[str] = None,
+        save_folder: Optional[str] = None,
         save_filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
         save_artifact_name: str = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
         save_latest_filename: Optional[str] = 'latest-rank{rank}.pt',
@@ -954,9 +954,9 @@ class Trainer:
 
         # Checkpoint Saving
         self._checkpoint_saver = None
-        if checkpoint_save_path is not None:
+        if save_folder is not None:
             self._checkpoint_saver = CheckpointSaver(
-                checkpoint_save_path=checkpoint_save_path,
+                folder=save_folder,
                 checkpoint_filename=save_filename,
                 artifact_name=save_artifact_name,
                 latest_filename=save_latest_filename,
@@ -1108,12 +1108,12 @@ class Trainer:
         # If autoresume is enabled, first check for existing checkpoints to load
         if autoresume:
             log.info('Searching for a previous checkpoint to autoresume')
-            if checkpoint_save_path is None:
-                raise ValueError('The `checkpoint_save_path` must be specified when autoresume is enabled.')
+            if save_folder is None:
+                raise ValueError('The `save_folder` must be specified when autoresume is enabled.')
             if save_overwrite:
                 raise ValueError(
                     'The flag `save_overwrite` must be False when autoresume is enabled as autoresume always loads the '
-                    'latest existing checkpoint in `checkpoint_save_path`.')
+                    'latest existing checkpoint in `save_folder`.')
             if save_latest_filename is None:
                 raise ValueError(
                     'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from.')
@@ -1125,7 +1125,7 @@ class Trainer:
                     'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
                 )
             autoresume_checkpoint_path = self._get_autoresume_checkpoint(
-                checkpoint_save_path=checkpoint_save_path,
+                save_folder=save_folder,
                 save_latest_filename=save_latest_filename,
                 save_latest_artifact_name=save_latest_artifact_name,
                 loggers=loggers,
@@ -1181,7 +1181,7 @@ class Trainer:
 
     def _get_autoresume_checkpoint(
         self,
-        checkpoint_save_path: str,
+        save_folder: str,
         save_latest_filename: str,
         save_latest_artifact_name: str,
         loggers: Sequence[LoggerDestination],
@@ -1189,22 +1189,22 @@ class Trainer:
     ):
         """Determines the load path when using autoresume.
 
-        First, check the ``checkpoint_save_path`` for the latest checkpoint.
+        First, check the ``save_folder`` for the latest checkpoint.
         If no latest checkpoint is found locally, then check each logger for the latest checkpoint, and download
-        it to the ``checkpoint_save_path``.
+        it to the ``save_folder``.
 
         Returns:
             Optional[str]: The path to the latest checkpoint, if found, otherwise None.
         """
         save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
-        checkpoint_save_path = format_name_with_dist(checkpoint_save_path, self.state.run_name)
+        save_folder = format_name_with_dist(save_folder, self.state.run_name)
         save_latest_artifact_name = format_name_with_dist(save_latest_artifact_name, self.state.run_name)
-        latest_checkpoint_path = os.path.join(checkpoint_save_path, save_latest_filename)
+        latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
 
         # If latest checkpoint is not saved locally, try to fetch from loggers
         if not os.path.exists(latest_checkpoint_path):
             # Make save folder in case it doesn't exist so latest checkpoint can be downloaded
-            os.makedirs(checkpoint_save_path, exist_ok=True)
+            os.makedirs(save_folder, exist_ok=True)
             for logger in loggers:
                 try:
                     # Fetch from logger. If it succeeds, stop trying the rest of the loggers

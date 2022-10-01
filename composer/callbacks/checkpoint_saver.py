@@ -83,7 +83,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
     .. note::
 
-        If the ``checkpoint_save_path`` argument is specified when constructing the :class:`.Trainer`, then the :class:`.CheckpointSaver`
+        If the ``folder`` argument is specified when constructing the :class:`.Trainer`, then the :class:`.CheckpointSaver`
         callback need not be constructed manually. However, for advanced checkpointing use cases
         (such as saving a weights-only checkpoint at one interval and the full training state
         at another interval), instance(s) of this :class:`.CheckpointSaver` callback can be specified in the
@@ -99,7 +99,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         >>> trainer = Trainer(..., callbacks=[
         ...     CheckpointSaver(
-        ...         checkpoint_save_path='{{run_name}}/checkpoints',
+        ...         folder='{{run_name}}/checkpoints',
         ...         checkpoint_filename="ep{{epoch}}-ba{{batch}}-rank{{rank}}",
         ...         latest_filename="latest-rank{{rank}}",
         ...         save_interval="1ep",
@@ -108,7 +108,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         ... ])
 
     Args:
-        checkpoint_save_path (str, optional): Format string for the checkpoint_save_path where checkpoints will be saved.
+        folder (str, optional): Format string for the save_folder where checkpoints will be saved.
             Default: ``'{{run_name}}/checkpoints'``.
 
             The following format variables are available:
@@ -123,7 +123,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         checkpoint_filename (str, optional): A format string describing how to name checkpoints.
             Default: ``'ep{{epoch}}-ba{{batch}}-rank{{rank}}.pt'``.
 
-            Checkpoints will be saved approximately to ``{{checkpoint_save_path}}/{{checkpoint_filename.format(...)}}``.
+            Checkpoints will be saved approximately to ``{{folder}}/{{checkpoint_filename.format(...)}}``.
 
             The following format variables are available:
 
@@ -152,7 +152,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             Consider the following scenario where:
 
             *   The :attr:`~.State.run_name` is ``'awesome-training-run'``
-            *   The default ``checkpoint_save_path='{{run_name}}/checkpoints'`` is used.
+            *   The default ``folder='{{run_name}}/checkpoints'`` is used.
             *   The default ``name='ep{{epoch}}-ba{{batch}}-rank{{rank}}'`` is used.
             *   The current epoch count is ``1``.
             *   The current batch count is ``42``.
@@ -183,7 +183,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         latest_filename (str, optional): A format string for a symlink which points to the last saved checkpoint.
             Default: ``'latest-rank{{rank}}.pt'``.
 
-            Symlinks will be created approximately at ``{{checkpoint_save_path}}/{{latest_filename.format(...)}}``.
+            Symlinks will be created approximately at ``{{folder}}/{{latest_filename.format(...)}}``.
 
             The same format variables as for ``name`` are available.
 
@@ -192,7 +192,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             Consider the following scenario, where:
 
             *   The :attr:`~.State.run_name` is 'awesome-training-run'
-            *   The default ``checkpoint_save_path='{{run_name}}/checkpoints'`` is used.
+            *   The default ``folder='{{run_name}}/checkpoints'`` is used.
             *   The default ``name='ep{{epoch}}-ba{{batch}}-rank{{rank}}'`` is used.
             *   The default ``latest_filename='latest-rank{{rank}}'`` is used.
             *   The current epoch count is ``1``.
@@ -231,7 +231,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             To disable symlinks in logger, set this parameter to ``None``.
 
         overwrite (bool, optional): Whether existing checkpoints should be overridden.
-            If ``False`` (the default), then the ``checkpoint_save_path`` must not exist or must not contain checkpoints which may conflict
+            If ``False`` (the default), then the ``folder`` must not exist or must not contain checkpoints which may conflict
             with the current run. Default: ``False``.
 
         save_interval (Time | str | int | (State, Event) -> bool): A :class:`.Time`, time-string, integer (in epochs),
@@ -281,7 +281,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
     def __init__(
         self,
-        checkpoint_save_path: str = '{run_name}/checkpoints',
+        folder: str = '{run_name}/checkpoints',
         checkpoint_filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
         artifact_name: Optional[str] = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
         latest_filename: Optional[str] = 'latest-rank{rank}.pt',
@@ -297,11 +297,10 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.save_interval = save_interval
         self.last_checkpoint_batch: Optional[Time] = None
 
-        self.checkpoint_save_path = checkpoint_save_path
+        self.folder = folder
 
-        self.checkpoint_filename = PartialFilePath(checkpoint_filename.lstrip('/'), checkpoint_save_path)
-        self.latest_filename = PartialFilePath(latest_filename.lstrip('/'),
-                                               checkpoint_save_path) if latest_filename else None
+        self.checkpoint_filename = PartialFilePath(checkpoint_filename.lstrip('/'), folder)
+        self.latest_filename = PartialFilePath(latest_filename.lstrip('/'), folder) if latest_filename else None
 
         self.artifact_name = PartialFilePath(artifact_name) if artifact_name else None
         self.latest_artifact_name = PartialFilePath(latest_artifact_name) if latest_artifact_name else None
@@ -312,18 +311,17 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.weights_only = weights_only
 
     def init(self, state: State, logger: Logger) -> None:
-        checkpoint_save_path = format_name_with_dist(self.checkpoint_save_path, state.run_name)
-        os.makedirs(checkpoint_save_path, exist_ok=True)
+        folder = format_name_with_dist(self.folder, state.run_name)
+        os.makedirs(folder, exist_ok=True)
 
     def fit_start(self, state: State, logger: Logger) -> None:
         if not self.overwrite:
-            # checks that checkpoint_save_path contains no files with a timestamp after the current timestamp,
+            # checks that save_folder contains no files with a timestamp after the current timestamp,
             # which has potential for future conflicts.
-            checkpoint_save_path = format_name_with_dist(self.checkpoint_save_path, state.run_name)
-            ensure_folder_has_no_conflicting_files(checkpoint_save_path, self.checkpoint_filename.filename,
-                                                   state.timestamp)
+            folder = format_name_with_dist(self.folder, state.run_name)
+            ensure_folder_has_no_conflicting_files(folder, self.checkpoint_filename.filename, state.timestamp)
 
-        dist.barrier()  # holds all ranks until checkpoint_save_path check is done
+        dist.barrier()  # holds all ranks until folder check is done
 
         if is_model_deepspeed(state.model) and self.weights_only:
             raise NotImplementedError('weights_only=True is not supported when using DeepSpeed.')
