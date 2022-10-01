@@ -100,7 +100,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         >>> trainer = Trainer(..., callbacks=[
         ...     CheckpointSaver(
         ...         folder='{{run_name}}/checkpoints',
-        ...         checkpoint_filename="ep{{epoch}}-ba{{batch}}-rank{{rank}}",
+        ...         filename="ep{{epoch}}-ba{{batch}}-rank{{rank}}",
         ...         latest_filename="latest-rank{{rank}}",
         ...         save_interval="1ep",
         ...         weights_only=False,
@@ -120,10 +120,10 @@ class CheckpointSaver(Callback):  # noqa: D101
                 When training with multiple devices (i.e. GPUs), ensure that ``'{{rank}}'`` appears in the format.
                 Otherwise, multiple processes may attempt to write to the same file.
 
-        checkpoint_filename (str, optional): A format string describing how to name checkpoints.
+        filename (str, optional): A format string describing how to name checkpoints.
             Default: ``'ep{{epoch}}-ba{{batch}}-rank{{rank}}.pt'``.
 
-            Checkpoints will be saved approximately to ``{{folder}}/{{checkpoint_filename.format(...)}}``.
+            Checkpoints will be saved approximately to ``{{folder}}/{{filename.format(...)}}``.
 
             The following format variables are available:
 
@@ -136,7 +136,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
                 *   When using DeepSpeed, each rank will save a checkpoint file in tarball format. DeepSpeed
                     requires tarball format, as it saves model and optimizer states in separate files.
-                    Ensure that ``'{{rank}}'`` appears within the ``checkpoint_filename``. Otherwise, multiple ranks
+                    Ensure that ``'{{rank}}'`` appears within the ``filename``. Otherwise, multiple ranks
                     may attempt to write to the same file(s), leading to corrupted checkpoints. If no tarball file
                     extension is specified, ``'.tar'`` will be used.
 
@@ -175,7 +175,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
 
-            The same format variables for ``checkpoint_filename`` are available.
+            The same format variables for ``filename`` are available.
 
             Leading slashes (``'/'``) will be stripped.
 
@@ -224,7 +224,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
 
-            The same format variables for ``checkpoint_filename`` are available.
+            The same format variables for ``filename`` are available.
 
             Leading slashes (``'/'``) will be stripped.
 
@@ -282,7 +282,7 @@ class CheckpointSaver(Callback):  # noqa: D101
     def __init__(
         self,
         folder: str = '{run_name}/checkpoints',
-        checkpoint_filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
+        filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
         artifact_name: Optional[str] = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
         latest_filename: Optional[str] = 'latest-rank{rank}.pt',
         latest_artifact_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
@@ -299,7 +299,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         self.folder = folder
 
-        self.checkpoint_filename = PartialFilePath(checkpoint_filename.lstrip('/'), folder)
+        self.filename = PartialFilePath(filename.lstrip('/'), folder)
         self.latest_filename = PartialFilePath(latest_filename.lstrip('/'), folder) if latest_filename else None
 
         self.artifact_name = PartialFilePath(artifact_name) if artifact_name else None
@@ -319,7 +319,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             # checks that save_folder contains no files with a timestamp after the current timestamp,
             # which has potential for future conflicts.
             folder = format_name_with_dist(self.folder, state.run_name)
-            ensure_folder_has_no_conflicting_files(folder, self.checkpoint_filename.filename, state.timestamp)
+            ensure_folder_has_no_conflicting_files(folder, self.filename.filename, state.timestamp)
 
         dist.barrier()  # holds all ranks until folder check is done
 
@@ -358,16 +358,15 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         is_deepspeed = is_model_deepspeed(state.model)
 
-        if is_deepspeed and '{rank}' not in self.checkpoint_filename.filename:
-            raise ValueError(
-                f'Save checkpoint_filename {self.checkpoint_filename.filename} must have {{rank}} for deepspeed.')
+        if is_deepspeed and '{rank}' not in self.filename.filename:
+            raise ValueError(f'Save filename {self.filename.filename} must have {{rank}} for deepspeed.')
 
         # save the checkpoint to the filename
-        checkpoint_filename = self.checkpoint_filename.format(state, is_deepspeed)
+        filename = self.filename.format(state, is_deepspeed)
 
         saved_path = checkpoint.save_checkpoint(
             state=state,
-            filename=checkpoint_filename,
+            filename=filename,
             weights_only=self.weights_only,
         )
 
@@ -381,7 +380,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 os.remove(symlink)
             except FileNotFoundError:
                 pass
-            os.symlink(os.path.relpath(checkpoint_filename, os.path.dirname(symlink)), symlink)
+            os.symlink(os.path.relpath(filename, os.path.dirname(symlink)), symlink)
 
         # if artifact name provided, upload the checkpoint
         if self.artifact_name is not None:
@@ -392,7 +391,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             logger.file_artifact(log_level=log_level,
                                  artifact_name=artifact_name,
-                                 file_path=checkpoint_filename,
+                                 file_path=filename,
                                  overwrite=self.overwrite)
 
             if self.latest_artifact_name is not None:
@@ -412,7 +411,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                         overwrite=True,
                     )
 
-        self.saved_checkpoints.append(checkpoint_filename)
+        self.saved_checkpoints.append(filename)
 
         if self.num_checkpoints_to_keep >= 0:
             self._rotate_checkpoints()
