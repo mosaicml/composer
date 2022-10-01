@@ -131,9 +131,10 @@ def export_for_inference(
     cpu = torch.device('cpu')
     model.to(device=cpu)
     if sample_input is not None:
+        sample_input = ensure_tuple(sample_input)
         for i in range(len(sample_input)):
             if isinstance(sample_input[i], torch.Tensor):
-                sample_input[i] = sample_input[i].to(cpu)
+                sample_input[i] = sample_input[i].to(cpu)  # type: ignore
             elif isinstance(sample_input[i], dict):
                 for key, value in sample_input[i].items():
                     if isinstance(value, torch.Tensor):
@@ -193,7 +194,6 @@ def export_for_inference(
             if save_format == ExportFormat.ONNX:
                 if sample_input is None:
                     raise ValueError(f'sample_input argument is required for onnx export')
-                sample_input = ensure_tuple(sample_input)
 
                 input_names = []
 
