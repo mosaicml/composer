@@ -101,7 +101,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         ...     CheckpointSaver(
         ...         checkpoint_save_path='{{run_name}}/checkpoints',
         ...         checkpoint_filename="ep{{epoch}}-ba{{batch}}-rank{{rank}}",
-        ...         latest_checkpoint_filename="latest-rank{{rank}}",
+        ...         latest_filename="latest-rank{{rank}}",
         ...         save_interval="1ep",
         ...         weights_only=False,
         ...     )
@@ -180,10 +180,10 @@ class CheckpointSaver(Callback):  # noqa: D101
             Leading slashes (``'/'``) will be stripped.
 
             To disable logging trace files as file artifacts, set this parameter to ``None``.
-        latest_checkpoint_filename (str, optional): A format string for a symlink which points to the last saved checkpoint.
+        latest_filename (str, optional): A format string for a symlink which points to the last saved checkpoint.
             Default: ``'latest-rank{{rank}}.pt'``.
 
-            Symlinks will be created approximately at ``{{checkpoint_save_path}}/{{latest_checkpoint_filename.format(...)}}``.
+            Symlinks will be created approximately at ``{{checkpoint_save_path}}/{{latest_filename.format(...)}}``.
 
             The same format variables as for ``name`` are available.
 
@@ -194,7 +194,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             *   The :attr:`~.State.run_name` is 'awesome-training-run'
             *   The default ``checkpoint_save_path='{{run_name}}/checkpoints'`` is used.
             *   The default ``name='ep{{epoch}}-ba{{batch}}-rank{{rank}}'`` is used.
-            *   The default ``latest_checkpoint_filename='latest-rank{{rank}}'`` is used.
+            *   The default ``latest_filename='latest-rank{{rank}}'`` is used.
             *   The current epoch count is ``1``.
             *   The current batch count is ``42``.
 
@@ -220,7 +220,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             Default: ``'{{run_name}}/checkpoints/latest-rank{{rank}}"``.
 
             Whenever a new checkpoint is saved, a symlink artifact is created or updated to point to the latest checkpoint's ``artifact_name``.
-            The artifact name will be determined by this format string. This parameter has no effect if ``latest_checkpoint_filename`` or ``artifact_name`` is ``None``.
+            The artifact name will be determined by this format string. This parameter has no effect if ``latest_filename`` or ``artifact_name`` is ``None``.
 
             .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
 
@@ -284,7 +284,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         checkpoint_save_path: str = '{run_name}/checkpoints',
         checkpoint_filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
         artifact_name: Optional[str] = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
-        latest_checkpoint_filename: Optional[str] = 'latest-rank{rank}.pt',
+        latest_filename: Optional[str] = 'latest-rank{rank}.pt',
         latest_artifact_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
         save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = '1ep',
         *,
@@ -300,8 +300,8 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.checkpoint_save_path = checkpoint_save_path
 
         self.checkpoint_filename = PartialFilePath(checkpoint_filename.lstrip('/'), checkpoint_save_path)
-        self.latest_checkpoint_filename = PartialFilePath(latest_checkpoint_filename.lstrip('/'),
-                                                          checkpoint_save_path) if latest_checkpoint_filename else None
+        self.latest_filename = PartialFilePath(latest_filename.lstrip('/'),
+                                               checkpoint_save_path) if latest_filename else None
 
         self.artifact_name = PartialFilePath(artifact_name) if artifact_name else None
         self.latest_artifact_name = PartialFilePath(latest_artifact_name) if latest_artifact_name else None
@@ -376,8 +376,8 @@ class CheckpointSaver(Callback):  # noqa: D101
         if not saved_path:  # not all ranks save
             return
 
-        if self.latest_checkpoint_filename is not None:
-            symlink = self.latest_checkpoint_filename.format(state, is_deepspeed)
+        if self.latest_filename is not None:
+            symlink = self.latest_filename.format(state, is_deepspeed)
             os.makedirs(os.path.dirname(symlink), exist_ok=True)
             try:
                 os.remove(symlink)
