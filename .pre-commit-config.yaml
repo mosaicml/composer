@@ -33,7 +33,7 @@ repos:
           entry: pydocstyle
           language: python
           types: [python]
-          exclude: '(?:tests|.ci|composer\/algorithms|composer\/datasets|composer\/models)\/.*'
+          exclude: '(?:tests|.ci|composer\/algorithms|composer\/datasets|composer\/models)\/.*|composer\/trainer\/activation_checkpointing.py'
           additional_dependencies:
             - "toml"
       rev: 6.1.1
@@ -78,6 +78,8 @@ repos:
           - --comment-style
           - "#"
         types: [python]
+        exclude: 'composer\/trainer\/activation_checkpointing.py'
+
   - repo: https://github.com/kynan/nbstripout
     rev: 0.5.0
     hooks:
