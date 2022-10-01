@@ -820,7 +820,7 @@ class TestTrainerEquivalence():
 
         checkpoint_save_path = tmp_path_factory.mktemp('{device}-{precision}'.format(**config))
         config.update({
-            'checkpoint_save_interval': '1ep',
+            'save_interval': '1ep',
             'checkpoint_save_path': str(checkpoint_save_path),
             'save_filename': 'ep{epoch}.pt'
         })

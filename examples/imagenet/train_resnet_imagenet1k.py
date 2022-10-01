@@ -213,7 +213,7 @@ def _main():
 
     # Callback for checkpointing
     checkpoint_saver = CheckpointSaver(checkpoint_save_path=args.save_checkpoint_dir,
-                                       checkpoint_save_interval=args.checkpoint_interval)
+                                       save_interval=args.checkpoint_interval)
     logging.info('Built SpeedMonitor, LRMonitor, and CheckpointSaver callbacks\n')
 
     # Recipes for training ResNet architectures on ImageNet in order of increasing training time and accuracy

@@ -250,7 +250,7 @@ class TrainerHparams(hp.Hparams):
         save_latest_artifact_name (str, optional): See :class:`.CheckpointSaver`.
         save_overwrite (str, optional): See :class:`.CheckpointSaver`.
         save_weights_only (bool, optional): See :class:`.CheckpointSaver`.
-        checkpoint_save_interval (str, optional): See
+        save_interval (str, optional): See
             :class:`~composer.callbacks.callback_hparams.CheckpointSaverHparams`.
         num_checkpoints_to_keep (int, optional): See :class:`.CheckpointSaver`.
         autoresume (bool, optional): See :class:`.Trainer`.
@@ -359,7 +359,7 @@ class TrainerHparams(hp.Hparams):
     save_latest_artifact_name: str = hp.auto(Trainer, 'save_latest_artifact_name')
     save_overwrite: bool = hp.auto(Trainer, 'save_overwrite')
     save_weights_only: bool = hp.auto(Trainer, 'save_weights_only')
-    checkpoint_save_interval: str = hp.auto(Trainer, 'checkpoint_save_interval')
+    save_interval: str = hp.auto(Trainer, 'save_interval')
     num_checkpoints_to_keep: int = hp.auto(Trainer, 'num_checkpoints_to_keep')
 
     # Graceful Resumption
@@ -563,7 +563,7 @@ class TrainerHparams(hp.Hparams):
             save_latest_filename=self.save_latest_filename,
             save_artifact_name=self.save_artifact_name,
             save_latest_artifact_name=self.save_latest_artifact_name,
-            checkpoint_save_interval=self.checkpoint_save_interval,
+            save_interval=self.save_interval,
             save_weights_only=self.save_weights_only,
             num_checkpoints_to_keep=self.num_checkpoints_to_keep,
 

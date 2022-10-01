@@ -39,7 +39,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
             and at the end of training.
 
     Returns:
-        Callable[[State, Event], bool]: A function that can be passed as the ``checkpoint_save_interval``
+        Callable[[State, Event], bool]: A function that can be passed as the ``save_interval``
             argument into the :class:`.CheckpointSaver`.
     """
     if isinstance(interval, str):
@@ -55,7 +55,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
         raise NotImplementedError(
             f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH or TimeUnit.BATCH.')
 
-    def checkpoint_save_interval(state: State, event: Event):
+    def save_interval(state: State, event: Event):
         elapsed_duration = state.get_elapsed_duration()
         assert elapsed_duration is not None, 'elapsed_duration is set on the BATCH_CHECKPOINT and EPOCH_CHECKPOINT'
 
@@ -75,7 +75,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
 
         return False
 
-    return checkpoint_save_interval
+    return save_interval
 
 
 class CheckpointSaver(Callback):  # noqa: D101
@@ -102,7 +102,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         ...         checkpoint_save_path='{{run_name}}/checkpoints',
         ...         checkpoint_filename="ep{{epoch}}-ba{{batch}}-rank{{rank}}",
         ...         latest_checkpoint_filename="latest-rank{{rank}}",
-        ...         checkpoint_save_interval="1ep",
+        ...         save_interval="1ep",
         ...         weights_only=False,
         ...     )
         ... ])
@@ -234,7 +234,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             If ``False`` (the default), then the ``checkpoint_save_path`` must not exist or must not contain checkpoints which may conflict
             with the current run. Default: ``False``.
 
-        checkpoint_save_interval (Time | str | int | (State, Event) -> bool): A :class:`.Time`, time-string, integer (in epochs),
+        save_interval (Time | str | int | (State, Event) -> bool): A :class:`.Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
 
             If an integer, checkpoints will be saved every n epochs.
@@ -286,15 +286,15 @@ class CheckpointSaver(Callback):  # noqa: D101
         artifact_name: Optional[str] = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
         latest_checkpoint_filename: Optional[str] = 'latest-rank{rank}.pt',
         latest_artifact_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
-        checkpoint_save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = '1ep',
+        save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = '1ep',
         *,
         overwrite: bool = False,
         num_checkpoints_to_keep: int = -1,
         weights_only: bool = False,
     ):
-        if not callable(checkpoint_save_interval):
-            checkpoint_save_interval = checkpoint_periodically(checkpoint_save_interval)
-        self.checkpoint_save_interval = checkpoint_save_interval
+        if not callable(save_interval):
+            save_interval = checkpoint_periodically(save_interval)
+        self.save_interval = save_interval
         self.last_checkpoint_batch: Optional[Time] = None
 
         self.checkpoint_save_path = checkpoint_save_path
@@ -329,8 +329,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             raise NotImplementedError('weights_only=True is not supported when using DeepSpeed.')
 
     def batch_checkpoint(self, state: State, logger: Logger):
-        if self.checkpoint_save_interval(
-                state, Event.BATCH_CHECKPOINT) and self.last_checkpoint_batch != state.timestamp.batch:
+        if self.save_interval(state, Event.BATCH_CHECKPOINT) and self.last_checkpoint_batch != state.timestamp.batch:
             self._save_checkpoint(
                 state,
                 logger,
@@ -338,8 +337,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             )
 
     def epoch_checkpoint(self, state: State, logger: Logger):
-        if self.checkpoint_save_interval(
-                state, Event.EPOCH_CHECKPOINT) and self.last_checkpoint_batch != state.timestamp.batch:
+        if self.save_interval(state, Event.EPOCH_CHECKPOINT) and self.last_checkpoint_batch != state.timestamp.batch:
             self._save_checkpoint(
                 state,
                 logger,

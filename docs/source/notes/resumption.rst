@@ -17,7 +17,7 @@ Resuming from checkpoints is commonly used to recover from hardware failures (e.
         save_filename="ep{epoch}.pt",
         checkpoint_save_path="./path/to/checkpoints",
         save_overwrite=True,
-        checkpoint_save_interval="1ep",  # Save checkpoints every epoch
+        save_interval="1ep",  # Save checkpoints every epoch
     )
     trainer.fit()
 

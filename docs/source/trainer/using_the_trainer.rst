@@ -480,7 +480,7 @@ points during training and (2) load them back to resume training later.
         device='gpu',
         # Checkpointing params
         checkpoint_save_path: 'checkpoints',
-        checkpoint_save_interval: '1ep'
+        save_interval: '1ep'
     )
 
     # will save checkpoints to the 'checkpoints' folder every epoch
