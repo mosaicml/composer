@@ -15,6 +15,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from composer.core import State
+from composer.functional import apply_gated_linear_units
 from composer.loggers import InMemoryLogger, Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.models import composer_resnet
@@ -22,7 +23,7 @@ from composer.trainer.dist_strategy import prepare_ddp_module
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, export_with_logger, inference
 from tests.common.datasets import RandomImageDataset
-from composer.functional import apply_gated_linear_units
+
 
 class MockFileArtifactLogger(LoggerDestination):
     """Mocks a generic file artifact logger interface."""
@@ -87,10 +88,21 @@ def test_huggingface_export_for_inference_onnx():
         'attention_mask': attention_mask,
     }
     dynamic_axes = {
-        'input_ids': {0: 'batch_size', 1: 'seq_len'},
-        'labels': {0: 'batch_size'},
-        'token_type_ids': {0: 'batch_size', 1: 'seq_len'},
-        'attention_mask': {0: 'batch_size', 1: 'seq_len'},
+        'input_ids': {
+            0: 'batch_size',
+            1: 'seq_len'
+        },
+        'labels': {
+            0: 'batch_size'
+        },
+        'token_type_ids': {
+            0: 'batch_size',
+            1: 'seq_len'
+        },
+        'attention_mask': {
+            0: 'batch_size',
+            1: 'seq_len'
+        },
     }
     # dynamic_axes = None
     # non pretrained model to avoid a slow test that downloads the weights.
@@ -98,10 +110,10 @@ def test_huggingface_export_for_inference_onnx():
     hf_model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
 
     model = HuggingFaceModel(hf_model)
-    
+
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
     apply_gated_linear_units(model, optimizer)
-    
+
     model.eval()
 
     orig_out = model(sample_input)
@@ -124,6 +136,98 @@ def test_huggingface_export_for_inference_onnx():
 
         for key, value in sample_input.items():
             sample_input[key] = value.numpy()
+
+        loaded_model_out = ort_session.run(None, sample_input)
+
+        torch.testing.assert_close(
+            orig_out['logits'].detach().numpy(),
+            loaded_model_out[1],
+            rtol=1e-4,  # lower tolerance for ONNX
+            atol=1e-3,  # lower tolerance for ONNX
+            msg=f'output mismatch with {save_format}',
+        )
+
+
+@pytest.mark.gpu
+def test_gpu_huggingface_export_for_inference_onnx():
+    pytest.importorskip('onnx')
+    pytest.importorskip('onnxruntime')
+    pytest.importorskip('transformers')
+
+    import onnx
+    import onnx.checker
+    import onnxruntime as ort
+    import transformers
+
+    from composer.functional import apply_fused_layernorm
+    from composer.models import HuggingFaceModel
+
+    # HuggingFace Bert Model
+    # dummy sequence batch with 2 labels, 32 sequence length, and 30522 (bert) vocab size).
+    input_ids = torch.randint(low=0, high=30522, size=(2, 32))
+    labels = torch.randint(low=0, high=1, size=(2,))
+    token_type_ids = torch.zeros(size=(2, 32), dtype=torch.int64)
+    attention_mask = torch.randint(low=0, high=1, size=(2, 32))
+    sample_input = {
+        'input_ids': input_ids,
+        'labels': labels,
+        'token_type_ids': token_type_ids,
+        'attention_mask': attention_mask,
+    }
+    dynamic_axes = {
+        'input_ids': {
+            0: 'batch_size',
+            1: 'seq_len'
+        },
+        'labels': {
+            0: 'batch_size'
+        },
+        'token_type_ids': {
+            0: 'batch_size',
+            1: 'seq_len'
+        },
+        'attention_mask': {
+            0: 'batch_size',
+            1: 'seq_len'
+        },
+    }
+    # dynamic_axes = None
+    # non pretrained model to avoid a slow test that downloads the weights.
+    config = transformers.AutoConfig.from_pretrained('bert-base-uncased', num_labels=2, hidden_act='gelu_new')
+    hf_model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
+
+    model = HuggingFaceModel(hf_model)
+
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
+    apply_gated_linear_units(model, optimizer)
+    apply_fused_layernorm(model, optimizer)
+
+    model.eval()
+    orig_out = model(sample_input)
+
+    gpu = torch.device('cuda:0')
+    model.to(gpu)
+    for key, val in sample_input.items():
+        sample_input[key] = val.to(gpu)
+
+    save_format = 'onnx'
+    with tempfile.TemporaryDirectory() as tempdir:
+        save_path = os.path.join(tempdir, f'model.{save_format}')
+        inference.export_for_inference(
+            model=model,
+            save_format=save_format,
+            save_path=save_path,
+            sample_input=(sample_input, {}),
+            dynamic_axes=dynamic_axes,
+        )
+        loaded_model = onnx.load(save_path)
+
+        onnx.checker.check_model(loaded_model)
+
+        ort_session = ort.InferenceSession(save_path)
+
+        for key, value in sample_input.items():
+            sample_input[key] = value.cpu().numpy()
 
         loaded_model_out = ort_session.run(None, sample_input)
 
