@@ -191,8 +191,8 @@ extra_deps['libcloud'] = [
 ]
 
 extra_deps['onnx'] = [
-    'onnx>=1.11.0,<2',
-    'onnxruntime>=1.11.0,<2',
+    'onnx>=1.12.0,<2',
+    'onnxruntime>=1.12.1,<2',
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
