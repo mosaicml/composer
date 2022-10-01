@@ -104,7 +104,6 @@ def test_huggingface_export_for_inference_onnx():
             1: 'seq_len'
         },
     }
-    # dynamic_axes = None
     # non pretrained model to avoid a slow test that downloads the weights.
     config = transformers.AutoConfig.from_pretrained('bert-base-uncased', num_labels=2, hidden_act='gelu_new')
     hf_model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
@@ -191,7 +190,6 @@ def test_gpu_huggingface_export_for_inference_onnx():
             1: 'seq_len'
         },
     }
-    # dynamic_axes = None
     # non pretrained model to avoid a slow test that downloads the weights.
     config = transformers.AutoConfig.from_pretrained('bert-base-uncased', num_labels=2, hidden_act='gelu_new')
     hf_model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
