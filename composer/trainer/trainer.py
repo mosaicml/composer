@@ -49,6 +49,9 @@ from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.inference import ExportFormat, Transform, export_with_logger
+from urllib.parse import urlparse
+from composer.utils.object_store import S3ObjectStore
+from composer.loggers import Logger, WandBLogger, ObjectStoreLogger
 
 log = logging.getLogger(__name__)
 
@@ -302,6 +305,21 @@ def _is_tpu_installed() -> bool:
 if _is_tpu_installed():
     import torch_xla.core.xla_model as xm
     import torch_xla.distributed.parallel_loader as pl
+
+
+def _create_object_store_logger(uri: str) -> Optional[Logger]:
+    parse_result = urlparse(uri)
+    backend, bucket = parse_result.scheme, parse_result.netloc
+    if backend == 's3':
+        return ObjectStoreLogger(object_store_cls=S3ObjectStore,
+                                 object_store_kwargs = {'bucket': bucket})
+    elif backend == 'wandb':
+        return WandBLogger(log_artifacts=True)
+    elif backend == '': # Local path
+        return None
+    else:
+        raise NotImplementedError(f'There is not implementation for the cloud backend {backend}. Please use either'
+                                  'wandb or S3.')
 
 
 class Trainer:
@@ -946,6 +964,10 @@ class Trainer:
                     stream=console_stream,
                 ))
 
+        object_store_logger = _create_object_store_logger(uri=checkpoint_save_path)
+        if object_store_logger:
+            loggers.append(object_store_logger)
+
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
 
@@ -958,9 +980,7 @@ class Trainer:
             self._checkpoint_saver = CheckpointSaver(
                 checkpoint_save_path=checkpoint_save_path,
                 checkpoint_filename=save_filename,
-                artifact_name=save_artifact_name,
                 latest_checkpoint_filename=save_latest_filename,
-                latest_artifact_name=save_latest_artifact_name,
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
                 checkpoint_save_interval=checkpoint_save_interval,

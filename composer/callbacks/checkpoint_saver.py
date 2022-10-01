@@ -14,18 +14,15 @@ from typing import Callable, List, Optional, Union
 from composer.core import Event, State
 from composer.core.callback import Callback
 from composer.core.time import Time, TimeUnit
-from composer.loggers import Logger, WandBLogger, ObjectStoreLogger
+from composer.loggers import Logger
 from composer.loggers.logger import LogLevel
-from composer.utils import checkpoint, dist, is_model_deepspeed, reproducibility, object_store
-from composer.utils.checkpoint import PartialFilePath
+from composer.utils import checkpoint, dist, is_model_deepspeed, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
                                          create_symlink_file, ensure_folder_has_no_conflicting_files,
                                          format_name_with_dist, format_name_with_dist_and_time, is_tar)
 
-from urllib.parse import urlparse, ParseResult
-from composer.utils.object_store import S3ObjectStore, SFTPObjectStore
-from composer.utils.object_store.object_store import ObjectStore
 from pathlib import Path
+from urllib.parse import urlparse
 from typing import Callable, List, Optional, Union
 
 log = logging.getLogger(__name__)
@@ -274,7 +271,12 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.checkpoint_save_interval = checkpoint_save_interval
         self.last_checkpoint_batch: Optional[Time] = None
 
-        self.checkpoint_save_path = checkpoint_save_path
+        
+        self.checkpoint_save_path = urlparse(checkpoint_save_path).path
+        backend = urlparse(checkpoint_save_path).scheme
+        self.backend = (backend if backend != '' else None)
+        self.checkpoint_save_path = self.checkpoint_save_path.lstrip('/')
+        
 
         self.checkpoint_filename = checkpoint_filename
         self.latest_checkpoint_filename = latest_checkpoint_filename
@@ -282,37 +284,29 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.saved_checkpoints: List[str] = []
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
+        self.checkpoint_file_path = str(Path(self.checkpoint_save_path) / Path(self.checkpoint_filename))
+        if latest_checkpoint_filename:
+            self.latest_checkpoint_file_path = str(Path(self.checkpoint_save_path) / Path(self.latest_checkpoint_filename))
+        else:
+            self.latest_checkpoint_file_path = None
+
 
     def init(self, state: State, logger: Logger) -> None:
-        checkpoint_save_path = format_name_with_dist(self.checkpoint_save_path, state.run_name)
-        os.makedirs(checkpoint_save_path, exist_ok=True)
         is_deepspeed = is_model_deepspeed(state.model)
+
+        if is_deepspeed and '{rank}' not in self.checkpoint_filename:
+            raise ValueError(
+                f'Save checkpoint_filename {self.checkpoint_filename} must have {{rank}} for deepspeed.')
+
         self.checkpoint_save_path = format_name_with_dist(self.checkpoint_save_path, state.run_name)
-        self.checkpoint_filename = format_name_with_dist_and_time(self.checkpoint_filename, state.run_name,
-                                                                state.timestamp)
-        self.checkpoint_filename += ('.tar' if is_deepspeed and not is_tar(self.checkpoint_filename) else '')
-        self.latest_checkpoint_filename = format_name_with_dist_and_time(self.latest_checkpoint_filename,
-                                                                        state.run_name, state.timestamp)
-        self.checkpoint_filename += ('.tar' if is_deepspeed and not is_tar(self.checkpoint_filename) else '')
-        self.checkpoint_file_path = Path(self.checkpoint_save_path) / Path(self.checkpoint_filename)
-        self.latest_checkpoint_file_path = Path(self.checkpoint_save_path) / Path(self.latest_checkpoint_filename)
-        self.backend, _, filepath = urlparse(str(self.checkpoint_file_path))
-        # Make local checkpoint directory
-        os.makedirs(Path(filepath).parent, exist_ok=True)
-        # self.local_save_path = filepath
-        # _, _, latest_filepath = urlparse(full_latest_checkpoint_file_path)
-        # self.local_latest_save_path = latest_filepath
-        if backend is not '':
-            self.path_to_artifact = filepath
-            self.path_to_latest_artifact = latest_filepath
-        os.makedirs(self.local_save_path, exist_ok=True)
+        
 
     def fit_start(self, state: State, logger: Logger) -> None:
         if not self.overwrite:
             # checks that checkpoint_save_path contains no files with a timestamp after the current timestamp,
             # which has potential for future conflicts.
             checkpoint_save_path = format_name_with_dist(self.checkpoint_save_path, state.run_name)
-            ensure_folder_has_no_conflicting_files(checkpoint_save_path, self.checkpoint_filename.filename,
+            ensure_folder_has_no_conflicting_files(checkpoint_save_path, self.checkpoint_filename,
                                                    state.timestamp)
 
         dist.barrier()  # holds all ranks until checkpoint_save_path check is done
@@ -354,61 +348,50 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         is_deepspeed = is_model_deepspeed(state.model)
 
-        if is_deepspeed and '{rank}' not in self.checkpoint_filename.filename:
-            raise ValueError(
-                f'Save checkpoint_filename {self.checkpoint_filename.filename} must have {{rank}} for deepspeed.')
-
-        # save the checkpoint to the filename
-        checkpoint_filename = self.checkpoint_filename.format(state, is_deepspeed)
-
         saved_path = checkpoint.save_checkpoint(
             state=state,
-            filename=checkpoint_filename,
+            filename=self.checkpoint_file_path,
             weights_only=self.weights_only,
         )
+
+        checkpoint_file_path = format_name_with_dist_and_time(self.checkpoint_file_path, state.run_name, state.timestamp)
+        checkpoint_file_path += ('.tar' if is_deepspeed and not is_tar(checkpoint_file_path) else '')
 
         if not saved_path:  # not all ranks save
             return
 
         if self.latest_checkpoint_filename is not None:
-            symlink = self.latest_checkpoint_filename.format(state, is_deepspeed)
-            os.makedirs(os.path.dirname(symlink), exist_ok=True)
+            symlink_name = format_name_with_dist_and_time(self.latest_checkpoint_filename, state.run_name, state.timestamp)
+            symlink_name += ('.tar' if is_deepspeed and not is_tar(self.latest_checkpoint_filename) else '')
+            symlink_path = os.path.join(self.checkpoint_save_path, symlink_name)
+            os.makedirs(os.path.dirname(symlink_path), exist_ok=True)
             try:
-                os.remove(symlink)
+                os.remove(symlink_path)
             except FileNotFoundError:
                 pass
-            os.symlink(os.path.relpath(checkpoint_filename, os.path.dirname(symlink)), symlink)
+            os.symlink(os.path.relpath(checkpoint_file_path, os.path.dirname(symlink_path)), symlink_path)
 
-        # if artifact name provided, upload the checkpoint
-        if self.artifact_name is not None:
-            artifact_name = self.artifact_name.format(
-                state,
-                is_deepspeed,
-            ).lstrip('/')
 
+      
+        if self.backend is not None:
             logger.file_artifact(log_level=log_level,
-                                 artifact_name=artifact_name,
-                                 file_path=checkpoint_filename,
+                                 artifact_name=checkpoint_file_path,
+                                 file_path=checkpoint_file_path,
                                  overwrite=self.overwrite)
 
-            if self.latest_artifact_name is not None:
-                symlink_name = self.latest_artifact_name.format(
-                    state,
-                    is_deepspeed,
-                ).lstrip('/') + '.symlink'
-
+            if self.latest_checkpoint_filename is not None:
                 # create and upload a symlink file
                 with tempfile.TemporaryDirectory() as tmpdir:
                     symlink_filename = os.path.join(tmpdir, 'latest.symlink')
-                    create_symlink_file(artifact_name, symlink_filename)
+                    create_symlink_file(symlink_path, symlink_filename)
                     logger.file_artifact(
                         log_level=log_level,
-                        artifact_name=symlink_name,
+                        artifact_name=symlink_path,
                         file_path=symlink_filename,
                         overwrite=True,
                     )
 
-        self.saved_checkpoints.append(checkpoint_filename)
+        self.saved_checkpoints.append(checkpoint_file_path)
 
         if self.num_checkpoints_to_keep >= 0:
             self._rotate_checkpoints()
