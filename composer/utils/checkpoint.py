@@ -23,6 +23,7 @@ from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, f
                                          format_name_with_dist_and_time, get_file, is_tar)
 from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store import ObjectStore
+from urllib.parse import urlparse
 
 if TYPE_CHECKING:
     from composer.core.state import State
@@ -175,6 +176,7 @@ def load_checkpoint(
     # download the checkpoint to the node-local folder
     log.debug('Loading checkpoint at %s', path)
     tempdir_ctx = tempfile.TemporaryDirectory() if dist.get_local_rank() == 0 else contextlib.nullcontext(None)
+    path = urlparse(path).path.lstrip('/')
     with tempdir_ctx as tempdir:
         try:
             node_checkpoint_folder = _get_node_checkpoint_download_folder(tempdir)

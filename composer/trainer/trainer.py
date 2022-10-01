@@ -307,12 +307,25 @@ if _is_tpu_installed():
     import torch_xla.distributed.parallel_loader as pl
 
 
-def _create_object_store_logger(uri: str) -> Optional[Logger]:
+def _create_object_store_logger_from_uri(uri: str) -> Optional[LoggerDestination]:
     parse_result = urlparse(uri)
     backend, bucket = parse_result.scheme, parse_result.netloc
     if backend == 's3':
         return ObjectStoreLogger(object_store_cls=S3ObjectStore,
                                  object_store_kwargs = {'bucket': bucket})
+    elif backend == 'wandb':
+        return WandBLogger(log_artifacts=True)
+    elif backend == '': # Local path
+        return None
+    else:
+        raise NotImplementedError(f'There is not implementation for the cloud backend {backend}. Please use either'
+                                  'wandb or S3.')
+
+def _create_object_store_from_uri(uri: str) -> Optional[Union[LoggerDestination, ObjectStore]]:
+    parse_result = urlparse(uri)
+    backend, bucket = parse_result.scheme, parse_result.netloc
+    if backend == 's3':
+        return S3ObjectStore(bucket=bucket)
     elif backend == 'wandb':
         return WandBLogger(log_artifacts=True)
     elif backend == '': # Local path
@@ -791,7 +804,6 @@ class Trainer:
 
         # Load Checkpoint
         load_path: Optional[str] = None,
-        load_object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
         load_weights_only: bool = False,
         load_strict_model_weights: bool = False,
         load_progress_bar: bool = True,
@@ -800,9 +812,7 @@ class Trainer:
         # Save Checkpoint
         checkpoint_save_path: Optional[str] = None,
         save_filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
-        save_artifact_name: str = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
         save_latest_filename: Optional[str] = 'latest-rank{rank}.pt',
-        save_latest_artifact_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
         save_overwrite: bool = False,
         checkpoint_save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
@@ -964,9 +974,16 @@ class Trainer:
                     stream=console_stream,
                 ))
 
-        object_store_logger = _create_object_store_logger(uri=checkpoint_save_path)
-        if object_store_logger:
-            loggers.append(object_store_logger)
+        if checkpoint_save_path is not None:
+            object_store_logger = _create_object_store_logger_from_uri(uri=checkpoint_save_path)
+            if object_store_logger:
+                loggers.append(object_store_logger)
+
+        
+        load_object_store = _create_object_store_from_uri(uri=load_path) if load_path is not None else None
+        if isinstance(load_object_store, LoggerDestination):
+            loggers.append(load_object_store)
+    
 
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
@@ -1137,9 +1154,6 @@ class Trainer:
             if save_latest_filename is None:
                 raise ValueError(
                     'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from.')
-            if save_latest_artifact_name is None:
-                raise ValueError(
-                    'The `save_latest_artifact_name` must be specified so autoresume can load the latest checkpoint.')
             if run_name is None:
                 raise ValueError(
                     'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
@@ -1147,7 +1161,6 @@ class Trainer:
             autoresume_checkpoint_path = self._get_autoresume_checkpoint(
                 checkpoint_save_path=checkpoint_save_path,
                 save_latest_filename=save_latest_filename,
-                save_latest_artifact_name=save_latest_artifact_name,
                 loggers=loggers,
                 load_progress_bar=load_progress_bar)
             # Found latest checkpoint path, load that instead
@@ -1161,6 +1174,8 @@ class Trainer:
                 log.info('Autoresuming training from checkpoint')
             else:
                 log.info('No previous autoresume checkpoint found')
+
+    
         # Actually load the checkpoint from potentially updated arguments
         if load_path is not None:
             self._rng_state = checkpoint.load_checkpoint(
@@ -1203,7 +1218,6 @@ class Trainer:
         self,
         checkpoint_save_path: str,
         save_latest_filename: str,
-        save_latest_artifact_name: str,
         loggers: Sequence[LoggerDestination],
         load_progress_bar: bool,
     ):
@@ -1216,9 +1230,9 @@ class Trainer:
         Returns:
             Optional[str]: The path to the latest checkpoint, if found, otherwise None.
         """
+        checkpoint_save_path = urlparse(checkpoint_save_path).path.lstrip('/')
         save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
         checkpoint_save_path = format_name_with_dist(checkpoint_save_path, self.state.run_name)
-        save_latest_artifact_name = format_name_with_dist(save_latest_artifact_name, self.state.run_name)
         latest_checkpoint_path = os.path.join(checkpoint_save_path, save_latest_filename)
 
         # If latest checkpoint is not saved locally, try to fetch from loggers
@@ -1229,7 +1243,7 @@ class Trainer:
                 try:
                     # Fetch from logger. If it succeeds, stop trying the rest of the loggers
                     get_file(
-                        path=save_latest_artifact_name,
+                        path=latest_checkpoint_path,
                         destination=latest_checkpoint_path,
                         object_store=logger,
                         overwrite=True,

@@ -299,6 +299,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 f'Save checkpoint_filename {self.checkpoint_filename} must have {{rank}} for deepspeed.')
 
         self.checkpoint_save_path = format_name_with_dist(self.checkpoint_save_path, state.run_name)
+        os.makedirs(self.checkpoint_save_path, exist_ok=True)
         
 
     def fit_start(self, state: State, logger: Logger) -> None:
