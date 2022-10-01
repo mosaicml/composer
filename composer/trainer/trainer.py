@@ -642,7 +642,7 @@ class Trainer:
             state. This parameter has no effect if ``save_folder`` is ``None``. (default: ``False``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-        num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
+        save_num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
             are removed first. Set to ``-1`` to keep all checkpoints locally. (default: ``-1``)
 
             Checkpoints will be removed after they have been logged as a file artifact. For example, when this callback
@@ -788,7 +788,7 @@ class Trainer:
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
-        num_checkpoints_to_keep: int = -1,
+        save_num_checkpoints_to_keep: int = -1,
 
         # Graceful Resumption
         autoresume: bool = False,
@@ -964,7 +964,7 @@ class Trainer:
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
                 save_interval=save_interval,
-                num_checkpoints_to_keep=num_checkpoints_to_keep,
+                num_checkpoints_to_keep=save_num_checkpoints_to_keep,
             )
             self.state.callbacks.append(self._checkpoint_saver)
 

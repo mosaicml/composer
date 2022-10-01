@@ -209,7 +209,7 @@ or other checkpoint saving parameters directly on the trainer.
                 save_folder='full_checkpoints',
                 save_interval='5ep',
                 overwrite=True,
-                num_checkpoints_to_keep=1,  # only keep the latest, full checkpoint
+                save_num_checkpoints_to_keep=1,  # only keep the latest, full checkpoint
             ),
             CheckpointSaver(
                 save_folder='weights_only_checkpoints',
@@ -323,7 +323,7 @@ Behind the scenes, the :class:`.ObjectStoreLogger` uses :doc:`Apache Libcloud <l
 
 There are a few additional trainer arguments which can be helpful to configure:
 
-*   ``num_checkpoints_to_keep``: Set this parameter to remove checkpoints from the local disk after they have been
+*   ``save_num_checkpoints_to_keep``: Set this parameter to remove checkpoints from the local disk after they have been
     uploaded. For example, setting this parameter to 1 will only keep the latest checkpoint locally; setting it to 0
     will remove each checkpoint after it has been uploaded. Checkpoints are never deleted from object stores.
 *   ``save_artifact_name``: To customize how checkpoints are named in the cloud bucket, modify this parameter. By
@@ -359,7 +359,7 @@ Once you've configured your object store logger per above, all that's left is to
         save_interval='1ep',
         save_overwrite=True,
         save_artifact_name='checkpoints/ep{epoch}.pt',
-        num_checkpoints_to_keep=0,  # delete all checkpoints locally
+        save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
         loggers=[object_store_logger],
     )
 
