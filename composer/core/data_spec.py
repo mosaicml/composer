@@ -185,7 +185,8 @@ class DataSpec:
                      'correctly inserted. To fix, please do not iterate over the dataloader before passing it into '
                      'the Trainer.'))
             world_size = dist.get_world_size()
-            if world_size > 1 and not (
+            # Check for Distributed Sampler if not using IterableDataset on more than 1 GPU
+            if world_size > 1 and not isinstance(dataloader.dataset, torch.utils.data.IterableDataset) and not (
                 (dataloader.sampler and isinstance(dataloader.sampler, DistributedSampler)) or
                 (dataloader.batch_sampler and isinstance(dataloader.batch_sampler, DistributedSampler))):
                 raise ValueError(
