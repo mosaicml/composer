@@ -99,12 +99,12 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.0',
     'junitparser==2.8.0',
-    'coverage[toml]==6.4.4',
+    'coverage[toml]==6.5.0',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.1.3',
     'toml==0.10.2',
     'ipython==7.32.0',
-    'ipykernel==6.15.3',
+    'ipykernel==6.16.0',
     'jupyter==1.0.0',
     'yamllint==1.28.0',
     'recommonmark==0.7.1',
@@ -118,7 +118,7 @@ extra_deps['dev'] = [
     'sphinxcontrib.katex==0.9.0',
     'sphinxext.opengraph==0.6.3',
     'sphinxemoji==0.2.0',
-    'furo==2022.9.15',
+    'furo==2022.9.29',
     'sphinx-copybutton==0.5.0',
     'testbook==0.4.2',
     'myst-parser==0.16.1',
