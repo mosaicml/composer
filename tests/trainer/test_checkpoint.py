@@ -158,7 +158,7 @@ class TestCheckpointLoading:
             grad_accum=2,
             precision='fp32',
             train_subset_num_batches=5,
-            checkpoint_save_interval='1ep',
+            save_interval='1ep',
             eval_interval='1ba',
             save_filename='ep{epoch}.pt',
             max_duration='2ep',
@@ -191,7 +191,7 @@ class TestCheckpointLoading:
     @pytest.mark.parametrize('load_weights_only', [True, False])
     def test_load_weights(self, device, load_weights_only):
 
-        trainer_1 = self.get_trainer(checkpoint_save_path='first', device=device)
+        trainer_1 = self.get_trainer(save_folder='first', device=device)
         trainer_1.fit()
         trainer_1.close()
 
@@ -231,7 +231,7 @@ class TestCheckpointLoading:
         pytest.importorskip('libcloud')
 
         trainer_1 = self.get_trainer(
-            checkpoint_save_path='first',
+            save_folder='first',
             loggers=[self.get_logger(tmp_path)],
             run_name='electric-zebra',
         )
@@ -268,7 +268,7 @@ class TestCheckpointLoading:
             pytest.importorskip('libcloud')
 
         trainer_1 = self.get_trainer(
-            checkpoint_save_path='first',
+            save_folder='first',
             device=device,
             run_name='big-chungus',
             loggers=[self.get_logger(tmp_path)] if use_object_store else [],
@@ -283,7 +283,7 @@ class TestCheckpointLoading:
             shutil.rmtree('first')
 
         trainer_2 = self.get_trainer(
-            checkpoint_save_path='first',
+            save_folder='first',
             device=device,
             run_name='big-chungus',
             autoresume=True,
@@ -301,7 +301,7 @@ class TestCheckpointLoading:
     def test_different_run_names(self):
 
         trainer_1 = self.get_trainer(
-            checkpoint_save_path='first/',
+            save_folder='first/',
             seed=12345,
         )
         trainer_1.fit()
@@ -319,7 +319,7 @@ class TestCheckpointLoading:
     def test_save_overwrite(self, device, save_overwrite):
 
         trainer_1 = self.get_trainer(
-            checkpoint_save_path='first',
+            save_folder='first',
             device=device,
         )
         trainer_1.fit()
@@ -333,7 +333,7 @@ class TestCheckpointLoading:
 
         with ctx:  # expect FileExistsError if save_overwrite=False
             trainer_2 = self.get_trainer(
-                checkpoint_save_path='first',
+                save_folder='first',
                 save_overwrite=save_overwrite,
                 load_path=os.path.join('first', 'ep1.pt'),
                 device=device,
@@ -343,7 +343,7 @@ class TestCheckpointLoading:
         # loading from the last checkpoint should work regardless
         # of save_overwrite, as new checkpoints are later in time.
         trainer_3 = self.get_trainer(
-            checkpoint_save_path='first',
+            save_folder='first',
             save_overwrite=save_overwrite,
             load_path=os.path.join('first', 'ep2.pt'),
             device=device,
@@ -353,7 +353,7 @@ class TestCheckpointLoading:
     def test_surgery_resumption(self, tmp_path: pathlib.Path):
         trainer_1 = self.get_trainer(
             algorithms=[SqueezeExcite(latent_channels=64, min_channels=3)],
-            checkpoint_save_path=os.path.join(tmp_path, 'first'),
+            save_folder=os.path.join(tmp_path, 'first'),
         )
         trainer_1.fit()
         trainer_1.close()
@@ -411,7 +411,7 @@ class TestCheckpointResumption:
         pytest.param('gpu', 2, id='deepspeed-zero2', marks=pytest.mark.gpu),
     ])
     @pytest.mark.parametrize(
-        'seed,checkpoint_save_interval,save_filename,resume_file,final_checkpoint',
+        'seed,save_interval,save_filename,resume_file,final_checkpoint',
         [
             [None, '1ep', 'ep{epoch}-rank{rank}.pt', 'ep1-rank{rank}.pt', 'latest-rank{rank}.pt'
             ],  # test randomized seed saving and symlinking
@@ -431,7 +431,7 @@ class TestCheckpointResumption:
         device: str,
         world_size: int,
         deepspeed_zero_stage: Optional[int],
-        checkpoint_save_interval: str,
+        save_interval: str,
         save_filename: str,
         resume_file: str,
         final_checkpoint: str,
@@ -441,7 +441,7 @@ class TestCheckpointResumption:
 
         # all ranks use rank 0 folder
         tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
-        checkpoint_save_path = pathlib.Path(tmp_paths[0])
+        save_folder = pathlib.Path(tmp_paths[0])
 
         if deepspeed_zero_stage:
             deepspeed_config = {'zero_optimization': {'stage': deepspeed_zero_stage}}
@@ -455,10 +455,10 @@ class TestCheckpointResumption:
             deepspeed_config = None
 
         trainer_1 = self.get_trainer(
-            checkpoint_save_path=os.path.join(checkpoint_save_path, 'first'),
+            save_folder=os.path.join(save_folder, 'first'),
             save_filename=save_filename,
-            checkpoint_save_interval=checkpoint_save_interval,
-            eval_interval=checkpoint_save_interval,
+            save_interval=save_interval,
+            eval_interval=save_interval,
             deepspeed_config=deepspeed_config,
             seed=seed,
             device=device,
@@ -468,8 +468,8 @@ class TestCheckpointResumption:
         trainer_1.close()
 
         self._assert_expected_num_checkpoints(
-            checkpoint_save_path=os.path.join(checkpoint_save_path, 'first'),
-            checkpoint_save_interval=checkpoint_save_interval,
+            save_folder=os.path.join(save_folder, 'first'),
+            save_interval=save_interval,
             num_epochs=2,  # set in get_trainer()
             num_batches_per_epoch=5,  # set in get_trainer()
             is_deepspeed=deepspeed_config is not None,
@@ -479,13 +479,13 @@ class TestCheckpointResumption:
             # for DDP training, only rank 0 saves
             resume_file = resume_file.format(rank=0)
 
-        resume_file = os.path.join(checkpoint_save_path, 'first', resume_file)
+        resume_file = os.path.join(save_folder, 'first', resume_file)
 
         trainer_2 = self.get_trainer(
-            checkpoint_save_path=os.path.join(checkpoint_save_path, 'second'),
+            save_folder=os.path.join(save_folder, 'second'),
             save_filename=save_filename,
-            checkpoint_save_interval=checkpoint_save_interval,
-            eval_interval=checkpoint_save_interval,
+            save_interval=save_interval,
+            eval_interval=save_interval,
             deepspeed_config=deepspeed_config,
             seed=seed,
             device=device,
@@ -495,8 +495,8 @@ class TestCheckpointResumption:
         trainer_2.close()
 
         self._assert_checkpoints_equivalent(
-            checkpoint_save_path / 'first' / final_checkpoint,
-            checkpoint_save_path / 'second' / final_checkpoint,
+            save_folder / 'first' / final_checkpoint,
+            save_folder / 'second' / final_checkpoint,
         )
 
     def _assert_checkpoints_equivalent(self, file1, file2):
@@ -529,13 +529,13 @@ class TestCheckpointResumption:
 
     def _assert_expected_num_checkpoints(
         self,
-        checkpoint_save_path: str,
-        checkpoint_save_interval: str,
+        save_folder: str,
+        save_interval: str,
         num_epochs: int,
         num_batches_per_epoch: int,
         is_deepspeed: bool,
     ):
-        interval = Time.from_timestring(checkpoint_save_interval)
+        interval = Time.from_timestring(save_interval)
         if interval.unit == TimeUnit.EPOCH:
             expected_num_files = ((num_epochs - 1) // interval.value) + 1
         else:
@@ -546,7 +546,7 @@ class TestCheckpointResumption:
             # each rank saves
             expected_num_files *= dist.get_world_size()
 
-        files = os.listdir(checkpoint_save_path)
+        files = os.listdir(save_folder)
         assert len(files) == expected_num_files
 
 
@@ -572,7 +572,7 @@ def test_rotate_checkpoints(
 
     # all ranks use rank 0 folder
     tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
-    checkpoint_save_path = tmp_paths[0]
+    save_folder = tmp_paths[0]
 
     if deepspeed_enabled:
         deepseed_config = {'zero_optimization': {'stage': zero_stage}}
@@ -582,11 +582,11 @@ def test_rotate_checkpoints(
     trainer = Trainer(
         model=SimpleConvModel(),
         train_dataloader=DataLoader(dataset=RandomImageDataset()),
-        checkpoint_save_path=str(checkpoint_save_path),
+        save_folder=str(save_folder),
         save_filename='checkpoint_{rank}_{batch}.pt',
-        checkpoint_save_interval='1ba',
+        save_interval='1ba',
         max_duration='10ba',
-        num_checkpoints_to_keep=num_keep,
+        save_num_checkpoints_to_keep=num_keep,
         device=device,
         deepspeed_config=deepseed_config,
     )
@@ -598,7 +598,7 @@ def test_rotate_checkpoints(
     # deepspeed saves 1 file per rank
     expected_num = num_keep if not deepspeed_enabled else num_keep * world_size
 
-    files = glob(os.path.join(checkpoint_save_path, 'checkpoint_*'))
+    files = glob(os.path.join(save_folder, 'checkpoint_*'))
     assert len(files) == expected_num
 
     dist.barrier()  # all ranks finish before cleaning up tmpdir

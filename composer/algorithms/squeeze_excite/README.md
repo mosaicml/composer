@@ -1,6 +1,8 @@
 # 🫀 Squeeze-and-Excitation
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
+
+`Computer Vision`
 
 Adds a channel-wise attention operator in CNNs. Attention coefficients are produced by a small, trainable MLP that uses the channels' globally pooled activations as input. It requires more work on each forward pass, slowing down training and inference, but leads to higher quality models.
 
@@ -125,3 +127,10 @@ Because SE modules slow down the model, they compose well with methods that make
 [Squeeze-and-Excitation Networks](https://arxiv.org/abs/1709.01507) by Jie Hu, Li Shen, and Gang Sun. Published at CVPR 2018.
 
 *This Composer implementation of this method and the accompanying documentation were produced by Davis Blalock and Ajay Saini at MosaicML.*
+
+## API Reference
+
+**Algorithm class:** {class}`composer.algorithms.SqueezeExcite`,
+{class}`composer.algorithms.SqueezeExcite2d`, {class}`composer.algorithms.SqueezeExciteConv2d`
+
+**Functional:** {func}`composer.functional.apply_squeeze_excite`
