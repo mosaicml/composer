@@ -169,7 +169,7 @@ def merge_hparams(hparams: TrainerHparams, override_hparams: GLUETrainerHparams)
     hparams.loggers = override_hparams.loggers if override_hparams.loggers else hparams.loggers
     hparams.model = override_hparams.model if override_hparams.model else hparams.model
     hparams.run_name = override_hparams.run_name if override_hparams.run_name else hparams.run_name
-    hparams.checkpoint_save_path = override_hparams.checkpoint_save_path if override_hparams.checkpoint_save_path else hparams.checkpoint_save_path
+    hparams.save_folder = override_hparams.save_folder if override_hparams.save_folder else hparams.save_folder
 
     return hparams
 
@@ -185,7 +185,7 @@ def _setup_gpu_queue(num_gpus: int, manager: SyncManager):
 def spawn_finetuning_jobs(
     task_to_save_ckpt: Dict[str, bool],
     ckpt_load_paths: List[str],
-    checkpoint_save_path: str,
+    save_folder: str,
     base_yaml_file: str,
     save_locally: bool,
     load_locally: bool,
@@ -233,8 +233,7 @@ def spawn_finetuning_jobs(
                         result = pool.apply_async(
                             train_finetune,
                             args=(gpu_queue, base_yaml_file, task, save_ckpt, ckpt_load_path, parent_ckpt, parent_idx,
-                                  checkpoint_save_path, save_locally, load_locally, free_port + rank, load_ignore_keys,
-                                  seed),
+                                  save_folder, save_locally, load_locally, free_port + rank, load_ignore_keys, seed),
                         )
                         results.append(result)
                         rank += 1
@@ -254,7 +253,7 @@ def train_finetune(
         load_path: str,
         parent_ckpt: str,
         parent_idx: int,
-        checkpoint_save_path: str,
+        save_folder: str,
         save_locally: bool,
         load_locally: bool,
         master_port: int,
@@ -310,19 +309,19 @@ def train_finetune(
     # saving single checkpoint at the end of training the task
     if save_ckpt:
         # add task specific artifact logging information
-        ft_hparams.checkpoint_save_path = f'{checkpoint_save_path}/{task}-{parent_idx:03d}'
-        save_artifact_name = f'{checkpoint_save_path}/{task}-{parent_idx:03d}/ep{{epoch}}-ba{{batch}}-rank{{rank}}'  # ignored if not uploading
-        save_latest_artifact_name = f'{checkpoint_save_path}/{task}-{parent_idx:03d}/latest-rank{{rank}}'
+        ft_hparams.save_folder = f'{save_folder}/{task}-{parent_idx:03d}'
+        save_artifact_name = f'{save_folder}/{task}-{parent_idx:03d}/ep{{epoch}}-ba{{batch}}-rank{{rank}}'  # ignored if not uploading
+        save_latest_artifact_name = f'{save_folder}/{task}-{parent_idx:03d}/latest-rank{{rank}}'
         ft_hparams.save_artifact_name = save_artifact_name
         ft_hparams.save_latest_artifact_name = save_latest_artifact_name
 
         if save_locally:
-            if not os.path.exists(ft_hparams.checkpoint_save_path):
-                os.makedirs(ft_hparams.checkpoint_save_path)
+            if not os.path.exists(ft_hparams.save_folder):
+                os.makedirs(ft_hparams.save_folder)
 
     else:
         # Disable saving
-        ft_hparams.checkpoint_save_path = None
+        ft_hparams.save_folder = None
 
     print(
         f'\n --------\n SPAWNING TASK {task.upper()}\n DEVICE: {torch.cuda.current_device()}\n CKPT: {parent_ckpt}\n --------'
@@ -429,9 +428,9 @@ def get_finetune_hparams() -> Tuple[GLUETrainerHparams, str, bool, bool]:
 def get_ckpt_names(hp: TrainerHparams, run_name: str, dataloader_len: int) -> List[str]:
     """Extract list of checkpoints that will be saved by the given configuration."""
     ckpt_names = []
-    assert hp.checkpoint_save_interval is not None
+    assert hp.save_interval is not None
     assert hp.max_duration is not None
-    interval = Time.from_timestring(str(hp.checkpoint_save_interval))
+    interval = Time.from_timestring(str(hp.save_interval))
     duration = Time.from_timestring(str(hp.max_duration))
 
     ep = 0
@@ -500,25 +499,24 @@ def run_pretrainer(training_scheme: str, file: str, finetune_hparams: GLUETraine
     dataloader_len = len(dataloader.dataloader)  # type: ignore
     run_name = hp.run_name
     assert run_name is not None
-    assert hp.checkpoint_save_path is not None
-    checkpoint_save_path = os.path.join(run_name, hp.checkpoint_save_path)
+    assert hp.save_folder is not None
+    save_folder = os.path.join(run_name, hp.save_folder)
 
     if training_scheme == 'all':  # extract run_name from trainer args for finetuning
         # list and save checkpoint paths
-        finetune_hparams.checkpoint_save_path = checkpoint_save_path
+        finetune_hparams.save_folder = save_folder
         finetune_hparams.finetune_ckpts = get_ckpt_names(hp, run_name, dataloader_len)
 
     # call via composer to ensure pretraining done distributedly across all available GPUs
-    subprocess.run(args=['composer', training_script, '-f', tmp_file, '--checkpoint_save_path', checkpoint_save_path],
-                   check=True)
+    subprocess.run(args=['composer', training_script, '-f', tmp_file, '--save_folder', save_folder], check=True)
 
 
-def run_finetuner(training_scheme: str, file: str, save_locally: bool, load_locally: bool, checkpoint_save_path: str,
+def run_finetuner(training_scheme: str, file: str, save_locally: bool, load_locally: bool, save_folder: str,
                   finetune_hparams) -> List[Tuple[str, str, Dict[str, Any]]]:
     """Logic for handling a finetuning job spawn based on storage and training settings."""
     # set automatic load and save paths
     if load_locally:
-        all_ckpts_list = os.listdir(checkpoint_save_path)
+        all_ckpts_list = os.listdir(save_folder)
     else:
         all_ckpts_list = finetune_hparams.finetune_ckpts
 
@@ -526,7 +524,7 @@ def run_finetuner(training_scheme: str, file: str, save_locally: bool, load_loca
     task_to_save_ckpt = {'cola': False, 'sst-2': False, 'qqp': False, 'qnli': False, 'mnli': True}
     results_a = spawn_finetuning_jobs(task_to_save_ckpt,
                                       all_ckpts_list,
-                                      checkpoint_save_path,
+                                      save_folder,
                                       file,
                                       save_locally,
                                       load_locally,
@@ -534,12 +532,12 @@ def run_finetuner(training_scheme: str, file: str, save_locally: bool, load_loca
 
     # Second, fine-tune RTE, MRPC, and STS-B from every pre-trained checkpoint's downstream MNLI checkpoints
     # Note: If MNLI ran for multiple seeds, this checkpoint will come from the last MNLI seed to finish.
-    ckpt_filenames = [f'{checkpoint_save_path}/mnli-{idx:03d}/latest-rank0.pt' for idx in range(len(all_ckpts_list))]
+    ckpt_filenames = [f'{save_folder}/mnli-{idx:03d}/latest-rank0.pt' for idx in range(len(all_ckpts_list))]
     mnli_task_to_save_ckpt = {'rte': False, 'mrpc': False, 'stsb': False}
     results_b = spawn_finetuning_jobs(
         mnli_task_to_save_ckpt,
         ckpt_filenames,
-        checkpoint_save_path,
+        save_folder,
         file,
         save_locally,
         load_locally=save_locally,
@@ -566,9 +564,9 @@ def _main() -> None:
 
     # Finetune
     if training_scheme in ('finetune', 'all'):
-        assert finetune_hparams.checkpoint_save_path is not None
-        results = run_finetuner(training_scheme, file, save_locally, load_locally,
-                                finetune_hparams.checkpoint_save_path, finetune_hparams)
+        assert finetune_hparams.save_folder is not None
+        results = run_finetuner(training_scheme, file, save_locally, load_locally, finetune_hparams.save_folder,
+                                finetune_hparams)
         print('FINETUNING COMPLETE')
 
         # Process and print the collected results into final GLUE metrics

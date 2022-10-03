@@ -51,7 +51,7 @@ def test_algorithm_resumption(
         train_dataloader=get_alg_dataloader(alg_cls),
         optimizers=optimizer,
         schedulers=scheduler,
-        checkpoint_save_path=folder1,
+        save_folder=folder1,
         algorithms=alg_cls(**alg_kwargs),
         **shared_config,
     )
@@ -71,7 +71,7 @@ def test_algorithm_resumption(
         load_strict_model_weights=False,
         optimizers=optimizer,
         schedulers=scheduler,
-        checkpoint_save_path=folder2,
+        save_folder=folder2,
         algorithms=alg_cls(**alg_kwargs),
         **shared_config,
     )
