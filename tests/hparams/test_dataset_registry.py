@@ -9,7 +9,8 @@ from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_hparams_registry import (
     ADE20kDatasetHparams, BratsDatasetHparams, C4DatasetHparams, CIFAR10DatasetHparams, COCODatasetHparams, GLUEHparams,
     ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams, StreamingADE20kHparams, StreamingC4Hparams,
-    StreamingCIFAR10Hparams, StreamingCOCOHparams, StreamingEnWikiHparams, StreamingImageNet1kHparams, dataset_registry)
+    StreamingCIFAR10Hparams, StreamingCOCOHparams, StreamingImageNet1kHparams, dataset_registry)
+from composer.datasets.dataset_hparams_registry import StreamingEnWikiHparams as StreamingEnWikiHparams
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 
 # for testing, we provide values for required hparams fields
