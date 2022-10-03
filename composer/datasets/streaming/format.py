@@ -389,6 +389,14 @@ class StreamingDatasetIndex(object):
             worker_min_id = device_min_id + worker_min_batch_id * batch_size - min_id_offset
             worker_max_id = device_min_id + (worker_max_batch_id + 1) * batch_size - max_id_offset - 1
 
+            # Adjustment for last partition.
+            if self.total_samples == worker_max_id:
+                if 0 < worker_min_id:
+                    worker_min_id -= 1
+                    worker_max_id -= 1
+            elif self.total_samples < worker_max_id:
+                raise RuntimeError('Invalid partitioning')
+
         min_shard = self.sample_shards[worker_min_id]
         max_shard = self.sample_shards[worker_max_id]
         shards = list(range(min_shard, max_shard + 1))
