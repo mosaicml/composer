@@ -87,7 +87,7 @@ install_requires = [
     'tabulate==0.8.10',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<9',
     'packaging>=21.3.0,<22',
-    'importlib-metadata>=4.11.0,<5',
+    'importlib-metadata>=4.11.0,<6',
 ]
 extra_deps = {}
 
