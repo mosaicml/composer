@@ -1,6 +1,6 @@
 # 🎲 RandAugment
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
 `Computer Vision`
 
@@ -102,11 +102,11 @@ The class form of RandAugment runs on `Event.FIT_START` and inserts `RandAugment
 
 ## Suggested Hyperparameters
 
-As per [Cubuk et al. (2020)](https://openaccess.thecvf.com/content_CVPRW_2020/html/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.html), we found that `depth=2` (applying a chain of two augmentations to each image) and `severity=9` (each augmentation is applied quite strongly) works well for different models of the ResNet family on ImageNet. For `depth≥3`, we find diminishing accuracy gains (due to over-regularization) and substantial training slowdown (due to the CPU becoming a bottleneck because of the amount of augmentation it must perform). We also recommend `augmentation_set=all` (using all available augmentation techniques).
+As per [Cubuk et al. (2020)](https://openaccess.thecvf.com/content_CVPRW_2020/html/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.html), we found that `depth=1` (applying a single augmentation to each image) and `severity=9` (each augmentation is applied quite strongly) works well for different models of the ResNet family on ImageNet. For `depth≥3`, we find diminishing accuracy gains (due to over-regularization) and substantial training slowdown (due to the CPU becoming a bottleneck because of the amount of augmentation it must perform). We also recommend `augmentation_set=all` (using all available augmentation techniques).
 
 > ❗ Potential CPU Bottleneck
 >
-> Further increasing `depth` beyond 2 significantly decreases throughput when training ResNet-50 on ImageNet due to bottlenecks in performing data augmentation on the CPU.
+> Increasing `depth` beyond 1 significantly decreases throughput when training ResNet-50 on ImageNet due to bottlenecks in performing data augmentation on the CPU.
 
 ## Technical Details
 
@@ -114,6 +114,12 @@ RandAugment randomly samples `depth` image augmentations (with replacement) from
 The augmentations use the PILLOW Image library (specifically Pillow-SIMD); we found OpenCV-based augmentations resulted in similar or worse performance.
 RandAugment is applied after "standard" image transformations such as resizing and cropping, and before normalization.
 Each augmentation is applied with an intensity randomly sampled uniformly from 0.1-`severity` (`severity` ≤ 10). where `severity` is a unit-free upper bound on the intensity of an augmentation and is mapped to the unit specific for each augmentation. For example, `severity` would be mapped to degrees for the rotation augmentation, and `severity=10` corresponds to 30°.
+
+> 🚧 RandAugment Can Improve the Tradeoff Between Quality and Training Speed
+>
+> RandAugment is a regularization technique that makes training more difficult for the model.
+> This can lead to higher model quality for longer training runs and/or larger models but may decrease accuracy
+> for shorter training runs and/or smaller models.
 
 We observed an accuracy gain of 0.7% when adding RandAugment to a baseline ResNet-50 on ImageNet and 1.4% when adding RandAugment to a baseline ResNet-101 on ImageNet.
 Cubuk et al. report a 1.3% accuracy increase over a baseline ResNet50 on ImageNet. They report identical accuracy as a previous state-of-the-art augmentation scheme (Fast AutoAugment) but with reduced computational requirements due to AutoAugment requiring a supplementary phase to search for the optimal augmentation policy.
@@ -132,11 +138,6 @@ In addition, RandAugment is a regularization technique, meaning it reduces overf
 Doing so can allow models to reach higher quality, but this typically requires (1) larger models with more capacity to perform this more difficult learning and (2) longer training runs to allow these models time to learn.
 For example, applying RandAugment with `depth=2`, `severity=9`, yields a 0.31% accuracy gain for ResNet-18 trained for 90 epochs, a 0.41% accuracy gain for ResNet-50 trained for 90 epochs, and a 1.15% gain for ResNet-50 trained for 120 epochs.
 
-> 🚧 RandAugment May Reduce Quality for Smaller Models and Shorter Training Runs
->
-> RandAugment is a regularization technique that makes training more difficult for the model.
-> This can lead to higher model quality for longer training runs but may decrease accuracy for shorter training runs and require a larger model to overcome this difficulty.
-
 > 🚧 Composing Regularization Methods
 >
 > As a general rule, composing regularization methods may lead to diminishing returns in quality improvements while increasing the risk of creating a CPU bottleneck.
@@ -152,3 +153,9 @@ For example, applying RandAugment with `depth=2`, `severity=9`, yields a 0.31% a
 [*Randaugment: Practical automated data augmentation with a reduced search space*](https://openaccess.thecvf.com/content_CVPRW_2020/html/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.html) by Ekin D. Cubuk, Barret Zoph, Jonathon Shlens, and Quoc V. Le. Published in CVPR 2020.
 
 *The Composer implementation of this method and the accompanying documentation were produced by Matthew Leavitt at MosaicML.*
+
+## API Reference
+
+**Algorithm class:** {class}`composer.algorithms.RandAugment`, {class}`composer.algorithms.RandAugmentTransform`
+
+**Functional:** {func}`composer.functional.randaugment_image`

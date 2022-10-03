@@ -1,7 +1,7 @@
 # 🥣 MixUp
 
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
 `Computer Vision`
 
@@ -155,6 +155,11 @@ Data augmentation techniques can sometimes put additional load on the CPU, poten
 To prevent this from happening for MixUp, our implementation of MixUp (1) occurs on the GPU and (2) uses the same `t` for all examples in the minibatch.
 Doing so avoids putting additional work on the CPU (since augmentation occurs on the GPU) and minimizes additional work on the GPU (since all images are handled uniformly within a batch).
 
+> ✅ MixUp Improves the Tradeoff Between Quality and Training Speed
+>
+> In our experiments, MixUp improves the attainable tradeoffs between training speed and the final quality of the trained model.
+> We recommend MixUp for image classification tasks.
+
 > 🚧 MixUp Requires a Small Amount of Additional GPU Compute and Memory
 >
 > MixUp requires a small amount of additional GPU compute and memory to produce the mixed-up batch.
@@ -169,7 +174,8 @@ Doing so avoids putting additional work on the CPU (since augmentation occurs on
 
 >❗ When `interpolate_loss=True` MixUp interpolates the loss rather than the targets.
 >
-> This is fine for loss functions that are linear in the targets, such as cross entropy, but may produce unexpected results for other loss functions.
+> This is fine for loss functions that are linear in the targets, such as cross entropy,
+> but may produce unexpected results for other loss functions.
 
 > 🚧 Composing Regularization Methods
 >
@@ -184,3 +190,9 @@ The implementation in Composer currently only supports computer vision.
 [*mixup: Beyond Empirical Risk Minimization*](https://arxiv.org/abs/1710.09412) by Hongyi Zhang, Moustapha Cisse, Yann N. Dauphin, and David Lopez-Paz. Published in ICLR 2018.
 
 *This Composer implementation of this method and the accompanying documentation were produced by Cory Stephenson at MosaicML.*
+
+## API Reference
+
+**Algorithm class:** {class}`composer.algorithms.MixUp`
+
+**Functional:** {func}`composer.functional.mixup_batch`

@@ -168,7 +168,8 @@ def barrier() -> None:
     raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
                        'available or has not been initialized. Please check you have initialized '
                        'the distributed runtime and that PyTorch has been built with distributed '
-                       'support.')
+                       'support. If calling this function outside Trainer, please ensure that '
+                       '`composer.utils.dist.initialize_dist` has been called first.')
 
 
 def all_reduce(
@@ -213,7 +214,8 @@ def all_reduce(
     raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
                        'available or has not been initialized. Please check you have initialized '
                        'the distributed runtime and that PyTorch has been built with distributed '
-                       'support.')
+                       'support. If calling this function outside Trainer, please ensure that '
+                       '`composer.utils.dist.initialize_dist` has been called first.')
 
 
 def broadcast(tensor: torch.Tensor, src: int) -> None:
@@ -236,7 +238,8 @@ def broadcast(tensor: torch.Tensor, src: int) -> None:
     raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
                        'available or has not been initialized. Please check you have initialized '
                        'the distributed runtime and that PyTorch has been built with distributed '
-                       'support.')
+                       'support. If calling this function outside Trainer, please ensure that '
+                       '`composer.utils.dist.initialize_dist` has been called first.')
 
 
 def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
@@ -267,7 +270,8 @@ def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
     raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
                        'available or has not been initialized. Please check you have initialized '
                        'the distributed runtime and that PyTorch has been built with distributed '
-                       'support.')
+                       'support. If calling this function outside Trainer, please ensure that '
+                       '`composer.utils.dist.initialize_dist` has been called first.')
 
 
 def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
@@ -291,7 +295,8 @@ def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
     raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
                        'available or has not been initialized. Please check you have initialized '
                        'the distributed runtime and that PyTorch has been built with distributed '
-                       'support.')
+                       'support. If calling this function outside Trainer, please ensure that '
+                       '`composer.utils.dist.initialize_dist` has been called first.')
 
 
 def all_gather_object(obj: TObj) -> List[TObj]:
@@ -317,7 +322,8 @@ def all_gather_object(obj: TObj) -> List[TObj]:
     raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
                        'available or has not been initialized. Please check you have initialized '
                        'the distributed runtime and that PyTorch has been built with distributed '
-                       'support.')
+                       'support. If calling this function outside Trainer, please ensure that '
+                       '`composer.utils.dist.initialize_dist` has been called first.')
 
 
 def is_available():
@@ -459,14 +465,21 @@ def run_local_rank_zero_first():
     ranks attempt to download the dataset to the
     same location.
     """
-    if not is_initialized():
+    if dist.is_available() and dist.is_initialized():
+        # hold non-zero ranks until rank zero done
+        if get_local_rank() != 0:
+            dist.barrier()
+            yield
+        else:
+            yield
+            dist.barrier()
+        return
+    world_size = get_world_size()
+    if world_size == 1:
         yield
         return
-
-    # hold non-zero ranks until rank zero done
-    if get_local_rank() != 0:
-        dist.barrier()
-        yield
-    else:
-        yield
-        dist.barrier()
+    raise RuntimeError(f'The world_size({world_size}) > 1, but the distributed package is not '
+                       'available or has not been initialized. Please check you have initialized '
+                       'the distributed runtime and that PyTorch has been built with distributed '
+                       'support. If calling this function outside Trainer, please ensure that '
+                       '`composer.utils.dist.initialize_dist` has been called first.')

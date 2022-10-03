@@ -99,7 +99,7 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.0',
     'junitparser==2.8.0',
-    'coverage[toml]==6.4.4',
+    'coverage[toml]==6.5.0',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.1.3',
     'toml==0.10.2',
@@ -118,7 +118,7 @@ extra_deps['dev'] = [
     'sphinxcontrib.katex==0.9.0',
     'sphinxext.opengraph==0.6.3',
     'sphinxemoji==0.2.0',
-    'furo==2022.9.15',
+    'furo==2022.9.29',
     'sphinx-copybutton==0.5.0',
     'testbook==0.4.2',
     'myst-parser==0.16.1',
@@ -191,8 +191,8 @@ extra_deps['libcloud'] = [
 ]
 
 extra_deps['onnx'] = [
-    'onnx>=1.11.0,<2',
-    'onnxruntime>=1.11.0,<2',
+    'onnx>=1.12.0,<2',
+    'onnxruntime>=1.12.1,<2',
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
