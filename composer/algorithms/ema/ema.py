@@ -206,7 +206,7 @@ class EMA(Algorithm):
         if event in [Event.BATCH_CHECKPOINT, Event.EPOCH_CHECKPOINT] and self.ema_started:
             checkpoint_savers = [cb for cb in state.callbacks if isinstance(cb, CheckpointSaver)]
             for checkpoint_saver in checkpoint_savers:
-                if checkpoint_saver.checkpoint_save_interval(state, event) is True:
+                if checkpoint_saver.save_interval(state, event) is True:
                     return True
 
         # Otherwise, always run on some events after ema has started

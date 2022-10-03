@@ -1,7 +1,7 @@
 # 🏞️ Progressive Image Resizing
 
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
  `Computer Vision`
 
@@ -145,3 +145,9 @@ Progressive Resizing will interact with other methods that change the size of th
 This method was inspired by work on Progressive Resizing by [fast.ai](https://github.com/fastai/fastbook/blob/780b76bef3127ce5b64f8230fce60e915a7e0735/07_sizing_and_tta.ipynb).
 
 *The Composer implementation of this method and the accompanying documentation were produced by Cory Stephenson at MosaicML.*
+
+## API Reference
+
+**Algorithm class:** {class}`composer.algorithms.ProgressiveResizing`
+
+**Functional:** {func}`composer.functional.resize_batch`

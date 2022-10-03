@@ -1,6 +1,6 @@
 # 🚚 EMA
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
 Exponential Moving Average (EMA) is a model averaging technique that maintains an exponentially weighted moving average of the model parameters during training. The averaged parameters are used for model evaluation. EMA typically results in less noisy validation metrics over the course of training, and sometimes increased generalization.
 
@@ -56,7 +56,6 @@ ema = EMA(half_life='50ba')
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
-                  eval_dataloader=eval_dataloader,
                   max_duration='1ep',
                   algorithms=[ema])
 
@@ -83,16 +82,26 @@ A good typical starting value for `half_life` is `half_life="1000ba"`, for a hal
 
 For compatibility with other implementations, there is also an option to specify the value of `smoothing` directly.
 
-- `smoothing` - The coefficient representing the degree to which older observations are kept. The default (unspecified) value is `None`. Should only be used if `half_life` is not used.
+- `smoothing` - The coefficient representing the degree to which older observations are kept. The default (unspecified) value is `None`. Should only be used if `half_life` is not used
 
 To use this, `half_life` should be set to `half_life=None`, and the value of smoothing given instead. This value is not modified when `update_interval` is changed, and so changes to `update_interval` when using `smoothing` will result in changes to the time scale of the average.
 
 
 ## Technical Details
 
+> ✅ EMA Improves the Tradeoff Between Quality and Training Speed
+>
+> In our experiments, EMA improves the attainable tradeoffs between training speed and the final quality of the trained model.
+> We recommend EMA for training convolutional networks.
+
 >  ✅ EMA should result in less noisy validation metrics during training
 >
 > If evalutation metrics are computed over the course of training, EMA should result in these metrics being smoother and less noisy due to averaging.
+
+> 🚧 Composing Model-Averaging Methods
+>
+> As a general rule, model-averaging methods do not compose well. We recommend using one
+> of EMA or SWA, but not both.
 
 > ❗ EMA increases memory consumption
 >
@@ -112,3 +121,9 @@ To use this, `half_life` should be set to `half_life=None`, and the value of smo
 Our implementation of EMA was inspired by [Tensorflow's Exponential Moving Average](https://www.tensorflow.org/api_docs/python/tf/train/ExponentialMovingAverage)
 
 *This Composer implementation of this method and the accompanying documentation were produced by Cory Stephenson at MosaicML.*
+
+## API Reference
+
+**Algorithm class:** {class}`composer.algorithms.EMA`
+
+**Functional:** {func}`composer.functional.compute_ema`

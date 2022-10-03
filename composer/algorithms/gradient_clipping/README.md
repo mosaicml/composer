@@ -1,6 +1,6 @@
 # 📎 Gradient Clipping
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
  `Computer Vision`, `Natural Language Processing`
 
@@ -22,15 +22,7 @@ Constrains all gradients to be between $[-\lambda, \lambda]$, where $\lambda$ is
 the `clipping_threshold`.
 
 <!-- Usage: -->
-<!--
-```python
-from tests.common import SimpleModel
-
-model = SimpleModel()
-clipping_threshold = 0.1
-```
--->
-<!--pytest-codeblocks:cont-->
+<!--pytest-codeblocks:skip-->
 ```python
 import composer.functional as cf
 cf.apply_gradient_clipping(model.parameters(),
@@ -41,15 +33,7 @@ cf.apply_gradient_clipping(model.parameters(),
 Multiplies all gradients by $\min(1, \frac{\lambda}{||G||})$, where $\lambda$ is
 the `clipping_threshold` and $||G||$ is the total L2 norm of all gradients.
 <!-- Usage: -->
-<!--
-```python
-from tests.common import SimpleModel
-
-model = SimpleModel()
-clipping_threshold = 0.1
-```
--->
-<!--pytest-codeblocks:cont-->
+<!--pytest-codeblocks:skip-->
 ```python
 import composer.functional as cf
 cf.apply_gradient_clipping(model.parameters(),
@@ -61,15 +45,7 @@ Clips all gradients based on the gradient norm to parameter norm ratio by multip
 $\min(1, \lambda\frac{||W||}{||G||})$, where $\lambda$ is the `clipping_threshold`,
 $||G||$ is the norm of the gradients and $||W||$ is the norm of the weights.
 <!-- Usage: -->
-<!--
-```python
-from tests.common import SimpleModel
-
-model = SimpleModel()
-clipping_threshold = 0.1
-```
--->
-<!--pytest-codeblocks:cont-->
+<!--pytest-codeblocks:skip-->
 ```python
 import composer.functional as cf
 cf.apply_gradient_clipping(model.parameters(),
@@ -105,18 +81,7 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
-<!--pytest.mark.gpu-->
-<!--
-```python
-from torch.utils.data import DataLoader
-from tests.common import RandomClassificationDataset, SimpleModel
-
-model = SimpleModel()
-train_dataloader = DataLoader(RandomClassificationDataset())
-eval_dataloader = DataLoader(RandomClassificationDataset())
-```
--->
-<!--pytest-codeblocks:cont-->
+<!--pytest-codeblocks:skip-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
@@ -130,7 +95,6 @@ gc = GradientClipping(clipping_type=clipping_type, clipping_threshold=0.1)
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
-    eval_dataloader=eval_dataloader,
     max_duration='1ep',
     algorithms=[gc]
 )
@@ -203,3 +167,9 @@ TODO(eracah): fill in this section.
 [*Statistical language models based on neural networks*](https://www.fit.vut.cz/study/phd-thesis/283/.en) by T. Mikolov
 
 *The Composer implementation of this method and the accompanying documentation were produced by Evan Racah at MosaicML.*
+
+## API Reference
+
+**Algorithm class:** {class}`composer.algorithms.GradientClipping`
+
+**Functional:** {func}`composer.functional.apply_gradient_clipping`
