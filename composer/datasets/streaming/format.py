@@ -393,7 +393,7 @@ class StreamingDatasetIndex(object):
             if self.total_samples == worker_max_id:
                 if 0 < worker_min_id:
                     worker_min_id -= 1
-                    worker_max_id -= 1
+                worker_max_id -= 1
             elif self.total_samples < worker_max_id:
                 raise RuntimeError('Invalid partitioning')
 
