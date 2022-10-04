@@ -170,7 +170,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 awesome-training-run/checkpoints/ep1-ba42-rank2.tar
                 ...
 
-        latest_checkpoint_filename (str, optional): A format string for a symlink which points to the last saved checkpoint.
+        latest_filename (str, optional): A format string for a symlink which points to the last saved checkpoint.
             Default: ``'latest-rank{{rank}}.pt'``.
 
             Symlinks will be created approximately at ``{{folder}}/{{latest_filename.format(...)}}``.
@@ -272,21 +272,21 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.last_checkpoint_batch: Optional[Time] = None
 
         
-        self.checkpoint_save_path = urlparse(checkpoint_save_path).path
-        backend = urlparse(checkpoint_save_path).scheme
+        self.folder = urlparse(folder).path
+        backend = urlparse(folder).scheme
         self.backend = (backend if backend != '' else None)
-        self.checkpoint_save_path = self.checkpoint_save_path.lstrip('/')
+        self.folder = self.folder.lstrip('/')
         
 
-        self.checkpoint_filename = checkpoint_filename
-        self.latest_checkpoint_filename = latest_checkpoint_filename
+        self.filename = filename
+        self.latest_filename = latest_filename
         self.overwrite = overwrite
         self.saved_checkpoints: List[str] = []
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
-        self.checkpoint_file_path = str(Path(self.checkpoint_save_path) / Path(self.checkpoint_filename))
-        if latest_checkpoint_filename:
-            self.latest_checkpoint_file_path = str(Path(self.checkpoint_save_path) / Path(self.latest_checkpoint_filename))
+        self.checkpoint_file_path = str(Path(self.folder) / Path(self.filename))
+        if latest_filename:
+            self.latest_checkpoint_file_path = str(Path(self.folder) / Path(self.latest_filename))
         else:
             self.latest_checkpoint_file_path = None
 
@@ -294,20 +294,20 @@ class CheckpointSaver(Callback):  # noqa: D101
     def init(self, state: State, logger: Logger) -> None:
         is_deepspeed = is_model_deepspeed(state.model)
 
-        if is_deepspeed and '{rank}' not in self.checkpoint_filename:
+        if is_deepspeed and '{rank}' not in self.filename:
             raise ValueError(
-                f'Save checkpoint_filename {self.checkpoint_filename} must have {{rank}} for deepspeed.')
+                f'Save filename {self.filename} must have {{rank}} for deepspeed.')
 
-        self.checkpoint_save_path = format_name_with_dist(self.checkpoint_save_path, state.run_name)
-        os.makedirs(self.checkpoint_save_path, exist_ok=True)
+        self.folder = format_name_with_dist(self.folder, state.run_name)
+        os.makedirs(self.folder, exist_ok=True)
         
 
     def fit_start(self, state: State, logger: Logger) -> None:
         if not self.overwrite:
             # checks that save_folder contains no files with a timestamp after the current timestamp,
             # which has potential for future conflicts.
-            checkpoint_save_path = format_name_with_dist(self.checkpoint_save_path, state.run_name)
-            ensure_folder_has_no_conflicting_files(checkpoint_save_path, self.checkpoint_filename,
+            folder = format_name_with_dist(self.folder, state.run_name)
+            ensure_folder_has_no_conflicting_files(folder, self.filename,
                                                    state.timestamp)
 
         dist.barrier()  # holds all ranks until folder check is done
@@ -359,10 +359,10 @@ class CheckpointSaver(Callback):  # noqa: D101
         if not saved_path:  # not all ranks save
             return
 
-        if self.latest_checkpoint_filename is not None:
-            symlink_name = format_name_with_dist_and_time(self.latest_checkpoint_filename, state.run_name, state.timestamp)
-            symlink_name += ('.tar' if is_deepspeed and not is_tar(self.latest_checkpoint_filename) else '')
-            symlink_path = os.path.join(self.checkpoint_save_path, symlink_name)
+        if self.latest_filename is not None:
+            symlink_name = format_name_with_dist_and_time(self.latest_filename, state.run_name, state.timestamp)
+            symlink_name += ('.tar' if is_deepspeed and not is_tar(self.latest_filename) else '')
+            symlink_path = os.path.join(self.folder, symlink_name)
             os.makedirs(os.path.dirname(symlink_path), exist_ok=True)
             try:
                 os.remove(symlink_path)
@@ -378,7 +378,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                                  file_path=checkpoint_file_path,
                                  overwrite=self.overwrite)
 
-            if self.latest_checkpoint_filename is not None:
+            if self.latest_filename is not None:
                 # create and upload a symlink file
                 with tempfile.TemporaryDirectory() as tmpdir:
                     symlink_filename = os.path.join(tmpdir, 'latest.symlink')
@@ -390,7 +390,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                         overwrite=True,
                     )
 
-        self.saved_checkpoints.append(file_path)
+        self.saved_checkpoints.append(checkpoint_file_path)
 
         if self.num_checkpoints_to_keep >= 0:
             self._rotate_checkpoints()
