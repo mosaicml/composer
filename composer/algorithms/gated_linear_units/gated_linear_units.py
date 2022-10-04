@@ -16,7 +16,6 @@ from composer.models.huggingface import HuggingFaceModel
 try:
     from transformers import BertPreTrainedModel
     from transformers.models.bert.modeling_bert import BertIntermediate, BertOutput
-    
     IS_TRANSFORMERS_INSTALLED = True
 except ImportError as e:
     IS_TRANSFORMERS_INSTALLED = False
@@ -86,7 +85,8 @@ def apply_gated_linear_units(model: torch.nn.Module,
 
     # ensure that the model is an instance of a Hugging Face BertPreTrainedModel class, since our replacement policy is only defined for BERTs
     if not isinstance(unwrapped_model, BertPreTrainedModel):
-        raise TypeError('Gated Linear Units only has a surgery policy defined for subclasses of transformers.BertPreTrainedModel')
+        raise TypeError(
+            'Gated Linear Units only has a surgery policy defined for subclasses of transformers.BertPreTrainedModel')
 
     if act_fn is None:
         intermediate_modules = {module for module in model.modules() if isinstance(module, BertIntermediate)}
