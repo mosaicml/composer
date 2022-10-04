@@ -123,7 +123,7 @@ class ImageVisualizer(Callback):
             # Only log to the wandb logger if it is available
             for destination in ensure_tuple(logger.destinations):
                 if isinstance(destination, WandBLogger) or isinstance(destination, InMemoryLogger):
-                    destination.log_metrics({data_name: table})
+                    destination.log_metrics({data_name: table}, state.timestamp.batch.value)
 
     def _log_segmented_inputs(self, state: State, logger: Logger, data_name: str):
         inputs = state.batch_get_item(key=self.input_key)
@@ -144,7 +144,7 @@ class ImageVisualizer(Callback):
         # Only log to the wandb logger if it is available
         for destination in ensure_tuple(logger.destinations):
             if isinstance(destination, WandBLogger) or isinstance(destination, InMemoryLogger):
-                destination.log_metrics({data_name: table})
+                destination.log_metrics({data_name: table}, state.timestamp.batch.value)
 
     def before_forward(self, state: State, logger: Logger):
         if self.mode.lower() == 'input' and state.timestamp.get(self.interval.unit).value % self.interval.value == 0:
