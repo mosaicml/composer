@@ -87,7 +87,7 @@ install_requires = [
     'tabulate==0.8.10',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<9',
     'packaging>=21.3.0,<22',
-    'importlib-metadata>=4.11.0,<5',
+    'importlib-metadata>=5.0.0,<6',
 ]
 extra_deps = {}
 
@@ -104,7 +104,7 @@ extra_deps['dev'] = [
     'pytest==7.1.3',
     'toml==0.10.2',
     'ipython==7.32.0',
-    'ipykernel==6.15.3',
+    'ipykernel==6.16.0',
     'jupyter==1.0.0',
     'yamllint==1.28.0',
     'recommonmark==0.7.1',
@@ -114,7 +114,7 @@ extra_deps['dev'] = [
     # https://myst-parser.readthedocs.io/en/latest/sphinx/use.html?highlight=parser#include-markdown-files-into-an-rst-file
     'docutils==0.17.1',
     'sphinx_markdown_tables==0.0.17',
-    'sphinx-argparse==0.3.1',
+    'sphinx-argparse==0.3.2',
     'sphinxcontrib.katex==0.9.0',
     'sphinxext.opengraph==0.6.3',
     'sphinxemoji==0.2.0',
