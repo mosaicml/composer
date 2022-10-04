@@ -133,7 +133,7 @@ def _main():
 
     # Create ADE20k train dataset
     train_dataset = ADE20k(
-        datadir=args.datadir,
+        datadir=args.data_dir,
         split='train',
         image_transforms=train_image_transforms,
         target_transforms=train_target_transforms,
@@ -175,7 +175,7 @@ def _main():
                                           interpolation=InterpolationMode.NEAREST)
 
     # Create ADE20k validation dataset
-    val_dataset = ADE20k(datadir=args.datadir,
+    val_dataset = ADE20k(datadir=args.data_dir,
                          split='val',
                          both_transforms=None,
                          image_transforms=image_transforms,
