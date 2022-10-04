@@ -25,6 +25,7 @@ __all__ = [
     'SGDHparams',
     'DecoupledSGDWHparams',
     'RMSpropHparams',
+    'FusedLAMBHparams',
 ]
 
 
