@@ -56,9 +56,9 @@ class TestEventCalls:
         pytest.param('cpu', None, id='cpu-ddp'),
         pytest.param('gpu', None, id='gpu-ddp', marks=pytest.mark.gpu),
     ])
-    @pytest.mark.parametrize('checkpoint_save_interval', ['1ep', '1ba'])
-    def test_event_calls(self, world_size, device, deepspeed_zero_stage, checkpoint_save_interval):
-        checkpoint_save_interval = Time.from_timestring(checkpoint_save_interval)
+    @pytest.mark.parametrize('save_interval', ['1ep', '1ba'])
+    def test_event_calls(self, world_size, device, deepspeed_zero_stage, save_interval):
+        save_interval = Time.from_timestring(save_interval)
 
         if deepspeed_zero_stage:
             deepspeed_config = {'zero_optimization': {'stage': deepspeed_zero_stage}}
@@ -68,12 +68,12 @@ class TestEventCalls:
         trainer = self.get_trainer(
             device=device,
             deepspeed_config=deepspeed_config,
-            checkpoint_save_interval=checkpoint_save_interval,
-            eval_interval=checkpoint_save_interval,
+            save_interval=save_interval,
+            eval_interval=save_interval,
         )
         trainer.fit()
 
-        self._assert_expected_event_calls(trainer, checkpoint_save_interval, num_epochs=2)
+        self._assert_expected_event_calls(trainer, save_interval, num_epochs=2)
 
     def _assert_expected_event_calls(self, trainer: Trainer, eval_interval: Time, num_epochs: int):
         state = trainer.state
