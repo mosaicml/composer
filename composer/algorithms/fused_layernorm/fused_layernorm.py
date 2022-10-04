@@ -40,11 +40,13 @@ def from_LayerNorm(layer: torch.nn.Module, module_index: int) -> APEXFusedLayerN
 
 
 def apply_fused_layernorm(model: torch.nn.Module, optimizers: Union[torch.optim.Optimizer,
-                                                                    Sequence[torch.optim.Optimizer]]) -> None:
+                                                                    Sequence[torch.optim.Optimizer]]) -> int:
     """Replaces all instances of `torch.nn.LayerNorm` with a `apex.normalization.fused_layer_norm.FusedLayerNorm
     <https://nvidia.github.io/apex/layernorm.html>`_.
 
     By fusing multiple kernel launches into one, this usually improves GPU utilization.
+    Returns:
+        The number of LayerNorms replaced with FusedLayerNorms.
     """
     check_if_apex_installed()
 
@@ -56,6 +58,7 @@ def apply_fused_layernorm(model: torch.nn.Module, optimizers: Union[torch.optim.
             NoEffectWarning(
                 'No instances of `torch.nn.LayerNorm` were found, and therefore, there were no modules to replace.'))
     log.info(f'Successfully replaced {len(replaced_instances)} of LayerNorm with a Fused LayerNorm.')
+    return len(replaced_instances)
 
 
 class FusedLayerNorm(Algorithm):

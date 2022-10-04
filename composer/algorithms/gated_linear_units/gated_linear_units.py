@@ -59,7 +59,7 @@ def apply_gated_linear_units(model: torch.nn.Module,
                              optimizers: Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]],
                              act_fn: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
                              gated_layer_bias: bool = False,
-                             non_gated_layer_bias: bool = False) -> None:
+                             non_gated_layer_bias: bool = False) -> int:
     """
     Replaces the Linear layers in the feed-forward network with `Gated Linear Units <https://arxiv.org/abs/2002.05202>`_.
 
@@ -77,6 +77,9 @@ def apply_gated_linear_units(model: torch.nn.Module,
             use the existing activation function in the model.
         gated_layer_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
         non_gated_layer_bias (bool, optional): Whether to use biases in the linear layers within the GLU. Default: ``False``.
+
+    Returns:
+        The number of modules modified.
     """
     if not IS_TRANSFORMERS_INSTALLED:
         raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers')
@@ -94,7 +97,7 @@ def apply_gated_linear_units(model: torch.nn.Module,
                 NoEffectWarning('No instances of BertIntermediate were found so Gated Linear Units will be skipped '
                                 'as no modules can be replaced. This is likely because Gated Linear Units has already '
                                 'been applied to this model.'))
-            return
+            return 0
 
         # get the activation functions used
         act_fns = {module.intermediate_act_fn for module in intermediate_modules}
@@ -133,6 +136,7 @@ def apply_gated_linear_units(model: torch.nn.Module,
             NoEffectWarning('No instances of BertIntermediate and BertOutput were found so no modules were replaced.'))
     log.info(
         f'Successfully replaced {len(replaced_instances)} of BertIntermediate and BertOutput with a GatedLinearUnit.')
+    return len(replaced_instances)
 
 
 class GatedLinearUnits(Algorithm):

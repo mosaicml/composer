@@ -21,7 +21,7 @@ def apply_squeeze_excite(
     latent_channels: float = 64,
     min_channels: int = 128,
     optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
-) -> None:
+) -> int:
     """Adds Squeeze-and-Excitation blocks (`Hu et al, 2019 <https://arxiv.org/abs/1709.01507>`_) after
     :class:`torch.nn.Conv2d` layers.
 
@@ -50,6 +50,9 @@ def apply_squeeze_excite(
             then it is safe to omit this parameter. These optimizers will see the correct
             model parameters.
 
+    Returns:
+        The number of modified modules.
+
     Example:
         .. testcode::
 
@@ -68,7 +71,10 @@ def apply_squeeze_excite(
             return None
         return SqueezeExciteConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
 
-    module_surgery.replace_module_classes(model, optimizers=optimizers, policies={torch.nn.Conv2d: convert_module})
+    replaced_instances = module_surgery.replace_module_classes(model,
+                                                               optimizers=optimizers,
+                                                               policies={torch.nn.Conv2d: convert_module})
+    return len(replaced_instances)
 
 
 class SqueezeExcite2d(torch.nn.Module):

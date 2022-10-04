@@ -19,7 +19,7 @@ _TORCH_BATCHNORM_BASE_CLASS = torch.nn.modules.batchnorm._BatchNorm
 
 def apply_ghost_batchnorm(model: torch.nn.Module,
                           ghost_batch_size: int = 32,
-                          optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> None:
+                          optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> int:
     """Replace batch normalization modules with ghost batch normalization modules.
 
     Ghost batch normalization modules split their input into chunks of
@@ -38,6 +38,8 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
             then it is safe to omit this parameter. These optimizers will see the correct
             model parameters.
 
+    Returns:
+        The number of modules modified.
 
     Example:
         .. testcode::
@@ -55,7 +57,8 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
     # we have to specify class names explicitly because replace_module_classes
     # now checks if `module.__class__ == cls`, rather than `isinstance(module, cls)`
     transforms = {cls: maybe_replace for cls in [torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d]}
-    module_surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
+    replaced_instances = module_surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
+    return len(replaced_instances)
 
 
 class GhostBatchNorm(Algorithm):

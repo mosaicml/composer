@@ -24,7 +24,7 @@ def apply_alibi(
     model: torch.nn.Module,
     max_sequence_length: int,
     optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
-) -> None:
+) -> int:
     """Removes position embeddings and replaces the attention function and attention mask
     as per :class:`.Alibi`. Note that the majority of the training speed-up from using ALiBi
     comes from being able to train on shorter sequence lengths; this function does not scale
@@ -67,6 +67,9 @@ def apply_alibi(
             If the optimizer(s) are constructed *after* calling this function,
             then it is safe to omit this parameter. These optimizers will see the correct
             model parameters.
+
+    Returns:
+        The number of modules modified.
     """
     try:
         from composer.algorithms.alibi.attention_surgery_functions import policy_registry
@@ -107,6 +110,8 @@ def apply_alibi(
                     f'is currently limited to the following classes: {supported_modules}')
     else:
         log.info(f' {count} instances of ALiBi added')
+
+    return count
 
 
 class Alibi(Algorithm):
