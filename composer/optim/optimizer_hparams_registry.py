@@ -5,7 +5,7 @@
 
 from abc import ABC
 from dataclasses import asdict, dataclass
-from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
+from typing import Dict, Iterable, List, Optional, Type, Union
 
 import torch
 import torch_optimizer
@@ -223,7 +223,7 @@ class FusedLAMBHparams(OptimizerHparams):
 
     Args:
         lr (float, optional): See :class:`~apex.optimizers.FusedLAMB`.
-        betas (Tuple[float, float], optional): See :class:`~apex.optimizers.FusedLAMB`.
+        betas (List[float], optional): See :class:`~apex.optimizers.FusedLAMB`.
         eps (float, optional): See :class:`~apex.optimizers.FusedLAMB`.
         weight_decay (float, optional): See :class:`~apex.optimizers.FusedLAMB`.
         amsgrad (bool, optional): See :class:`~apex.optimizers.FusedLAMB`.
@@ -236,7 +236,7 @@ class FusedLAMBHparams(OptimizerHparams):
     optimizer_cls = FusedLAMB
 
     lr: float = hp.auto(FusedLAMB, 'lr', ignore_docstring_errors=True)
-    betas: Tuple[float, float] = hp.auto(FusedLAMB, 'betas', ignore_docstring_errors=True)
+    betas: List[float] = hp.auto(FusedLAMB, 'betas', ignore_docstring_errors=True)
     eps: float = hp.auto(FusedLAMB, 'eps', ignore_docstring_errors=True)
     weight_decay: float = hp.auto(FusedLAMB, 'weight_decay', ignore_docstring_errors=True)
     amsgrad: bool = hp.auto(FusedLAMB, 'amsgrad', ignore_docstring_errors=True)
