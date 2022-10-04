@@ -50,14 +50,12 @@ def test_image_visualizer(interval: str):
 
 
 @pytest.mark.skipif(not _WANDB_INSTALLED, reason='Wandb is optional')
-def test_wandb_and_image_visualizer():
-    os.environ['WANDB_MODE'] = 'dryrun'
-
+def test_wandb_and_image_visualizer(tmp_path):
     import wandb
 
     image_interval = 2
     image_visualizer = ImageVisualizer(interval=f'{image_interval}ba')
-    wandb_logger = WandBLogger()
+    wandb_logger = WandBLogger(init_kwargs={'dir': tmp_path})
 
     dataset_size = 40
     batch_size = 4
@@ -106,5 +104,3 @@ def test_wandb_and_image_visualizer():
     expected_number_eval_images = 1
     assert train_image_files_count == expected_number_train_images
     assert eval_image_files_count == expected_number_eval_images
-
-    del os.environ['WANDB_MODE']
