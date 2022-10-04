@@ -55,7 +55,7 @@ def test_wandb_and_image_visualizer():
 
     import wandb
 
-    image_interval = 4
+    image_interval = 2
     image_visualizer = ImageVisualizer(interval=f'{image_interval}ba')
     wandb_logger = WandBLogger()
 
@@ -75,27 +75,34 @@ def test_wandb_and_image_visualizer():
     wandb_run_dir = Path(wandb.run.dir)
     run_file = wandb_run_dir.parent / Path(f'run-{wandb.run.id}.wandb')
 
-    # Note, it is not clear how to correctly load this file, so we're just loading it as text
+    # delete trainer to force WandBLogger to clean up in post_close
+    del trainer
+
+    # Note, it is not clear how to correctly load this file, so we are just loading it as text
     # and searching the text for expected strings
     with open(run_file, encoding='latin-1') as _wandb_file:
         all_run_text = _wandb_file.read()
 
-    train_metrics_count = all_run_text.count('metrics/train/Accuracy')
-    eval_metrics_count = all_run_text.count('metrics/eval/Accuracy')
+    train_metrics_accuracy_count = all_run_text.count('metrics/train/Accuracy')
+    eval_metrics_accuracy_count = all_run_text.count('metrics/eval/Accuracy')
+    eval_metrics_cross_entropy_count = all_run_text.count('metrics/eval/CrossEntropy')
     train_loss_count = all_run_text.count('loss/train/total')
 
-    expected_number_train_steps = dataset_size / batch_size
-    expected_number_eval_steps = dataset_size / batch_size
-    assert train_metrics_count == expected_number_train_steps
-    assert train_loss_count == expected_number_train_steps
-    assert eval_metrics_count == expected_number_eval_steps
+    expected_number_train_loss_count = (dataset_size / batch_size) + 1  # wandb includes it in the file one extra time
+    expected_number_train_metrics_count = (dataset_size /
+                                           batch_size) + 2  # wandb includes it in the file two extra times
+    expected_number_eval_metrics_count = 2  # wandb includes it in the file twice
+    assert train_metrics_accuracy_count == expected_number_train_metrics_count
+    assert train_loss_count == expected_number_train_loss_count
+    assert eval_metrics_accuracy_count == expected_number_eval_metrics_count
+    assert eval_metrics_cross_entropy_count == expected_number_eval_metrics_count
 
     wandb_media_dir = wandb_run_dir.parent / Path('files') / Path('media') / Path('table') / Path('Images')
     image_files = list(os.listdir(wandb_media_dir))
     train_image_files_count = sum([1 for file in image_files if file.startswith('Train')])
     eval_image_files_count = sum([1 for file in image_files if file.startswith('Eval')])
 
-    expected_number_train_images = expected_number_train_steps / image_interval
+    expected_number_train_images = (dataset_size / batch_size) / image_interval
     expected_number_eval_images = 1
     assert train_image_files_count == expected_number_train_images
     assert eval_image_files_count == expected_number_eval_images
