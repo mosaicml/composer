@@ -134,7 +134,7 @@ def _main():
     # Create ADE20k train dataset
     train_dataset = ADE20k(
         datadir=args.data_dir,
-        split='train',
+        split='training',
         image_transforms=train_image_transforms,
         target_transforms=train_target_transforms,
         both_transforms=train_both_transforms,
@@ -176,7 +176,7 @@ def _main():
 
     # Create ADE20k validation dataset
     val_dataset = ADE20k(datadir=args.data_dir,
-                         split='val',
+                         split='validation',
                          both_transforms=None,
                          image_transforms=image_transforms,
                          target_transforms=target_transforms)
