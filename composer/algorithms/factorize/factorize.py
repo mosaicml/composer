@@ -82,8 +82,8 @@ def apply_factorization(model: torch.nn.Module,
             model = models.resnet50()
             cf.apply_factorization(model)
     """
-    replaced_conv_instances = 0
-    replaced_linear_instances = 0
+    replaced_conv_instances = {}
+    replaced_linear_instances = {}
     if factorize_convs:
         replaced_conv_instances = _factorize_conv2d_modules(model,
                                                             min_channels=min_channels,
