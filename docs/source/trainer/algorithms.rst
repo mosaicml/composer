@@ -37,7 +37,7 @@ Data Augmentations
 ~~~~~~~~~~~~~~~~~~
 
 Data augmentations can be inserted into your `dataset.transforms` similiar to Torchvision's
-transforms. For example, with :doc:`/method_cards/randaugment`:
+transforms. For example, with :doc:`/method_cards/rand_augment`:
 
 .. code-block:: python
 
@@ -46,7 +46,7 @@ transforms. For example, with :doc:`/method_cards/randaugment`:
 
     from composer import functional as cf
 
-    c10_transforms = transforms.Compose([cf.randaugment(), # <---- Add RandAugment
+    c10_transforms = transforms.Compose([cf.randaugment_image(), # <---- Add RandAugment
                                         transforms.ToTensor(),
                                         transforms.Normalize(mean, std)])
 

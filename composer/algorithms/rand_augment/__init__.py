@@ -7,6 +7,6 @@
 </method_cards/randaugment>` for details.
 """
 
-from composer.algorithms.randaugment.randaugment import RandAugment, RandAugmentTransform, randaugment_image
+from composer.algorithms.rand_augment.rand_augment import RandAugment, RandAugmentTransform, randaugment_image
 
 __all__ = ['RandAugment', 'RandAugmentTransform', 'randaugment_image']

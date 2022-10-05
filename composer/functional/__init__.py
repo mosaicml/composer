@@ -32,7 +32,7 @@ from composer.algorithms.label_smoothing import smooth_labels
 from composer.algorithms.layer_freezing import freeze_layers
 from composer.algorithms.mixup import mixup_batch
 from composer.algorithms.progressive_resizing import resize_batch
-from composer.algorithms.randaugment import randaugment_image
+from composer.algorithms.rand_augment import randaugment_image
 from composer.algorithms.selective_backprop import select_using_loss, should_selective_backprop
 from composer.algorithms.seq_length_warmup import set_batch_sequence_length
 from composer.algorithms.squeeze_excite import apply_squeeze_excite

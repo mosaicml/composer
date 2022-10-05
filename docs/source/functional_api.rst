@@ -10,7 +10,7 @@ algorithms can be grouped into three, broad classes:
 
 Data augmentations can be inserted either into the dataloader as a transform or after a
 batch has been loaded, depending on what the augmentation acts on. Here is an example of using
-:doc:`/method_cards/randaugment` with the functional API.
+:doc:`/method_cards/rand_augment` with the functional API.
 
 .. code-block:: python
 
@@ -19,7 +19,7 @@ batch has been loaded, depending on what the augmentation acts on. Here is an ex
 
     from composer import functional as cf
 
-    c10_transforms = transforms.Compose([cf.randaugment(), # <---- Add RandAugment
+    c10_transforms = transforms.Compose([cf.randaugment_image(), # <---- Add RandAugment
                                         transforms.ToTensor(),
                                         transforms.Normalize(mean, std)])
 

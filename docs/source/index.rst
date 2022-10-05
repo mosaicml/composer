@@ -137,7 +137,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/layer_freezing.md
    method_cards/mixup.md
    method_cards/progressive_resizing.md
-   method_cards/randaugment.md
+   method_cards/rand_augment.md
    method_cards/sam.md
    method_cards/scale_schedule.md
    method_cards/selective_backprop.md

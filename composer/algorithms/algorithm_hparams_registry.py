@@ -23,7 +23,7 @@ from composer.algorithms.layer_freezing import LayerFreezing
 from composer.algorithms.mixup import MixUp
 from composer.algorithms.no_op_model import NoOpModel
 from composer.algorithms.progressive_resizing import ProgressiveResizing
-from composer.algorithms.randaugment import RandAugment
+from composer.algorithms.rand_augment import RandAugment
 from composer.algorithms.sam import SAM
 from composer.algorithms.selective_backprop import SelectiveBackprop
 from composer.algorithms.seq_length_warmup import SeqLengthWarmup
@@ -53,7 +53,7 @@ algorithm_registry: Dict[str, Union[Type[Algorithm], Type[hp.Hparams]]] = {
     'stochastic_depth': StochasticDepth,
     'colout': ColOut,
     'progressive_resizing': ProgressiveResizing,
-    'randaugment': RandAugment,
+    'rand_augment': RandAugment,
     'augmix': AugMix,
     'sam': SAM,
     'alibi': Alibi,
