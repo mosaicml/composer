@@ -33,7 +33,7 @@ def randaugment_image(img: ImgT,
 
     This technique is adapted from `Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_).
 
-    See :class:`.RandAugment` or the :doc:`Method Card </method_cards/randaugment>`
+    See :class:`.RandAugment` or the :doc:`Method Card </method_cards/rand_augment>`
     for details. This function only acts on a single image (or batch of images) per call and
     is unlikely to be used in a training loop. Use :class:`.RandAugmentTransform` to use
     :class:`.RandAugment` as part of a :class:`torchvision.datasets.VisionDataset` ``transform``.
@@ -76,7 +76,7 @@ def randaugment_image(img: ImgT,
 class RandAugmentTransform(torch.nn.Module):
     """Wraps :func:`.randaugment_image` in a ``torchvision``-compatible transform.
 
-    See :class:`.RandAugment` or the :doc:`Method Card </method_cards/randaugment>` for more details.
+    See :class:`.RandAugment` or the :doc:`Method Card </method_cards/rand_augment>` for more details.
 
     Example:
         .. testcode::
@@ -129,7 +129,7 @@ class RandAugment(Algorithm):
     transformation. It is a no-op if this algorithm already applied itself on the
     :attr:`.State.train_dataloader.dataset`.
 
-    See the :doc:`Method Card </method_cards/randaugment>` for more details.
+    See the :doc:`Method Card </method_cards/rand_augment>` for more details.
 
     Example:
         .. testcode::
