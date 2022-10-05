@@ -45,7 +45,7 @@ def empty_logger(minimal_state: State) -> Logger:
 def disable_wandb(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest):
     monkeypatch.setenv('WANDB_START_METHOD', 'thread')
     if request.node.get_closest_marker('remote') is None:
-        monkeypatch.setenv('WANDB_MODE', 'disabled')
+        monkeypatch.setenv('WANDB_MODE', 'offline')
     else:
         if not os.environ.get('WANDB_PROJECT'):
             monkeypatch.setenv('WANDB_PROJECT', 'pytest')
