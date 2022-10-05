@@ -270,25 +270,23 @@ class CheckpointSaver(Callback):  # noqa: D101
             save_interval = checkpoint_periodically(save_interval)
         self.save_interval = save_interval
         self.last_checkpoint_batch: Optional[Time] = None
-
-        
-        self.folder = urlparse(folder).path
-        backend = urlparse(folder).scheme
-        self.backend = (backend if backend != '' else None)
-        self.folder = self.folder.lstrip('/')
-        
-
         self.filename = filename
         self.latest_filename = latest_filename
         self.overwrite = overwrite
         self.saved_checkpoints: List[str] = []
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
-        self.checkpoint_file_path = str(Path(self.folder) / Path(self.filename))
+
+
+        self.dir_path = urlparse(folder).path
+        scheme = urlparse(folder).scheme
+        self.scheme = (scheme if scheme != '' else None)
+        self.dir_path = self.dir_path.lstrip('/')
+        self.file_path = str(Path(self.dir_path) / Path(self.filename))
         if latest_filename:
-            self.latest_checkpoint_file_path = str(Path(self.folder) / Path(self.latest_filename))
+            self.latest_file_path = str(Path(self.dir_path) / Path(self.latest_filename))
         else:
-            self.latest_checkpoint_file_path = None
+            self.latest_file_path = None
 
 
     def init(self, state: State, logger: Logger) -> None:
@@ -298,15 +296,15 @@ class CheckpointSaver(Callback):  # noqa: D101
             raise ValueError(
                 f'Save filename {self.filename} must have {{rank}} for deepspeed.')
 
-        self.folder = format_name_with_dist(self.folder, state.run_name)
-        os.makedirs(self.folder, exist_ok=True)
+        dir_path = format_name_with_dist(self.dir_path, state.run_name)
+        os.makedirs(dir_path, exist_ok=True)
         
 
     def fit_start(self, state: State, logger: Logger) -> None:
         if not self.overwrite:
             # checks that save_folder contains no files with a timestamp after the current timestamp,
             # which has potential for future conflicts.
-            folder = format_name_with_dist(self.folder, state.run_name)
+            folder = format_name_with_dist(self.dir_path, state.run_name)
             ensure_folder_has_no_conflicting_files(folder, self.filename,
                                                    state.timestamp)
 
@@ -353,29 +351,29 @@ class CheckpointSaver(Callback):  # noqa: D101
             weights_only=self.weights_only,
         )
 
-        checkpoint_file_path = format_name_with_dist_and_time(self.checkpoint_file_path, state.run_name, state.timestamp)
-        checkpoint_file_path += ('.tar' if is_deepspeed and not is_tar(checkpoint_file_path) else '')
-
         if not saved_path:  # not all ranks save
             return
+
+        file_path = format_name_with_dist_and_time(self.file_path, state.run_name, state.timestamp)
+        file_path += ('.tar' if is_deepspeed and not is_tar(file_path) else '')
 
         if self.latest_filename is not None:
             symlink_name = format_name_with_dist_and_time(self.latest_filename, state.run_name, state.timestamp)
             symlink_name += ('.tar' if is_deepspeed and not is_tar(self.latest_filename) else '')
-            symlink_path = os.path.join(self.folder, symlink_name)
+            symlink_path = os.path.join(self.dir_path, symlink_name)
             os.makedirs(os.path.dirname(symlink_path), exist_ok=True)
             try:
                 os.remove(symlink_path)
             except FileNotFoundError:
                 pass
-            os.symlink(os.path.relpath(checkpoint_file_path, os.path.dirname(symlink_path)), symlink_path)
+            os.symlink(os.path.relpath(file_path, os.path.dirname(symlink_path)), symlink_path)
 
 
       
-        if self.backend is not None:
+        if self.scheme is not None:
             logger.file_artifact(log_level=log_level,
-                                 artifact_name=checkpoint_file_path,
-                                 file_path=checkpoint_file_path,
+                                 artifact_name=file_path,
+                                 file_path=file_path,
                                  overwrite=self.overwrite)
 
             if self.latest_filename is not None:
@@ -390,7 +388,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                         overwrite=True,
                     )
 
-        self.saved_checkpoints.append(checkpoint_file_path)
+        self.saved_checkpoints.append(file_path)
 
         if self.num_checkpoints_to_keep >= 0:
             self._rotate_checkpoints()

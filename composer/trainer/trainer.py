@@ -974,8 +974,8 @@ class Trainer:
                     stream=console_stream,
                 ))
 
-        if checkpoint_save_path is not None:
-            object_store_logger = _create_object_store_logger_from_uri(uri=checkpoint_save_path)
+        if save_folder is not None:
+            object_store_logger = _create_object_store_logger_from_uri(uri=save_folder)
             if object_store_logger:
                 loggers.append(object_store_logger)
 
@@ -1230,7 +1230,7 @@ class Trainer:
         Returns:
             Optional[str]: The path to the latest checkpoint, if found, otherwise None.
         """
-        checkpoint_save_path = urlparse(checkpoint_save_path).path.lstrip('/')
+        save_folder = urlparse(save_folder).path.lstrip('/')
         save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
         save_folder = format_name_with_dist(save_folder, self.state.run_name)
         latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
