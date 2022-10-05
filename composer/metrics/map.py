@@ -127,45 +127,27 @@ class MAP(Metric):
     Predicted boxes and targets have to be in Pascal VOC format \
     (xmin-top left, ymin-top left, xmax-bottom right, ymax-bottom right).
     See the :meth:`update` method for more information about the input format to this metric.
-    See `this blog <https://jonathan-hui.medium.com/map-mean-average-precision-for-object-detection-45c121a31173>`_ for more details on (mAP)
+    See <https://jonathan-hui.medium.com/map-mean-average-precision-for-object-detection-45c121a31173>`_ for more details on (mAP)
     and (mAR).
 
-    .. note::
-        This metric is a wrapper for the
-        `pycocotools <https://github.com/cocodataset/cocoapi/tree/master/PythonAPI/pycocotools>`_,
+    .. warning:: This metric is a wrapper for the `pycocotools <https://github.com/cocodataset/cocoapi/tree/master/PythonAPI/pycocotools>`_,
         which is a standard implementation for the mAP metric for object detection. Using this metric
-        therefore requires you to have `pycocotools` installed. Please install with ``pip install pycocotools`` or
-        ``pip install torchmetrics[detection]``.
-    .. note::
-        This metric requires you to have `torchvision` version 0.8.0 or newer installed (with corresponding
-        version 1.7.0 of torch or newer). Please install with ``pip install torchvision`` or
-        ``pip install torchmetrics[detection]``.
-    .. note::
-        As the pycocotools library cannot deal with tensors directly, all results have to be transfered
-        to the CPU, this might have an performance impact on your training.
+        therefore requires you to have `pycocotools` installed. Please install with ``pip install pycocotools``
+
+    .. warning:: As the pycocotools library cannot deal with tensors directly, all results have to be transfered
+        to the CPU, this may have an performance impact on your training.
 
     Args:
-        class_metrics:
-            Option to enable per-class metrics for mAP and mAR_100. Has a performance impact. default: False
-        compute_on_step:
-            Forward only calls ``update()`` and return ``None`` if this is set to ``False``.
-        dist_sync_on_step:
-            Synchronize metric state across processes at each ``forward()``
-            before returning the value at the step
-        process_group:
-            Specify the process group on which synchronization is called.
-            default: ``None`` (which selects the entire world)
-        dist_sync_fn:
-            Callback that performs the allgather operation on the metric state. When ``None``, DDP
-            will be used to perform the allgather
+        class_metrics (bool, optional): Option to enable per-class metrics for mAP and mAR_100. Has a performance impact. Default: ``False``.
+        compute_on_step (bool, optional): Forward only calls ``update()`` and return ``None`` if this is set to ``False``. Default: ``False``.
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at each ``forward()`` before returning the value at the step. Default: ``False``.
+        process_group (any, optional): Specify the process group on which synchronization is called. Default: ``None`` (which selects the entire world).
+        dist_sync_fn (callable, optional): Callback that performs the allgather operation on the metric state. When ``None``, DDP will be used to perform the allgather. Default: ``None``.
 
     Raises:
-        ImportError:
-            If ``pycocotools`` is not installed
-        ImportError:
-            If ``torchvision`` is not installed or version installed is lower than 0.8.0
-        ValueError:
-            If ``class_metrics`` is not a boolean
+        ImportError: If ``pycocotools`` is not installed.
+        ImportError: If ``torchvision`` is not installed or version installed is lower than 0.8.0.
+        ValueError: If ``class_metrics`` is not a boolean.
     """
 
     def __init__(
@@ -205,41 +187,26 @@ class MAP(Metric):
         """Add detections and groundtruth to the metric.
 
         Args:
-            preds: A list consisting of dictionaries each containing the key-values
-            (each dictionary corresponds to a single image):
-            - ``boxes``: torch.FloatTensor of shape
-                [num_boxes, 4] containing `num_boxes` detection boxes of the format
-                [xmin, ymin, xmax, ymax] in absolute image coordinates.
-            - ``scores``: torch.FloatTensor of shape
-                [num_boxes] containing detection scores for the boxes.
-            - ``labels``: torch.IntTensor of shape
-                [num_boxes] containing 0-indexed detection classes for the boxes.
-            target: A list consisting of dictionaries each containing the key-values
-            (each dictionary corresponds to a single image):
-            - ``boxes``: torch.FloatTensor of shape
-                [num_boxes, 4] containing `num_boxes` groundtruth boxes of the format
-                [xmin, ymin, xmax, ymax] in absolute image coordinates.
-            - ``labels``: torch.IntTensor of shape
-                [num_boxes] containing 1-indexed groundtruth classes for the boxes.
+            preds: A list consisting of dictionaries containing the key-values:
+                - ``boxes``: torch.FloatTensor of shape
+                    [num_boxes, 4] containing `num_boxes` detection boxes of the format
+                    [xmin, ymin, xmax, ymax] in absolute image coordinates.
+                - ``scores``: torch.FloatTensor of shape [num_boxes] containing detection scores for the boxes.
+                - ``labels``: torch.IntTensor of shape [num_boxes] containing 0-indexed detection classes for the boxes.
+
+            target: A list consisting of dictionaries containing the key-values:
+                - ``boxes``: torch.FloatTensor of shape [num_boxes, 4] containing `num_boxes`[xmin, ymin, xmax, ymax] boxes.
+                - ``labels``: torch.IntTensor of shape [num_boxes] containing 1-indexed groundtruth classes for the boxes.
 
         Raises:
-            ValueError:
-                If ``preds`` is not of type List[Dict[str, torch.Tensor]]
-            ValueError:
-                If ``target`` is not of type List[Dict[str, torch.Tensor]]
-            ValueError:
-                If ``preds`` and ``target`` are not of the same length
-            ValueError:
-                If any of ``preds.boxes``, ``preds.scores``
-                and ``preds.labels`` are not of the same length
-            ValueError:
-                If any of ``target.boxes`` and ``target.labels`` are not of the same length
-            ValueError:
-                If any box is not type float and of length 4
-            ValueError:
-                If any label is not type int and of length 1
-            ValueError:
-                If any score is not type float and of length 1
+            ValueError: If ``preds`` is not of type List[Dict[str, torch.Tensor]]..
+            ValueError: If ``target`` is not of type List[Dict[str, torch.Tensor]].
+            ValueError: If ``preds`` and ``target`` are not of the same length.
+            ValueError: If any of ``preds.boxes``, ``preds.scores`` and ``preds.labels`` are not of the same length/
+            ValueError: If any of ``target.boxes`` and ``target.labels`` are not of the same length.
+            ValueError: If any box is not type float and of length 4.
+            ValueError: If any class is not type int and of length 1.
+            ValueError: If any score is not type float and of length 1.
         """
         _input_validator(preds, target)
 
@@ -260,8 +227,7 @@ class MAP(Metric):
         Note:
             Main `map` score is calculated with @[ IoU=0.50:0.95 | area=all | maxDets=100 ]
 
-        Returns:
-            dict containing
+        Returns: dict containing
             - map: ``torch.Tensor``
             - map_50: ``torch.Tensor``
             - map_75: ``torch.Tensor``
