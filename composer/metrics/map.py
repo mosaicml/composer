@@ -127,7 +127,7 @@ class MAP(Metric):
     Predicted boxes and targets have to be in Pascal VOC format \
     (xmin-top left, ymin-top left, xmax-bottom right, ymax-bottom right).
     See the :meth:`update` method for more information about the input format to this metric.
-    See <https://jonathan-hui.medium.com/map-mean-average-precision-for-object-detection-45c121a31173>`_ for more details on (mAP)
+    See `this blog <https://jonathan-hui.medium.com/map-mean-average-precision-for-object-detection-45c121a31173>`_ for more details on (mAP)
     and (mAR).
 
     .. warning:: This metric is a wrapper for the `pycocotools <https://github.com/cocodataset/cocoapi/tree/master/PythonAPI/pycocotools>`_,
@@ -187,22 +187,23 @@ class MAP(Metric):
         """Add detections and groundtruth to the metric.
 
         Args:
-            preds: A list consisting of dictionaries containing the key-values:
-                - ``boxes``: torch.FloatTensor of shape
-                    [num_boxes, 4] containing `num_boxes` detection boxes of the format
-                    [xmin, ymin, xmax, ymax] in absolute image coordinates.
-                - ``scores``: torch.FloatTensor of shape [num_boxes] containing detection scores for the boxes.
-                - ``labels``: torch.IntTensor of shape [num_boxes] containing 0-indexed detection classes for the boxes.
+            preds (list[Dict[str, ~torch.Tensor]]): A list of dictionaries containing the key-values:
 
-            target: A list consisting of dictionaries containing the key-values:
-                - ``boxes``: torch.FloatTensor of shape [num_boxes, 4] containing `num_boxes`[xmin, ymin, xmax, ymax] boxes.
-                - ``labels``: torch.IntTensor of shape [num_boxes] containing 1-indexed groundtruth classes for the boxes.
+                    ``boxes`` (torch.FloatTensor): [num_boxes, 4] predicted boxes of the format [xmin, ymin, xmax, ymax] in absolute image coordinates.
+
+                    ``scores`` (torch.FloatTensor): of shape [num_boxes] containing detection scores for the boxes.
+
+                    ``labels`` (torch.IntTensor): of shape [num_boxes] containing 0-indexed detection classes for the boxes.
+
+            target (list[Dict[str, ~torch.Tensor]]): A list of dictionaries containing the key-values:
+
+                    ``boxes`` (torch.FloatTensor): [num_boxes, 4] ground truth boxes of the format [xmin, ymin, xmax, ymax] in absolute image coordinates.
+
+                    ``labels`` (torch.IntTensor): of shape [num_boxes] containing 1-indexed groundtruth classes for the boxes.
 
         Raises:
-            ValueError: If ``preds`` is not of type List[Dict[str, torch.Tensor]]..
-            ValueError: If ``target`` is not of type List[Dict[str, torch.Tensor]].
             ValueError: If ``preds`` and ``target`` are not of the same length.
-            ValueError: If any of ``preds.boxes``, ``preds.scores`` and ``preds.labels`` are not of the same length/
+            ValueError: If any of ``preds.boxes``, ``preds.scores`` and ``preds.labels`` are not of the same length.
             ValueError: If any of ``target.boxes`` and ``target.labels`` are not of the same length.
             ValueError: If any box is not type float and of length 4.
             ValueError: If any class is not type int and of length 1.
@@ -227,21 +228,36 @@ class MAP(Metric):
         Note:
             Main `map` score is calculated with @[ IoU=0.50:0.95 | area=all | maxDets=100 ]
 
-        Returns: dict containing
-            - map: ``torch.Tensor``
-            - map_50: ``torch.Tensor``
-            - map_75: ``torch.Tensor``
-            - map_small: ``torch.Tensor``
-            - map_medium: ``torch.Tensor``
-            - map_large: ``torch.Tensor``
-            - mar_1: ``torch.Tensor``
-            - mar_10: ``torch.Tensor``
-            - mar_100: ``torch.Tensor``
-            - mar_small: ``torch.Tensor``
-            - mar_medium: ``torch.Tensor``
-            - mar_large: ``torch.Tensor``
-            - map_per_class: ``torch.Tensor`` (-1 if class metrics are disabled)
-            - mar_100_per_class: ``torch.Tensor`` (-1 if class metrics are disabled)
+        Returns:
+            MAPMetricResults (dict): containing:
+
+                ``map`` (torch.Tensor): map at 95 iou.
+
+                ``map_50`` (torch.Tensor): map at 50 iou.
+
+                ``map_75`` (torch.Tensor): map at 75 iou.
+
+                ``map_small`` (torch.Tensor): map at 95 iou for small objects.
+
+                ``map_medium`` (torch.Tensor): map at 95 iou for medium objects.
+
+                ``map_large`` (torch.Tensor): map at 95 iou for large objects.
+
+                ``mar_1`` (torch.Tensor): mar at 1 max detection.
+
+                ``mar_10`` (torch.Tensor): mar at 10 max detections.
+
+                ``mar_100`` (torch.Tensor): mar at 100 max detections.
+
+                ``mar_small`` (torch.Tensor): mar at 100 max detections for small objects.
+
+                ``mar_medium`` (torch.Tensor): mar at 100 max detections for medium objects.
+
+                ``mar_large`` (torch.Tensor): mar at 100 max detections for large objects.
+
+                ``map_per_class`` (torch.Tensor) (-1 if class metrics are disabled): map value for each class.
+
+                ``mar_100_per_class`` (torch.Tensor) (-1 if class metrics are disabled): mar at 100 detections for each class.
         """
         coco_target, coco_preds = self.COCO(), self.COCO()  # type: ignore
         coco_target.dataset = self._get_coco_format(self.groundtruth_boxes, self.groundtruth_labels)  # type: ignore
