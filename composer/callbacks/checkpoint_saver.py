@@ -17,13 +17,13 @@ from composer.core.time import Time, TimeUnit
 from composer.loggers import Logger
 from composer.loggers.logger import LogLevel
 from composer.utils import checkpoint, dist, is_model_deepspeed, reproducibility
+from composer.utils.checkpoint import PartialFilePath
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
                                          create_symlink_file, ensure_folder_has_no_conflicting_files,
-                                         format_name_with_dist, format_name_with_dist_and_time, is_tar)
-
+                                         format_name_with_dist)
 from pathlib import Path
 from urllib.parse import urlparse
-from typing import Callable, List, Optional, Union
+                                        
 
 log = logging.getLogger(__name__)
 
@@ -170,6 +170,19 @@ class CheckpointSaver(Callback):  # noqa: D101
                 awesome-training-run/checkpoints/ep1-ba42-rank2.tar
                 ...
 
+        artifact_name (str, optional): Format string for the checkpoint's artifact name.
+            Default: ``"{{run_name}}/checkpoints/ep{{epoch}}-ba{{batch}}-rank{{rank}}"``.
+
+            After the checkpoint is saved, it will be periodically logged as a file artifact.
+            The artifact name will be determined by this format string.
+
+            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
+
+            The same format variables for ``filename`` are available.
+
+            Leading slashes (``'/'``) will be stripped.
+
+            To disable logging trace files as file artifacts, set this parameter to ``None``.
         latest_filename (str, optional): A format string for a symlink which points to the last saved checkpoint.
             Default: ``'latest-rank{{rank}}.pt'``.
 
@@ -206,6 +219,20 @@ class CheckpointSaver(Callback):  # noqa: D101
                 awesome-training-run/checkpoints/latest-rank1.tar -> awesome-training-run/checkpoints/ep1-ba42-rank1.tar
                 awesome-training-run/checkpoints/latest-rank2.tar -> awesome-training-run/checkpoints/ep1-ba42-rank2.tar
                 ...
+        latest_artifact_name (str, optional): Format string for the checkpoint's latest symlink artifact name.
+            Default: ``'{{run_name}}/checkpoints/latest-rank{{rank}}"``.
+
+            Whenever a new checkpoint is saved, a symlink artifact is created or updated to point to the latest checkpoint's ``artifact_name``.
+            The artifact name will be determined by this format string. This parameter has no effect if ``latest_filename`` or ``artifact_name`` is ``None``.
+
+            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
+
+            The same format variables for ``filename`` are available.
+
+            Leading slashes (``'/'``) will be stripped.
+
+            To disable symlinks in logger, set this parameter to ``None``.
+
         overwrite (bool, optional): Whether existing checkpoints should be overridden.
             If ``False`` (the default), then the ``folder`` must not exist or must not contain checkpoints which may conflict
             with the current run. Default: ``False``.
@@ -270,43 +297,43 @@ class CheckpointSaver(Callback):  # noqa: D101
             save_interval = checkpoint_periodically(save_interval)
         self.save_interval = save_interval
         self.last_checkpoint_batch: Optional[Time] = None
+
+        # If user specifies a URI instead of a local path, we parse out the path
+        # and the scheme.
+        folder_parse_result = urlparse(folder)
+        scheme = folder_parse_result.scheme
+
+        # If user specifies wandb, then there is no notion of netloc and path, so
+        # we just capture everything after 'wandb://'.
+        if scheme == 'wandb':
+            self.save_dir = ''.join([folder_parse_result.netloc, folder_parse_result.path])
+        else:
+            self.save_dir = folder_parse_result.path.lstrip('/')
+
+        self.upload_file = False if folder_parse_result.scheme == '' else True
+
         self.filename = filename
         self.latest_filename = latest_filename
+        self.file_path = PartialFilePath(filename.lstrip('/'), self.save_dir)
+        self.latest_file_path = PartialFilePath(latest_filename.lstrip('/'), self.save_dir) if latest_filename else None
+
         self.overwrite = overwrite
         self.saved_checkpoints: List[str] = []
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
 
 
-        self.dir_path = urlparse(folder).path
-        scheme = urlparse(folder).scheme
-        self.scheme = (scheme if scheme != '' else None)
-        self.dir_path = self.dir_path.lstrip('/')
-        self.file_path = str(Path(self.dir_path) / Path(self.filename))
-        if latest_filename:
-            self.latest_file_path = str(Path(self.dir_path) / Path(self.latest_filename))
-        else:
-            self.latest_file_path = None
-
 
     def init(self, state: State, logger: Logger) -> None:
-        is_deepspeed = is_model_deepspeed(state.model)
-
-        if is_deepspeed and '{rank}' not in self.filename:
-            raise ValueError(
-                f'Save filename {self.filename} must have {{rank}} for deepspeed.')
-
-        dir_path = format_name_with_dist(self.dir_path, state.run_name)
-        os.makedirs(dir_path, exist_ok=True)
-        
+        save_dir = format_name_with_dist(self.save_dir, state.run_name)
+        os.makedirs(save_dir, exist_ok=True)
 
     def fit_start(self, state: State, logger: Logger) -> None:
         if not self.overwrite:
-            # checks that save_folder contains no files with a timestamp after the current timestamp,
+            # checks that save_dir contains no files with a timestamp after the current timestamp,
             # which has potential for future conflicts.
-            folder = format_name_with_dist(self.dir_path, state.run_name)
-            ensure_folder_has_no_conflicting_files(folder, self.filename,
-                                                   state.timestamp)
+            save_dir = format_name_with_dist(self.save_dir, state.run_name)
+            ensure_folder_has_no_conflicting_files(save_dir, self.file_path.filename, state.timestamp)
 
         dist.barrier()  # holds all ranks until folder check is done
 
@@ -345,45 +372,57 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         is_deepspeed = is_model_deepspeed(state.model)
 
+        if is_deepspeed and '{rank}' not in self.file_path.filename:
+            raise ValueError(f'Save filename {self.file_path.filename} must have {{rank}} for deepspeed.')
+
+        # save the checkpoint to the filename
+        file_path = self.file_path.format(state, is_deepspeed)
+
         saved_path = checkpoint.save_checkpoint(
             state=state,
-            filename=self.file_path,
+            filename=file_path,
             weights_only=self.weights_only,
         )
 
         if not saved_path:  # not all ranks save
             return
 
-        file_path = format_name_with_dist_and_time(self.file_path, state.run_name, state.timestamp)
-        file_path += ('.tar' if is_deepspeed and not is_tar(file_path) else '')
-
+        # Create symlink to latest checkpoint file.
         if self.latest_filename is not None:
-            symlink_name = format_name_with_dist_and_time(self.latest_filename, state.run_name, state.timestamp)
-            symlink_name += ('.tar' if is_deepspeed and not is_tar(self.latest_filename) else '')
-            symlink_path = os.path.join(self.dir_path, symlink_name)
-            os.makedirs(os.path.dirname(symlink_path), exist_ok=True)
+            symlink = self.latest_file_path.format(state, is_deepspeed)
+            os.makedirs(os.path.dirname(symlink), exist_ok=True)
             try:
-                os.remove(symlink_path)
+                os.remove(symlink)
             except FileNotFoundError:
                 pass
-            os.symlink(os.path.relpath(file_path, os.path.dirname(symlink_path)), symlink_path)
+            os.symlink(os.path.relpath(file_path, os.path.dirname(symlink)), symlink)
 
+        # If upload_file is True, then user specified a folder argument like so: 
+        # scheme://{bucket}/{path}, which means the artifact name and the file_path are the same.
+        if self.upload_file:
 
-      
-        if self.scheme is not None:
+            # Upload checkpoint file
+            artifact_name = file_path
+
             logger.file_artifact(log_level=log_level,
-                                 artifact_name=file_path,
+                                 artifact_name=artifact_name,
                                  file_path=file_path,
                                  overwrite=self.overwrite)
 
+            # Upload latest checkpoint file symlink
             if self.latest_filename is not None:
+                symlink_name = self.latest_file_path.format(
+                    state,
+                    is_deepspeed,
+                ).lstrip('/') + '.symlink'
+
                 # create and upload a symlink file
                 with tempfile.TemporaryDirectory() as tmpdir:
                     symlink_filename = os.path.join(tmpdir, 'latest.symlink')
-                    create_symlink_file(symlink_path, symlink_filename)
+                    create_symlink_file(artifact_name, symlink_filename)
                     logger.file_artifact(
                         log_level=log_level,
-                        artifact_name=symlink_path,
+                        artifact_name=symlink_name,
                         file_path=symlink_filename,
                         overwrite=True,
                     )
