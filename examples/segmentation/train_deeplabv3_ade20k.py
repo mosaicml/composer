@@ -92,7 +92,7 @@ IMAGENET_CHANNEL_STD = (int(0.229 * 255), int(0.224 * 255), int(0.225 * 255))
 
 def _main():
     # Divide batch size by number of devices
-    if dist.get_world_size():
+    if dist.get_world_size() > 1:
         args.train_batch_size = args.train_batch_size // dist.get_world_size()
         args.eval_batch_size = args.eval_batch_size // dist.get_world_size()
 
@@ -257,7 +257,10 @@ def _main():
                               momentum=args.momentum,
                               weight_decay=args.weight_decay)
 
-    lr_scheduler = CosineAnnealingScheduler()
+    # Only use a LR schedule if no recipe is specified or if the hot recipe was specified
+    lr_scheduler = None
+    if args.recipe_name is None or args.recipe_name == 'hot':
+        lr_scheduler = CosineAnnealingScheduler()
 
     logging.info('Built optimizer and learning rate scheduler')
 
