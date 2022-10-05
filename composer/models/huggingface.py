@@ -96,13 +96,19 @@ class HuggingFaceModel(ComposerModel):
         return output
 
     def loss(self, outputs, batch):
-        return outputs['loss']
+        if self.config.use_return_dict:
+            return outputs['loss']
+        else:
+            return outputs[0]
 
     def eval_forward(self, batch, outputs: Optional[Any] = None):
         output = outputs if outputs else self.forward(batch)
         if self.use_logits:
             self.labels = batch.pop('labels')
-            output = output['logits']
+            if self.config.use_return_dict:
+                output = output['logits']
+            else:
+                output = output[1]
 
             # if we are in the single class case, then remove the classes dimension
             if output.shape[1] == 1:
