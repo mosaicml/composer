@@ -77,6 +77,7 @@ parser.add_argument('--wandb_project', help='WandB project name', type=str)
 parser.add_argument('--wandb_run_name', help='WandB run name', type=str)
 
 # Trainer arguments
+parser.add_argument('--grad_accum', help='Amount of gradient accumulation if running on CPU', type=int, default=1)
 parser.add_argument('--run_name', help='Name of the training run used for checkpointing and logging', type=str)
 parser.add_argument('--seed', help='Random seed', type=int, default=17)
 parser.add_argument('--max_duration',
@@ -316,6 +317,7 @@ def _main():
     logging.info('Building Trainer')
     device = 'gpu' if torch.cuda.is_available() else 'cpu'
     precision = 'amp' if device == 'gpu' else 'fp32'  # Mixed precision for fast training when using a GPU
+    grad_accum = 'auto' if device == 'gpu' else args.grad_accum
     trainer = Trainer(run_name=args.run_name,
                       model=composer_model,
                       train_dataloader=train_dataspec,
@@ -330,7 +332,7 @@ def _main():
                       load_path=args.load_checkpoint_path,
                       device=device,
                       precision=precision,
-                      grad_accum='auto',
+                      grad_accum=grad_accum,
                       seed=args.seed)
     logging.info('Built Trainer\n')
 
