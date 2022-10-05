@@ -35,7 +35,7 @@ def _always_log(state: State, log_level: LogLevel, artifact_name: str):
     return True
 
 
-def _build_object_store(object_store_cls: Type[ObjectStore], object_store_kwargs: Dict[str, Any]):
+def _build_remote_backend(object_store_cls: Type[ObjectStore], object_store_kwargs: Dict[str, Any]):
     # error: Expected no arguments to "ObjectStore" constructor
     return object_store_cls(**object_store_kwargs)  # type: ignore
 
@@ -245,14 +245,14 @@ class ObjectStoreLogger(LoggerDestination):
         self._worker_flag: Optional[Union[multiprocessing._EventType, threading.Event]] = None
         self._workers: List[Union[SpawnProcess, threading.Thread]] = []
         # the object store instance for the main thread. Deferring the construction of the object_store to first use.
-        self._object_store = None
+        self._remote_backend = None
 
     @property
-    def object_store(self) -> ObjectStore:
+    def remote_backend(self) -> ObjectStore:
         """The :class:`.ObjectStore` instance for the main thread."""
-        if self._object_store is None:
-            self._object_store = _build_object_store(self.object_store_cls, self.object_store_kwargs)
-        return self._object_store
+        if self._remote_backend is None:
+            self._remote_backend = _build_remote_backend(self.object_store_cls, self.object_store_kwargs)
+        return self._remote_backend
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -269,7 +269,7 @@ class ObjectStoreLogger(LoggerDestination):
 
         if dist.get_global_rank() == 0:
             retry(ObjectStoreTransientError,
-                  self.num_attempts)(lambda: _validate_credentials(self.object_store, object_name_to_test))()
+                  self.num_attempts)(lambda: _validate_credentials(self.remote_backend, object_name_to_test))()
         assert len(self._workers) == 0, 'workers should be empty if self._worker_flag was None'
         for _ in range(self._num_concurrent_uploads):
             worker = self._proc_class(
@@ -389,7 +389,7 @@ class ObjectStoreLogger(LoggerDestination):
     ):
         get_file(path=artifact_name,
                  destination=destination,
-                 object_store=self.object_store,
+                 object_store=self.remote_backend,
                  overwrite=overwrite,
                  progress_bar=progress_bar)
 
@@ -482,7 +482,7 @@ class ObjectStoreLogger(LoggerDestination):
             str: The uri corresponding to the uploaded location of the artifact.
         """
         obj_name = self._object_name(artifact_name)
-        return self.object_store.get_uri(obj_name.lstrip('/'))
+        return self.remote_backend.get_uri(obj_name.lstrip('/'))
 
     def _object_name(self, artifact_name: str):
         """Format the ``artifact_name`` according to the ``object_name_string``."""
@@ -525,7 +525,7 @@ def _upload_worker(
     The worker will continuously poll ``file_queue`` for files to upload. Once ``is_finished`` is set, the worker will
     exit once ``file_queue`` is empty.
     """
-    object_store = _build_object_store(object_store_cls, object_store_kwargs)
+    object_store = _build_remote_backend(object_store_cls, object_store_kwargs)
     while True:
         try:
             file_path_to_upload, object_name, overwrite = file_queue.get(block=True, timeout=0.5)
