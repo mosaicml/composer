@@ -99,6 +99,7 @@ class HuggingFaceModel(ComposerModel):
         if self.config.use_return_dict:
             return outputs['loss']
         else:
+            # loss is at index 0 in the output tuple
             return outputs[0]
 
     def eval_forward(self, batch, outputs: Optional[Any] = None):
@@ -108,6 +109,7 @@ class HuggingFaceModel(ComposerModel):
             if self.config.use_return_dict:
                 output = output['logits']
             else:
+                # logits are at index 1 in the output tuple
                 output = output[1]
 
             # if we are in the single class case, then remove the classes dimension
