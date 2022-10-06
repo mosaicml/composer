@@ -145,15 +145,20 @@ class TestCheckpointLoading:
         model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
 
+        train_dataset = RandomImageDataset()
+        eval_dataset = RandomImageDataset()
+
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
-                dataset=RandomImageDataset(),
+                dataset=train_dataset,
                 batch_size=8,
+                sampler=dist.get_sampler(train_dataset),
             ),
             eval_dataloader=DataLoader(
-                dataset=RandomImageDataset(),
+                dataset=eval_dataset,
                 batch_size=16,
+                sampler=dist.get_sampler(eval_dataset),
             ),
             grad_accum=2,
             precision='fp32',
@@ -377,17 +382,20 @@ class TestCheckpointResumption:
         model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
 
+        train_dataset = RandomImageDataset()
+        eval_dataset = RandomImageDataset()
+
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
-                dataset=RandomImageDataset(),
+                dataset=train_dataset,
                 batch_size=8,
-                shuffle=False,
+                sampler=dist.get_sampler(train_dataset),
             ),
             eval_dataloader=DataLoader(
-                dataset=RandomImageDataset(),
+                dataset=eval_dataset,
                 batch_size=16,
-                shuffle=False,
+                sampler=dist.get_sampler(eval_dataset),
             ),
             grad_accum=2,
             precision='fp32',
@@ -574,14 +582,18 @@ def test_rotate_checkpoints(
     tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
     save_folder = tmp_paths[0]
 
+    deepseed_config = None
     if deepspeed_enabled:
         deepseed_config = {'zero_optimization': {'stage': zero_stage}}
-    else:
-        deepseed_config = None
+
+    train_dataset = RandomImageDataset()
 
     trainer = Trainer(
         model=SimpleConvModel(),
-        train_dataloader=DataLoader(dataset=RandomImageDataset()),
+        train_dataloader=DataLoader(
+            dataset=train_dataset,
+            sampler=dist.get_sampler(train_dataset),
+        ),
         save_folder=str(save_folder),
         save_filename='checkpoint_{rank}_{batch}.pt',
         save_interval='1ba',

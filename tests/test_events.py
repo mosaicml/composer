@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 from composer import Trainer
 from composer.core import Event, Time
 from composer.core.time import TimeUnit
+from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
 from tests.common.events import EventCounterCallback
 
@@ -26,17 +27,20 @@ class TestEventCalls:
         model = SimpleModel()
         optimizer = torch.optim.Adam(model.parameters())
 
+        train_dataset = RandomClassificationDataset()
+        eval_dataset = RandomClassificationDataset()
+
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
                 dataset=RandomClassificationDataset(),
                 batch_size=8,
-                shuffle=False,
+                sampler=dist.get_sampler(train_dataset),
             ),
             eval_dataloader=DataLoader(
                 dataset=RandomClassificationDataset(),
                 batch_size=16,
-                shuffle=False,
+                sampler=dist.get_sampler(eval_dataset),
             ),
             grad_accum=2,
             precision='fp32',
