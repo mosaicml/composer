@@ -15,6 +15,7 @@ import tempfile
 import textwrap
 import warnings
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+from urllib.parse import urlparse
 
 import torch
 
@@ -23,7 +24,6 @@ from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, f
                                          format_name_with_dist_and_time, get_file, is_tar)
 from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store import ObjectStore
-from urllib.parse import urlparse
 
 if TYPE_CHECKING:
     from composer.core.state import State
@@ -66,6 +66,14 @@ def _get_write_mode(name: str) -> str:
     if name.endswith('.tar.lzma'):
         return 'w:xz'
     raise ValueError(f'{name} does not end with a valid tarfile extension.')
+
+
+def _parse_load_path(load_path: str):
+    parse_result = urlparse(load_path)
+    if parse_result.scheme == 'wandb':
+        return ''.join([parse_result.netloc, parse_result.path]).lstrip('/').replace('/', '.')
+    else:
+        return parse_result.path.lstrip('/')
 
 
 class PartialFilePath:
@@ -176,7 +184,7 @@ def load_checkpoint(
     # download the checkpoint to the node-local folder
     log.debug('Loading checkpoint at %s', path)
     tempdir_ctx = tempfile.TemporaryDirectory() if dist.get_local_rank() == 0 else contextlib.nullcontext(None)
-    path = urlparse(path).path.lstrip('/')
+    path = _parse_load_path(path)
     with tempdir_ctx as tempdir:
         try:
             node_checkpoint_folder = _get_node_checkpoint_download_folder(tempdir)

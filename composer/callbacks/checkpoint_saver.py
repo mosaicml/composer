@@ -9,7 +9,10 @@ import logging
 import os
 import tempfile
 import textwrap
+from importlib.resources import path
+from pathlib import Path
 from typing import Callable, List, Optional, Union
+from urllib.parse import urlparse
 
 from composer.core import Event, State
 from composer.core.callback import Callback
@@ -21,9 +24,6 @@ from composer.utils.checkpoint import PartialFilePath
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
                                          create_symlink_file, ensure_folder_has_no_conflicting_files,
                                          format_name_with_dist)
-from pathlib import Path
-from urllib.parse import urlparse
-                                        
 
 log = logging.getLogger(__name__)
 
@@ -79,6 +79,30 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
         return False
 
     return save_interval
+
+
+def _extract_path_from_uri(uri: str):
+    # If user specifies a URI instead of a local path, we parse out the path
+    # and the scheme.
+    folder_parse_result = urlparse(uri)
+    scheme = folder_parse_result.scheme
+
+    # If user specifies wandb, then there is no notion of netloc and path, so
+    # we just capture everything after 'wandb://'.
+    if scheme == 'wandb':
+        save_dir = '/'.join([folder_parse_result.netloc, folder_parse_result.path.lstrip('/')])
+        return save_dir
+
+    else:
+        return folder_parse_result.path.lstrip('/')
+
+
+def _is_uri(uri: str):
+    return urlparse(uri).scheme != ''
+
+
+def _is_wandb_uri(uri: str):
+    return urlparse(uri).scheme == 'wandb'
 
 
 class CheckpointSaver(Callback):  # noqa: D101
@@ -298,19 +322,16 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.save_interval = save_interval
         self.last_checkpoint_batch: Optional[Time] = None
 
-        # If user specifies a URI instead of a local path, we parse out the path
-        # and the scheme.
-        folder_parse_result = urlparse(folder)
-        scheme = folder_parse_result.scheme
+        self.using_wandb = False
 
-        # If user specifies wandb, then there is no notion of netloc and path, so
-        # we just capture everything after 'wandb://'.
-        if scheme == 'wandb':
-            self.save_dir = ''.join([folder_parse_result.netloc, folder_parse_result.path])
+        if _is_uri(folder):
+            self.using_wandb = _is_wandb_uri(folder)
+            self.save_dir = _extract_path_from_uri(folder)
+            self.upload_file = True
+
         else:
-            self.save_dir = folder_parse_result.path.lstrip('/')
-
-        self.upload_file = False if folder_parse_result.scheme == '' else True
+            self.save_dir = folder
+            self.upload_file = False
 
         self.filename = filename
         self.latest_filename = latest_filename
@@ -321,8 +342,6 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.saved_checkpoints: List[str] = []
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
-
-
 
     def init(self, state: State, logger: Logger) -> None:
         save_dir = format_name_with_dist(self.save_dir, state.run_name)
@@ -397,12 +416,14 @@ class CheckpointSaver(Callback):  # noqa: D101
                 pass
             os.symlink(os.path.relpath(file_path, os.path.dirname(symlink)), symlink)
 
-        # If upload_file is True, then user specified a folder argument like so: 
+        # If upload_file is True, then user specified a folder argument like so:
         # scheme://{bucket}/{path}, which means the artifact name and the file_path are the same.
         if self.upload_file:
 
             # Upload checkpoint file
             artifact_name = file_path
+            if self.using_wandb:
+                artifact_name = artifact_name.replace('/', '.')
 
             logger.file_artifact(log_level=log_level,
                                  artifact_name=artifact_name,
@@ -415,6 +436,9 @@ class CheckpointSaver(Callback):  # noqa: D101
                     state,
                     is_deepspeed,
                 ).lstrip('/') + '.symlink'
+
+                if self.using_wandb:
+                    symlink_name = symlink_name.replace('/', '.')
 
                 # create and upload a symlink file
                 with tempfile.TemporaryDirectory() as tmpdir:

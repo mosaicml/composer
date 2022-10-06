@@ -101,6 +101,14 @@ class WandBLogger(LoggerDestination):
         self.entity = entity
         self.project = project
 
+    @property
+    def log_artifacts(self):
+        return self._log_artifacts
+
+    @log_artifacts.setter
+    def log_artifacts(self, value: bool):
+        self._log_artifacts = value
+
     def _set_is_in_atexit(self):
         self._is_in_atexit = True
 
