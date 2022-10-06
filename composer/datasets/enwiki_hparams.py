@@ -44,6 +44,11 @@ class StreamingEnWikiHparams(DatasetHparams):
             raise ValueError(f"Unknown split: '{self.split}'")
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
+        try:
+            import transformers
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
+
         # Get StreamingEnWiki dataset
         try:
             from streaming.text import EnWiki
@@ -57,12 +62,16 @@ class StreamingEnWikiHparams(DatasetHparams):
                          timeout=self.timeout,
                          batch_size=batch_size)
 
-        # Dataset is already collated
+        # Get collate_fn
+        collate_fn = transformers.DataCollatorForLanguageModeling(tokenizer=dataset.tokenizer,
+                                                                  mlm=True,
+                                                                  mlm_probability=0.15)
 
         return DataSpec(
             dataloader=dataloader_hparams.initialize_object(
                 dataset=dataset,  # type: ignore
                 batch_size=batch_size,
                 sampler=None,
-                drop_last=self.drop_last),
+                drop_last=self.drop_last,
+                collate_fn=collate_fn),
             device_transforms=None)
