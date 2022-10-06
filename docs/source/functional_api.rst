@@ -19,7 +19,7 @@ batch has been loaded, depending on what the augmentation acts on. Here is an ex
 
     from composer import functional as cf
 
-    c10_transforms = transforms.Compose([cf.randaugment(), # <---- Add RandAugment
+    c10_transforms = transforms.Compose([cf.randaugment_image(), # <---- Add RandAugment
                                         transforms.ToTensor(),
                                         transforms.Normalize(mean, std)])
 
