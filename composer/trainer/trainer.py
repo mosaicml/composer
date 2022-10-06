@@ -646,7 +646,7 @@ class Trainer:
             are removed first. Set to ``-1`` to keep all checkpoints locally. (default: ``-1``)
 
             Checkpoints will be removed after they have been logged as a file artifact. For example, when this callback
-            is used in conjunction with the :class:`.ObjectStoreLogger`, set this
+            is used in conjunction with the :class:`.RemoteUploaderDownloader`, set this
             parameter to ``0`` to immediately delete checkpoints from the local disk after they have been uploaded to
             the object store.
 

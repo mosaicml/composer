@@ -25,7 +25,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 
 import composer
 import composer.loggers
-import composer.loggers.object_store_logger
+import composer.loggers.remote_uploader_downloader
 import composer.trainer
 import composer.trainer.trainer
 import composer.utils
@@ -47,7 +47,7 @@ from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.loggers import InMemoryLogger as InMemoryLogger
 from composer.loggers import Logger as Logger
 from composer.loggers import LogLevel as LogLevel
-from composer.loggers import ObjectStoreLogger
+from composer.loggers import RemoteUploaderDownloader
 from composer.models import ComposerModel as ComposerModel
 from composer.optim.scheduler import ConstantScheduler
 from composer.utils import LibcloudObjectStore
@@ -203,13 +203,13 @@ def _do_not_validate(*args, **kwargs) -> None:
     pass
 
 
-composer.loggers.object_store_logger._validate_credentials = _do_not_validate  # type: ignore
+composer.loggers.remote_uploader_downloader._validate_credentials = _do_not_validate  # type: ignore
 
-# Patch ObjectStoreLogger __init__ function to replace arguments while preserving type
-_original_objectStoreLogger_init = ObjectStoreLogger.__init__
+# Patch RemoteUploaderDownloader __init__ function to replace arguments while preserving type
+_original_RemoteUploaderDownloader_init = RemoteUploaderDownloader.__init__
 
 
-def _new_objectStoreLogger_init(self, fake_ellipses: None = None, **kwargs: Any):
+def _new_RemoteUploaderDownloader_init(self, fake_ellipses: None = None, **kwargs: Any):
     os.makedirs('./object_store', exist_ok=True)
     kwargs.update(use_procs=False,
                   num_concurrent_uploads=1,
@@ -221,10 +221,10 @@ def _new_objectStoreLogger_init(self, fake_ellipses: None = None, **kwargs: Any)
                           'key': os.path.abspath('./object_store'),
                       },
                   })
-    _original_objectStoreLogger_init(self, **kwargs)
+    _original_RemoteUploaderDownloader_init(self, **kwargs)
 
 
-ObjectStoreLogger.__init__ = _new_objectStoreLogger_init  # type: ignore
+RemoteUploaderDownloader.__init__ = _new_RemoteUploaderDownloader_init  # type: ignore
 
 # Patch ObjectStore __init__ function to replace arguments while preserving type
 _original_libcloudObjectStore_init = LibcloudObjectStore.__init__

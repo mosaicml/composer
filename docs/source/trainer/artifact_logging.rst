@@ -91,7 +91,7 @@ To store artifacts, in the ``loggers`` argument to the Trainer constructor, you 
 .. seealso::
 
     The built-in :class:`~composer.loggers.wandb_logger.WandBLogger` and
-    :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`
+    :class:`~composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader`
     implement this method -- see the examples below.
 
 The centralized Composer
@@ -111,7 +111,7 @@ Composer includes two built-in LoggerDestinations to store artifacts:
     as `W & B Artifacts <https://docs.wandb.ai/ref/python/artifact>`_, which are associated with the corresponding
     W & B project.
 
-*   The :class:`~composer.loggers.object_store_logger.ObjectStoreLogger` can upload Composer training artifacts
+*   The :class:`~composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader` can upload Composer training artifacts
     to any cloud storage backend or remote filesystem. We include integrations for AWS S3 and SFTP
     (see the :ref:`examples <file_uploading_examples>` below), and you can write your own integration for a custom backend.
 
@@ -161,23 +161,23 @@ Weights & Biases Artifacts
 S3 Objects
 ^^^^^^^^^^
 
-To log artifacts to a S3 bucket, we'll need to configure the :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`
+To log artifacts to a S3 bucket, we'll need to configure the :class:`~composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader`
 with the :class:`~composer.utils.object_store.s3_object_store.S3ObjectStore` backend.
 
 .. seealso::
 
-    The :class:`~composer.loggers.object_store_logger.ObjectStoreLogger` and
+    The :class:`~composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader` and
     :class:`~composer.utils.object_store.s3_object_store.S3ObjectStore` API Reference.
 
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
 
-    from composer.loggers import ObjectStoreLogger
+    from composer.loggers import RemoteUploaderDownloader
     from composer.utils.object_store import S3ObjectStore
     from composer import Trainer
 
     # Configure the logger
-    logger = ObjectStoreLogger(
+    logger = RemoteUploaderDownloader(
         object_store_cls=S3ObjectStore,
         object_store_kwargs={
             # Keyword arguments for the S3ObjectStore constructor.
@@ -202,18 +202,18 @@ Similar to the S3 Example above, we can log artifacts to a remote SFTP filesyste
 
 .. seealso::
 
-    The :class:`~composer.loggers.object_store_logger.ObjectStoreLogger` and
+    The :class:`~composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader` and
     :class:`~composer.utils.object_store.sftp_object_store.SFTPObjectStore` API Reference.
 
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
 
-    from composer.loggers import ObjectStoreLogger
+    from composer.loggers import RemoteUploaderDownloader
     from composer.utils.object_store import SFTPObjectStore
     from composer import Trainer
 
     # Configure the logger
-    logger = ObjectStoreLogger(
+    logger = RemoteUploaderDownloader(
         object_store_cls=SFTPObjectStore,
         object_store_kwargs={
             # Keyword arguments for the SFTPObjectStore constructor.

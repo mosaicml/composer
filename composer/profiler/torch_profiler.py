@@ -124,7 +124,7 @@ class TorchProfiler(Callback):  # noqa: D101
             traces are not deleted from artifact stores.
 
             It can be useful to set this parameter to ``0`` when using an artifact logger such as the
-            :class:`.ObjectStoreLogger`. This combination will minimize local
+            :class:`.RemoteUploaderDownloader`. This combination will minimize local
             disk usage by deleting trace files immediately after they have been uploaded to the object store.
 
     Attributes:

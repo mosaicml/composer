@@ -115,14 +115,14 @@ class LoggerDestination(Callback, ABC):
         del state, log_level, artifact_name, file_path, overwrite  # unused
         pass
 
-    def get_file_artifact(
+    def download_file(
         self,
         artifact_name: str,
         destination: str,
         overwrite: bool = False,
         progress_bar: bool = True,
     ):
-        """Handle downloading an artifact named ``artifact_name`` to ``destination``.
+        """Handle downloading a file named ``artifact_name`` to ``destination``.
 
         Args:
             artifact_name (str): The name of the artifact.

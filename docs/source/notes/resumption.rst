@@ -80,11 +80,11 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
 
-    from composer.loggers import ObjectStoreLogger
+    from composer.loggers import RemoteUploaderDownloader
     from composer.utils.object_store import S3ObjectStore
 
     # this assumes credentials are already configured via boto3
-    object_store_logger = ObjectStoreLogger(
+    remote_uploader_downloader = RemoteUploaderDownloader(
         object_store_cls=S3ObjectStore,
         object_store_kwargs={
             "bucket": "checkpoint-debugging",
@@ -98,7 +98,7 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
         save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
         run_name='my_cool_run',
         save_artifact_name='checkpoints/ep{epoch}.pt',
-        loggers=[object_store_logger],
+        loggers=[remote_uploader_downloader],
     )
 
     trainer.fit()
@@ -114,10 +114,10 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
 .. testsetup:: fine_tune
     :skipif: not _LIBCLOUD_INSTALLED
 
-    from composer.loggers import ObjectStoreLogger
+    from composer.loggers import RemoteUploaderDownloader
     from composer.utils.object_store import S3ObjectStore
 
-    object_store_logger = ObjectStoreLogger(
+    remote_uploader_downloader = RemoteUploaderDownloader(
         object_store_cls=S3ObjectStore,
         object_store_kwargs={
             "bucket": "checkpoint-debugging_2",
@@ -146,7 +146,7 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
         save_folder='checkpoints',
         run_name='my_cool_run',
         loggers=[
-            object_store_logger
+            remote_uploader_downloader
         ]
     )
 

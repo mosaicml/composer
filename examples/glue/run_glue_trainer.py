@@ -49,7 +49,7 @@ from tabulate import tabulate
 
 from composer.core.data_spec import DataSpec
 from composer.core.time import Time, Timestamp, TimeUnit
-from composer.loggers.object_store_logger import ObjectStoreLogger
+from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.loggers.wandb_logger import WandBLogger
 from composer.trainer.devices.device_gpu import DeviceGPU
 from composer.trainer.trainer_hparams import TrainerHparams
@@ -417,7 +417,7 @@ def get_finetune_hparams() -> Tuple[GLUETrainerHparams, str, bool, bool]:
                 load_locally = False
             if hparams.loggers:
                 for l in hparams.loggers:
-                    if isinstance(l, ObjectStoreLogger):
+                    if isinstance(l, RemoteUploaderDownloader):
                         save_locally = False
                     if isinstance(l, WandBLogger) and l._log_artifacts:
                         save_locally = False

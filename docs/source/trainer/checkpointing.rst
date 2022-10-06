@@ -293,17 +293,17 @@ Uploading to Object Store
 
 Checkpoints can also be saved to and loaded from your object store of choice (e.g. AWS S3 or Google Cloud Storage).
 Writing checkpoints to an object store is a two-step process. The checkpoints are first written to the local filesystem,
-and then the :class:`.ObjectStoreLogger` logger will upload checkpoints to the specified object store.
+and then the :class:`.RemoteUploaderDownloader` logger will upload checkpoints to the specified object store.
 
-Behind the scenes, the :class:`.ObjectStoreLogger` uses :doc:`Apache Libcloud <libcloud:storage/index>`.
+Behind the scenes, the :class:`.RemoteUploaderDownloader` uses :doc:`Apache Libcloud <libcloud:storage/index>`.
 
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
 
-    from composer.loggers import ObjectStoreLogger
+    from composer.loggers import RemoteUploaderDownloader
     from composer.utils import LibcloudObjectStore
 
-    object_store_logger = ObjectStoreLogger(
+    remote_uploader_downloader = RemoteUploaderDownloader(
         object_store_cls=LibcloudObjectStore,
         object_store_kwargs={
             "provider": "s3",  # The Apache Libcloud provider name
@@ -319,7 +319,7 @@ Behind the scenes, the :class:`.ObjectStoreLogger` uses :doc:`Apache Libcloud <l
 .. seealso::
 
     *   :doc:`Full list of object store providers <libcloud:storage/supported_providers>`
-    *   :class:`~.ObjectStoreLogger`
+    *   :class:`~.RemoteUploaderDownloader`
 
 There are a few additional trainer arguments which can be helpful to configure:
 
@@ -336,9 +336,9 @@ Once you've configured your object store logger per above, all that's left is to
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
 
-    from composer.loggers import ObjectStoreLogger
+    from composer.loggers import RemoteUploaderDownloader
 
-    object_store_logger = ObjectStoreLogger(
+    remote_uploader_downloader = RemoteUploaderDownloader(
         object_store_cls=LibcloudObjectStore,
         object_store_kwargs={
             "provider": "s3",  # The Apache Libcloud provider name
@@ -360,7 +360,7 @@ Once you've configured your object store logger per above, all that's left is to
         save_overwrite=True,
         save_artifact_name='checkpoints/ep{epoch}.pt',
         save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
-        loggers=[object_store_logger],
+        loggers=[remote_uploader_downloader],
     )
 
     trainer.fit()
@@ -405,7 +405,7 @@ API Reference
 -------------
 
 
-*   :class:`.ObjectStoreLogger` for saving checkpoints to cloud storage.
+*   :class:`.RemoteUploaderDownloader` for saving checkpoints to cloud storage.
 *   :class:`.Trainer` for the trainer checkpoint arguments.
 *   :class:`.CheckpointSaver` for the CheckpointSaver arguments.
 *   :mod:`composer.utils.checkpoint` for the underlying utilities to manually save and load checkpoints.

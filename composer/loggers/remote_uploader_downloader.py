@@ -26,7 +26,7 @@ from composer.utils import ObjectStore, ObjectStoreTransientError, dist, format_
 
 log = logging.getLogger(__name__)
 
-__all__ = ['ObjectStoreLogger']
+__all__ = ['RemoteUploaderDownloader']
 
 
 def _always_log(state: State, log_level: LogLevel, artifact_name: str):
@@ -40,19 +40,19 @@ def _build_remote_backend(object_store_cls: Type[ObjectStore], object_store_kwar
     return object_store_cls(**object_store_kwargs)  # type: ignore
 
 
-class ObjectStoreLogger(LoggerDestination):
-    r"""Logger destination that uploads artifacts to an object store.
+class RemoteUploaderDownloader(LoggerDestination):
+    r"""Logger destination that uploads (downloads) files to (from) an object store.
 
     This logger destination handles calls to :meth:`.Logger.upload_file`
     and uploads files to :class:`.ObjectStore`, such as AWS S3 or Google Cloud Storage. To minimize the training
     loop performance hit, it supports background uploads.
 
-    .. testcode:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
+    .. testcode:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__
 
-        from composer.loggers import ObjectStoreLogger
+        from composer.loggers import RemoteUploaderDownloader
         from composer.utils import LibcloudObjectStore
 
-        object_store_logger = ObjectStoreLogger(
+        remote_uploader_downloader = RemoteUploaderDownloader(
             object_store_cls=LibcloudObjectStore,
             object_store_kwargs={
                 'provider': 's3',
@@ -68,7 +68,7 @@ class ObjectStoreLogger(LoggerDestination):
         # Construct the trainer using this logger
         trainer = Trainer(
             ...,
-            loggers=[object_store_logger],
+            loggers=[remote_uploader_downloader],
         )
 
     .. note::
@@ -138,7 +138,7 @@ class ObjectStoreLogger(LoggerDestination):
 
             Consider the following example, which subfolders the artifacts by their rank:
 
-            .. testsetup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name
+            .. testsetup:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.object_name
 
                 import os
 
@@ -147,21 +147,21 @@ class ObjectStoreLogger(LoggerDestination):
                 with open('path/to/file.txt', 'w+') as f:
                     f.write('hi')
 
-            .. doctest:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name
+            .. doctest:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.object_name
 
-                >>> object_store_logger = ObjectStoreLogger(..., object_name='rank_{rank}/{artifact_name}')
-                >>> trainer = Trainer(..., run_name='foo', loggers=[object_store_logger])
+                >>> remote_uploader_downloader = RemoteUploaderDownloader(..., object_name='rank_{rank}/{artifact_name}')
+                >>> trainer = Trainer(..., run_name='foo', loggers=[remote_uploader_downloader])
                 >>> trainer.logger.upload_file(
                 ...     log_level=LogLevel.EPOCH,
                 ...     artifact_name='bar.txt',
                 ...     file_path='path/to/file.txt',
                 ... )
 
-            .. testcleanup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name
+            .. testcleanup:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.object_name
 
                 # Shut down the uploader
-                object_store_logger._check_workers()
-                object_store_logger.post_close()
+                remote_uploader_downloader._check_workers()
+                remote_uploader_downloader.post_close()
 
             Assuming that the process's rank is ``0``, the object store would store the contents of
             ``'path/to/file.txt'`` in an object named ``'rank0/bar.txt'``.
@@ -257,7 +257,7 @@ class ObjectStoreLogger(LoggerDestination):
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
         if self._worker_flag is not None:
-            raise RuntimeError('The ObjectStoreLogger is already initialized.')
+            raise RuntimeError('The RemoteUploaderDownloader is already initialized.')
         self._worker_flag = self._finished_cls()
         self._run_name = state.run_name
         object_name_to_test = self._object_name('.credentials_validated_successfully')
@@ -380,7 +380,7 @@ class ObjectStoreLogger(LoggerDestination):
 
             time.sleep(0.2)  # Yield lock for `self.upload_file`
 
-    def get_file_artifact(
+    def download_file(
         self,
         artifact_name: str,
         destination: str,

@@ -96,7 +96,7 @@ def test_wandb_artifacts(rank_zero_only: bool, tmp_path: pathlib.Path, dummy_sta
 
     @retry(FileNotFoundError, num_attempts=6)  # 6 attempts is ~2^(6-1) seconds max wait
     def _validate_artifact():
-        wandb_logger.get_file_artifact(artifact_name, str(downloaded_artifact_path))
+        wandb_logger.download_file(artifact_name, str(downloaded_artifact_path))
         with open(downloaded_artifact_path, 'r') as f:
             assert f.read() == 'hello!'
 

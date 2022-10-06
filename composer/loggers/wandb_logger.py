@@ -200,7 +200,7 @@ class WandBLogger(LoggerDestination):
         """Whether the logger supports uploading files."""
         return True
 
-    def get_file_artifact(
+    def download_file(
         self,
         artifact_name: str,
         destination: str,
@@ -212,11 +212,11 @@ class WandBLogger(LoggerDestination):
         import wandb
         import wandb.errors
 
-        # using the wandb.Api() to support retrieving artifacts on ranks where
+        # using the wandb.Api() to support retrieving files on ranks where
         # artifacts are not initialized
         api = wandb.Api()
         if not self.entity or not self.project:
-            raise RuntimeError('get_file_artifact can only be called after running init()')
+            raise RuntimeError('download_file can only be called after running init()')
 
         # replace all unsupported characters with periods
         # Only alpha-numeric, periods, hyphens, and underscores are supported by wandb.
@@ -225,14 +225,14 @@ class WandBLogger(LoggerDestination):
 
         new_artifact_name = re.sub(r'[^a-zA-Z0-9-_\.:]', '.', artifact_name)
         if new_artifact_name != artifact_name:
-            warnings.warn(('WandB permits only alpha-numeric, periods, hyphens, and underscores in artifact names. '
-                           f"The artifact with name '{artifact_name}' will be stored as '{new_artifact_name}'."))
+            warnings.warn(('WandB permits only alpha-numeric, periods, hyphens, and underscores in file names. '
+                           f"The file with name '{artifact_name}' will be stored as '{new_artifact_name}'."))
 
         try:
             artifact = api.artifact('/'.join([self.entity, self.project, new_artifact_name]))
         except wandb.errors.CommError as e:
             if 'does not contain artifact' in str(e):
-                raise FileNotFoundError(f'Artifact {new_artifact_name} not found') from e
+                raise FileNotFoundError(f'File {new_artifact_name} not found') from e
             raise e
         with tempfile.TemporaryDirectory() as tmpdir:
             artifact_folder = os.path.join(tmpdir, 'artifact_folder')

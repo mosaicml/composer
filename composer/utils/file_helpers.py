@@ -411,7 +411,7 @@ def _get_file(
             )
         else:
             # Type LoggerDestination
-            object_store.get_file_artifact(
+            object_store.download_file(
                 artifact_name=path,
                 destination=destination,
                 progress_bar=progress_bar,
