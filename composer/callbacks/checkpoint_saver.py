@@ -336,7 +336,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.filename = filename
         self.latest_filename = latest_filename
         self.file_path = PartialFilePath(filename.lstrip('/'), self.save_dir)
-        self.latest_file_path = PartialFilePath(latest_filename.lstrip('/'), self.save_dir) if latest_filename else None
+        self.latest_file_path = PartialFilePath(latest_filename.lstrip('/'), self.save_dir) if latest_filename is not None else None
 
         self.overwrite = overwrite
         self.saved_checkpoints: List[str] = []
