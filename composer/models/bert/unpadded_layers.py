@@ -45,6 +45,31 @@ class IndexFirstAxis(torch.autograd.Function):
 index_first_axis = IndexFirstAxis.apply
 
 
+class IndexPutFirstAxis(torch.autograd.Function):
+
+    @staticmethod
+    def forward(ctx, values, indices, first_axis_dim):
+        ctx.save_for_backward(indices)
+        assert indices.ndim == 1
+        assert values.ndim == 2
+        output = torch.zeros(first_axis_dim, values.shape[1], device=values.device, dtype=values.dtype)
+        # TD [2022-03-04] For some reason torch.scatter is a bit faster than indexing.
+        output[indices] = values
+        # output.scatter_(0, repeat(indices, 'z -> z d', d=values.shape[1]), values)
+        return output
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        indices, = ctx.saved_tensors
+        # TD [2022-03-04] For some reason torch.gather is a bit faster than indexing.
+        grad_values = grad_output[indices]
+        # grad_values = torch.gather(grad_output, 0, repeat(indices, 'z -> z d', d=grad_output.shape[1]))
+        return grad_values, None, None
+
+
+index_put_first_axis = IndexPutFirstAxis.apply
+
+
 class BertFlashSelfAttention(nn.Module):
 
     def __init__(self, config):
@@ -421,6 +446,12 @@ class BertForMaskedLM(BertPreTrainedModel):
             else:
                 # Standard HuggingFace model loss computation
                 masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), masked_lm_labels.view(-1))
+
+        if input_ids != None:
+            batch, seqlen = input_ids.shape[:2]
+            prediction_scores = rearrange(index_put_first_axis(prediction_scores, masked_token_idx, batch * seqlen),
+                                          '(b s) d -> b s d',
+                                          b=batch)
 
         if not return_dict:
             output = (prediction_scores,) + outputs[2:]
