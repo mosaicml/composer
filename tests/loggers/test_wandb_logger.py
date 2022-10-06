@@ -82,7 +82,7 @@ def test_wandb_artifacts(rank_zero_only: bool, tmp_path: pathlib.Path, dummy_sta
             f.write('hello!')
 
         # Log an artifact if rank zero
-        logger.file_artifact(
+        logger.upload_file(
             log_level=LogLevel.FIT,
             file_path=dummy_artifact_path,
             artifact_name=artifact_name,

@@ -23,10 +23,10 @@ In Composer, individual classes, such as algorithms, callbacks, loggers, and pro
 artifacts.
 
 Once a artifact file has been written to disk, the class should call
-:meth:`~composer.loggers.logger.Logger.file_artifact`, and the
+:meth:`~composer.loggers.logger.Logger.upload_file`, and the
 centralized :class:`~composer.loggers.logger.Logger` will then pass the filepath and artifact name to all
 LoggerDestinations, which are ultimately responsible for uploading and storing artifacts
-(more on that :ref:`below <artifact_logging_uploading>`).
+(more on that :ref:`below <file_uploading>`).
 
 Below are some examples of the classes that generate artifacts and the types of artifacts they generate. For each class,
 see the linked API Reference for additional documentation.
@@ -70,7 +70,7 @@ It is also possible to log custom artifacts outside of an algorithm or callback.
     trainer = Trainer(...)
 
     # Log a custom artifact, such as a configuration YAML
-    trainer.logger.file_artifact(
+    trainer.logger.upload_file(
         log_level=LogLevel.FIT,
         artifact_name='hparams.yaml',
         file_path='/path/to/hparams.yaml',
@@ -79,14 +79,14 @@ It is also possible to log custom artifacts outside of an algorithm or callback.
     # Train!
     trainer.fit()
 
-.. _artifact_logging_uploading:
+.. _file_uploading:
 
 How are artifacts uploaded?
 ---------------------------
 
 To store artifacts, in the ``loggers`` argument to the Trainer constructor, you must specify a
 :class:`~composer.loggers.logger_destination.LoggerDestination` that implements the
-:meth:`~composer.loggers.logger_destination.LoggerDestination.log_file_artifact`.
+:meth:`~composer.loggers.logger_destination.LoggerDestination.upload_file`.
 
 .. seealso::
 
@@ -113,7 +113,7 @@ Composer includes two built-in LoggerDestinations to store artifacts:
 
 *   The :class:`~composer.loggers.object_store_logger.ObjectStoreLogger` can upload Composer training artifacts
     to any cloud storage backend or remote filesystem. We include integrations for AWS S3 and SFTP
-    (see the :ref:`examples <artifact_logging_examples>` below), and you can write your own integration for a custom backend.
+    (see the :ref:`examples <file_uploading_examples>` below), and you can write your own integration for a custom backend.
 
 
 Why should I use artifact logging instead of uploading artifacts manually?
@@ -123,7 +123,7 @@ Artifact logging in Composer is optimized for efficiency. File uploads happen in
 processes, ensuring that the training loop is not blocked due to network I/O. In other words, this feature
 allows you to train the next batch while the previous checkpoint is being uploaded simultaneously.
 
-.. _artifact_logging_examples:
+.. _file_uploading_examples:
 
 
 Examples

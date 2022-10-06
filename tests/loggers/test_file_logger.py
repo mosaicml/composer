@@ -19,8 +19,8 @@ class FileArtifactLoggerTracker(LoggerDestination):
     def __init__(self) -> None:
         self.logged_artifacts = []
 
-    def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
-                          overwrite: bool):
+    def upload_file(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
+                    overwrite: bool):
         del state, overwrite  # unused
         self.logged_artifacts.append((log_level, artifact_name, file_path))
 

@@ -79,7 +79,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
             Whenever a trace file is saved, it is also logged as a file artifact according to this format string.
             The same format variables as for ``filename`` are available.
 
-            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
+            .. seealso:: :doc:`Uploading files</trainer/file_uploading>` for notes for file uploading.
 
             Leading slashes (``'/'``) will be stripped.
 
@@ -289,10 +289,10 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
 
             if self.artifact_name is not None:
                 artifact_name = format_name_with_dist_and_time(self.artifact_name, state.run_name, timestamp)
-                logger.file_artifact(LogLevel.BATCH,
-                                     artifact_name=artifact_name,
-                                     file_path=trace_filename,
-                                     overwrite=self.overwrite)
+                logger.upload_file(LogLevel.BATCH,
+                                   artifact_name=artifact_name,
+                                   file_path=trace_filename,
+                                   overwrite=self.overwrite)
             # Gather the filenames
             trace_files = [pathlib.Path(x) for x in dist.all_gather_object(trace_filename)]
             self.saved_traces.append((timestamp, trace_files))
@@ -330,7 +330,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
                         self.merged_trace_artifact_name,
                         state.run_name,
                     )
-                    logger.file_artifact(
+                    logger.upload_file(
                         LogLevel.BATCH,
                         artifact_name=merged_trace_artifact_name,
                         file_path=merged_trace_artifact_name,

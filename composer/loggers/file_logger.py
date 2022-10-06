@@ -83,7 +83,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
             The logfile will be periodically logged (according to the ``flush_interval``) as a file artifact.
             The artifact name will be determined by this format string.
 
-            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
+            .. seealso:: :doc:`Uploading Files</trainer/file_uploading>` for notes for file uploading.
 
             The same format variables for ``filename`` are available. Setting this parameter to ``None``
             (the default) will use the same format string as ``filename``. It is sometimes helpful to deviate
@@ -277,7 +277,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
 
         self.file.flush()
         os.fsync(self.file.fileno())
-        logger.file_artifact(LogLevel.FIT, self.artifact_name, self.file.name, overwrite=True)
+        logger.upload_file(LogLevel.FIT, self.artifact_name, self.file.name, overwrite=True)
 
     def fit_end(self, state: State, logger: Logger) -> None:
         # Flush the file on fit_end, in case if was not flushed on epoch_end and the trainer is re-used

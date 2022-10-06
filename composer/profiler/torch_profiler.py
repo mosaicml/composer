@@ -100,7 +100,7 @@ class TorchProfiler(Callback):  # noqa: D101
             Whenever a trace file is saved, it is also logged as a file artifact according to this format string.
             The same format variables as for ``filename`` are available.
 
-            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
+            .. seealso:: :doc:`Uploading files</trainer/file_uploading>` for notes for file uploading.
 
             Leading slashes (``'/'``) will be stripped.
 
@@ -214,10 +214,10 @@ class TorchProfiler(Callback):  # noqa: D101
                                                                      run_name=state.run_name,
                                                                      timestamp=timestamp)
                 trace_artifact_name = trace_artifact_name.lstrip('/')
-                logger.file_artifact(LogLevel.BATCH,
-                                     artifact_name=trace_artifact_name,
-                                     file_path=trace_file_name,
-                                     overwrite=self.overwrite)
+                logger.upload_file(LogLevel.BATCH,
+                                   artifact_name=trace_artifact_name,
+                                   file_path=trace_file_name,
+                                   overwrite=self.overwrite)
 
             if self.num_traces_to_keep >= 0:
                 while len(self.saved_traces) > self.num_traces_to_keep:

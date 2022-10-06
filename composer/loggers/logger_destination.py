@@ -75,7 +75,7 @@ class LoggerDestination(Callback, ABC):
         del traces
         pass
 
-    def log_file_artifact(
+    def upload_file(
         self,
         state: State,
         log_level: LogLevel,
@@ -84,12 +84,12 @@ class LoggerDestination(Callback, ABC):
         *,
         overwrite: bool,
     ):
-        """Handle logging of a file artifact stored at ``file_path`` to an artifact named ``artifact_name``.
+        """Handle uploading a file stored at ``file_path`` to an artifact named ``artifact_name``.
 
         Subclasses should implement this method to store logged files (e.g. copy it to another folder or upload it to
         an object store), then it should implement this method. However, not all loggers need to implement this method.
         For example, the :class:`.TQDMLogger` does not implement this method, as it cannot
-        handle file artifacts.
+        handle file uploads.
 
         .. note::
 
@@ -102,7 +102,7 @@ class LoggerDestination(Callback, ABC):
                 artifact can be corrupted (e.g., if the logger destination is reading from file while the training loop
                 is writing to it).
 
-        .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
+        .. seealso:: :doc:`Uploading Files</trainer/file_uploading>` for notes for file uploading.
 
         Args:
             state (State): The training state.
@@ -134,10 +134,10 @@ class LoggerDestination(Callback, ABC):
         del artifact_name, destination, overwrite, progress_bar  # unused
         raise NotImplementedError
 
-    def can_log_file_artifacts(self) -> bool:
+    def can_upload_files(self) -> bool:
         """Indicates whether LoggerDestination can log file artifacts.
 
-        Defaults to false, should return True for derived logger classes that implement log_file_artifact().
+        Defaults to false, should return True for derived logger classes that implement upload_file().
 
         Returns:
             bool: Whether the class supports logging file artifacts.

@@ -484,7 +484,7 @@ def create_symlink_file(
     """Create a symlink file, which can be followed by :func:`get_file`.
 
     Unlike unix symlinks, symlink files can be created by this function are normal text files and can be
-    uploaded to object stores via :meth:`.ObjectStore.upload_object` or loggers via :meth:`.Logger.file_artifact`
+    uploaded to object stores via :meth:`.ObjectStore.upload_object` or loggers via :meth:`.Logger.upload_file`
     that otherwise would not support unix-style symlinks.
 
     Args:

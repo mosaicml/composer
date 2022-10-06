@@ -153,11 +153,11 @@ class TensorboardLogger(LoggerDestination):
         file_path = self.writer.file_writer.event_writer._file_name
         event_file_name = Path(file_path).stem
 
-        logger.file_artifact(LogLevel.FIT,
-                             artifact_name=('tensorboard_logs/{run_name}/' +
-                                            f'{event_file_name}-{dist.get_global_rank()}'),
-                             file_path=file_path,
-                             overwrite=True)
+        logger.upload_file(LogLevel.FIT,
+                           artifact_name=('tensorboard_logs/{run_name}/' +
+                                          f'{event_file_name}-{dist.get_global_rank()}'),
+                           file_path=file_path,
+                           overwrite=True)
 
         # Close writer, which creates new log file.
         self.writer.close()

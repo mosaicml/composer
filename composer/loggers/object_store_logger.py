@@ -43,7 +43,7 @@ def _build_remote_backend(object_store_cls: Type[ObjectStore], object_store_kwar
 class ObjectStoreLogger(LoggerDestination):
     r"""Logger destination that uploads artifacts to an object store.
 
-    This logger destination handles calls to :meth:`.Logger.file_artifact`
+    This logger destination handles calls to :meth:`.Logger.upload_file`
     and uploads files to :class:`.ObjectStore`, such as AWS S3 or Google Cloud Storage. To minimize the training
     loop performance hit, it supports background uploads.
 
@@ -151,7 +151,7 @@ class ObjectStoreLogger(LoggerDestination):
 
                 >>> object_store_logger = ObjectStoreLogger(..., object_name='rank_{rank}/{artifact_name}')
                 >>> trainer = Trainer(..., run_name='foo', loggers=[object_store_logger])
-                >>> trainer.logger.file_artifact(
+                >>> trainer.logger.upload_file(
                 ...     log_level=LogLevel.EPOCH,
                 ...     artifact_name='bar.txt',
                 ...     file_path='path/to/file.txt',
@@ -211,7 +211,7 @@ class ObjectStoreLogger(LoggerDestination):
         # The object store might keep the earlier file rather than the latter file as the "latest" version
 
         # To work around this, each object name can appear at most once in `self._file_upload_queue`
-        # The main separately keeps track of {object_name: tempfile_path} for each API call to self.log_file_artifact
+        # The main separately keeps track of {object_name: tempfile_path} for each API call to self.upload_file
         # and then periodically transfers items from this dictionary onto the file upload queue
 
         # Lock for modifying `logged_objects` or `enqueued_objects`
@@ -310,7 +310,7 @@ class ObjectStoreLogger(LoggerDestination):
         if not self._all_workers_alive:
             raise RuntimeError('Upload worker crashed. Please check the logs.')
 
-    def log_file_artifact(
+    def upload_file(
         self,
         state: State,
         log_level: LogLevel,
@@ -330,8 +330,8 @@ class ObjectStoreLogger(LoggerDestination):
                 raise FileExistsError(f'Object {object_name} was already enqueued to be uploaded, but overwrite=False.')
             self._logged_objects[object_name] = (copied_path, overwrite)
 
-    def can_log_file_artifacts(self) -> bool:
-        """Whether the logger supports logging file artifacts."""
+    def can_upload_files(self) -> bool:
+        """Whether the logger supports uploading files."""
         return True
 
     def _enqueue_uploads(self):
@@ -378,7 +378,7 @@ class ObjectStoreLogger(LoggerDestination):
                         # so break. Some files may not be uploaded.
                         break
 
-            time.sleep(0.2)  # Yield lock for `self.log_file_artifact`
+            time.sleep(0.2)  # Yield lock for `self.upload_file`
 
     def get_file_artifact(
         self,

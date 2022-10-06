@@ -108,7 +108,7 @@ class Logger:
             'data_batch is no longer a valid call to the logger API. Please use log_hyperparameters or log_metrics instead'
         )
 
-    def file_artifact(
+    def upload_file(
         self,
         log_level: Union[str, int, LogLevel],
         artifact_name: str,
@@ -116,26 +116,26 @@ class Logger:
         *,
         overwrite: bool = False,
     ):
-        """Log ``file_path`` as an artifact named ``artifact_name``.
+        """Upload ``file_path`` as a file named ``artifact_name``.
 
         Both ``file_path`` and ``artifact_name`` can be specified as format strings.
         See :func:`~.composer.utils.file_helpers.format_name_with_dist` for more information.
 
-        .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
+        .. seealso:: :doc:`Uploading files</trainer/file_uploading>` for notes for file uploading.
 
         Args:
             log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
                 :class:`LogLevel`.
             artifact_name (str): A format string for the name of the artifact.
             file_path (str | pathlib.Path): A format string for the file path.
-            overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``artifact_name``.
+            overwrite (bool, optional): Whether to overwrite an existing file with the same ``artifact_name``.
                 (default: ``False``)
         """
         log_level = LogLevel(log_level)
         file_path = format_name_with_dist(format_str=str(file_path), run_name=self._state.run_name)
         file_path = pathlib.Path(file_path)
         for destination in self.destinations:
-            destination.log_file_artifact(
+            destination.upload_file(
                 state=self._state,
                 log_level=log_level,
                 artifact_name=format_name_with_dist(format_str=artifact_name, run_name=self._state.run_name),
@@ -143,16 +143,16 @@ class Logger:
                 overwrite=overwrite,
             )
 
-    def has_file_artifact_destination(self) -> bool:
-        """Determines if the logger has a destination which supports logging file artifacts.
+    def has_file_upload_destination(self) -> bool:
+        """Determines if the logger has a destination which supports uploading files.
 
             Needed for checking if a model can be exported via this logger.
 
         Returns:
-            bool: Whether any of the destinations has supports file artifacts.
+            bool: Whether any of the destinations support uploading files.
         """
         for destination in self.destinations:
-            if destination.can_log_file_artifacts():
+            if destination.can_upload_files():
                 return True
         return False
 

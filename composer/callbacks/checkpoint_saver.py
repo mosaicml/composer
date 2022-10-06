@@ -173,7 +173,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             After the checkpoint is saved, it will be periodically logged as a file artifact.
             The artifact name will be determined by this format string.
 
-            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
+            .. seealso:: :doc:`Uploading files</trainer/file_uploading>` for notes for file uploading.
 
             The same format variables for ``filename`` are available.
 
@@ -222,7 +222,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             Whenever a new checkpoint is saved, a symlink artifact is created or updated to point to the latest checkpoint's ``artifact_name``.
             The artifact name will be determined by this format string. This parameter has no effect if ``latest_filename`` or ``artifact_name`` is ``None``.
 
-            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
+            .. seealso:: :doc:`Uploading Files</trainer/file_uploading>` for notes for file uploading.
 
             The same format variables for ``filename`` are available.
 
@@ -389,10 +389,10 @@ class CheckpointSaver(Callback):  # noqa: D101
                 is_deepspeed,
             ).lstrip('/')
 
-            logger.file_artifact(log_level=log_level,
-                                 artifact_name=artifact_name,
-                                 file_path=filename,
-                                 overwrite=self.overwrite)
+            logger.upload_file(log_level=log_level,
+                               artifact_name=artifact_name,
+                               file_path=filename,
+                               overwrite=self.overwrite)
 
             if self.latest_artifact_name is not None:
                 symlink_name = self.latest_artifact_name.format(
@@ -404,7 +404,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 with tempfile.TemporaryDirectory() as tmpdir:
                     symlink_filename = os.path.join(tmpdir, 'latest.symlink')
                     create_symlink_file(artifact_name, symlink_filename)
-                    logger.file_artifact(
+                    logger.upload_file(
                         log_level=log_level,
                         artifact_name=symlink_name,
                         file_path=symlink_filename,

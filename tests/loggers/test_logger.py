@@ -7,14 +7,14 @@ from composer.core.state import State
 from composer.loggers import Logger, LoggerDestination, LogLevel
 
 
-def test_logger_file_artifact(dummy_state: State):
+def test_logger_file_upload(dummy_state: State):
 
     file_logged = False
 
     class DummyLoggerDestination(LoggerDestination):
 
-        def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
-                              overwrite: bool):
+        def upload_file(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
+                        overwrite: bool):
             nonlocal file_logged
             file_logged = True
             assert artifact_name == 'foo'
@@ -22,7 +22,7 @@ def test_logger_file_artifact(dummy_state: State):
             assert overwrite
 
     logger = Logger(state=dummy_state, destinations=[DummyLoggerDestination()])
-    logger.file_artifact(
+    logger.upload_file(
         log_level='epoch',
         artifact_name='foo',
         file_path='bar',

@@ -161,8 +161,8 @@ class WandBLogger(LoggerDestination):
         assert self.entity is not None, 'entity should be defined'
         assert self.project is not None, 'project should be defined'
 
-    def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
-                          overwrite: bool):
+    def upload_file(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
+                    overwrite: bool):
         del log_level, overwrite  # unused
 
         if self._enabled and self._log_artifacts:
@@ -196,8 +196,8 @@ class WandBLogger(LoggerDestination):
             artifact.add_file(os.path.abspath(file_path))
             wandb.log_artifact(artifact, aliases=aliases)
 
-    def can_log_file_artifacts(self) -> bool:
-        """Whether the logger supports logging file artifacts."""
+    def can_upload_files(self) -> bool:
+        """Whether the logger supports uploading files."""
         return True
 
     def get_file_artifact(

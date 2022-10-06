@@ -53,7 +53,7 @@ def _main():
             hparams_name = os.path.join(tmpdir, 'hparams.yaml')
             with open(hparams_name, 'w+') as f:
                 f.write(hparams.to_yaml())
-            trainer.logger.file_artifact(
+            trainer.logger.upload_file(
                 LogLevel.FIT,
                 artifact_name=f'{trainer.state.run_name}/hparams.yaml',
                 file_path=f.name,
