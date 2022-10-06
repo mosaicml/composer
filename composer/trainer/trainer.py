@@ -16,7 +16,6 @@ import time
 import warnings
 from copy import deepcopy
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
-from unittest import installHandler
 from urllib.parse import urlparse
 
 import coolname
@@ -982,7 +981,7 @@ class Trainer:
             if urlparse(load_path).scheme == 'wandb' and wandb_logger_already_specified:
                 load_object_store = [logger for logger in loggers if isinstance(logger, WandBLogger)][0]
             else:
-                load_object_store = _create_object_store_from_uri(uri=load_path) if load_path is not None else None
+                load_object_store = _create_object_store_from_uri(uri=load_path)
                 if isinstance(load_object_store, WandBLogger):
                     loggers.append(load_object_store)
 
@@ -990,10 +989,10 @@ class Trainer:
             if urlparse(save_folder).scheme == 'wandb' and wandb_logger_already_specified:
                 wandb_logger = [logger for logger in loggers if isinstance(logger, WandBLogger)][0]
                 wandb_logger.log_artifacts = True
-
-            object_store_logger = _create_object_store_logger_from_uri(uri=save_folder)
-            if object_store_logger:
-                loggers.append(object_store_logger)
+            else:
+                object_store_logger = _create_object_store_logger_from_uri(uri=save_folder)
+                if object_store_logger:
+                    loggers.append(object_store_logger)
 
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)

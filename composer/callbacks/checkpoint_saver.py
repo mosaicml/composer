@@ -419,7 +419,6 @@ class CheckpointSaver(Callback):  # noqa: D101
         # If upload_file is True, then user specified a folder argument like so:
         # scheme://{bucket}/{path}, which means the artifact name and the file_path are the same.
         if self.upload_file:
-
             # Upload checkpoint file
             artifact_name = file_path
             if self.using_wandb:

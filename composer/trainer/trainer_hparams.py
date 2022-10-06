@@ -244,10 +244,8 @@ class TrainerHparams(hp.Hparams):
 
         save_folder (str, optional): See :class:`.CheckpointSaver`.
         save_filename (str, optional): See :class:`.CheckpointSaver`.
-        save_artifact_name (str, optional): See :class:`.CheckpointSaver`.
         save_latest_filename (str, optional): See
             :class:`.CheckpointSaver`.
-        save_latest_artifact_name (str, optional): See :class:`.CheckpointSaver`.
         save_overwrite (str, optional): See :class:`.CheckpointSaver`.
         save_weights_only (bool, optional): See :class:`.CheckpointSaver`.
         save_interval (str, optional): See
@@ -336,11 +334,6 @@ class TrainerHparams(hp.Hparams):
 
     # Load Checkpoint
     load_path: Optional[str] = hp.auto(Trainer, 'load_path')
-    load_object_store: Optional[ObjectStoreHparams] = hp.optional(
-        doc=(('If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for '
-              'connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath, '
-              'leave blank. This parameter has no effect if `load_path` is not specified.')),
-        default=None)
     load_logger_destination: Optional[LoggerDestination] = hp.optional(
         ('Alternative argument to `load_object_store` to support loading from a logger destination. This parameter '
          'has no effect if `load_path` is not specified or `load_object_store` is specified, which will be '
@@ -354,9 +347,7 @@ class TrainerHparams(hp.Hparams):
     # Save Checkpoint
     save_folder: Optional[str] = hp.auto(Trainer, 'save_folder')
     save_filename: str = hp.auto(Trainer, 'save_filename')
-    save_artifact_name: str = hp.auto(Trainer, 'save_artifact_name')
     save_latest_filename: str = hp.auto(Trainer, 'save_latest_filename')
-    save_latest_artifact_name: str = hp.auto(Trainer, 'save_latest_artifact_name')
     save_overwrite: bool = hp.auto(Trainer, 'save_overwrite')
     save_weights_only: bool = hp.auto(Trainer, 'save_weights_only')
     save_interval: str = hp.auto(Trainer, 'save_interval')
@@ -550,7 +541,6 @@ class TrainerHparams(hp.Hparams):
 
             # Checkpoint Loading
             load_path=self.load_path,
-            load_object_store=load_object_store,
             load_weights_only=self.load_weights_only,
             load_strict_model_weights=self.load_strict_model_weights,
             load_progress_bar=self.load_progress_bar,
@@ -561,8 +551,6 @@ class TrainerHparams(hp.Hparams):
             save_overwrite=self.save_overwrite,
             save_filename=self.save_filename,
             save_latest_filename=self.save_latest_filename,
-            save_artifact_name=self.save_artifact_name,
-            save_latest_artifact_name=self.save_latest_artifact_name,
             save_interval=self.save_interval,
             save_weights_only=self.save_weights_only,
             save_num_checkpoints_to_keep=self.save_num_checkpoints_to_keep,
