@@ -62,7 +62,7 @@ class HuggingFaceModel(ComposerModel):
         # tokenizer if provided
         if tokenizer is None:
             if isinstance(self.model.base_model, transformers.GPT2Model):
-                self.model_inputs = {'input_ids', 'attention_mask'}
+                self.model_inputs = {'input_ids', 'input_mask'}
             elif isinstance(self.model.base_model, transformers.BertModel):
                 self.model_inputs = {'input_ids', 'input_mask', 'token_type_ids'}
         else:
