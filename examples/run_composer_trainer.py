@@ -55,7 +55,7 @@ def _main():
                 f.write(hparams.to_yaml())
             trainer.logger.upload_file(
                 LogLevel.FIT,
-                artifact_name=f'{trainer.state.run_name}/hparams.yaml',
+                remote_file_name=f'{trainer.state.run_name}/hparams.yaml',
                 file_path=f.name,
                 overwrite=True,
             )

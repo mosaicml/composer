@@ -19,17 +19,17 @@ class FileArtifactLoggerTracker(LoggerDestination):
     def __init__(self) -> None:
         self.logged_artifacts = []
 
-    def upload_file(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
+    def upload_file(self, state: State, log_level: LogLevel, remote_file_name: str, file_path: pathlib.Path, *,
                     overwrite: bool):
         del state, overwrite  # unused
-        self.logged_artifacts.append((log_level, artifact_name, file_path))
+        self.logged_artifacts.append((log_level, remote_file_name, file_path))
 
 
 def test_file_logger(dummy_state: State, tmp_path: pathlib.Path):
     log_file_name = os.path.join(tmp_path, 'output.log')
     log_destination = FileLogger(
         filename=log_file_name,
-        artifact_name='{run_name}/rank{rank}.log',
+        remote_file_name='{run_name}/rank{rank}.log',
         buffer_size=1,
         flush_interval=1,
     )

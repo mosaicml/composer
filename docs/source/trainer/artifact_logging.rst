@@ -72,7 +72,7 @@ It is also possible to log custom artifacts outside of an algorithm or callback.
     # Log a custom artifact, such as a configuration YAML
     trainer.logger.upload_file(
         log_level=LogLevel.FIT,
-        artifact_name='hparams.yaml',
+        remote_file_name='hparams.yaml',
         file_path='/path/to/hparams.yaml',
     )
 

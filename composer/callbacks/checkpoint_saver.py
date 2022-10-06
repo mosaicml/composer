@@ -167,11 +167,11 @@ class CheckpointSaver(Callback):  # noqa: D101
                 awesome-training-run/checkpoints/ep1-ba42-rank2.tar
                 ...
 
-        artifact_name (str, optional): Format string for the checkpoint's artifact name.
+        remote_file_name (str, optional): Format string for the checkpoint's remote file name.
             Default: ``"{{run_name}}/checkpoints/ep{{epoch}}-ba{{batch}}-rank{{rank}}"``.
 
-            After the checkpoint is saved, it will be periodically logged as a file artifact.
-            The artifact name will be determined by this format string.
+            After the checkpoint is saved, it will be periodically uploaded.
+            The remote file name will be determined by this format string.
 
             .. seealso:: :doc:`Uploading files</trainer/file_uploading>` for notes for file uploading.
 
@@ -179,7 +179,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             Leading slashes (``'/'``) will be stripped.
 
-            To disable logging trace files as file artifacts, set this parameter to ``None``.
+            To disable uploading checkpoints, set this parameter to ``None``.
         latest_filename (str, optional): A format string for a symlink which points to the last saved checkpoint.
             Default: ``'latest-rank{{rank}}.pt'``.
 
@@ -216,11 +216,11 @@ class CheckpointSaver(Callback):  # noqa: D101
                 awesome-training-run/checkpoints/latest-rank1.tar -> awesome-training-run/checkpoints/ep1-ba42-rank1.tar
                 awesome-training-run/checkpoints/latest-rank2.tar -> awesome-training-run/checkpoints/ep1-ba42-rank2.tar
                 ...
-        latest_artifact_name (str, optional): Format string for the checkpoint's latest symlink artifact name.
+        latest_remote_file_name (str, optional): Format string for the checkpoint's latest symlink remote file name.
             Default: ``'{{run_name}}/checkpoints/latest-rank{{rank}}"``.
 
-            Whenever a new checkpoint is saved, a symlink artifact is created or updated to point to the latest checkpoint's ``artifact_name``.
-            The artifact name will be determined by this format string. This parameter has no effect if ``latest_filename`` or ``artifact_name`` is ``None``.
+            Whenever a new checkpoint is saved, a symlink is created or updated to point to the latest checkpoint's ``remote_file_name``.
+            The remote file name will be determined by this format string. This parameter has no effect if ``latest_filename`` or ``remote_file_name`` is ``None``.
 
             .. seealso:: :doc:`Uploading Files</trainer/file_uploading>` for notes for file uploading.
 
@@ -283,9 +283,9 @@ class CheckpointSaver(Callback):  # noqa: D101
         self,
         folder: str = '{run_name}/checkpoints',
         filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
-        artifact_name: Optional[str] = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
+        remote_file_name: Optional[str] = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
         latest_filename: Optional[str] = 'latest-rank{rank}.pt',
-        latest_artifact_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
+        latest_remote_file_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
         save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = '1ep',
         *,
         overwrite: bool = False,
@@ -302,8 +302,8 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.filename = PartialFilePath(filename.lstrip('/'), folder)
         self.latest_filename = PartialFilePath(latest_filename.lstrip('/'), folder) if latest_filename else None
 
-        self.artifact_name = PartialFilePath(artifact_name) if artifact_name else None
-        self.latest_artifact_name = PartialFilePath(latest_artifact_name) if latest_artifact_name else None
+        self.remote_file_name = PartialFilePath(remote_file_name) if remote_file_name else None
+        self.latest_remote_file_name = PartialFilePath(latest_remote_file_name) if latest_remote_file_name else None
 
         self.overwrite = overwrite
         self.saved_checkpoints: List[str] = []
@@ -383,19 +383,19 @@ class CheckpointSaver(Callback):  # noqa: D101
             os.symlink(os.path.relpath(filename, os.path.dirname(symlink)), symlink)
 
         # if artifact name provided, upload the checkpoint
-        if self.artifact_name is not None:
-            artifact_name = self.artifact_name.format(
+        if self.remote_file_name is not None:
+            remote_file_name = self.remote_file_name.format(
                 state,
                 is_deepspeed,
             ).lstrip('/')
 
             logger.upload_file(log_level=log_level,
-                               artifact_name=artifact_name,
+                               remote_file_name=remote_file_name,
                                file_path=filename,
                                overwrite=self.overwrite)
 
-            if self.latest_artifact_name is not None:
-                symlink_name = self.latest_artifact_name.format(
+            if self.latest_remote_file_name is not None:
+                symlink_name = self.latest_remote_file_name.format(
                     state,
                     is_deepspeed,
                 ).lstrip('/') + '.symlink'
@@ -403,10 +403,10 @@ class CheckpointSaver(Callback):  # noqa: D101
                 # create and upload a symlink file
                 with tempfile.TemporaryDirectory() as tmpdir:
                     symlink_filename = os.path.join(tmpdir, 'latest.symlink')
-                    create_symlink_file(artifact_name, symlink_filename)
+                    create_symlink_file(remote_file_name, symlink_filename)
                     logger.upload_file(
                         log_level=log_level,
-                        artifact_name=symlink_name,
+                        remote_file_name=symlink_name,
                         file_path=symlink_filename,
                         overwrite=True,
                     )

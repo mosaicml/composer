@@ -29,9 +29,9 @@ log = logging.getLogger(__name__)
 __all__ = ['RemoteUploaderDownloader']
 
 
-def _always_log(state: State, log_level: LogLevel, artifact_name: str):
+def _always_log(state: State, log_level: LogLevel, destination_uri: str):
     """Function that can be passed into ``should_log_artifact`` to log all artifacts."""
-    del state, log_level, artifact_name  # unused
+    del state, log_level, destination_uri  # unused
     return True
 
 
@@ -113,7 +113,7 @@ class RemoteUploaderDownloader(LoggerDestination):
             +------------------------+-------------------------------------------------------+
             | Variable               | Description                                           |
             +========================+=======================================================+
-            | ``{artifact_name}``    | The name of the artifact being logged.                |
+            | ``{remote_file_name}`` | The name of the file being logged.                    |
             +------------------------+-------------------------------------------------------+
             | ``{run_name}``         | The name of the training run. See                     |
             |                        | :attr:`.State.run_name`.                              |
@@ -149,11 +149,11 @@ class RemoteUploaderDownloader(LoggerDestination):
 
             .. doctest:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.object_name
 
-                >>> remote_uploader_downloader = RemoteUploaderDownloader(..., object_name='rank_{rank}/{artifact_name}')
+                >>> remote_uploader_downloader = RemoteUploaderDownloader(..., object_name='rank_{rank}/{remote_file_name}')
                 >>> trainer = Trainer(..., run_name='foo', loggers=[remote_uploader_downloader])
                 >>> trainer.logger.upload_file(
                 ...     log_level=LogLevel.EPOCH,
-                ...     artifact_name='bar.txt',
+                ...     remote_file_name='bar.txt',
                 ...     file_path='path/to/file.txt',
                 ... )
 
@@ -166,7 +166,7 @@ class RemoteUploaderDownloader(LoggerDestination):
             Assuming that the process's rank is ``0``, the object store would store the contents of
             ``'path/to/file.txt'`` in an object named ``'rank0/bar.txt'``.
 
-            Default: ``'{artifact_name}'``
+            Default: ``'{remote_file_name}'``
 
         num_concurrent_uploads (int, optional): Maximum number of concurrent uploads. Defaults to 4.
         upload_staging_folder (str, optional): A folder to use for staging uploads.
@@ -181,7 +181,7 @@ class RemoteUploaderDownloader(LoggerDestination):
                  object_store_cls: Type[ObjectStore],
                  object_store_kwargs: Dict[str, Any],
                  should_log_artifact: Optional[Callable[[State, LogLevel, str], bool]] = None,
-                 object_name: str = '{artifact_name}',
+                 object_name: str = '{remote_file_name}',
                  num_concurrent_uploads: int = 4,
                  upload_staging_folder: Optional[str] = None,
                  use_procs: bool = True,
@@ -314,17 +314,17 @@ class RemoteUploaderDownloader(LoggerDestination):
         self,
         state: State,
         log_level: LogLevel,
-        artifact_name: str,
+        remote_file_name: str,
         file_path: pathlib.Path,
         *,
         overwrite: bool,
     ):
-        if not self.should_log_artifact(state, log_level, artifact_name):
+        if not self.should_log_artifact(state, log_level, remote_file_name):
             return
         copied_path = os.path.join(self._upload_staging_folder, str(uuid.uuid4()))
         os.makedirs(self._upload_staging_folder, exist_ok=True)
         shutil.copy2(file_path, copied_path)
-        object_name = self._object_name(artifact_name)
+        object_name = self._object_name(remote_file_name)
         with self._object_lock:
             if object_name in self._logged_objects and not overwrite:
                 raise FileExistsError(f'Object {object_name} was already enqueued to be uploaded, but overwrite=False.')
@@ -382,12 +382,12 @@ class RemoteUploaderDownloader(LoggerDestination):
 
     def download_file(
         self,
-        artifact_name: str,
+        remote_file_name: str,
         destination: str,
         overwrite: bool = False,
         progress_bar: bool = True,
     ):
-        get_file(path=artifact_name,
+        get_file(path=remote_file_name,
                  destination=destination,
                  object_store=self.remote_backend,
                  overwrite=overwrite,
@@ -472,26 +472,26 @@ class RemoteUploaderDownloader(LoggerDestination):
         self._enqueue_thread_flag = None
         self._workers.clear()
 
-    def get_uri_for_artifact(self, artifact_name: str) -> str:
+    def get_uri_for_file(self, remote_file_name: str) -> str:
         """Get the object store provider uri for an artfact.
 
         Args:
-            artifact_name (str): The name of an artifact.
+            remote_file_name (str): The name of a file.
 
         Returns:
-            str: The uri corresponding to the uploaded location of the artifact.
+            str: The uri corresponding to the uploaded location of the file.
         """
-        obj_name = self._object_name(artifact_name)
+        obj_name = self._object_name(remote_file_name)
         return self.remote_backend.get_uri(obj_name.lstrip('/'))
 
-    def _object_name(self, artifact_name: str):
-        """Format the ``artifact_name`` according to the ``object_name_string``."""
+    def _object_name(self, remote_file_name: str):
+        """Format the ``remote_file_name`` according to the ``object_name_string``."""
         if self._run_name is None:
             raise RuntimeError('The run name is not set. It should have been set on Event.INIT.')
         key_name = format_name_with_dist(
             self.object_name,
             run_name=self._run_name,
-            artifact_name=artifact_name,
+            remote_file_name=remote_file_name,
         )
         key_name = key_name.lstrip('/')
 

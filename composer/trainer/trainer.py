@@ -613,7 +613,7 @@ class Trainer:
             (default: ``"ep{epoch}-ba{batch}-rank{rank}.pt"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-        save_artifact_name (str, optional): A format string describing how to name checkpoints in loggers.
+        save_remote_file_name (str, optional): A format string describing how to name checkpoints in loggers.
             This parameter has no effect if ``save_folder`` is ``None``.
             (default: ``"{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}"``)
 
@@ -624,8 +624,8 @@ class Trainer:
             To disable symlinking, set this to ``None``. (default: ``"latest-rank{rank}.pt"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-        save_latest_artifact_name (str, optional): A format string describing how to name symlinks in loggers.
-            This parameter has no effect if ``save_folder``, ``save_latest_filename``, or ``save_artifact_name`` are ``None``.
+        save_latest_remote_file_name (str, optional): A format string describing how to name symlinks in loggers.
+            This parameter has no effect if ``save_folder``, ``save_latest_filename``, or ``save_remote_file_name`` are ``None``.
             To disable symlinking in logger, set this or ``save_latest_filename`` to ``None``. (default: ``"{run_name}/checkpoints/latest-rank{rank}"``)
 
             .. seealso:: :class:`~.CheckpointSaver` and :doc:`Uploading Files</trainer/file_uploading>` notes.
@@ -659,7 +659,7 @@ class Trainer:
 
             When enabled, the save_folder is checked for checkpoints of the format ``"{save_folder}/{save_latest_filename}"``,
             which are loaded to continue training. If no local checkpoints are found, each logger is checked for potential
-            checkpoints named ``save_latest_artifact_name``. Finally, if no logged checkpoints are found, ``load_path`` is
+            checkpoints named ``save_latest_remote_file_name``. Finally, if no logged checkpoints are found, ``load_path`` is
             used to load a checkpoint if specified. This should only occur at the start of a run using autoresume.
 
             For example, to run a fine-tuning run on a spot instance, ``load_path`` would be set to the original
@@ -782,9 +782,9 @@ class Trainer:
         # Save Checkpoint
         save_folder: Optional[str] = None,
         save_filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
-        save_artifact_name: str = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
+        save_remote_file_name: str = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
         save_latest_filename: Optional[str] = 'latest-rank{rank}.pt',
-        save_latest_artifact_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
+        save_latest_remote_file_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
@@ -958,9 +958,9 @@ class Trainer:
             self._checkpoint_saver = CheckpointSaver(
                 folder=save_folder,
                 filename=save_filename,
-                artifact_name=save_artifact_name,
+                remote_file_name=save_remote_file_name,
                 latest_filename=save_latest_filename,
-                latest_artifact_name=save_latest_artifact_name,
+                latest_remote_file_name=save_latest_remote_file_name,
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
                 save_interval=save_interval,
@@ -1117,9 +1117,10 @@ class Trainer:
             if save_latest_filename is None:
                 raise ValueError(
                     'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from.')
-            if save_latest_artifact_name is None:
+            if save_latest_remote_file_name is None:
                 raise ValueError(
-                    'The `save_latest_artifact_name` must be specified so autoresume can load the latest checkpoint.')
+                    'The `save_latest_remote_file_name` must be specified so autoresume can load the latest checkpoint.'
+                )
             if run_name is None:
                 raise ValueError(
                     'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
@@ -1127,7 +1128,7 @@ class Trainer:
             autoresume_checkpoint_path = self._get_autoresume_checkpoint(
                 save_folder=save_folder,
                 save_latest_filename=save_latest_filename,
-                save_latest_artifact_name=save_latest_artifact_name,
+                save_latest_remote_file_name=save_latest_remote_file_name,
                 loggers=loggers,
                 load_progress_bar=load_progress_bar)
             # Found latest checkpoint path, load that instead
@@ -1183,7 +1184,7 @@ class Trainer:
         self,
         save_folder: str,
         save_latest_filename: str,
-        save_latest_artifact_name: str,
+        save_latest_remote_file_name: str,
         loggers: Sequence[LoggerDestination],
         load_progress_bar: bool,
     ):
@@ -1198,7 +1199,7 @@ class Trainer:
         """
         save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
         save_folder = format_name_with_dist(save_folder, self.state.run_name)
-        save_latest_artifact_name = format_name_with_dist(save_latest_artifact_name, self.state.run_name)
+        save_latest_remote_file_name = format_name_with_dist(save_latest_remote_file_name, self.state.run_name)
         latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
 
         # If latest checkpoint is not saved locally, try to fetch from loggers
@@ -1209,7 +1210,7 @@ class Trainer:
                 try:
                     # Fetch from logger. If it succeeds, stop trying the rest of the loggers
                     get_file(
-                        path=save_latest_artifact_name,
+                        path=save_latest_remote_file_name,
                         destination=latest_checkpoint_path,
                         object_store=logger,
                         overwrite=True,
@@ -2015,7 +2016,7 @@ class Trainer:
                         torch.save(state.outputs, filepath)
 
                         # Also log the outputs as an artifact
-                        logger.upload_file(LogLevel.BATCH, artifact_name=name, file_path=filepath)
+                        logger.upload_file(LogLevel.BATCH, remote_file_name=name, file_path=filepath)
 
                 trainer = Trainer(
                     ...,

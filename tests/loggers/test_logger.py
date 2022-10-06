@@ -13,18 +13,18 @@ def test_logger_file_upload(dummy_state: State):
 
     class DummyLoggerDestination(LoggerDestination):
 
-        def upload_file(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
+        def upload_file(self, state: State, log_level: LogLevel, remote_file_name: str, file_path: pathlib.Path, *,
                         overwrite: bool):
             nonlocal file_logged
             file_logged = True
-            assert artifact_name == 'foo'
+            assert remote_file_name == 'foo'
             assert file_path.name == 'bar'
             assert overwrite
 
     logger = Logger(state=dummy_state, destinations=[DummyLoggerDestination()])
     logger.upload_file(
         log_level='epoch',
-        artifact_name='foo',
+        remote_file_name='foo',
         file_path='bar',
         overwrite=True,
     )

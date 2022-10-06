@@ -111,14 +111,14 @@ class Logger:
     def upload_file(
         self,
         log_level: Union[str, int, LogLevel],
-        artifact_name: str,
+        remote_file_name: str,
         file_path: Union[pathlib.Path, str],
         *,
         overwrite: bool = False,
     ):
-        """Upload ``file_path`` as a file named ``artifact_name``.
+        """Upload ``file_path`` as a file named ``remote_file_name``.
 
-        Both ``file_path`` and ``artifact_name`` can be specified as format strings.
+        Both ``file_path`` and ``remote_file_name`` can be specified as format strings.
         See :func:`~.composer.utils.file_helpers.format_name_with_dist` for more information.
 
         .. seealso:: :doc:`Uploading files</trainer/file_uploading>` for notes for file uploading.
@@ -126,9 +126,9 @@ class Logger:
         Args:
             log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
                 :class:`LogLevel`.
-            artifact_name (str): A format string for the name of the artifact.
+            remote_file_name (str): A format string for the name of the file.
             file_path (str | pathlib.Path): A format string for the file path.
-            overwrite (bool, optional): Whether to overwrite an existing file with the same ``artifact_name``.
+            overwrite (bool, optional): Whether to overwrite an existing file with the same ``remote_file_name``.
                 (default: ``False``)
         """
         log_level = LogLevel(log_level)
@@ -138,7 +138,7 @@ class Logger:
             destination.upload_file(
                 state=self._state,
                 log_level=log_level,
-                artifact_name=format_name_with_dist(format_str=artifact_name, run_name=self._state.run_name),
+                remote_file_name=format_name_with_dist(format_str=remote_file_name, run_name=self._state.run_name),
                 file_path=file_path,
                 overwrite=overwrite,
             )

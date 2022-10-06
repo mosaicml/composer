@@ -45,7 +45,7 @@ class PredictionSaver(Callback):
         torch.save(state.outputs, filepath)
 
         # Also log the outputs as an artifact
-        logger.upload_file(LogLevel.BATCH, artifact_name=name, file_path=filepath)
+        logger.upload_file(LogLevel.BATCH, remote_file_name=name, file_path=filepath)
 
 
 class TestTrainerPredict():

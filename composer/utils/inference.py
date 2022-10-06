@@ -271,7 +271,7 @@ def export_with_logger(
                                  save_path=temp_local_save_path,
                                  sample_input=sample_input,
                                  transforms=transforms)
-            logger.upload_file(log_level=LogLevel.FIT, artifact_name=save_path, file_path=temp_local_save_path)
+            logger.upload_file(log_level=LogLevel.FIT, remote_file_name=save_path, file_path=temp_local_save_path)
     else:
         export_for_inference(model=model,
                              save_format=save_format,

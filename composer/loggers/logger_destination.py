@@ -79,15 +79,15 @@ class LoggerDestination(Callback, ABC):
         self,
         state: State,
         log_level: LogLevel,
-        artifact_name: str,
+        remote_file_name: str,
         file_path: pathlib.Path,
         *,
         overwrite: bool,
     ):
-        """Handle uploading a file stored at ``file_path`` to an artifact named ``artifact_name``.
+        """Handle uploading a file stored at ``file_path`` to a file named ``remote_file_name``.
 
         Subclasses should implement this method to store logged files (e.g. copy it to another folder or upload it to
-        an object store), then it should implement this method. However, not all loggers need to implement this method.
+        an object store). However, not all loggers need to implement this method.
         For example, the :class:`.TQDMLogger` does not implement this method, as it cannot
         handle file uploads.
 
@@ -99,7 +99,7 @@ class LoggerDestination(Callback, ABC):
             *   After this method returns, training can resume, and the contents of ``file_path`` may change (or be may
                 deleted). Thus, if processing the file in the background (as is recommended), it is necessary to first
                 copy the file to a temporary directory. Otherwise, the original file may no longer exist, or the logged
-                artifact can be corrupted (e.g., if the logger destination is reading from file while the training loop
+                file can be corrupted (e.g., if the logger destination is reading from file while the training loop
                 is writing to it).
 
         .. seealso:: :doc:`Uploading Files</trainer/file_uploading>` for notes for file uploading.
@@ -107,39 +107,39 @@ class LoggerDestination(Callback, ABC):
         Args:
             state (State): The training state.
             log_level (Union[str, LogLevel]): A :class:`LogLevel`.
-            artifact_name (str): The name of the artifact.
+            remote_file_name (str): The name of the file.
             file_path (pathlib.Path): The file path.
-            overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``artifact_name``.
+            overwrite (bool, optional): Whether to overwrite an existing file with the same ``remote_file_names``.
                 (default: ``False``)
         """
-        del state, log_level, artifact_name, file_path, overwrite  # unused
+        del state, log_level, remote_file_name, file_path, overwrite  # unused
         pass
 
     def download_file(
         self,
-        artifact_name: str,
+        remote_file_name: str,
         destination: str,
         overwrite: bool = False,
         progress_bar: bool = True,
     ):
-        """Handle downloading a file named ``artifact_name`` to ``destination``.
+        """Handle downloading a file named ``remote_file_name`` to ``destination``.
 
         Args:
-            artifact_name (str): The name of the artifact.
+            remote_file_name (str): The name of the file.
             destination (str): The destination filepath.
             overwrite (bool): Whether to overwrite an existing file at ``destination``. Defaults to ``False``.
             progress_bar (bool, optional): Whether to show a progress bar. Ignored if ``path`` is a local file.
                 (default: ``True``)
         """
-        del artifact_name, destination, overwrite, progress_bar  # unused
+        del remote_file_name, destination, overwrite, progress_bar  # unused
         raise NotImplementedError
 
     def can_upload_files(self) -> bool:
-        """Indicates whether LoggerDestination can log file artifacts.
+        """Indicates whether LoggerDestination can upload files.
 
         Defaults to false, should return True for derived logger classes that implement upload_file().
 
         Returns:
-            bool: Whether the class supports logging file artifacts.
+            bool: Whether the class supports uploading files.
         """
         return False

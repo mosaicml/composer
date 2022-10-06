@@ -94,22 +94,22 @@ class TorchProfiler(Callback):  # noqa: D101
                 awesome-training-run/torch_traces/ep1-ba42-rank2.json
                 ...
 
-        artifact_name (str, optional): Format string for a Torch Profiler trace file's artifact name.
+        remote_file_name (str, optional): Format string for a Torch Profiler trace file's remote file name.
             Defaults to ``'{{run_name}}/torch_traces/rank{{rank}}.{{batch}}.pt.trace.json'``.
 
-            Whenever a trace file is saved, it is also logged as a file artifact according to this format string.
+            Whenever a trace file is saved, it is also uploaded as a file artifact according to this format string.
             The same format variables as for ``filename`` are available.
 
             .. seealso:: :doc:`Uploading files</trainer/file_uploading>` for notes for file uploading.
 
             Leading slashes (``'/'``) will be stripped.
 
-            To disable logging trace files as file artifacts, set this parameter to ``None``.
+            To disable uploading trace files, set this parameter to ``None``.
         overwrite (bool, optional): Whether to override existing Torch Profiler traces. Defaults to False.
 
             If False, then the trace folder as determined by ``folder`` must be empty.
         use_gzip (bool, optional): Whether to use gzip for the trace. Defaults to False.
-            If True, ``'.gz'`` will be appended ``filename`` and ``artifact_name``
+            If True, ``'.gz'`` will be appended ``filename`` and ``remote_file_name``
             (if they do not already end in ``'.gz'``).
         record_shapes (bool, optional): Whether to record tensor shapes. Defaults to False.
         profile_memory (bool, optional): Whether to profile memory. Defaults to True.
@@ -142,7 +142,7 @@ class TorchProfiler(Callback):  # noqa: D101
         self,
         folder: str = '{run_name}/torch_traces',
         filename: str = 'rank{rank}.{batch}.pt.trace.json',
-        artifact_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
+        remote_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
         *,
         overwrite: bool = False,
         use_gzip: bool = False,
@@ -157,9 +157,9 @@ class TorchProfiler(Callback):  # noqa: D101
         if use_gzip and not filename.endswith('.gz'):
             filename += '.gz'
         self.filename = filename
-        if use_gzip and artifact_name is not None and not artifact_name.endswith('.gz'):
-            artifact_name += '.gz'
-        self.artifact_name = artifact_name
+        if use_gzip and remote_file_name is not None and not remote_file_name.endswith('.gz'):
+            remote_file_name += '.gz'
+        self.remote_file_name = remote_file_name
         self.record_shapes = record_shapes
         self.profile_memory = profile_memory
         self.with_stack = with_stack
@@ -209,13 +209,13 @@ class TorchProfiler(Callback):  # noqa: D101
                 os.makedirs(trace_file_dirname, exist_ok=True)
             prof.export_chrome_trace(trace_file_name)
             state.profiler.record_chrome_json_trace_file(trace_file_name)
-            if self.artifact_name is not None:
-                trace_artifact_name = format_name_with_dist_and_time(self.artifact_name,
-                                                                     run_name=state.run_name,
-                                                                     timestamp=timestamp)
-                trace_artifact_name = trace_artifact_name.lstrip('/')
+            if self.remote_file_name is not None:
+                trace_remote_file_name = format_name_with_dist_and_time(self.remote_file_name,
+                                                                        run_name=state.run_name,
+                                                                        timestamp=timestamp)
+                trace_remote_file_name = trace_remote_file_name.lstrip('/')
                 logger.upload_file(LogLevel.BATCH,
-                                   artifact_name=trace_artifact_name,
+                                   remote_file_name=trace_remote_file_name,
                                    file_path=trace_file_name,
                                    overwrite=self.overwrite)
 
