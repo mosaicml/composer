@@ -29,12 +29,6 @@ log = logging.getLogger(__name__)
 __all__ = ['ObjectStoreLogger']
 
 
-def _always_log(state: State, log_level: LogLevel, artifact_name: str):
-    """Function that can be passed into ``should_log_artifact`` to log all artifacts."""
-    del state, log_level, artifact_name  # unused
-    return True
-
-
 def _build_object_store(object_store_cls: Type[ObjectStore], object_store_kwargs: Dict[str, Any]):
     # error: Expected no arguments to "ObjectStore" constructor
     return object_store_cls(**object_store_kwargs)  # type: ignore
@@ -73,7 +67,7 @@ class ObjectStoreLogger(LoggerDestination):
 
     .. note::
 
-        This callback blocks the training loop to copy each artifact where ``should_log_artifact`` returns ``True``, as
+        This callback blocks the training loop to copy each artifact, as
         the uploading happens in the background. Here are some additional tips for minimizing the performance impact:
 
         *   Set ``should_log`` to filter which artifacts will be logged. By default, all artifacts are logged.
@@ -97,14 +91,6 @@ class ObjectStoreLogger(LoggerDestination):
 
             As individual :class:`.ObjectStore` instances are not necessarily thread safe, each worker will construct
             its own :class:`.ObjectStore` instance from ``object_store_cls`` and ``object_store_kwargs``.
-
-        should_log_artifact ((State, LogLevel, str) -> bool, optional): A function to filter which artifacts
-            are uploaded.
-
-            The function should take the (current training state, log level, artifact name) and return a boolean
-            indicating whether this file should be uploaded.
-
-            By default, all artifacts will be uploaded.
 
         object_name (str, optional): A format string used to determine the object name.
 
@@ -180,7 +166,6 @@ class ObjectStoreLogger(LoggerDestination):
     def __init__(self,
                  object_store_cls: Type[ObjectStore],
                  object_store_kwargs: Dict[str, Any],
-                 should_log_artifact: Optional[Callable[[State, LogLevel, str], bool]] = None,
                  object_name: str = '{artifact_name}',
                  num_concurrent_uploads: int = 4,
                  upload_staging_folder: Optional[str] = None,
@@ -188,9 +173,6 @@ class ObjectStoreLogger(LoggerDestination):
                  num_attempts: int = 3) -> None:
         self.object_store_cls = object_store_cls
         self.object_store_kwargs = object_store_kwargs
-        if should_log_artifact is None:
-            should_log_artifact = _always_log
-        self.should_log_artifact = should_log_artifact
         self.object_name = object_name
         self.num_attempts = num_attempts
         self._run_name = None
@@ -319,8 +301,6 @@ class ObjectStoreLogger(LoggerDestination):
         *,
         overwrite: bool,
     ):
-        if not self.should_log_artifact(state, log_level, artifact_name):
-            return
         copied_path = os.path.join(self._upload_staging_folder, str(uuid.uuid4()))
         os.makedirs(self._upload_staging_folder, exist_ok=True)
         shutil.copy2(file_path, copied_path)

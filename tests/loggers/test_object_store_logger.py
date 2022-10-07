@@ -18,11 +18,6 @@ from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.utils.object_store.object_store import ObjectStore
 
 
-def my_filter_func(state: State, log_level: LogLevel, artifact_name: str):
-    del state, log_level, artifact_name  # unused
-    return False
-
-
 class DummyObjectStore(ObjectStore):
     """Dummy ObjectStore implementation that is backed by a local directory."""
 
@@ -70,7 +65,6 @@ def object_store_test_helper(
     use_procs: bool = False,
     overwrite: bool = True,
     overwrite_delay: bool = False,
-    should_filter: bool = False,
 ):
     remote_dir = str(tmp_path / 'object_store')
     os.makedirs(remote_dir, exist_ok=True)
@@ -82,7 +76,6 @@ def object_store_test_helper(
         },
         num_concurrent_uploads=1,
         use_procs=use_procs,
-        should_log_artifact=my_filter_func if should_filter else None,
         upload_staging_folder=str(tmp_path / 'staging_folder'),
         num_attempts=1,
     )
@@ -138,22 +131,17 @@ def object_store_test_helper(
     expected_upload_uri = f'local://{artifact_name}'
     assert upload_uri == expected_upload_uri
 
-    if not should_filter:
-        # Test downloading artifact
-        download_path = os.path.join(tmp_path, 'download')
-        object_store_logger.get_file_artifact(artifact_name, download_path)
-        with open(download_path, 'r') as f:
-            assert f.read() == '1' if not overwrite else '2'
+    # Test downloading artifact
+    download_path = os.path.join(tmp_path, 'download')
+    object_store_logger.get_file_artifact(artifact_name, download_path)
+    with open(download_path, 'r') as f:
+        assert f.read() == '1' if not overwrite else '2'
 
     # now assert that we have a dummy file in the artifact folder
     artifact_file = os.path.join(str(remote_dir), artifact_name)
-    if should_filter:
-        # If the filter works, nothing should be logged
-        assert not os.path.exists(artifact_file)
-    else:
-        # Verify artifact contains the correct value
-        with open(artifact_file, 'r') as f:
-            assert f.read() == '1' if not overwrite else '2'
+    # Verify artifact contains the correct value
+    with open(artifact_file, 'r') as f:
+        assert f.read() == '1' if not overwrite else '2'
 
 
 def test_object_store_logger(tmp_path: pathlib.Path, dummy_state: State):
@@ -171,10 +159,6 @@ def test_object_store_logger_no_overwrite(tmp_path: pathlib.Path, dummy_state: S
                              dummy_state=dummy_state,
                              overwrite=False,
                              overwrite_delay=overwrite_delay)
-
-
-def test_object_store_logger_should_log_artifact_filter(tmp_path: pathlib.Path, dummy_state: State):
-    object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, should_filter=True)
 
 
 @pytest.mark.parametrize('use_procs', [True, False])
