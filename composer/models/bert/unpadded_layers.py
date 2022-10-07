@@ -447,12 +447,14 @@ class BertForMaskedLM(BertPreTrainedModel):
                 # Standard HuggingFace model loss computation
                 masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), masked_lm_labels.view(-1))
 
+        """
         if input_ids != None:
             batch, seqlen = input_ids.shape[:2]
             prediction_scores = rearrange(index_put_first_axis(prediction_scores, masked_token_idx, batch * seqlen),
                                           '(b s) d -> b s d',
                                           b=batch)
-
+        """
+        
         if not return_dict:
             output = (prediction_scores,) + outputs[2:]
             return ((masked_lm_loss,) + output) if masked_lm_loss is not None else output
