@@ -82,7 +82,7 @@ def object_store_test_helper(
         },
         num_concurrent_uploads=1,
         use_procs=use_procs,
-        should_log_artifact=my_filter_func if should_filter else None,
+        should_upload_file=my_filter_func if should_filter else None,
         upload_staging_folder=str(tmp_path / 'staging_folder'),
         num_attempts=1,
     )
@@ -174,7 +174,7 @@ def test_remote_uploader_downloader_no_overwrite(tmp_path: pathlib.Path, dummy_s
                              overwrite_delay=overwrite_delay)
 
 
-def test_remote_uploader_downloader_should_log_artifact_filter(tmp_path: pathlib.Path, dummy_state: State):
+def test_remote_uploader_downloader_should_upload_file_filter(tmp_path: pathlib.Path, dummy_state: State):
     object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, should_filter=True)
 
 
@@ -216,7 +216,7 @@ def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_stat
     remote_uploader_downloader.close(dummy_state, logger=logger)
     remote_uploader_downloader.post_close()
 
-    # Assert that the artifact called "remote_file_name" has the content of the last file uploaded file -- i.e. `num_files` - 1
+    # Assert that the file called "remote_file_name" has the content of the last file uploaded file -- i.e. `num_files` - 1
     destination = tmp_path / 'downloaded_file'
     remote_uploader_downloader.download_file(remote_file_name, str(destination), overwrite=False, progress_bar=False)
     with open(destination, 'r') as f:

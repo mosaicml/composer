@@ -108,7 +108,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
                 disable trace merging by setting this parameter to ``None``. Instead, traces should be merged together
                 in a post-processing step. See :mod:`composer.profiler.json_trace_merger` for additional info.
 
-        merged_trace_remote_file_name (str, optional): Format string for the merged trace file's artifact name.
+        merged_trace_remote_file_name (str, optional): Format string for the merged trace file's remote file name.
             (default: ``'{{run_name}}/traces/merged_trace.json'``)
 
             The same format variables as for ``folder`` are available.
@@ -124,13 +124,13 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
         num_traces_to_keep (int, optional): The number of traces to keep locally. The oldest traces
             are removed first. Set to ``-1`` to keep all traces locally. (default: ``-1``)
 
-            Traces will be removed after they have been logged as a file artifact. For example, when this handler
+            Traces will be removed after they have been uploaded. For example, when this handler
             is used in conjunction with the :class:`.RemoteUploaderDownloader`, set this
             parameter to ``0`` to immediately delete traces from the local disk after they have been uploaded to
             the object store.
 
             This parameter only controls how many traces are kept locally; traces are not deleted from
-            artifact stores.
+            remote file systems.
 
     Attributes:
         saved_traces (List[Tuple[Timestamp, List[pathlib.Path]]]): The trace timestamps and filepaths.

@@ -138,7 +138,7 @@ class TensorboardLogger(LoggerDestination):
         self._flush(logger)
 
     def _flush(self, logger: Logger):
-        # To avoid empty log artifacts for each rank.
+        # To avoid empty files uploaded for each rank.
         if self.rank_zero_only and dist.get_global_rank() != 0:
             return
 

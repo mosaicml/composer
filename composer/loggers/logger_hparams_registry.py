@@ -37,16 +37,16 @@ class RemoteUploaderDownloaderHparams(hp.Hparams):
 
     Args:
         object_store_hparams (ObjectStoreHparams): The object store provider hparams.
-        should_log_artifact (str, optional): The path to a filter function which returns whether an artifact should be
-            logged. The path should be of the format ``path.to.module:filter_function_name``.
+        should_upload_file (str, optional): The path to a filter function which returns whether a file should be uploaded.
+        The path should be of the format ``path.to.module:filter_function_name``.
 
-            The function should take (:class:`~composer.core.State`, :class:`.LogLevel`, ``<artifact name>``).
-            The artifact name will be a string. The function should return a boolean indicating whether the artifact
-            should be logged.
+            The function should take (:class:`~composer.core.State`, :class:`.LogLevel`, ``<remote file name>``).
+            The remote file name will be a string. The function should return a boolean indicating whether the file
+            should be uploaded.
 
             .. seealso: :func:`composer.utils.import_helpers.import_object`
 
-            Setting this parameter to ``None`` (the default) will log all artifacts.
+            Setting this parameter to ``None`` (the default) will upload all files.
         object_name (str, optional): See :class:`.RemoteUploaderDownloader`.
         num_concurrent_uploads (int, optional): See :class:`.RemoteUploaderDownloader`.
         upload_staging_folder (str, optional): See :class:`.RemoteUploaderDownloader`.
@@ -58,8 +58,8 @@ class RemoteUploaderDownloaderHparams(hp.Hparams):
     }
 
     object_store_hparams: ObjectStoreHparams = hp.required('Object store provider hparams.')
-    should_log_artifact: Optional[str] = hp.optional(
-        'Path to a filter function which returns whether an artifact should be logged.', default=None)
+    should_upload_file: Optional[str] = hp.optional(
+        'Path to a filter function which returns whether a file should be uploaded.', default=None)
     object_name: str = hp.auto(RemoteUploaderDownloader, 'object_name')
     num_concurrent_uploads: int = hp.auto(RemoteUploaderDownloader, 'num_concurrent_uploads')
     use_procs: bool = hp.auto(RemoteUploaderDownloader, 'use_procs')
@@ -71,8 +71,7 @@ class RemoteUploaderDownloaderHparams(hp.Hparams):
             object_store_cls=self.object_store_hparams.get_object_store_cls(),
             object_store_kwargs=self.object_store_hparams.get_kwargs(),
             object_name=self.object_name,
-            should_log_artifact=import_object(self.should_log_artifact)
-            if self.should_log_artifact is not None else None,
+            should_upload_file=import_object(self.should_upload_file) if self.should_upload_file is not None else None,
             num_concurrent_uploads=self.num_concurrent_uploads,
             upload_staging_folder=self.upload_staging_folder,
             use_procs=self.use_procs,

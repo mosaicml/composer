@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Log artifacts to an object store."""
+"""Log files to an object store."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ __all__ = ['RemoteUploaderDownloader']
 
 
 def _always_log(state: State, log_level: LogLevel, destination_uri: str):
-    """Function that can be passed into ``should_log_artifact`` to log all artifacts."""
+    """Function that can be passed into ``should_upload_file`` to upload all files."""
     del state, log_level, destination_uri  # unused
     return True
 
@@ -73,10 +73,10 @@ class RemoteUploaderDownloader(LoggerDestination):
 
     .. note::
 
-        This callback blocks the training loop to copy each artifact where ``should_log_artifact`` returns ``True``, as
+        This callback blocks the training loop to upload each file where ``should_upload_file`` returns ``True``, as
         the uploading happens in the background. Here are some additional tips for minimizing the performance impact:
 
-        *   Set ``should_log`` to filter which artifacts will be logged. By default, all artifacts are logged.
+        *   Set ``should_log`` to filter which files will be uploaded. By default, all files are uploaded.
 
         *   Set ``use_procs=True`` (the default) to use background processes, instead of threads, to perform the file
             uploads. Processes are recommended to ensure that the GIL is not blocking the training loop when
@@ -98,13 +98,13 @@ class RemoteUploaderDownloader(LoggerDestination):
             As individual :class:`.ObjectStore` instances are not necessarily thread safe, each worker will construct
             its own :class:`.ObjectStore` instance from ``object_store_cls`` and ``object_store_kwargs``.
 
-        should_log_artifact ((State, LogLevel, str) -> bool, optional): A function to filter which artifacts
+        should_upload_file ((State, LogLevel, str) -> bool, optional): A function to filter which files
             are uploaded.
 
-            The function should take the (current training state, log level, artifact name) and return a boolean
+            The function should take the (current training state, log level, remote file name) and return a boolean
             indicating whether this file should be uploaded.
 
-            By default, all artifacts will be uploaded.
+            By default, all files will be uploaded.
 
         object_name (str, optional): A format string used to determine the object name.
 
@@ -136,7 +136,7 @@ class RemoteUploaderDownloader(LoggerDestination):
 
             Leading slashes (``'/'``) will be stripped.
 
-            Consider the following example, which subfolders the artifacts by their rank:
+            Consider the following example, which subfolders the remote files by their rank:
 
             .. testsetup:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.object_name
 
@@ -180,7 +180,7 @@ class RemoteUploaderDownloader(LoggerDestination):
     def __init__(self,
                  object_store_cls: Type[ObjectStore],
                  object_store_kwargs: Dict[str, Any],
-                 should_log_artifact: Optional[Callable[[State, LogLevel, str], bool]] = None,
+                 should_upload_file: Optional[Callable[[State, LogLevel, str], bool]] = None,
                  object_name: str = '{remote_file_name}',
                  num_concurrent_uploads: int = 4,
                  upload_staging_folder: Optional[str] = None,
@@ -188,9 +188,9 @@ class RemoteUploaderDownloader(LoggerDestination):
                  num_attempts: int = 3) -> None:
         self.object_store_cls = object_store_cls
         self.object_store_kwargs = object_store_kwargs
-        if should_log_artifact is None:
-            should_log_artifact = _always_log
-        self.should_log_artifact = should_log_artifact
+        if should_upload_file is None:
+            should_upload_file = _always_log
+        self.should_upload_file = should_upload_file
         self.object_name = object_name
         self.num_attempts = num_attempts
         self._run_name = None
@@ -319,7 +319,7 @@ class RemoteUploaderDownloader(LoggerDestination):
         *,
         overwrite: bool,
     ):
-        if not self.should_log_artifact(state, log_level, remote_file_name):
+        if not self.should_upload_file(state, log_level, remote_file_name):
             return
         copied_path = os.path.join(self._upload_staging_folder, str(uuid.uuid4()))
         os.makedirs(self._upload_staging_folder, exist_ok=True)

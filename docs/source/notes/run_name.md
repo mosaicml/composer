@@ -72,4 +72,4 @@ See [Logging](../trainer/logging.rst) for more information.
 
 ### Run Names in Profiling
 
-The profiling tools for the training also save profiling artifacts to folders named after the `run_name`.  See [Performance Profiling](../trainer/performance_tutorials/profiling.md) for more information.
+The profiling tools for the training also save profiling files to folders named after the `run_name`.  See [Performance Profiling](../trainer/performance_tutorials/profiling.md) for more information.

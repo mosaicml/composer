@@ -104,7 +104,7 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
     trainer.fit()
 
 
-During resumption, there would be no local checkpoints, so the trainer would then look in the object store logger's provided bucket and artifact folder (`checkpoint-debugging/my_cool_run/checkpoints`) to find the latest checkpoint.
+During resumption, there would be no local checkpoints, so the trainer would then look in the object store logger's provided bucket and checkpoint folder (`checkpoint-debugging/my_cool_run/checkpoints`) to find the latest checkpoint.
 
 Example: Fine-tuning
 --------------------

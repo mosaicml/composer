@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Loggers to store metrics and artifacts.
+"""Loggers to store metrics and checkpoints.
 
 In Composer, algorithms and callbacks can make calls to the :class:`~.logger.Logger`,
 which then routes the calls to the appropriate :class:`~.logger_destination.LoggerDestination` instances.

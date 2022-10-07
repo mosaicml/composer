@@ -494,8 +494,8 @@ def create_symlink_file(
     """
     # Loggers might not natively support symlinks, so we emulate symlinks via text files ending with `.symlink`
     # This text file contains the name of the object it is pointing to.
-    # Only symlink if we're logging artifact to begin with
-    # Write artifact name into file to emulate symlink
+    # Only symlink if we're uploading files to begin with
+    # Write remote file name into file to emulate symlink
     # Add .symlink extension so we can identify as emulated symlink when downloading
     destination_filename = str(destination_filename)
     if not destination_filename.endswith('.symlink'):

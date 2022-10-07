@@ -14,15 +14,15 @@ from tests.common.datasets import RandomClassificationDataset
 from tests.common.models import SimpleModel
 
 
-class FileArtifactLoggerTracker(LoggerDestination):
+class FileUploaderTracker(LoggerDestination):
 
     def __init__(self) -> None:
-        self.logged_artifacts = []
+        self.uploaded_files = []
 
     def upload_file(self, state: State, log_level: LogLevel, remote_file_name: str, file_path: pathlib.Path, *,
                     overwrite: bool):
         del state, overwrite  # unused
-        self.logged_artifacts.append((log_level, remote_file_name, file_path))
+        self.uploaded_files.append((log_level, remote_file_name, file_path))
 
 
 def test_file_logger(dummy_state: State, tmp_path: pathlib.Path):
@@ -33,7 +33,7 @@ def test_file_logger(dummy_state: State, tmp_path: pathlib.Path):
         buffer_size=1,
         flush_interval=1,
     )
-    file_tracker_destination = FileArtifactLoggerTracker()
+    file_tracker_destination = FileUploaderTracker()
     logger = Logger(dummy_state, destinations=[log_destination, file_tracker_destination])
     log_destination.run_event(Event.INIT, dummy_state, logger)
     logger.log_hyperparameters({'foo': 3})

@@ -97,7 +97,7 @@ class TorchProfiler(Callback):  # noqa: D101
         remote_file_name (str, optional): Format string for a Torch Profiler trace file's remote file name.
             Defaults to ``'{{run_name}}/torch_traces/rank{{rank}}.{{batch}}.pt.trace.json'``.
 
-            Whenever a trace file is saved, it is also uploaded as a file artifact according to this format string.
+            Whenever a trace file is saved, it is also uploaded as a file according to this format string.
             The same format variables as for ``filename`` are available.
 
             .. seealso:: :doc:`Uploading files</trainer/file_uploading>` for notes for file uploading.
@@ -119,11 +119,11 @@ class TorchProfiler(Callback):  # noqa: D101
 
             If set to -1, then all traces files are kept locally.
 
-            After a trace has been saved and logged as a file artifact, the oldest traces are removed until
+            After a trace has been saved and uploaded, the oldest traces are removed until
             ``num_traces_to_keep`` traces remain. This parameter only controls how many traces are kept locally;
-            traces are not deleted from artifact stores.
+            traces are not deleted from remote file systems.
 
-            It can be useful to set this parameter to ``0`` when using an artifact logger such as the
+            It can be useful to set this parameter to ``0`` when using an remote file uploader such as the
             :class:`.RemoteUploaderDownloader`. This combination will minimize local
             disk usage by deleting trace files immediately after they have been uploaded to the object store.
 

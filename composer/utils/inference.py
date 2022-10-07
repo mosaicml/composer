@@ -234,7 +234,7 @@ def export_with_logger(
 
     Exports the model to:
     1) save_object_store, if one is provided,
-    2) logger.upload_file(save_path), if (1) does not apply and the logger has a destination that supports file artifact logging,
+    2) logger.upload_file(save_path), if (1) does not apply and the logger has a destination that supports file uploading,
     3) locally, if (1) and (2) do not apply.
 
     Args:
@@ -244,7 +244,7 @@ def export_with_logger(
         save_path: (str): The path for storing the exported model. It can be a path to a file on the local disk,
         a URL, or if ``save_object_store`` is set, the object name
             in a cloud bucket. For example, ``my_run/exported_model``.
-        logger (Logger): If this logger has a destination that supports file artifacting logging, and save_object_store
+        logger (Logger): If this logger has a destination that supports file uploading, and save_object_store
             is not provided, this logger is used to export the model.
         save_object_store (ObjectStore, optional): If the ``save_path`` is in an object name in a cloud bucket
             (i.e. AWS S3 or Google Cloud Storage), an instance of

@@ -44,7 +44,7 @@ class PredictionSaver(Callback):
         filepath = os.path.join(self.folder, name)
         torch.save(state.outputs, filepath)
 
-        # Also log the outputs as an artifact
+        # Also upload the files
         logger.upload_file(LogLevel.BATCH, remote_file_name=name, file_path=filepath)
 
 

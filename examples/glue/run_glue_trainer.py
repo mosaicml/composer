@@ -308,7 +308,7 @@ def train_finetune(
 
     # saving single checkpoint at the end of training the task
     if save_ckpt:
-        # add task specific artifact logging information
+        # add task specific checkpoint uploading information
         ft_hparams.save_folder = f'{save_folder}/{task}-{parent_idx:03d}'
         save_remote_file_name = f'{save_folder}/{task}-{parent_idx:03d}/ep{{epoch}}-ba{{batch}}-rank{{rank}}'  # ignored if not uploading
         save_latest_remote_file_name = f'{save_folder}/{task}-{parent_idx:03d}/latest-rank{{rank}}'
