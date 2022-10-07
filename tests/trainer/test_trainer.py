@@ -596,7 +596,7 @@ class TestTrainerInitOrFit:
             eval_dataloader=DataLoader(
                 dataset=dataset,
                 batch_size=2,
-                sampler=dist.get_sampler(RandomClassificationDataset()),
+                sampler=dist.get_sampler(dataset),
             ),
             callbacks=[sleepy_callback, event_counter_callback],
             eval_interval=eval_interval,
