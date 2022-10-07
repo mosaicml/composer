@@ -115,8 +115,8 @@ class HuggingFaceModel(ComposerModel):
             # if we are in the single class case, then remove the classes dimension
             if output.shape[1] == 1:
                 output = output.squeeze(dim=1)
-            return output
-        return outputs
+
+        return output
 
     def get_metrics(self, is_train: bool = False) -> Dict[str, Metric]:
         if is_train:
