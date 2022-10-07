@@ -34,12 +34,12 @@ class TestEventCalls:
             model=model,
             train_dataloader=DataLoader(
                 dataset=RandomClassificationDataset(),
-                batch_size=8,
+                batch_size=4,
                 sampler=dist.get_sampler(train_dataset),
             ),
             eval_dataloader=DataLoader(
                 dataset=RandomClassificationDataset(),
-                batch_size=16,
+                batch_size=8,
                 sampler=dist.get_sampler(eval_dataset),
             ),
             grad_accum=2,
@@ -64,10 +64,9 @@ class TestEventCalls:
     def test_event_calls(self, world_size, device, deepspeed_zero_stage, save_interval):
         save_interval = Time.from_timestring(save_interval)
 
+        deepspeed_config = None
         if deepspeed_zero_stage:
             deepspeed_config = {'zero_optimization': {'stage': deepspeed_zero_stage}}
-        else:
-            deepspeed_config = None
 
         trainer = self.get_trainer(
             device=device,
