@@ -13,7 +13,7 @@ import pytest
 
 from composer.core.event import Event
 from composer.core.state import State
-from composer.loggers import Logger, LogLevel
+from composer.loggers import Logger
 from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.utils.object_store.object_store import ObjectStore
 
@@ -87,7 +87,7 @@ def object_store_test_helper(
     file_path = os.path.join(tmp_path, f'file')
     with open(file_path, 'w+') as f:
         f.write('1')
-    logger.file_artifact(LogLevel.FIT, artifact_name, file_path, overwrite=overwrite)
+    logger.file_artifact(artifact_name, file_path, overwrite=overwrite)
 
     file_path_2 = os.path.join(tmp_path, f'file_2')
     with open(file_path_2, 'w+') as f:
@@ -106,7 +106,7 @@ def object_store_test_helper(
             # Wait for the first upload to go through
             time.sleep(2)
             # Do the second upload -- it should enqueue
-            logger.file_artifact(LogLevel.FIT, artifact_name, file_path_2, overwrite=overwrite)
+            logger.file_artifact(artifact_name, file_path_2, overwrite=overwrite)
             # Give it some time to finish the second upload
             # (Since the upload is really a file copy, it should be fast)
             time.sleep(2)
@@ -119,7 +119,7 @@ def object_store_test_helper(
         else:
             # Otherwise, if no delay, it should error when being enqueued
             with pytest.raises(FileExistsError):
-                logger.file_artifact(LogLevel.FIT, artifact_name, file_path_2, overwrite=overwrite)
+                logger.file_artifact(artifact_name, file_path_2, overwrite=overwrite)
 
     object_store_logger.close(dummy_state, logger)
 
@@ -193,7 +193,7 @@ def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_stat
     artifact_name = 'artifact_name'
     for i in range(num_files):
         file_path = tmp_path / 'samples' / f'sample_{i}'
-        object_store_logger.log_file_artifact(dummy_state, LogLevel.FIT, artifact_name, file_path, overwrite=True)
+        object_store_logger.log_file_artifact(dummy_state, artifact_name, file_path, overwrite=True)
 
     # Shutdown the logger. This should wait until all objects are uploaded
     object_store_logger.close(dummy_state, logger=logger)
@@ -232,7 +232,7 @@ def test_close_on_failure(tmp_path: pathlib.Path, dummy_state: State):
 
     object_store_logger.run_event(Event.INIT, dummy_state, logger)
 
-    logger.file_artifact(LogLevel.FIT, 'dummy_artifact_name', tmpfile_path)
+    logger.file_artifact('dummy_artifact_name', tmpfile_path)
 
     # Wait enough time for the file to be enqueued
     time.sleep(0.5)
@@ -242,7 +242,7 @@ def test_close_on_failure(tmp_path: pathlib.Path, dummy_state: State):
         object_store_logger.run_event(Event.EPOCH_END, dummy_state, logger)
 
     # Enqueue the file again to ensure that the buffers are dirty
-    logger.file_artifact(LogLevel.FIT, 'dummy_artifact_name', tmpfile_path)
+    logger.file_artifact('dummy_artifact_name', tmpfile_path)
 
     # Shutdown the logger. This should not hang or cause any exception
     object_store_logger.close(dummy_state, logger=logger)

@@ -20,7 +20,7 @@ from multiprocessing.context import SpawnProcess
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 from composer.core.state import State
-from composer.loggers.logger import Logger, LogLevel
+from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import ObjectStore, ObjectStoreTransientError, dist, format_name_with_dist, get_file, retry
 
@@ -138,7 +138,6 @@ class ObjectStoreLogger(LoggerDestination):
                 >>> object_store_logger = ObjectStoreLogger(..., object_name='rank_{rank}/{artifact_name}')
                 >>> trainer = Trainer(..., run_name='foo', loggers=[object_store_logger])
                 >>> trainer.logger.file_artifact(
-                ...     log_level=LogLevel.EPOCH,
                 ...     artifact_name='bar.txt',
                 ...     file_path='path/to/file.txt',
                 ... )
@@ -295,7 +294,6 @@ class ObjectStoreLogger(LoggerDestination):
     def log_file_artifact(
         self,
         state: State,
-        log_level: LogLevel,
         artifact_name: str,
         file_path: pathlib.Path,
         *,
