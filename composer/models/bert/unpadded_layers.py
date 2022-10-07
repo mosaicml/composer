@@ -263,7 +263,7 @@ class BertModel(BertPreTrainedModel):
         return self.embeddings.word_embeddings
 
     def set_input_embeddings(self, value):
-        self.embeddings.word_embeddings = value
+        self.embeddings.word_embeddings = value  # type: ignore
 
     def forward(self,
                 input_ids,
@@ -446,7 +446,6 @@ class BertForMaskedLM(BertPreTrainedModel):
             else:
                 # Standard HuggingFace model loss computation
                 masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), masked_lm_labels.view(-1))
-
         """
         if input_ids != None:
             batch, seqlen = input_ids.shape[:2]
@@ -454,7 +453,7 @@ class BertForMaskedLM(BertPreTrainedModel):
                                           '(b s) d -> b s d',
                                           b=batch)
         """
-        
+
         if not return_dict:
             output = (prediction_scores,) + outputs[2:]
             return ((masked_lm_loss,) + output) if masked_lm_loss is not None else output
