@@ -109,7 +109,7 @@ class LoggerDestination(Callback, ABC):
             log_level (Union[str, LogLevel]): A :class:`LogLevel`.
             remote_file_name (str): The name of the file.
             file_path (pathlib.Path): The file path.
-            overwrite (bool, optional): Whether to overwrite an existing file with the same ``remote_file_names``.
+            overwrite (bool, optional): Whether to overwrite an existing file with the same ``remote_file_name``.
                 (default: ``False``)
         """
         del state, log_level, remote_file_name, file_path, overwrite  # unused

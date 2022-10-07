@@ -121,7 +121,7 @@ class Logger:
         Both ``file_path`` and ``remote_file_name`` can be specified as format strings.
         See :func:`~.composer.utils.file_helpers.format_name_with_dist` for more information.
 
-        .. seealso:: :doc:`Uploading files</trainer/file_uploading>` for notes for file uploading.
+        .. seealso:: :doc:`Uploading Files</trainer/file_uploading>` for notes for file uploading.
 
         Args:
             log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of

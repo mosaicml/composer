@@ -173,7 +173,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             After the checkpoint is saved, it will be periodically uploaded.
             The remote file name will be determined by this format string.
 
-            .. seealso:: :doc:`Uploading files</trainer/file_uploading>` for notes for file uploading.
+            .. seealso:: :doc:`Uploading Files</trainer/file_uploading>` for notes for file uploading.
 
             The same format variables for ``filename`` are available.
 

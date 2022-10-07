@@ -100,7 +100,7 @@ class TorchProfiler(Callback):  # noqa: D101
             Whenever a trace file is saved, it is also uploaded as a file according to this format string.
             The same format variables as for ``filename`` are available.
 
-            .. seealso:: :doc:`Uploading files</trainer/file_uploading>` for notes for file uploading.
+            .. seealso:: :doc:`Uploading Files</trainer/file_uploading>` for notes for file uploading.
 
             Leading slashes (``'/'``) will be stripped.
 
@@ -123,7 +123,7 @@ class TorchProfiler(Callback):  # noqa: D101
             ``num_traces_to_keep`` traces remain. This parameter only controls how many traces are kept locally;
             traces are not deleted from remote file systems.
 
-            It can be useful to set this parameter to ``0`` when using an remote file uploader such as the
+            It can be useful to set this parameter to ``0`` when using a remote file uploader such as the
             :class:`.RemoteUploaderDownloader`. This combination will minimize local
             disk usage by deleting trace files immediately after they have been uploaded to the object store.
 

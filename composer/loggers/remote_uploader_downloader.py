@@ -29,9 +29,9 @@ log = logging.getLogger(__name__)
 __all__ = ['RemoteUploaderDownloader']
 
 
-def _always_log(state: State, log_level: LogLevel, destination_uri: str):
+def _always_log(state: State, log_level: LogLevel, remote_file_name: str):
     """Function that can be passed into ``should_upload_file`` to upload all files."""
-    del state, log_level, destination_uri  # unused
+    del state, log_level, remote_file_name  # unused
     return True
 
 
@@ -473,13 +473,13 @@ class RemoteUploaderDownloader(LoggerDestination):
         self._workers.clear()
 
     def get_uri_for_file(self, remote_file_name: str) -> str:
-        """Get the object store provider uri for an artfact.
+        """Get the object store provider uri for a remote file.
 
         Args:
-            remote_file_name (str): The name of a file.
+            remote_file_name (str): The name of a remote file.
 
         Returns:
-            str: The uri corresponding to the uploaded location of the file.
+            str: The uri corresponding to the uploaded location of the remote file.
         """
         obj_name = self._object_name(remote_file_name)
         return self.remote_backend.get_uri(obj_name.lstrip('/'))

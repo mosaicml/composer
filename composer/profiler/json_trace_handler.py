@@ -73,13 +73,13 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
                 awesome-training-run/traces/ep1-ba42-rank2.json
                 ...
 
-        remote_file_name (str, optional): Format string for the trace file's name.
+        remote_file_name (str, optional): Format string for the trace file's remote name.
             (default: ``'{{run_name}}/traces/ep{{epoch}}-ba{{batch}}-rank{{rank}}.json'``)
 
             Whenever a trace file is saved, it is also uploaded as a remote file according to this format string.
             The same format variables as for ``filename`` are available.
 
-            .. seealso:: :doc:`Uploading files</trainer/file_uploading>` for notes for file uploading.
+            .. seealso:: :doc:`Uploading Files</trainer/file_uploading>` for notes for file uploading.
 
             Leading slashes (``'/'``) will be stripped.
 
