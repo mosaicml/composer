@@ -10,8 +10,9 @@ from composer.datasets.dataset_hparams_registry import (ADE20kDatasetHparams, Br
                                                         CIFAR10DatasetHparams, COCODatasetHparams, GLUEHparams,
                                                         ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams,
                                                         StreamingADE20kHparams, StreamingC4Hparams,
-                                                        StreamingCIFAR10Hparams, StreamingCOCOHparams,
-                                                        StreamingImageNet1kHparams, dataset_registry)
+                                                        StreamingCIFAR10Hparams, StreamingCOCOHparams)
+from composer.datasets.dataset_hparams_registry import StreamingEnWikiHparams as StreamingEnWikiHparams
+from composer.datasets.dataset_hparams_registry import StreamingImageNet1kHparams, dataset_registry
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 
 # for testing, we provide values for required hparams fields
@@ -59,7 +60,7 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
         ),
     COCODatasetHparams:
         lambda: COCODatasetHparams(
-            is_train=False,
+            split='val',
             datadir='hello',
             drop_last=False,
             shuffle=False,
@@ -76,6 +77,8 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
         ),
     StreamingC4Hparams:
         lambda: StreamingC4Hparams(split='val'),
+    StreamingEnWikiHparams:
+        lambda: StreamingEnWikiHparams(split='val'),
 }
 
 

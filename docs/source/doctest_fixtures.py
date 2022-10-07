@@ -61,6 +61,13 @@ except ImportError:
     _WANDB_INSTALLED = False
 
 try:
+    import comet_ml
+    _COMETML_INSTALLED = True
+    del comet_ml  # unused
+except ImportError:
+    _COMETML_INSTALLED = False
+
+try:
     import libcloud
     _LIBCLOUD_INSTALLED = True
     del libcloud  # unused

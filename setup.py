@@ -87,7 +87,7 @@ install_requires = [
     'tabulate==0.8.10',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<9',
     'packaging>=21.3.0,<22',
-    'importlib-metadata>=4.11.0,<5',
+    'importlib-metadata>=5.0.0,<6',
 ]
 extra_deps = {}
 
@@ -99,14 +99,14 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.0',
     'junitparser==2.8.0',
-    'coverage[toml]==6.4.4',
-    'fasteners==0.17.3',  # object store tests require fasteners
+    'coverage[toml]==6.5.0',
+    'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.1.3',
     'toml==0.10.2',
     'ipython==7.32.0',
-    'ipykernel==6.15.2',
+    'ipykernel==6.16.0',
     'jupyter==1.0.0',
-    'yamllint==1.27.1',
+    'yamllint==1.28.0',
     'recommonmark==0.7.1',
     'sphinx==4.4.0',
     'pre-commit>=2.18.1,<3',
@@ -114,26 +114,27 @@ extra_deps['dev'] = [
     # https://myst-parser.readthedocs.io/en/latest/sphinx/use.html?highlight=parser#include-markdown-files-into-an-rst-file
     'docutils==0.17.1',
     'sphinx_markdown_tables==0.0.17',
-    'sphinx-argparse==0.3.1',
+    'sphinx-argparse==0.3.2',
     'sphinxcontrib.katex==0.9.0',
     'sphinxext.opengraph==0.6.3',
     'sphinxemoji==0.2.0',
-    'furo==2022.6.21',
+    'furo==2022.9.29',
     'sphinx-copybutton==0.5.0',
     'testbook==0.4.2',
     'myst-parser==0.16.1',
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.16.1',
-    'traitlets==5.3.0',  # required by testbook. Version 5.2.2 has an import bug, so pinning to 5.1.1, which worked previously.
+    'traitlets==5.4.0',
     'nbsphinx==0.8.9',
     'pandoc==2.2',
-    'pypandoc==1.8.1',
+    'pypandoc==1.9',
     'GitPython==3.1.27',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
     'cryptography==38.0.1',
     'pytest-httpserver>=1.0.4,<1.1',
+    'setuptools<=59.5.0',
 ]
 
 extra_deps['deepspeed'] = [
@@ -148,7 +149,6 @@ extra_deps['comet_ml'] = ['comet_ml>=3.31.12,<4.0.0']
 
 extra_deps['tensorboard'] = [
     'tensorboard>=2.9.1,<3.0.0',
-    'tensorflow-io>=0.26.0,<0.28',
 ]
 
 extra_deps['unet'] = [
@@ -190,8 +190,8 @@ extra_deps['libcloud'] = [
 ]
 
 extra_deps['onnx'] = [
-    'onnx>=1.11.0,<2',
-    'onnxruntime>=1.11.0,<2',
+    'onnx>=1.12.0,<2',
+    'onnxruntime>=1.12.1,<2',
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)

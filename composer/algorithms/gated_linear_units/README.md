@@ -1,6 +1,6 @@
 # ⛩️ Gated Linear Units
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
  `Natural Language Processing`
 
@@ -9,7 +9,7 @@ Gated Linear Units replaces the projection matricies in the feed-forward block w
 | ![GatedLinearUnits](https://storage.cloud.google.com/docs.mosaicml.com/images/methods/gated_linear_units.png)|
 |:--|
 |*These equations compare the projection matricies in a standard feed-forward network, and a Gated Linear Unit.
-Following (Shazeer, 2020), we omit the use of bias terms. $\cdot$ represents a dot product.*|
+Following [Shazeer, 2020](https://arxiv.org/abs/2002.05202), we omit the use of bias terms. $\cdot$ represents a dot product.*|
 
 ## How to Use
 
@@ -79,8 +79,22 @@ We observed that, on average, GeLU activation functions marginally performed bet
 
 ## Technical Details
 
+> ✅ Gated Linear Units Improve the Tradeoff Between Quality and Training Speed
+
 While there are many hypotheses for the performace of Gated Linear Units, the community lacks a through investigation of these. The algorithm has been shown to perform well empirically, and there remains an open curiosity as to why step-wise convergence is significantly better without bias terms than with bias terms. Furthermore, in order to maximize throughput, the user should make sure that the scaled down feature dimension when using GLUs is still a multiple of eight.
 
 ## Attribution
 
+[*Language Modeling with Gated Convolutional Networks*](https://arxiv.org/abs/1612.08083)
+by Dauhpin et al. Posted to arXiv in 2016.
+
+Our implementation most closely matches: [*GLU Variants Improve
+Transformer*](https://arxiv.org/abs/2002.05202) by Shazeer. Posted to arXiv in 2020.
+
 *The Composer implementation of this method and the accompanying documentation were produced by Moin Nadeem at MosaicML.*
+
+## API Reference
+
+**Algorithm class:** {class}`composer.algorithms.GatedLinearUnits`
+
+**Functional:** {func}`composer.functional.apply_gated_linear_units`

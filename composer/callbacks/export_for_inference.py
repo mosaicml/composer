@@ -86,5 +86,5 @@ class ExportForInferenceCallback(Callback):
                            save_path=self.save_path,
                            logger=logger,
                            save_object_store=self.save_object_store,
-                           sample_input=(self.sample_input,),
+                           sample_input=(self.sample_input, {}),
                            transforms=self.transforms)

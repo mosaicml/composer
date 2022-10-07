@@ -34,9 +34,9 @@ from composer.optim import ComposerScheduler
 from composer.optim.optimizer_hparams_registry import OptimizerHparams, optimizer_registry
 from composer.optim.scheduler_hparams_registry import scheduler_registry
 from composer.profiler import Profiler
-from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceTPU
 from composer.trainer.devices.device_hparams_registry import device_registry
+from composer.trainer.dist_strategy import DDPSyncStrategy
 from composer.trainer.trainer import Trainer, _is_tpu_installed
 from composer.utils import dist, reproducibility
 from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
@@ -242,7 +242,7 @@ class TrainerHparams(hp.Hparams):
         load_progress_bar (bool, optional): See :class:`.Trainer`.
         load_ignore_keys (List[str] | (Dict) -> None, optional): See :class:`.Trainer`.
 
-        checkpoint_save_path (str, optional): See :class:`.CheckpointSaver`.
+        save_folder (str, optional): See :class:`.CheckpointSaver`.
         save_filename (str, optional): See :class:`.CheckpointSaver`.
         save_artifact_name (str, optional): See :class:`.CheckpointSaver`.
         save_latest_filename (str, optional): See
@@ -250,9 +250,9 @@ class TrainerHparams(hp.Hparams):
         save_latest_artifact_name (str, optional): See :class:`.CheckpointSaver`.
         save_overwrite (str, optional): See :class:`.CheckpointSaver`.
         save_weights_only (bool, optional): See :class:`.CheckpointSaver`.
-        checkpoint_save_interval (str, optional): See
+        save_interval (str, optional): See
             :class:`~composer.callbacks.callback_hparams.CheckpointSaverHparams`.
-        num_checkpoints_to_keep (int, optional): See :class:`.CheckpointSaver`.
+        save_num_checkpoints_to_keep (int, optional): See :class:`.CheckpointSaver`.
         autoresume (bool, optional): See :class:`.Trainer`.
 
         deepspeed_config (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
@@ -352,15 +352,15 @@ class TrainerHparams(hp.Hparams):
     load_progress_bar: bool = hp.auto(Trainer, 'load_progress_bar')
 
     # Save Checkpoint
-    checkpoint_save_path: Optional[str] = hp.auto(Trainer, 'checkpoint_save_path')
+    save_folder: Optional[str] = hp.auto(Trainer, 'save_folder')
     save_filename: str = hp.auto(Trainer, 'save_filename')
     save_artifact_name: str = hp.auto(Trainer, 'save_artifact_name')
     save_latest_filename: str = hp.auto(Trainer, 'save_latest_filename')
     save_latest_artifact_name: str = hp.auto(Trainer, 'save_latest_artifact_name')
     save_overwrite: bool = hp.auto(Trainer, 'save_overwrite')
     save_weights_only: bool = hp.auto(Trainer, 'save_weights_only')
-    checkpoint_save_interval: str = hp.auto(Trainer, 'checkpoint_save_interval')
-    num_checkpoints_to_keep: int = hp.auto(Trainer, 'num_checkpoints_to_keep')
+    save_interval: str = hp.auto(Trainer, 'save_interval')
+    save_num_checkpoints_to_keep: int = hp.auto(Trainer, 'save_num_checkpoints_to_keep')
 
     # Graceful Resumption
     autoresume: bool = hp.auto(Trainer, 'autoresume')
@@ -557,15 +557,15 @@ class TrainerHparams(hp.Hparams):
             load_ignore_keys=self.load_ignore_keys,
 
             # Checkpoint Saving
-            checkpoint_save_path=self.checkpoint_save_path,
+            save_folder=self.save_folder,
             save_overwrite=self.save_overwrite,
             save_filename=self.save_filename,
             save_latest_filename=self.save_latest_filename,
             save_artifact_name=self.save_artifact_name,
             save_latest_artifact_name=self.save_latest_artifact_name,
-            checkpoint_save_interval=self.checkpoint_save_interval,
+            save_interval=self.save_interval,
             save_weights_only=self.save_weights_only,
-            num_checkpoints_to_keep=self.num_checkpoints_to_keep,
+            save_num_checkpoints_to_keep=self.save_num_checkpoints_to_keep,
 
             # Graceful Resumption
             autoresume=self.autoresume,
