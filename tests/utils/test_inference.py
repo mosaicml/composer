@@ -25,8 +25,8 @@ from composer.utils import dist, export_with_logger, inference
 from tests.common.datasets import RandomImageDataset
 
 
-class MockFileArtifactLogger(LoggerDestination):
-    """Mocks a generic file artifact logger interface."""
+class MockFileUploader(LoggerDestination):
+    """Mocks a generic file uploader interface."""
 
     def can_upload_files(self) -> bool:
         return True
@@ -405,7 +405,7 @@ def test_export_with_file_uploading_logger(model_cls, sample_input):
     with patch('composer.utils.inference.export_for_inference'):
         save_format = 'torchscript'
         model = model_cls()
-        mock_obj_logger = MockFileArtifactLogger()
+        mock_obj_logger = MockFileUploader()
         with tempfile.TemporaryDirectory() as tempdir:
             save_path = os.path.join(tempdir, f'model.pt')
 
