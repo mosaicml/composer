@@ -23,7 +23,7 @@ class StreamingEnWikiHparams(DatasetHparams):
 
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-            Default: ``'s3://mosaicml-internal-dataset-enwiki-20200101/mds/2/'``
+            Default: ``'s3://mosaicml-internal-dataset-enwiki-20200101/mds/2b/'``
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-enwiki/'``
         split (str): What split of the dataset to use. Either ``'train'`` or ``'val'``. Default: ``'train'``.
@@ -32,7 +32,7 @@ class StreamingEnWikiHparams(DatasetHparams):
     """
 
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
-                              default='s3://mosaicml-internal-dataset-enwiki-20200101/mds/2/')
+                              default='s3://mosaicml-internal-dataset-enwiki-20200101/mds/2b/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
                              default='/tmp/mds-cache/mds-enwiki/')
     split: str = hp.optional('What split of the dataset to use. Either `train` or `val`.', default='train')
@@ -63,5 +63,6 @@ class StreamingEnWikiHparams(DatasetHparams):
                 dataset=dataset,  # type: ignore
                 batch_size=batch_size,
                 sampler=None,
-                drop_last=self.drop_last),
+                drop_last=self.drop_last,
+                collate_fn=None),
             device_transforms=None)
