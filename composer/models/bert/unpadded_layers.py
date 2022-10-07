@@ -142,15 +142,15 @@ class BertLayer(nn.Module):
         self.intermediate = BertIntermediate(config)
         self.output = BertOutput(config)
 
-    # def forward(self, hidden_states, input_mask, seqlen, batch):
-    def forward(self, hidden_states, input_mask, seqlen, subset_idx=None):
+    # def forward(self, hidden_states, attention_mask, seqlen, batch):
+    def forward(self, hidden_states, attention_mask, seqlen, subset_idx=None):
         """subset_idx: set of indices whose values we care about at the end of the layer
         (e.g., the masked tokens, if this is the final layer).
         """
         if self.flash_attn:
-            attention_output = self.attention(hidden_states, input_mask, seqlen, subset_idx)
+            attention_output = self.attention(hidden_states, attention_mask, seqlen, subset_idx)
         else:
-            attention_output = self.attention(hidden_states, input_mask)
+            attention_output = self.attention(hidden_states, attention_mask)
         intermediate_output = self.intermediate(attention_output)
         layer_output = self.output(intermediate_output, attention_output)
         return layer_output
@@ -167,18 +167,18 @@ class BertEncoder(nn.Module):
         self.unpad = config.unpad
         self.unpad_flash_attn = config.unpad_flash_attn
 
-    def forward(self, hidden_states, input_mask, output_all_encoded_layers=True, subset_mask=None):
+    def forward(self, hidden_states, attention_mask, output_all_encoded_layers=True, subset_mask=None):
         all_encoder_layers = []
         batch = None
         seqlen = None
         if self.unpad_flash_attn:
-            # input_mask_bool = rearrange(input_mask, 'b 1 1 s -> b s') == 0.0
-            input_mask_bool = input_mask.bool()
+            # attention_mask_bool = rearrange(attention_mask, 'b 1 1 s -> b s') == 0.0
+            attention_mask_bool = attention_mask.bool()
             batch, seqlen = hidden_states.shape[:2]
             # Unpad inputs and mask. It will remove tokens that are padded. Assume ntokens is total number of tokens (padded and non-padded)
             # and ntokens_unpad is total number of non-padded tokens. Then unpadding performs the following compression of the inputs:
             #        hidden_states[ntokens,hidden] -> hidden_states[ntokens_unpad,hidden]
-            hidden_states, indices, cu_seqlens, max_seqlen_in_batch = unpad_input(hidden_states, input_mask_bool)
+            hidden_states, indices, cu_seqlens, max_seqlen_in_batch = unpad_input(hidden_states, attention_mask_bool)
             if subset_mask is None:
                 for layer_module in self.layer:
                     hidden_states = layer_module(hidden_states, cu_seqlens, max_seqlen_in_batch)
@@ -194,7 +194,7 @@ class BertEncoder(nn.Module):
                     hidden_states = layer_module(hidden_states, cu_seqlens, max_seqlen_in_batch)
                     if output_all_encoded_layers:
                         all_encoder_layers.append(hidden_states)
-                subset_idx = torch.nonzero(subset_mask[input_mask_bool], as_tuple=False).flatten()
+                subset_idx = torch.nonzero(subset_mask[attention_mask_bool], as_tuple=False).flatten()
                 hidden_states = self.layer[-1](hidden_states, cu_seqlens, max_seqlen_in_batch, subset_idx=subset_idx)
         else:
             raise RuntimeError('Please set unpad_flash_attention to True to use Bert unpadded model.')
@@ -217,7 +217,7 @@ class BertModel(BertPreTrainedModel):
         `token_type_ids`: an optional torch.LongTensor of shape [batch_size, sequence_length] with the token
             types indices selected in [0, 1]. Type 0 corresponds to a `sentence A` and type 1 corresponds to
             a `sentence B` token (see BERT paper for more details).
-        `input_mask`: an optional torch.LongTensor of shape [batch_size, sequence_length] with indices
+        `attention_mask`: an optional torch.LongTensor of shape [batch_size, sequence_length] with indices
             selected in [0, 1]. It's a mask to be used if the input sequence length is smaller than the max
             input sequence length in the current batch. It's the mask that we typically use for attention when
             a batch has varying length sentences.
@@ -268,13 +268,13 @@ class BertModel(BertPreTrainedModel):
     def forward(self,
                 input_ids,
                 token_type_ids=None,
-                input_mask=None,
+                attention_mask=None,
                 position_ids=None,
                 output_all_encoded_layers=False,
                 masked_tokens_mask=None,
                 **kwargs):
-        if input_mask is None:
-            input_mask = torch.ones_like(input_ids)
+        if attention_mask is None:
+            attention_mask = torch.ones_like(input_ids)
         if token_type_ids is None:
             token_type_ids = torch.zeros_like(input_ids)
 
@@ -283,17 +283,17 @@ class BertModel(BertPreTrainedModel):
         # So we can broadcast to [batch_size, num_heads, from_seq_length, to_seq_length]
         # this attention mask is more simple than the triangular masking of causal attention
         # used in OpenAI GPT, we just need to prepare the broadcast dimension here.
-        extended_input_mask = input_mask  #.unsqueeze(1).unsqueeze(2)
+        extended_attention_mask = attention_mask  #.unsqueeze(1).unsqueeze(2)
 
-        # Since input_mask is 1.0 for positions we want to attend and 0.0 for
+        # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
         # masked positions, this operation will create a tensor which is 0.0 for
         # positions we want to attend and -10000.0 for masked positions.
         # Since we are adding it to the raw scores before the softmax, this is
         # effectively the same as removing these entirely.
         if self.unpad == False:
-            extended_input_mask = extended_input_mask.to(dtype=next(
+            extended_attention_mask = extended_attention_mask.to(dtype=next(
                 self.parameters()).dtype)  # fp16 compatibility
-            extended_input_mask = (1.0 - extended_input_mask) * -10000.0
+            extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
 
         embedding_output = self.embeddings(input_ids, token_type_ids, position_ids)
 
@@ -308,7 +308,7 @@ class BertModel(BertPreTrainedModel):
             subset_mask = masked_tokens_mask | first_col_mask
 
         encoder_outputs = self.encoder(embedding_output,
-                                       extended_input_mask,
+                                       extended_attention_mask,
                                        output_all_encoded_layers=output_all_encoded_layers,
                                        subset_mask=subset_mask)
 
@@ -316,9 +316,9 @@ class BertModel(BertPreTrainedModel):
             sequence_output = encoder_outputs[-1]
         else:
             # TD [2022-03-01]: the indexing here is very tricky.
-            input_mask_bool = input_mask.bool()
-            subset_idx = subset_mask[input_mask_bool]  # type: ignore
-            sequence_output = encoder_outputs[-1][masked_tokens_mask[input_mask_bool][subset_idx]]
+            attention_mask_bool = attention_mask.bool()
+            subset_idx = subset_mask[attention_mask_bool]  # type: ignore
+            sequence_output = encoder_outputs[-1][masked_tokens_mask[attention_mask_bool][subset_idx]]
 
         if not output_all_encoded_layers:
             encoder_outputs = sequence_output
@@ -390,13 +390,13 @@ class BertForMaskedLM(BertPreTrainedModel):
     def forward(
         self,
         input_ids: Optional[torch.Tensor] = None,
-        input_mask: Optional[torch.Tensor] = None,
+        attention_mask: Optional[torch.Tensor] = None,
         token_type_ids: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.Tensor] = None,
         head_mask: Optional[torch.Tensor] = None,
         inputs_embeds: Optional[torch.Tensor] = None,
         encoder_hidden_states: Optional[torch.Tensor] = None,
-        encoder_input_mask: Optional[torch.Tensor] = None,
+        encoder_attention_mask: Optional[torch.Tensor] = None,
         labels: Optional[torch.Tensor] = None,
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
@@ -415,13 +415,13 @@ class BertForMaskedLM(BertPreTrainedModel):
         masked_tokens_mask = masked_lm_labels > 0 if (self.last_layer_subset and masked_lm_labels is not None) else None
         outputs = self.bert(
             input_ids,
-            input_mask=input_mask,
+            attention_mask=attention_mask,
             token_type_ids=token_type_ids,
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
             encoder_hidden_states=encoder_hidden_states,
-            encoder_input_mask=encoder_input_mask,
+            encoder_attention_mask=encoder_attention_mask,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
@@ -464,7 +464,7 @@ class BertForMaskedLM(BertPreTrainedModel):
             attentions=outputs.attentions,
         )
 
-    def prepare_inputs_for_generation(self, input_ids: torch.Tensor, input_mask: torch.Tensor, **model_kwargs):
+    def prepare_inputs_for_generation(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, **model_kwargs):
         input_shape = input_ids.shape
         effective_batch_size = input_shape[0]
 
@@ -472,11 +472,11 @@ class BertForMaskedLM(BertPreTrainedModel):
         if self.config.pad_token_id is None:
             raise ValueError('The PAD token should be defined for generation')
 
-        input_mask = torch.cat([input_mask, input_mask.new_zeros((input_mask.shape[0], 1))], dim=-1)
+        attention_mask = torch.cat([attention_mask, attention_mask.new_zeros((attention_mask.shape[0], 1))], dim=-1)
         dummy_token = torch.full((effective_batch_size, 1),
                                  self.config.pad_token_id,
                                  dtype=torch.long,
                                  device=input_ids.device)
         input_ids = torch.cat([input_ids, dummy_token], dim=1)
 
-        return {'input_ids': input_ids, 'input_mask': input_mask}
+        return {'input_ids': input_ids, 'attention_mask': attention_mask}

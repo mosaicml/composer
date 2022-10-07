@@ -62,9 +62,9 @@ class HuggingFaceModel(ComposerModel):
         # tokenizer if provided
         if tokenizer is None:
             if isinstance(self.model.base_model, transformers.GPT2Model):
-                self.model_inputs = {'input_ids', 'input_mask'}
+                self.model_inputs = {'input_ids', 'attention_mask'}
             elif isinstance(self.model.base_model, transformers.BertModel):
-                self.model_inputs = {'input_ids', 'input_mask', 'segment_ids'}
+                self.model_inputs = {'input_ids', 'attention_mask', 'token_type_ids'}
         else:
             assert tokenizer.model_input_names is not None, 'the tokenizer should have a model input name'
             self.model_inputs = set(tokenizer.model_input_names)
@@ -92,9 +92,7 @@ class HuggingFaceModel(ComposerModel):
             if key not in batch.keys():
                 raise ValueError(f'Batch missing key: {key}')
 
-        output = self.model(input_ids=batch['input_ids'],
-                            attention_mask=batch['input_mask'],
-                            token_type_ids=batch['segment_ids'])  # type: ignore (thirdparty)
+        output = self.model(**batch)  # type: ignore (thirdparty)
         return output
 
     def loss(self, outputs, batch):
