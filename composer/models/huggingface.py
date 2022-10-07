@@ -108,7 +108,7 @@ class HuggingFaceModel(ComposerModel):
             if self.config.use_return_dict:
                 output = output['logits']
             else:
-                output = output[1]
+                output = output[0]
             # if we are in the single class case, then remove the classes dimension
             if output.shape[1] == 1:
                 output = output.squeeze(dim=1)
