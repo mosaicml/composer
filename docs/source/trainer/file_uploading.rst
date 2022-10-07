@@ -1,11 +1,11 @@
 |:hindu_temple:| File Uploading
-=================================
+===============================
 
 Composer supports uploading files, such as checkpoints and profiling traces, directly to third-party
 experiment trackers (e.g. Weights & Biases) and cloud storage backends (e.g. AWS S3).
 
 What files might I want to upload?
---------------------
+----------------------------------
 
 Checkpoints, profiling traces, and log files generated during training
 are the most common examples. Each file to upload must be a single, local file.
@@ -17,7 +17,7 @@ name. A remote file with the same name should override a previous remote file wi
 remote file names include file extensions.
 
 How are remote files generated?
-----------------------------
+-------------------------------
 
 In Composer, individual classes, such as algorithms, callbacks, loggers, and profiler trace handlers, can generate
 files to be uploaded.
@@ -57,7 +57,7 @@ see the linked API Reference for additional documentation.
       - Profiler trace files
 
 Saving custom files
-------------------------
+-------------------
 
 It is also possible to upload custom files outside of an algorithm or callback. For example:
 
@@ -82,7 +82,7 @@ It is also possible to upload custom files outside of an algorithm or callback. 
 .. _file_uploading:
 
 How are files uploaded?
----------------------------
+-----------------------
 
 To store files remotely, in the ``loggers`` argument to the Trainer constructor, you must specify a
 :class:`~composer.loggers.logger_destination.LoggerDestination` that implements the
@@ -103,7 +103,7 @@ such, it is important that any logger that generates files that are going to be 
 to upload them. Otherwise, you could run into an infinite loop!
 
 Where can I remotely store files?
-----------------------------
+---------------------------------
 
 Composer includes two built-in LoggerDestinations to store artifacts:
 
@@ -117,7 +117,7 @@ Composer includes two built-in LoggerDestinations to store artifacts:
 
 
 Why should I use built in file uploading instead of uploading files manually?
---------------------------------------------------------------------------
+-----------------------------------------------------------------------------
 
 File uploading in Composer is optimized for efficiency. File uploads happen in background threads or
 processes, ensuring that the training loop is not blocked due to network I/O. In other words, this feature
