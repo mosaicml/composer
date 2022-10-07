@@ -28,7 +28,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
 from composer.algorithms import GradientClipping
-from composer.callbacks import CheckpointSaver
+from composer.callbacks import CheckpointSaver, GradMonitor
 from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp,
                            ensure_data_spec, ensure_evaluator, ensure_time)
 from composer.core.precision import get_precision_context
@@ -42,10 +42,10 @@ from composer.profiler import Profiler
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
-from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
-from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, is_model_deepspeed,
-                            map_collection, model_eval_mode, reproducibility)
+from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
+from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, map_collection,
+                            model_eval_mode, reproducibility)
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.inference import ExportFormat, Transform, export_with_logger
@@ -331,9 +331,9 @@ class Trainer:
             schedulers=scheduler,
             device="cpu",
             eval_interval="1ep",
-            checkpoint_save_path="checkpoints",
+            save_folder="checkpoints",
             save_filename="ep{epoch}.pt",
-            checkpoint_save_interval="1ep",
+            save_interval="1ep",
             save_overwrite=True,
         )
 
@@ -598,7 +598,7 @@ class Trainer:
 
             (default: ``None``)
 
-        checkpoint_save_path (str, optional): Format string for the folder where checkpoints are saved.
+        save_folder (str, optional): Format string for the folder where checkpoints are saved.
             If ``None``, checkpoints will not be saved. (default: ``None``)
 
             .. seealso:: :class:`~.CheckpointSaver`
@@ -609,40 +609,40 @@ class Trainer:
                 at different intervals), leave this parameter as ``None``, and instead pass
                 instance(s) of :class:`~.CheckpointSaver` directly as ``callbacks``.
         save_filename (str, optional): A format string describing how to name checkpoints.
-            This parameter has no effect if ``checkpoint_save_path`` is ``None``.
+            This parameter has no effect if ``save_folder`` is ``None``.
             (default: ``"ep{epoch}-ba{batch}-rank{rank}.pt"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
         save_artifact_name (str, optional): A format string describing how to name checkpoints in loggers.
-            This parameter has no effect if ``checkpoint_save_path`` is ``None``.
+            This parameter has no effect if ``save_folder`` is ``None``.
             (default: ``"{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}"``)
 
             .. seealso:: :class:`~.CheckpointSaver` and :doc:`Artifact Logging</trainer/artifact_logging>` notes.
         save_latest_filename (str, optional): A format string for the name of a symlink
-            (relative to ``checkpoint_save_path``) that points to the last saved checkpoint.
-            This parameter has no effect if ``checkpoint_save_path`` is ``None``.
+            (relative to ``save_folder``) that points to the last saved checkpoint.
+            This parameter has no effect if ``save_folder`` is ``None``.
             To disable symlinking, set this to ``None``. (default: ``"latest-rank{rank}.pt"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
         save_latest_artifact_name (str, optional): A format string describing how to name symlinks in loggers.
-            This parameter has no effect if ``checkpoint_save_path``, ``save_latest_filename``, or ``save_artifact_name`` are ``None``.
+            This parameter has no effect if ``save_folder``, ``save_latest_filename``, or ``save_artifact_name`` are ``None``.
             To disable symlinking in logger, set this or ``save_latest_filename`` to ``None``. (default: ``"{run_name}/checkpoints/latest-rank{rank}"``)
 
             .. seealso:: :class:`~.CheckpointSaver` and :doc:`Artifact Logging</trainer/artifact_logging>` notes.
         save_overwrite (bool, optional): Whether existing checkpoints should be overridden.
-            This parameter has no effect if ``checkpoint_save_path`` is None. (default: ``False``)
+            This parameter has no effect if ``save_folder`` is None. (default: ``False``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-        checkpoint_save_interval (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
+        save_interval (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
-            This parameter has no effect if ``checkpoint_save_path`` is ``None``. (default: ``'1ep'``)
+            This parameter has no effect if ``save_folder`` is ``None``. (default: ``'1ep'``)
 
             .. seealso:: :class:`~.CheckpointSaver`
         save_weights_only (bool, optional): Whether to save only the model weights instead of the entire training
-            state. This parameter has no effect if ``checkpoint_save_path`` is ``None``. (default: ``False``)
+            state. This parameter has no effect if ``save_folder`` is ``None``. (default: ``False``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-        num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
+        save_num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
             are removed first. Set to ``-1`` to keep all checkpoints locally. (default: ``-1``)
 
             Checkpoints will be removed after they have been logged as a file artifact. For example, when this callback
@@ -654,10 +654,10 @@ class Trainer:
             artifact stores.
         autoresume (bool, optional): Whether or not to enable autoresume, which allows for stopping and resuming
             training. This allows use of spot instances, as the training run is now fault tolerant.  This parameter
-            requires ``checkpoint_save_path`` and ``run_name`` to be specified and ``save_overwrite`` to be ``False``.
+            requires ``save_folder`` and ``run_name`` to be specified and ``save_overwrite`` to be ``False``.
             (default: ``False``)
 
-            When enabled, the checkpoint_save_path is checked for checkpoints of the format ``"{checkpoint_save_path}/{save_latest_filename}"``,
+            When enabled, the save_folder is checked for checkpoints of the format ``"{save_folder}/{save_latest_filename}"``,
             which are loaded to continue training. If no local checkpoints are found, each logger is checked for potential
             checkpoints named ``save_latest_artifact_name``. Finally, if no logged checkpoints are found, ``load_path`` is
             used to load a checkpoint if specified. This should only occur at the start of a run using autoresume.
@@ -780,21 +780,22 @@ class Trainer:
         load_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
 
         # Save Checkpoint
-        checkpoint_save_path: Optional[str] = None,
+        save_folder: Optional[str] = None,
         save_filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
         save_artifact_name: str = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
         save_latest_filename: Optional[str] = 'latest-rank{rank}.pt',
         save_latest_artifact_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
         save_overwrite: bool = False,
-        checkpoint_save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
+        save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
-        num_checkpoints_to_keep: int = -1,
+        save_num_checkpoints_to_keep: int = -1,
 
         # Graceful Resumption
         autoresume: bool = False,
 
         # DeepSpeed
         deepspeed_config: Optional[Dict[str, Any]] = None,
+        fsdp_config: Optional[Dict[str, Any]] = None,
 
         # System/Numerics
         device: Optional[Union[str, Device]] = None,
@@ -817,17 +818,31 @@ class Trainer:
     ):
         algorithms = list(ensure_tuple(algorithms))
 
-        # Determine whether DeepSpeed is enabled
-        deepspeed_enabled = deepspeed_config is not None
-
         # Device
         self._device = _get_device(device)
 
+        # Determine whether DeepSpeed and FSDP are enabled
+        self.deepspeed_config = deepspeed_config
+        self.fsdp_config = fsdp_config
+        self.deepspeed_enabled = self.deepspeed_config is not None
+        self.fsdp_enabled = self.fsdp_config is not None
+
+        # Precision
+        if precision is None:
+            precision = Precision.AMP if isinstance(self._device, DeviceGPU) else Precision.FP32
+        if isinstance(precision, str):
+            precision = Precision(precision)
+        _validate_precision(precision, self._device, self.deepspeed_enabled)
+
         # Distributed
-        if deepspeed_enabled or dist.get_world_size() > 1:
-            # deepspeed requires torch.distributed to be initialized, even if the world size is 1
-            # distributed is always required with multi-rank training
+        if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
+            # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
+            # And torch.distributed is always required for multi-rank training
             dist.initialize_dist(self._device, datetime.timedelta(seconds=dist_timeout))
+
+        # Handle FSDP sharding
+        if self.fsdp_config is not None:
+            prepare_fsdp_module(model, optimizers, self.fsdp_config, precision)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, self._device)
@@ -837,17 +852,9 @@ class Trainer:
         if deterministic_mode:
             reproducibility.configure_deterministic_mode()
 
-        # Precision
-        if precision is None:
-            precision = Precision.AMP if isinstance(self._device, DeviceGPU) else Precision.FP32
-        if isinstance(precision, str):
-            precision = Precision(precision)
-
-        _validate_precision(precision, self._device, deepspeed_enabled)
-
         # Optimizers and Schedulers
         if not optimizers:
-            optimizers = DecoupledSGDW(list(model.parameters()), lr=0.1)
+            optimizers = DecoupledSGDW(model.parameters(), lr=0.1)
             # hard-coding the optimizer in the warning, as repr(optimizers) would print an annoying, multi-line warning
             warnings.warn(('No optimizer was specified. Defaulting to '
                            f"{type(optimizers).__name__}(lr={optimizers.defaults['lr']})"))
@@ -858,7 +865,7 @@ class Trainer:
 
         # Move the model and optimizers to the device
 
-        if not deepspeed_enabled:
+        if not (self.deepspeed_enabled or self.fsdp_enabled):
             # check if model is already on tpu
             if isinstance(self._device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
                 raise ValueError(
@@ -947,17 +954,17 @@ class Trainer:
 
         # Checkpoint Saving
         self._checkpoint_saver = None
-        if checkpoint_save_path is not None:
+        if save_folder is not None:
             self._checkpoint_saver = CheckpointSaver(
-                checkpoint_save_path=checkpoint_save_path,
-                checkpoint_filename=save_filename,
+                folder=save_folder,
+                filename=save_filename,
                 artifact_name=save_artifact_name,
-                latest_checkpoint_filename=save_latest_filename,
+                latest_filename=save_latest_filename,
                 latest_artifact_name=save_latest_artifact_name,
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
-                checkpoint_save_interval=checkpoint_save_interval,
-                num_checkpoints_to_keep=num_checkpoints_to_keep,
+                save_interval=save_interval,
+                num_checkpoints_to_keep=save_num_checkpoints_to_keep,
             )
             self.state.callbacks.append(self._checkpoint_saver)
 
@@ -965,7 +972,7 @@ class Trainer:
         self.engine = Engine(state=self.state, logger=self.logger)
 
         # Set the logger
-        model.logger = self.logger
+        self.state.model.logger = self.logger
 
         # Run Event.INIT
         self.engine.run_event(Event.INIT)
@@ -1026,8 +1033,6 @@ class Trainer:
 
         self.logger.log_hyperparameters({'rank_zero_seed': rank_zero_seed})
 
-        self._original_model = self.state.model
-
         # Schedulers
         self.state.schedulers = _compile_schedulers(schedulers, self.state, scale_schedule_ratio)
         if scale_schedule_ratio != 1.0:
@@ -1044,8 +1049,21 @@ class Trainer:
         self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, self.state.algorithms))
         self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, self.state.algorithms))
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
+
+        # If using DDP or DeepSpeed, we need to wrap the ComposerModel
+        # But store a reference to the original model for functions like `eval_forward`, `get_metrics`, etc.
+        self._original_model = self.state.model
+        if not isinstance(self._original_model, ComposerModel):
+            raise ValueError('self.state.model must be a subclass of ComposerModel.')
+
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
+            for callback in self.state.callbacks:
+                if isinstance(callback, GradMonitor):
+                    raise ValueError('GradMonitor is not supported with DeepSpeed because DeepSpeed clears '
+                                     'the gradients before in the last call to .backward see: '
+                                     'https://github.com/microsoft/DeepSpeed/issues/2329 for more details.')
+
             try:
                 import deepspeed
             except ImportError as e:
@@ -1077,22 +1095,25 @@ class Trainer:
         # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
         # DDP.
 
-        # surpressing GradScaler warnings as they are always created
+        # suppressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
         self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
+
+        # suppressing FSDP warning when auto grad accum exits the forward pass before completing
+        warnings.filterwarnings(action='ignore', message='Forward order differs from that of the first iteration')
 
         # Load Checkpoint
         self._rng_state = None
         # If autoresume is enabled, first check for existing checkpoints to load
         if autoresume:
             log.info('Searching for a previous checkpoint to autoresume')
-            if checkpoint_save_path is None:
-                raise ValueError('The `checkpoint_save_path` must be specified when autoresume is enabled.')
+            if save_folder is None:
+                raise ValueError('The `save_folder` must be specified when autoresume is enabled.')
             if save_overwrite:
                 raise ValueError(
                     'The flag `save_overwrite` must be False when autoresume is enabled as autoresume always loads the '
-                    'latest existing checkpoint in `checkpoint_save_path`.')
+                    'latest existing checkpoint in `save_folder`.')
             if save_latest_filename is None:
                 raise ValueError(
                     'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from.')
@@ -1104,7 +1125,7 @@ class Trainer:
                     'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
                 )
             autoresume_checkpoint_path = self._get_autoresume_checkpoint(
-                checkpoint_save_path=checkpoint_save_path,
+                save_folder=save_folder,
                 save_latest_filename=save_latest_filename,
                 save_latest_artifact_name=save_latest_artifact_name,
                 loggers=loggers,
@@ -1141,18 +1162,9 @@ class Trainer:
         log.info(f'Setting seed to {self.state.seed}')
         reproducibility.seed_all(self.state.seed)
 
-        # Move the model and optimizers to the specified device
-        if not self.deepspeed_enabled and dist.get_world_size() > 1:
+        if not (self.deepspeed_enabled or self.fsdp_enabled) and dist.get_world_size() > 1:
             # Only wrap the module if required
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
-
-    @property
-    def deepspeed_enabled(self):
-        """Whether DeepSpeed is enabled.
-
-        .. seealso:: `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_
-        """
-        return is_model_deepspeed(self.state.model)
 
     @property
     def saved_checkpoints(self) -> List[str]:
@@ -1169,7 +1181,7 @@ class Trainer:
 
     def _get_autoresume_checkpoint(
         self,
-        checkpoint_save_path: str,
+        save_folder: str,
         save_latest_filename: str,
         save_latest_artifact_name: str,
         loggers: Sequence[LoggerDestination],
@@ -1177,22 +1189,22 @@ class Trainer:
     ):
         """Determines the load path when using autoresume.
 
-        First, check the ``checkpoint_save_path`` for the latest checkpoint.
+        First, check the ``save_folder`` for the latest checkpoint.
         If no latest checkpoint is found locally, then check each logger for the latest checkpoint, and download
-        it to the ``checkpoint_save_path``.
+        it to the ``save_folder``.
 
         Returns:
             Optional[str]: The path to the latest checkpoint, if found, otherwise None.
         """
         save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
-        checkpoint_save_path = format_name_with_dist(checkpoint_save_path, self.state.run_name)
+        save_folder = format_name_with_dist(save_folder, self.state.run_name)
         save_latest_artifact_name = format_name_with_dist(save_latest_artifact_name, self.state.run_name)
-        latest_checkpoint_path = os.path.join(checkpoint_save_path, save_latest_filename)
+        latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
 
         # If latest checkpoint is not saved locally, try to fetch from loggers
         if not os.path.exists(latest_checkpoint_path):
             # Make save folder in case it doesn't exist so latest checkpoint can be downloaded
-            os.makedirs(checkpoint_save_path, exist_ok=True)
+            os.makedirs(save_folder, exist_ok=True)
             for logger in loggers:
                 try:
                     # Fetch from logger. If it succeeds, stop trying the rest of the loggers
@@ -1709,48 +1721,26 @@ class Trainer:
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
         assert self.state.train_metrics is not None, 'The train metrics should be set on __init__ or fit()'
 
-        with torch.no_grad(), model_eval_mode(self.state.model):
-            # Retry until we successfully complete evaluation
-            while True:
-                found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
-                try:
-                    for eval_microbatch in self._train_data_spec.split_batch(device_batch, self.state.eval_batch_split):
-                        with get_precision_context(self.state.precision):
-                            if hasattr(self._original_model, 'validate'):  # backwards compatibility check
-                                warnings.warn(
-                                    'Using validate() is no longer supported and will be removed in a future version. Please use eval_forward() instead.'
-                                )
-                                assert isinstance(self._original_model.validate, Callable)
-                                eval_outputs, target = self._original_model.validate(eval_microbatch)
+        with torch.no_grad(),\
+                model_eval_mode(self.state.model),\
+                get_precision_context(self.state.precision):
+            if hasattr(self._original_model, 'validate'):  # backwards compatibility check
+                warnings.warn(
+                    'Using validate() is no longer supported and will be removed in a future version. Please use eval_forward() instead.'
+                )
+                assert isinstance(self._original_model.validate, Callable)
+                eval_outputs, target = self._original_model.validate(device_batch)
 
-                                for _, metric in self.state.train_metrics.items():
-                                    metric.update(eval_outputs, target)
-                            else:
-                                eval_outputs = self._original_model.eval_forward(eval_microbatch, self.state.outputs)
-                                for _, metric in self.state.train_metrics.items():
-                                    self._original_model.update_metric(
-                                        eval_microbatch,
-                                        eval_outputs,
-                                        metric,
-                                    )
-
-                except RuntimeError as e:
-                    if self.state.auto_grad_accum and _is_cuda_oom(e):
-                        log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
-                        found_cuda_oom = 1
-                    else:
-                        raise
-                if self.state.auto_grad_accum:
-                    # Propagate across all ranks if any rank hit CUDA OOM
-                    found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
-                    dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
-                    if found_cuda_oom.item() == 1:
-                        device_batch_size = self._train_data_spec.get_num_samples_in_batch(device_batch)
-                        _adjust_eval_batch_split(self.state, device_batch_size)
-                        # Skip return and rerun after handling oom
-                        continue
-                # Return if we've successfully completed eval without OOMing.
-                return
+                for _, metric in self.state.train_metrics.items():
+                    metric.update(eval_outputs, target)
+            else:
+                eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
+                for _, metric in self.state.train_metrics.items():
+                    self._original_model.update_metric(
+                        device_batch,
+                        eval_outputs,
+                        metric,
+                    )
 
     def _run_evaluators(self, event: Event):
         """Runs evaluators periodically during training."""
@@ -1863,7 +1853,10 @@ class Trainer:
 
             if not self.deepspeed_enabled:
                 for optimizer in self.state.optimizers:
-                    optimizer.zero_grad()
+                    try:
+                        optimizer.zero_grad(set_to_none=True)
+                    except TypeError:
+                        optimizer.zero_grad()
 
             # tracker for gradient accumulation
             current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(batch) for batch in microbatches])
@@ -2575,5 +2568,5 @@ class Trainer:
                            save_path=save_path,
                            logger=self.logger,
                            save_object_store=save_object_store,
-                           sample_input=(sample_input,),
+                           sample_input=(sample_input, {}),
                            transforms=transforms)

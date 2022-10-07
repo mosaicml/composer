@@ -78,7 +78,7 @@ def test_train_precision_memory(precision: Precision):
 def test_eval_precision_memory(precision: Precision):
     memory_fp32 = eval_and_measure_memory(Precision.FP32)
     memory_half = eval_and_measure_memory(precision)
-    assert memory_half < 0.9 * memory_fp32
+    assert memory_half < 0.95 * memory_fp32
 
 
 @pytest.mark.gpu
@@ -86,4 +86,4 @@ def test_eval_precision_memory(precision: Precision):
 def test_predict_precision_memory(precision: Precision):
     memory_fp32 = predict_and_measure_memory(Precision.FP32)
     memory_half = predict_and_measure_memory(precision)
-    assert memory_half < 0.9 * memory_fp32
+    assert memory_half < 0.95 * memory_fp32

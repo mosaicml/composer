@@ -1,6 +1,5 @@
 train_dataset:
   streaming_imagenet1k:
-    version: 2
     remote: your-bucket-here
     local: /tmp/mds-cache/mds-imagenet1k/
     split: train
@@ -10,7 +9,6 @@ train_dataset:
     drop_last: true
 val_dataset:
   streaming_imagenet1k:
-    version: 2
     remote: your-bucket-here
     local: /tmp/mds-cache/mds-imagenet1k/
     split: val

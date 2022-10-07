@@ -8,7 +8,6 @@ model:
 # Train the model on the English C4 corpus
 train_dataset:
   streaming_c4:
-    version: 2
     remote: s3://mosaicml-internal-dataset-c4/mds/2/
     local: /tmp/mds-cache/mds-c4/
     split: train
@@ -32,7 +31,6 @@ evaluators:
   - label: bert_pre_training
     eval_dataset:
       streaming_c4:
-        version: 2
         remote: s3://mosaicml-internal-dataset-c4/mds/2/
         local: /tmp/mds-cache/mds-c4/
         split: val
@@ -73,8 +71,8 @@ precision: amp # Use mixed-precision training
 grad_clip_norm: -1.0 # Turn off gradient clipping
 grad_accum: auto # Use automatic gradient accumulation to avoid OOMs
 
-checkpoint_save_path: bert_checkpoints # The directory to save checkpoints to
-checkpoint_save_interval: 3500ba # Save checkpoints every 3500 batches
+save_folder: bert_checkpoints # The directory to save checkpoints to
+save_interval: 3500ba # Save checkpoints every 3500 batches
 
 loggers:
   progress_bar: {} # Add a TQDM progress bar

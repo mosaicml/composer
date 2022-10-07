@@ -13,8 +13,9 @@ from functools import partial
 from itertools import chain, cycle
 from typing import Any, Dict, Optional
 
-from torch.utils.data import IterableDataset, get_worker_info
+from torch.utils.data import DataLoader, IterableDataset, get_worker_info
 
+from composer.core.data_spec import DataSpec
 from composer.datasets.streaming import StreamingDataset
 from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -384,3 +385,167 @@ class C4Dataset(IterableDataset):
             return result
         else:
             raise ValueError(f"Unknown group_method: '{self.group_method}'")
+
+
+def build_streamingc4_dataloader(
+    batch_size: int,
+    remote: str = 's3://mosaicml-internal-dataset-c4/mds/2/',
+    local: str = '/tmp/mds-cache/mds-c4/',
+    split: str = 'train',
+    shuffle: bool = True,
+    drop_last: bool = True,
+    tokenizer_name: str = 'bert-base-uncased',
+    max_seq_len: int = 512,
+    group_method: str = 'truncate',
+    mlm: bool = False,
+    mlm_probability: float = 0.15,
+    max_retries: int = 2,
+    timeout: float = 120,
+    version: int = 2,
+    **dataloader_kwargs,
+):
+    """Builds a :class:`.DataSpec` for the StreamingC4 (Colossal Cleaned Common Crawl) dataset.
+
+    Args:
+        batch_size (int): Batch size per device.
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+            Default: ``'s3://mosaicml-internal-dataset-c4/mds/2/'``
+        local (str): Local filesystem directory where dataset is cached during operation.
+            Default: ``'/tmp/mds-cache/mds-c4/'``
+        split (str): What split of the dataset to use. Either ``'train'`` or ``'val'``.
+            Default: ``'train'``.
+        shuffle (bool): whether to shuffle the dataset. Default: ``True``.
+        drop_last (bool): whether to drop last samples. Default: ``True``.
+        tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with. Default:
+            ``'bert-base-uncased'``.
+        max_seq_len (int): The max sequence length of each token sample. Default: ``512``.
+        group_method (str): How to group text samples into token samples. Currently only `truncate` is supported.
+        mlm (bool): Whether or not to use masked language modeling. Default: ``False``.
+        mlm_probability (float): If ``mlm==True``, the probability that tokens are masked. Default: ``0.15``.
+        max_retries (int): Number of download re-attempts before giving up. Default: 2.
+        timeout (float): How long to wait for shard to download before raising an
+            exception. Default: 120 sec.
+        version (int): Version of streaming (1 or 2). Default: 2.
+        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+    """
+
+    try:
+        import transformers
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
+
+    if version == 1:
+        dataset = StreamingC4(remote=remote,
+                              local=local,
+                              split=split,
+                              shuffle=shuffle,
+                              tokenizer_name=tokenizer_name,
+                              max_seq_len=max_seq_len,
+                              group_method=group_method,
+                              max_retries=max_retries,
+                              timeout=timeout,
+                              batch_size=batch_size)
+
+    elif version == 2:
+        try:
+            from streaming.text import C4
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
+        dataset = C4(tokenizer_name=tokenizer_name,
+                     max_seq_len=max_seq_len,
+                     group_method=group_method,
+                     local=local,
+                     remote=remote,
+                     split=split,
+                     shuffle=shuffle,
+                     retry=max_retries,
+                     timeout=timeout,
+                     batch_size=batch_size)
+    else:
+        raise ValueError(f'Invalid streaming version: {version}')
+
+    # Get collate_fn
+    collate_fn = transformers.DataCollatorForLanguageModeling(tokenizer=dataset.tokenizer,
+                                                              mlm=mlm,
+                                                              mlm_probability=mlm_probability)
+
+    return DataSpec(
+        dataloader=DataLoader(
+            dataset=dataset,  # type: ignore
+            batch_size=batch_size,
+            sampler=None,
+            drop_last=drop_last,
+            collate_fn=collate_fn,
+            **dataloader_kwargs),
+        device_transforms=None)
+
+
+def build_c4_dataloader(
+    num_samples: int,
+    batch_size: int,
+    split: str = 'train',
+    shuffle: bool = True,
+    drop_last: bool = True,
+    tokenizer_name: str = 'bert-base-uncased',
+    max_seq_len: int = 512,
+    group_method: str = 'truncate',
+    mlm: bool = False,
+    mlm_probability: float = 0.15,
+    seed: int = 5,
+    shuffle_buffer_size: int = 10000,
+    **dataloader_kwargs,
+):
+    """Builds a :class:`.DataSpec` for the StreamingC4 (Colossal Cleaned Common Crawl) dataset.
+
+    Args:
+        num_samples (int): The number of post-processed token samples, used to set epoch size of the :class:`torch.data.utils.IterableDataset`.
+        batch_size (int): Batch size per device.
+        split (str): What split of the dataset to use. Either ``'train'`` or ``'val'``.
+            Default: ``'train'``.
+        shuffle (bool): whether to shuffle the dataset. Default: ``True``.
+        drop_last (bool): whether to drop last samples. Default: ``True``.
+        tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with. Default:
+            ``'bert-base-uncased'``.
+        max_seq_len (int): The max sequence length of each token sample. Default: ``512``.
+        group_method (str): How to group text samples into token samples. Currently only `truncate` is supported.
+        mlm (bool): Whether or not to use masked language modeling. Default: ``False``.
+        mlm_probability (float): If ``mlm==True``, the probability that tokens are masked. Default: ``0.15``.
+        shuffle_buffer_size (int): If ``shuffle=True``, samples are read into a buffer of this size (per-device), and
+            randomly sampled from there to produce shuffled samples. Default: ``10000``.
+        seed (int): If ``shuffle=True``, what seed to use for shuffling operations. Default: ``5``.
+        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+    """
+
+    try:
+        import transformers
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
+
+    if 'num_workers' in dataloader_kwargs.keys():
+        if dataloader_kwargs['num_workers'] > 1:
+            log.warning('C4 Dataset not compatible with num_workers > 1. Overwriting value to num_workers=1')
+            dataloader_kwargs['num_workers'] = 1
+
+    dataset = C4Dataset(split=split,
+                        num_samples=num_samples,
+                        tokenizer_name=tokenizer_name,
+                        max_seq_len=max_seq_len,
+                        group_method=group_method,
+                        shuffle=shuffle,
+                        shuffle_buffer_size=shuffle_buffer_size,
+                        seed=seed)
+
+    # Get collate_fn
+    collate_fn = transformers.DataCollatorForLanguageModeling(tokenizer=dataset.tokenizer,
+                                                              mlm=mlm,
+                                                              mlm_probability=mlm_probability)
+
+    return DataSpec(
+        dataloader=DataLoader(
+            dataset=dataset,  # type: ignore
+            batch_size=batch_size,
+            sampler=None,
+            drop_last=drop_last,
+            collate_fn=collate_fn,
+            **dataloader_kwargs),
+        device_transforms=None)

@@ -126,6 +126,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/colout.md
    method_cards/cutmix.md
    method_cards/cutout.md
+   method_cards/decoupled_weight_decay.md
    method_cards/ema.md
    method_cards/factorize.md
    method_cards/fused_layernorm.md
@@ -145,6 +146,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/stochastic_depth.md
    method_cards/stochastic_depth_samplewise.md
    method_cards/swa.md
+   method_cards/weight_standardization.md
 
 .. toctree::
    :hidden:
