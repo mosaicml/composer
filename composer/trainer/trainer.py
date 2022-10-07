@@ -13,6 +13,7 @@ import os
 import random
 import re
 import time
+from turtle import back
 import warnings
 from copy import deepcopy
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
@@ -51,6 +52,7 @@ from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.inference import ExportFormat, Transform, export_with_logger
 from composer.utils.object_store import S3ObjectStore
+from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
 
 log = logging.getLogger(__name__)
 
@@ -307,32 +309,70 @@ if _is_tpu_installed():
 
 
 def _create_object_store_logger_from_uri(uri: str) -> Optional[LoggerDestination]:
+    libcloud_supported_backends = [
+                                    'atmos',
+                                    'auroraobjects',
+                                    'azure_blobs',
+                                    'backblaze_b2',
+                                    'cloudfiles',
+                                    'digitalocean_spaces',
+                                    'google_storage',
+                                    'ktucloud',
+                                    'local',
+                                    'minio',
+                                    'nimbus',
+                                    'ninefold',
+                                    'oss',
+                                    'rgw',
+                                    ]
     parse_result = urlparse(uri)
     backend, bucket = parse_result.scheme, parse_result.netloc
     if backend == 's3':
         return ObjectStoreLogger(object_store_cls=S3ObjectStore, object_store_kwargs={'bucket': bucket})
     elif backend == 'wandb':
         return WandBLogger(log_artifacts=True)
+    elif backend in libcloud_supported_backends:
+        return ObjectStoreLogger(object_store_cls=LibcloudObjectStore,
+                                 object_store_kwargs={'provider': backend, 'container': bucket})
     elif backend == '':  # Local path
         return None
     else:
-        raise NotImplementedError(f'There is no implementation for the cloud backend {backend}. Please use either'
-                                  ' wandb or S3.')
+        raise NotImplementedError(f'There is no implementation for the cloud backend {backend}. Please use:'
+                                    ' wandb, s3, '
+                                  ', '.join(libcloud_supported_backends))
 
 
 def _create_object_store_from_uri(uri: str) -> Optional[Union[LoggerDestination, ObjectStore]]:
+    libcloud_supported_backends = [
+                                'atmos',
+                                'auroraobjects',
+                                'azure_blobs',
+                                'backblaze_b2',
+                                'cloudfiles',
+                                'digitalocean_spaces',
+                                'google_storage',
+                                'ktucloud',
+                                'local',
+                                'minio',
+                                'nimbus',
+                                'ninefold',
+                                'oss',
+                                'rgw',
+                                ]
     parse_result = urlparse(uri)
     backend, bucket = parse_result.scheme, parse_result.netloc
     if backend == 's3':
         return S3ObjectStore(bucket=bucket)
+    elif backend in libcloud_supported_backends:
+        return LibcloudObjectStore(provider=backend, container=bucket)
     elif backend == 'wandb':
         return WandBLogger(log_artifacts=True)
     elif backend == '':  # Local path
         return None
     else:
-        raise NotImplementedError(f'There is no implementation for the cloud backend {backend}. Please use either'
-                                  ' wandb or S3.')
-
+        raise NotImplementedError(f'There is no implementation for the cloud backend {backend}. Please use:'
+                                    ' wandb, s3, '
+                                  ', '.join(libcloud_supported_backends))
 
 class Trainer:
     """Train models with Composer algorithms.
