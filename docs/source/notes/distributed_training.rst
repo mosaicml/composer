@@ -94,7 +94,7 @@ Deepspeed
 Composer comes with DeepSpeed support, allowing you to leverage their
 full set of features that makes it easier to train large models across
 (1) any type of GPU and (2) multiple nodes. For more details on DeepSpeed,
-see `their website <https://www.deepspeed.ai>`__.
+see `their website <https://www.deepspeed.ai>`_.
 
 We support optimizer and gradient sharing via
 `Deepspeed Zero`_` stages 1 and 2 respectively. In the future, we'll support model
