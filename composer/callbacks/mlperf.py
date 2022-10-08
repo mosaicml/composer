@@ -32,7 +32,7 @@ except ImportError:
     mlperf_available = False
 
 # this callback only supports the following options:
-BENCHMARKS = ('resnet',)
+BENCHMARKS = ('resnet', 'bert')
 DIVISIONS = ('open',)
 STATUS = ('onprem', 'cloud', 'preview')
 
