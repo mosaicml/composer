@@ -213,7 +213,7 @@ def _new_RemoteUploaderDownloader_init(self, fake_ellipses: None = None, **kwarg
     kwargs.update(use_procs=False,
                   num_concurrent_uploads=1,
                   remote_bucket_uri='libcloud://.',
-                  remote_bucket_kwargs={
+                  remote_backend_kwargs={
                       'provider': 'local',
                       'container': '.',
                       'provider_kwargs': {
