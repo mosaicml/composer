@@ -204,6 +204,8 @@ class RemoteUploaderDownloader(LoggerDestination):
             self.remote_backend_kwargs['bucket'] = remote_bucket_name
         elif self.remote_backend_name == 'sftp' and 'host' not in self.remote_backend_kwargs:
             self.remote_backend_kwargs['host'] = f'sftp://{remote_bucket_name}'
+        elif self.remote_backend_name == 'libcloud' and 'container' not in self.remote_backend_kwargs:
+            self.remote_backend_kwargs['container'] = remote_bucket_name
 
         self.remote_path_format_string = remote_path_format_string
         self.num_attempts = num_attempts
