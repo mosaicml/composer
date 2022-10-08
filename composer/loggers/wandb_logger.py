@@ -162,7 +162,7 @@ class WandBLogger(LoggerDestination):
         assert self.project is not None, 'project should be defined'
 
     def upload_file(self, state: State, remote_file_name: str, file_path: pathlib.Path, *, overwrite: bool):
-        del log_level, overwrite  # unused
+        del overwrite  # unused
 
         if self._enabled and self._log_artifacts:
             import wandb
