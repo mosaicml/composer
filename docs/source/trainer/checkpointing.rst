@@ -339,7 +339,7 @@ Once you've configured your object store logger per above, all that's left is to
     from composer.loggers import RemoteUploaderDownloader
 
     remote_uploader_downloader = RemoteUploaderDownloader(
-        remote_bucket_uri="libcloud://checkpoint-debugging"
+        remote_bucket_uri="libcloud://checkpoint-debugging",
         remote_backend_kwargs={
             "provider": "s3",  # The Apache Libcloud provider name
             "container": "checkpoint-debugging",  # The name of the cloud container (i.e. bucket) to use.
