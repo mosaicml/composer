@@ -190,16 +190,15 @@ class RemoteUploaderDownloader(LoggerDestination):
 
     def __init__(self,
                  remote_bucket_uri: str,
-                 remote_backend_kwargs: Dict[str, Any],
+                 remote_backend_kwargs: Optional[Dict[str, Any]] = None,
                  remote_path_format_string: str = '{remote_file_name}',
                  num_concurrent_uploads: int = 4,
                  upload_staging_folder: Optional[str] = None,
                  use_procs: bool = True,
                  num_attempts: int = 3) -> None:
-
         parsed_remote_bucket = urlparse(remote_bucket_uri)
         self.remote_backend_name, remote_bucket_name = parsed_remote_bucket.scheme, parsed_remote_bucket.netloc
-        self.remote_backend_kwargs = remote_backend_kwargs
+        self.remote_backend_kwargs = remote_backend_kwargs if remote_backend_kwargs is not None else {}
         if self.remote_backend_name == 's3' and 'bucket' not in self.remote_backend_kwargs:
             self.remote_backend_kwargs['bucket'] = remote_bucket_name
         elif self.remote_backend_name == 'sftp' and 'host' not in self.remote_backend_kwargs:
