@@ -304,7 +304,7 @@ Behind the scenes, the :class:`.RemoteUploaderDownloader` uses :doc:`Apache Libc
     from composer.utils import LibcloudObjectStore
 
     remote_uploader_downloader = RemoteUploaderDownloader(
-        remote_bucket_uri="s3://my_bucket"
+        remote_bucket_uri="libcloud://my_bucket"
         remote_backend_kwargs={
             "provider": "s3",  # The Apache Libcloud provider name
             "container": "my_bucket",  # The name of the cloud container (i.e. bucket) to use.
@@ -339,7 +339,7 @@ Once you've configured your object store logger per above, all that's left is to
     from composer.loggers import RemoteUploaderDownloader
 
     remote_uploader_downloader = RemoteUploaderDownloader(
-        remote_bucket_uri="s3://checkpoint-debugging"
+        remote_bucket_uri="libcloud://checkpoint-debugging"
         remote_backend_kwargs={
             "provider": "s3",  # The Apache Libcloud provider name
             "container": "checkpoint-debugging",  # The name of the cloud container (i.e. bucket) to use.
