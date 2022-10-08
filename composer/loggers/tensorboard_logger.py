@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from composer.core.state import State
-from composer.loggers.logger import Logger, LogLevel, format_log_data_value
+from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -153,8 +153,7 @@ class TensorboardLogger(LoggerDestination):
         file_path = self.writer.file_writer.event_writer._file_name
         event_file_name = Path(file_path).stem
 
-        logger.file_artifact(LogLevel.FIT,
-                             artifact_name=('tensorboard_logs/{run_name}/' +
+        logger.file_artifact(artifact_name=('tensorboard_logs/{run_name}/' +
                                             f'{event_file_name}-{dist.get_global_rank()}'),
                              file_path=file_path,
                              overwrite=True)

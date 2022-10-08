@@ -8,7 +8,7 @@ import sys
 from torch.utils.data import DataLoader
 
 from composer import Callback, Event, State, Trainer
-from composer.loggers import FileLogger, Logger, LoggerDestination, LogLevel
+from composer.loggers import FileLogger, Logger, LoggerDestination
 from composer.utils.collect_env import disable_env_report
 from tests.common.datasets import RandomClassificationDataset
 from tests.common.models import SimpleModel
@@ -19,10 +19,9 @@ class FileArtifactLoggerTracker(LoggerDestination):
     def __init__(self) -> None:
         self.logged_artifacts = []
 
-    def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
-                          overwrite: bool):
+    def log_file_artifact(self, state: State, artifact_name: str, file_path: pathlib.Path, *, overwrite: bool):
         del state, overwrite  # unused
-        self.logged_artifacts.append((log_level, artifact_name, file_path))
+        self.logged_artifacts.append((artifact_name, file_path))
 
 
 def test_file_logger(dummy_state: State, tmp_path: pathlib.Path):

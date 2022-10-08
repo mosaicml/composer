@@ -15,7 +15,6 @@ from composer.core import Event, State
 from composer.core.callback import Callback
 from composer.core.time import Time, TimeUnit
 from composer.loggers import Logger
-from composer.loggers.logger import LogLevel
 from composer.utils import checkpoint, dist, is_model_deepspeed, reproducibility
 from composer.utils.checkpoint import PartialFilePath
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
@@ -331,7 +330,6 @@ class CheckpointSaver(Callback):  # noqa: D101
             self._save_checkpoint(
                 state,
                 logger,
-                self.get_log_level(state, default=LogLevel.BATCH),
             )
 
     def epoch_checkpoint(self, state: State, logger: Logger):
@@ -339,13 +337,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             self._save_checkpoint(
                 state,
                 logger,
-                self.get_log_level(state, default=LogLevel.EPOCH),
             )
-
-    def get_log_level(self, state: State, default: LogLevel) -> LogLevel:
-        elapsed_duration = state.get_elapsed_duration()
-        assert elapsed_duration is not None, 'elapsed_duration is set on Event.BATCH_CHECKPOINT'
-        return default if elapsed_duration < 1.0 else LogLevel.FIT
 
     def get_state_dict(self, state):
         return {
@@ -353,7 +345,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             'rng': reproducibility.get_rng_state(),
         }
 
-    def _save_checkpoint(self, state: State, logger: Logger, log_level: LogLevel):
+    def _save_checkpoint(self, state: State, logger: Logger):
         self.last_checkpoint_batch = state.timestamp.batch
 
         is_deepspeed = is_model_deepspeed(state.model)
@@ -389,10 +381,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 is_deepspeed,
             ).lstrip('/')
 
-            logger.file_artifact(log_level=log_level,
-                                 artifact_name=artifact_name,
-                                 file_path=filename,
-                                 overwrite=self.overwrite)
+            logger.file_artifact(artifact_name=artifact_name, file_path=filename, overwrite=self.overwrite)
 
             if self.latest_artifact_name is not None:
                 symlink_name = self.latest_artifact_name.format(
@@ -405,7 +394,6 @@ class CheckpointSaver(Callback):  # noqa: D101
                     symlink_filename = os.path.join(tmpdir, 'latest.symlink')
                     create_symlink_file(artifact_name, symlink_filename)
                     logger.file_artifact(
-                        log_level=log_level,
                         artifact_name=symlink_name,
                         file_path=symlink_filename,
                         overwrite=True,
