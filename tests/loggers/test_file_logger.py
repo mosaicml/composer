@@ -8,7 +8,7 @@ import sys
 from torch.utils.data import DataLoader
 
 from composer import Callback, Event, State, Trainer
-from composer.loggers import FileLogger, Logger, LoggerDestination, LogLevel
+from composer.loggers import FileLogger, Logger, LoggerDestination
 from composer.utils.collect_env import disable_env_report
 from tests.common.datasets import RandomClassificationDataset
 from tests.common.models import SimpleModel
@@ -19,10 +19,9 @@ class FileUploaderTracker(LoggerDestination):
     def __init__(self) -> None:
         self.uploaded_files = []
 
-    def upload_file(self, state: State, log_level: LogLevel, remote_file_name: str, file_path: pathlib.Path, *,
-                    overwrite: bool):
+    def upload_file(self, state: State, remote_file_name: str, file_path: pathlib.Path, *, overwrite: bool):
         del state, overwrite  # unused
-        self.uploaded_files.append((log_level, remote_file_name, file_path))
+        self.uploaded_files.append((remote_file_name, file_path))
 
 
 def test_file_logger(dummy_state: State, tmp_path: pathlib.Path):

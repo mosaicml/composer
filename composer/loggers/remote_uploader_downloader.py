@@ -20,19 +20,13 @@ from multiprocessing.context import SpawnProcess
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 from composer.core.state import State
-from composer.loggers.logger import Logger, LogLevel
+from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import ObjectStore, ObjectStoreTransientError, dist, format_name_with_dist, get_file, retry
 
 log = logging.getLogger(__name__)
 
 __all__ = ['RemoteUploaderDownloader']
-
-
-def _always_log(state: State, log_level: LogLevel, remote_file_name: str):
-    """Function that can be passed into ``should_upload_file`` to upload all files."""
-    del state, log_level, remote_file_name  # unused
-    return True
 
 
 def _build_remote_backend(object_store_cls: Type[ObjectStore], object_store_kwargs: Dict[str, Any]):
@@ -73,7 +67,7 @@ class RemoteUploaderDownloader(LoggerDestination):
 
     .. note::
 
-        This callback blocks the training loop to upload each file where ``should_upload_file`` returns ``True``, as
+        This callback blocks the training loop to upload each file, as
         the uploading happens in the background. Here are some additional tips for minimizing the performance impact:
 
         *   Set ``should_log`` to filter which files will be uploaded. By default, all files are uploaded.
@@ -97,14 +91,6 @@ class RemoteUploaderDownloader(LoggerDestination):
 
             As individual :class:`.ObjectStore` instances are not necessarily thread safe, each worker will construct
             its own :class:`.ObjectStore` instance from ``object_store_cls`` and ``object_store_kwargs``.
-
-        should_upload_file ((State, LogLevel, str) -> bool, optional): A function to filter which files
-            are uploaded.
-
-            The function should take the (current training state, log level, remote file name) and return a boolean
-            indicating whether this file should be uploaded.
-
-            By default, all files will be uploaded.
 
         object_name (str, optional): A format string used to determine the object name.
 
@@ -152,7 +138,6 @@ class RemoteUploaderDownloader(LoggerDestination):
                 >>> remote_uploader_downloader = RemoteUploaderDownloader(..., object_name='rank_{rank}/{remote_file_name}')
                 >>> trainer = Trainer(..., run_name='foo', loggers=[remote_uploader_downloader])
                 >>> trainer.logger.upload_file(
-                ...     log_level=LogLevel.EPOCH,
                 ...     remote_file_name='bar.txt',
                 ...     file_path='path/to/file.txt',
                 ... )
@@ -180,7 +165,6 @@ class RemoteUploaderDownloader(LoggerDestination):
     def __init__(self,
                  object_store_cls: Type[ObjectStore],
                  object_store_kwargs: Dict[str, Any],
-                 should_upload_file: Optional[Callable[[State, LogLevel, str], bool]] = None,
                  object_name: str = '{remote_file_name}',
                  num_concurrent_uploads: int = 4,
                  upload_staging_folder: Optional[str] = None,
@@ -188,9 +172,6 @@ class RemoteUploaderDownloader(LoggerDestination):
                  num_attempts: int = 3) -> None:
         self.object_store_cls = object_store_cls
         self.object_store_kwargs = object_store_kwargs
-        if should_upload_file is None:
-            should_upload_file = _always_log
-        self.should_upload_file = should_upload_file
         self.object_name = object_name
         self.num_attempts = num_attempts
         self._run_name = None
@@ -313,14 +294,11 @@ class RemoteUploaderDownloader(LoggerDestination):
     def upload_file(
         self,
         state: State,
-        log_level: LogLevel,
         remote_file_name: str,
         file_path: pathlib.Path,
         *,
         overwrite: bool,
     ):
-        if not self.should_upload_file(state, log_level, remote_file_name):
-            return
         copied_path = os.path.join(self._upload_staging_folder, str(uuid.uuid4()))
         os.makedirs(self._upload_staging_folder, exist_ok=True)
         shutil.copy2(file_path, copied_path)

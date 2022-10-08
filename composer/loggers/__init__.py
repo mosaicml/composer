@@ -15,7 +15,7 @@ define a custom logger and use it when training.
 from composer.loggers.cometml_logger import CometMLLogger
 from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
-from composer.loggers.logger import Logger, LogLevel
+from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
@@ -26,7 +26,6 @@ from composer.loggers.wandb_logger import WandBLogger
 __all__ = [
     'Logger',
     'LoggerDestination',
-    'LogLevel',
     'FileLogger',
     'InMemoryLogger',
     'ProgressBarLogger',

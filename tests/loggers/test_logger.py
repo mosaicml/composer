@@ -4,7 +4,7 @@
 import pathlib
 
 from composer.core.state import State
-from composer.loggers import Logger, LoggerDestination, LogLevel
+from composer.loggers import Logger, LoggerDestination
 
 
 def test_logger_file_upload(dummy_state: State):
@@ -13,8 +13,7 @@ def test_logger_file_upload(dummy_state: State):
 
     class DummyLoggerDestination(LoggerDestination):
 
-        def upload_file(self, state: State, log_level: LogLevel, remote_file_name: str, file_path: pathlib.Path, *,
-                        overwrite: bool):
+        def upload_file(self, state: State, remote_file_name: str, file_path: pathlib.Path, *, overwrite: bool):
             nonlocal file_logged
             file_logged = True
             assert remote_file_name == 'foo'
@@ -23,7 +22,6 @@ def test_logger_file_upload(dummy_state: State):
 
     logger = Logger(state=dummy_state, destinations=[DummyLoggerDestination()])
     logger.upload_file(
-        log_level='epoch',
         remote_file_name='foo',
         file_path='bar',
         overwrite=True,

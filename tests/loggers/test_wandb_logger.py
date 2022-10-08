@@ -15,7 +15,7 @@ from composer.core import Engine, Event
 from composer.core.callback import Callback
 from composer.core.state import State
 from composer.loggers import InMemoryLogger
-from composer.loggers.logger import Logger, LogLevel
+from composer.loggers.logger import Logger
 from composer.loggers.wandb_logger import WandBLogger
 from composer.trainer import Trainer
 from composer.utils import dist, retry
@@ -83,7 +83,6 @@ def test_wandb_artifacts(rank_zero_only: bool, tmp_path: pathlib.Path, dummy_sta
 
         # Log a wandb artifact if rank zero
         logger.upload_file(
-            log_level=LogLevel.FIT,
             file_path=dummy_wandb_artifact_path,
             remote_file_name=wandb_artifact_name,
         )

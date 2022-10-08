@@ -13,14 +13,9 @@ import pytest
 
 from composer.core.event import Event
 from composer.core.state import State
-from composer.loggers import Logger, LogLevel
+from composer.loggers import Logger
 from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.utils.object_store.object_store import ObjectStore
-
-
-def my_filter_func(state: State, log_level: LogLevel, remote_file_name: str):
-    del state, log_level, remote_file_name  # unused
-    return False
 
 
 class DummyObjectStore(ObjectStore):
@@ -70,7 +65,6 @@ def object_store_test_helper(
     use_procs: bool = False,
     overwrite: bool = True,
     overwrite_delay: bool = False,
-    should_filter: bool = False,
 ):
     remote_dir = str(tmp_path / 'object_store')
     os.makedirs(remote_dir, exist_ok=True)
@@ -82,7 +76,6 @@ def object_store_test_helper(
         },
         num_concurrent_uploads=1,
         use_procs=use_procs,
-        should_upload_file=my_filter_func if should_filter else None,
         upload_staging_folder=str(tmp_path / 'staging_folder'),
         num_attempts=1,
     )
@@ -94,7 +87,7 @@ def object_store_test_helper(
     file_path = os.path.join(tmp_path, f'file')
     with open(file_path, 'w+') as f:
         f.write('1')
-    logger.upload_file(LogLevel.FIT, remote_file_name, file_path, overwrite=overwrite)
+    logger.upload_file(remote_file_name, file_path, overwrite=overwrite)
 
     file_path_2 = os.path.join(tmp_path, f'file_2')
     with open(file_path_2, 'w+') as f:
@@ -114,7 +107,7 @@ def object_store_test_helper(
             # Wait for the first upload to go through
             time.sleep(2)
             # Do the second upload -- it should enqueue
-            logger.upload_file(LogLevel.FIT, remote_file_name, file_path_2, overwrite=overwrite)
+            logger.upload_file(remote_file_name, file_path_2, overwrite=overwrite)
             # Give it some time to finish the second upload
             # (Since the upload is really a file copy, it should be fast)
             time.sleep(2)
@@ -127,7 +120,7 @@ def object_store_test_helper(
         else:
             # Otherwise, if no delay, it should error when being enqueued
             with pytest.raises(FileExistsError):
-                logger.upload_file(LogLevel.FIT, remote_file_name, file_path_2, overwrite=overwrite)
+                logger.upload_file(remote_file_name, file_path_2, overwrite=overwrite)
 
     remote_uploader_downloader.close(dummy_state, logger)
 
@@ -139,22 +132,17 @@ def object_store_test_helper(
     expected_upload_uri = f'local://{remote_file_name}'
     assert upload_uri == expected_upload_uri
 
-    if not should_filter:
-        # Test downloading file
-        download_path = os.path.join(tmp_path, 'download')
-        remote_uploader_downloader.download_file(remote_file_name, download_path)
-        with open(download_path, 'r') as f:
-            assert f.read() == '1' if not overwrite else '2'
+    # Test downloading file
+    download_path = os.path.join(tmp_path, 'download')
+    remote_uploader_downloader.download_file(remote_file_name, download_path)
+    with open(download_path, 'r') as f:
+        assert f.read() == '1' if not overwrite else '2'
 
     # now assert that we have a dummy file in the remote folder
     remote_file = os.path.join(str(remote_dir), remote_file_name)
-    if should_filter:
-        # If the filter works, nothing should be logged
-        assert not os.path.exists(remote_file_name)
-    else:
-        # Verify file contains the correct value
-        with open(remote_file, 'r') as f:
-            assert f.read() == '1' if not overwrite else '2'
+    # Verify file contains the correct value
+    with open(remote_file, 'r') as f:
+        assert f.read() == '1' if not overwrite else '2'
 
 
 def test_remote_uploader_downloader(tmp_path: pathlib.Path, dummy_state: State):
@@ -172,10 +160,6 @@ def test_remote_uploader_downloader_no_overwrite(tmp_path: pathlib.Path, dummy_s
                              dummy_state=dummy_state,
                              overwrite=False,
                              overwrite_delay=overwrite_delay)
-
-
-def test_remote_uploader_downloader_should_upload_file_filter(tmp_path: pathlib.Path, dummy_state: State):
-    object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, should_filter=True)
 
 
 @pytest.mark.parametrize('use_procs', [True, False])
@@ -210,7 +194,7 @@ def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_stat
     remote_file_name = 'remote_file_name'
     for i in range(num_files):
         file_path = tmp_path / 'samples' / f'sample_{i}'
-        remote_uploader_downloader.upload_file(dummy_state, LogLevel.FIT, remote_file_name, file_path, overwrite=True)
+        remote_uploader_downloader.upload_file(dummy_state, remote_file_name, file_path, overwrite=True)
 
     # Shutdown the logger. This should wait until all objects are uploaded
     remote_uploader_downloader.close(dummy_state, logger=logger)
@@ -249,7 +233,7 @@ def test_close_on_failure(tmp_path: pathlib.Path, dummy_state: State):
 
     remote_uploader_downloader.run_event(Event.INIT, dummy_state, logger)
 
-    logger.upload_file(LogLevel.FIT, 'dummy_remote_file_name', tmpfile_path)
+    logger.upload_file('dummy_remote_file_name', tmpfile_path)
 
     # Wait enough time for the file to be enqueued
     time.sleep(0.5)
@@ -259,7 +243,7 @@ def test_close_on_failure(tmp_path: pathlib.Path, dummy_state: State):
         remote_uploader_downloader.run_event(Event.EPOCH_END, dummy_state, logger)
 
     # Enqueue the file again to ensure that the buffers are dirty
-    logger.upload_file(LogLevel.FIT, 'dummy_remote_file_name', tmpfile_path)
+    logger.upload_file('dummy_remote_file_name', tmpfile_path)
 
     # Shutdown the logger. This should not hang or cause any exception
     remote_uploader_downloader.close(dummy_state, logger=logger)

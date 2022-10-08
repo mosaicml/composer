@@ -22,7 +22,6 @@ from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.loggers.tensorboard_logger import TensorboardLogger
 from composer.loggers.wandb_logger import WandBLogger
-from composer.utils import import_object
 from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
 
 __all__ = [
@@ -37,16 +36,6 @@ class RemoteUploaderDownloaderHparams(hp.Hparams):
 
     Args:
         object_store_hparams (ObjectStoreHparams): The object store provider hparams.
-        should_upload_file (str, optional): The path to a filter function which returns whether a file should be uploaded.
-        The path should be of the format ``path.to.module:filter_function_name``.
-
-            The function should take (:class:`~composer.core.State`, :class:`.LogLevel`, ``<remote file name>``).
-            The remote file name will be a string. The function should return a boolean indicating whether the file
-            should be uploaded.
-
-            .. seealso: :func:`composer.utils.import_helpers.import_object`
-
-            Setting this parameter to ``None`` (the default) will upload all files.
         object_name (str, optional): See :class:`.RemoteUploaderDownloader`.
         num_concurrent_uploads (int, optional): See :class:`.RemoteUploaderDownloader`.
         upload_staging_folder (str, optional): See :class:`.RemoteUploaderDownloader`.
@@ -58,8 +47,6 @@ class RemoteUploaderDownloaderHparams(hp.Hparams):
     }
 
     object_store_hparams: ObjectStoreHparams = hp.required('Object store provider hparams.')
-    should_upload_file: Optional[str] = hp.optional(
-        'Path to a filter function which returns whether a file should be uploaded.', default=None)
     object_name: str = hp.auto(RemoteUploaderDownloader, 'object_name')
     num_concurrent_uploads: int = hp.auto(RemoteUploaderDownloader, 'num_concurrent_uploads')
     use_procs: bool = hp.auto(RemoteUploaderDownloader, 'use_procs')
@@ -71,7 +58,6 @@ class RemoteUploaderDownloaderHparams(hp.Hparams):
             object_store_cls=self.object_store_hparams.get_object_store_cls(),
             object_store_kwargs=self.object_store_hparams.get_kwargs(),
             object_name=self.object_name,
-            should_upload_file=import_object(self.should_upload_file) if self.should_upload_file is not None else None,
             num_concurrent_uploads=self.num_concurrent_uploads,
             upload_staging_folder=self.upload_staging_folder,
             use_procs=self.use_procs,

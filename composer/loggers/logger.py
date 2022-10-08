@@ -8,7 +8,6 @@ from __future__ import annotations
 import collections.abc
 import operator
 import pathlib
-from enum import IntEnum
 from functools import reduce
 from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
 
@@ -21,33 +20,7 @@ if TYPE_CHECKING:
     from composer.core.state import State
     from composer.loggers.logger_destination import LoggerDestination
 
-__all__ = ['LoggerDestination', 'Logger', 'LogLevel', 'format_log_data_value']
-
-
-class LogLevel(IntEnum):
-    """LogLevel denotes when in the training loop log messages are generated.
-
-    Logging destinations use the LogLevel to determine whether to record a given
-    metric or state change.
-
-    Attributes:
-        FIT: Logged once per training run.
-        EPOCH: Logged once per epoch.
-        BATCH: Logged once per batch.
-    """
-    FIT = 1
-    EPOCH = 2
-    BATCH = 3
-
-    @classmethod
-    def _missing_(cls, value: object):
-        if isinstance(value, LogLevel):
-            return value
-        if isinstance(value, int):
-            return LogLevel(value)
-        if isinstance(value, str):
-            return LogLevel[value.upper()]
-        return super()._missing_(value)
+__all__ = ['LoggerDestination', 'Logger', 'format_log_data_value']
 
 
 class Logger:
@@ -110,7 +83,6 @@ class Logger:
 
     def upload_file(
         self,
-        log_level: Union[str, int, LogLevel],
         remote_file_name: str,
         file_path: Union[pathlib.Path, str],
         *,
@@ -124,20 +96,16 @@ class Logger:
         .. seealso:: :doc:`Uploading Files</trainer/file_uploading>` for notes for file uploading.
 
         Args:
-            log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
-                :class:`LogLevel`.
             remote_file_name (str): A format string for the name of the file.
             file_path (str | pathlib.Path): A format string for the file path.
             overwrite (bool, optional): Whether to overwrite an existing file with the same ``remote_file_name``.
                 (default: ``False``)
         """
-        log_level = LogLevel(log_level)
         file_path = format_name_with_dist(format_str=str(file_path), run_name=self._state.run_name)
         file_path = pathlib.Path(file_path)
         for destination in self.destinations:
             destination.upload_file(
                 state=self._state,
-                log_level=log_level,
                 remote_file_name=format_name_with_dist(format_str=remote_file_name, run_name=self._state.run_name),
                 file_path=file_path,
                 overwrite=overwrite,

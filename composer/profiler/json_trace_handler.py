@@ -17,7 +17,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 from composer.core.state import State
 from composer.core.time import Timestamp
-from composer.loggers import Logger, LogLevel
+from composer.loggers import Logger
 from composer.profiler.json_trace_merger import merge_traces
 from composer.profiler.profiler_action import ProfilerAction
 from composer.profiler.trace_handler import TraceHandler
@@ -289,8 +289,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
 
             if self.remote_file_name is not None:
                 remote_file_name = format_name_with_dist_and_time(self.remote_file_name, state.run_name, timestamp)
-                logger.upload_file(LogLevel.BATCH,
-                                   remote_file_name=remote_file_name,
+                logger.upload_file(remote_file_name=remote_file_name,
                                    file_path=trace_filename,
                                    overwrite=self.overwrite)
             # Gather the filenames
@@ -331,7 +330,6 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
                         state.run_name,
                     )
                     logger.upload_file(
-                        LogLevel.BATCH,
                         remote_file_name=merged_trace_remote_file_name,
                         file_path=merged_trace_remote_file_name,
                         overwrite=True,

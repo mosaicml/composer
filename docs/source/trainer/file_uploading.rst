@@ -64,14 +64,12 @@ It is also possible to upload custom files outside of an algorithm or callback. 
 .. testcode::
 
     from composer import Trainer
-    from composer.loggers import LogLevel
 
     # Construct the trainer
     trainer = Trainer(...)
 
     # Upload a custom file, such as a configuration YAML
     trainer.logger.upload_file(
-        log_level=LogLevel.FIT,
         remote_file_name='hparams.yaml',
         file_path='/path/to/hparams.yaml',
     )

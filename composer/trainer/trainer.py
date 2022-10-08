@@ -2003,7 +2003,7 @@ class Trainer:
                 from torch.utils.data import DataLoader
 
                 from composer import Trainer, Callback
-                from composer.loggers import Logger, LogLevel
+                from composer.loggers import Logger
 
                 class PredictionSaver(Callback):
                     def __init__(self, folder: str):
@@ -2016,7 +2016,7 @@ class Trainer:
                         torch.save(state.outputs, filepath)
 
                         # Also upload the files
-                        logger.upload_file(LogLevel.BATCH, remote_file_name=name, file_path=filepath)
+                        logger.upload_file(remote_file_name=name, file_path=filepath)
 
                 trainer = Trainer(
                     ...,

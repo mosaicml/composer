@@ -11,7 +11,6 @@ from typing import Any, Dict, Optional
 
 from composer.core.callback import Callback
 from composer.core.state import State
-from composer.loggers.logger import LogLevel
 
 __all__ = ['LoggerDestination']
 
@@ -78,7 +77,6 @@ class LoggerDestination(Callback, ABC):
     def upload_file(
         self,
         state: State,
-        log_level: LogLevel,
         remote_file_name: str,
         file_path: pathlib.Path,
         *,
@@ -106,13 +104,12 @@ class LoggerDestination(Callback, ABC):
 
         Args:
             state (State): The training state.
-            log_level (Union[str, LogLevel]): A :class:`LogLevel`.
             remote_file_name (str): The name of the file.
             file_path (pathlib.Path): The file path.
             overwrite (bool, optional): Whether to overwrite an existing file with the same ``remote_file_name``.
                 (default: ``False``)
         """
-        del state, log_level, remote_file_name, file_path, overwrite  # unused
+        del state, remote_file_name, file_path, overwrite  # unused
         pass
 
     def download_file(

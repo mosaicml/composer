@@ -262,7 +262,6 @@ def export_with_logger(
     Returns:
         None
     """
-    from composer.loggers import LogLevel
     if save_object_store == None and logger.has_file_upload_destination():
         with tempfile.TemporaryDirectory() as tmpdir:
             temp_local_save_path = os.path.join(str(tmpdir), f'model')
@@ -271,7 +270,7 @@ def export_with_logger(
                                  save_path=temp_local_save_path,
                                  sample_input=sample_input,
                                  transforms=transforms)
-            logger.upload_file(log_level=LogLevel.FIT, remote_file_name=save_path, file_path=temp_local_save_path)
+            logger.upload_file(remote_file_name=save_path, file_path=temp_local_save_path)
     else:
         export_for_inference(model=model,
                              save_format=save_format,

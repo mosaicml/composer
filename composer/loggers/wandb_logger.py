@@ -16,7 +16,7 @@ import warnings
 from typing import Any, Dict, List, Optional
 
 from composer.core.state import State
-from composer.loggers.logger import Logger, LogLevel
+from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -161,8 +161,7 @@ class WandBLogger(LoggerDestination):
         assert self.entity is not None, 'entity should be defined'
         assert self.project is not None, 'project should be defined'
 
-    def upload_file(self, state: State, log_level: LogLevel, remote_file_name: str, file_path: pathlib.Path, *,
-                    overwrite: bool):
+    def upload_file(self, state: State, remote_file_name: str, file_path: pathlib.Path, *, overwrite: bool):
         del log_level, overwrite  # unused
 
         if self._enabled and self._log_artifacts:

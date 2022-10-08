@@ -12,7 +12,7 @@ import textwrap
 from typing import Any, Callable, Dict, Optional, TextIO
 
 from composer.core.state import State
-from composer.loggers.logger import Logger, LogLevel, format_log_data_value
+from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils.file_helpers import FORMAT_NAME_WITH_DIST_TABLE, format_name_with_dist
 
@@ -25,7 +25,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
     Example usage:
         .. testcode::
 
-            from composer.loggers import FileLogger, LogLevel
+            from composer.loggers import FileLogger
             from composer.trainer import Trainer
             file_logger = FileLogger(
                 filename="{{run_name}}/logs-rank{{rank}}.txt",
@@ -277,7 +277,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
 
         self.file.flush()
         os.fsync(self.file.fileno())
-        logger.upload_file(LogLevel.FIT, self.remote_file_name, self.file.name, overwrite=True)
+        logger.upload_file(self.remote_file_name, self.file.name, overwrite=True)
 
     def fit_end(self, state: State, logger: Logger) -> None:
         # Flush the file on fit_end, in case if was not flushed on epoch_end and the trainer is re-used

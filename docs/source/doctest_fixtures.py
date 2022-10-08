@@ -46,7 +46,6 @@ from composer.core import types as types
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.loggers import InMemoryLogger as InMemoryLogger
 from composer.loggers import Logger as Logger
-from composer.loggers import LogLevel as LogLevel
 from composer.loggers import RemoteUploaderDownloader
 from composer.models import ComposerModel as ComposerModel
 from composer.optim.scheduler import ConstantScheduler
