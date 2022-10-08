@@ -979,8 +979,10 @@ class Trainer:
 
         # Log gpus and nodes.
         device_name = self._device.__class__.__name__.lstrip('Device').lower()
-        self.logger.log_hyperparameters({'num_nodes': int(dist.get_world_size() / dist.get_local_world_size()),
-                                         f'num_{device_name}s_per_node': dist.get_local_world_size(),})
+        self.logger.log_hyperparameters({
+            'num_nodes': int(dist.get_world_size() / dist.get_local_world_size()),
+            f'num_{device_name}s_per_node': dist.get_local_world_size(),
+        })
 
         if not isinstance(self.state.model, ComposerModel):
             raise ValueError('Provided model should be a subclass of ComposerModel.')
