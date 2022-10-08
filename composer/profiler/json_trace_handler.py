@@ -17,7 +17,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 from composer.core.state import State
 from composer.core.time import Timestamp
-from composer.loggers import Logger, LogLevel
+from composer.loggers import Logger
 from composer.profiler.json_trace_merger import merge_traces
 from composer.profiler.profiler_action import ProfilerAction
 from composer.profiler.trace_handler import TraceHandler
@@ -289,10 +289,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
 
             if self.artifact_name is not None:
                 artifact_name = format_name_with_dist_and_time(self.artifact_name, state.run_name, timestamp)
-                logger.file_artifact(LogLevel.BATCH,
-                                     artifact_name=artifact_name,
-                                     file_path=trace_filename,
-                                     overwrite=self.overwrite)
+                logger.file_artifact(artifact_name=artifact_name, file_path=trace_filename, overwrite=self.overwrite)
             # Gather the filenames
             trace_files = [pathlib.Path(x) for x in dist.all_gather_object(trace_filename)]
             self.saved_traces.append((timestamp, trace_files))
@@ -331,7 +328,6 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
                         state.run_name,
                     )
                     logger.file_artifact(
-                        LogLevel.BATCH,
                         artifact_name=merged_trace_artifact_name,
                         file_path=merged_trace_artifact_name,
                         overwrite=True,

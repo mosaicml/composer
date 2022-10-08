@@ -16,7 +16,6 @@ from torch.profiler.profiler import ProfilerAction as TorchProfilerAction
 from composer.core.callback import Callback
 from composer.core.state import State
 from composer.loggers import Logger
-from composer.loggers.logger import LogLevel
 from composer.profiler.profiler_action import ProfilerAction
 from composer.utils import dist
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
@@ -214,8 +213,7 @@ class TorchProfiler(Callback):  # noqa: D101
                                                                      run_name=state.run_name,
                                                                      timestamp=timestamp)
                 trace_artifact_name = trace_artifact_name.lstrip('/')
-                logger.file_artifact(LogLevel.BATCH,
-                                     artifact_name=trace_artifact_name,
+                logger.file_artifact(artifact_name=trace_artifact_name,
                                      file_path=trace_file_name,
                                      overwrite=self.overwrite)
 

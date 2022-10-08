@@ -11,7 +11,6 @@ from typing import Any, Dict, Optional
 
 from composer.core.callback import Callback
 from composer.core.state import State
-from composer.loggers.logger import LogLevel
 
 __all__ = ['LoggerDestination']
 
@@ -78,7 +77,6 @@ class LoggerDestination(Callback, ABC):
     def log_file_artifact(
         self,
         state: State,
-        log_level: LogLevel,
         artifact_name: str,
         file_path: pathlib.Path,
         *,
@@ -106,13 +104,12 @@ class LoggerDestination(Callback, ABC):
 
         Args:
             state (State): The training state.
-            log_level (Union[str, LogLevel]): A :class:`LogLevel`.
             artifact_name (str): The name of the artifact.
             file_path (pathlib.Path): The file path.
             overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``artifact_name``.
                 (default: ``False``)
         """
-        del state, log_level, artifact_name, file_path, overwrite  # unused
+        del state, artifact_name, file_path, overwrite  # unused
         pass
 
     def get_file_artifact(

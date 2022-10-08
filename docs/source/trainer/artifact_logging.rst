@@ -64,14 +64,12 @@ It is also possible to log custom artifacts outside of an algorithm or callback.
 .. testcode::
 
     from composer import Trainer
-    from composer.loggers import LogLevel
 
     # Construct the trainer
     trainer = Trainer(...)
 
     # Log a custom artifact, such as a configuration YAML
     trainer.logger.file_artifact(
-        log_level=LogLevel.FIT,
         artifact_name='hparams.yaml',
         file_path='/path/to/hparams.yaml',
     )

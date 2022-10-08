@@ -9,7 +9,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from composer.core import Callback, Event, State
-from composer.loggers import Logger, LogLevel
+from composer.loggers import Logger
 from composer.trainer.trainer import Trainer
 from tests.common import EventCounterCallback, RandomClassificationDataset, SimpleModel
 
@@ -45,7 +45,7 @@ class PredictionSaver(Callback):
         torch.save(state.outputs, filepath)
 
         # Also log the outputs as an artifact
-        logger.file_artifact(LogLevel.BATCH, artifact_name=name, file_path=filepath)
+        logger.file_artifact(artifact_name=name, file_path=filepath)
 
 
 class TestTrainerPredict():
