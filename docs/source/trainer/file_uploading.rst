@@ -207,7 +207,7 @@ Similar to the S3 Example above, we can upload files to a remote SFTP filesystem
 
     # Configure the logger
     logger = RemoteUploaderDownloader(
-        remote_backend_uri="sftp://sftp_server.example.com",
+        remote_bucket_uri="sftp://sftp_server.example.com",
     )
 
     # Define the trainer

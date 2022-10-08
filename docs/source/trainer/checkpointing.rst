@@ -304,7 +304,7 @@ Behind the scenes, the :class:`.RemoteUploaderDownloader` uses :doc:`Apache Libc
     from composer.utils import LibcloudObjectStore
 
     remote_uploader_downloader = RemoteUploaderDownloader(
-        remote_bucket_uri="libcloud://my_bucket"
+        remote_bucket_uri="libcloud://my_bucket",
         remote_backend_kwargs={
             "provider": "s3",  # The Apache Libcloud provider name
             "container": "my_bucket",  # The name of the cloud container (i.e. bucket) to use.
