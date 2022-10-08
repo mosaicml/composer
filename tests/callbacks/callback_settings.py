@@ -94,6 +94,7 @@ _callback_kwargs: Dict[Union[Type[Callback], Type[hp.Hparams]], Dict[str, Any],]
         'window_size': 1,
     },
     RemoteUploaderDownloaderHparams: {
+        'remote_bucket_uri': 'libcloud://.',
         'object_store_hparams': {
             'libcloud': {
                 'provider': 'local',
