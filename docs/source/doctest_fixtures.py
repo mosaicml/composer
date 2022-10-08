@@ -212,8 +212,8 @@ def _new_RemoteUploaderDownloader_init(self, fake_ellipses: None = None, **kwarg
     os.makedirs('./object_store', exist_ok=True)
     kwargs.update(use_procs=False,
                   num_concurrent_uploads=1,
-                  object_store_cls=LibcloudObjectStore,
-                  object_store_kwargs={
+                  remote_bucket_uri='libcloud://.',
+                  remote_bucket_kwargs={
                       'provider': 'local',
                       'container': '.',
                       'provider_kwargs': {

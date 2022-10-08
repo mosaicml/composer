@@ -21,8 +21,8 @@ def test_loggers_on_callbacks(logger_cls: Type[LoggerDestination], callback_cls:
     logger_kwargs = get_cb_kwargs(logger_cls)
     if issubclass(logger_cls, RemoteUploaderDownloader):
         # Ensure that the remote directory does not conflict with any directory used by callbacks
-        logger_kwargs['object_store_kwargs']['provider_kwargs']['key'] = './remote'
-        os.makedirs(logger_kwargs['object_store_kwargs']['provider_kwargs']['key'], exist_ok=True)
+        logger_kwargs['remote_backend_kwargs']['provider_kwargs']['key'] = './remote'
+        os.makedirs(logger_kwargs['remote_backend_kwargs']['provider_kwargs']['key'], exist_ok=True)
     logger = logger_cls(**logger_kwargs)
     callback_kwargs = get_cb_kwargs(callback_cls)
     callback = callback_cls(**callback_kwargs)
