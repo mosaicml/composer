@@ -48,8 +48,6 @@ class RemoteUploaderDownloaderHparams(hp.Hparams):
 
     remote_bucket_uri: str = hp.required('Remote bucket uri')
     object_store_hparams: Optional[ObjectStoreHparams] = hp.optional('Object store provider hparams.', default=None)
-    should_upload_file: Optional[str] = hp.optional(
-        'Path to a filter function which returns whether a file should be uploaded.', default=None)
     remote_path_format_string: str = hp.auto(RemoteUploaderDownloader, 'remote_path_format_string')
     num_concurrent_uploads: int = hp.auto(RemoteUploaderDownloader, 'num_concurrent_uploads')
     use_procs: bool = hp.auto(RemoteUploaderDownloader, 'use_procs')
@@ -62,7 +60,6 @@ class RemoteUploaderDownloaderHparams(hp.Hparams):
             remote_backend_kwargs=self.object_store_hparams.get_kwargs()
             if self.object_store_hparams is not None else {},
             remote_path_format_string=self.remote_path_format_string,
-            should_upload_file=import_object(self.should_upload_file) if self.should_upload_file is not None else None,
             num_concurrent_uploads=self.num_concurrent_uploads,
             upload_staging_folder=self.upload_staging_folder,
             use_procs=self.use_procs,
