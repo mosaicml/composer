@@ -144,7 +144,7 @@ class MLPerfCallback(Callback):
         status: str = 'onprem',
         cache_clear_cmd: Optional[str] = None,
         host_processors_per_node: Optional[int] = None,
-        exit_on_target: bool = False,
+        exit_at_target: bool = False,
     ) -> None:
 
         _require_mlperf_logging()
@@ -167,7 +167,7 @@ class MLPerfCallback(Callback):
         self.root_folder = root_folder
         self.metric_name = metric_name
         self.metric_label = metric_label
-        self.exit_on_target = exit_on_target
+        self.exit_at_target = exit_at_target
         self._file_handler = None
 
         self.system_desc = get_system_description(submitter, division, status, system_name, host_processors_per_node)
@@ -346,7 +346,7 @@ class MLPerfCallback(Callback):
             # upload to object store after eval complete
             logger.file_artifact(artifact_name=self.upload_name, file_path=self.filename)
 
-        if accuracy > self.target and self.exit_on_target:
+        if accuracy > self.target and self.exit_at_target:
             raise BreakEpochException('Ending run as target has been met.')
 
     def close(self, state: State, logger: Logger) -> None:
