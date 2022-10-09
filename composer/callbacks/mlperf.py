@@ -18,6 +18,7 @@ from torch.utils.data import DataLoader, IterableDataset
 import composer
 from composer.core import State
 from composer.core.callback import Callback
+from composer.core.types import BreakEpochException
 from composer.loggers import Logger
 from composer.utils import dist
 
@@ -126,6 +127,7 @@ class MLPerfCallback(Callback):
         cache_clear_cmd (str, optional): Command to invoke during the cache clear. This callback
             will call ``os.system(cache_clear_cmd)``. Default is disabled (None)
         host_processors_per_node (int, optional): Total number of host processors per node.  Default: ``None``.
+        exit_on_target (bool, optional): Whether to exit training when target metric is met. Default: ``False``.
     """
 
     def __init__(
@@ -142,6 +144,7 @@ class MLPerfCallback(Callback):
         status: str = 'onprem',
         cache_clear_cmd: Optional[str] = None,
         host_processors_per_node: Optional[int] = None,
+        exit_on_target: bool = False,
     ) -> None:
 
         _require_mlperf_logging()
@@ -164,6 +167,7 @@ class MLPerfCallback(Callback):
         self.root_folder = root_folder
         self.metric_name = metric_name
         self.metric_label = metric_label
+        self.exit_on_target = exit_on_target
         self._file_handler = None
 
         self.system_desc = get_system_description(submitter, division, status, system_name, host_processors_per_node)
@@ -325,9 +329,9 @@ class MLPerfCallback(Callback):
             self.mllogger.event(key=constants.EVAL_START, metadata={'epoch_num': self._get_time(state)})
 
     def eval_end(self, state: State, logger: Logger) -> None:
-        if _global_rank_zero():
-            accuracy = self._get_accuracy(state)
+        accuracy = self._get_accuracy(state)
 
+        if _global_rank_zero():
             self.mllogger.event(key=constants.EVAL_STOP, metadata={'epoch_num': self._get_time(state)})
             self.mllogger.event(key=constants.EVAL_ACCURACY,
                                 value=accuracy,
@@ -341,6 +345,9 @@ class MLPerfCallback(Callback):
 
             # upload to object store after eval complete
             logger.file_artifact(artifact_name=self.upload_name, file_path=self.filename)
+
+        if accuracy > self.target and self.exit_on_target:
+            raise BreakEpochException('Ending run as target has been met.')
 
     def close(self, state: State, logger: Logger) -> None:
         if _global_rank_zero() and os.path.exists(self.filename):
