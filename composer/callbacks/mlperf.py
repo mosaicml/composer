@@ -18,7 +18,6 @@ from torch.utils.data import DataLoader, IterableDataset
 import composer
 from composer.core import State
 from composer.core.callback import Callback
-from composer.core.types import BreakEpochException
 from composer.loggers import Logger
 from composer.utils import dist
 
@@ -347,7 +346,8 @@ class MLPerfCallback(Callback):
             logger.file_artifact(artifact_name=self.upload_name, file_path=self.filename)
 
         if accuracy > self.target and self.exit_at_target:
-            raise BreakEpochException('Ending run as target has been met.')
+            # stop training
+            state.max_duration = state.timestamp.batch
 
     def close(self, state: State, logger: Logger) -> None:
         if _global_rank_zero() and os.path.exists(self.filename):
