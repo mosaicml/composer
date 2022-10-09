@@ -343,7 +343,7 @@ class MLPerfCallback(Callback):
             logger.file_artifact(artifact_name=self.upload_name, file_path=self.filename)
 
     def close(self, state: State, logger: Logger) -> None:
-        if _global_rank_zero():
+        if _global_rank_zero() and os.path.exists(self.filename):
             logger.file_artifact(artifact_name=self.upload_name, file_path=self.filename)
 
         if self._file_handler is not None:
