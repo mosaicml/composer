@@ -127,7 +127,7 @@ class MLPerfCallback(Callback):
         cache_clear_cmd (str, optional): Command to invoke during the cache clear. This callback
             will call ``os.system(cache_clear_cmd)``. Default is disabled (None)
         host_processors_per_node (int, optional): Total number of host processors per node.  Default: ``None``.
-        exit_on_target (bool, optional): Whether to exit training when target metric is met. Default: ``False``.
+        exit_at_target (bool, optional): Whether to exit training when target metric is met. Default: ``False``.
     """
 
     def __init__(
