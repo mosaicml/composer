@@ -109,7 +109,7 @@ See [these instructions](#viewing-your-results-locally) for viewing your results
 ## Saving your Logs to S3
 You can also save your Tensorboard logs to cloud storage such as Amazon S3. This is especially useful in cases where your run environment does not have persistent storage.
 
-To save your logs to S3, you need to use an {class}`~.ObjectStoreLogger`
+To save your logs to S3, you need to use an {class}`~.RemoteUploaderDownloader`
 
 If you are using YAML configs you can get S3 logging by adding the following lines to your YAML file under loggers:
 
