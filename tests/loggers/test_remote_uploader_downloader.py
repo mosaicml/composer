@@ -267,3 +267,19 @@ def test_close_on_failure(tmp_path: pathlib.Path, dummy_state: State):
                 r'The following objects may not have been uploaded, likely due to a worker crash: dummy_remote_file_name'
         ):
             remote_uploader_downloader.post_close()
+
+
+def test_valid_backend_names():
+    valid_backend_names = ['s3', 'libcloud', 'sftp']
+    with patch('composer.loggers.remote_uploader_downloader.S3ObjectStore') as _, \
+         patch('composer.loggers.remote_uploader_downloader.SFTPObjectStore') as _, \
+         patch('composer.loggers.remote_uploader_downloader.LibcloudObjectStore') as _:
+        for name in valid_backend_names:
+            remote_uploader_downloader = RemoteUploaderDownloader(remote_bucket_uri=f'{name}://not-a-real-bucket')
+            # Access the remote_backend property so that it is built
+            _ = remote_uploader_downloader.remote_backend
+
+    with pytest.raises(ValueError):
+        remote_uploader_downloader = RemoteUploaderDownloader(remote_bucket_uri='magicloud://not-a-real-bucket')
+        # Access the remote_backend property so that it is built
+        _ = remote_uploader_downloader.remote_backend
