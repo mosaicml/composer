@@ -69,7 +69,7 @@ class MMDetModel(ComposerModel):
 
     def forward(self, batch):
         # this will return a dictionary of losses in train mode and model outputs in test mode.
-        return self.model(**batch)  
+        return self.model(**batch)
 
     def loss(self, outputs, batch, **kwargs):
         return outputs
@@ -78,11 +78,11 @@ class MMDetModel(ComposerModel):
         """
         Args:
             batch (dict): a eval batch of the format:
-            
+
 
             ``img`` (List[torch.Tensor]): list of image torch.Tensors of shape (batch, c, h , w).
-            
-            
+
+
             ``img_metas`` (List[Dict]): (1, batch_size) list of ``image_meta`` dicts.
         Returns: model predictions: A batch_size length list of dictionaries containg detection boxes in (x,y, x2, y2) format, class labels, and class probabilities.
         """
