@@ -71,6 +71,8 @@ def object_store_test_helper(
     remote_dir = str(tmp_path / 'object_store')
     os.makedirs(remote_dir, exist_ok=True)
 
+    # Patching does not work when using multiprocessing with spawn, so we also
+    # patch to use fork
     fork_context = multiprocessing.get_context('fork')
     with patch('composer.loggers.remote_uploader_downloader.S3ObjectStore', DummyObjectStore):
         with patch('composer.loggers.remote_uploader_downloader.multiprocessing.get_context', lambda _: fork_context):
@@ -180,6 +182,8 @@ def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_stat
         with open(tmp_path / 'samples' / f'sample_{i}', 'w+') as f:
             f.write(str(i))
 
+    # Patching does not work when using multiprocessing with spawn, so we also
+    # patch to use fork
     fork_context = multiprocessing.get_context('fork')
     with patch('composer.loggers.remote_uploader_downloader.S3ObjectStore', DummyObjectStore):
         with patch('composer.loggers.remote_uploader_downloader.multiprocessing.get_context', lambda _: fork_context):
