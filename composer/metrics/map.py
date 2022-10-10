@@ -221,7 +221,7 @@ class MAP(Metric):
             self.groundtruth_labels.append(item['labels'])  # type: ignore
 
     def compute(self) -> dict:
-        """Compute the `Mean-Average-Precision (mAP) and Mean-Average-Recall (mAR)` scores.
+        """Compute the Mean-Average-Precision (mAP) and Mean-Average-Recall (mAR) scores.
 
         All detections added in the `update()` method are included.
 
