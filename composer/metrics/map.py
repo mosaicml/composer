@@ -223,7 +223,7 @@ class MAP(Metric):
     def compute(self) -> dict:
         """Compute the Mean-Average-Precision (mAP) and Mean-Average-Recall (mAR) scores.
 
-        All detections added in the `update()` method are included.
+        All detections added in the ``update()`` method are included.
 
         Note:
             Main `map` score is calculated with @[ IoU=0.50:0.95 | area=all | maxDets=100 ]
