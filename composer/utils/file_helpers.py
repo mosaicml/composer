@@ -411,8 +411,8 @@ def _get_file(
             )
         else:
             # Type LoggerDestination
-            object_store.get_file_artifact(
-                artifact_name=path,
+            object_store.download_file(
+                remote_file_name=path,
                 destination=destination,
                 progress_bar=progress_bar,
                 overwrite=overwrite,
@@ -484,7 +484,7 @@ def create_symlink_file(
     """Create a symlink file, which can be followed by :func:`get_file`.
 
     Unlike unix symlinks, symlink files can be created by this function are normal text files and can be
-    uploaded to object stores via :meth:`.ObjectStore.upload_object` or loggers via :meth:`.Logger.file_artifact`
+    uploaded to object stores via :meth:`.ObjectStore.upload_object` or loggers via :meth:`.Logger.upload_file`
     that otherwise would not support unix-style symlinks.
 
     Args:
@@ -494,8 +494,8 @@ def create_symlink_file(
     """
     # Loggers might not natively support symlinks, so we emulate symlinks via text files ending with `.symlink`
     # This text file contains the name of the object it is pointing to.
-    # Only symlink if we're logging artifact to begin with
-    # Write artifact name into file to emulate symlink
+    # Only symlink if we're uploading files to begin with
+    # Write remote file name into file to emulate symlink
     # Add .symlink extension so we can identify as emulated symlink when downloading
     destination_filename = str(destination_filename)
     if not destination_filename.endswith('.symlink'):
