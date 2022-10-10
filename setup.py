@@ -84,7 +84,7 @@ install_requires = [
     'numpy>=1.21.5,<1.23.0',
     'psutil>=5.8.0,<6',
     'coolname>=1.1.0,<2',
-    'tabulate==0.8.10',  # for auto-generating tables
+    'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<9',
     'packaging>=21.3.0,<22',
     'importlib-metadata>=5.0.0,<6',
