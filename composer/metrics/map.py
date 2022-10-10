@@ -145,8 +145,6 @@ class MAP(Metric):
         dist_sync_fn (callable, optional): Callback that performs the allgather operation on the metric state. When ``None``, DDP will be used to perform the all_gather. Default: ``None``.
 
     Raises:
-        ImportError: If ``pycocotools`` is not installed.
-        ImportError: If ``torchvision`` is not installed or version installed is lower than 0.8.0.
         ValueError: If ``class_metrics`` is not a boolean.
     """
 
