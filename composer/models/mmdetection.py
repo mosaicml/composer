@@ -68,8 +68,8 @@ class MMDetModel(ComposerModel):
             self.val_metrics = metric_collection.clone(prefix='val_')
 
     def forward(self, batch):
-        return self.model(
-            **batch)  # this will return a dictionary of losses in train mode and model outputs in test mode.
+        # this will return a dictionary of losses in train mode and model outputs in test mode.
+        return self.model(**batch)  
 
     def loss(self, outputs, batch, **kwargs):
         return outputs
