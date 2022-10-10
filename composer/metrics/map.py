@@ -142,7 +142,7 @@ class MAP(Metric):
         compute_on_step (bool, optional): Forward only calls ``update()`` and return ``None`` if this is set to ``False``. Default: ``False``.
         dist_sync_on_step (bool, optional): Synchronize metric state across processes at each ``forward()`` before returning the value at the step. Default: ``False``.
         process_group (any, optional): Specify the process group on which synchronization is called. Default: ``None`` (which selects the entire world).
-        dist_sync_fn (callable, optional): Callback that performs the allgather operation on the metric state. When ``None``, DDP will be used to perform the allgather. Default: ``None``.
+        dist_sync_fn (callable, optional): Callback that performs the allgather operation on the metric state. When ``None``, DDP will be used to perform the all_gather. Default: ``None``.
 
     Raises:
         ImportError: If ``pycocotools`` is not installed.
