@@ -10,6 +10,8 @@ Before running the script, ADE20k semantic segmentation benchmark must be downlo
 
 ### Example configurations
 
+<!--pytest.mark.skip-->
+
 ```bash
 # Single GPU/CPU depending on torch.cuda.is_available():
 python train_deeplabv3_ade20k.py /path/to/ade20k
