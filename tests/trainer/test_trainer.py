@@ -871,7 +871,6 @@ class TestTrainerEquivalence():
             'rtol': 1e-02 if precision == Precision.AMP else 1e-05,
         }
 
-        config = copy.deepcopy(config)
         config.update({
             'grad_accum': 2,
         })
