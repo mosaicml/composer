@@ -663,22 +663,22 @@ class Trainer:
             (default: ``"ep{epoch}-ba{batch}-rank{rank}.pt"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-        save_artifact_name (str, optional): A format string describing how to name checkpoints in loggers.
+        save_remote_file_name (str, optional): A format string describing how to name checkpoints in loggers.
             This parameter has no effect if ``save_folder`` is ``None``.
             (default: ``"{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}"``)
 
-            .. seealso:: :class:`~.CheckpointSaver` and :doc:`Artifact Logging</trainer/artifact_logging>` notes.
+            .. seealso:: :class:`~.CheckpointSaver` and :doc:`Uploading Files</trainer/file_uploading>` notes.
         save_latest_filename (str, optional): A format string for the name of a symlink
             (relative to ``save_folder``) that points to the last saved checkpoint.
             This parameter has no effect if ``save_folder`` is ``None``.
             To disable symlinking, set this to ``None``. (default: ``"latest-rank{rank}.pt"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-        save_latest_artifact_name (str, optional): A format string describing how to name symlinks in loggers.
-            This parameter has no effect if ``save_folder``, ``save_latest_filename``, or ``save_artifact_name`` are ``None``.
+        save_latest_remote_file_name (str, optional): A format string describing how to name symlinks in loggers.
+            This parameter has no effect if ``save_folder``, ``save_latest_filename``, or ``save_remote_file_name`` are ``None``.
             To disable symlinking in logger, set this or ``save_latest_filename`` to ``None``. (default: ``"{run_name}/checkpoints/latest-rank{rank}"``)
 
-            .. seealso:: :class:`~.CheckpointSaver` and :doc:`Artifact Logging</trainer/artifact_logging>` notes.
+            .. seealso:: :class:`~.CheckpointSaver` and :doc:`Uploading Files</trainer/file_uploading>` notes.
         save_overwrite (bool, optional): Whether existing checkpoints should be overridden.
             This parameter has no effect if ``save_folder`` is None. (default: ``False``)
 
@@ -695,13 +695,13 @@ class Trainer:
         save_num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
             are removed first. Set to ``-1`` to keep all checkpoints locally. (default: ``-1``)
 
-            Checkpoints will be removed after they have been logged as a file artifact. For example, when this callback
-            is used in conjunction with the :class:`.ObjectStoreLogger`, set this
+            Checkpoints will be removed after they have been uploaded. For example, when this callback
+            is used in conjunction with the :class:`.RemoteUploaderDownloader`, set this
             parameter to ``0`` to immediately delete checkpoints from the local disk after they have been uploaded to
             the object store.
 
             This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
-            artifact stores.
+            remote file systems.
         autoresume (bool, optional): Whether or not to enable autoresume, which allows for stopping and resuming
             training. This allows use of spot instances, as the training run is now fault tolerant.  This parameter
             requires ``save_folder`` and ``run_name`` to be specified and ``save_overwrite`` to be ``False``.
@@ -709,7 +709,7 @@ class Trainer:
 
             When enabled, the save_folder is checked for checkpoints of the format ``"{save_folder}/{save_latest_filename}"``,
             which are loaded to continue training. If no local checkpoints are found, each logger is checked for potential
-            checkpoints named ``save_latest_artifact_name``. Finally, if no logged checkpoints are found, ``load_path`` is
+            checkpoints named ``save_latest_remote_file_name``. Finally, if no logged checkpoints are found, ``load_path`` is
             used to load a checkpoint if specified. This should only occur at the start of a run using autoresume.
 
             For example, to run a fine-tuning run on a spot instance, ``load_path`` would be set to the original
@@ -1040,6 +1040,13 @@ class Trainer:
         # Run Event.INIT
         self.engine.run_event(Event.INIT)
 
+        # Log gpus and nodes.
+        device_name = self._device.__class__.__name__.lstrip('Device').lower()
+        self.logger.log_hyperparameters({
+            'num_nodes': int(dist.get_world_size() / dist.get_local_world_size()),
+            f'num_{device_name}s_per_node': dist.get_local_world_size(),
+        })
+
         if not isinstance(self.state.model, ComposerModel):
             raise ValueError('Provided model should be a subclass of ComposerModel.')
 
@@ -1184,10 +1191,11 @@ class Trainer:
                 raise ValueError(
                     'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
                 )
-            autoresume_checkpoint_path = self._get_autoresume_checkpoint(save_folder=save_folder,
-                                                                         save_latest_filename=save_latest_filename,
-                                                                         loggers=loggers,
-                                                                         load_progress_bar=load_progress_bar)
+            autoresume_checkpoint_path = self._get_autoresume_checkpoint(
+                save_folder=save_folder,
+                save_latest_filename=save_latest_filename,
+                loggers=loggers,
+                load_progress_bar=load_progress_bar)
             # Found latest checkpoint path, load that instead
             if autoresume_checkpoint_path:
                 load_path = autoresume_checkpoint_path
@@ -2060,7 +2068,7 @@ class Trainer:
                 from torch.utils.data import DataLoader
 
                 from composer import Trainer, Callback
-                from composer.loggers import Logger, LogLevel
+                from composer.loggers import Logger
 
                 class PredictionSaver(Callback):
                     def __init__(self, folder: str):
@@ -2072,8 +2080,8 @@ class Trainer:
                         filepath = os.path.join(self.folder, name)
                         torch.save(state.outputs, filepath)
 
-                        # Also log the outputs as an artifact
-                        logger.file_artifact(LogLevel.BATCH, artifact_name=name, file_path=filepath)
+                        # Also upload the files
+                        logger.upload_file(remote_file_name=name, file_path=filepath)
 
                 trainer = Trainer(
                     ...,
