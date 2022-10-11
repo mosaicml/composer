@@ -320,7 +320,7 @@ class MLPerfCallback(Callback):
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         if _global_rank_zero():
-            self.mllogger.event(key=constants.EPOCH_STOP, metadata={'epoch_num': state.timestamp.epoch.value})
+            self.mllogger.event(key=constants.EPOCH_STOP, metadata={'epoch_num': self._get_time(state)})
             logger.upload_file(remote_file_name=self.upload_name, file_path=self.filename)
 
     def eval_start(self, state: State, logger: Logger) -> None:
