@@ -387,8 +387,8 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         logger.upload_file(remote_file_name=remote_file_name, file_path=file_path, overwrite=self.overwrite)
 
-        if self.latest_filename is not None:
-            symlink_name = self.latest_file_name.format(
+        if self.latest_file_path is not None:
+            symlink_name = self.latest_file_path.format(
                 state,
                 is_deepspeed,
             ).lstrip('/') + '.symlink'

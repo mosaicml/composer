@@ -35,7 +35,7 @@ from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Eve
 from composer.core.precision import get_precision_context
 from composer.core.time import TimeUnit
 from composer.core.types import Batch, BreakEpochException, PyTorchScheduler, TrainerMode
-from composer.loggers import Logger, LoggerDestination, ObjectStoreLogger, ProgressBarLogger, WandBLogger
+from composer.loggers import Logger, LoggerDestination, RemoteUploaderDownloader, ProgressBarLogger, WandBLogger
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.optim.scheduler import ComposerScheduler, compile_composer_scheduler
@@ -307,50 +307,22 @@ if _is_tpu_installed():
     import torch_xla.distributed.parallel_loader as pl
 
 
-def _create_object_store_logger_from_uri(uri: str) -> Optional[LoggerDestination]:
-    libcloud_supported_backends = [
-        'atmos',
-        'auroraobjects',
-        'azure_blobs',
-        'backblaze_b2',
-        'cloudfiles',
-        'digitalocean_spaces',
-        'google_storage',
-        'ktucloud',
-        'local',
-        'minio',
-        'nimbus',
-        'ninefold',
-        'oss',
-        'rgw',
-    ]
+def _create_remote_uploader_downloader_from_uri(uri: str) -> Optional[LoggerDestination]:
     parse_result = urlparse(uri)
-    backend, bucket = parse_result.scheme, parse_result.netloc
+    backend, bucket_name, dir_path = parse_result.scheme, parse_result.netloc, parse_result.path
     if backend == 's3':
-        return ObjectStoreLogger(object_store_cls=S3ObjectStore, object_store_kwargs={'bucket': bucket})
+        return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}', backend_kwargs={'bucket': bucket_name}, file_path_format_string=dir_path)
     elif backend == 'wandb':
         raise NotImplementedError('Specifying WandB through a URI is not supported. Please create'
                                   ' a WandBLogger object with log_artifacts=True and pass it to loggers')
-    elif backend in libcloud_supported_backends:
-        raise NotImplementedError(f'Specifying {backend} through a URI is not supported.'
-                                  ' Please use an ObjectStoreLogger object with LibcloudObjectStore')
     elif backend == 'sftp':
         raise NotImplementedError(f'Specifying {backend} through a URI is not supported.'
-                                  ' Please use an ObjectStoreLogger object with SFTPObjectStore')
+                                  ' Please use an RemoteUploaderDownloader object with SFTPObjectStore')
     elif backend == '':  # Local path
         return None
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use'
-                                  ' s3 or one of the supported ObjectStoreLogger object_stores instead.')
-
-
-def _create_object_store_from_uri(uri: str) -> Optional[Union[LoggerDestination, ObjectStore]]:
-    try:
-        object_store_logger = _create_object_store_logger_from_uri(uri)
-        return object_store_logger.object_store_cls(**object_store_logger.object_store_kwargs)
-    except NotImplementedError as e:
-        new_error = str(e).replace(' an ObjectStoreLogger object with', '')
-        raise NotImplementedError(new_error)
+                                  ' s3 or one of the supported RemoteUploaderDownloader object_stores, LibCloudObjectStore instead.')
 
 
 class Trainer:
@@ -822,6 +794,7 @@ class Trainer:
 
         # Load Checkpoint
         load_path: Optional[str] = None,
+        load_object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
         load_weights_only: bool = False,
         load_strict_model_weights: bool = False,
         load_progress_bar: bool = True,
@@ -992,23 +965,14 @@ class Trainer:
                     stream=console_stream,
                 ))
 
-        wandb_logger_already_specified = any([isinstance(logger, WandBLogger) for logger in loggers])
-
-        if load_path is not None:
-            # If using wandb for loading checkpoints, but a WandBLogger already specified,
-            # then just use the one already there.
-            wandb_logger_already_specified = any([isinstance(logger, ObjectStoreLogger) for logger in loggers])
-            if urlparse(load_path).scheme == 'wandb' and wandb_logger_already_specified:
-                load_object_store = [logger for logger in loggers if isinstance(logger, WandBLogger)][0]
-            else:
-                load_object_store = _create_object_store_from_uri(uri=load_path)
-                if isinstance(load_object_store, WandBLogger):
-                    loggers.append(load_object_store)
-
         if save_folder is not None:
-            object_store_logger = _create_object_store_logger_from_uri(uri=save_folder)
-            if object_store_logger:
-                loggers.append(object_store_logger)
+            remote_uploader_downloader = _create_remote_uploader_downloader_from_uri(uri=save_folder)
+            if remote_uploader_downloader is not None:
+                existing_remote_uploader_downloaders = [logger for logger in loggers if isinstance(logger, RemoteUploaderDownloader) and logger.remote_backend_name == remote_uploader_downloader.remote_backend_name ]
+                if existing_remote_uploader_downloaders:
+                    warnings.warn(f'You already specified a RemoteUploaderDownloader with the {remote_uploader_downloader.remote_backend_name} backend, so using that one!')
+                else:
+                    loggers.append(remote_uploader_downloader)
 
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
