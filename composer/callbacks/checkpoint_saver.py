@@ -81,28 +81,8 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
     return save_interval
 
 
-def _extract_path_from_uri(uri: str):
-    # If user specifies a URI instead of a local path, we parse out the path
-    # and the scheme.
-    folder_parse_result = urlparse(uri)
-    scheme = folder_parse_result.scheme
-
-    # If user specifies wandb, then there is no notion of netloc and path, so
-    # we just capture everything after 'wandb://'.
-    if scheme == 'wandb':
-        save_dir = '/'.join([folder_parse_result.netloc, folder_parse_result.path.lstrip('/')])
-        return save_dir
-
-    else:
-        return folder_parse_result.path.lstrip('/')
-
-
 def _is_uri(uri: str):
     return urlparse(uri).scheme != ''
-
-
-def _is_wandb_uri(uri: str):
-    return urlparse(uri).scheme == 'wandb'
 
 
 class CheckpointSaver(Callback):  # noqa: D101
@@ -323,15 +303,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.last_checkpoint_batch: Optional[Time] = None
 
         self.using_wandb = False
-
-        if _is_uri(folder):
-            self.using_wandb = _is_wandb_uri(folder)
-            self.save_dir = _extract_path_from_uri(folder)
-            self.upload_file = True
-
-        else:
-            self.save_dir = folder
-            self.upload_file = False
+        self.save_dir = urlparse(folder).path.lstrip('/')
 
         self.filename = filename
         self.latest_filename = latest_filename
@@ -417,39 +389,37 @@ class CheckpointSaver(Callback):  # noqa: D101
                 pass
             os.symlink(os.path.relpath(file_path, os.path.dirname(symlink)), symlink)
 
-        # If upload_file is True, then user specified a folder argument like so:
-        # scheme://{bucket}/{path}, which means the artifact name and the file_path are the same.
-        if self.upload_file:
-            # Upload checkpoint file
-            artifact_name = file_path
+      
+        # Upload checkpoint file
+        artifact_name = file_path
+        if self.using_wandb:
+            artifact_name = artifact_name.replace('/', '.')
+
+        logger.file_artifact(log_level=log_level,
+                                artifact_name=artifact_name,
+                                file_path=file_path,
+                                overwrite=self.overwrite)
+
+        # Upload latest checkpoint file symlink
+        if self.latest_filename is not None:
+            symlink_name = self.latest_file_path.format(
+                state,
+                is_deepspeed,
+            ).lstrip('/') + '.symlink'
+
             if self.using_wandb:
-                artifact_name = artifact_name.replace('/', '.')
+                symlink_name = symlink_name.replace('/', '.')
 
-            logger.file_artifact(log_level=log_level,
-                                 artifact_name=artifact_name,
-                                 file_path=file_path,
-                                 overwrite=self.overwrite)
-
-            # Upload latest checkpoint file symlink
-            if self.latest_filename is not None:
-                symlink_name = self.latest_file_path.format(
-                    state,
-                    is_deepspeed,
-                ).lstrip('/') + '.symlink'
-
-                if self.using_wandb:
-                    symlink_name = symlink_name.replace('/', '.')
-
-                # create and upload a symlink file
-                with tempfile.TemporaryDirectory() as tmpdir:
-                    symlink_filename = os.path.join(tmpdir, 'latest.symlink')
-                    create_symlink_file(artifact_name, symlink_filename)
-                    logger.file_artifact(
-                        log_level=log_level,
-                        artifact_name=symlink_name,
-                        file_path=symlink_filename,
-                        overwrite=True,
-                    )
+            # create and upload a symlink file
+            with tempfile.TemporaryDirectory() as tmpdir:
+                symlink_filename = os.path.join(tmpdir, 'latest.symlink')
+                create_symlink_file(artifact_name, symlink_filename)
+                logger.file_artifact(
+                    log_level=log_level,
+                    artifact_name=symlink_name,
+                    file_path=symlink_filename,
+                    overwrite=True,
+                )
 
         self.saved_checkpoints.append(file_path)
 

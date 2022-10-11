@@ -330,49 +330,29 @@ def _create_object_store_logger_from_uri(uri: str) -> Optional[LoggerDestination
     if backend == 's3':
         return ObjectStoreLogger(object_store_cls=S3ObjectStore, object_store_kwargs={'bucket': bucket})
     elif backend == 'wandb':
-        return WandBLogger(log_artifacts=True)
+        raise NotImplementedError('Specifying WandB through a URI is not supported. Please create'
+        ' a WandBLogger object with log_artifacts=True and pass it to loggers')
     elif backend in libcloud_supported_backends:
-        return ObjectStoreLogger(object_store_cls=LibcloudObjectStore,
-                                 object_store_kwargs={'provider': backend, 'container': bucket})
+       raise NotImplementedError(f'Specifying {backend} through a URI is not supported.'
+       ' Please use an ObjectStoreLogger object with LibcloudObjectStore')
+    elif backend == 'sftp':
+        raise NotImplementedError(f'Specifying {backend} through a URI is not supported.'
+       ' Please use an ObjectStoreLogger object with SFTPObjectStore')
     elif backend == '':  # Local path
         return None
     else:
-        raise NotImplementedError(f'There is no implementation for the cloud backend {backend}. Please use:'
-                                    ' wandb, s3, '
-                                  ', '.join(libcloud_supported_backends))
+        raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use'
+                                    ' s3 or one of the supported ObjectStoreLogger object_stores instead.')
 
 
 def _create_object_store_from_uri(uri: str) -> Optional[Union[LoggerDestination, ObjectStore]]:
-    libcloud_supported_backends = [
-                                'atmos',
-                                'auroraobjects',
-                                'azure_blobs',
-                                'backblaze_b2',
-                                'cloudfiles',
-                                'digitalocean_spaces',
-                                'google_storage',
-                                'ktucloud',
-                                'local',
-                                'minio',
-                                'nimbus',
-                                'ninefold',
-                                'oss',
-                                'rgw',
-                                ]
-    parse_result = urlparse(uri)
-    backend, bucket = parse_result.scheme, parse_result.netloc
-    if backend == 's3':
-        return S3ObjectStore(bucket=bucket)
-    elif backend in libcloud_supported_backends:
-        return LibcloudObjectStore(provider=backend, container=bucket)
-    elif backend == 'wandb':
-        return WandBLogger(log_artifacts=True)
-    elif backend == '':  # Local path
-        return None
-    else:
-        raise NotImplementedError(f'There is no implementation for the cloud backend {backend}. Please use:'
-                                    ' wandb, s3, '
-                                  ', '.join(libcloud_supported_backends))
+    try:
+        object_store_logger = _create_object_store_logger_from_uri(uri)
+        return object_store_logger.object_store_cls(**object_store_logger.object_store_kwargs)
+    except NotImplementedError as e:
+        new_error = str(e).replace(' an ObjectStoreLogger object with', '') 
+        raise NotImplementedError(new_error)
+
 
 class Trainer:
     """Train models with Composer algorithms.
@@ -1018,6 +998,7 @@ class Trainer:
         if load_path is not None:
             # If using wandb for loading checkpoints, but a WandBLogger already specified,
             # then just use the one already there.
+            wandb_logger_already_specified = any([isinstance(logger, ObjectStoreLogger) for logger in loggers])
             if urlparse(load_path).scheme == 'wandb' and wandb_logger_already_specified:
                 load_object_store = [logger for logger in loggers if isinstance(logger, WandBLogger)][0]
             else:
@@ -1026,13 +1007,9 @@ class Trainer:
                     loggers.append(load_object_store)
 
         if save_folder is not None:
-            if urlparse(save_folder).scheme == 'wandb' and wandb_logger_already_specified:
-                wandb_logger = [logger for logger in loggers if isinstance(logger, WandBLogger)][0]
-                wandb_logger.log_artifacts = True
-            else:
-                object_store_logger = _create_object_store_logger_from_uri(uri=save_folder)
-                if object_store_logger:
-                    loggers.append(object_store_logger)
+            object_store_logger = _create_object_store_logger_from_uri(uri=save_folder)
+            if object_store_logger:
+                loggers.append(object_store_logger)
 
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
