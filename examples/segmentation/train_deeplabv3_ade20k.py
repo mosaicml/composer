@@ -5,8 +5,10 @@
 
 import argparse
 import logging
+import os
 
 import torch
+import torchvision
 from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
 from torchvision import transforms
@@ -33,6 +35,9 @@ parser = argparse.ArgumentParser()
 
 # Dataloader command-line arguments
 parser.add_argument('data_dir', help='Path to the directory containing the ImageNet-1k dataset', type=str)
+parser.add_argument('--download',
+                    help='Use to download ADE20k from the internet and put it in the `data_dir`',
+                    action='store_true')
 parser.add_argument('--train_resize_size', help='Training image resize size', type=int, default=512)
 parser.add_argument('--eval_resize_size', help='Evaluation image resize size', type=int, default=512)
 parser.add_argument('--train_batch_size', help='Train dataloader per-device batch size', type=int, default=128)
@@ -90,6 +95,9 @@ args = parser.parse_args()
 IMAGENET_CHANNEL_MEAN = (int(0.485 * 255), int(0.456 * 255), int(0.406 * 255))
 IMAGENET_CHANNEL_STD = (int(0.229 * 255), int(0.224 * 255), int(0.225 * 255))
 
+ADE20K_URL = 'http://data.csail.mit.edu/places/ADEchallenge/ADEChallengeData2016.zip'
+ADE20K_FILE = 'ADEChallengeData2016.zip'
+
 
 def _main():
     # Divide batch size by number of devices
@@ -99,6 +107,13 @@ def _main():
 
     # Train dataset code
     logging.info('Building train dataloader')
+
+    if args.download:
+        torchvision.datasets.utils.download_and_extract_archive(url=ADE20K_URL,
+                                                                download_root=args.data_dir,
+                                                                filename=ADE20K_FILE)
+        # Adjust the data_dir to include the extracted directory
+        args.data_dir = os.path.join(args.data_dir, 'ADEChallengeData2016')
 
     # Training transforms applied to both the image and target
     train_both_transforms = torch.nn.Sequential(
@@ -270,8 +285,7 @@ def _main():
     lr_monitor = LRMonitor()  # Logs the learning rate
 
     # Callback for checkpointing
-    checkpoint_saver = CheckpointSaver(checkpoint_save_path=args.save_checkpoint_dir,
-                                       checkpoint_save_interval=args.checkpoint_interval)
+    checkpoint_saver = CheckpointSaver(folder=args.save_checkpoint_dir, save_interval=args.checkpoint_interval)
     logging.info('Built callbacks: SpeedMonitor, LRMonitor, and CheckpointSaver\n')
 
     # Recipes for training DeepLabv3+ on ImageNet in order of increasing training time and accuracy
@@ -317,7 +331,7 @@ def _main():
     logging.info('Building Trainer')
     device = 'gpu' if torch.cuda.is_available() else 'cpu'
     precision = 'amp' if device == 'gpu' else 'fp32'  # Mixed precision for fast training when using a GPU
-    grad_accum = 'auto' if device == 'gpu' else args.grad_accum
+    grad_accum = 'auto' if device == 'gpu' else args.grad_accum  # If on GPU, use 'auto' gradient accumulation
     trainer = Trainer(run_name=args.run_name,
                       model=composer_model,
                       train_dataloader=train_dataspec,
