@@ -19,7 +19,6 @@ import composer
 from composer.core import State
 from composer.core.callback import Callback
 from composer.loggers import Logger
-from composer.loggers.logger import LogLevel
 from composer.utils import dist
 
 try:
@@ -221,7 +220,7 @@ class MLPerfCallback(Callback):
             })
 
             # optionally, upload the system description file
-            logger.file_artifact(LogLevel.FIT, self.system_desc_upload_name, self.systems_path)
+            logger.upload_file(self.system_desc_upload_name, self.systems_path)
 
     def _create_submission_folders(self, root_folder: str, system_name: str, benchmark: str):
         os.makedirs(root_folder, exist_ok=True)
@@ -308,7 +307,7 @@ class MLPerfCallback(Callback):
     def epoch_end(self, state: State, logger: Logger) -> None:
         if _global_rank_zero():
             self.mllogger.event(key=constants.EPOCH_STOP, metadata={'epoch_num': state.timestamp.epoch.value})
-            logger.file_artifact(LogLevel.FIT, artifact_name=self.upload_name, file_path=self.filename)
+            logger.upload_file(remote_file_name=self.upload_name, file_path=self.filename)
 
     def eval_start(self, state: State, logger: Logger) -> None:
         if _global_rank_zero():

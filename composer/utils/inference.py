@@ -234,7 +234,7 @@ def export_with_logger(
 
     Exports the model to:
     1) save_object_store, if one is provided,
-    2) logger.file_artifact(save_path), if (1) does not apply and the logger has a destination that supports file artifact logging,
+    2) logger.upload_file(save_path), if (1) does not apply and the logger has a destination that supports file uploading,
     3) locally, if (1) and (2) do not apply.
 
     Args:
@@ -244,7 +244,7 @@ def export_with_logger(
         save_path: (str): The path for storing the exported model. It can be a path to a file on the local disk,
         a URL, or if ``save_object_store`` is set, the object name
             in a cloud bucket. For example, ``my_run/exported_model``.
-        logger (Logger): If this logger has a destination that supports file artifacting logging, and save_object_store
+        logger (Logger): If this logger has a destination that supports file uploading, and save_object_store
             is not provided, this logger is used to export the model.
         save_object_store (ObjectStore, optional): If the ``save_path`` is in an object name in a cloud bucket
             (i.e. AWS S3 or Google Cloud Storage), an instance of
@@ -262,8 +262,7 @@ def export_with_logger(
     Returns:
         None
     """
-    from composer.loggers import LogLevel
-    if save_object_store == None and logger.has_file_artifact_destination():
+    if save_object_store == None and logger.has_file_upload_destination():
         with tempfile.TemporaryDirectory() as tmpdir:
             temp_local_save_path = os.path.join(str(tmpdir), f'model')
             export_for_inference(model=model,
@@ -271,7 +270,7 @@ def export_with_logger(
                                  save_path=temp_local_save_path,
                                  sample_input=sample_input,
                                  transforms=transforms)
-            logger.file_artifact(log_level=LogLevel.FIT, artifact_name=save_path, file_path=temp_local_save_path)
+            logger.upload_file(remote_file_name=save_path, file_path=temp_local_save_path)
     else:
         export_for_inference(model=model,
                              save_format=save_format,
