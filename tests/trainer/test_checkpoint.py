@@ -27,6 +27,7 @@ from composer.utils import dist, is_tar
 from composer.utils.checkpoint import glob_filter
 from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
 from tests.common import RandomImageDataset, SimpleConvModel, deep_compare, device
+from tests.common.markers import world_size
 
 
 class DummyStatefulCallback(Callback):
@@ -251,16 +252,12 @@ class TestCheckpointLoading:
             trainer_2.state.model,
         )
 
+    @world_size(1, 2)
     @device('cpu', 'gpu')
     @pytest.mark.parametrize('use_object_store', [True, False])
     @pytest.mark.parametrize('delete_local', [True, False])
-    def test_autoresume(
-        self,
-        device: str,
-        tmp_path: pathlib.Path,
-        use_object_store: bool,
-        delete_local: bool,
-    ):
+    def test_autoresume(self, device: str, tmp_path: pathlib.Path, use_object_store: bool, delete_local: bool,
+                        world_size: int):
         if delete_local and not use_object_store:
             pytest.skip('Invalid test setting.')
 
