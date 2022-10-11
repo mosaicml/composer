@@ -194,7 +194,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         'BACKWARD_POST': BackwardPrefetch.BACKWARD_POST,
     }
     backward_prefetch = backward_prefetch_map[fsdp_config.get('backward_prefetch', 'BACKWARD_POST').upper()]
-    min_params = int(fsdp_config.get('min_params', 1e8))
+    min_params = int(float(fsdp_config.get('min_params', 1e8)))
     activation_checkpointing = fsdp_config.get('activation_checkpointing', False)
     activation_cpu_offload = fsdp_config.get('activation_cpu_offload', False)
 

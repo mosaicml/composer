@@ -97,7 +97,7 @@ full set of features that makes it easier to train large models across
 see `their website <https://www.deepspeed.ai>`__.
 
 We support optimizer and gradient sharing via
-`Deepspeed Zero`_` stages 1 and 2 respectively. In the future, we'll support model
+`Deepspeed Zero`_ stages 1 and 2 respectively. In the future, we'll support model
 sharding via Zero-3. These methods reduce model state memory by a
 factor of (1 / the number of data-parallel devices).
 

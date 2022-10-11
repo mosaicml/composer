@@ -25,10 +25,10 @@ from composer.utils import dist, export_with_logger, inference
 from tests.common.datasets import RandomImageDataset
 
 
-class MockFileArtifactLogger(LoggerDestination):
-    """Mocks a generic file artifact logger interface."""
+class MockFileUploader(LoggerDestination):
+    """Mocks a generic file uploader interface."""
 
-    def can_log_file_artifacts(self) -> bool:
+    def can_upload_files(self) -> bool:
         return True
 
 
@@ -401,11 +401,11 @@ def test_export_for_inference_torchscript_ddp(model_cls, sample_input):
         (partial(composer_resnet, 'resnet18'), (torch.rand(1, 3, 224, 224), torch.randint(10, (1,)))),
     ],
 )
-def test_export_with_file_artifact_logger(model_cls, sample_input):
+def test_export_with_file_uploading_logger(model_cls, sample_input):
     with patch('composer.utils.inference.export_for_inference'):
         save_format = 'torchscript'
         model = model_cls()
-        mock_obj_logger = MockFileArtifactLogger()
+        mock_obj_logger = MockFileUploader()
         with tempfile.TemporaryDirectory() as tempdir:
             save_path = os.path.join(tempdir, f'model.pt')
 
@@ -446,7 +446,7 @@ def test_export_with_other_logger(model_cls, sample_input):
     with patch('composer.utils.inference.export_for_inference'):
         save_format = 'torchscript'
         model = model_cls()
-        non_file_artifact_logger = InMemoryLogger()
+        non_file_uploading_logger = InMemoryLogger()
         with tempfile.TemporaryDirectory() as tempdir:
             save_path = os.path.join(tempdir, f'model.pt')
 
@@ -460,7 +460,7 @@ def test_export_with_other_logger(model_cls, sample_input):
 
             mock_logger = Logger(
                 state=trainer.state,
-                destinations=[non_file_artifact_logger],
+                destinations=[non_file_uploading_logger],
             )
 
             export_with_logger(

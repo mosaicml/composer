@@ -12,7 +12,7 @@ import textwrap
 from typing import Any, Callable, Dict, Optional, TextIO
 
 from composer.core.state import State
-from composer.loggers.logger import Logger, LogLevel, format_log_data_value
+from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils.file_helpers import FORMAT_NAME_WITH_DIST_TABLE, format_name_with_dist
 
@@ -25,7 +25,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
     Example usage:
         .. testcode::
 
-            from composer.loggers import FileLogger, LogLevel
+            from composer.loggers import FileLogger
             from composer.trainer import Trainer
             file_logger = FileLogger(
                 filename="{{run_name}}/logs-rank{{rank}}.txt",
@@ -78,17 +78,17 @@ class FileLogger(LoggerDestination):  # noqa: D101
 
             Default: `'{{run_name}}/logs-rank{{rank}}.txt'`
 
-        artifact_name (str, optional): Format string for the logfile's artifact name.
+        remote_file_name (str, optional): Format string for the logfile's name.
 
-            The logfile will be periodically logged (according to the ``flush_interval``) as a file artifact.
-            The artifact name will be determined by this format string.
+            The logfile will be periodically logged (according to the ``flush_interval``) as a file.
+            The file name will be determined by this format string.
 
-            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
+            .. seealso:: :doc:`Uploading Files</trainer/file_uploading>` for notes for file uploading.
 
             The same format variables for ``filename`` are available. Setting this parameter to ``None``
             (the default) will use the same format string as ``filename``. It is sometimes helpful to deviate
             from this default. For example, when ``filename`` contains an absolute path, it is recommended to
-            set this parameter explicitely, so the absolute path does not appear in any artifact stores.
+            set this parameter explicitely, so the absolute path does not appear in any remote file stores.
 
             Leading slashes (``'/'``) will be stripped.
 
@@ -106,7 +106,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
     def __init__(
         self,
         filename: str = '{run_name}/logs-rank{rank}.txt',
-        artifact_name: Optional[str] = None,
+        remote_file_name: Optional[str] = None,
         *,
         capture_stdout: bool = True,
         capture_stderr: bool = True,
@@ -116,9 +116,9 @@ class FileLogger(LoggerDestination):  # noqa: D101
         overwrite: bool = False,
     ) -> None:
         self.filename_format = filename
-        if artifact_name is None:
-            artifact_name = filename.replace(os.path.sep, '/')
-        self.artifact_name_format = artifact_name
+        if remote_file_name is None:
+            remote_file_name = filename.replace(os.path.sep, '/')
+        self.remote_file_name_format = remote_file_name
         self.buffer_size = buffer_size
         self.should_log_traces = log_traces
         self.flush_interval = flush_interval
@@ -159,11 +159,11 @@ class FileLogger(LoggerDestination):  # noqa: D101
         return name
 
     @property
-    def artifact_name(self) -> str:
-        """The artifact name for the logfile."""
+    def remote_file_name(self) -> str:
+        """The remote file name for the logfile."""
         if self._run_name is None:
             raise RuntimeError('The run name is not set. The engine should have been set on Event.INIT')
-        name = format_name_with_dist(self.artifact_name_format, run_name=self._run_name)
+        name = format_name_with_dist(self.remote_file_name_format, run_name=self._run_name)
 
         name.lstrip('/')
 
@@ -277,7 +277,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
 
         self.file.flush()
         os.fsync(self.file.fileno())
-        logger.file_artifact(LogLevel.FIT, self.artifact_name, self.file.name, overwrite=True)
+        logger.upload_file(self.remote_file_name, self.file.name, overwrite=True)
 
     def fit_end(self, state: State, logger: Logger) -> None:
         # Flush the file on fit_end, in case if was not flushed on epoch_end and the trainer is re-used
