@@ -14,7 +14,7 @@ import pytest
 from composer.core.event import Event
 from composer.core.state import State
 from composer.loggers import Logger
-from composer.loggers.object_store_logger import ObjectStoreLogger
+from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.utils.object_store.object_store import ObjectStore
 
 
@@ -69,7 +69,7 @@ def object_store_test_helper(
     remote_dir = str(tmp_path / 'object_store')
     os.makedirs(remote_dir, exist_ok=True)
 
-    object_store_logger = ObjectStoreLogger(
+    remote_uploader_downloader = RemoteUploaderDownloader(
         object_store_cls=DummyObjectStore,
         object_store_kwargs={
             'dir': remote_dir,
@@ -79,15 +79,15 @@ def object_store_test_helper(
         upload_staging_folder=str(tmp_path / 'staging_folder'),
         num_attempts=1,
     )
-    logger = Logger(dummy_state, destinations=[object_store_logger])
-    artifact_name = 'artifact_name'
+    logger = Logger(dummy_state, destinations=[remote_uploader_downloader])
+    remote_file_name = 'remote_file_name'
 
-    object_store_logger.run_event(Event.INIT, dummy_state, logger)
+    remote_uploader_downloader.run_event(Event.INIT, dummy_state, logger)
 
     file_path = os.path.join(tmp_path, f'file')
     with open(file_path, 'w+') as f:
         f.write('1')
-    logger.file_artifact(artifact_name, file_path, overwrite=overwrite)
+    logger.upload_file(remote_file_name, file_path, overwrite=overwrite)
 
     file_path_2 = os.path.join(tmp_path, f'file_2')
     with open(file_path_2, 'w+') as f:
@@ -96,65 +96,66 @@ def object_store_test_helper(
     post_close_ctx = contextlib.nullcontext()
 
     if not overwrite:
-        # If not `overwrite_delay`, then the `logger.file_artifact` will raise a FileExistsException, because the upload will not even be enqueued
+        # If not `overwrite_delay`, then the `logger.upload_file` will raise a FileExistsException, because the upload will not even be enqueued
         # Otherwise, with a sufficient will be uploaded, and cleared from the queue, causing a runtime error to be raised on Event.BATCH_END or Event.EPOCH_END
-        # A 2 second sleep should be enough here -- the DummyObjectStore will block for at most 0.5 seconds, and the ObjectStoreLogger polls every 0.1 seconds
+        # A 2 second sleep should be enough here -- the DummyObjectStore will block for at most 0.5 seconds, and the RemoteUploaderDownloader polls every 0.1 seconds
         if overwrite_delay:
             post_close_ctx = pytest.warns(
                 RuntimeWarning,
-                match=r'The following objects may not have been uploaded, likely due to a worker crash: artifact_name')
+                match=r'The following objects may not have been uploaded, likely due to a worker crash: remote_file_name'
+            )
             # Wait for the first upload to go through
             time.sleep(2)
             # Do the second upload -- it should enqueue
-            logger.file_artifact(artifact_name, file_path_2, overwrite=overwrite)
+            logger.upload_file(remote_file_name, file_path_2, overwrite=overwrite)
             # Give it some time to finish the second upload
             # (Since the upload is really a file copy, it should be fast)
             time.sleep(2)
             # Then, crashes are detected on the next batch end / epoch end event
             with pytest.raises(RuntimeError):
-                object_store_logger.run_event(Event.BATCH_END, dummy_state, logger)
+                remote_uploader_downloader.run_event(Event.BATCH_END, dummy_state, logger)
 
             with pytest.raises(RuntimeError):
-                object_store_logger.run_event(Event.EPOCH_END, dummy_state, logger)
+                remote_uploader_downloader.run_event(Event.EPOCH_END, dummy_state, logger)
         else:
             # Otherwise, if no delay, it should error when being enqueued
             with pytest.raises(FileExistsError):
-                logger.file_artifact(artifact_name, file_path_2, overwrite=overwrite)
+                logger.upload_file(remote_file_name, file_path_2, overwrite=overwrite)
 
-    object_store_logger.close(dummy_state, logger)
+    remote_uploader_downloader.close(dummy_state, logger)
 
     with post_close_ctx:
-        object_store_logger.post_close()
+        remote_uploader_downloader.post_close()
 
-    # verify upload uri for artifact is correct
-    upload_uri = object_store_logger.get_uri_for_artifact(artifact_name)
-    expected_upload_uri = f'local://{artifact_name}'
+    # verify upload uri for file is correct
+    upload_uri = remote_uploader_downloader.get_uri_for_file(remote_file_name)
+    expected_upload_uri = f'local://{remote_file_name}'
     assert upload_uri == expected_upload_uri
 
-    # Test downloading artifact
+    # Test downloading file
     download_path = os.path.join(tmp_path, 'download')
-    object_store_logger.get_file_artifact(artifact_name, download_path)
+    remote_uploader_downloader.download_file(remote_file_name, download_path)
     with open(download_path, 'r') as f:
         assert f.read() == '1' if not overwrite else '2'
 
-    # now assert that we have a dummy file in the artifact folder
-    artifact_file = os.path.join(str(remote_dir), artifact_name)
-    # Verify artifact contains the correct value
-    with open(artifact_file, 'r') as f:
+    # now assert that we have a dummy file in the remote folder
+    remote_file = os.path.join(str(remote_dir), remote_file_name)
+    # Verify file contains the correct value
+    with open(remote_file, 'r') as f:
         assert f.read() == '1' if not overwrite else '2'
 
 
-def test_object_store_logger(tmp_path: pathlib.Path, dummy_state: State):
+def test_remote_uploader_downloader(tmp_path: pathlib.Path, dummy_state: State):
     object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, use_procs=False)
 
 
-def test_object_store_logger_use_procs(tmp_path: pathlib.Path, dummy_state: State):
+def test_remote_uploader_downloader_use_procs(tmp_path: pathlib.Path, dummy_state: State):
     object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, use_procs=True)
 
 
 @pytest.mark.filterwarnings(r'ignore:((.|\n)*)FileExistsError((.|\n)*):pytest.PytestUnhandledThreadExceptionWarning')
 @pytest.mark.parametrize('overwrite_delay', [True, False])
-def test_object_store_logger_no_overwrite(tmp_path: pathlib.Path, dummy_state: State, overwrite_delay: bool):
+def test_remote_uploader_downloader_no_overwrite(tmp_path: pathlib.Path, dummy_state: State, overwrite_delay: bool):
     object_store_test_helper(tmp_path=tmp_path,
                              dummy_state=dummy_state,
                              overwrite=False,
@@ -174,7 +175,7 @@ def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_stat
             f.write(str(i))
 
     # Create the object store logger
-    object_store_logger = ObjectStoreLogger(
+    remote_uploader_downloader = RemoteUploaderDownloader(
         object_store_cls=DummyObjectStore,
         object_store_kwargs={
             'dir': tmp_path / 'object_store_backend',
@@ -185,23 +186,23 @@ def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_stat
         num_attempts=1,
     )
 
-    logger = Logger(dummy_state, destinations=[object_store_logger])
+    logger = Logger(dummy_state, destinations=[remote_uploader_downloader])
 
-    object_store_logger.run_event(Event.INIT, dummy_state, logger)
+    remote_uploader_downloader.run_event(Event.INIT, dummy_state, logger)
 
-    # Queue the files for upload in rapid succession to the same artifact_name
-    artifact_name = 'artifact_name'
+    # Queue the files for upload in rapid succession to the same remote_file_name
+    remote_file_name = 'remote_file_name'
     for i in range(num_files):
         file_path = tmp_path / 'samples' / f'sample_{i}'
-        object_store_logger.log_file_artifact(dummy_state, artifact_name, file_path, overwrite=True)
+        remote_uploader_downloader.upload_file(dummy_state, remote_file_name, file_path, overwrite=True)
 
     # Shutdown the logger. This should wait until all objects are uploaded
-    object_store_logger.close(dummy_state, logger=logger)
-    object_store_logger.post_close()
+    remote_uploader_downloader.close(dummy_state, logger=logger)
+    remote_uploader_downloader.post_close()
 
-    # Assert that the artifact called "artifact_name" has the content of the last file uploaded file -- i.e. `num_files` - 1
-    destination = tmp_path / 'downloaded_artifact'
-    object_store_logger.get_file_artifact(artifact_name, str(destination), overwrite=False, progress_bar=False)
+    # Assert that the file called "remote_file_name" has the content of the last file uploaded file -- i.e. `num_files` - 1
+    destination = tmp_path / 'downloaded_file'
+    remote_uploader_downloader.download_file(remote_file_name, str(destination), overwrite=False, progress_bar=False)
     with open(destination, 'r') as f:
         assert f.read() == str(num_files - 1)
 
@@ -210,7 +211,7 @@ def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_stat
 def test_close_on_failure(tmp_path: pathlib.Path, dummy_state: State):
     """Test that .close() and .post_close() does not hang even when a worker crashes."""
     # Create the object store logger
-    object_store_logger = ObjectStoreLogger(
+    remote_uploader_downloader = RemoteUploaderDownloader(
         object_store_cls=DummyObjectStore,
         object_store_kwargs={
             'dir': tmp_path / 'object_store_backend',
@@ -228,26 +229,26 @@ def test_close_on_failure(tmp_path: pathlib.Path, dummy_state: State):
     with open(tmpfile_path, 'w+') as f:
         f.write('hi')
 
-    logger = Logger(dummy_state, destinations=[object_store_logger])
+    logger = Logger(dummy_state, destinations=[remote_uploader_downloader])
 
-    object_store_logger.run_event(Event.INIT, dummy_state, logger)
+    remote_uploader_downloader.run_event(Event.INIT, dummy_state, logger)
 
-    logger.file_artifact('dummy_artifact_name', tmpfile_path)
+    logger.upload_file('dummy_remote_file_name', tmpfile_path)
 
     # Wait enough time for the file to be enqueued
     time.sleep(0.5)
 
     # Assert that the worker crashed
     with pytest.raises(RuntimeError):
-        object_store_logger.run_event(Event.EPOCH_END, dummy_state, logger)
+        remote_uploader_downloader.run_event(Event.EPOCH_END, dummy_state, logger)
 
     # Enqueue the file again to ensure that the buffers are dirty
-    logger.file_artifact('dummy_artifact_name', tmpfile_path)
+    logger.upload_file('dummy_remote_file_name', tmpfile_path)
 
     # Shutdown the logger. This should not hang or cause any exception
-    object_store_logger.close(dummy_state, logger=logger)
+    remote_uploader_downloader.close(dummy_state, logger=logger)
     with pytest.warns(
             RuntimeWarning,
-            match=r'The following objects may not have been uploaded, likely due to a worker crash: dummy_artifact_name'
-    ):
-        object_store_logger.post_close()
+            match=
+            r'The following objects may not have been uploaded, likely due to a worker crash: dummy_remote_file_name'):
+        remote_uploader_downloader.post_close()
