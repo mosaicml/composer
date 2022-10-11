@@ -343,7 +343,7 @@ class MLPerfCallback(Callback):
                 self.success = True  # only log once
 
             # upload to object store after eval complete
-            logger.file_artifact(artifact_name=self.upload_name, file_path=self.filename)
+            logger.upload_file(remote_file_name=self.upload_name, file_path=self.filename)
 
         if accuracy > self.target and self.exit_at_target:
             # stop training
