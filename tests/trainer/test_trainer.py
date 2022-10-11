@@ -825,13 +825,11 @@ class TestTrainerEquivalence():
                 DataLoader(
                     dataset=train_dataset,
                     batch_size=4,
-                    shuffle=False,
                     sampler=dist.get_sampler(train_dataset),
                 ),
             'eval_dataloader':
                 DataLoader(
                     dataset=eval_dataset,
-                    shuffle=False,
                     sampler=dist.get_sampler(eval_dataset),
                 ),
             'max_duration':
@@ -873,6 +871,7 @@ class TestTrainerEquivalence():
             'rtol': 1e-02 if precision == Precision.AMP else 1e-05,
         }
 
+        config = copy.deepcopy(config)
         config.update({
             'grad_accum': 2,
         })
