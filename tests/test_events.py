@@ -33,12 +33,12 @@ class TestEventCalls:
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
-                dataset=RandomClassificationDataset(),
+                dataset=train_dataset,
                 batch_size=4,
                 sampler=dist.get_sampler(train_dataset),
             ),
             eval_dataloader=DataLoader(
-                dataset=RandomClassificationDataset(),
+                dataset=eval_dataset,
                 batch_size=8,
                 sampler=dist.get_sampler(eval_dataset),
             ),
