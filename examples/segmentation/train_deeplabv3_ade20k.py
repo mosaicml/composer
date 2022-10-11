@@ -79,7 +79,6 @@ parser.add_argument('--recipe_name',
 parser.add_argument('--wandb_logger', help='Whether or not to log results to Weights and Biases', action='store_true')
 parser.add_argument('--wandb_entity', help='WandB entity name', type=str)
 parser.add_argument('--wandb_project', help='WandB project name', type=str)
-parser.add_argument('--wandb_run_name', help='WandB run name', type=str)
 
 # Trainer arguments
 parser.add_argument('--grad_accum', help='Amount of gradient accumulation if running on CPU', type=int, default=1)
@@ -322,9 +321,7 @@ def _main():
             raise ValueError('Please specify --wandb_entity argument')
         if args.wandb_project is None:
             raise ValueError('Please specify --wandb_project argument')
-        if args.wandb_run_name is None:
-            raise ValueError('Please specify --wandb_run_name argument')
-        logger = WandBLogger(entity=args.wandb_entity, project=args.wandb_project, name=args.wandb_run_name)
+        logger = WandBLogger(entity=args.wandb_entity, project=args.wandb_project)
         logging.info('Built Weights and Biases logger')
 
     # Create the Trainer!
