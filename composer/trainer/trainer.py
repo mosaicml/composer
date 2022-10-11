@@ -1197,6 +1197,9 @@ class Trainer:
         Returns:
             Optional[str]: The path to the latest checkpoint, if found, otherwise None.
         """
+        if self.deepspeed_enabled:
+            raise RuntimeError('autoresume is not currently supported with DeepSpeed')
+
         save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
         save_folder = format_name_with_dist(save_folder, self.state.run_name)
         save_latest_remote_file_name = format_name_with_dist(save_latest_remote_file_name, self.state.run_name)
