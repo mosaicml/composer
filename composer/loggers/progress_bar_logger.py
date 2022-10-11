@@ -111,7 +111,7 @@ class ProgressBarLogger(LoggerDestination):
     .. note::
 
         This logger is automatically instainatied by the trainer via the ``progress_bar``, ``log_to_console``,
-        ``log_level``, and ``console_stream`` options. This logger does not need to be created manually.
+        and ``console_stream`` options. This logger does not need to be created manually.
 
     `TQDM <https://github.com/tqdm/tqdm>`_ is used to display progress bars.
 

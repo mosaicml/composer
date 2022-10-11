@@ -17,7 +17,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 from composer.core.state import State
 from composer.core.time import Timestamp
-from composer.loggers import Logger, LogLevel
+from composer.loggers import Logger
 from composer.profiler.json_trace_merger import merge_traces
 from composer.profiler.profiler_action import ProfilerAction
 from composer.profiler.trace_handler import TraceHandler
@@ -73,17 +73,17 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
                 awesome-training-run/traces/ep1-ba42-rank2.json
                 ...
 
-        artifact_name (str, optional): Format string for the trace file's artifact name.
+        remote_file_name (str, optional): Format string for the trace file's remote name.
             (default: ``'{{run_name}}/traces/ep{{epoch}}-ba{{batch}}-rank{{rank}}.json'``)
 
-            Whenever a trace file is saved, it is also logged as a file artifact according to this format string.
+            Whenever a trace file is saved, it is also uploaded as a remote file according to this format string.
             The same format variables as for ``filename`` are available.
 
-            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
+            .. seealso:: :doc:`Uploading Files</trainer/file_uploading>` for notes for file uploading.
 
             Leading slashes (``'/'``) will be stripped.
 
-            To disable logging trace files as file artifacts, set this parameter to ``None``.
+            To disable uploading trace files, set this parameter to ``None``.
 
         merged_trace_filename (str, optional): Format string for the merged trace filename.
             (default: ``'node{{node_rank}}.json'``)
@@ -108,14 +108,14 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
                 disable trace merging by setting this parameter to ``None``. Instead, traces should be merged together
                 in a post-processing step. See :mod:`composer.profiler.json_trace_merger` for additional info.
 
-        merged_trace_artifact_name (str, optional): Format string for the merged trace file's artifact name.
+        merged_trace_remote_file_name (str, optional): Format string for the merged trace file's remote file name.
             (default: ``'{{run_name}}/traces/merged_trace.json'``)
 
             The same format variables as for ``folder`` are available.
 
             This parameter has no effect if ``merged_trace_filename`` is None.
 
-            To disable logging merged trace files as file artifacts, set this parameter to ``None``.
+            To disable uploading merged trace files, set this parameter to ``None``.
 
         overwrite (bool, optional): Whether to overwrite existing traces. (default: ``False``)
             If ``False``, the :meth:`trace_folder` (as determined by the ``trace_folder`` argument)
@@ -124,13 +124,13 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
         num_traces_to_keep (int, optional): The number of traces to keep locally. The oldest traces
             are removed first. Set to ``-1`` to keep all traces locally. (default: ``-1``)
 
-            Traces will be removed after they have been logged as a file artifact. For example, when this handler
-            is used in conjunction with the :class:`.ObjectStoreLogger`, set this
+            Traces will be removed after they have been uploaded. For example, when this handler
+            is used in conjunction with the :class:`.RemoteUploaderDownloader`, set this
             parameter to ``0`` to immediately delete traces from the local disk after they have been uploaded to
             the object store.
 
             This parameter only controls how many traces are kept locally; traces are not deleted from
-            artifact stores.
+            remote file systems.
 
     Attributes:
         saved_traces (List[Tuple[Timestamp, List[pathlib.Path]]]): The trace timestamps and filepaths.
@@ -147,9 +147,9 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
         self,
         folder: str = '{run_name}/traces',
         filename: str = 'ep{epoch}-ba{batch}-rank{rank}.json',
-        artifact_name: Optional[str] = '{run_name}/traces/ep{epoch}-ba{batch}-rank{rank}.json',
+        remote_file_name: Optional[str] = '{run_name}/traces/ep{epoch}-ba{batch}-rank{rank}.json',
         merged_trace_filename: Optional[str] = 'merged_trace.json',
-        merged_trace_artifact_name: Optional[str] = '{run_name}/traces/merged_trace.json',
+        merged_trace_remote_file_name: Optional[str] = '{run_name}/traces/merged_trace.json',
         *,
         overwrite: bool = False,
         num_traces_to_keep: int = -1,
@@ -157,9 +157,9 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
         self.folder = folder
         self.overwrite = overwrite
         self.filename = filename
-        self.artifact_name = artifact_name
+        self.remote_file_name = remote_file_name
         self.merged_trace_filename = merged_trace_filename
-        self.merged_trace_artifact_name = merged_trace_artifact_name
+        self.merged_trace_remote_file_name = merged_trace_remote_file_name
         self.saved_traces: List[Tuple[Timestamp, List[pathlib.Path]]] = []
         self.num_traces_to_keep = num_traces_to_keep
 
@@ -287,12 +287,11 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
                     f.write(s)
                 f.write('\n]\n')
 
-            if self.artifact_name is not None:
-                artifact_name = format_name_with_dist_and_time(self.artifact_name, state.run_name, timestamp)
-                logger.file_artifact(LogLevel.BATCH,
-                                     artifact_name=artifact_name,
-                                     file_path=trace_filename,
-                                     overwrite=self.overwrite)
+            if self.remote_file_name is not None:
+                remote_file_name = format_name_with_dist_and_time(self.remote_file_name, state.run_name, timestamp)
+                logger.upload_file(remote_file_name=remote_file_name,
+                                   file_path=trace_filename,
+                                   overwrite=self.overwrite)
             # Gather the filenames
             trace_files = [pathlib.Path(x) for x in dist.all_gather_object(trace_filename)]
             self.saved_traces.append((timestamp, trace_files))
@@ -325,15 +324,14 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
                     # Write the trace directly
                     merge_traces(merged_trace_filename, *trace_files_to_merge)
 
-                if self.merged_trace_artifact_name is not None:
-                    merged_trace_artifact_name = format_name_with_dist(
-                        self.merged_trace_artifact_name,
+                if self.merged_trace_remote_file_name is not None:
+                    merged_trace_remote_file_name = format_name_with_dist(
+                        self.merged_trace_remote_file_name,
                         state.run_name,
                     )
-                    logger.file_artifact(
-                        LogLevel.BATCH,
-                        artifact_name=merged_trace_artifact_name,
-                        file_path=merged_trace_artifact_name,
+                    logger.upload_file(
+                        remote_file_name=merged_trace_remote_file_name,
+                        file_path=merged_trace_remote_file_name,
                         overwrite=True,
                     )
 

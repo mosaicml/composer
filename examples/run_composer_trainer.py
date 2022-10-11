@@ -19,7 +19,6 @@ import warnings
 
 import performance
 
-from composer.loggers import LogLevel
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, warn_yahp_deprecation
 from composer.utils.misc import warning_on_one_line
@@ -57,14 +56,13 @@ def _main():
             hparams_name = os.path.join(tmpdir, 'hparams.yaml')
             with open(hparams_name, 'w+') as f:
                 f.write(hparams.to_yaml())
-            trainer.logger.file_artifact(
-                LogLevel.FIT,
-                artifact_name=f'{trainer.state.run_name}/hparams.yaml',
+            trainer.logger.upload_file(
+                remote_file_name=f'{trainer.state.run_name}/hparams.yaml',
                 file_path=f.name,
                 overwrite=True,
             )
 
-    # Print the config to the terminal and log to artifact store if on each local rank 0
+    # Print the config to the terminal and log to remote file system if on each local rank 0
     if dist.get_local_rank() == 0:
         print('*' * 30)
         print('Config:')
