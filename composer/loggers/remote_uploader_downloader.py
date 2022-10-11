@@ -56,7 +56,7 @@ class RemoteUploaderDownloader(LoggerDestination):
 
         remote_uploader_downloader = RemoteUploaderDownloader(
             bucket_uri="s3://my-bucket",
-            path_format_string="path/to/my/checkpoints/{remote_file_name}",
+            file_path_format_string="path/to/my/checkpoints/{remote_file_name}",
         )
 
         # Construct the trainer using this logger
@@ -116,7 +116,7 @@ class RemoteUploaderDownloader(LoggerDestination):
             As individual :class:`.ObjectStore` instances are not necessarily thread safe, each worker will construct
             its own :class:`.ObjectStore` instance from ``remote_backend`` and ``backend_kwargs``.
 
-        path_format_string (str, optional): A format string used to determine the remote file path (within the specified bucket).
+        file_path_format_string (str, optional): A format string used to determine the remote file path (within the specified bucket).
 
             The following format variables are available:
 
@@ -148,7 +148,7 @@ class RemoteUploaderDownloader(LoggerDestination):
 
             Consider the following example, which subfolders the remote files by their rank:
 
-            .. testsetup:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.path_format_string
+            .. testsetup:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.file_path_format_string
 
                 import os
 
@@ -157,16 +157,16 @@ class RemoteUploaderDownloader(LoggerDestination):
                 with open('path/to/file.txt', 'w+') as f:
                     f.write('hi')
 
-            .. doctest:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.path_format_string
+            .. doctest:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.file_path_format_string
 
-                >>> remote_uploader_downloader = RemoteUploaderDownloader(..., path_format_string='rank_{rank}/{remote_file_name}')
+                >>> remote_uploader_downloader = RemoteUploaderDownloader(..., file_path_format_string='rank_{rank}/{remote_file_name}')
                 >>> trainer = Trainer(..., run_name='foo', loggers=[remote_uploader_downloader])
                 >>> trainer.logger.upload_file(
                 ...     remote_file_name='bar.txt',
                 ...     file_path='path/to/file.txt',
                 ... )
 
-            .. testcleanup:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.path_format_string
+            .. testcleanup:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.file_path_format_string
 
                 # Shut down the uploader
                 remote_uploader_downloader._check_workers()
@@ -189,7 +189,7 @@ class RemoteUploaderDownloader(LoggerDestination):
     def __init__(self,
                  bucket_uri: str,
                  backend_kwargs: Optional[Dict[str, Any]] = None,
-                 path_format_string: str = '{remote_file_name}',
+                 file_path_format_string: str = '{remote_file_name}',
                  num_concurrent_uploads: int = 4,
                  upload_staging_folder: Optional[str] = None,
                  use_procs: bool = True,
@@ -204,7 +204,7 @@ class RemoteUploaderDownloader(LoggerDestination):
         elif self.remote_backend_name == 'libcloud' and 'container' not in self.backend_kwargs:
             self.backend_kwargs['container'] = remote_bucket_name
 
-        self.path_format_string = path_format_string
+        self.file_path_format_string = file_path_format_string
         self.num_attempts = num_attempts
         self._run_name = None
 
@@ -224,7 +224,7 @@ class RemoteUploaderDownloader(LoggerDestination):
         # The object store might keep the earlier file rather than the latter file as the "latest" version
 
         # To work around this, each object name can appear at most once in `self._file_upload_queue`
-        # The main separately keeps track of {path_format_string: tempfile_path} for each API call to self.upload_file
+        # The main separately keeps track of {file_path_format_string: tempfile_path} for each API call to self.upload_file
         # and then periodically transfers items from this dictionary onto the file upload queue
 
         # Lock for modifying `logged_objects` or `enqueued_objects`
@@ -496,11 +496,11 @@ class RemoteUploaderDownloader(LoggerDestination):
         return self.remote_backend.get_uri(formatted_remote_file_name.lstrip('/'))
 
     def _remote_file_name(self, remote_file_name: str):
-        """Format the ``remote_file_name`` according to the ``path_format_string``."""
+        """Format the ``remote_file_name`` according to the ``file_path_format_string``."""
         if self._run_name is None:
             raise RuntimeError('The run name is not set. It should have been set on Event.INIT.')
         key_name = format_name_with_dist(
-            self.path_format_string,
+            self.file_path_format_string,
             run_name=self._run_name,
             remote_file_name=remote_file_name,
         )
