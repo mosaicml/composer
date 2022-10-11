@@ -85,7 +85,7 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
 
     # this assumes credentials are already configured via boto3
     remote_uploader_downloader = RemoteUploaderDownloader(
-        remote_bucket_uri=f"s3://checkpoint-debugging",
+        bucket_uri=f"s3://checkpoint-debugging",
     )
 
     trainer = Trainer(
@@ -115,7 +115,7 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
     from composer.utils.object_store import S3ObjectStore
 
     remote_uploader_downloader = RemoteUploaderDownloader(
-        remote_bucket_uri=f"s3://checkpoint-debugging_2",
+        bucket_uri=f"s3://checkpoint-debugging_2",
     )
 
     # Train to generate and save the "pretrained_weights/model.pt",

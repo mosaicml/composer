@@ -173,8 +173,8 @@ class TestCheckpointLoading:
         os.makedirs(remote_dir, exist_ok=True)
 
         return RemoteUploaderDownloader(
-            remote_bucket_uri='libcloud://.',
-            remote_backend_kwargs={
+            bucket_uri='libcloud://.',
+            backend_kwargs={
                 'provider': 'local',
                 'container': '.',
                 'provider_kwargs': {

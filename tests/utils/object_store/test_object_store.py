@@ -15,14 +15,14 @@ from tests.utils.object_store.object_store_settings import get_object_store_ctx,
 
 
 @pytest.fixture
-def remote_bucket_uri_and_kwargs(request, s3_bucket: str, sftp_uri: str, test_session_name: str):
+def bucket_uri_and_kwargs(request, s3_bucket: str, sftp_uri: str, test_session_name: str):
     remote = request.node.get_closest_marker('remote') is not None
 
     if request.param is LibcloudObjectStore:
         if remote:
             pytest.skip('Libcloud object store has no remote tests')
         else:
-            remote_bucket_uri = 'libcloud://.'
+            bucket_uri = 'libcloud://.'
             kwargs = {
                 'provider': 'local',
                 'container': '.',
@@ -33,20 +33,20 @@ def remote_bucket_uri_and_kwargs(request, s3_bucket: str, sftp_uri: str, test_se
             }
     elif request.param is S3ObjectStore:
         if remote:
-            remote_bucket_uri = f's3://{s3_bucket}'
+            bucket_uri = f's3://{s3_bucket}'
             kwargs = {'bucket': s3_bucket, 'prefix': test_session_name}
         else:
-            remote_bucket_uri = 's3://my-bucket'
+            bucket_uri = 's3://my-bucket'
             kwargs = {'bucket': 'my-bucket', 'prefix': 'folder/subfolder'}
     elif request.param is SFTPObjectStore:
         if remote:
-            remote_bucket_uri = f"sftp://{sftp_uri.rstrip('/') + '/' + test_session_name}"
+            bucket_uri = f"sftp://{sftp_uri.rstrip('/') + '/' + test_session_name}"
             kwargs = {
                 'host': sftp_uri.rstrip('/') + '/' + test_session_name,
                 'missing_host_key_policy': 'WarningPolicy',
             }
         else:
-            remote_bucket_uri = 'sftp://localhost:23'
+            bucket_uri = 'sftp://localhost:23'
             kwargs = {
                 'host': 'localhost',
                 'port': 23,
@@ -54,7 +54,7 @@ def remote_bucket_uri_and_kwargs(request, s3_bucket: str, sftp_uri: str, test_se
             }
     else:
         raise ValueError(f'Invalid object store type: {request.param.__name__}')
-    return remote_bucket_uri, kwargs
+    return bucket_uri, kwargs
 
 
 class MockCallback:
@@ -74,21 +74,21 @@ class MockCallback:
         assert self.total_num_bytes == self.transferred_bytes
 
 
-@pytest.mark.parametrize('remote_bucket_uri_and_kwargs', object_stores, indirect=True)
+@pytest.mark.parametrize('bucket_uri_and_kwargs', object_stores, indirect=True)
 @pytest.mark.parametrize('remote', [False, pytest.param(True, marks=pytest.mark.remote)])
 class TestObjectStore:
 
     @pytest.fixture
     def object_store(
         self,
-        remote_bucket_uri_and_kwargs: Tuple[str, Dict[str, Any]],
+        bucket_uri_and_kwargs: Tuple[str, Dict[str, Any]],
         monkeypatch: pytest.MonkeyPatch,
         tmp_path: pathlib.Path,
         remote: bool,
     ):
         remote_backend_name_to_class = {'s3': S3ObjectStore, 'sftp': SFTPObjectStore, 'libcloud': LibcloudObjectStore}
-        remote_bucket_uri, kwargs = remote_bucket_uri_and_kwargs
-        remote_backend_name = urlparse(remote_bucket_uri).scheme
+        bucket_uri, kwargs = bucket_uri_and_kwargs
+        remote_backend_name = urlparse(bucket_uri).scheme
         with get_object_store_ctx(remote_backend_name_to_class[remote_backend_name],
                                   kwargs,
                                   monkeypatch,

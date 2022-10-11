@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 __all__ = ['RemoteUploaderDownloader']
 
 
-def _build_remote_backend(remote_backend_name: str, remote_backend_kwargs: Dict[str, Any]):
+def _build_remote_backend(remote_backend_name: str, backend_kwargs: Dict[str, Any]):
     remote_backend_name_to_cls = {'s3': S3ObjectStore, 'sftp': SFTPObjectStore, 'libcloud': LibcloudObjectStore}
     remote_backend_cls = remote_backend_name_to_cls.get(remote_backend_name, None)
     if remote_backend_cls is None:
@@ -39,7 +39,7 @@ def _build_remote_backend(remote_backend_name: str, remote_backend_kwargs: Dict[
             f'The remote backend {remote_backend_name} is not supported. Please use one of ({list(remote_backend_name_to_cls.keys())})'
         )
 
-    return remote_backend_cls(**remote_backend_kwargs)
+    return remote_backend_cls(**backend_kwargs)
 
 
 class RemoteUploaderDownloader(LoggerDestination):
@@ -55,8 +55,8 @@ class RemoteUploaderDownloader(LoggerDestination):
         from composer.utils import LibcloudObjectStore
 
         remote_uploader_downloader = RemoteUploaderDownloader(
-            remote_bucket_uri="s3://my-bucket",
-            remote_path_format_string="path/to/my/checkpoints/{remote_file_name}",
+            bucket_uri="s3://my-bucket",
+            path_format_string="path/to/my/checkpoints/{remote_file_name}",
         )
 
         # Construct the trainer using this logger
@@ -73,8 +73,8 @@ class RemoteUploaderDownloader(LoggerDestination):
         from composer.utils import LibcloudObjectStore
 
         remote_uploader_downloader = RemoteUploaderDownloader(
-            remote_bucket_uri="libcloud://my-bucket",
-            remote_backend_kwargs={
+            bucket_uri="libcloud://my-bucket",
+            backend_kwargs={
                 'provider': 's3',
                 'container': 'my-bucket',
                 'provider_kwargs=': {
@@ -106,17 +106,17 @@ class RemoteUploaderDownloader(LoggerDestination):
             be raised.
 
     Args:
-        remote_bucket_uri (str): The remote uri for the bucket to use (e.g. s3://my-bucket).
+        bucket_uri (str): The remote uri for the bucket to use (e.g. s3://my-bucket).
 
             As individual :class:`.ObjectStore` instances are not necessarily thread safe, each worker will construct
-            its own :class:`.ObjectStore` instance from ``remote_backend`` and ``remote_backend_kwargs``.
+            its own :class:`.ObjectStore` instance from ``remote_backend`` and ``backend_kwargs``.
 
-        remote_backend_kwargs (Dict[str, Any]): The keyword arguments to construct the remote backend indicated by ``remote_bucket_uri``.
+        backend_kwargs (Dict[str, Any]): The keyword arguments to construct the remote backend indicated by ``bucket_uri``.
 
             As individual :class:`.ObjectStore` instances are not necessarily thread safe, each worker will construct
-            its own :class:`.ObjectStore` instance from ``remote_backend`` and ``remote_backend_kwargs``.
+            its own :class:`.ObjectStore` instance from ``remote_backend`` and ``backend_kwargs``.
 
-        remote_path_format_string (str, optional): A format string used to determine the remote file path (within the specified bucket).
+        path_format_string (str, optional): A format string used to determine the remote file path (within the specified bucket).
 
             The following format variables are available:
 
@@ -148,7 +148,7 @@ class RemoteUploaderDownloader(LoggerDestination):
 
             Consider the following example, which subfolders the remote files by their rank:
 
-            .. testsetup:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.remote_path_format_string
+            .. testsetup:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.path_format_string
 
                 import os
 
@@ -157,16 +157,16 @@ class RemoteUploaderDownloader(LoggerDestination):
                 with open('path/to/file.txt', 'w+') as f:
                     f.write('hi')
 
-            .. doctest:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.remote_path_format_string
+            .. doctest:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.path_format_string
 
-                >>> remote_uploader_downloader = RemoteUploaderDownloader(..., remote_path_format_string='rank_{rank}/{remote_file_name}')
+                >>> remote_uploader_downloader = RemoteUploaderDownloader(..., path_format_string='rank_{rank}/{remote_file_name}')
                 >>> trainer = Trainer(..., run_name='foo', loggers=[remote_uploader_downloader])
                 >>> trainer.logger.upload_file(
                 ...     remote_file_name='bar.txt',
                 ...     file_path='path/to/file.txt',
                 ... )
 
-            .. testcleanup:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.remote_path_format_string
+            .. testcleanup:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.path_format_string
 
                 # Shut down the uploader
                 remote_uploader_downloader._check_workers()
@@ -187,24 +187,24 @@ class RemoteUploaderDownloader(LoggerDestination):
     """
 
     def __init__(self,
-                 remote_bucket_uri: str,
-                 remote_backend_kwargs: Optional[Dict[str, Any]] = None,
-                 remote_path_format_string: str = '{remote_file_name}',
+                 bucket_uri: str,
+                 backend_kwargs: Optional[Dict[str, Any]] = None,
+                 path_format_string: str = '{remote_file_name}',
                  num_concurrent_uploads: int = 4,
                  upload_staging_folder: Optional[str] = None,
                  use_procs: bool = True,
                  num_attempts: int = 3) -> None:
-        parsed_remote_bucket = urlparse(remote_bucket_uri)
+        parsed_remote_bucket = urlparse(bucket_uri)
         self.remote_backend_name, remote_bucket_name = parsed_remote_bucket.scheme, parsed_remote_bucket.netloc
-        self.remote_backend_kwargs = remote_backend_kwargs if remote_backend_kwargs is not None else {}
-        if self.remote_backend_name == 's3' and 'bucket' not in self.remote_backend_kwargs:
-            self.remote_backend_kwargs['bucket'] = remote_bucket_name
-        elif self.remote_backend_name == 'sftp' and 'host' not in self.remote_backend_kwargs:
-            self.remote_backend_kwargs['host'] = f'sftp://{remote_bucket_name}'
-        elif self.remote_backend_name == 'libcloud' and 'container' not in self.remote_backend_kwargs:
-            self.remote_backend_kwargs['container'] = remote_bucket_name
+        self.backend_kwargs = backend_kwargs if backend_kwargs is not None else {}
+        if self.remote_backend_name == 's3' and 'bucket' not in self.backend_kwargs:
+            self.backend_kwargs['bucket'] = remote_bucket_name
+        elif self.remote_backend_name == 'sftp' and 'host' not in self.backend_kwargs:
+            self.backend_kwargs['host'] = f'sftp://{remote_bucket_name}'
+        elif self.remote_backend_name == 'libcloud' and 'container' not in self.backend_kwargs:
+            self.backend_kwargs['container'] = remote_bucket_name
 
-        self.remote_path_format_string = remote_path_format_string
+        self.path_format_string = path_format_string
         self.num_attempts = num_attempts
         self._run_name = None
 
@@ -224,7 +224,7 @@ class RemoteUploaderDownloader(LoggerDestination):
         # The object store might keep the earlier file rather than the latter file as the "latest" version
 
         # To work around this, each object name can appear at most once in `self._file_upload_queue`
-        # The main separately keeps track of {remote_path_format_string: tempfile_path} for each API call to self.upload_file
+        # The main separately keeps track of {path_format_string: tempfile_path} for each API call to self.upload_file
         # and then periodically transfers items from this dictionary onto the file upload queue
 
         # Lock for modifying `logged_objects` or `enqueued_objects`
@@ -264,7 +264,7 @@ class RemoteUploaderDownloader(LoggerDestination):
     def remote_backend(self) -> ObjectStore:
         """The :class:`.ObjectStore` instance for the main thread."""
         if self._remote_backend is None:
-            self._remote_backend = _build_remote_backend(self.remote_backend_name, self.remote_backend_kwargs)
+            self._remote_backend = _build_remote_backend(self.remote_backend_name, self.backend_kwargs)
         return self._remote_backend
 
     def init(self, state: State, logger: Logger) -> None:
@@ -291,7 +291,7 @@ class RemoteUploaderDownloader(LoggerDestination):
                     'file_queue': self._file_upload_queue,
                     'is_finished': self._worker_flag,
                     'remote_backend_name': self.remote_backend_name,
-                    'remote_backend_kwargs': self.remote_backend_kwargs,
+                    'backend_kwargs': self.backend_kwargs,
                     'num_attempts': self.num_attempts,
                     'completed_queue': self._completed_queue,
                 },
@@ -496,11 +496,11 @@ class RemoteUploaderDownloader(LoggerDestination):
         return self.remote_backend.get_uri(formatted_remote_file_name.lstrip('/'))
 
     def _remote_file_name(self, remote_file_name: str):
-        """Format the ``remote_file_name`` according to the ``remote_path_format_string``."""
+        """Format the ``remote_file_name`` according to the ``path_format_string``."""
         if self._run_name is None:
             raise RuntimeError('The run name is not set. It should have been set on Event.INIT.')
         key_name = format_name_with_dist(
-            self.remote_path_format_string,
+            self.path_format_string,
             run_name=self._run_name,
             remote_file_name=remote_file_name,
         )
@@ -528,7 +528,7 @@ def _upload_worker(
     completed_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str]],
     is_finished: Union[multiprocessing._EventType, threading.Event],
     remote_backend_name: str,
-    remote_backend_kwargs: Dict[str, Any],
+    backend_kwargs: Dict[str, Any],
     num_attempts: int,
 ):
     """A long-running function to handle uploading files to the object store.
@@ -536,7 +536,7 @@ def _upload_worker(
     The worker will continuously poll ``file_queue`` for files to upload. Once ``is_finished`` is set, the worker will
     exit once ``file_queue`` is empty.
     """
-    remote_backend = _build_remote_backend(remote_backend_name, remote_backend_kwargs)
+    remote_backend = _build_remote_backend(remote_backend_name, backend_kwargs)
     while True:
         try:
             file_path_to_upload, remote_file_name, overwrite = file_queue.get(block=True, timeout=0.5)

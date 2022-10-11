@@ -77,8 +77,8 @@ def object_store_test_helper(
     with patch('composer.loggers.remote_uploader_downloader.S3ObjectStore', DummyObjectStore):
         with patch('composer.loggers.remote_uploader_downloader.multiprocessing.get_context', lambda _: fork_context):
             remote_uploader_downloader = RemoteUploaderDownloader(
-                remote_bucket_uri='s3://{remote_dir}',
-                remote_backend_kwargs={
+                bucket_uri='s3://{remote_dir}',
+                backend_kwargs={
                     'dir': remote_dir,
                 },
                 num_concurrent_uploads=1,
@@ -189,8 +189,8 @@ def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_stat
         with patch('composer.loggers.remote_uploader_downloader.multiprocessing.get_context', lambda _: fork_context):
             # Create the object store logger
             remote_uploader_downloader = RemoteUploaderDownloader(
-                remote_bucket_uri=f"s3://{tmp_path}/'object_store_backend",
-                remote_backend_kwargs={
+                bucket_uri=f"s3://{tmp_path}/'object_store_backend",
+                backend_kwargs={
                     'dir': tmp_path / 'object_store_backend',
                 },
                 num_concurrent_uploads=4,
@@ -230,8 +230,8 @@ def test_close_on_failure(tmp_path: pathlib.Path, dummy_state: State):
     with patch('composer.loggers.remote_uploader_downloader.S3ObjectStore', DummyObjectStore):
         # Create the object store logger
         remote_uploader_downloader = RemoteUploaderDownloader(
-            remote_bucket_uri=f"s3://{tmp_path}/'object_store_backend",
-            remote_backend_kwargs={
+            bucket_uri=f"s3://{tmp_path}/'object_store_backend",
+            backend_kwargs={
                 'dir': tmp_path / 'object_store_backend',
                 'always_fail': True,
             },
@@ -279,11 +279,11 @@ def test_valid_backend_names():
          patch('composer.loggers.remote_uploader_downloader.SFTPObjectStore') as _, \
          patch('composer.loggers.remote_uploader_downloader.LibcloudObjectStore') as _:
         for name in valid_backend_names:
-            remote_uploader_downloader = RemoteUploaderDownloader(remote_bucket_uri=f'{name}://not-a-real-bucket')
+            remote_uploader_downloader = RemoteUploaderDownloader(bucket_uri=f'{name}://not-a-real-bucket')
             # Access the remote_backend property so that it is built
             _ = remote_uploader_downloader.remote_backend
 
     with pytest.raises(ValueError):
-        remote_uploader_downloader = RemoteUploaderDownloader(remote_bucket_uri='magicloud://not-a-real-bucket')
+        remote_uploader_downloader = RemoteUploaderDownloader(bucket_uri='magicloud://not-a-real-bucket')
         # Access the remote_backend property so that it is built
         _ = remote_uploader_downloader.remote_backend

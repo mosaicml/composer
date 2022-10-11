@@ -62,8 +62,8 @@ except ImportError:
 
 _callback_kwargs: Dict[Union[Type[Callback], Type[hp.Hparams]], Dict[str, Any],] = {
     RemoteUploaderDownloader: {
-        'remote_bucket_uri': 'libcloud://.',
-        'remote_backend_kwargs': {
+        'bucket_uri': 'libcloud://.',
+        'backend_kwargs': {
             'provider': 'local',
             'container': '.',
             'provider_kwargs': {
@@ -94,7 +94,7 @@ _callback_kwargs: Dict[Union[Type[Callback], Type[hp.Hparams]], Dict[str, Any],]
         'window_size': 1,
     },
     RemoteUploaderDownloaderHparams: {
-        'remote_bucket_uri': 'libcloud://.',
+        'bucket_uri': 'libcloud://.',
         'object_store_hparams': {
             'libcloud': {
                 'provider': 'local',

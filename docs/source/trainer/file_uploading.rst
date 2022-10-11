@@ -176,7 +176,7 @@ with the :class:`~composer.utils.object_store.s3_object_store.S3ObjectStore` bac
 
     # Configure the logger
     logger = RemoteUploaderDownloader(
-        remote_bucket_uri="s3://my-bucket-name",
+        bucket_uri="s3://my-bucket-name",
     )
 
     # Define the trainer
@@ -207,7 +207,7 @@ Similar to the S3 Example above, we can upload files to a remote SFTP filesystem
 
     # Configure the logger
     logger = RemoteUploaderDownloader(
-        remote_bucket_uri="sftp://sftp_server.example.com",
+        bucket_uri="sftp://sftp_server.example.com",
     )
 
     # Define the trainer
