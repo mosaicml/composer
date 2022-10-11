@@ -1174,8 +1174,6 @@ class Trainer:
             # Only wrap the module if required
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
-        print('MODEL:', self.state.model)
-
     @property
     def saved_checkpoints(self) -> List[str]:
         """Returns list of saved checkpoints.
