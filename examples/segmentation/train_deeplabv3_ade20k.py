@@ -48,6 +48,9 @@ parser.add_argument('--backbone_arch',
                     help='Architecture to use for the backbone.',
                     default='resnet101',
                     choices=['resnet50', 'resnet101'])
+parser.add_argument('--sync_bn',
+                    help='Use sync BatchNorm. Recommended if the per device microbatch size is below 16',
+                    action='store_true')
 parser.add_argument('--cross_entropy_weight', help='Weight to scale the cross entropy loss', type=float, default=0.375)
 parser.add_argument('--dice_weight', help='Weight to scale the dice loss', type=float, default=1.125)
 
@@ -228,7 +231,7 @@ def _main():
         num_classes=150,
         backbone_arch=args.backbone_arch,
         backbone_weights='IMAGENET1K_V2',
-        sync_bn=False,
+        sync_bn=args.sync_bn,
         use_plus=True,
     )
 
