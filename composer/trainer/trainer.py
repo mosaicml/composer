@@ -13,9 +13,9 @@ import os
 import random
 import re
 import time
-from turtle import back
 import warnings
 from copy import deepcopy
+from turtle import back
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
 from urllib.parse import urlparse
 
@@ -310,39 +310,39 @@ if _is_tpu_installed():
 
 def _create_object_store_logger_from_uri(uri: str) -> Optional[LoggerDestination]:
     libcloud_supported_backends = [
-                                    'atmos',
-                                    'auroraobjects',
-                                    'azure_blobs',
-                                    'backblaze_b2',
-                                    'cloudfiles',
-                                    'digitalocean_spaces',
-                                    'google_storage',
-                                    'ktucloud',
-                                    'local',
-                                    'minio',
-                                    'nimbus',
-                                    'ninefold',
-                                    'oss',
-                                    'rgw',
-                                    ]
+        'atmos',
+        'auroraobjects',
+        'azure_blobs',
+        'backblaze_b2',
+        'cloudfiles',
+        'digitalocean_spaces',
+        'google_storage',
+        'ktucloud',
+        'local',
+        'minio',
+        'nimbus',
+        'ninefold',
+        'oss',
+        'rgw',
+    ]
     parse_result = urlparse(uri)
     backend, bucket = parse_result.scheme, parse_result.netloc
     if backend == 's3':
         return ObjectStoreLogger(object_store_cls=S3ObjectStore, object_store_kwargs={'bucket': bucket})
     elif backend == 'wandb':
         raise NotImplementedError('Specifying WandB through a URI is not supported. Please create'
-        ' a WandBLogger object with log_artifacts=True and pass it to loggers')
+                                  ' a WandBLogger object with log_artifacts=True and pass it to loggers')
     elif backend in libcloud_supported_backends:
-       raise NotImplementedError(f'Specifying {backend} through a URI is not supported.'
-       ' Please use an ObjectStoreLogger object with LibcloudObjectStore')
+        raise NotImplementedError(f'Specifying {backend} through a URI is not supported.'
+                                  ' Please use an ObjectStoreLogger object with LibcloudObjectStore')
     elif backend == 'sftp':
         raise NotImplementedError(f'Specifying {backend} through a URI is not supported.'
-       ' Please use an ObjectStoreLogger object with SFTPObjectStore')
+                                  ' Please use an ObjectStoreLogger object with SFTPObjectStore')
     elif backend == '':  # Local path
         return None
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use'
-                                    ' s3 or one of the supported ObjectStoreLogger object_stores instead.')
+                                  ' s3 or one of the supported ObjectStoreLogger object_stores instead.')
 
 
 def _create_object_store_from_uri(uri: str) -> Optional[Union[LoggerDestination, ObjectStore]]:
@@ -350,7 +350,7 @@ def _create_object_store_from_uri(uri: str) -> Optional[Union[LoggerDestination,
         object_store_logger = _create_object_store_logger_from_uri(uri)
         return object_store_logger.object_store_cls(**object_store_logger.object_store_kwargs)
     except NotImplementedError as e:
-        new_error = str(e).replace(' an ObjectStoreLogger object with', '') 
+        new_error = str(e).replace(' an ObjectStoreLogger object with', '')
         raise NotImplementedError(new_error)
 
 
@@ -1191,11 +1191,10 @@ class Trainer:
                 raise ValueError(
                     'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
                 )
-            autoresume_checkpoint_path = self._get_autoresume_checkpoint(
-                save_folder=save_folder,
-                save_latest_filename=save_latest_filename,
-                loggers=loggers,
-                load_progress_bar=load_progress_bar)
+            autoresume_checkpoint_path = self._get_autoresume_checkpoint(save_folder=save_folder,
+                                                                         save_latest_filename=save_latest_filename,
+                                                                         loggers=loggers,
+                                                                         load_progress_bar=load_progress_bar)
             # Found latest checkpoint path, load that instead
             if autoresume_checkpoint_path:
                 load_path = autoresume_checkpoint_path

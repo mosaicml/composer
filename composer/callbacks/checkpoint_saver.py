@@ -381,7 +381,6 @@ class CheckpointSaver(Callback):  # noqa: D101
                 pass
             os.symlink(os.path.relpath(file_path, os.path.dirname(symlink)), symlink)
 
-
         remote_file_name = file_path
         if self.using_wandb:
             remote_file_name = remote_file_name.replace('/', '.')
