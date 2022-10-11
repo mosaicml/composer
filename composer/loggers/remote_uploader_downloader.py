@@ -23,8 +23,8 @@ from urllib.parse import urlparse
 from composer.core.state import State
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import ObjectStore, ObjectStoreTransientError, dist, format_name_with_dist, get_file, retry
-from composer.utils.object_store import LibcloudObjectStore, S3ObjectStore, SFTPObjectStore
+from composer.utils import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, S3ObjectStore, SFTPObjectStore,
+                            dist, format_name_with_dist, get_file, retry)
 
 log = logging.getLogger(__name__)
 
