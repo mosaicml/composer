@@ -25,7 +25,6 @@ from composer.optim import ExponentialScheduler
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, is_tar
 from composer.utils.checkpoint import glob_filter
-from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
 from tests.common import RandomImageDataset, SimpleConvModel, deep_compare, device
 
 
@@ -174,8 +173,8 @@ class TestCheckpointLoading:
         os.makedirs(remote_dir, exist_ok=True)
 
         return RemoteUploaderDownloader(
-            object_store_cls=LibcloudObjectStore,
-            object_store_kwargs={
+            bucket_uri='libcloud://.',
+            backend_kwargs={
                 'provider': 'local',
                 'container': '.',
                 'provider_kwargs': {
