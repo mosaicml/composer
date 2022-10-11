@@ -4,7 +4,8 @@
 import contextlib
 import copy
 import pathlib
-from typing import Any, Dict, Tuple, Type
+from typing import Any, Dict, Tuple
+from urllib.parse import urlparse
 
 import pytest
 
@@ -14,13 +15,14 @@ from tests.utils.object_store.object_store_settings import get_object_store_ctx,
 
 
 @pytest.fixture
-def object_store_cls_and_kwargs(request, s3_bucket: str, sftp_uri: str, test_session_name: str):
+def bucket_uri_and_kwargs(request, s3_bucket: str, sftp_uri: str, test_session_name: str):
     remote = request.node.get_closest_marker('remote') is not None
 
     if request.param is LibcloudObjectStore:
         if remote:
             pytest.skip('Libcloud object store has no remote tests')
         else:
+            bucket_uri = 'libcloud://.'
             kwargs = {
                 'provider': 'local',
                 'container': '.',
@@ -31,16 +33,20 @@ def object_store_cls_and_kwargs(request, s3_bucket: str, sftp_uri: str, test_ses
             }
     elif request.param is S3ObjectStore:
         if remote:
+            bucket_uri = f's3://{s3_bucket}'
             kwargs = {'bucket': s3_bucket, 'prefix': test_session_name}
         else:
+            bucket_uri = 's3://my-bucket'
             kwargs = {'bucket': 'my-bucket', 'prefix': 'folder/subfolder'}
     elif request.param is SFTPObjectStore:
         if remote:
+            bucket_uri = f"sftp://{sftp_uri.rstrip('/') + '/' + test_session_name}"
             kwargs = {
                 'host': sftp_uri.rstrip('/') + '/' + test_session_name,
                 'missing_host_key_policy': 'WarningPolicy',
             }
         else:
+            bucket_uri = 'sftp://localhost:23'
             kwargs = {
                 'host': 'localhost',
                 'port': 23,
@@ -48,7 +54,7 @@ def object_store_cls_and_kwargs(request, s3_bucket: str, sftp_uri: str, test_ses
             }
     else:
         raise ValueError(f'Invalid object store type: {request.param.__name__}')
-    return request.param, kwargs
+    return bucket_uri, kwargs
 
 
 class MockCallback:
@@ -68,23 +74,29 @@ class MockCallback:
         assert self.total_num_bytes == self.transferred_bytes
 
 
-@pytest.mark.parametrize('object_store_cls_and_kwargs', object_stores, indirect=True)
+@pytest.mark.parametrize('bucket_uri_and_kwargs', object_stores, indirect=True)
 @pytest.mark.parametrize('remote', [False, pytest.param(True, marks=pytest.mark.remote)])
 class TestObjectStore:
 
     @pytest.fixture
     def object_store(
         self,
-        object_store_cls_and_kwargs: Tuple[Type[ObjectStore], Dict[str, Any]],
+        bucket_uri_and_kwargs: Tuple[str, Dict[str, Any]],
         monkeypatch: pytest.MonkeyPatch,
         tmp_path: pathlib.Path,
         remote: bool,
     ):
-        object_store_cls, kwargs = object_store_cls_and_kwargs
-        with get_object_store_ctx(object_store_cls, kwargs, monkeypatch, tmp_path, remote=remote):
+        remote_backend_name_to_class = {'s3': S3ObjectStore, 'sftp': SFTPObjectStore, 'libcloud': LibcloudObjectStore}
+        bucket_uri, kwargs = bucket_uri_and_kwargs
+        remote_backend_name = urlparse(bucket_uri).scheme
+        with get_object_store_ctx(remote_backend_name_to_class[remote_backend_name],
+                                  kwargs,
+                                  monkeypatch,
+                                  tmp_path,
+                                  remote=remote):
             copied_config = copy.deepcopy(kwargs)
             # type error: Type[ObjectStore] is not callable
-            object_store = object_store_cls(**copied_config)  # type: ignore
+            object_store = remote_backend_name_to_class[remote_backend_name](**copied_config)  # type: ignore
             with object_store:
                 yield object_store
 
