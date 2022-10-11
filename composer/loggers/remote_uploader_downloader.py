@@ -38,8 +38,8 @@ def _build_remote_backend(remote_backend_name: str, remote_backend_kwargs: Dict[
         raise ValueError(
             f'The remote backend {remote_backend_name} is not supported. Please use one of ({list(remote_backend_name_to_cls.keys())})'
         )
-    # error: Expected no arguments to "ObjectStore" constructor
-    return remote_backend_cls(**remote_backend_kwargs)  # type: ignore
+
+    return remote_backend_cls(**remote_backend_kwargs)
 
 
 class RemoteUploaderDownloader(LoggerDestination):
