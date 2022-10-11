@@ -243,6 +243,8 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
             | run_name              | The run name for training.                                  |
             +-----------------------+-------------------------------------------------------------+
+            | dataset_state         | The dataset iteration state for checkpointing.              |
+            +-----------------------+-------------------------------------------------------------+
 
         timestamp (Timestamp): The current training timestamp.
         train_dataloader (Iterable): The training dataloader. (May be ``None`` if not training.)
@@ -276,6 +278,7 @@ class State(Serializable):
         dataloader: Optional[Iterable] = None,
         dataloader_label: Optional[str] = None,
         dataloader_len: Union[int, Time[int]] = -1,
+        dataset_state: Optional[Dict[str, Any]] = None,
 
         # precision
         precision: Union[str, Precision] = Precision.FP32,
@@ -303,6 +306,7 @@ class State(Serializable):
         self._dataloader = None
         self._dataloader_label = None
         self.set_dataloader(dataloader, dataloader_label, dataloader_len)
+        self.dataset_state = dataset_state
         self._max_duration = None
         self.max_duration = max_duration
 
@@ -351,6 +355,7 @@ class State(Serializable):
             'train_metrics',
             'eval_metrics',
             'run_name',
+            'dataset_state',
         ]
 
         self.train_metrics: Dict[str, Metric] = {}
@@ -501,7 +506,10 @@ class State(Serializable):
 
         for attribute_name in self.serialized_attributes:
             attribute_value = getattr(self, attribute_name)
-            if attribute_name == 'model':
+            if attribute_name == 'dataset_state':
+                if self.dataloader and hasattr(self.dataloader.dataset, 'state_dict'):
+                    serialized_value = self.dataloader.dataset.state_dict()
+            elif attribute_name == 'model':
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                 # If it is DDP wrapped, do not save the `module.` prefix, as that is an implmentation detail
                 with get_fsdp_rank0_cpu_save_context(
@@ -619,7 +627,10 @@ class State(Serializable):
                 # It's possible some attributes we removed
                 continue
 
-            if attribute_name == 'model':
+            if attribute_name == 'dataset_state':
+                if self.dataloader and hasattr(self.dataloader.dataset, 'load_state_dict'):
+                    self.dataloader.dataset.load_state_dict(serialized_value)
+            elif attribute_name == 'model':
                 self.load_model_state(state, strict=strict)
             elif attribute_name == 'optimizers':
                 self.load_optim_state(state)

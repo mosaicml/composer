@@ -232,6 +232,25 @@ class StreamingCIFAR10Hparams(DatasetHparams):
                               shuffle=self.shuffle,
                               transform=transform,
                               batch_size=batch_size)
+        elif self.version == 3:  # Just a different number for testing
+            try:
+                from streaming.vision import LocalResumableCIFAR10
+            except ImportError as e:
+                raise MissingConditionalImportError(extra_deps_group='streaming',
+                                                    conda_package='mosaicml-streaming') from e
+            if self.split == 'train':
+                transform = transforms.Compose([
+                    transforms.RandomCrop(32, padding=4),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor(),
+                    transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD),
+                ])
+            else:
+                transform = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD),
+                ])
+            dataset = LocalResumableCIFAR10(self.local, self.split, self.shuffle, transform)
         else:
             raise ValueError(f'Invalid streaming version: {self.version}')
 
