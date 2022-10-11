@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from composer.core.state import State
-from composer.loggers.logger import Logger, LogLevel, format_log_data_value
+from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -138,7 +138,7 @@ class TensorboardLogger(LoggerDestination):
         self._flush(logger)
 
     def _flush(self, logger: Logger):
-        # To avoid empty log artifacts for each rank.
+        # To avoid empty files uploaded for each rank.
         if self.rank_zero_only and dist.get_global_rank() != 0:
             return
 
@@ -153,11 +153,10 @@ class TensorboardLogger(LoggerDestination):
         file_path = self.writer.file_writer.event_writer._file_name
         event_file_name = Path(file_path).stem
 
-        logger.file_artifact(LogLevel.FIT,
-                             artifact_name=('tensorboard_logs/{run_name}/' +
-                                            f'{event_file_name}-{dist.get_global_rank()}'),
-                             file_path=file_path,
-                             overwrite=True)
+        logger.upload_file(remote_file_name=('tensorboard_logs/{run_name}/' +
+                                             f'{event_file_name}-{dist.get_global_rank()}'),
+                           file_path=file_path,
+                           overwrite=True)
 
         # Close writer, which creates new log file.
         self.writer.close()
