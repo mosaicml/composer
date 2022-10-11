@@ -80,6 +80,15 @@ class TestTrainerInit():
         with pytest.raises(ValueError, match='magic_device'):
             Trainer(model=model, device='magic_device')
 
+    @world_size(1, 2)
+    @device('gpu', 'cpu')
+    def test_gpu_logging(self, model: ComposerModel, world_size: int, device: str):
+        in_mem_logger = InMemoryLogger()
+        Trainer(model=model, loggers=[in_mem_logger])
+        expected_key, expected_value = f'num_{device}s_per_node', world_size
+        assert expected_key in in_mem_logger.hyperparameters
+        assert in_mem_logger.hyperparameters[expected_key] == expected_value
+
     @device('gpu', 'cpu')
     def test_optimizer_params_on_device(
         self,
