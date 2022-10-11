@@ -1202,6 +1202,8 @@ class Trainer:
         save_latest_remote_file_name = format_name_with_dist(save_latest_remote_file_name, self.state.run_name)
         latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
 
+        log.info(f'Looking for autoresume checkpooint: {save_latest_remote_file_name}')
+
         # If latest checkpoint is not saved locally, try to fetch from loggers
         if not os.path.exists(latest_checkpoint_path):
             # Make save folder in case it doesn't exist so latest checkpoint can be downloaded
@@ -1218,6 +1220,7 @@ class Trainer:
                     )
                     break
                 except (NotImplementedError, FileNotFoundError):
+                    log.info(f'Checkpoint not found in: {logger}')
                     # Ignore errors caused by no checkpoint saved with logger
                     pass
         # Require all ranks to have local checkpoint if we wish to restore from it
