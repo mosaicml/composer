@@ -293,19 +293,19 @@ Uploading to Object Store
 
 Checkpoints can also be saved to and loaded from your object store of choice (e.g. AWS S3 or Google Cloud Storage).
 Writing checkpoints to an object store is a two-step process. The checkpoints are first written to the local filesystem,
-and then the :class:`.ObjectStoreLogger` logger will upload checkpoints to the specified object store.
+and then the :class:`.RemoteUploaderDownloader` logger will upload checkpoints to the specified object store.
 
-Behind the scenes, the :class:`.ObjectStoreLogger` uses :doc:`Apache Libcloud <libcloud:storage/index>`.
+Behind the scenes, the :class:`.RemoteUploaderDownloader` uses :doc:`Apache Libcloud <libcloud:storage/index>`.
 
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
 
-    from composer.loggers import ObjectStoreLogger
+    from composer.loggers import RemoteUploaderDownloader
     from composer.utils import LibcloudObjectStore
 
-    object_store_logger = ObjectStoreLogger(
-        object_store_cls=LibcloudObjectStore,
-        object_store_kwargs={
+    remote_uploader_downloader = RemoteUploaderDownloader(
+        bucket_uri="libcloud://my_bucket",
+        backend_kwargs={
             "provider": "s3",  # The Apache Libcloud provider name
             "container": "my_bucket",  # The name of the cloud container (i.e. bucket) to use.
             "provider_kwargs": {  # The Apache Libcloud provider driver initialization arguments
@@ -319,14 +319,14 @@ Behind the scenes, the :class:`.ObjectStoreLogger` uses :doc:`Apache Libcloud <l
 .. seealso::
 
     *   :doc:`Full list of object store providers <libcloud:storage/supported_providers>`
-    *   :class:`~.ObjectStoreLogger`
+    *   :class:`~.RemoteUploaderDownloader`
 
 There are a few additional trainer arguments which can be helpful to configure:
 
 *   ``save_num_checkpoints_to_keep``: Set this parameter to remove checkpoints from the local disk after they have been
     uploaded. For example, setting this parameter to 1 will only keep the latest checkpoint locally; setting it to 0
     will remove each checkpoint after it has been uploaded. Checkpoints are never deleted from object stores.
-*   ``save_artifact_name``: To customize how checkpoints are named in the cloud bucket, modify this parameter. By
+*   ``save_remote_file_name``: To customize how checkpoints are named in the cloud bucket, modify this parameter. By
     default, they will be named as ``'{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}'``. See the
     :class:`.CheckpointSaver` documentation for the available format variables.
 
@@ -336,11 +336,11 @@ Once you've configured your object store logger per above, all that's left is to
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
 
-    from composer.loggers import ObjectStoreLogger
+    from composer.loggers import RemoteUploaderDownloader
 
-    object_store_logger = ObjectStoreLogger(
-        object_store_cls=LibcloudObjectStore,
-        object_store_kwargs={
+    remote_uploader_downloader = RemoteUploaderDownloader(
+        bucket_uri="libcloud://checkpoint-debugging",
+        backend_kwargs={
             "provider": "s3",  # The Apache Libcloud provider name
             "container": "checkpoint-debugging",  # The name of the cloud container (i.e. bucket) to use.
             "provider_kwargs": {  # The Apache Libcloud provider driver initialization arguments
@@ -358,9 +358,9 @@ Once you've configured your object store logger per above, all that's left is to
         save_folder='checkpoints',
         save_interval='1ep',
         save_overwrite=True,
-        save_artifact_name='checkpoints/ep{epoch}.pt',
+        save_remote_file_name='checkpoints/ep{epoch}.pt',
         save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
-        loggers=[object_store_logger],
+        loggers=[remote_uploader_downloader],
     )
 
     trainer.fit()
@@ -405,7 +405,7 @@ API Reference
 -------------
 
 
-*   :class:`.ObjectStoreLogger` for saving checkpoints to cloud storage.
+*   :class:`.RemoteUploaderDownloader` for saving checkpoints to cloud storage.
 *   :class:`.Trainer` for the trainer checkpoint arguments.
 *   :class:`.CheckpointSaver` for the CheckpointSaver arguments.
 *   :mod:`composer.utils.checkpoint` for the underlying utilities to manually save and load checkpoints.

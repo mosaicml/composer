@@ -55,7 +55,7 @@ Available Loggers
     ~progress_bar_logger.ProgressBarLogger
     ~tensorboard_logger.TensorboardLogger
     ~in_memory_logger.InMemoryLogger
-    ~object_store_logger.ObjectStoreLogger
+    ~remote_uploader_downloader.RemoteUploaderDownloader
 
 Automatically Logged Data
 -------------------------

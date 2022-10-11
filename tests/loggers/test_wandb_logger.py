@@ -15,7 +15,7 @@ from composer.core import Engine, Event
 from composer.core.callback import Callback
 from composer.core.state import State
 from composer.loggers import InMemoryLogger
-from composer.loggers.logger import Logger, LogLevel
+from composer.loggers.logger import Logger
 from composer.loggers.wandb_logger import WandBLogger
 from composer.trainer import Trainer
 from composer.utils import dist, retry
@@ -54,7 +54,7 @@ def test_logged_data_is_json_serializable(callback_cls: Type[Callback]):
 @pytest.mark.parametrize('rank_zero_only', [True, False])
 @pytest.mark.skip('This test needs to be refactored to use a Mock API interface.')
 def test_wandb_artifacts(rank_zero_only: bool, tmp_path: pathlib.Path, dummy_state: State):
-    """Test that artifacts logged on rank zero are accessible by all ranks."""
+    """Test that wandb artifacts logged on rank zero are accessible by all ranks."""
     pytest.importorskip('wandb', reason='wandb is optional')
     # Create the logger
     ctx = pytest.warns(
@@ -70,34 +70,33 @@ def test_wandb_artifacts(rank_zero_only: bool, tmp_path: pathlib.Path, dummy_sta
     engine.run_event(Event.INIT)
 
     # Distribute the artifact name from rank 0 to all ranks
-    artifact_name = 'test-artifact-' + str(uuid.uuid4())
-    artifact_name_list = [artifact_name]
-    dist.broadcast_object_list(artifact_name_list)
-    artifact_name = artifact_name_list[0]
+    wandb_artifact_name = 'test-wandb-artifact-' + str(uuid.uuid4())
+    wandb_artifact_name_list = [wandb_artifact_name]
+    dist.broadcast_object_list(wandb_artifact_name_list)
+    wandb_artifact_name = wandb_artifact_name_list[0]
 
     if dist.get_global_rank() == 0:
         # Create a dummy artifact
-        dummy_artifact_path = tmp_path / 'artifact.txt'
-        with open(dummy_artifact_path, 'w+') as f:
+        dummy_wandb_artifact_path = tmp_path / 'wandb_artifact.txt'
+        with open(dummy_wandb_artifact_path, 'w+') as f:
             f.write('hello!')
 
-        # Log an artifact if rank zero
-        logger.file_artifact(
-            log_level=LogLevel.FIT,
-            file_path=dummy_artifact_path,
-            artifact_name=artifact_name,
+        # Log a wandb artifact if rank zero
+        logger.upload_file(
+            file_path=dummy_wandb_artifact_path,
+            remote_file_name=wandb_artifact_name,
         )
 
     # Wait for rank 0 queue the file upload
     dist.barrier()
 
     # Attempt to retrieve the artifact on all ranks
-    downloaded_artifact_path = tmp_path / 'downloaded_artifact'
+    downloaded_wandb_artifact_path = tmp_path / 'downloaded_wandb_artifact'
 
     @retry(FileNotFoundError, num_attempts=6)  # 6 attempts is ~2^(6-1) seconds max wait
-    def _validate_artifact():
-        wandb_logger.get_file_artifact(artifact_name, str(downloaded_artifact_path))
-        with open(downloaded_artifact_path, 'r') as f:
+    def _validate_wandb_artifact():
+        wandb_logger.download_file(wandb_artifact_name, str(downloaded_wandb_artifact_path))
+        with open(downloaded_wandb_artifact_path, 'r') as f:
             assert f.read() == 'hello!'
 
-    _validate_artifact()
+    _validate_wandb_artifact()

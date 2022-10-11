@@ -80,15 +80,12 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
 
-    from composer.loggers import ObjectStoreLogger
+    from composer.loggers import RemoteUploaderDownloader
     from composer.utils.object_store import S3ObjectStore
 
     # this assumes credentials are already configured via boto3
-    object_store_logger = ObjectStoreLogger(
-        object_store_cls=S3ObjectStore,
-        object_store_kwargs={
-            "bucket": "checkpoint-debugging",
-            },
+    remote_uploader_downloader = RemoteUploaderDownloader(
+        bucket_uri=f"s3://checkpoint-debugging",
     )
 
     trainer = Trainer(
@@ -97,14 +94,14 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
         save_folder='checkpoints',
         save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
         run_name='my_cool_run',
-        save_artifact_name='checkpoints/ep{epoch}.pt',
-        loggers=[object_store_logger],
+        save_remote_file_name='checkpoints/ep{epoch}.pt',
+        loggers=[remote_uploader_downloader],
     )
 
     trainer.fit()
 
 
-During resumption, there would be no local checkpoints, so the trainer would then look in the object store logger's provided bucket and artifact folder (`checkpoint-debugging/my_cool_run/checkpoints`) to find the latest checkpoint.
+During resumption, there would be no local checkpoints, so the trainer would then look in the object store logger's provided bucket and checkpoint folder (`checkpoint-debugging/my_cool_run/checkpoints`) to find the latest checkpoint.
 
 Example: Fine-tuning
 --------------------
@@ -114,14 +111,11 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
 .. testsetup:: fine_tune
     :skipif: not _LIBCLOUD_INSTALLED
 
-    from composer.loggers import ObjectStoreLogger
+    from composer.loggers import RemoteUploaderDownloader
     from composer.utils.object_store import S3ObjectStore
 
-    object_store_logger = ObjectStoreLogger(
-        object_store_cls=S3ObjectStore,
-        object_store_kwargs={
-            "bucket": "checkpoint-debugging_2",
-        },
+    remote_uploader_downloader = RemoteUploaderDownloader(
+        bucket_uri=f"s3://checkpoint-debugging_2",
     )
 
     # Train to generate and save the "pretrained_weights/model.pt",
@@ -146,7 +140,7 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
         save_folder='checkpoints',
         run_name='my_cool_run',
         loggers=[
-            object_store_logger
+            remote_uploader_downloader
         ]
     )
 
