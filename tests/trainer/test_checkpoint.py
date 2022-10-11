@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader
 from composer.algorithms import SqueezeExcite
 from composer.core.callback import Callback
 from composer.core.time import Time, TimeUnit
-from composer.loggers import ObjectStoreLogger
+from composer.loggers import RemoteUploaderDownloader
 from composer.optim import ExponentialScheduler
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, is_tar
@@ -178,7 +178,7 @@ class TestCheckpointLoading:
         remote_dir = str(tmp_path / 'object_store')
         os.makedirs(remote_dir, exist_ok=True)
 
-        return ObjectStoreLogger(
+        return RemoteUploaderDownloader(
             object_store_cls=LibcloudObjectStore,
             object_store_kwargs={
                 'provider': 'local',

@@ -16,7 +16,6 @@ from torch.profiler.profiler import ProfilerAction as TorchProfilerAction
 from composer.core.callback import Callback
 from composer.core.state import State
 from composer.loggers import Logger
-from composer.loggers.logger import LogLevel
 from composer.profiler.profiler_action import ProfilerAction
 from composer.utils import dist
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
@@ -94,22 +93,22 @@ class TorchProfiler(Callback):  # noqa: D101
                 awesome-training-run/torch_traces/ep1-ba42-rank2.json
                 ...
 
-        artifact_name (str, optional): Format string for a Torch Profiler trace file's artifact name.
+        remote_file_name (str, optional): Format string for a Torch Profiler trace file's remote file name.
             Defaults to ``'{{run_name}}/torch_traces/rank{{rank}}.{{batch}}.pt.trace.json'``.
 
-            Whenever a trace file is saved, it is also logged as a file artifact according to this format string.
+            Whenever a trace file is saved, it is also uploaded as a file according to this format string.
             The same format variables as for ``filename`` are available.
 
-            .. seealso:: :doc:`Artifact Logging</trainer/artifact_logging>` for notes for file artifact logging.
+            .. seealso:: :doc:`Uploading Files</trainer/file_uploading>` for notes for file uploading.
 
             Leading slashes (``'/'``) will be stripped.
 
-            To disable logging trace files as file artifacts, set this parameter to ``None``.
+            To disable uploading trace files, set this parameter to ``None``.
         overwrite (bool, optional): Whether to override existing Torch Profiler traces. Defaults to False.
 
             If False, then the trace folder as determined by ``folder`` must be empty.
         use_gzip (bool, optional): Whether to use gzip for the trace. Defaults to False.
-            If True, ``'.gz'`` will be appended ``filename`` and ``artifact_name``
+            If True, ``'.gz'`` will be appended ``filename`` and ``remote_file_name``
             (if they do not already end in ``'.gz'``).
         record_shapes (bool, optional): Whether to record tensor shapes. Defaults to False.
         profile_memory (bool, optional): Whether to profile memory. Defaults to True.
@@ -119,12 +118,12 @@ class TorchProfiler(Callback):  # noqa: D101
 
             If set to -1, then all traces files are kept locally.
 
-            After a trace has been saved and logged as a file artifact, the oldest traces are removed until
+            After a trace has been saved and uploaded, the oldest traces are removed until
             ``num_traces_to_keep`` traces remain. This parameter only controls how many traces are kept locally;
-            traces are not deleted from artifact stores.
+            traces are not deleted from remote file systems.
 
-            It can be useful to set this parameter to ``0`` when using an artifact logger such as the
-            :class:`.ObjectStoreLogger`. This combination will minimize local
+            It can be useful to set this parameter to ``0`` when using a remote file uploader such as the
+            :class:`.RemoteUploaderDownloader`. This combination will minimize local
             disk usage by deleting trace files immediately after they have been uploaded to the object store.
 
     Attributes:
@@ -142,7 +141,7 @@ class TorchProfiler(Callback):  # noqa: D101
         self,
         folder: str = '{run_name}/torch_traces',
         filename: str = 'rank{rank}.{batch}.pt.trace.json',
-        artifact_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
+        remote_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
         *,
         overwrite: bool = False,
         use_gzip: bool = False,
@@ -157,9 +156,9 @@ class TorchProfiler(Callback):  # noqa: D101
         if use_gzip and not filename.endswith('.gz'):
             filename += '.gz'
         self.filename = filename
-        if use_gzip and artifact_name is not None and not artifact_name.endswith('.gz'):
-            artifact_name += '.gz'
-        self.artifact_name = artifact_name
+        if use_gzip and remote_file_name is not None and not remote_file_name.endswith('.gz'):
+            remote_file_name += '.gz'
+        self.remote_file_name = remote_file_name
         self.record_shapes = record_shapes
         self.profile_memory = profile_memory
         self.with_stack = with_stack
@@ -209,15 +208,14 @@ class TorchProfiler(Callback):  # noqa: D101
                 os.makedirs(trace_file_dirname, exist_ok=True)
             prof.export_chrome_trace(trace_file_name)
             state.profiler.record_chrome_json_trace_file(trace_file_name)
-            if self.artifact_name is not None:
-                trace_artifact_name = format_name_with_dist_and_time(self.artifact_name,
-                                                                     run_name=state.run_name,
-                                                                     timestamp=timestamp)
-                trace_artifact_name = trace_artifact_name.lstrip('/')
-                logger.file_artifact(LogLevel.BATCH,
-                                     artifact_name=trace_artifact_name,
-                                     file_path=trace_file_name,
-                                     overwrite=self.overwrite)
+            if self.remote_file_name is not None:
+                trace_remote_file_name = format_name_with_dist_and_time(self.remote_file_name,
+                                                                        run_name=state.run_name,
+                                                                        timestamp=timestamp)
+                trace_remote_file_name = trace_remote_file_name.lstrip('/')
+                logger.upload_file(remote_file_name=trace_remote_file_name,
+                                   file_path=trace_file_name,
+                                   overwrite=self.overwrite)
 
             if self.num_traces_to_keep >= 0:
                 while len(self.saved_traces) > self.num_traces_to_keep:
