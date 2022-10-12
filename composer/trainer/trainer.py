@@ -35,6 +35,7 @@ from composer.core.precision import get_precision_context
 from composer.core.time import TimeUnit
 from composer.core.types import Batch, BreakEpochException, PyTorchScheduler, TrainerMode
 from composer.loggers import Logger, LoggerDestination, ProgressBarLogger
+from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.optim.scheduler import ComposerScheduler, compile_composer_scheduler
@@ -289,6 +290,9 @@ def _generate_run_name() -> str:
     return generated_run_name
 
 
+# def _create_remote_uploader_downloader_from_uri(uri: str) -> Optional[RemoteUploaderDownloader]:
+#     pass
+
 def _is_tpu_installed() -> bool:
     try:
         import torch_xla.core.xla_model as xm
@@ -302,7 +306,6 @@ def _is_tpu_installed() -> bool:
 if _is_tpu_installed():
     import torch_xla.core.xla_model as xm
     import torch_xla.distributed.parallel_loader as pl
-
 
 class Trainer:
     """Train models with Composer algorithms.
