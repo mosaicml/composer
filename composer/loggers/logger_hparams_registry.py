@@ -36,7 +36,7 @@ class RemoteUploaderDownloaderHparams(hp.Hparams):
 
     Args:
         object_store_hparams (ObjectStoreHparams): The object store provider hparams.
-        object_name (str, optional): See :class:`.RemoteUploaderDownloader`.
+        file_path_format_string (str, optional): See :class:`.RemoteUploaderDownloader`.
         num_concurrent_uploads (int, optional): See :class:`.RemoteUploaderDownloader`.
         upload_staging_folder (str, optional): See :class:`.RemoteUploaderDownloader`.
         use_procs (bool, optional): See :class:`.RemoteUploaderDownloader`.
@@ -46,8 +46,9 @@ class RemoteUploaderDownloaderHparams(hp.Hparams):
         'object_store_hparams': object_store_registry,
     }
 
-    object_store_hparams: ObjectStoreHparams = hp.required('Object store provider hparams.')
-    object_name: str = hp.auto(RemoteUploaderDownloader, 'object_name')
+    bucket_uri: str = hp.required('Remote bucket uri')
+    object_store_hparams: Optional[ObjectStoreHparams] = hp.optional('Object store provider hparams.', default=None)
+    file_path_format_string: str = hp.auto(RemoteUploaderDownloader, 'file_path_format_string')
     num_concurrent_uploads: int = hp.auto(RemoteUploaderDownloader, 'num_concurrent_uploads')
     use_procs: bool = hp.auto(RemoteUploaderDownloader, 'use_procs')
     upload_staging_folder: Optional[str] = hp.auto(RemoteUploaderDownloader, 'upload_staging_folder')
@@ -55,9 +56,9 @@ class RemoteUploaderDownloaderHparams(hp.Hparams):
 
     def initialize_object(self) -> RemoteUploaderDownloader:
         return RemoteUploaderDownloader(
-            object_store_cls=self.object_store_hparams.get_object_store_cls(),
-            object_store_kwargs=self.object_store_hparams.get_kwargs(),
-            object_name=self.object_name,
+            bucket_uri=self.bucket_uri,
+            backend_kwargs=self.object_store_hparams.get_kwargs() if self.object_store_hparams is not None else {},
+            file_path_format_string=self.file_path_format_string,
             num_concurrent_uploads=self.num_concurrent_uploads,
             upload_staging_folder=self.upload_staging_folder,
             use_procs=self.use_procs,
