@@ -11,16 +11,18 @@ import tempfile
 import time
 from glob import glob
 from typing import Any, Dict, List, Optional, Union
+from unittest.mock import MagicMock
 
 import pytest
 import torch
 import torch.distributed
+from pytest import MonkeyPatch
 from torch.utils.data import DataLoader
 
 from composer.algorithms import SqueezeExcite
 from composer.core.callback import Callback
 from composer.core.time import Time, TimeUnit
-from composer.loggers import RemoteUploaderDownloader
+from composer.loggers import RemoteUploaderDownloader, remote_uploader_downloader
 from composer.optim import ExponentialScheduler
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, is_tar
@@ -132,6 +134,37 @@ def test_ignore_params(remove_field_paths: List[List[str]], filter_params: List[
 
     glob_filter(filter_params)(new_dict)
     assert base_dict == new_dict
+
+
+class TestCheckpointSaving:
+
+    def get_trainer(self, **kwargs):
+        model = SimpleConvModel()
+        return Trainer(model=model, **kwargs)
+
+    @pytest.mark.parametrize('add_remote_ud', [True, False])
+    def test_use_s3_uri(self, add_remote_ud: bool, monkeypatch: MonkeyPatch):
+        mock_validate_credentials = MagicMock()
+        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
+        if add_remote_ud:
+            with pytest.warns(UserWarning):
+                trainer = self.get_trainer(save_folder='s3://bucket_name/{run_name}/checkpoints',
+                                           loggers=[
+                                               RemoteUploaderDownloader(
+                                                   's3://bucket_name', file_path_format_string='{run_name}/checkpoints')
+                                           ])
+        else:
+            trainer = self.get_trainer(save_folder='s3://bucket_name/{run_name}/checkpoints')
+
+        remote_uds = [
+            logger_dest for logger_dest in trainer.logger.destinations
+            if isinstance(logger_dest, RemoteUploaderDownloader)
+        ]
+        assert len(remote_uds) == 1
+        remote_ud = remote_uds[0]
+        assert remote_ud.remote_backend_name == 's3'
+        assert remote_ud.remote_bucket_name == 'bucket_name'
+        assert remote_ud.file_path_format_string == '{run_name}/checkpoints'
 
 
 class TestCheckpointLoading:

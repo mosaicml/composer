@@ -86,7 +86,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         callback need not be constructed manually. However, for advanced checkpointing use cases
         (such as saving a weights-only checkpoint at one interval and the full training state
         at another interval), instance(s) of this :class:`.CheckpointSaver` callback can be specified in the
-        ``callbacks`` argument of the :class:`.Trainer`, as shown in the example below. 
+        ``callbacks`` argument of the :class:`.Trainer`, as shown in the example below.
 
     Example
 

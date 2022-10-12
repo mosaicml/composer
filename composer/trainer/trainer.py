@@ -16,6 +16,7 @@ import time
 import warnings
 from copy import deepcopy
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
+from urllib.parse import urlparse
 
 import coolname
 import torch
@@ -290,8 +291,27 @@ def _generate_run_name() -> str:
     return generated_run_name
 
 
-# def _create_remote_uploader_downloader_from_uri(uri: str) -> Optional[RemoteUploaderDownloader]:
-#     pass
+def _maybe_create_remote_uploader_downloader_from_uri(
+        uri: str, loggers: List[LoggerDestination]) -> Optional[RemoteUploaderDownloader]:
+    existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
+    parse_result = urlparse(uri)
+    backend, bucket_name, dir_path = parse_result.scheme, parse_result.netloc, parse_result.path.lstrip('/')
+    if backend == '':
+        return None
+    for existing_remote_ud in existing_remote_uds:
+        if ((existing_remote_ud.remote_backend_name == backend) and
+            (existing_remote_ud.remote_bucket_name == bucket_name)):
+            warnings.warn(
+                f'There already exists a RemoteUploaderDownloader object to handle the uri: {uri} you specified')
+            return None
+    if backend == 's3':
+        return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}',
+                                        backend_kwargs={'bucket': bucket_name},
+                                        file_path_format_string=dir_path)
+    else:
+        raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
+                                  's3 or one of the supported RemoteUploaderDownloader object stores')
+
 
 def _is_tpu_installed() -> bool:
     try:
@@ -306,6 +326,7 @@ def _is_tpu_installed() -> bool:
 if _is_tpu_installed():
     import torch_xla.core.xla_model as xm
     import torch_xla.distributed.parallel_loader as pl
+
 
 class Trainer:
     """Train models with Composer algorithms.
@@ -948,6 +969,11 @@ class Trainer:
                     log_to_console=log_to_console,
                     stream=console_stream,
                 ))
+
+        if save_folder is not None:
+            remote_ud = _maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
+            if remote_ud is not None:
+                loggers.append(remote_ud)
 
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
