@@ -37,9 +37,9 @@ def from_LayerNorm(layer: torch.nn.Module, module_index: int) -> APEXFusedLayerN
     assert isinstance(layer,
                       torch.nn.LayerNorm), 'The replacement policy will look for all instances of torch.nn.LayerNorm'
     fused_layernorm = APEXFusedLayerNorm(normalized_shape=layer.normalized_shape, eps=layer.eps)
-    # with torch.no_grad():
-    #    fused_layernorm.weight.copy_(layer.weight)
-    #    fused_layernorm.bias.copy_(layer.bias)
+    with torch.no_grad():
+        fused_layernorm.weight.copy_(layer.weight)
+        fused_layernorm.bias.copy_(layer.bias)
     return fused_layernorm
 
 
