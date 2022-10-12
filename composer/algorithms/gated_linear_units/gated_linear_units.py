@@ -87,38 +87,24 @@ def apply_gated_linear_units(model: torch.nn.Module,
                                                          isinstance(model.model, BertForSequenceClassification))):
         raise TypeError('Gated Linear Units only has a surgery policy defined for instances of BERT models.')
 
-    if act_fn is None:
-        intermediate_modules = {module for module in model.modules() if isinstance(module, BertIntermediate)}
-        if len(intermediate_modules) == 0:
+    intermediate_modules = [module for module in model.modules() if isinstance(module, BertIntermediate)]
+    if len(intermediate_modules) == 0:
             warnings.warn(
                 NoEffectWarning('No instances of BertIntermediate were found so Gated Linear Units will be skipped '
                                 'as no modules can be replaced. This is likely because Gated Linear Units has already '
                                 'been applied to this model.'))
             return
-
+    if act_fn is None:        
         # get the activation functions used
-        act_fns = {module.intermediate_act_fn for module in intermediate_modules}
-        if len(act_fns) == 0:
-            raise ValueError('Tried to get the activation function from the model, but none were found. '
-                             'Please specify `act_fn` manually to use Gated Linear Units.')
-        elif len(act_fns) > 1:
-            raise ValueError('Tried to get the activation function from the model, but multiple different '
-                             'functions are used. This is currently unsupported with Gated Linear Units. '
-                             'Please either use one activation function in BertIntermediate modules or '
-                             'specify `act_fn` to manually override activation functions.')
-
-        # since our set is of 1, let's extract the only activation function remaining.
-        (act_fn,) = act_fns
-
-        if act_fn is None:
-            raise ValueError(
-                'Found activation function was None. If this is an error, please manually specify `act_fn`.')
+        act_fns = [module.intermediate_act_fn for module in intermediate_modules]
+    else:
+        act_fns = [act_fn for _ in intermediate_modules]
 
     # now that we know the act fn, bind a few parameters of the replacement function
     def from_bound_BertOutput(layer: torch.nn.Module, module_index: int) -> BERTGatedFFOutput:
         return from_BertOutput(layer=layer,
                                module_index=module_index,
-                               act_fn=act_fn,
+                               act_fn=act_fns[module_index],
                                gated_layer_bias=gated_layer_bias,
                                non_gated_layer_bias=non_gated_layer_bias)
 
