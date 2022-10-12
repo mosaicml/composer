@@ -1162,7 +1162,6 @@ class Trainer:
             )
             self.state.run_name = run_name
 
-        self.engine.run_event(Event.POST_LOAD)
         # reseed here. This helps with a couple of issues:
         # 1. rng state may change at Event.INIT. For example, if an algorithm creates a new module and module
         # parameters are initialized randomly, rng state will change. This reseeding nullifies such effects.

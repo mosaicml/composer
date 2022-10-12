@@ -86,8 +86,6 @@ class Event(StringEnum):
     Attributes:
         INIT: Invoked in the constructor of :class:`~.trainer.Trainer`. Model surgery (see
             :mod:`~composer.utils.module_surgery`) typically occurs here.
-        POST_LOAD: Invoked after the checkpoint is loaded, but before DDP wrapping. Math equivalent
-            model surgery (see :mod:`~composer.utils.module_surgery`) for checkpoints typically occurs here.
         FIT_START: Invoked at the beginning of each call to :meth:`.Trainer.fit`. Dataset transformations typically
             occur here.
         EPOCH_START: Start of an epoch.
@@ -131,7 +129,6 @@ class Event(StringEnum):
     """
 
     INIT = 'init'
-    POST_LOAD = 'post_load'
     FIT_START = 'fit_start'
 
     EPOCH_START = 'epoch_start'

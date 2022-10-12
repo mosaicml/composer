@@ -71,7 +71,7 @@ class FusedLayerNorm(Algorithm):
     Runs on ``Event.INIT``, so it can replace all instances of `torch.nn.LayerNorm` before the model is DDP wrapped. Has no hyperparameters.
 
     Args:
-        apply_events (List[str], optional) List of events where the algorithm will be applied.
+        apply_events (List[str], optional): List of events where the algorithm will be applied.
             If none provided, the algorithm is applied at Event.INIT.
 
     Example:
