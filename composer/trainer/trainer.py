@@ -1180,6 +1180,27 @@ class Trainer:
             return []
         return self._checkpoint_saver.saved_checkpoints
 
+    def _attempt_checkpoint_download(self, save_folder: str, latest_checkpoint_path: str,
+                                     save_latest_remote_file_name: str, loggers: Sequence[LoggerDestination],
+                                     load_progress_bar: bool) -> None:
+        """Attempts to download the checkpoint from the logger destinations."""
+        os.makedirs(save_folder, exist_ok=True)
+        for logger in loggers:
+            try:
+                # Fetch from logger. If it succeeds, stop trying the rest of the loggers
+                get_file(
+                    path=save_latest_remote_file_name,
+                    destination=latest_checkpoint_path,
+                    object_store=logger,
+                    overwrite=True,
+                    progress_bar=load_progress_bar,
+                )
+                break
+            except (NotImplementedError, FileNotFoundError):
+                log.info(f'Checkpoint not found in: {logger}')
+                # Ignore errors caused by no checkpoint saved with logger
+                pass
+
     def _get_autoresume_checkpoint(
         self,
         save_folder: str,
@@ -1197,41 +1218,55 @@ class Trainer:
         Returns:
             Optional[str]: The path to the latest checkpoint, if found, otherwise None.
         """
-        if self.deepspeed_enabled:
-            raise RuntimeError('autoresume is not currently supported with DeepSpeed')
-
         save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
         save_folder = format_name_with_dist(save_folder, self.state.run_name)
         save_latest_remote_file_name = format_name_with_dist(save_latest_remote_file_name, self.state.run_name)
         latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
 
-        log.info(f'Looking for autoresume checkpoint: {save_latest_remote_file_name}')
+        log.info(
+            f'Looking for autoresume checkpoint: {save_latest_remote_file_name} (remote), {latest_checkpoint_path} (local)'
+        )
 
         # If latest checkpoint is not saved locally, try to fetch from loggers
         if not os.path.exists(latest_checkpoint_path):
-            # Make save folder in case it doesn't exist so latest checkpoint can be downloaded
-            os.makedirs(save_folder, exist_ok=True)
-            for logger in loggers:
-                try:
-                    # Fetch from logger. If it succeeds, stop trying the rest of the loggers
-                    get_file(
-                        path=save_latest_remote_file_name,
-                        destination=latest_checkpoint_path,
-                        object_store=logger,
-                        overwrite=True,
-                        progress_bar=load_progress_bar,
-                    )
-                    break
-                except (NotImplementedError, FileNotFoundError):
-                    log.info(f'Checkpoint not found in: {logger}')
-                    # Ignore errors caused by no checkpoint saved with logger
-                    pass
+            self._attempt_checkpoint_download(save_folder, latest_checkpoint_path, save_latest_remote_file_name,
+                                              loggers, load_progress_bar)
+
         # Require all ranks to have local checkpoint if we wish to restore from it
-        latest_checkpoint_exists = self._device.tensor_to_device(
+        latest_checkpoint_exists_on_all_ranks = self._device.tensor_to_device(
             torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
-        dist.all_reduce(latest_checkpoint_exists, reduce_operation='MIN')
-        # If latest checkpoint is saved locally, change load_path to it
-        if int(latest_checkpoint_exists.item()) == 1:
+        dist.all_reduce(latest_checkpoint_exists_on_all_ranks, reduce_operation='MIN')
+
+        log.debug(f'Latest checkpoint exists on all ranks? {latest_checkpoint_exists_on_all_ranks.item()}')
+
+        latest_checkpoint_exists_on_rank_zero = self._device.tensor_to_device(
+            torch.tensor([os.path.exists(latest_checkpoint_path) and dist.get_global_rank() == 0], dtype=torch.uint8))
+        dist.all_reduce(latest_checkpoint_exists_on_rank_zero, reduce_operation='MAX')
+
+        log.debug(f'Latest checkpoint exists on rank zero? {latest_checkpoint_exists_on_rank_zero.item()}')
+
+        if int(latest_checkpoint_exists_on_all_ranks.item()) == 1:
+            return latest_checkpoint_path
+        elif int(latest_checkpoint_exists_on_all_ranks.item()) == 0 and self.deepspeed_enabled:
+            raise RuntimeError('DeepSpeed was enabled, but checkpoints were not found for all ranks')
+        elif int(latest_checkpoint_exists_on_rank_zero.item()) == 0:
+            raise RuntimeError(
+                f'Checkpoint not found locally at {latest_checkpoint_path} or remotely at {save_latest_remote_file_name}'
+            )
+        else:
+            # broadcast the checkpoint path to all ranks
+            latest_checkpoint_path_list = [latest_checkpoint_path]
+            dist.broadcast_object_list(latest_checkpoint_path_list, src=0)
+            latest_checkpoint_path = latest_checkpoint_path_list[0]
+
+            # download the checkpoint on local rank 0 of all nodes
+            if dist.get_local_rank() == 0 and not os.path.exists(latest_checkpoint_path):
+                log.debug('Attempting to download the checkpoint on to all nodes')
+                self._attempt_checkpoint_download(save_folder, latest_checkpoint_path, save_latest_remote_file_name,
+                                                  loggers, load_progress_bar)
+                if not os.path.exists(latest_checkpoint_path):
+                    raise RuntimeError('Downloading the checkpoint on to all nodes failed')
+
             return latest_checkpoint_path
 
     def fit(
