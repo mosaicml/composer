@@ -855,6 +855,8 @@ class TestTrainerEquivalence():
     @pytest.fixture(autouse=True)
     def create_reference_model(self, config, tmp_path_factory: pytest.TempPathFactory, *args):
         """Trains the reference model, and saves checkpoints."""
+        config = copy.deepcopy(config)  # ensure the reference model is not passed to tests
+
         save_folder = tmp_path_factory.mktemp('{device}-{precision}'.format(**config))
         config.update({'save_interval': '1ep', 'save_folder': str(save_folder), 'save_filename': 'ep{epoch}.pt'})
 
