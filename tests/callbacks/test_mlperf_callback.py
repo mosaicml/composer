@@ -9,7 +9,9 @@ from unittest.mock import Mock
 
 import numpy as np
 import pytest
+import torch
 from torch.utils.data import DataLoader
+from torchmetrics import Accuracy
 
 from composer import State, Trainer
 from composer.callbacks import MLPerfCallback
@@ -25,6 +27,14 @@ def rank_zero() -> bool:
 @pytest.fixture(autouse=True)
 def importor_skip_mlperf_logging():
     pytest.importorskip('mlperf_logging')
+
+
+# MLperf requires different number of results
+# depending on the benchmark
+NUM_TRIALS = {
+    'resnet': 5,
+    'bert': 10,
+}
 
 
 class MockMLLogger:
@@ -50,7 +60,12 @@ class TestMLPerfCallbackEvents:
     @pytest.fixture
     def mock_state(self):
         """Mocks a state at epoch 1 with Accuracy 0.99."""
-        eval_metrics = {'eval': {'Accuracy': 0.99}}
+        acc = Accuracy()
+        eval_metrics = {'eval': {'Accuracy': acc}}
+        acc.update(
+            torch.tensor([1, 1], dtype=torch.int8),
+            torch.tensor([1, 1], dtype=torch.int8),
+        )
 
         state = Mock()
         state.eval_metrics = eval_metrics
@@ -87,10 +102,11 @@ class TestMLPerfCallbackEvents:
 
 @world_size(1, 2)
 @device('cpu', 'gpu')
+@pytest.mark.parametrize('benchmark', ['resnet', 'bert'])
 class TestWithMLPerfChecker:
     """Ensures that the logs created by the MLPerfCallback pass the official package checker."""
 
-    def test_mlperf_callback_passes(self, tmp_path, monkeypatch, world_size, device):
+    def test_mlperf_callback_passes(self, tmp_path, monkeypatch, benchmark, world_size, device):
 
         def mock_accuracy(self, state: State):
             if state.timestamp.epoch >= 2:
@@ -100,28 +116,29 @@ class TestWithMLPerfChecker:
 
         monkeypatch.setattr(MLPerfCallback, '_get_accuracy', mock_accuracy)
 
-        self.generate_submission(tmp_path, device)
+        self.generate_submission(tmp_path, device, benchmark)
 
         if rank_zero():
             self.run_mlperf_checker(tmp_path, monkeypatch)
 
-    def test_mlperf_callback_fails(self, tmp_path, monkeypatch, world_size, device):
+    def test_mlperf_callback_fails(self, tmp_path, monkeypatch, benchmark, world_size, device):
 
         def mock_accuracy(self, state: State):
             return 0.01
 
         monkeypatch.setattr(MLPerfCallback, '_get_accuracy', mock_accuracy)
 
-        self.generate_submission(tmp_path, device)
+        self.generate_submission(tmp_path, device, benchmark)
         with pytest.raises(ValueError, match='MLPerf checker failed'):
             self.run_mlperf_checker(tmp_path, monkeypatch)
 
-    def generate_submission(self, directory, device):
+    def generate_submission(self, directory, device, benchmark):
         """Generates submission files by training the benchark n=5 times."""
 
-        for run in range(5):
+        for run in range(NUM_TRIALS[benchmark]):
 
             mlperf_callback = MLPerfCallback(
+                benchmark=benchmark,
                 root_folder=directory,
                 index=run,
                 cache_clear_cmd='sleep 0.1',
@@ -165,7 +182,7 @@ class TestWithMLPerfChecker:
         check_training_package(
             folder=directory,
             usage='training',
-            ruleset='1.1.0',
+            ruleset='2.1.0',
             werror=True,
             quiet=False,
             rcp_bypass=False,
