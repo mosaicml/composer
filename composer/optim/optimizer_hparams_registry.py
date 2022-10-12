@@ -25,7 +25,6 @@ __all__ = [
     'SGDHparams',
     'DecoupledSGDWHparams',
     'RMSpropHparams',
-    'FusedLAMBHparams',
     'LambHparams',
 ]
 
@@ -217,37 +216,6 @@ class RMSpropHparams(OptimizerHparams):
 
 
 @dataclass
-class FusedLAMBHparams(OptimizerHparams):
-    """Hyperparameters for the :class:`~apex.optimizers.FusedLAMB` optimizer.
-
-    See :class:`~apex.optimizers.FusedLAMB` for documentation.
-
-    Args:
-        lr (float, optional): See :class:`~apex.optimizers.FusedLAMB`.
-        betas (List[float], optional): See :class:`~apex.optimizers.FusedLAMB`.
-        eps (float, optional): See :class:`~apex.optimizers.FusedLAMB`.
-        weight_decay (float, optional): See :class:`~apex.optimizers.FusedLAMB`.
-        amsgrad (bool, optional): See :class:`~apex.optimizers.FusedLAMB`.
-        adam_w_mode (bool, optional): See :class:`~apex.optimizers.FusedLAMB`.
-        grad_averaging (bool, optional): See :class:`~apex.optimizers.FusedLAMB`.
-        set_grad_none (bool, optional): See :class:`~apex.optimizers.FusedLAMB`.
-        max_grad_norm (float, optional): See :class:`~apex.optimizers.FusedLAMB`.
-    """
-    from apex.optimizers import FusedLAMB
-    optimizer_cls = FusedLAMB
-
-    lr: float = hp.auto(FusedLAMB, 'lr', ignore_docstring_errors=True)
-    betas: List[float] = hp.auto(FusedLAMB, 'betas', ignore_docstring_errors=True)
-    eps: float = hp.auto(FusedLAMB, 'eps', ignore_docstring_errors=True)
-    weight_decay: float = hp.auto(FusedLAMB, 'weight_decay', ignore_docstring_errors=True)
-    amsgrad: bool = hp.auto(FusedLAMB, 'amsgrad', ignore_docstring_errors=True)
-    adam_w_mode: bool = hp.auto(FusedLAMB, 'adam_w_mode', ignore_docstring_errors=True)
-    grad_averaging: bool = hp.auto(FusedLAMB, 'grad_averaging', ignore_docstring_errors=True)
-    set_grad_none: bool = hp.auto(FusedLAMB, 'set_grad_none', ignore_docstring_errors=True)
-    max_grad_norm: float = hp.auto(FusedLAMB, 'max_grad_norm', ignore_docstring_errors=True)
-
-
-@dataclass
 class LambHparams(OptimizerHparams):
     """Hyperparameters for the :class:`~torch_optimizer.Lamb` optimizer.
 
@@ -282,6 +250,5 @@ optimizer_registry = {
     'sgd': SGDHparams,
     'decoupled_sgdw': DecoupledSGDWHparams,
     'rmsprop': RMSpropHparams,
-    'fusedlamb': FusedLAMBHparams,
     'lamb': LambHparams,
 }

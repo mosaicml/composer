@@ -7,8 +7,8 @@ import pytest
 import torch
 
 from composer.optim.optimizer_hparams_registry import (AdamHparams, AdamWHparams, DecoupledAdamWHparams,
-                                                       DecoupledSGDWHparams, FusedLAMBHparams, LambHparams,
-                                                       OptimizerHparams, RAdamHparams, RMSpropHparams, SGDHparams)
+                                                       DecoupledSGDWHparams, LambHparams, OptimizerHparams,
+                                                       RAdamHparams, RMSpropHparams, SGDHparams)
 from composer.trainer.trainer_hparams import optimizer_registry
 
 optimizer_constructors: Dict[Type[OptimizerHparams], OptimizerHparams] = {
@@ -16,7 +16,6 @@ optimizer_constructors: Dict[Type[OptimizerHparams], OptimizerHparams] = {
     RAdamHparams: RAdamHparams(),
     AdamWHparams: AdamWHparams(),
     DecoupledAdamWHparams: DecoupledAdamWHparams(),
-    FusedLAMBHparams: FusedLAMBHparams(),
     LambHparams: LambHparams(),
     SGDHparams: SGDHparams(lr=0.001),
     DecoupledSGDWHparams: DecoupledSGDWHparams(lr=0.001),
