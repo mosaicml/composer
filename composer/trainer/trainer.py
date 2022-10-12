@@ -1257,8 +1257,8 @@ class Trainer:
         elif int(latest_checkpoint_exists_on_all_ranks.item()) == 0 and self.deepspeed_enabled:
             raise RuntimeError('DeepSpeed was enabled, but checkpoints were not found for all ranks')
         elif int(latest_checkpoint_exists_on_rank_zero.item()) == 0:
-            raise RuntimeError(
-                f'Checkpoint not found locally at {latest_checkpoint_path} or remotely at {save_latest_remote_file_name}'
+            log.warning(
+                f'Checkpoint not found locally at {latest_checkpoint_path} or remotely at {save_latest_remote_file_name} for autoresumption'
             )
         else:
             # broadcast the checkpoint path to all ranks
