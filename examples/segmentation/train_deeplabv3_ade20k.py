@@ -243,7 +243,7 @@ def _main():
             torch.nn.init.ones_(module.weight)
             torch.nn.init.zeros_(module.bias)
 
-    model.classifier.apply(weight_init)
+    model.classifier.apply(weight_init)  # type: ignore Does not recognize classifier as a torch.nn.Module
 
     # Loss function to use during training
     # This ignores index -1 since the NormalizationFn transformation sets the background class to -1
