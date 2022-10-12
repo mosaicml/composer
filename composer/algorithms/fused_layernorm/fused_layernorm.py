@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import Dict, Optional, Sequence, Type, Union
+from typing import Dict, List, Optional, Sequence, Type, Union
 
 import torch
 
@@ -97,9 +97,11 @@ class FusedLayerNorm(Algorithm):
            )
     """
 
-    def __init__(self):
-        # FusedLayerNorm takes no arguments
+    def __init__(self, apply_events: Optional[List[Event]] = None):
         check_if_apex_installed()
+        self.apply_events = [Event.INIT]
+        if apply_events is not None:
+            self.apply_events = apply_events
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
