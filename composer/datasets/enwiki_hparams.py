@@ -27,8 +27,6 @@ class StreamingEnWikiHparams(DatasetHparams):
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-enwiki/'``
         split (str): What split of the dataset to use. Either ``'train'`` or ``'val'``. Default: ``'train'``.
-        mlm (bool): Whether or not to use masked language modeling. Default: ``False``.
-        mlm_probability (float): If ``mlm==True``, the probability that tokens are masked. Default: ``0.15``.
         max_retries (int): Number of download re-attempts before giving up. Default: 2.
         timeout (float): How long to wait for shard to download before raising an exception. Default: 120 sec.
     """
@@ -38,18 +36,15 @@ class StreamingEnWikiHparams(DatasetHparams):
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
                              default='/tmp/mds-cache/mds-enwiki/')
     split: str = hp.optional('What split of the dataset to use. Either `train` or `val`.', default='train')
-    mlm: bool = hp.optional('Whether or not to use masked language modeling.', default=False)
-    mlm_probability: float = hp.optional('If `mlm==True`, the probability that tokens are masked.', default=0.15)
     max_retries: int = hp.optional('Number of download re-attempts before giving up.', default=2)
     timeout: float = hp.optional('How long to wait for shard to download before raising an exception.', default=120)
 
     def validate(self):
         if self.split not in ['train', 'val']:
             raise ValueError(f"Unknown split: '{self.split}'")
-        if self.mlm and self.mlm_probability <= 0:
-            raise ValueError("Must provide a positive 'mlm_probability' when using masked language modeling.")
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
+
         # Get StreamingEnWiki dataset
         try:
             from streaming.text import EnWiki
