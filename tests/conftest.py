@@ -118,7 +118,7 @@ def seed_all(rank_zero_seed: int, monkeypatch: pytest.MonkeyPatch):
     """Monkeypatch reproducibility get_random_seed to always return the rank zero seed, and set the random seed before
     each test to the rank local seed."""
     monkeypatch.setattr(reproducibility, 'get_random_seed', lambda: rank_zero_seed)
-    reproducibility.seed_all(rank_zero_seed + dist.get_global_rank())
+    reproducibility.seed_all(rank_zero_seed + dist.get_global_rank() + 1)
 
 
 @pytest.fixture(autouse=True)
