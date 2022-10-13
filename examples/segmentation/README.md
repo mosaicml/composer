@@ -2,11 +2,15 @@
 
 This example illustrates how to train a semantic segmentation model in composer.
 
-Please ensure [Composer](https://github.com/mosaicml/composer) is installed with `pip install mosaicml`. Additionally, our models are pulled from [MMsegmentation](https://github.com/open-mmlab/mmsegmentation), so follow the [MMcv install instructions](https://mmcv.readthedocs.io/en/latest/get_started/installation.html) (which is dependent on your CUDA and PyTorch versions), then install MMsegmentation with `pip install mmsegmentation`.
+## Installation
+
+First, install [Composer](https://github.com/mosaicml/composer) with `pip install mosaicml`. Additionally, our models are pulled from [MMsegmentation](https://github.com/open-mmlab/mmsegmentation), so follow the [MMcv install instructions](https://mmcv.readthedocs.io/en/latest/get_started/installation.html) (which is dependent on your CUDA and PyTorch versions), then install MMsegmentation with `pip install mmsegmentation`.
+
+Alternatively, we have publicly available Docker images to reproduce our results. Use `mosaicml/pytorch_vision:1.12.1_cu116-python3.9-ubuntu20.04` for running on GPUs or `mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04` for running on CPUs.
 
 ## DeepLabv3+ on ADE20k
 
-The `train_deeplabv3_ade20k.py` script trains a DeepLabv3+ model with either a ResNet-50 or ResNet-101 backbone on the ADE20k semantic segmentation benchmark. To download ADE20k locally (~1 GB), specify the `--download` option when running the script, then the dataset will be downloaded to the path specified in the first argument.
+The `train_deeplabv3_ade20k.py` script trains a DeepLabv3+ model with either a ResNet-50 or ResNet-101 backbone on the ADE20k semantic segmentation benchmark. To download ADE20k locally (~1 GB), specify the `--download` option when running the script, then the dataset will be downloaded data directory path i.e. the first argument.
 
 We designed the script to be hackable, so try our recipes on your own models and datsets!
 ### Example configurations
