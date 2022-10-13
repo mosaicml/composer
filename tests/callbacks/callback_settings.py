@@ -15,11 +15,10 @@ from composer.callbacks import EarlyStopper, ImageVisualizer, MemoryMonitor, Spe
 from composer.callbacks.callback_hparams_registry import callback_registry
 from composer.callbacks.export_for_inference import ExportForInferenceCallback
 from composer.callbacks.mlperf import MLPerfCallback
-from composer.loggers import CometMLLogger, ObjectStoreLogger, TensorboardLogger, WandBLogger
+from composer.loggers import CometMLLogger, RemoteUploaderDownloader, TensorboardLogger, WandBLogger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.loggers.logger_hparams_registry import ObjectStoreLoggerHparams, logger_registry
+from composer.loggers.logger_hparams_registry import RemoteUploaderDownloaderHparams, logger_registry
 from composer.loggers.progress_bar_logger import ProgressBarLogger
-from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
 from tests.common import get_module_subclasses
 
 try:
@@ -62,9 +61,9 @@ except ImportError:
     _LIBCLOUD_INSTALLED = False
 
 _callback_kwargs: Dict[Union[Type[Callback], Type[hp.Hparams]], Dict[str, Any],] = {
-    ObjectStoreLogger: {
-        'object_store_cls': LibcloudObjectStore,
-        'object_store_kwargs': {
+    RemoteUploaderDownloader: {
+        'bucket_uri': 'libcloud://.',
+        'backend_kwargs': {
             'provider': 'local',
             'container': '.',
             'provider_kwargs': {
@@ -94,7 +93,8 @@ _callback_kwargs: Dict[Union[Type[Callback], Type[hp.Hparams]], Dict[str, Any],]
     SpeedMonitor: {
         'window_size': 1,
     },
-    ObjectStoreLoggerHparams: {
+    RemoteUploaderDownloaderHparams: {
+        'bucket_uri': 'libcloud://.',
         'object_store_hparams': {
             'libcloud': {
                 'provider': 'local',
@@ -108,7 +108,7 @@ _callback_kwargs: Dict[Union[Type[Callback], Type[hp.Hparams]], Dict[str, Any],]
 }
 
 _callback_marks: Dict[Union[Type[Callback], Type[hp.Hparams]], List[pytest.MarkDecorator],] = {
-    ObjectStoreLogger: [
+    RemoteUploaderDownloader: [
         pytest.mark.filterwarnings(
             # post_close might not be called if being used outside of the trainer
             r'ignore:Implicitly cleaning up:ResourceWarning'),
@@ -129,7 +129,7 @@ _callback_marks: Dict[Union[Type[Callback], Type[hp.Hparams]], List[pytest.MarkD
     ],
     CometMLLogger: [pytest.mark.skipif(not _COMETML_INSTALLED, reason='comet_ml is optional'),],
     TensorboardLogger: [pytest.mark.skipif(not _TENSORBOARD_INSTALLED, reason='Tensorboard is optional'),],
-    ObjectStoreLoggerHparams: [
+    RemoteUploaderDownloaderHparams: [
         pytest.mark.filterwarnings(
             # post_close might not be called if being used outside of the trainer
             r'ignore:Implicitly cleaning up:ResourceWarning',),

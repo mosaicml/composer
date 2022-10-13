@@ -40,14 +40,14 @@ class GLUETrainerHparams(hp.Hparams):
         load_path (str, optional): See :class:`.Trainer`.
         loggers (List[LoggerDestination], optional): See :class:`.Trainer`.
         run_name (str, optional): See :class:`.Trainer`.
-        checkpoint_save_path (str, optional): See :class:`.Trainer`.
+        save_folder (str, optional): See :class:`.Trainer`.
         seed_overrides (Dict[str, List[int]], optional): A dictionary mapping task names to the list of seed overrides it should use
             per checkpoint. Each key must correspond to one of the GLUE tasks. This lets you train multiple fine-tune runs per
             checkpoint on a single task (one for each seed). Tasks that are not included in the dictionary use the (single) seed
             in their default YAML.
 
     Example:
-        Specifying ``checkpoint_save_path: path/to/example/folder`` in a yaml will force all glue tasks in composer/yamls/models/glue/ to
+        Specifying ``save_folder: path/to/example/folder`` in a yaml will force all glue tasks in composer/yamls/models/glue/ to
         save checkpoints to ``path/to/example/folder.``
 
     """
@@ -60,7 +60,7 @@ class GLUETrainerHparams(hp.Hparams):
     load_path: Optional[str] = hp.auto(Trainer, 'load_path')
     loggers: Optional[List[LoggerDestination]] = hp.auto(Trainer, 'loggers')
     run_name: Optional[str] = hp.auto(Trainer, 'run_name')
-    checkpoint_save_path: Optional[str] = hp.auto(Trainer, 'checkpoint_save_path')
+    save_folder: Optional[str] = hp.auto(Trainer, 'save_folder')
     seed_overrides: Optional[Dict[str, List[int]]] = hp.optional(
         doc='A dictionary mapping task names to the list of seed overrides it should use '
         'per checkpoint. Each key must correspond to one of the GLUE tasks. This lets you train multiple fine-tune runs per '

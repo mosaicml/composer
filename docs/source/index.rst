@@ -96,7 +96,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    trainer/events.rst
    trainer/checkpointing.rst
    trainer/logging.rst
-   trainer/artifact_logging.rst
+   trainer/file_uploading.rst
    trainer/callbacks.rst
    trainer/performance.rst
 
@@ -126,6 +126,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/colout.md
    method_cards/cutmix.md
    method_cards/cutout.md
+   method_cards/decoupled_weight_decay.md
    method_cards/ema.md
    method_cards/factorize.md
    method_cards/fused_layernorm.md

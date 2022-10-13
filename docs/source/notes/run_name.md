@@ -45,7 +45,7 @@ The `run_name` is often used in the Composer as placeholder in a format string. 
 
 ### Run Names in Checkpoint Saving
 
-In checkpoint saving you can use the `run_name` as a placeholder in a format string to name the folders and checkpoints locally and in the cloud if you are uploading your checkpoints using Weights and Biases or an ObjectStoreLogger.
+In checkpoint saving you can use the `run_name` as a placeholder in a format string to name the folders and checkpoints locally and in the cloud if you are uploading your checkpoints using Weights and Biases or an RemoteUploaderDownloader.
 
 See {class}`~.CheckpointSaver` for more information on specifying the arguments for files and folder names with the `run_name` when creating a {class}`~.Trainer` object.
 
@@ -61,7 +61,7 @@ In addition to checkpointing, loggers also use the `run_name` for default loggin
 
 #### Object Store Logger
 
-The {class}`~.ObjectStoreLogger` will often use the `run_name` as part of how it names objects.
+The {class}`~.RemoteUploaderDownloader` will often use the `run_name` as part of how it names objects.
 
 #### File Logger
 
@@ -72,4 +72,4 @@ See [Logging](../trainer/logging.rst) for more information.
 
 ### Run Names in Profiling
 
-The profiling tools for the training also save profiling artifacts to folders named after the `run_name`.  See [Performance Profiling](../trainer/performance_tutorials/profiling.md) for more information.
+The profiling tools for the training also save profiling files to folders named after the `run_name`.  See [Performance Profiling](../trainer/performance_tutorials/profiling.md) for more information.

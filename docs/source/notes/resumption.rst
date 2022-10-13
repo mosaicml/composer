@@ -15,9 +15,9 @@ Resuming from checkpoints is commonly used to recover from hardware failures (e.
         train_dataloader=train_dataloader,
         max_duration="1ep",
         save_filename="ep{epoch}.pt",
-        checkpoint_save_path="./path/to/checkpoints",
+        save_folder="./path/to/checkpoints",
         save_overwrite=True,
-        checkpoint_save_interval="1ep",  # Save checkpoints every epoch
+        save_interval="1ep",  # Save checkpoints every epoch
     )
     trainer.fit()
 
@@ -45,18 +45,18 @@ for another 65 epochs (to reach 90 epochs total).
 
 However, recovering from a failure here would still require manual intervention to relaunch a new job with the ``load_path`` pointing to the correct checkpoint.
 
-Instead, our trainer supports the ``autoresume=True`` feature. With autoresume, the trainer will automatically check the ``checkpoint_save_path`` for the latest checkpoints and resume training.
+Instead, our trainer supports the ``autoresume=True`` feature. With autoresume, the trainer will automatically check the ``save_folder`` for the latest checkpoints and resume training.
 
 .. testcode::
 
     trainer = Trainer(
         ...,
         autoresume=True,
-        checkpoint_save_path='./path/to/folder',
+        save_folder='./path/to/folder',
         run_name='my_cool_run',
     )
 
-With autoresume, users can re-submit the _same_ code to the training run, and the trainer will handle finding and resuming from the latest checkpoints. This works well with systems like Kubernetes that automatically resubmit the same job when there is a node failure (due to spot instances as well). For ``autoresume=True`` to work, we require that both a ``checkpoint_save_path`` and a ``run_name`` be provided. These are used to search for existing checkpoints.
+With autoresume, users can re-submit the _same_ code to the training run, and the trainer will handle finding and resuming from the latest checkpoints. This works well with systems like Kubernetes that automatically resubmit the same job when there is a node failure (due to spot instances as well). For ``autoresume=True`` to work, we require that both a ``save_folder`` and a ``run_name`` be provided. These are used to search for existing checkpoints.
 
 For an example code, see the `Checkpoint Autoresumption <examples/checkpoint_autoresume>`_ tutorial.
 
@@ -65,7 +65,7 @@ Implementation
 
 During training, the trainer always symlinks the latest checkpoint to a format (default is ``latest-rank{rank}`` for local files and ``{run_name}/checkpoints/latest-rank{rank}`` for object stores). When ``autoresume=True``, the Trainer searches for checkpoints of that format in the following order:
 
-1. Local checkpoints of the format ``"{checkpoint_save_path}/latest-rank0"``. The format for the latest checkpoint can be configured with ``save_latest_filename`` argument (default: ``latest-rank{rank}``).
+1. Local checkpoints of the format ``"{save_folder}/latest-rank0"``. The format for the latest checkpoint can be configured with ``save_latest_filename`` argument (default: ``latest-rank{rank}``).
 2. If no local checkpoints are found, then each logger is checked for files of the format ``"{run_name}/checkpoints/latest-rank{rank}"``. This is often used for resuming from an object store such as S3.
 3. Finally, ``load_path`` is used to load a checkpoint. This can be used for example, a fine-tuning run on a spot instance, where ``load_path`` would be set to the original weights.
 
@@ -80,31 +80,28 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
 
-    from composer.loggers import ObjectStoreLogger
+    from composer.loggers import RemoteUploaderDownloader
     from composer.utils.object_store import S3ObjectStore
 
     # this assumes credentials are already configured via boto3
-    object_store_logger = ObjectStoreLogger(
-        object_store_cls=S3ObjectStore,
-        object_store_kwargs={
-            "bucket": "checkpoint-debugging",
-            },
+    remote_uploader_downloader = RemoteUploaderDownloader(
+        bucket_uri=f"s3://checkpoint-debugging",
     )
 
     trainer = Trainer(
         ...,
         autoresume=True,
-        checkpoint_save_path='checkpoints',
-        num_checkpoints_to_keep=0,  # delete all checkpoints locally
+        save_folder='checkpoints',
+        save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
         run_name='my_cool_run',
-        save_artifact_name='checkpoints/ep{epoch}.pt',
-        loggers=[object_store_logger],
+        save_remote_file_name='checkpoints/ep{epoch}.pt',
+        loggers=[remote_uploader_downloader],
     )
 
     trainer.fit()
 
 
-During resumption, there would be no local checkpoints, so the trainer would then look in the object store logger's provided bucket and artifact folder (`checkpoint-debugging/my_cool_run/checkpoints`) to find the latest checkpoint.
+During resumption, there would be no local checkpoints, so the trainer would then look in the object store logger's provided bucket and checkpoint folder (`checkpoint-debugging/my_cool_run/checkpoints`) to find the latest checkpoint.
 
 Example: Fine-tuning
 --------------------
@@ -114,14 +111,11 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
 .. testsetup:: fine_tune
     :skipif: not _LIBCLOUD_INSTALLED
 
-    from composer.loggers import ObjectStoreLogger
+    from composer.loggers import RemoteUploaderDownloader
     from composer.utils.object_store import S3ObjectStore
 
-    object_store_logger = ObjectStoreLogger(
-        object_store_cls=S3ObjectStore,
-        object_store_kwargs={
-            "bucket": "checkpoint-debugging_2",
-        },
+    remote_uploader_downloader = RemoteUploaderDownloader(
+        bucket_uri=f"s3://checkpoint-debugging_2",
     )
 
     # Train to generate and save the "pretrained_weights/model.pt",
@@ -129,7 +123,7 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
     trainer = Trainer(
         ...,
         save_filename='pretrained_weights/model.pt',
-        checkpoint_save_path='.',
+        save_folder='.',
         run_name='my_cool_run',
     )
 
@@ -143,10 +137,10 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
         autoresume=True,
         load_path='pretrained_weights/model.pt',
         load_weights_only=True,
-        checkpoint_save_path='checkpoints',
+        save_folder='checkpoints',
         run_name='my_cool_run',
         loggers=[
-            object_store_logger
+            remote_uploader_downloader
         ]
     )
 

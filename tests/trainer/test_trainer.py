@@ -80,6 +80,15 @@ class TestTrainerInit():
         with pytest.raises(ValueError, match='magic_device'):
             Trainer(model=model, device='magic_device')
 
+    @world_size(1, 2)
+    @device('gpu', 'cpu')
+    def test_gpu_logging(self, model: ComposerModel, world_size: int, device: str):
+        in_mem_logger = InMemoryLogger()
+        Trainer(model=model, loggers=[in_mem_logger])
+        expected_key, expected_value = f'num_{device}s_per_node', world_size
+        assert expected_key in in_mem_logger.hyperparameters
+        assert in_mem_logger.hyperparameters[expected_key] == expected_value
+
     @device('gpu', 'cpu')
     def test_optimizer_params_on_device(
         self,
@@ -818,18 +827,14 @@ class TestTrainerEquivalence():
         """Trains the reference model, and saves checkpoints."""
         config = copy.deepcopy(config)  # ensure the reference model is not passed to tests
 
-        checkpoint_save_path = tmp_path_factory.mktemp('{device}-{precision}'.format(**config))
-        config.update({
-            'checkpoint_save_interval': '1ep',
-            'checkpoint_save_path': str(checkpoint_save_path),
-            'save_filename': 'ep{epoch}.pt'
-        })
+        save_folder = tmp_path_factory.mktemp('{device}-{precision}'.format(**config))
+        config.update({'save_interval': '1ep', 'save_folder': str(save_folder), 'save_filename': 'ep{epoch}.pt'})
 
         trainer = Trainer(**config)
         trainer.fit()
 
         self.reference_model = trainer.state.model
-        self.reference_folder = checkpoint_save_path
+        self.reference_folder = save_folder
 
     def test_determinism(self, config, *args):
         trainer = Trainer(**config)
