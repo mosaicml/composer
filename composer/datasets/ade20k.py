@@ -25,11 +25,47 @@ from composer.datasets.streaming import StreamingDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
 from composer.utils import dist
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['ADE20k', 'StreamingADE20k']
 
 IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
 IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
+
+
+def build_ade20k_transformations(split,
+                                 base_size: int = 512,
+                                 min_resize_scale: float = 0.5,
+                                 max_resize_scale: float = 2.0,
+                                 final_size: int = 512):
+    if split == 'train':
+        both_transforms = torch.nn.Sequential(
+            RandomResizePair(
+                min_scale=min_resize_scale,
+                max_scale=max_resize_scale,
+                base_size=(base_size, base_size),
+            ),
+            RandomCropPair(
+                crop_size=(final_size, final_size),
+                class_max_percent=0.75,
+                num_retry=10,
+            ),
+            RandomHFlipPair(),
+        )
+
+        # Photometric distoration values come from mmsegmentation:
+        # https://github.com/open-mmlab/mmsegmentation/blob/aa50358c71fe9c4cccdd2abe42433bdf702e757b/mmseg/datasets/pipelines/transforms.py#L861
+        r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
+        image_transforms = torch.nn.Sequential(
+            PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
+            PadToSize(size=(final_size, final_size), fill=(int(r_mean), int(g_mean), int(b_mean))))
+
+        target_transforms = PadToSize(size=(final_size, final_size), fill=0)
+    else:
+        both_transforms = None
+        image_transforms = transforms.Resize(size=(final_size, final_size), interpolation=TF.InterpolationMode.BILINEAR)
+        target_transforms = transforms.Resize(size=(final_size, final_size), interpolation=TF.InterpolationMode.NEAREST)
+    return both_transforms, image_transforms, target_transforms
 
 
 def build_ade20k_dataloader(
@@ -62,39 +98,17 @@ def build_ade20k_dataloader(
             Default: ``true``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
-    if split == 'train':
-        both_transforms = torch.nn.Sequential(
-            RandomResizePair(
-                min_scale=min_resize_scale,
-                max_scale=max_resize_scale,
-                base_size=(base_size, base_size),
-            ),
-            RandomCropPair(
-                crop_size=(final_size, final_size),
-                class_max_percent=0.75,
-                num_retry=10,
-            ),
-            RandomHFlipPair(),
-        )
-
-        # Photometric distoration values come from mmsegmentation:
-        # https://github.com/open-mmlab/mmsegmentation/blob/aa50358c71fe9c4cccdd2abe42433bdf702e757b/mmseg/datasets/pipelines/transforms.py#L861
-        r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
-        image_transforms = torch.nn.Sequential(
-            PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
-            PadToSize(size=(final_size, final_size), fill=(int(r_mean), int(g_mean), int(b_mean))))
-
-        target_transforms = PadToSize(size=(final_size, final_size), fill=0)
-    else:
-        both_transforms = None
-        image_transforms = transforms.Resize(size=(final_size, final_size), interpolation=TF.InterpolationMode.BILINEAR)
-        target_transforms = transforms.Resize(size=(final_size, final_size), interpolation=TF.InterpolationMode.NEAREST)
+    all_transforms = build_ade20k_transformations(split=split,
+                                                  base_size=base_size,
+                                                  min_resize_scale=min_resize_scale,
+                                                  max_resize_scale=max_resize_scale,
+                                                  final_size=final_size)
 
     dataset = ADE20k(datadir=datadir,
                      split=split,
-                     both_transforms=both_transforms,
-                     image_transforms=image_transforms,
-                     target_transforms=target_transforms)
+                     both_transforms=all_transforms[0],
+                     image_transforms=all_transforms[1],
+                     target_transforms=all_transforms[2])
 
     sampler = dist.get_sampler(dataset, drop_last=drop_last, shuffle=shuffle)
     device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
@@ -110,6 +124,54 @@ def build_ade20k_dataloader(
                               **dataloader_kwargs),
         device_transforms=device_transform_fn,
     )
+
+
+def build_streaming_ade20k_dataloader(
+    batch_size: int,
+    remote: str,
+    *,
+    local: str = '/tmp/mds-cache/mds-ade20k/',
+    split: str = 'train',
+    drop_last: bool = True,
+    shuffle: bool = True,
+    base_size=512,
+    min_resize_scale: float = 0.5,
+    max_resize_scale: float = 2.0,
+    final_size: int = 512,
+    ignore_background: bool = True,
+    **dataloader_kwargs,
+):
+    try:
+        import streaming
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
+
+    # Build the sets of transformations for ADE20k
+    all_transforms = build_ade20k_transformations(split=split,
+                                                  base_size=base_size,
+                                                  min_resize_scale=min_resize_scale,
+                                                  max_resize_scale=max_resize_scale,
+                                                  final_size=final_size)
+
+    dataset = streaming.vision.ADE20K(remote=remote,
+                                      local=local,
+                                      split=split,
+                                      shuffle=shuffle,
+                                      both_transforms=all_transforms[0],
+                                      image_transforms=all_transforms[1],
+                                      target_transforms=all_transforms[2])
+
+    dataloader = DataLoader(dataset=dataset,
+                            batch_size=batch_size,
+                            collate_fn=pil_image_collate,
+                            drop_last=drop_last,
+                            **dataloader_kwargs)
+
+    device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
+                                          std=IMAGENET_CHANNEL_STD,
+                                          ignore_background=ignore_background)
+
+    return DataSpec(dataloader=dataloader, device_transforms=device_transform_fn)
 
 
 def build_synthetic_ade20k_dataloader(
@@ -474,42 +536,20 @@ class StreamingADE20k(StreamingDataset):
                          batch_size=batch_size)
 
         # Define custom transforms
-        if split == 'train':
-            self.both_transform = torch.nn.Sequential(
-                RandomResizePair(min_scale=min_resize_scale,
-                                 max_scale=max_resize_scale,
-                                 base_size=(base_size, base_size)),
-                RandomCropPair(
-                    crop_size=(final_size, final_size),
-                    class_max_percent=0.75,
-                    num_retry=10,
-                ),
-                RandomHFlipPair(),
-            )
-
-            # Photometric distoration values come from mmsegmentation:
-            # https://github.com/open-mmlab/mmsegmentation/blob/aa50358c71fe9c4cccdd2abe42433bdf702e757b/mmseg/datasets/pipelines/transforms.py#L861
-            r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
-            self.image_transform = torch.nn.Sequential(
-                PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
-                PadToSize(size=(final_size, final_size), fill=(int(r_mean), int(g_mean), int(b_mean))))
-
-            self.annotation_transform = PadToSize(size=(final_size, final_size), fill=0)
-        else:
-            self.both_transform = None
-            self.image_transform = transforms.Resize(size=(final_size, final_size),
-                                                     interpolation=TF.InterpolationMode.BILINEAR)
-            self.annotation_transform = transforms.Resize(size=(final_size, final_size),
-                                                          interpolation=TF.InterpolationMode.NEAREST)
+        self.transforms = build_ade20k_transformations(split=split,
+                                                       base_size=base_size,
+                                                       min_resize_scale=min_resize_scale,
+                                                       max_resize_scale=max_resize_scale,
+                                                       final_size=final_size)
 
     def __getitem__(self, idx: int) -> Tuple[Any, Any]:
         obj = super().__getitem__(idx)
         x = obj['image']
         y = obj['annotation']
-        if self.both_transform:
-            x, y = self.both_transform((x, y))
-        if self.image_transform:
-            x = self.image_transform(x)
-        if self.annotation_transform:
-            y = self.annotation_transform(y)
+        if self.transforms[0]:
+            x, y = self.transforms[0]((x, y))
+        if self.transforms[1]:
+            x = self.transforms[1](x)
+        if self.transforms[2]:
+            y = self.transforms[2](y)
         return x, y
