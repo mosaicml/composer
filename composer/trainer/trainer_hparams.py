@@ -39,7 +39,7 @@ from composer.trainer.devices.device_hparams_registry import device_registry
 from composer.trainer.dist_strategy import DDPSyncStrategy
 from composer.trainer.trainer import Trainer, _is_tpu_installed
 from composer.utils import dist, reproducibility
-from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
+from composer.utils.object_store.object_store_hparams import RemoteFilesystemHparams, object_store_registry
 
 if TYPE_CHECKING:
     from typing import TypedDict
@@ -231,7 +231,7 @@ class TrainerHparams(hp.Hparams):
             .. seealso:: The :mod:`logging` module in Python.
 
         load_path (str, optional): See :class:`.Trainer`.
-        load_object_store (ObjectStoreHparams, optional): See :class:`.Trainer`. Both ``load_logger_destination`` and
+        load_object_store (RemoteFilesystemHparams, optional): See :class:`.Trainer`. Both ``load_logger_destination`` and
             ``load_object_store`` should not be provided since there can only be one location to load from.
         load_logger_destination (LoggerDestination, optional): Used to specify a ``LoggerDestination`` for
             ``load_object_store`` in :class:`.Trainer` as Hparams doesn't support a Union type for those objects. Both
@@ -336,7 +336,7 @@ class TrainerHparams(hp.Hparams):
 
     # Load Checkpoint
     load_path: Optional[str] = hp.auto(Trainer, 'load_path')
-    load_object_store: Optional[ObjectStoreHparams] = hp.optional(
+    load_object_store: Optional[RemoteFilesystemHparams] = hp.optional(
         doc=(('If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for '
               'connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath, '
               'leave blank. This parameter has no effect if `load_path` is not specified.')),

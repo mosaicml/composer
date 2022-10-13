@@ -9,8 +9,9 @@ from urllib.parse import urlparse
 
 import pytest
 
-from composer.utils.object_store import LibcloudObjectStore, ObjectStore, S3ObjectStore, SFTPObjectStore
-from composer.utils.object_store.sftp_object_store import SFTPObjectStore
+from composer.utils.object_store import (LibcloudRemoteFilesystem, RemoteFilesystem, S3RemoteFilesystem,
+                                         SFTPRemoteFilesystem)
+from composer.utils.object_store.sftp_object_store import SFTPRemoteFilesystem
 from tests.utils.object_store.object_store_settings import get_object_store_ctx, object_stores
 
 
@@ -18,7 +19,7 @@ from tests.utils.object_store.object_store_settings import get_object_store_ctx,
 def bucket_uri_and_kwargs(request, s3_bucket: str, sftp_uri: str, test_session_name: str):
     remote = request.node.get_closest_marker('remote') is not None
 
-    if request.param is LibcloudObjectStore:
+    if request.param is LibcloudRemoteFilesystem:
         if remote:
             pytest.skip('Libcloud object store has no remote tests')
         else:
@@ -31,14 +32,14 @@ def bucket_uri_and_kwargs(request, s3_bucket: str, sftp_uri: str, test_session_n
                     'key': '.',
                 },
             }
-    elif request.param is S3ObjectStore:
+    elif request.param is S3RemoteFilesystem:
         if remote:
             bucket_uri = f's3://{s3_bucket}'
             kwargs = {'bucket': s3_bucket, 'prefix': test_session_name}
         else:
             bucket_uri = 's3://my-bucket'
             kwargs = {'bucket': 'my-bucket', 'prefix': 'folder/subfolder'}
-    elif request.param is SFTPObjectStore:
+    elif request.param is SFTPRemoteFilesystem:
         if remote:
             bucket_uri = f"sftp://{sftp_uri.rstrip('/') + '/' + test_session_name}"
             kwargs = {
@@ -76,7 +77,7 @@ class MockCallback:
 
 @pytest.mark.parametrize('bucket_uri_and_kwargs', object_stores, indirect=True)
 @pytest.mark.parametrize('remote', [False, pytest.param(True, marks=pytest.mark.remote)])
-class TestObjectStore:
+class TestRemoteFilesystem:
 
     @pytest.fixture
     def object_store(
@@ -86,7 +87,11 @@ class TestObjectStore:
         tmp_path: pathlib.Path,
         remote: bool,
     ):
-        remote_backend_name_to_class = {'s3': S3ObjectStore, 'sftp': SFTPObjectStore, 'libcloud': LibcloudObjectStore}
+        remote_backend_name_to_class = {
+            's3': S3RemoteFilesystem,
+            'sftp': SFTPRemoteFilesystem,
+            'libcloud': LibcloudRemoteFilesystem
+        }
         bucket_uri, kwargs = bucket_uri_and_kwargs
         remote_backend_name = urlparse(bucket_uri).scheme
         with get_object_store_ctx(remote_backend_name_to_class[remote_backend_name],
@@ -95,7 +100,7 @@ class TestObjectStore:
                                   tmp_path,
                                   remote=remote):
             copied_config = copy.deepcopy(kwargs)
-            # type error: Type[ObjectStore] is not callable
+            # type error: Type[RemoteFilesystem] is not callable
             object_store = remote_backend_name_to_class[remote_backend_name](**copied_config)  # type: ignore
             with object_store:
                 yield object_store
@@ -107,33 +112,33 @@ class TestObjectStore:
             f.write('dummy content')
         return tmpfile_path
 
-    def test_upload(self, object_store: ObjectStore, dummy_obj: pathlib.Path, remote: bool):
+    def test_upload(self, object_store: RemoteFilesystem, dummy_obj: pathlib.Path, remote: bool):
         del remote  # unused
         object_name = 'tmpfile_object_name'
         cb = MockCallback(dummy_obj.stat().st_size)
         object_store.upload_object(object_name, str(dummy_obj), callback=cb)
         cb.assert_all_data_transferred()
 
-    def test_get_uri(self, object_store: ObjectStore, remote: bool):
+    def test_get_uri(self, object_store: RemoteFilesystem, remote: bool):
         if remote:
             pytest.skip('This test_get_uri does not make any remote calls.')
         uri = object_store.get_uri('tmpfile_object_name')
-        if isinstance(object_store, S3ObjectStore):
+        if isinstance(object_store, S3RemoteFilesystem):
             assert uri == 's3://my-bucket/folder/subfolder/tmpfile_object_name'
-        elif isinstance(object_store, LibcloudObjectStore):
+        elif isinstance(object_store, LibcloudRemoteFilesystem):
             assert uri == 'local://./tmpfile_object_name'
-        elif isinstance(object_store, SFTPObjectStore):
+        elif isinstance(object_store, SFTPRemoteFilesystem):
             assert uri == 'sftp://test_user@localhost:23/tmpfile_object_name'
         else:
             raise NotImplementedError(f'Object store {type(object_store)} not implemented.')
 
-    def test_get_file_size(self, object_store: ObjectStore, dummy_obj: pathlib.Path, remote: bool):
+    def test_get_file_size(self, object_store: RemoteFilesystem, dummy_obj: pathlib.Path, remote: bool):
         del remote  # unused
         object_name = 'tmpfile_object_name'
         object_store.upload_object(object_name, str(dummy_obj))
         assert object_store.get_object_size(object_name) == dummy_obj.stat().st_size
 
-    def test_get_file_size_not_found(self, object_store: ObjectStore, remote: bool):
+    def test_get_file_size_not_found(self, object_store: RemoteFilesystem, remote: bool):
         del remote  # unused
         with pytest.raises(FileNotFoundError):
             object_store.get_object_size('not found object')
@@ -141,7 +146,7 @@ class TestObjectStore:
     @pytest.mark.parametrize('overwrite', [True, False])
     def test_download(
         self,
-        object_store: ObjectStore,
+        object_store: RemoteFilesystem,
         dummy_obj: pathlib.Path,
         tmp_path: pathlib.Path,
         overwrite: bool,
@@ -158,7 +163,7 @@ class TestObjectStore:
             object_store.download_object(object_name, filepath, callback=cb, overwrite=overwrite)
         cb.assert_all_data_transferred()
 
-    def test_download_not_found(self, object_store: ObjectStore, remote: bool):
+    def test_download_not_found(self, object_store: RemoteFilesystem, remote: bool):
         with pytest.raises(FileNotFoundError):
             object_store.download_object('not_found_object', filename='not used')
 
@@ -181,8 +186,8 @@ def test_filenames_as_environs(monkeypatch: pytest.MonkeyPatch, tmp_path: pathli
         'username': 'tester',
     }
 
-    with get_object_store_ctx(SFTPObjectStore, kwargs, monkeypatch, tmp_path):
-        object_store = SFTPObjectStore(**kwargs)
+    with get_object_store_ctx(SFTPRemoteFilesystem, kwargs, monkeypatch, tmp_path):
+        object_store = SFTPRemoteFilesystem(**kwargs)
 
         assert object_store.key_filename == str(key_filepath)
         assert object_store.known_hosts_filename == str(hosts_file)

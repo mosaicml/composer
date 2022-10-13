@@ -22,7 +22,7 @@ from composer.utils import dist
 from composer.utils.checkpoint import download_checkpoint
 from composer.utils.iter_helpers import ensure_tuple
 from composer.utils.misc import is_model_ddp, is_model_deepspeed, model_eval_mode
-from composer.utils.object_store import ObjectStore
+from composer.utils.object_store import RemoteFilesystem
 from composer.utils.string_enum import StringEnum
 
 if TYPE_CHECKING:
@@ -61,13 +61,13 @@ def export_for_inference(
     model: nn.Module,
     save_format: Union[str, ExportFormat],
     save_path: str,
-    save_object_store: Optional[ObjectStore] = None,
+    save_object_store: Optional[RemoteFilesystem] = None,
     sample_input: Optional[Any] = None,
     dynamic_axes: Optional[Any] = None,
     surgery_algs: Optional[Union[Callable[[nn.Module], nn.Module], Sequence[Callable[[nn.Module], nn.Module]]]] = None,
     transforms: Optional[Sequence[Transform]] = None,
     load_path: Optional[str] = None,
-    load_object_store: Optional[ObjectStore] = None,
+    load_object_store: Optional[RemoteFilesystem] = None,
     load_strict: bool = False,
 ) -> None:
     """Export a model for inference.
@@ -79,9 +79,9 @@ def export_for_inference(
         save_path: (str): The path for storing the exported model. It can be a path to a file on the local disk,
         a URL, or if ``save_object_store`` is set, the object name
             in a cloud bucket. For example, ``my_run/exported_model``.
-        save_object_store (ObjectStore, optional): If the ``save_path`` is in an object name in a cloud bucket
+        save_object_store (RemoteFilesystem, optional): If the ``save_path`` is in an object name in a cloud bucket
             (i.e. AWS S3 or Google Cloud Storage), an instance of
-            :class:`~.ObjectStore` which will be used
+            :class:`~.RemoteFilesystem` which will be used
             to store the exported model. Set this to ``None`` if ``save_path`` is a local filepath.
             (default: ``None``)
         sample_input (Any, optional): Example model inputs used for tracing. This is needed for "onnx" export.
@@ -98,9 +98,9 @@ def export_for_inference(
         load_path (str): The path to an existing checkpoint file.
             It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
             for a checkpoint in a cloud bucket. For example, run_name/checkpoints/ep0-ba4-rank0. (default: ``None``)
-        load_object_store (ObjectStore, optional): If the ``load_path`` is in an object name  in a cloud bucket
+        load_object_store (RemoteFilesystem, optional): If the ``load_path`` is in an object name  in a cloud bucket
             (i.e. AWS S3 or Google Cloud Storage), an instance of
-            :class:`~.ObjectStore` which will be used to retreive the checkpoint.
+            :class:`~.RemoteFilesystem` which will be used to retreive the checkpoint.
             Otherwise, if the checkpoint is a local filepath, set to ``None``. (default: ``None``)
         load_strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
             perfectly match the keys in the model instance. (default: ``False``)
@@ -226,7 +226,7 @@ def export_with_logger(
     save_format: Union[str, ExportFormat],
     save_path: str,
     logger: Logger,
-    save_object_store: Optional[ObjectStore] = None,
+    save_object_store: Optional[RemoteFilesystem] = None,
     sample_input: Optional[Any] = None,
     transforms: Optional[Sequence[Transform]] = None,
 ) -> None:
@@ -246,9 +246,9 @@ def export_with_logger(
             in a cloud bucket. For example, ``my_run/exported_model``.
         logger (Logger): If this logger has a destination that supports file uploading, and save_object_store
             is not provided, this logger is used to export the model.
-        save_object_store (ObjectStore, optional): If the ``save_path`` is in an object name in a cloud bucket
+        save_object_store (RemoteFilesystem, optional): If the ``save_path`` is in an object name in a cloud bucket
             (i.e. AWS S3 or Google Cloud Storage), an instance of
-            :class:`~.ObjectStore` which will be used
+            :class:`~.RemoteFilesystem` which will be used
             to store the exported model. Set this to ``None`` if the logger should be used to export the model or
             if ``save_path`` is a local filepath.
             (default: ``None``)

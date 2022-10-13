@@ -13,9 +13,9 @@ from typing import Optional
 
 from composer.datasets.streaming.format import split_compression_suffix
 from composer.utils import get_file
-from composer.utils.object_store.object_store import ObjectStore
-from composer.utils.object_store.s3_object_store import S3ObjectStore
-from composer.utils.object_store.sftp_object_store import SFTPObjectStore
+from composer.utils.object_store.object_store import RemoteFilesystem
+from composer.utils.object_store.s3_object_store import S3RemoteFilesystem
+from composer.utils.object_store.sftp_object_store import SFTPRemoteFilesystem
 
 __all__ = ['download_or_wait', 'get_object_store']
 
@@ -25,7 +25,7 @@ def download_from_http(remote: str, local: str) -> None:
     get_file(path=remote, destination=local, overwrite=True)
 
 
-def get_object_store(remote: str) -> ObjectStore:
+def get_object_store(remote: str) -> RemoteFilesystem:
     """Use the correct download handler to download the file
 
     Args:
@@ -40,21 +40,21 @@ def get_object_store(remote: str) -> ObjectStore:
         raise ValueError('unsupported download scheme')
 
 
-def _get_s3_object_store(remote: str) -> S3ObjectStore:
+def _get_s3_object_store(remote: str) -> S3RemoteFilesystem:
     obj = urllib.parse.urlparse(remote)
     if obj.scheme != 's3':
         raise ValueError(f"Expected obj.scheme to be 's3', got {obj.scheme} for remote={remote}")
     bucket = obj.netloc
-    object_store = S3ObjectStore(bucket=bucket)
+    object_store = S3RemoteFilesystem(bucket=bucket)
     return object_store
 
 
-def _get_sftp_object_store(remote: str) -> SFTPObjectStore:
+def _get_sftp_object_store(remote: str) -> SFTPRemoteFilesystem:
     # Get SSH key file if specified
     key_filename = os.environ.get('COMPOSER_SFTP_KEY_FILE', None)
     known_hosts_filename = os.environ.get('COMPOSER_SFTP_KNOWN_HOSTS_FILE', None)
 
-    object_store = SFTPObjectStore(
+    object_store = SFTPRemoteFilesystem(
         host=remote,
         known_hosts_filename=known_hosts_filename,
         key_filename=key_filename,

@@ -81,7 +81,7 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
     :skipif: not _LIBCLOUD_INSTALLED
 
     from composer.loggers import RemoteUploaderDownloader
-    from composer.utils.object_store import S3ObjectStore
+    from composer.utils.object_store import S3RemoteFilesystem
 
     # this assumes credentials are already configured via boto3
     remote_uploader_downloader = RemoteUploaderDownloader(
@@ -112,7 +112,7 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
     :skipif: not _LIBCLOUD_INSTALLED
 
     from composer.loggers import RemoteUploaderDownloader
-    from composer.utils.object_store import S3ObjectStore
+    from composer.utils.object_store import S3RemoteFilesystem
 
     remote_uploader_downloader = RemoteUploaderDownloader(
         bucket_uri=f"s3://checkpoint-debugging_2",

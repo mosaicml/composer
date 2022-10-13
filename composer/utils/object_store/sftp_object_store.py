@@ -13,9 +13,9 @@ import uuid
 from typing import Any, Callable, Dict, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
-from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
+from composer.utils.object_store.object_store import RemoteFilesystem, RemoteFilesystemTransientError
 
-__all__ = ['SFTPObjectStore']
+__all__ = ['SFTPRemoteFilesystem']
 
 try:
     import paramiko.client
@@ -31,7 +31,7 @@ def _set_kwarg(value: Any, kwargs: Dict[str, Any], arg_name: str, kwarg_name: st
     kwargs[kwarg_name] = value
 
 
-class SFTPObjectStore(ObjectStore):
+class SFTPRemoteFilesystem(RemoteFilesystem):
     """Utility for uploading to and downloading to a server via SFTP.
 
     Args:
@@ -193,12 +193,12 @@ class SFTPObjectStore(ObjectStore):
                 self.close()
                 self.ssh_client.connect(**self._connect_kwargs)
                 self.sftp_client = self.ssh_client.open_sftp()
-                raise ObjectStoreTransientError from e
+                raise RemoteFilesystemTransientError from e
             if isinstance(e, SSHException):
                 if 'Server connection dropped:' in str(e):
-                    raise ObjectStoreTransientError from e
+                    raise RemoteFilesystemTransientError from e
             if isinstance(e, (TimeoutError, ConnectionError, EOFError, ChannelException)):
-                raise ObjectStoreTransientError from e
+                raise RemoteFilesystemTransientError from e
             raise e
 
     def _is_cnx_alive(self):
@@ -222,13 +222,13 @@ class SFTPObjectStore(ObjectStore):
             if dirname:
                 self.ssh_client.exec_command(f'mkdir -p {dirname}')
             self.sftp_client.put(str(filename), remote_object_name, callback=callback, confirm=False)
-            # Validating manually to raise ObjectStoreTransientErrors if the size mismatches
+            # Validating manually to raise RemoteFilesystemTransientErrors if the size mismatches
             # This logic was adapted from the original source -- see
             # https://github.com/paramiko/paramiko/blob/1824a27c644132e5d46f2294c1e2fa131c523559/paramiko/sftp_client.py#L719-L724
             local_file_size = os.stat(filename).st_size
             remote_file_size = self.get_object_size(object_name)
             if local_file_size != remote_file_size:
-                raise ObjectStoreTransientError(
+                raise RemoteFilesystemTransientError(
                     f'Size mismatch in put: local size ({local_file_size}) != remote size ({remote_file_size})')
 
     def download_object(

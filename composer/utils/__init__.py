@@ -14,8 +14,8 @@ from composer.utils.import_helpers import MissingConditionalImportError, import_
 from composer.utils.inference import export_for_inference, export_with_logger, quantize_dynamic
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_collection
 from composer.utils.misc import is_model_deepspeed, is_notebook, model_eval_mode
-from composer.utils.object_store import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, S3ObjectStore,
-                                         SFTPObjectStore)
+from composer.utils.object_store import (LibcloudRemoteFilesystem, RemoteFilesystem, RemoteFilesystemTransientError,
+                                         S3RemoteFilesystem, SFTPRemoteFilesystem)
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
 
@@ -43,11 +43,11 @@ __all__ = [
     'IteratorFileStream',
     'get_file',
     'create_symlink_file',
-    'ObjectStore',
-    'ObjectStoreTransientError',
-    'LibcloudObjectStore',
-    'S3ObjectStore',
-    'SFTPObjectStore',
+    'RemoteFilesystem',
+    'RemoteFilesystemTransientError',
+    'LibcloudRemoteFilesystem',
+    'S3RemoteFilesystem',
+    'SFTPRemoteFilesystem',
     'MissingConditionalImportError',
     'import_object',
     'is_model_deepspeed',

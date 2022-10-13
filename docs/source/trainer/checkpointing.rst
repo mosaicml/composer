@@ -301,7 +301,7 @@ Behind the scenes, the :class:`.RemoteUploaderDownloader` uses :doc:`Apache Libc
     :skipif: not _LIBCLOUD_INSTALLED
 
     from composer.loggers import RemoteUploaderDownloader
-    from composer.utils import LibcloudObjectStore
+    from composer.utils import LibcloudRemoteFilesystem
 
     remote_uploader_downloader = RemoteUploaderDownloader(
         bucket_uri="libcloud://my_bucket",
@@ -372,16 +372,16 @@ Loading from Object Store
 -------------------------
 
 Checkpoints saved to an object store can also be loaded in the same way as files saved on disk. Provide the
-:class:`.LibcloudObjectStore` to the trainer's ``load_object_store`` argument.  The ``load_path`` argument
+:class:`.LibcloudRemoteFilesystem` to the trainer's ``load_object_store`` argument.  The ``load_path`` argument
 should be the path to the checkpoint file *within the container/bucket*.
 
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
 
-    from composer.utils import LibcloudObjectStore
+    from composer.utils import LibcloudRemoteFilesystem
     from composer.trainer import Trainer
 
-    object_store = LibcloudObjectStore(
+    object_store = LibcloudRemoteFilesystem(
         provider="s3",  # The Apache Libcloud provider name
         container="checkpoint-debugging",  # The name of the cloud container (i.e. bucket) to use.
         provider_kwargs={  # The Apache Libcloud provider driver initialization arguments

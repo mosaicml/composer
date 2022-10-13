@@ -11,9 +11,9 @@ import uuid
 from typing import Any, Callable, Dict, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
-from composer.utils.object_store.object_store import ObjectStore
+from composer.utils.object_store.object_store import RemoteFilesystem
 
-__all__ = ['S3ObjectStore']
+__all__ = ['S3RemoteFilesystem']
 
 _NOT_FOUND_CODES = ('403', '404', 'NoSuchKey')
 
@@ -27,13 +27,13 @@ def _ensure_not_found_errors_are_wrapped(uri: str, e: Exception):
     raise e
 
 
-class S3ObjectStore(ObjectStore):
+class S3RemoteFilesystem(RemoteFilesystem):
     """Utility for uploading to and downloading from an S3-compatible bucket using :mod:`boto3`.
 
     .. note::
 
         Since :mod:`boto3` has automatic retry handling, transient errors are not
-        re-raised with :exc:`.ObjectStoreTransientError`. By default, the "Legacy retry mode" makes at most five
+        re-raised with :exc:`.RemoteFilesystemTransientError`. By default, the "Legacy retry mode" makes at most five
         attempts for operations that failed due to transient errors. This setting can be customized via the
         ``retries`` key in ``client_config``.
 

@@ -16,7 +16,7 @@ from tqdm import tqdm
 from composer.datasets.streaming.download import get_object_store
 from composer.datasets.streaming.format import (StreamingDatasetIndex, get_compression_scheme_basename,
                                                 get_index_basename, get_shard_basename, sample_dict_to_bytes)
-from composer.utils.object_store.object_store import ObjectStore
+from composer.utils.object_store.object_store import RemoteFilesystem
 
 __all__ = ['StreamingDatasetWriter']
 
@@ -84,7 +84,7 @@ class StreamingDatasetWriter(object):
         fields: (List[str]): The fields to save for each sample.
         shard_size_limit (int): Maximum shard size in bytes. Default: ``1 << 24``.
         compression (str, optional): Compression algorithm and optional compression level. Currently supported: 'gz', 'gz:[1-9]' or None. Defaults to ``None``.
-        remote (ObjectStore | str, optional): Remote location to upload dataset. Can be an ObjectStore, a string, or (default) None. If `remote` is specified, uploads will block dataset writing.
+        remote (RemoteFilesystem | str, optional): Remote location to upload dataset. Can be a RemoteFilesystem, a string, or (default) None. If `remote` is specified, uploads will block dataset writing.
     """
 
     default_compression = None
@@ -94,7 +94,7 @@ class StreamingDatasetWriter(object):
                  fields: List[str],
                  shard_size_limit: int = 1 << 24,
                  compression: Optional[str] = None,
-                 remote: Optional[Union[ObjectStore, str]] = None) -> None:
+                 remote: Optional[Union[RemoteFilesystem, str]] = None) -> None:
         if len(fields) != len(set(fields)):
             raise ValueError(f'fields={fields} must be unique.')
         if shard_size_limit <= 0:
@@ -219,10 +219,10 @@ class StreamingDatasetWriter(object):
         self.finish()
 
 
-def _parse_remote(remote: Optional[Union[ObjectStore, str]]) -> Optional[ObjectStore]:
+def _parse_remote(remote: Optional[Union[RemoteFilesystem, str]]) -> Optional[RemoteFilesystem]:
     if isinstance(remote, str):
         return get_object_store(remote)
-    elif isinstance(remote, ObjectStore):
+    elif isinstance(remote, RemoteFilesystem):
         return remote
     elif remote is None:
         return None

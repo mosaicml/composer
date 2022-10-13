@@ -22,7 +22,7 @@ from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.loggers.tensorboard_logger import TensorboardLogger
 from composer.loggers.wandb_logger import WandBLogger
-from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
+from composer.utils.object_store.object_store_hparams import RemoteFilesystemHparams, object_store_registry
 
 __all__ = [
     'RemoteUploaderDownloaderHparams',
@@ -35,7 +35,7 @@ class RemoteUploaderDownloaderHparams(hp.Hparams):
     """Hyperparameters for the :class:`~.RemoteUploaderDownloader`.
 
     Args:
-        object_store_hparams (ObjectStoreHparams): The object store provider hparams.
+        object_store_hparams (RemoteFilesystemHparams): The object store provider hparams.
         file_path_format_string (str, optional): See :class:`.RemoteUploaderDownloader`.
         num_concurrent_uploads (int, optional): See :class:`.RemoteUploaderDownloader`.
         upload_staging_folder (str, optional): See :class:`.RemoteUploaderDownloader`.
@@ -47,7 +47,8 @@ class RemoteUploaderDownloaderHparams(hp.Hparams):
     }
 
     bucket_uri: str = hp.required('Remote bucket uri')
-    object_store_hparams: Optional[ObjectStoreHparams] = hp.optional('Object store provider hparams.', default=None)
+    object_store_hparams: Optional[RemoteFilesystemHparams] = hp.optional('Object store provider hparams.',
+                                                                          default=None)
     file_path_format_string: str = hp.auto(RemoteUploaderDownloader, 'file_path_format_string')
     num_concurrent_uploads: int = hp.auto(RemoteUploaderDownloader, 'num_concurrent_uploads')
     use_procs: bool = hp.auto(RemoteUploaderDownloader, 'use_procs')

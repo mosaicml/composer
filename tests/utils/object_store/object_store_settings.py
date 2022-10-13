@@ -15,8 +15,9 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 import composer.utils.object_store
 import composer.utils.object_store.object_store_hparams
 import composer.utils.object_store.sftp_object_store
-from composer.utils.object_store import LibcloudObjectStore, ObjectStore, S3ObjectStore, SFTPObjectStore
-from composer.utils.object_store.sftp_object_store import SFTPObjectStore
+from composer.utils.object_store import (LibcloudRemoteFilesystem, RemoteFilesystem, S3RemoteFilesystem,
+                                         SFTPRemoteFilesystem)
+from composer.utils.object_store.sftp_object_store import SFTPRemoteFilesystem
 from tests.common import get_module_subclasses
 
 try:
@@ -41,12 +42,12 @@ except ImportError:
     _SFTP_AVAILABLE = False
 
 _object_store_marks = {
-    LibcloudObjectStore: [pytest.mark.skipif(not _LIBCLOUD_AVAILABLE, reason='Missing dependency')],
-    S3ObjectStore: [
+    LibcloudRemoteFilesystem: [pytest.mark.skipif(not _LIBCLOUD_AVAILABLE, reason='Missing dependency')],
+    S3RemoteFilesystem: [
         pytest.mark.skipif(not _BOTO3_AVAILABLE, reason='Missing dependency'),
         pytest.mark.filterwarnings(r'ignore::ResourceWarning'),
     ],
-    SFTPObjectStore: [
+    SFTPRemoteFilesystem: [
         pytest.mark.skipif(not _SFTP_AVAILABLE, reason='Missing dependency'),
         pytest.mark.filterwarnings(r'ignore:setDaemon\(\) is deprecated:DeprecationWarning'),
         pytest.mark.filterwarnings(r'ignore:Unknown .* host key:UserWarning')
@@ -55,17 +56,17 @@ _object_store_marks = {
 
 object_stores = [
     pytest.param(x, marks=_object_store_marks[x], id=x.__name__)
-    for x in get_module_subclasses(composer.utils.object_store, ObjectStore)
+    for x in get_module_subclasses(composer.utils.object_store, RemoteFilesystem)
 ]
 
 
 @contextlib.contextmanager
-def get_object_store_ctx(object_store_cls: Type[ObjectStore],
+def get_object_store_ctx(object_store_cls: Type[RemoteFilesystem],
                          object_store_kwargs: Dict[str, Any],
                          monkeypatch: pytest.MonkeyPatch,
                          tmp_path: pathlib.Path,
                          remote: bool = False):
-    if object_store_cls is S3ObjectStore:
+    if object_store_cls is S3RemoteFilesystem:
         pytest.importorskip('boto3')
         import boto3
         if remote:
@@ -81,7 +82,7 @@ def get_object_store_ctx(object_store_cls: Type[ObjectStore],
                 s3 = boto3.client('s3')
                 s3.create_bucket(Bucket=object_store_kwargs['bucket'])
                 yield
-    elif object_store_cls is LibcloudObjectStore:
+    elif object_store_cls is LibcloudRemoteFilesystem:
         pytest.importorskip('libcloud')
         if remote:
             pytest.skip('Libcloud object store has no remote tests.')
@@ -93,7 +94,7 @@ def get_object_store_ctx(object_store_cls: Type[ObjectStore],
             object_store_kwargs['provider_kwargs'] = {}
         object_store_kwargs['provider_kwargs']['key'] = remote_dir
         yield
-    elif object_store_cls is SFTPObjectStore:
+    elif object_store_cls is SFTPRemoteFilesystem:
         pytest.importorskip('paramiko')
         if remote:
             yield

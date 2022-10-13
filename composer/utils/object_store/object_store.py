@@ -8,31 +8,31 @@ import pathlib
 from types import TracebackType
 from typing import Callable, Optional, Type, Union
 
-__all__ = ['ObjectStore', 'ObjectStoreTransientError']
+__all__ = ['RemoteFilesystem', 'RemoteFilesystemTransientError']
 
 
-class ObjectStoreTransientError(RuntimeError):
+class RemoteFilesystemTransientError(RuntimeError):
     """Custom exception class to signify transient errors.
 
-    Implementations of the :class:`.ObjectStore` should re-raise any transient exceptions
+    Implementations of the :class:`.RemoteFilesystem` should re-raise any transient exceptions
     (e.g. too many requests, temporarily unavailable) with this class, so callers can easily
     detect whether they should attempt to retry any operation.
 
-    For example, the :class:`.S3ObjectStore` does the following:
+    For example, the :class:`.S3RemoteFilesystem` does the following:
 
     .. testcode::
 
-        from composer.utils import ObjectStore, ObjectStoreTransientError
+        from composer.utils import RemoteFilesystem, RemoteFilesystemTransientError
         import botocore.exceptions
 
-        class S3ObjectStore(ObjectStore):
+        class S3RemoteFilesystem(RemoteFilesystem):
 
             def upload_object(self, file_path: str, object_name: str):
                 try:
                     ...
                 except botocore.exceptions.ClientError as e:
                     if e.response['Error']['Code'] == 'LimitExceededException':
-                        raise ObjectStoreTransientError(e.response['Error']['Code']) from e
+                        raise RemoteFilesystemTransientError(e.response['Error']['Code']) from e
                     raise e
 
     Then, callers can automatically handle exceptions:
@@ -40,13 +40,13 @@ class ObjectStoreTransientError(RuntimeError):
     .. testcode::
 
         import time
-        from composer.utils import ObjectStore, ObjectStoreTransientError
+        from composer.utils import RemoteFilesystem, RemoteFilesystemTransientError
 
-        def upload_file(object_store: ObjectStore, max_num_attempts: int = 3):
+        def upload_file(object_store: RemoteFilesystem, max_num_attempts: int = 3):
             for i in range(max_num_attempts):
                 try:
                     object_store.upload_object(...)
-                except ObjectStoreTransientError:
+                except RemoteFilesystemTransientError:
                     if i + 1 == max_num_attempts:
                         raise
                     else:
@@ -59,8 +59,8 @@ class ObjectStoreTransientError(RuntimeError):
     pass
 
 
-class ObjectStore(abc.ABC):
-    """Abstract class for implementing object stores, such as LibcloudObjectStore and S3ObjectStore."""
+class RemoteFilesystem(abc.ABC):
+    """Abstract class for implementing remote file system backends, such as LibcloudRemoteFilesystem and S3RemoteFilesystem."""
 
     def get_uri(self, object_name: str) -> str:
         """Returns the URI for ``object_name``.
@@ -93,7 +93,7 @@ class ObjectStore(abc.ABC):
                 uploaded and the total size of the object being uploaded.
 
         Raises:
-            ObjectStoreTransientError: If there was a transient connection issue with uploading the object.
+            RemoteFilesystemTransientError: If there was a transient connection issue with uploading the object.
         """
         del object_name, filename, callback  # unused
         raise NotImplementedError(f'{type(self).__name__}.upload_object is not implemented')
@@ -109,7 +109,7 @@ class ObjectStore(abc.ABC):
 
         Raises:
             FileNotFoundError: If the file was not found in the object store.
-            ObjectStoreTransientError: If there was a transient connection issue with getting the object size.
+            RemoteFilesystemTransientError: If there was a transient connection issue with getting the object size.
         """
         raise NotImplementedError(f'{type(self).__name__}.get_object_size is not implemented')
 
@@ -132,13 +132,13 @@ class ObjectStore(abc.ABC):
 
         Raises:
             FileNotFoundError: If the file was not found in the object store.
-            ObjectStoreTransientError: If there was a transient connection issue with downloading the object.
+            RemoteFilesystemTransientError: If there was a transient connection issue with downloading the object.
         """
         del object_name, filename, overwrite, callback  # unused
         raise NotImplementedError(f'{type(self).__name__}.download_object is not implemented')
 
     def close(self):
-        """Close the object store."""
+        """Close the remote backend."""
         pass
 
     def __enter__(self):

@@ -160,18 +160,18 @@ S3 Objects
 ^^^^^^^^^^
 
 To upload files to an S3 bucket, we'll need to configure the :class:`~composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader`
-with the :class:`~composer.utils.object_store.s3_object_store.S3ObjectStore` backend.
+with the :class:`~composer.utils.object_store.s3_object_store.S3RemoteFilesystem` backend.
 
 .. seealso::
 
     The :class:`~composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader` and
-    :class:`~composer.utils.object_store.s3_object_store.S3ObjectStore` API Reference.
+    :class:`~composer.utils.object_store.s3_object_store.S3RemoteFilesystem` API Reference.
 
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
 
     from composer.loggers import RemoteUploaderDownloader
-    from composer.utils.object_store import S3ObjectStore
+    from composer.utils.object_store import S3RemoteFilesystem
     from composer import Trainer
 
     # Configure the logger
@@ -196,13 +196,13 @@ Similar to the S3 Example above, we can upload files to a remote SFTP filesystem
 .. seealso::
 
     The :class:`~composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader` and
-    :class:`~composer.utils.object_store.sftp_object_store.SFTPObjectStore` API Reference.
+    :class:`~composer.utils.object_store.sftp_object_store.SFTPRemoteFilesystem` API Reference.
 
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
 
     from composer.loggers import RemoteUploaderDownloader
-    from composer.utils.object_store import SFTPObjectStore
+    from composer.utils.object_store import SFTPRemoteFilesystem
     from composer import Trainer
 
     # Configure the logger

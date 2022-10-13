@@ -49,7 +49,7 @@ from composer.loggers import Logger as Logger
 from composer.loggers import RemoteUploaderDownloader
 from composer.models import ComposerModel as ComposerModel
 from composer.optim.scheduler import ConstantScheduler
-from composer.utils import LibcloudObjectStore
+from composer.utils import LibcloudRemoteFilesystem
 from composer.utils import ensure_tuple as ensure_tuple
 
 try:
@@ -225,11 +225,11 @@ def _new_RemoteUploaderDownloader_init(self, fake_ellipses: None = None, **kwarg
 
 RemoteUploaderDownloader.__init__ = _new_RemoteUploaderDownloader_init  # type: ignore
 
-# Patch ObjectStore __init__ function to replace arguments while preserving type
-_original_libcloudObjectStore_init = LibcloudObjectStore.__init__
+# Patch RemoteFilesystem __init__ function to replace arguments while preserving type
+_original_libcloudRemoteFilesystem_init = LibcloudRemoteFilesystem.__init__
 
 
-def _new_libcloudObjectStore_init(self, fake_ellipses: None = None, **kwargs: Any):
+def _new_libcloudRemoteFilesystem_init(self, fake_ellipses: None = None, **kwargs: Any):
     os.makedirs('./object_store', exist_ok=True)
     kwargs.update(
         provider='local',
@@ -238,7 +238,7 @@ def _new_libcloudObjectStore_init(self, fake_ellipses: None = None, **kwargs: An
             'key': os.path.abspath('./object_store'),
         },
     )
-    _original_libcloudObjectStore_init(self, **kwargs)
+    _original_libcloudRemoteFilesystem_init(self, **kwargs)
 
 
-LibcloudObjectStore.__init__ = _new_libcloudObjectStore_init  # type: ignore
+LibcloudRemoteFilesystem.__init__ = _new_libcloudRemoteFilesystem_init  # type: ignore

@@ -13,20 +13,20 @@ from urllib3.exceptions import ProtocolError
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.iter_helpers import iterate_with_callback
-from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
+from composer.utils.object_store.object_store import RemoteFilesystem, RemoteFilesystemTransientError
 
-__all__ = ['LibcloudObjectStore']
+__all__ = ['LibcloudRemoteFilesystem']
 
 
-class LibcloudObjectStore(ObjectStore):
+class LibcloudRemoteFilesystem(RemoteFilesystem):
     """Utility for uploading to and downloading from object (blob) stores, such as Amazon S3.
 
     .. rubric:: Example
 
     Here's an example for an Amazon S3 bucket named ``MY_CONTAINER``:
 
-    >>> from composer.utils import LibcloudObjectStore
-    >>> object_store = LibcloudObjectStore(
+    >>> from composer.utils import LibcloudRemoteFilesystem
+    >>> object_store = LibcloudRemoteFilesystem(
     ...     provider="s3",
     ...     container="MY_CONTAINER",
     ...     provider_kwargs={
@@ -35,7 +35,7 @@ class LibcloudObjectStore(ObjectStore):
     ...     }
     ... )
     >>> object_store
-    <composer.utils.object_store.libcloud_object_store.LibcloudObjectStore object at ...>
+    <composer.utils.object_store.libcloud_object_store.LibcloudRemoteFilesystem object at ...>
 
     Args:
         provider (str): Cloud provider to use. Valid options are:
@@ -139,7 +139,7 @@ class LibcloudObjectStore(ObjectStore):
                 is_transient_error = any(x in str(exc) for x in ('408', '409', '425', '429', '500', '503', '504'))
                 if not is_transient_error:
                     raise exc
-            raise ObjectStoreTransientError() from exc
+            raise RemoteFilesystemTransientError() from exc
         raise exc
 
     def _get_object(self, object_name: str):

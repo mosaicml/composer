@@ -7,11 +7,11 @@ import threading
 
 import pytest
 
-from composer.utils.object_store import S3ObjectStore
+from composer.utils.object_store import S3RemoteFilesystem
 
 
 def _worker(bucket: str, tmp_path: pathlib.Path, tid: int):
-    object_store = S3ObjectStore(bucket=bucket)
+    object_store = S3RemoteFilesystem(bucket=bucket)
     os.makedirs(tmp_path / str(tid))
     with pytest.raises(FileNotFoundError):
         object_store.download_object('this_key_should_not_exist', filename=tmp_path / str(tid) / 'dummy_file')

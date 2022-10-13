@@ -15,7 +15,7 @@ from composer.core import State
 from composer.core.callback import Callback
 from composer.loggers import Logger
 from composer.utils.inference import ExportFormat, Transform, export_with_logger
-from composer.utils.object_store import ObjectStore
+from composer.utils.object_store import RemoteFilesystem
 
 log = logging.getLogger(__name__)
 
@@ -45,9 +45,9 @@ class ExportForInferenceCallback(Callback):
         save_path (str): The path for storing the exported model. It can be a path to a file on the local disk,
             a URL, or if ``save_object_store`` is set, the object name
             in a cloud bucket. For example, ``my_run/exported_model``.
-        save_object_store (ObjectStore, optional): If the ``save_path`` is in an object name in a cloud bucket
+        save_object_store (RemoteFilesystem, optional): If the ``save_path`` is in an object name in a cloud bucket
             (i.e. AWS S3 or Google Cloud Storage), an instance of
-            :class:`~.ObjectStore` which will be used
+            :class:`~.RemoteFilesystem` which will be used
             to store the exported model. If this is set to ``None``,  will save to ``save_path`` using the logger.
             (default: ``None``)
         sample_input (Any, optional): Example model inputs used for tracing. This is needed for "onnx" export
@@ -59,7 +59,7 @@ class ExportForInferenceCallback(Callback):
         self,
         save_format: Union[str, ExportFormat],
         save_path: str,
-        save_object_store: Optional[ObjectStore] = None,
+        save_object_store: Optional[RemoteFilesystem] = None,
         sample_input: Optional[Any] = None,
         transforms: Optional[Sequence[Transform]] = None,
     ):

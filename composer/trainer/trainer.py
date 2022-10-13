@@ -44,7 +44,7 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
-from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, map_collection,
+from composer.utils import (RemoteFilesystem, checkpoint, dist, ensure_tuple, format_name_with_dist, map_collection,
                             model_eval_mode, reproducibility)
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -529,8 +529,8 @@ class Trainer:
             correct state.
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
-        load_object_store (Union[ObjectStore, LoggerDestination], optional): If the ``load_path`` is in an
-            object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` or
+        load_object_store (Union[RemoteFilesystem, LoggerDestination], optional): If the ``load_path`` is in an
+            object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.RemoteFilesystem` or
             :class:`.LoggerDestination` which will be used to retreive the checkpoint. Otherwise, if the
             checkpoint is a local filepath, set to ``None``. Ignored if ``load_path`` is ``None``.
             (default: ``None``)
@@ -546,12 +546,12 @@ class Trainer:
             .. testcode::
 
                 from composer import Trainer
-                from composer.utils import LibcloudObjectStore
+                from composer.utils import LibcloudRemoteFilesystem
 
                 # Create the object store provider with the specified credentials
                 creds = {"key": "object_store_key",
                          "secret": "object_store_secret"}
-                store = LibcloudObjectStore(provider="s3",
+                store = LibcloudRemoteFilesystem(provider="s3",
                                             container="my_container",
                                             provider_kwargs=creds)
 
@@ -773,7 +773,7 @@ class Trainer:
 
         # Load Checkpoint
         load_path: Optional[str] = None,
-        load_object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
+        load_object_store: Optional[Union[RemoteFilesystem, LoggerDestination]] = None,
         load_weights_only: bool = False,
         load_strict_model_weights: bool = False,
         load_progress_bar: bool = True,
@@ -2541,7 +2541,7 @@ class Trainer:
         self,
         save_format: Union[str, ExportFormat],
         save_path: str,
-        save_object_store: Optional[ObjectStore] = None,
+        save_object_store: Optional[RemoteFilesystem] = None,
         sample_input: Optional[Any] = None,
         transforms: Optional[Sequence[Transform]] = None,
     ):
@@ -2552,9 +2552,9 @@ class Trainer:
             save_path: (str): The path for storing the exported model. It can be a path to a file on the local disk,
             a URL, or if ``save_object_store`` is set, the object name
                 in a cloud bucket. For example, ``my_run/exported_model``.
-            save_object_store (ObjectStore, optional): If the ``save_path`` is in an object name in a cloud bucket
+            save_object_store (RemoteFilesystem, optional): If the ``save_path`` is in an object name in a cloud bucket
                 (i.e. AWS S3 or Google Cloud Storage), an instance of
-                :class:`~.ObjectStore` which will be used
+                :class:`~.RemoteFilesystem` which will be used
                 to store the exported model. If this is set to ``None``,  will save to ``save_path`` using the trainer's
                 logger. (default: ``None``)
             sample_input (Any, optional): Example model inputs used for tracing. This is needed for "onnx" export.

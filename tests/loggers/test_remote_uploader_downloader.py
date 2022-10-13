@@ -17,11 +17,11 @@ from composer.core.event import Event
 from composer.core.state import State
 from composer.loggers import Logger
 from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
-from composer.utils.object_store.object_store import ObjectStore
+from composer.utils.object_store.object_store import RemoteFilesystem
 
 
-class DummyObjectStore(ObjectStore):
-    """Dummy ObjectStore implementation that is backed by a local directory."""
+class DummyRemoteFilesystem(RemoteFilesystem):
+    """Dummy RemoteFilesystem implementation that is backed by a local directory."""
 
     def __init__(self, dir: pathlib.Path, always_fail: bool = False, **kwargs: Dict[str, Any]) -> None:
         self.dir = str(dir)
@@ -74,7 +74,7 @@ def object_store_test_helper(
     # Patching does not work when using multiprocessing with spawn, so we also
     # patch to use fork
     fork_context = multiprocessing.get_context('fork')
-    with patch('composer.loggers.remote_uploader_downloader.S3ObjectStore', DummyObjectStore):
+    with patch('composer.loggers.remote_uploader_downloader.S3RemoteFilesystem', DummyRemoteFilesystem):
         with patch('composer.loggers.remote_uploader_downloader.multiprocessing.get_context', lambda _: fork_context):
             remote_uploader_downloader = RemoteUploaderDownloader(
                 bucket_uri='s3://{remote_dir}',
@@ -105,7 +105,7 @@ def object_store_test_helper(
             if not overwrite:
                 # If not `overwrite_delay`, then the `logger.upload_file` will raise a FileExistsException, because the upload will not even be enqueued
                 # Otherwise, with a sufficient will be uploaded, and cleared from the queue, causing a runtime error to be raised on Event.BATCH_END or Event.EPOCH_END
-                # A 2 second sleep should be enough here -- the DummyObjectStore will block for at most 0.5 seconds, and the RemoteUploaderDownloader polls every 0.1 seconds
+                # A 2 second sleep should be enough here -- the DummyRemoteFilesystem will block for at most 0.5 seconds, and the RemoteUploaderDownloader polls every 0.1 seconds
                 if overwrite_delay:
                     post_close_ctx = pytest.warns(
                         RuntimeWarning,
@@ -185,7 +185,7 @@ def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_stat
     # Patching does not work when using multiprocessing with spawn, so we also
     # patch to use fork
     fork_context = multiprocessing.get_context('fork')
-    with patch('composer.loggers.remote_uploader_downloader.S3ObjectStore', DummyObjectStore):
+    with patch('composer.loggers.remote_uploader_downloader.S3RemoteFilesystem', DummyRemoteFilesystem):
         with patch('composer.loggers.remote_uploader_downloader.multiprocessing.get_context', lambda _: fork_context):
             # Create the object store logger
             remote_uploader_downloader = RemoteUploaderDownloader(
@@ -227,7 +227,7 @@ def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_stat
 def test_close_on_failure(tmp_path: pathlib.Path, dummy_state: State):
     """Test that .close() and .post_close() does not hang even when a worker crashes."""
 
-    with patch('composer.loggers.remote_uploader_downloader.S3ObjectStore', DummyObjectStore):
+    with patch('composer.loggers.remote_uploader_downloader.S3RemoteFilesystem', DummyRemoteFilesystem):
         # Create the object store logger
         remote_uploader_downloader = RemoteUploaderDownloader(
             bucket_uri=f"s3://{tmp_path}/'object_store_backend",
@@ -275,9 +275,9 @@ def test_close_on_failure(tmp_path: pathlib.Path, dummy_state: State):
 
 def test_valid_backend_names():
     valid_backend_names = ['s3', 'libcloud', 'sftp']
-    with patch('composer.loggers.remote_uploader_downloader.S3ObjectStore') as _, \
-         patch('composer.loggers.remote_uploader_downloader.SFTPObjectStore') as _, \
-         patch('composer.loggers.remote_uploader_downloader.LibcloudObjectStore') as _:
+    with patch('composer.loggers.remote_uploader_downloader.S3RemoteFilesystem') as _, \
+         patch('composer.loggers.remote_uploader_downloader.SFTPRemoteFilesystem') as _, \
+         patch('composer.loggers.remote_uploader_downloader.LibcloudRemoteFilesystem') as _:
         for name in valid_backend_names:
             remote_uploader_downloader = RemoteUploaderDownloader(bucket_uri=f'{name}://not-a-real-bucket')
             # Access the remote_backend property so that it is built

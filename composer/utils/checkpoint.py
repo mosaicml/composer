@@ -22,7 +22,7 @@ from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
                                          format_name_with_dist_and_time, get_file, is_tar)
 from composer.utils.misc import is_model_deepspeed
-from composer.utils.object_store import ObjectStore
+from composer.utils.object_store import RemoteFilesystem
 
 if TYPE_CHECKING:
     from composer.core.state import State
@@ -92,7 +92,7 @@ class PartialFilePath:
 def load_checkpoint(
     path: str,
     state: State,
-    object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
+    object_store: Optional[Union[RemoteFilesystem, LoggerDestination]] = None,
     load_weights_only: bool = False,
     strict_model_weights: bool = False,
     progress_bar: bool = True,
@@ -135,9 +135,9 @@ def load_checkpoint(
             correct state.
 
         state (State): The :class:`~composer.core.State` to load the checkpoint into.
-        object_store (Union[ObjectStore, LoggerDestination], optional): If the ``path`` is in an object store
+        object_store (Union[RemoteFilesystem, LoggerDestination], optional): If the ``path`` is in an object store
             (i.e. AWS S3 or Google Cloud Storage), an instance of
-            :class:`~.ObjectStore` or :class:`~.LoggerDestination` which will be used
+            :class:`~.RemoteFilesystem` or :class:`~.LoggerDestination` which will be used
             to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath, set to ``None``.
             (default: ``None``)
         load_weights_only (bool, optional): Whether or not to only restore the model weights from the checkpoint without
@@ -214,7 +214,7 @@ def _get_node_checkpoint_download_folder(path: Optional[str]) -> str:
 def download_checkpoint(
     path: str,
     node_checkpoint_folder: str,
-    object_store: Optional[Union[ObjectStore, LoggerDestination]],
+    object_store: Optional[Union[RemoteFilesystem, LoggerDestination]],
     progress_bar: bool,
 ) -> Tuple[str, Optional[str], bool]:
     """Download the checkpoint stored at ``path``, potentially in ``object_store``, to ``node_checkpoint_folder``.

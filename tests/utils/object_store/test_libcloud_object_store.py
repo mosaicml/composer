@@ -6,7 +6,7 @@ import pathlib
 
 import pytest
 
-from composer.utils.object_store import LibcloudObjectStore
+from composer.utils.object_store import LibcloudRemoteFilesystem
 
 
 @pytest.fixture
@@ -24,7 +24,7 @@ def local_dir(tmp_path: pathlib.Path):
 
 
 def _get_provider(remote_dir: pathlib.Path, chunk_size: int = 1024 * 1024):
-    return LibcloudObjectStore(
+    return LibcloudRemoteFilesystem(
         provider='local',
         container='.',
         provider_kwargs={

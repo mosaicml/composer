@@ -23,8 +23,8 @@ from urllib.parse import urlparse
 from composer.core.state import State
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, S3ObjectStore, SFTPObjectStore,
-                            dist, format_name_with_dist, get_file, retry)
+from composer.utils import (LibcloudRemoteFilesystem, RemoteFilesystem, RemoteFilesystemTransientError,
+                            S3RemoteFilesystem, SFTPRemoteFilesystem, dist, format_name_with_dist, get_file, retry)
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +32,11 @@ __all__ = ['RemoteUploaderDownloader']
 
 
 def _build_remote_backend(remote_backend_name: str, backend_kwargs: Dict[str, Any]):
-    remote_backend_name_to_cls = {'s3': S3ObjectStore, 'sftp': SFTPObjectStore, 'libcloud': LibcloudObjectStore}
+    remote_backend_name_to_cls = {
+        's3': S3RemoteFilesystem,
+        'sftp': SFTPRemoteFilesystem,
+        'libcloud': LibcloudRemoteFilesystem
+    }
     remote_backend_cls = remote_backend_name_to_cls.get(remote_backend_name, None)
     if remote_backend_cls is None:
         raise ValueError(
@@ -46,13 +50,13 @@ class RemoteUploaderDownloader(LoggerDestination):
     r"""Logger destination that uploads (downloads) files to (from) a remote backend.
 
     This logger destination handles calls to :meth:`.Logger.upload_file`
-    and uploads files to :class:`.ObjectStore`, such as AWS S3 or Google Cloud Storage. To minimize the training
+    and uploads files to :class:`.RemoteFilesystem`, such as AWS S3 or Google Cloud Storage. To minimize the training
     loop performance hit, it supports background uploads.
 
     .. testcode:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__
 
         from composer.loggers import RemoteUploaderDownloader
-        from composer.utils import LibcloudObjectStore
+        from composer.utils import LibcloudRemoteFilesystem
 
         remote_uploader_downloader = RemoteUploaderDownloader(
             bucket_uri="s3://my-bucket",
@@ -70,7 +74,7 @@ class RemoteUploaderDownloader(LoggerDestination):
     .. testcode:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__
 
         from composer.loggers import RemoteUploaderDownloader
-        from composer.utils import LibcloudObjectStore
+        from composer.utils import LibcloudRemoteFilesystem
 
         remote_uploader_downloader = RemoteUploaderDownloader(
             bucket_uri="libcloud://my-bucket",
@@ -108,13 +112,13 @@ class RemoteUploaderDownloader(LoggerDestination):
     Args:
         bucket_uri (str): The remote uri for the bucket to use (e.g. s3://my-bucket).
 
-            As individual :class:`.ObjectStore` instances are not necessarily thread safe, each worker will construct
-            its own :class:`.ObjectStore` instance from ``remote_backend`` and ``backend_kwargs``.
+            As individual :class:`.RemoteFilesystem` instances are not necessarily thread safe, each worker will construct
+            its own :class:`.RemoteFilesystem` instance from ``remote_backend`` and ``backend_kwargs``.
 
         backend_kwargs (Dict[str, Any]): The keyword arguments to construct the remote backend indicated by ``bucket_uri``.
 
-            As individual :class:`.ObjectStore` instances are not necessarily thread safe, each worker will construct
-            its own :class:`.ObjectStore` instance from ``remote_backend`` and ``backend_kwargs``.
+            As individual :class:`.RemoteFilesystem` instances are not necessarily thread safe, each worker will construct
+            its own :class:`.RemoteFilesystem` instance from ``remote_backend`` and ``backend_kwargs``.
 
         file_path_format_string (str, optional): A format string used to determine the remote file path (within the specified bucket).
 
@@ -261,8 +265,8 @@ class RemoteUploaderDownloader(LoggerDestination):
         self._remote_backend = None
 
     @property
-    def remote_backend(self) -> ObjectStore:
-        """The :class:`.ObjectStore` instance for the main thread."""
+    def remote_backend(self) -> RemoteFilesystem:
+        """The :class:`.RemoteFilesystem` instance for the main thread."""
         if self._remote_backend is None:
             self._remote_backend = _build_remote_backend(self.remote_backend_name, self.backend_kwargs)
         return self._remote_backend
@@ -281,7 +285,7 @@ class RemoteUploaderDownloader(LoggerDestination):
         self._enqueue_thread.start()
 
         if dist.get_global_rank() == 0:
-            retry(ObjectStoreTransientError,
+            retry(RemoteFilesystemTransientError,
                   self.num_attempts)(lambda: _validate_credentials(self.remote_backend, file_name_to_test))()
         assert len(self._workers) == 0, 'workers should be empty if self._worker_flag was None'
         for _ in range(self._num_concurrent_uploads):
@@ -510,7 +514,7 @@ class RemoteUploaderDownloader(LoggerDestination):
 
 
 def _validate_credentials(
-    remote_backend: ObjectStore,
+    remote_backend: RemoteFilesystem,
     remote_file_name_to_test: str,
 ) -> None:
     # Validates the credentials by attempting to touch a file in the bucket
@@ -548,7 +552,7 @@ def _upload_worker(
         uri = remote_backend.get_uri(remote_file_name)
 
         # defining as a function-in-function to use decorator notation with num_attempts as an argument
-        @retry(ObjectStoreTransientError, num_attempts=num_attempts)
+        @retry(RemoteFilesystemTransientError, num_attempts=num_attempts)
         def upload_file():
             if not overwrite:
                 try:

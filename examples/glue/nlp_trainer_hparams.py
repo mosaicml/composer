@@ -19,7 +19,7 @@ from composer.loggers.logger_hparams_registry import logger_registry
 from composer.models.model_hparams import ModelHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, model_registry
-from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
+from composer.utils.object_store.object_store_hparams import RemoteFilesystemHparams, object_store_registry
 
 __all__ = ['NLPTrainerHparams', 'GLUETrainerHparams']
 
@@ -36,7 +36,7 @@ class GLUETrainerHparams(hp.Hparams):
         finetune_ckpts (List[str], optional): See :class:`.Trainer`.
         load_ignore_keys (List[str] | (Dict) -> None, optional): See :class:`.Trainer`.
         load_logger_destination (LoggerDestination, optional): See :class:`.TrainerHparams`.
-        load_object_store (ObjectStoreHparams, optional): See :class:`.Trainer`.
+        load_object_store (RemoteFilesystemHparams, optional): See :class:`.Trainer`.
         load_path (str, optional): See :class:`.Trainer`.
         loggers (List[LoggerDestination], optional): See :class:`.Trainer`.
         run_name (str, optional): See :class:`.Trainer`.
@@ -56,7 +56,7 @@ class GLUETrainerHparams(hp.Hparams):
     finetune_ckpts: Optional[List[str]] = hp.optional(doc='list of checkpoints to finetune on', default=None)
     load_ignore_keys: Optional[List[str]] = hp.auto(Trainer, 'load_ignore_keys')
     load_logger_destination: Optional[LoggerDestination] = hp.auto(TrainerHparams, 'load_logger_destination')
-    load_object_store: Optional[ObjectStoreHparams] = hp.auto(Trainer, 'load_object_store')
+    load_object_store: Optional[RemoteFilesystemHparams] = hp.auto(Trainer, 'load_object_store')
     load_path: Optional[str] = hp.auto(Trainer, 'load_path')
     loggers: Optional[List[LoggerDestination]] = hp.auto(Trainer, 'loggers')
     run_name: Optional[str] = hp.auto(Trainer, 'run_name')
