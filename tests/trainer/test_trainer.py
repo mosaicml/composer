@@ -876,8 +876,8 @@ class TestTrainerEquivalence():
         # grad accum requires non-zero tolerance
         # Precision.AMP requires a even higher tolerance.
         threshold = {
-            'atol': 1e-04 if precision == Precision.AMP else 1e-08,
-            'rtol': 1e-02 if precision == Precision.AMP else 1e-05,
+            'atol': 1e-04 if precision == Precision.AMP else 1e-05,
+            'rtol': 1e-02 if precision == Precision.AMP else 1e-04,
         }
 
         config.update({
