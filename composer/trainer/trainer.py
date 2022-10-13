@@ -1235,46 +1235,46 @@ class Trainer:
         )
 
         # If latest checkpoint is not saved locally, try to fetch from loggers
-        if not os.path.exists(latest_checkpoint_path):
+        if not os.path.exists(latest_checkpoint_path) and (dist.get_global_rank() == 0 or self.deepspeed_enabled):
             self._attempt_checkpoint_download(save_folder, latest_checkpoint_path, save_latest_remote_file_name,
                                               loggers, load_progress_bar)
 
-        # Require all ranks to have local checkpoint if we wish to restore from it
-        latest_checkpoint_exists_on_all_ranks = self._device.tensor_to_device(
-            torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
-        dist.all_reduce(latest_checkpoint_exists_on_all_ranks, reduce_operation='MIN')
+        if self.deepspeed_enabled:
+            # Require all ranks to have their own local checkpoint if we wish to restore from it for deepspeed
+            latest_checkpoint_exists_on_all_ranks = self._device.tensor_to_device(
+                torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
+            dist.all_reduce(latest_checkpoint_exists_on_all_ranks, reduce_operation='MIN')
 
-        log.debug(f'Latest checkpoint exists on all ranks? {latest_checkpoint_exists_on_all_ranks.item()}')
-
-        latest_checkpoint_exists_on_rank_zero = self._device.tensor_to_device(
-            torch.tensor([os.path.exists(latest_checkpoint_path) and dist.get_global_rank() == 0], dtype=torch.uint8))
-        dist.all_reduce(latest_checkpoint_exists_on_rank_zero, reduce_operation='MAX')
-
-        log.debug(f'Latest checkpoint exists on rank zero? {latest_checkpoint_exists_on_rank_zero.item()}')
-
-        if int(latest_checkpoint_exists_on_all_ranks.item()) == 1:
-            return latest_checkpoint_path
-        elif int(latest_checkpoint_exists_on_all_ranks.item()) == 0 and self.deepspeed_enabled:
-            raise RuntimeError('DeepSpeed was enabled, but checkpoints were not found for all ranks')
-        elif int(latest_checkpoint_exists_on_rank_zero.item()) == 0:
-            log.warning(
-                f'Checkpoint not found locally at {latest_checkpoint_path} or remotely at {save_latest_remote_file_name} for autoresumption'
-            )
+            if int(latest_checkpoint_exists_on_all_ranks.item()) == 0:
+                raise RuntimeError('DeepSpeed was enabled, but checkpoints were not found for all ranks')
+            else:
+                return latest_checkpoint_path
         else:
-            # broadcast the checkpoint path to all ranks
-            latest_checkpoint_path_list = [latest_checkpoint_path]
-            dist.broadcast_object_list(latest_checkpoint_path_list, src=0)
-            latest_checkpoint_path = latest_checkpoint_path_list[0]
+            # The checkpoint must at least exist for rank zero
+            latest_checkpoint_exists_on_rank_zero = self._device.tensor_to_device(
+                torch.tensor([os.path.exists(latest_checkpoint_path) and dist.get_global_rank() == 0],
+                             dtype=torch.uint8))
+            dist.all_reduce(latest_checkpoint_exists_on_rank_zero, reduce_operation='MAX')
 
-            # download the checkpoint on local rank 0 of all nodes
-            if dist.get_local_rank() == 0 and not os.path.exists(latest_checkpoint_path):
-                log.debug('Attempting to download the checkpoint on to all nodes')
-                self._attempt_checkpoint_download(save_folder, latest_checkpoint_path, save_latest_remote_file_name,
-                                                  loggers, load_progress_bar)
-                if not os.path.exists(latest_checkpoint_path):
-                    raise RuntimeError('Downloading the checkpoint on to all nodes failed')
-            dist.barrier()
-            return latest_checkpoint_path
+            if int(latest_checkpoint_exists_on_rank_zero.item()) == 0:
+                raise RuntimeError(
+                    f'Checkpoint not found locally at {latest_checkpoint_path} or remotely at {save_latest_remote_file_name} for autoresumption'
+                )
+            else:
+                # broadcast the checkpoint path to all ranks
+                latest_checkpoint_path_list = [latest_checkpoint_path]
+                dist.broadcast_object_list(latest_checkpoint_path_list, src=0)
+                latest_checkpoint_path = latest_checkpoint_path_list[0]
+
+                # download the checkpoint on local rank 0 of all nodes
+                if dist.get_local_rank() == 0 and not os.path.exists(latest_checkpoint_path):
+                    log.debug('Attempting to download the checkpoint on to all nodes')
+                    self._attempt_checkpoint_download(save_folder, latest_checkpoint_path, save_latest_remote_file_name,
+                                                      loggers, load_progress_bar)
+                    if not os.path.exists(latest_checkpoint_path):
+                        raise RuntimeError('Downloading the checkpoint on to all nodes failed')
+                dist.barrier()
+                return latest_checkpoint_path
 
     def fit(
         self,
