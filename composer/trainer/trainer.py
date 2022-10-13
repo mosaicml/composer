@@ -1187,10 +1187,9 @@ class Trainer:
             return []
         return self._checkpoint_saver.saved_checkpoints
 
-    def _try_checkpoint_download(self, save_folder: str, latest_checkpoint_path: str, save_latest_remote_file_name: str,
+    def _try_checkpoint_download(self, latest_checkpoint_path: str, save_latest_remote_file_name: str,
                                  loggers: Sequence[LoggerDestination], load_progress_bar: bool) -> None:
         """Attempts to download the checkpoint from the logger destinations."""
-        os.makedirs(save_folder, exist_ok=True)
         for logger in loggers:
             try:
                 # Fetch from logger. If it succeeds, stop trying the rest of the loggers
@@ -1235,7 +1234,8 @@ class Trainer:
 
         # If latest checkpoint is not saved locally, try to fetch from loggers
         if not os.path.exists(latest_checkpoint_path) and (dist.get_global_rank() == 0 or self.deepspeed_enabled):
-            self._try_checkpoint_download(save_folder, latest_checkpoint_path, save_latest_remote_file_name, loggers,
+            os.makedirs(save_folder, exist_ok=True)
+            self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
                                           load_progress_bar)
 
         if self.deepspeed_enabled:
@@ -1268,8 +1268,9 @@ class Trainer:
                 # download the checkpoint on local rank 0 of all nodes
                 if dist.get_local_rank() == 0 and not os.path.exists(latest_checkpoint_path):
                     log.debug('Attempting to download the checkpoint on to all nodes')
-                    self._try_checkpoint_download(save_folder, latest_checkpoint_path, save_latest_remote_file_name,
-                                                  loggers, load_progress_bar)
+                    os.makedirs(save_folder, exist_ok=True)
+                    self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
+                                                  load_progress_bar)
 
                 log.debug(
                     f'Checkpoint {latest_checkpoint_path} exists on rank {dist.get_global_rank()}? {os.path.exists(latest_checkpoint_path)}'
