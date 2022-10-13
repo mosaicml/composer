@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import Dict, Optional, Sequence, Type, Union
+from typing import Dict, List, Optional, Sequence, Type, Union
 
 import torch
 
@@ -36,7 +36,11 @@ def from_LayerNorm(layer: torch.nn.Module, module_index: int) -> APEXFusedLayerN
     """Defines a replacement policy from a `torch.nn.LayerNorm` to a `apex.normalization.fused_layer_norm`"""
     assert isinstance(layer,
                       torch.nn.LayerNorm), 'The replacement policy will look for all instances of torch.nn.LayerNorm'
-    return APEXFusedLayerNorm(normalized_shape=layer.normalized_shape, eps=layer.eps)
+    fused_layernorm = APEXFusedLayerNorm(normalized_shape=layer.normalized_shape, eps=layer.eps)
+    with torch.no_grad():
+        fused_layernorm.weight.copy_(layer.weight)
+        fused_layernorm.bias.copy_(layer.bias)
+    return fused_layernorm
 
 
 def apply_fused_layernorm(model: torch.nn.Module, optimizers: Union[torch.optim.Optimizer,
@@ -66,6 +70,10 @@ class FusedLayerNorm(Algorithm):
 
     Runs on ``Event.INIT``, so it can replace all instances of `torch.nn.LayerNorm` before the model is DDP wrapped. Has no hyperparameters.
 
+    Args:
+        apply_events (List[str], optional): List of events where the algorithm will be applied.
+            If none provided, the algorithm is applied at Event.INIT.
+
     Example:
         .. testsetup::
 
@@ -93,9 +101,11 @@ class FusedLayerNorm(Algorithm):
            )
     """
 
-    def __init__(self):
-        # FusedLayerNorm takes no arguments
+    def __init__(self, apply_events: Optional[List[Event]] = None):
         check_if_apex_installed()
+        self.apply_events = [Event.INIT]
+        if apply_events is not None:
+            self.apply_events = apply_events
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
