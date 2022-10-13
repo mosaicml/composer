@@ -179,7 +179,7 @@ class SFTPRemoteFilesystem(RemoteFilesystem):
         with self._handle_transient_errors():
             st_size = self.sftp_client.stat(remote_file_name).st_size
         if st_size is None:
-            raise RuntimeError('Cannot determine object size: stat(remote_file_name).st_size is None')
+            raise RuntimeError('Cannot determine file size: stat(remote_file_name).st_size is None')
         return st_size
 
     @contextlib.contextmanager

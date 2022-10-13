@@ -315,11 +315,11 @@ def get_file(
     Args:
         path (str): The path to the file to retrieve.
 
-            *   If ``remote_filesystem`` is specified, then the ``path`` should be the object name for the file to get.
+            *   If ``remote_filesystem`` is specified, then the ``path`` should be the remote file name for the file to get.
                 Do not include the the cloud provider or bucket name.
 
             *   If ``remote_filesystem`` is not specified but the ``path`` begins with ``http://`` or ``https://``,
-                the object at this URL will be downloaded.
+                the file at this URL will be downloaded.
 
             *   Otherwise, ``path`` is presumed to be a local filepath.
 
@@ -332,7 +332,7 @@ def get_file(
             a remote filesystem (i.e. AWS S3 or Google Cloud Storage). (default: ``None``)
 
             This :class:`~.RemoteFilesystem` instance will be used to retrieve the file. The ``path`` parameter
-            should be set to the object name within the remote filesystem.
+            should be set to the file name within the remote filesystem.
 
             Set this parameter to ``None`` (the default) if ``path`` is a URL or a local file.
 
@@ -355,7 +355,7 @@ def get_file(
                 overwrite=False,
                 progress_bar=progress_bar,
             )
-            # Read object name in the symlink
+            # Read file name in the symlink
             with open(symlink_file_name, 'r') as f:
                 real_path = f.read()
 
@@ -488,12 +488,12 @@ def create_symlink_file(
     that otherwise would not support unix-style symlinks.
 
     Args:
-        existing_path (str): The name of existing object that the symlink file should point to.
+        existing_path (str): The name of existing file that the symlink file should point to.
         destination_filename (str | pathlib.Path): The filename to which to write the symlink.
             It must end in ``'.symlink'``.
     """
     # Loggers might not natively support symlinks, so we emulate symlinks via text files ending with `.symlink`
-    # This text file contains the name of the object it is pointing to.
+    # This text file contains the name of the file it is pointing to.
     # Only symlink if we're uploading files to begin with
     # Write remote file name into file to emulate symlink
     # Add .symlink extension so we can identify as emulated symlink when downloading

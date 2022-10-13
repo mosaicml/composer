@@ -77,7 +77,7 @@ def test_get_file_remote_filesystem_with_symlink(tmp_path: pathlib.Path, monkeyp
     # Add symlink to remote filesystem
     with open(str(remote_dir / 'latest.symlink'), 'w') as f:
         f.write('checkpoint.txt')
-    # Fetch object, should automatically follow symlink
+    # Fetch file, should automatically follow symlink
     get_file(
         path='latest.symlink',
         remote_filesystem=provider,
@@ -85,7 +85,7 @@ def test_get_file_remote_filesystem_with_symlink(tmp_path: pathlib.Path, monkeyp
     )
     with open(str(tmp_path / 'example'), 'rb') as f:
         assert f.read() == b'checkpoint1'
-    # Fetch object without specifying .symlink, should automatically follow
+    # Fetch file without specifying .symlink, should automatically follow
     get_file(
         path='latest',
         remote_filesystem=provider,

@@ -77,9 +77,9 @@ def export_for_inference(
             Instead, export-related transformations are applied to a  copy of the model.
         save_format (Union[str, ExportFormat]):  Format to export to. Either ``"torchscript"`` or ``"onnx"``.
         save_path: (str): The path for storing the exported model. It can be a path to a file on the local disk,
-        a URL, or if ``save_remote_filesystem`` is set, the object name
+        a URL, or if ``save_remote_filesystem`` is set, the remote file name
             in a cloud bucket. For example, ``my_run/exported_model``.
-        save_remote_filesystem (RemoteFilesystem, optional): If the ``save_path`` is in an object name in a cloud bucket
+        save_remote_filesystem (RemoteFilesystem, optional): If the ``save_path`` is in a remote file name in a cloud bucket
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.RemoteFilesystem` which will be used
             to store the exported model. Set this to ``None`` if ``save_path`` is a local filepath.
@@ -96,9 +96,9 @@ def export_for_inference(
             be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
             ``transforms`` are applied after ``surgery_algs``. (default: ``None``)
         load_path (str): The path to an existing checkpoint file.
-            It can be a path to a file on the local disk, a URL, or if ``load_remote_filesystem`` is set, the object name
+            It can be a path to a file on the local disk, a URL, or if ``load_remote_filesystem`` is set, the remote file name
             for a checkpoint in a cloud bucket. For example, run_name/checkpoints/ep0-ba4-rank0. (default: ``None``)
-        load_remote_filesystem (RemoteFilesystem, optional): If the ``load_path`` is in an object name  in a cloud bucket
+        load_remote_filesystem (RemoteFilesystem, optional): If the ``load_path`` is in a remote file name  in a cloud bucket
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.RemoteFilesystem` which will be used to retreive the checkpoint.
             Otherwise, if the checkpoint is a local filepath, set to ``None``. (default: ``None``)
@@ -242,11 +242,11 @@ def export_with_logger(
             Instead, export-related transformations are applied to a  copy of the model.
         save_format (Union[str, ExportFormat]):  Format to export to. Either ``"torchscript"`` or ``"onnx"``.
         save_path: (str): The path for storing the exported model. It can be a path to a file on the local disk,
-        a URL, or if ``save_remote_filesystem`` is set, the object name
+        a URL, or if ``save_remote_filesystem`` is set, the remote file name
             in a cloud bucket. For example, ``my_run/exported_model``.
         logger (Logger): If this logger has a destination that supports file uploading, and save_remote_filesystem
             is not provided, this logger is used to export the model.
-        save_remote_filesystem (RemoteFilesystem, optional): If the ``save_path`` is in an object name in a cloud bucket
+        save_remote_filesystem (RemoteFilesystem, optional): If the ``save_path`` is in a remote file name in a cloud bucket
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.RemoteFilesystem` which will be used
             to store the exported model. Set this to ``None`` if the logger should be used to export the model or

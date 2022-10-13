@@ -19,7 +19,7 @@ __all__ = ['LibcloudRemoteFilesystem']
 
 
 class LibcloudRemoteFilesystem(RemoteFilesystem):
-    """Utility for uploading to and downloading from object (blob) stores, such as Amazon S3.
+    """Utility for uploading to and downloading from remote file systems, such as Amazon S3.
 
     .. rubric:: Example
 

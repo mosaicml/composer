@@ -50,7 +50,7 @@ class S3RemoteFilesystem(RemoteFilesystem):
 
     Args:
         bucket (str): The bucket name.
-        prefix (str): A path prefix such as `folder/subfolder/` to prepend to object names. Defaults to ''.
+        prefix (str): A path prefix such as `folder/subfolder/` to prepend to remote file names. Defaults to ''.
         region_name (str, optional): The region name. Must be specified if not available in
             a config file or environment variables. Defaults to None.
         endpoint_url (str, optional): The URL to an S3-Compatible remote filesystem. Must be specified if using something

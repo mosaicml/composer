@@ -71,7 +71,7 @@ class RemoteFilesystem(abc.ABC):
             It computes the URI statically.
 
         Args:
-            remote_file_name (str): The object name.
+            remote_file_name (str): The remote file name.
 
         Returns:
             str: The URI for ``remote_file_name`` in the remote filesystem.
@@ -84,32 +84,32 @@ class RemoteFilesystem(abc.ABC):
         filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
     ) -> None:
-        """Upload an object currently located on a disk.
+        """Upload a file currently located on a disk.
 
         Args:
-            remote_file_name (str): Object name (where object will be stored in the container)
-            filename (str | pathlib.Path): Path the the object on disk
+            remote_file_name (str): Remote file name (where file will be stored in the container)
+            filename (str | pathlib.Path): Path to the file on disk
             callback ((int, int) -> None, optional): If specified, the callback is periodically called with the number of bytes
-                uploaded and the total size of the object being uploaded.
+                uploaded and the total size of the file being uploaded.
 
         Raises:
-            RemoteFilesystemTransientError: If there was a transient connection issue with uploading the object.
+            RemoteFilesystemTransientError: If there was a transient connection issue with uploading the file.
         """
         del remote_file_name, filename, callback  # unused
         raise NotImplementedError(f'{type(self).__name__}.upload_file is not implemented')
 
     def get_file_size(self, remote_file_name: str) -> int:
-        """Get the size of an object, in bytes.
+        """Get the size of a file, in bytes.
 
         Args:
-            remote_file_name (str): The name of the object.
+            remote_file_name (str): The name of the remote file.
 
         Returns:
-            int: The object size, in bytes.
+            int: The file size, in bytes.
 
         Raises:
             FileNotFoundError: If the file was not found in the remote filesystem.
-            RemoteFilesystemTransientError: If there was a transient connection issue with getting the object size.
+            RemoteFilesystemTransientError: If there was a transient connection issue with getting the file size.
         """
         raise NotImplementedError(f'{type(self).__name__}.get_file_size is not implemented')
 
@@ -120,19 +120,19 @@ class RemoteFilesystem(abc.ABC):
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
     ) -> None:
-        """Download an object to the specified destination path.
+        """Download a remote file to the specified destination path.
 
         Args:
-            remote_file_name (str): The name of the object to download.
+            remote_file_name (str): The name of the remote file to download.
             filename (str | pathlib.Path): Full path to a file or a directory where the incoming file will be saved.
             overwrite (bool, optional): Whether to overwrite an existing file at ``filename``, if it exists.
                 (default: ``False``)
             callback ((int) -> None, optional): If specified, the callback is periodically called with the number of bytes already
-                downloaded and the total size of the object.
+                downloaded and the total size of the file.
 
         Raises:
             FileNotFoundError: If the file was not found in the remote filesystem.
-            RemoteFilesystemTransientError: If there was a transient connection issue with downloading the object.
+            RemoteFilesystemTransientError: If there was a transient connection issue with downloading the file.
         """
         del remote_file_name, filename, overwrite, callback  # unused
         raise NotImplementedError(f'{type(self).__name__}.download_file is not implemented')
