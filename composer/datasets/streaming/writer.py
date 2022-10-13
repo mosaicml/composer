@@ -13,10 +13,10 @@ from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 import numpy as np
 from tqdm import tqdm
 
-from composer.datasets.streaming.download import get_object_store
+from composer.datasets.streaming.download import get_remote_filesystem
 from composer.datasets.streaming.format import (StreamingDatasetIndex, get_compression_scheme_basename,
                                                 get_index_basename, get_shard_basename, sample_dict_to_bytes)
-from composer.utils.object_store.object_store import RemoteFilesystem
+from composer.utils.remote_filesystem.remote_filesystem import RemoteFilesystem
 
 __all__ = ['StreamingDatasetWriter']
 
@@ -221,7 +221,7 @@ class StreamingDatasetWriter(object):
 
 def _parse_remote(remote: Optional[Union[RemoteFilesystem, str]]) -> Optional[RemoteFilesystem]:
     if isinstance(remote, str):
-        return get_object_store(remote)
+        return get_remote_filesystem(remote)
     elif isinstance(remote, RemoteFilesystem):
         return remote
     elif remote is None:

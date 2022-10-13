@@ -14,8 +14,8 @@ from composer.utils.import_helpers import MissingConditionalImportError, import_
 from composer.utils.inference import export_for_inference, export_with_logger, quantize_dynamic
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_collection
 from composer.utils.misc import is_model_deepspeed, is_notebook, model_eval_mode
-from composer.utils.object_store import (LibcloudRemoteFilesystem, RemoteFilesystem, RemoteFilesystemTransientError,
-                                         S3RemoteFilesystem, SFTPRemoteFilesystem)
+from composer.utils.remote_filesystem import (LibcloudRemoteFilesystem, RemoteFilesystem,
+                                              RemoteFilesystemTransientError, S3RemoteFilesystem, SFTPRemoteFilesystem)
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
 

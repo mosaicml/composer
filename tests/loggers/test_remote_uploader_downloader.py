@@ -17,7 +17,7 @@ from composer.core.event import Event
 from composer.core.state import State
 from composer.loggers import Logger
 from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
-from composer.utils.object_store.object_store import RemoteFilesystem
+from composer.utils.remote_filesystem.remote_filesystem import RemoteFilesystem
 
 
 class DummyRemoteFilesystem(RemoteFilesystem):
@@ -61,14 +61,14 @@ class DummyRemoteFilesystem(RemoteFilesystem):
         return size
 
 
-def object_store_test_helper(
+def remote_filesystem_test_helper(
     tmp_path: pathlib.Path,
     dummy_state: State,
     use_procs: bool = False,
     overwrite: bool = True,
     overwrite_delay: bool = False,
 ):
-    remote_dir = str(tmp_path / 'object_store')
+    remote_dir = str(tmp_path / 'remote_filesystem')
     os.makedirs(remote_dir, exist_ok=True)
 
     # Patching does not work when using multiprocessing with spawn, so we also
@@ -154,20 +154,20 @@ def object_store_test_helper(
 
 
 def test_remote_uploader_downloader(tmp_path: pathlib.Path, dummy_state: State):
-    object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, use_procs=False)
+    remote_filesystem_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, use_procs=False)
 
 
 def test_remote_uploader_downloader_use_procs(tmp_path: pathlib.Path, dummy_state: State):
-    object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, use_procs=True)
+    remote_filesystem_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, use_procs=True)
 
 
 @pytest.mark.filterwarnings(r'ignore:((.|\n)*)FileExistsError((.|\n)*):pytest.PytestUnhandledThreadExceptionWarning')
 @pytest.mark.parametrize('overwrite_delay', [True, False])
 def test_remote_uploader_downloader_no_overwrite(tmp_path: pathlib.Path, dummy_state: State, overwrite_delay: bool):
-    object_store_test_helper(tmp_path=tmp_path,
-                             dummy_state=dummy_state,
-                             overwrite=False,
-                             overwrite_delay=overwrite_delay)
+    remote_filesystem_test_helper(tmp_path=tmp_path,
+                                  dummy_state=dummy_state,
+                                  overwrite=False,
+                                  overwrite_delay=overwrite_delay)
 
 
 @pytest.mark.parametrize('use_procs', [True, False])
@@ -189,9 +189,9 @@ def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_stat
         with patch('composer.loggers.remote_uploader_downloader.multiprocessing.get_context', lambda _: fork_context):
             # Create the RemoteUploaderDownloader
             remote_uploader_downloader = RemoteUploaderDownloader(
-                bucket_uri=f"s3://{tmp_path}/'object_store_backend",
+                bucket_uri=f"s3://{tmp_path}/'remote_filesystem_backend",
                 backend_kwargs={
-                    'dir': tmp_path / 'object_store_backend',
+                    'dir': tmp_path / 'remote_filesystem_backend',
                 },
                 num_concurrent_uploads=4,
                 use_procs=use_procs,
@@ -230,9 +230,9 @@ def test_close_on_failure(tmp_path: pathlib.Path, dummy_state: State):
     with patch('composer.loggers.remote_uploader_downloader.S3RemoteFilesystem', DummyRemoteFilesystem):
         # Create the RemoteUploaderDownloader
         remote_uploader_downloader = RemoteUploaderDownloader(
-            bucket_uri=f"s3://{tmp_path}/'object_store_backend",
+            bucket_uri=f"s3://{tmp_path}/'remote_filesystem_backend",
             backend_kwargs={
-                'dir': tmp_path / 'object_store_backend',
+                'dir': tmp_path / 'remote_filesystem_backend',
                 'always_fail': True,
             },
             num_concurrent_uploads=1,

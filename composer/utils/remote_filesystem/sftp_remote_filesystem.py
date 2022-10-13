@@ -13,7 +13,7 @@ import uuid
 from typing import Any, Callable, Dict, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
-from composer.utils.object_store.object_store import RemoteFilesystem, RemoteFilesystemTransientError
+from composer.utils.remote_filesystem.remote_filesystem import RemoteFilesystem, RemoteFilesystemTransientError
 
 __all__ = ['SFTPRemoteFilesystem']
 

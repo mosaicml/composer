@@ -475,7 +475,7 @@ def test_export_with_other_logger(model_cls, sample_input):
                 model=model,
                 save_format=save_format,
                 save_path=save_path,
-                save_object_store=None,
+                save_remote_filesystem=None,
                 sample_input=ANY,
                 transforms=None,
             )

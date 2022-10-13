@@ -115,8 +115,8 @@ If you are using YAML configs you can get S3 logging by adding the following lin
 
 ```yaml
 loggers:
-  object_store:
-    object_store_hparams:
+  remote_filesystem:
+    remote_filesystem_hparams:
       s3:
         bucket: my-s3-bucket-name
 ```
@@ -145,8 +145,8 @@ eval_batch_size: 64
 loggers:
   tensorboard:
     log_dir: my_tensorboard_logs
-  object_store:
-    object_store_hparams:
+  remote_filesystem:
+    remote_filesystem_hparams:
       s3:
         bucket: my-s3-bucket-name
 ```

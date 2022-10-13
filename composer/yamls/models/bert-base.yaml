@@ -77,6 +77,6 @@ save_interval: 3500ba # Save checkpoints every 3500 batches
 loggers:
   progress_bar: {} # Add a TQDM progress bar
   # Optional, some nice default parameters for remote filesystem checkpointing. Uncomment this if you want to checkpoint to cloud.
-  # object_store:
-  #  object_store_hparams:
+  # remote_filesystem:
+  #  remote_filesystem_hparams:
   #    bucket_uri: "s3://<your-bucket-here>"

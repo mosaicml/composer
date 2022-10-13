@@ -6,7 +6,7 @@ import pathlib
 
 import pytest
 
-from composer.utils.object_store import LibcloudRemoteFilesystem
+from composer.utils.remote_filesystem import LibcloudRemoteFilesystem
 
 
 @pytest.fixture
@@ -35,7 +35,7 @@ def _get_provider(remote_dir: pathlib.Path, chunk_size: int = 1024 * 1024):
 
 
 @pytest.mark.parametrize('chunk_size', [100, 128])
-def test_libcloud_object_store_callback(remote_dir: pathlib.Path, local_dir: pathlib.Path, chunk_size: int):
+def test_libcloud_remote_filesystem_callback(remote_dir: pathlib.Path, local_dir: pathlib.Path, chunk_size: int):
     pytest.importorskip('libcloud')
 
     provider = _get_provider(remote_dir, chunk_size=chunk_size)

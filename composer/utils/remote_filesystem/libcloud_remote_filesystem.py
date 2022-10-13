@@ -13,7 +13,7 @@ from urllib3.exceptions import ProtocolError
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.iter_helpers import iterate_with_callback
-from composer.utils.object_store.object_store import RemoteFilesystem, RemoteFilesystemTransientError
+from composer.utils.remote_filesystem.remote_filesystem import RemoteFilesystem, RemoteFilesystemTransientError
 
 __all__ = ['LibcloudRemoteFilesystem']
 
@@ -26,7 +26,7 @@ class LibcloudRemoteFilesystem(RemoteFilesystem):
     Here's an example for an Amazon S3 bucket named ``MY_CONTAINER``:
 
     >>> from composer.utils import LibcloudRemoteFilesystem
-    >>> object_store = LibcloudRemoteFilesystem(
+    >>> remote_filesystem = LibcloudRemoteFilesystem(
     ...     provider="s3",
     ...     container="MY_CONTAINER",
     ...     provider_kwargs={
@@ -34,8 +34,8 @@ class LibcloudRemoteFilesystem(RemoteFilesystem):
     ...         "secret": "*********",
     ...     }
     ... )
-    >>> object_store
-    <composer.utils.object_store.libcloud_object_store.LibcloudRemoteFilesystem object at ...>
+    >>> remote_filesystem
+    <composer.utils.remote_filesystem.libcloud_remote_filesystem.LibcloudRemoteFilesystem object at ...>
 
     Args:
         provider (str): Cloud provider to use. Valid options are:

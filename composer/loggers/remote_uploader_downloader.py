@@ -261,7 +261,7 @@ class RemoteUploaderDownloader(LoggerDestination):
             self._proc_class = threading.Thread
         self._worker_flag: Optional[Union[multiprocessing._EventType, threading.Event]] = None
         self._workers: List[Union[SpawnProcess, threading.Thread]] = []
-        # the remote filesystem instance for the main thread. Deferring the construction of the object_store to first use.
+        # the remote filesystem instance for the main thread. Deferring the construction of the remote_filesystem to first use.
         self._remote_backend = None
 
     @property
@@ -404,7 +404,7 @@ class RemoteUploaderDownloader(LoggerDestination):
     ):
         get_file(path=remote_file_name,
                  destination=destination,
-                 object_store=self.remote_backend,
+                 remote_filesystem=self.remote_backend,
                  overwrite=overwrite,
                  progress_bar=progress_bar)
 

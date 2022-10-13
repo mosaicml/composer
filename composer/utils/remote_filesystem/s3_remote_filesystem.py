@@ -11,7 +11,7 @@ import uuid
 from typing import Any, Callable, Dict, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
-from composer.utils.object_store.object_store import RemoteFilesystem
+from composer.utils.remote_filesystem.remote_filesystem import RemoteFilesystem
 
 __all__ = ['S3RemoteFilesystem']
 

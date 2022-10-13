@@ -22,7 +22,7 @@ from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
                                          format_name_with_dist_and_time, get_file, is_tar)
 from composer.utils.misc import is_model_deepspeed
-from composer.utils.object_store import RemoteFilesystem
+from composer.utils.remote_filesystem import RemoteFilesystem
 
 if TYPE_CHECKING:
     from composer.core.state import State
@@ -92,7 +92,7 @@ class PartialFilePath:
 def load_checkpoint(
     path: str,
     state: State,
-    object_store: Optional[Union[RemoteFilesystem, LoggerDestination]] = None,
+    remote_filesystem: Optional[Union[RemoteFilesystem, LoggerDestination]] = None,
     load_weights_only: bool = False,
     strict_model_weights: bool = False,
     progress_bar: bool = True,
@@ -103,7 +103,7 @@ def load_checkpoint(
     Args:
         path (str): The path format string to an existing checkpoint file.
 
-            It can be a path to a file on the local disk, a URL, or if ``object_store`` is set, the object name
+            It can be a path to a file on the local disk, a URL, or if ``remote_filesystem`` is set, the object name
             for a checkpoint in a cloud bucket.
 
             When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, checkpoints are shareded by rank.
@@ -135,7 +135,7 @@ def load_checkpoint(
             correct state.
 
         state (State): The :class:`~composer.core.State` to load the checkpoint into.
-        object_store (Union[RemoteFilesystem, LoggerDestination], optional): If the ``path`` is in a remote filesystem
+        remote_filesystem (Union[RemoteFilesystem, LoggerDestination], optional): If the ``path`` is in a remote filesystem
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.RemoteFilesystem` or :class:`~.LoggerDestination` which will be used
             to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath, set to ``None``.
@@ -181,7 +181,7 @@ def load_checkpoint(
             composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = download_checkpoint(
                 path=path,
                 node_checkpoint_folder=node_checkpoint_folder,
-                object_store=object_store,
+                remote_filesystem=remote_filesystem,
                 progress_bar=progress_bar,
             )
             rng_state_dicts = _restore_checkpoint(
@@ -214,10 +214,10 @@ def _get_node_checkpoint_download_folder(path: Optional[str]) -> str:
 def download_checkpoint(
     path: str,
     node_checkpoint_folder: str,
-    object_store: Optional[Union[RemoteFilesystem, LoggerDestination]],
+    remote_filesystem: Optional[Union[RemoteFilesystem, LoggerDestination]],
     progress_bar: bool,
 ) -> Tuple[str, Optional[str], bool]:
-    """Download the checkpoint stored at ``path``, potentially in ``object_store``, to ``node_checkpoint_folder``.
+    """Download the checkpoint stored at ``path``, potentially in ``remote_filesystem``, to ``node_checkpoint_folder``.
 
     Returns a tuple of  (``composer_states_filepath``, ``extracted_checkpoint_folder``, ``extracted_rank_n``).
 
@@ -248,7 +248,7 @@ def download_checkpoint(
             path = _format_path_with_rank_zero(path)
             get_file(destination=rank_zero_checkpoint_filepath,
                      path=path,
-                     object_store=object_store,
+                     remote_filesystem=remote_filesystem,
                      progress_bar=progress_bar)
             if extracted_checkpoint_folder is not None:
                 try:
@@ -268,7 +268,7 @@ def download_checkpoint(
             try:
                 get_file(destination=rank_n_checkpoint_filepath,
                          path=_format_path_with_current_rank(path),
-                         object_store=object_store,
+                         remote_filesystem=remote_filesystem,
                          progress_bar=progress_bar)
             except FileNotFoundError:
                 # Allowing not-found errors to be ignored as sometimes there won't be rank-local checkpoints

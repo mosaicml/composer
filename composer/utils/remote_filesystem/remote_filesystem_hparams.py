@@ -9,14 +9,14 @@ from typing import Any, Dict, Optional, Type
 
 import yahp as hp
 
-from composer.utils.object_store.libcloud_object_store import LibcloudRemoteFilesystem
-from composer.utils.object_store.object_store import RemoteFilesystem
-from composer.utils.object_store.s3_object_store import S3RemoteFilesystem
-from composer.utils.object_store.sftp_object_store import SFTPRemoteFilesystem
+from composer.utils.remote_filesystem.libcloud_remote_filesystem import LibcloudRemoteFilesystem
+from composer.utils.remote_filesystem.remote_filesystem import RemoteFilesystem
+from composer.utils.remote_filesystem.s3_remote_filesystem import S3RemoteFilesystem
+from composer.utils.remote_filesystem.sftp_remote_filesystem import SFTPRemoteFilesystem
 
 __all__ = [
     'RemoteFilesystemHparams', 'LibcloudRemoteFilesystemHparams', 'S3RemoteFilesystemHparams',
-    'SFTPRemoteFilesystemHparams', 'object_store_registry'
+    'SFTPRemoteFilesystemHparams', 'remote_filesystem_registry'
 ]
 
 
@@ -25,13 +25,13 @@ class RemoteFilesystemHparams(hp.Hparams, abc.ABC):
     """Base class for :class:`.RemoteFilesystem` hyperparameters."""
 
     @abc.abstractmethod
-    def get_object_store_cls(self) -> Type[RemoteFilesystem]:
+    def get_remote_filesystem_cls(self) -> Type[RemoteFilesystem]:
         """Returns the type of :class:`.RemoteFilesystem`."""
         raise NotImplementedError()
 
     @abc.abstractmethod
     def get_kwargs(self) -> Dict[str, Any]:
-        """Returns the kwargs to construct the remote filesystem returned by :meth:`get_object_store_class`.
+        """Returns the kwargs to construct the remote filesystem returned by :meth:`get_remote_filesystem_class`.
 
         Returns:
             Dict[str, Any]: The kwargs.
@@ -40,7 +40,7 @@ class RemoteFilesystemHparams(hp.Hparams, abc.ABC):
 
     def initialize_object(self) -> RemoteFilesystem:
         # error: Expected no arguments to "RemoteFilesystem" constructor
-        return self.get_object_store_cls()(**self.get_kwargs())  # type: ignore
+        return self.get_remote_filesystem_cls()(**self.get_kwargs())  # type: ignore
 
 
 @dataclasses.dataclass
@@ -55,16 +55,16 @@ class LibcloudRemoteFilesystemHparams(RemoteFilesystemHparams):
     * The AWS Access Key ID is stored in an environment variable named ``AWS_ACCESS_KEY_ID``.
     * The Secret Access Key is in an environmental variable named ``AWS_SECRET_ACCESS_KEY``.
 
-    .. testsetup:: composer.utils.object_store.object_store_hparams.__init__.s3
+    .. testsetup:: composer.utils.remote_filesystem.remote_filesystem_hparams.__init__.s3
 
         import os
 
         os.environ["AWS_ACCESS_KEY_ID"] = "key"
         os.environ["AWS_SECRET_ACCESS_KEY"] = "secret"
 
-    .. doctest:: composer.utils.object_store.object_store_hparams.__init__.s3
+    .. doctest:: composer.utils.remote_filesystem.remote_filesystem_hparams.__init__.s3
 
-        >>> from composer.utils.object_store.object_store_hparams import LibcloudRemoteFilesystemHparams
+        >>> from composer.utils.remote_filesystem.remote_filesystem_hparams import LibcloudRemoteFilesystemHparams
         >>> provider_hparams = LibcloudRemoteFilesystemHparams(
         ...     provider="s3",
         ...     container="MY_CONTAINER",
@@ -73,7 +73,7 @@ class LibcloudRemoteFilesystemHparams(RemoteFilesystemHparams):
         ... )
         >>> provider = provider_hparams.initialize_object()
         >>> provider
-        <composer.utils.object_store.libcloud_object_store.LibcloudRemoteFilesystem object at ...>
+        <composer.utils.remote_filesystem.libcloud_remote_filesystem.LibcloudRemoteFilesystem object at ...>
 
     Args:
         provider (str): Cloud provider to use.
@@ -88,16 +88,16 @@ class LibcloudRemoteFilesystemHparams(RemoteFilesystemHparams):
             For example, if your key is an environment variable called ``OBJECT_STORE_KEY`` that is set to ``MY_KEY``,
             then you should set this parameter equal to ``OBJECT_STORE_KEY``. Composer will read the key like this:
 
-            .. testsetup::  composer.utils.object_store.object_store_hparams.LibcloudRemoteFilesystemHparams.__init__.key
+            .. testsetup::  composer.utils.remote_filesystem.remote_filesystem_hparams.LibcloudRemoteFilesystemHparams.__init__.key
 
                 import os
                 import functools
-                from composer.utils.object_store.object_store_hparams import LibcloudRemoteFilesystemHparams
+                from composer.utils.remote_filesystem.remote_filesystem_hparams import LibcloudRemoteFilesystemHparams
 
                 os.environ["OBJECT_STORE_KEY"] = "MY_KEY"
                 LibcloudRemoteFilesystemHparams = functools.partial(LibcloudRemoteFilesystemHparams, provider="s3", container="container")
 
-            .. doctest:: composer.utils.object_store.object_store_hparams.LibcloudRemoteFilesystemHparams.__init__.key
+            .. doctest:: composer.utils.remote_filesystem.remote_filesystem_hparams.LibcloudRemoteFilesystemHparams.__init__.key
 
                 >>> import os
                 >>> params = LibcloudRemoteFilesystemHparams(key_environ="OBJECT_STORE_KEY")
@@ -112,18 +112,18 @@ class LibcloudRemoteFilesystemHparams(RemoteFilesystemHparams):
             For example, if your secret is an environment variable called ``OBJECT_STORE_SECRET`` that is set to ``MY_SECRET``,
             then you should set this parameter equal to ``OBJECT_STORE_SECRET``. Composer will read the secret like this:
 
-            .. testsetup:: composer.utils.object_store.object_store_hparams.LibcloudRemoteFilesystemHparams.__init__.secret
+            .. testsetup:: composer.utils.remote_filesystem.remote_filesystem_hparams.LibcloudRemoteFilesystemHparams.__init__.secret
 
                 import os
                 import functools
-                from composer.utils.object_store.object_store_hparams import LibcloudRemoteFilesystemHparams
+                from composer.utils.remote_filesystem.remote_filesystem_hparams import LibcloudRemoteFilesystemHparams
 
                 original_secret = os.environ.get("OBJECT_STORE_SECRET")
                 os.environ["OBJECT_STORE_SECRET"] = "MY_SECRET"
                 LibcloudRemoteFilesystemHparams = functools.partial(LibcloudRemoteFilesystemHparams, provider="s3", container="container")
 
 
-            .. doctest:: composer.utils.object_store.object_store_hparams.LibcloudRemoteFilesystemHparams.__init__.secret
+            .. doctest:: composer.utils.remote_filesystem.remote_filesystem_hparams.LibcloudRemoteFilesystemHparams.__init__.secret
 
                 >>> import os
                 >>> params = LibcloudRemoteFilesystemHparams(secret_environ="OBJECT_STORE_SECRET")
@@ -157,7 +157,7 @@ class LibcloudRemoteFilesystemHparams(RemoteFilesystemHparams):
     extra_init_kwargs: Dict[str, Any] = hp.optional(
         'Extra keyword arguments to pass into the constructor for the specified provider.', default_factory=dict)
 
-    def get_object_store_cls(self) -> Type[RemoteFilesystem]:
+    def get_remote_filesystem_cls(self) -> Type[RemoteFilesystem]:
         return LibcloudRemoteFilesystem
 
     def get_kwargs(self) -> Dict[str, Any]:
@@ -213,7 +213,7 @@ class S3RemoteFilesystemHparams(RemoteFilesystemHparams):
     client_config: Optional[Dict[Any, Any]] = hp.auto(S3RemoteFilesystem, 'client_config')
     transfer_config: Optional[Dict[Any, Any]] = hp.auto(S3RemoteFilesystem, 'transfer_config')
 
-    def get_object_store_cls(self) -> Type[RemoteFilesystem]:
+    def get_remote_filesystem_cls(self) -> Type[RemoteFilesystem]:
         return S3RemoteFilesystem
 
     def get_kwargs(self) -> Dict[str, Any]:
@@ -252,14 +252,14 @@ class SFTPRemoteFilesystemHparams(RemoteFilesystemHparams):
     cwd: str = hp.auto(SFTPRemoteFilesystem, 'cwd')
     connect_kwargs: Optional[Dict[str, Any]] = hp.auto(SFTPRemoteFilesystem, 'connect_kwargs')
 
-    def get_object_store_cls(self) -> Type[RemoteFilesystem]:
+    def get_remote_filesystem_cls(self) -> Type[RemoteFilesystem]:
         return SFTPRemoteFilesystem
 
     def get_kwargs(self) -> Dict[str, Any]:
         return dataclasses.asdict(self)
 
 
-object_store_registry: Dict[str, Type[RemoteFilesystemHparams]] = {
+remote_filesystem_registry: Dict[str, Type[RemoteFilesystemHparams]] = {
     'libcloud': LibcloudRemoteFilesystemHparams,
     's3': S3RemoteFilesystemHparams,
     'sftp': SFTPRemoteFilesystemHparams,

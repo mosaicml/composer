@@ -209,7 +209,7 @@ _original_RemoteUploaderDownloader_init = RemoteUploaderDownloader.__init__
 
 
 def _new_RemoteUploaderDownloader_init(self, fake_ellipses: None = None, **kwargs: Any):
-    os.makedirs('./object_store', exist_ok=True)
+    os.makedirs('./remote_filesystem', exist_ok=True)
     kwargs.update(use_procs=False,
                   num_concurrent_uploads=1,
                   bucket_uri='libcloud://.',
@@ -217,7 +217,7 @@ def _new_RemoteUploaderDownloader_init(self, fake_ellipses: None = None, **kwarg
                       'provider': 'local',
                       'container': '.',
                       'provider_kwargs': {
-                          'key': os.path.abspath('./object_store'),
+                          'key': os.path.abspath('./remote_filesystem'),
                       },
                   })
     _original_RemoteUploaderDownloader_init(self, **kwargs)
@@ -230,12 +230,12 @@ _original_libcloudRemoteFilesystem_init = LibcloudRemoteFilesystem.__init__
 
 
 def _new_libcloudRemoteFilesystem_init(self, fake_ellipses: None = None, **kwargs: Any):
-    os.makedirs('./object_store', exist_ok=True)
+    os.makedirs('./remote_filesystem', exist_ok=True)
     kwargs.update(
         provider='local',
         container='.',
         provider_kwargs={
-            'key': os.path.abspath('./object_store'),
+            'key': os.path.abspath('./remote_filesystem'),
         },
     )
     _original_libcloudRemoteFilesystem_init(self, **kwargs)

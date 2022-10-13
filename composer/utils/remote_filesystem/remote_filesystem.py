@@ -42,10 +42,10 @@ class RemoteFilesystemTransientError(RuntimeError):
         import time
         from composer.utils import RemoteFilesystem, RemoteFilesystemTransientError
 
-        def upload_file(object_store: RemoteFilesystem, max_num_attempts: int = 3):
+        def upload_file(remote_filesystem: RemoteFilesystem, max_num_attempts: int = 3):
             for i in range(max_num_attempts):
                 try:
-                    object_store.upload_object(...)
+                    remote_filesystem.upload_object(...)
                 except RemoteFilesystemTransientError:
                     if i + 1 == max_num_attempts:
                         raise

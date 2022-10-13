@@ -11,7 +11,7 @@ import pytest_httpserver
 from composer.core.time import Time, Timestamp, TimeUnit
 from composer.utils.file_helpers import (ensure_folder_has_no_conflicting_files, ensure_folder_is_empty,
                                          format_name_with_dist, format_name_with_dist_and_time, get_file, is_tar)
-from composer.utils.object_store.libcloud_object_store import LibcloudRemoteFilesystem
+from composer.utils.remote_filesystem.libcloud_remote_filesystem import LibcloudRemoteFilesystem
 from tests.common.markers import world_size
 
 
@@ -20,7 +20,7 @@ def test_get_file_uri(tmp_path: pathlib.Path, httpserver: pytest_httpserver.HTTP
     httpserver.expect_request('/hi').respond_with_data('hi')
     get_file(
         path=httpserver.url_for('/hi'),
-        object_store=None,
+        remote_filesystem=None,
         destination=str(tmp_path / 'example'),
     )
     with open(str(tmp_path / 'example'), 'r') as f:
@@ -32,12 +32,12 @@ def test_get_file_uri_not_found(tmp_path: pathlib.Path, httpserver: pytest_https
     with pytest.raises(FileNotFoundError):
         get_file(
             path=httpserver.url_for('/not_found_url'),
-            object_store=None,
+            remote_filesystem=None,
             destination=str(tmp_path / 'example'),
         )
 
 
-def test_get_file_object_store(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
+def test_get_file_remote_filesystem(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
     pytest.importorskip('libcloud')
 
     remote_dir = tmp_path / 'remote_dir'
@@ -53,14 +53,14 @@ def test_get_file_object_store(tmp_path: pathlib.Path, monkeypatch: pytest.Monke
         f.write(b'checkpoint1')
     get_file(
         path='checkpoint.txt',
-        object_store=provider,
+        remote_filesystem=provider,
         destination=str(tmp_path / 'example'),
     )
     with open(str(tmp_path / 'example'), 'rb') as f:
         assert f.read() == b'checkpoint1'
 
 
-def test_get_file_object_store_with_symlink(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
+def test_get_file_remote_filesystem_with_symlink(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
     pytest.importorskip('libcloud')
 
     remote_dir = tmp_path / 'remote_dir'
@@ -80,7 +80,7 @@ def test_get_file_object_store_with_symlink(tmp_path: pathlib.Path, monkeypatch:
     # Fetch object, should automatically follow symlink
     get_file(
         path='latest.symlink',
-        object_store=provider,
+        remote_filesystem=provider,
         destination=str(tmp_path / 'example'),
     )
     with open(str(tmp_path / 'example'), 'rb') as f:
@@ -88,7 +88,7 @@ def test_get_file_object_store_with_symlink(tmp_path: pathlib.Path, monkeypatch:
     # Fetch object without specifying .symlink, should automatically follow
     get_file(
         path='latest',
-        object_store=provider,
+        remote_filesystem=provider,
         destination=str(tmp_path / 'example'),
         overwrite=True,
     )
@@ -96,7 +96,7 @@ def test_get_file_object_store_with_symlink(tmp_path: pathlib.Path, monkeypatch:
         assert f.read() == b'checkpoint1'
 
 
-def test_get_file_object_store_not_found(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
+def test_get_file_remote_filesystem_not_found(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
     pytest.importorskip('libcloud')
 
     remote_dir = tmp_path / 'remote_dir'
@@ -110,7 +110,7 @@ def test_get_file_object_store_not_found(tmp_path: pathlib.Path, monkeypatch: py
     with pytest.raises(FileNotFoundError):
         get_file(
             path='checkpoint.txt',
-            object_store=provider,
+            remote_filesystem=provider,
             destination=str(tmp_path / 'example'),
         )
 
@@ -122,7 +122,7 @@ def test_get_file_local_path(tmp_path: pathlib.Path):
 
     get_file(
         path=tmpfile_name,
-        object_store=None,
+        remote_filesystem=None,
         destination=str(tmp_path / 'example'),
     )
     with open(str(tmp_path / 'example'), 'r') as f:
@@ -133,7 +133,7 @@ def test_get_file_local_path_not_found():
     with pytest.raises(FileNotFoundError):
         get_file(
             path='/path/does/not/exist',
-            object_store=None,
+            remote_filesystem=None,
             destination='destination',
         )
 

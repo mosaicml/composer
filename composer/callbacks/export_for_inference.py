@@ -15,7 +15,7 @@ from composer.core import State
 from composer.core.callback import Callback
 from composer.loggers import Logger
 from composer.utils.inference import ExportFormat, Transform, export_with_logger
-from composer.utils.object_store import RemoteFilesystem
+from composer.utils.remote_filesystem import RemoteFilesystem
 
 log = logging.getLogger(__name__)
 
@@ -43,9 +43,9 @@ class ExportForInferenceCallback(Callback):
     Args:
         save_format (Union[str, ExportFormat]):  Format to export to. Either ``"torchscript"`` or ``"onnx"``.
         save_path (str): The path for storing the exported model. It can be a path to a file on the local disk,
-            a URL, or if ``save_object_store`` is set, the object name
+            a URL, or if ``save_remote_filesystem`` is set, the object name
             in a cloud bucket. For example, ``my_run/exported_model``.
-        save_object_store (RemoteFilesystem, optional): If the ``save_path`` is in an object name in a cloud bucket
+        save_remote_filesystem (RemoteFilesystem, optional): If the ``save_path`` is in an object name in a cloud bucket
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.RemoteFilesystem` which will be used
             to store the exported model. If this is set to ``None``,  will save to ``save_path`` using the logger.
@@ -59,13 +59,13 @@ class ExportForInferenceCallback(Callback):
         self,
         save_format: Union[str, ExportFormat],
         save_path: str,
-        save_object_store: Optional[RemoteFilesystem] = None,
+        save_remote_filesystem: Optional[RemoteFilesystem] = None,
         sample_input: Optional[Any] = None,
         transforms: Optional[Sequence[Transform]] = None,
     ):
         self.save_format = save_format
         self.save_path = save_path
-        self.save_object_store = save_object_store
+        self.save_remote_filesystem = save_remote_filesystem
         self.sample_input = sample_input
         self.transforms = transforms
 
@@ -85,6 +85,6 @@ class ExportForInferenceCallback(Callback):
                            save_format=self.save_format,
                            save_path=self.save_path,
                            logger=logger,
-                           save_object_store=self.save_object_store,
+                           save_remote_filesystem=self.save_remote_filesystem,
                            sample_input=(self.sample_input, {}),
                            transforms=self.transforms)

@@ -18,7 +18,7 @@ import tqdm
 from composer.core.time import Timestamp
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
-from composer.utils.object_store import RemoteFilesystem
+from composer.utils.remote_filesystem import RemoteFilesystem
 
 if TYPE_CHECKING:
     from composer.loggers import LoggerDestination
@@ -306,7 +306,7 @@ Args:
 def get_file(
     path: str,
     destination: str,
-    object_store: Optional[Union[RemoteFilesystem, LoggerDestination]] = None,
+    remote_filesystem: Optional[Union[RemoteFilesystem, LoggerDestination]] = None,
     overwrite: bool = False,
     progress_bar: bool = True,
 ):
@@ -315,10 +315,10 @@ def get_file(
     Args:
         path (str): The path to the file to retrieve.
 
-            *   If ``object_store`` is specified, then the ``path`` should be the object name for the file to get.
+            *   If ``remote_filesystem`` is specified, then the ``path`` should be the object name for the file to get.
                 Do not include the the cloud provider or bucket name.
 
-            *   If ``object_store`` is not specified but the ``path`` begins with ``http://`` or ``https://``,
+            *   If ``remote_filesystem`` is not specified but the ``path`` begins with ``http://`` or ``https://``,
                 the object at this URL will be downloaded.
 
             *   Otherwise, ``path`` is presumed to be a local filepath.
@@ -328,7 +328,7 @@ def get_file(
             If ``path`` is a local filepath, then a symlink to ``path`` at ``destination`` will be created.
             Otherwise, ``path`` will be downloaded to a file at ``destination``.
 
-        object_store (RemoteFilesystem, optional): An :class:`~.RemoteFilesystem`, if ``path`` is located inside
+        remote_filesystem (RemoteFilesystem, optional): An :class:`~.RemoteFilesystem`, if ``path`` is located inside
             a remote filesystem (i.e. AWS S3 or Google Cloud Storage). (default: ``None``)
 
             This :class:`~.RemoteFilesystem` instance will be used to retrieve the file. The ``path`` parameter
@@ -351,7 +351,7 @@ def get_file(
             _get_file(
                 path=path,
                 destination=symlink_file_name,
-                object_store=object_store,
+                remote_filesystem=remote_filesystem,
                 overwrite=False,
                 progress_bar=progress_bar,
             )
@@ -363,7 +363,7 @@ def get_file(
         return get_file(
             path=real_path,
             destination=destination,
-            object_store=object_store,
+            remote_filesystem=remote_filesystem,
             overwrite=overwrite,
             progress_bar=progress_bar,
         )
@@ -372,7 +372,7 @@ def get_file(
         _get_file(
             path=path,
             destination=destination,
-            object_store=object_store,
+            remote_filesystem=remote_filesystem,
             overwrite=overwrite,
             progress_bar=progress_bar,
         )
@@ -383,7 +383,7 @@ def get_file(
             return get_file(
                 path=new_path,
                 destination=destination,
-                object_store=object_store,
+                remote_filesystem=remote_filesystem,
                 overwrite=overwrite,
                 progress_bar=progress_bar,
             )
@@ -395,15 +395,15 @@ def get_file(
 def _get_file(
     path: str,
     destination: str,
-    object_store: Optional[Union[RemoteFilesystem, LoggerDestination]],
+    remote_filesystem: Optional[Union[RemoteFilesystem, LoggerDestination]],
     overwrite: bool,
     progress_bar: bool,
 ):
     # Underlying _get_file logic that does not deal with symlinks
-    if object_store is not None:
-        if isinstance(object_store, RemoteFilesystem):
-            total_size_in_bytes = object_store.get_object_size(path)
-            object_store.download_object(
+    if remote_filesystem is not None:
+        if isinstance(remote_filesystem, RemoteFilesystem):
+            total_size_in_bytes = remote_filesystem.get_object_size(path)
+            remote_filesystem.download_object(
                 object_name=path,
                 filename=destination,
                 callback=_get_callback(f'Downloading {path}') if progress_bar else None,
@@ -411,7 +411,7 @@ def _get_file(
             )
         else:
             # Type LoggerDestination
-            object_store.download_file(
+            remote_filesystem.download_file(
                 remote_file_name=path,
                 destination=destination,
                 progress_bar=progress_bar,

@@ -13,11 +13,11 @@ from typing import Optional
 
 from composer.datasets.streaming.format import split_compression_suffix
 from composer.utils import get_file
-from composer.utils.object_store.object_store import RemoteFilesystem
-from composer.utils.object_store.s3_object_store import S3RemoteFilesystem
-from composer.utils.object_store.sftp_object_store import SFTPRemoteFilesystem
+from composer.utils.remote_filesystem.remote_filesystem import RemoteFilesystem
+from composer.utils.remote_filesystem.s3_remote_filesystem import S3RemoteFilesystem
+from composer.utils.remote_filesystem.sftp_remote_filesystem import SFTPRemoteFilesystem
 
-__all__ = ['download_or_wait', 'get_object_store']
+__all__ = ['download_or_wait', 'get_remote_filesystem']
 
 
 def download_from_http(remote: str, local: str) -> None:
@@ -25,7 +25,7 @@ def download_from_http(remote: str, local: str) -> None:
     get_file(path=remote, destination=local, overwrite=True)
 
 
-def get_object_store(remote: str) -> RemoteFilesystem:
+def get_remote_filesystem(remote: str) -> RemoteFilesystem:
     """Use the correct download handler to download the file
 
     Args:
@@ -33,33 +33,33 @@ def get_object_store(remote: str) -> RemoteFilesystem:
         timeout (float): How long to wait for file to download before raising an exception.
     """
     if remote.startswith('s3://'):
-        return _get_s3_object_store(remote)
+        return _get_s3_remote_filesystem(remote)
     elif remote.startswith('sftp://'):
-        return _get_sftp_object_store(remote)
+        return _get_sftp_remote_filesystem(remote)
     else:
         raise ValueError('unsupported download scheme')
 
 
-def _get_s3_object_store(remote: str) -> S3RemoteFilesystem:
+def _get_s3_remote_filesystem(remote: str) -> S3RemoteFilesystem:
     obj = urllib.parse.urlparse(remote)
     if obj.scheme != 's3':
         raise ValueError(f"Expected obj.scheme to be 's3', got {obj.scheme} for remote={remote}")
     bucket = obj.netloc
-    object_store = S3RemoteFilesystem(bucket=bucket)
-    return object_store
+    remote_filesystem = S3RemoteFilesystem(bucket=bucket)
+    return remote_filesystem
 
 
-def _get_sftp_object_store(remote: str) -> SFTPRemoteFilesystem:
+def _get_sftp_remote_filesystem(remote: str) -> SFTPRemoteFilesystem:
     # Get SSH key file if specified
     key_filename = os.environ.get('COMPOSER_SFTP_KEY_FILE', None)
     known_hosts_filename = os.environ.get('COMPOSER_SFTP_KNOWN_HOSTS_FILE', None)
 
-    object_store = SFTPRemoteFilesystem(
+    remote_filesystem = SFTPRemoteFilesystem(
         host=remote,
         known_hosts_filename=known_hosts_filename,
         key_filename=key_filename,
     )
-    return object_store
+    return remote_filesystem
 
 
 def download_from_local(remote: str, local: str) -> None:
@@ -97,8 +97,8 @@ def dispatch_download(remote: Optional[str], local: str):
     elif remote.startswith('s3://') or remote.startswith('sftp://'):
         url = urllib.parse.urlsplit(remote)
         remote_path = url.path.strip('/')
-        object_store = get_object_store(remote)
-        object_store.download_object(remote_path, local)
+        remote_filesystem = get_remote_filesystem(remote)
+        remote_filesystem.download_object(remote_path, local)
     elif remote.startswith('http://'):
         download_from_http(remote, local)
     else:

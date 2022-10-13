@@ -39,7 +39,8 @@ from composer.trainer.devices.device_hparams_registry import device_registry
 from composer.trainer.dist_strategy import DDPSyncStrategy
 from composer.trainer.trainer import Trainer, _is_tpu_installed
 from composer.utils import dist, reproducibility
-from composer.utils.object_store.object_store_hparams import RemoteFilesystemHparams, object_store_registry
+from composer.utils.remote_filesystem.remote_filesystem_hparams import (RemoteFilesystemHparams,
+                                                                        remote_filesystem_registry)
 
 if TYPE_CHECKING:
     from typing import TypedDict
@@ -231,11 +232,11 @@ class TrainerHparams(hp.Hparams):
             .. seealso:: The :mod:`logging` module in Python.
 
         load_path (str, optional): See :class:`.Trainer`.
-        load_object_store (RemoteFilesystemHparams, optional): See :class:`.Trainer`. Both ``load_logger_destination`` and
-            ``load_object_store`` should not be provided since there can only be one location to load from.
+        load_remote_filesystem (RemoteFilesystemHparams, optional): See :class:`.Trainer`. Both ``load_logger_destination`` and
+            ``load_remote_filesystem`` should not be provided since there can only be one location to load from.
         load_logger_destination (LoggerDestination, optional): Used to specify a ``LoggerDestination`` for
-            ``load_object_store`` in :class:`.Trainer` as Hparams doesn't support a Union type for those objects. Both
-            ``load_logger_destination`` and ``load_object_store`` should not be provided since there can only be one location
+            ``load_remote_filesystem`` in :class:`.Trainer` as Hparams doesn't support a Union type for those objects. Both
+            ``load_logger_destination`` and ``load_remote_filesystem`` should not be provided since there can only be one location
             to load from.
         load_weights_only (bool, optional): See :class:`.Trainer`.
         load_strict_model_weights (bool, optional): See :class:`.Trainer`.
@@ -286,7 +287,7 @@ class TrainerHparams(hp.Hparams):
         'val_dataset': dataset_registry,
         'callbacks': callback_registry,
         'device': device_registry,
-        'load_object_store': object_store_registry,
+        'load_remote_filesystem': remote_filesystem_registry,
     }
 
     model: ModelHparams = hp.auto(Trainer, 'model')
@@ -336,16 +337,16 @@ class TrainerHparams(hp.Hparams):
 
     # Load Checkpoint
     load_path: Optional[str] = hp.auto(Trainer, 'load_path')
-    load_object_store: Optional[RemoteFilesystemHparams] = hp.optional(
+    load_remote_filesystem: Optional[RemoteFilesystemHparams] = hp.optional(
         doc=(('If the checkpoint is in a remote filesystem (i.e. AWS S3 or Google Cloud Storage), the parameters for '
               'connecting to the cloud provider remote filesystem. Otherwise, if the checkpoint is a local filepath, '
               'leave blank. This parameter has no effect if `load_path` is not specified.')),
         default=None)
-    load_logger_destination: Optional[LoggerDestination] = hp.optional(
-        ('Alternative argument to `load_object_store` to support loading from a logger destination. This parameter '
-         'has no effect if `load_path` is not specified or `load_object_store` is specified, which will be '
-         'used instead of this.'),
-        default=None)
+    load_logger_destination: Optional[LoggerDestination] = hp.optional((
+        'Alternative argument to `load_remote_filesystem` to support loading from a logger destination. This parameter '
+        'has no effect if `load_path` is not specified or `load_remote_filesystem` is specified, which will be '
+        'used instead of this.'),
+                                                                       default=None)
     load_weights_only: bool = hp.auto(Trainer, 'load_weights_only')
     load_strict_model_weights: bool = hp.auto(Trainer, 'load_strict_model_weights')
     load_ignore_keys: Optional[List[str]] = hp.auto(Trainer, 'load_ignore_keys')
@@ -502,15 +503,15 @@ class TrainerHparams(hp.Hparams):
         # Optimizers
         optimizers = self.optimizers.initialize_object(model.parameters()) if self.optimizers is not None else None
 
-        load_object_store = None
-        if self.load_object_store is not None and self.load_logger_destination is not None:
+        load_remote_filesystem = None
+        if self.load_remote_filesystem is not None and self.load_logger_destination is not None:
             raise ValueError(
-                'load_object_store and load_logger_destination cannot both be non-None. Please provide only one location to load from.'
+                'load_remote_filesystem and load_logger_destination cannot both be non-None. Please provide only one location to load from.'
             )
-        elif self.load_object_store is not None:
-            load_object_store = self.load_object_store.initialize_object()
+        elif self.load_remote_filesystem is not None:
+            load_remote_filesystem = self.load_remote_filesystem.initialize_object()
         elif self.load_logger_destination is not None:
-            load_object_store = self.load_logger_destination
+            load_remote_filesystem = self.load_logger_destination
 
         trainer = Trainer(
             # Model
@@ -550,7 +551,7 @@ class TrainerHparams(hp.Hparams):
 
             # Checkpoint Loading
             load_path=self.load_path,
-            load_object_store=load_object_store,
+            load_remote_filesystem=load_remote_filesystem,
             load_weights_only=self.load_weights_only,
             load_strict_model_weights=self.load_strict_model_weights,
             load_progress_bar=self.load_progress_bar,

@@ -164,7 +164,7 @@ def merge_hparams(hparams: TrainerHparams, override_hparams: GLUETrainerHparams)
     hparams.algorithms = override_hparams.algorithms if override_hparams.algorithms else hparams.algorithms
     hparams.load_ignore_keys = override_hparams.load_ignore_keys if override_hparams.load_ignore_keys else hparams.load_ignore_keys
     hparams.load_path = override_hparams.load_path if override_hparams.load_path else hparams.load_path
-    hparams.load_object_store = override_hparams.load_object_store if override_hparams.load_object_store else hparams.load_object_store
+    hparams.load_remote_filesystem = override_hparams.load_remote_filesystem if override_hparams.load_remote_filesystem else hparams.load_remote_filesystem
     hparams.load_logger_destination = override_hparams.load_logger_destination if override_hparams.load_logger_destination else hparams.load_logger_destination
     hparams.loggers = override_hparams.loggers if override_hparams.loggers else hparams.loggers
     hparams.model = override_hparams.model if override_hparams.model else hparams.model
@@ -304,7 +304,7 @@ def train_finetune(
                 logger._init_kwargs['tags'].append(task)
 
     if load_locally:
-        ft_hparams.load_object_store = None
+        ft_hparams.load_remote_filesystem = None
 
     # saving single checkpoint at the end of training the task
     if save_ckpt:
@@ -413,7 +413,7 @@ def get_finetune_hparams() -> Tuple[GLUETrainerHparams, str, bool, bool]:
             hparams = hp.finetune_hparams
             if hparams.finetune_ckpts:
                 load_locally = False
-            if hparams.load_object_store:
+            if hparams.load_remote_filesystem:
                 load_locally = False
             if hparams.loggers:
                 for l in hparams.loggers:

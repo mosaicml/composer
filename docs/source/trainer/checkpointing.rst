@@ -372,7 +372,7 @@ Loading from Object Store
 -------------------------
 
 Checkpoints saved to a remote filesystem can also be loaded in the same way as files saved on disk. Provide the
-:class:`.LibcloudRemoteFilesystem` to the trainer's ``load_object_store`` argument.  The ``load_path`` argument
+:class:`.LibcloudRemoteFilesystem` to the trainer's ``load_remote_filesystem`` argument.  The ``load_path`` argument
 should be the path to the checkpoint file *within the container/bucket*.
 
 .. testcode::
@@ -381,7 +381,7 @@ should be the path to the checkpoint file *within the container/bucket*.
     from composer.utils import LibcloudRemoteFilesystem
     from composer.trainer import Trainer
 
-    object_store = LibcloudRemoteFilesystem(
+    remote_filesystem = LibcloudRemoteFilesystem(
         provider="s3",  # The Apache Libcloud provider name
         container="checkpoint-debugging",  # The name of the cloud container (i.e. bucket) to use.
         provider_kwargs={  # The Apache Libcloud provider driver initialization arguments
@@ -396,7 +396,7 @@ should be the path to the checkpoint file *within the container/bucket*.
         train_dataloader=train_dataloader,
         max_duration="10ep",
         load_path="checkpoints/ep1.pt",
-        load_object_store=object_store,
+        load_remote_filesystem=remote_filesystem,
     )
 
     new_trainer.fit()

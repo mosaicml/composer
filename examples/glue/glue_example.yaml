@@ -78,8 +78,8 @@ pretrain_hparams:
   save_overwrite: True
 
   loggers:
-    object_store:
-      object_store_hparams:
+    remote_filesystem:
+      remote_filesystem_hparams:
         &bucket # The bucket to save checkpoints to, aliased as 'bucket' for future reference in this file
         s3:
           bucket: your-bucket-here #TODO
@@ -90,10 +90,10 @@ pretrain_hparams:
 finetune_hparams:
   # defaults
   loggers:
-    object_store:
-      object_store_hparams: *bucket # Refers to previously defined alias of 'bucket'
+    remote_filesystem:
+      remote_filesystem_hparams: *bucket # Refers to previously defined alias of 'bucket'
     wandb:
       tags:
         - finetune
-  load_object_store: *bucket
+  load_remote_filesystem: *bucket
   save_folder: *folder # Refers to previously defined alias of 'folder'

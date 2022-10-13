@@ -79,7 +79,7 @@ trainer = Trainer(
     eval_subset_num_batches=5,  # For this example, limit evaluation to 5 batches
 
     # Checkpoint Loading Configuration
-    load_object_store=wandb_logger,
+    load_remote_filesystem=wandb_logger,
     load_path='epoch1.pt:latest',  # Load the checkpoint -- WandB requires that the load_path include the "latest" tag
 
     #  (Optional) Checkpoint Saving Configuration to continue to save new checkpoints

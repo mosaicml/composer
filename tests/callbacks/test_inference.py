@@ -46,7 +46,7 @@ def test_inference_callback_torchscript(model_cls):
                 save_format=save_format,
                 save_path=save_path,
                 logger=trainer.logger,
-                save_object_store=None,
+                save_remote_filesystem=None,
                 sample_input=(exp_for_inf_callback.sample_input, {}),
                 transforms=None)
 
@@ -77,6 +77,6 @@ def test_inference_callback_onnx(model_cls):
                 save_format=save_format,
                 save_path=save_path,
                 logger=trainer.logger,
-                save_object_store=None,
+                save_remote_filesystem=None,
                 sample_input=(exp_for_inf_callback.sample_input, {}),
                 transforms=None)

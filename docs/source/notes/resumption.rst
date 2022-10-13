@@ -81,7 +81,7 @@ A typical use case is saving checkpoints to a remote filesystem (e.g. S3) when t
     :skipif: not _LIBCLOUD_INSTALLED
 
     from composer.loggers import RemoteUploaderDownloader
-    from composer.utils.object_store import S3RemoteFilesystem
+    from composer.utils.remote_filesystem import S3RemoteFilesystem
 
     # this assumes credentials are already configured via boto3
     remote_uploader_downloader = RemoteUploaderDownloader(
@@ -112,7 +112,7 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
     :skipif: not _LIBCLOUD_INSTALLED
 
     from composer.loggers import RemoteUploaderDownloader
-    from composer.utils.object_store import S3RemoteFilesystem
+    from composer.utils.remote_filesystem import S3RemoteFilesystem
 
     remote_uploader_downloader = RemoteUploaderDownloader(
         bucket_uri=f"s3://checkpoint-debugging_2",
@@ -149,4 +149,4 @@ In the original run, ``load_path`` would be used to get the starting checkpoint.
 
 .. note::
 
-    The pretrained weights can also be loaded from a remote filesystem with the trainer's ``load_object_store`` argument. In that way, our trainer is fully independent of any local storage!
+    The pretrained weights can also be loaded from a remote filesystem with the trainer's ``load_remote_filesystem`` argument. In that way, our trainer is fully independent of any local storage!

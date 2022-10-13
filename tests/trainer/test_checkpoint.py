@@ -174,7 +174,7 @@ class TestCheckpointLoading:
 
     def get_logger(self, tmp_path: pathlib.Path):
         """Returns a RemoteUploaderDownloader that saves locally."""
-        remote_dir = str(tmp_path / 'object_store')
+        remote_dir = str(tmp_path / 'remote_filesystem')
         os.makedirs(remote_dir, exist_ok=True)
 
         return RemoteUploaderDownloader(
@@ -230,7 +230,7 @@ class TestCheckpointLoading:
 
         return cb1.random_value == cb2.random_value
 
-    def test_load_weights_object_store(self, tmp_path):
+    def test_load_weights_remote_filesystem(self, tmp_path):
 
         pytest.importorskip('libcloud')
 
@@ -246,7 +246,7 @@ class TestCheckpointLoading:
             loggers=[self.get_logger(tmp_path)],
             run_name='electric-zebra',
             load_path='electric-zebra/checkpoints/latest-rank0',
-            load_object_store=self.get_logger(tmp_path),
+            load_remote_filesystem=self.get_logger(tmp_path),
         )
 
         # check weights loaded properly
@@ -256,26 +256,26 @@ class TestCheckpointLoading:
         )
 
     @device('cpu', 'gpu')
-    @pytest.mark.parametrize('use_object_store', [True, False])
+    @pytest.mark.parametrize('use_remote_filesystem', [True, False])
     @pytest.mark.parametrize('delete_local', [True, False])
     def test_autoresume(
         self,
         device: str,
         tmp_path: pathlib.Path,
-        use_object_store: bool,
+        use_remote_filesystem: bool,
         delete_local: bool,
     ):
-        if delete_local and not use_object_store:
+        if delete_local and not use_remote_filesystem:
             pytest.skip('Invalid test setting.')
 
-        if use_object_store:
+        if use_remote_filesystem:
             pytest.importorskip('libcloud')
 
         trainer_1 = self.get_trainer(
             save_folder='first',
             device=device,
             run_name='big-chungus',
-            loggers=[self.get_logger(tmp_path)] if use_object_store else [],
+            loggers=[self.get_logger(tmp_path)] if use_remote_filesystem else [],
         )
 
         # trains the model, saving the checkpoint files
@@ -292,7 +292,7 @@ class TestCheckpointLoading:
             run_name='big-chungus',
             autoresume=True,
             load_path='ignore_me.pt',  # this should be ignored
-            loggers=[self.get_logger(tmp_path)] if use_object_store else [],
+            loggers=[self.get_logger(tmp_path)] if use_remote_filesystem else [],
         )
 
         self._assert_weights_equivalent(

@@ -12,12 +12,12 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-import composer.utils.object_store
-import composer.utils.object_store.object_store_hparams
-import composer.utils.object_store.sftp_object_store
-from composer.utils.object_store import (LibcloudRemoteFilesystem, RemoteFilesystem, S3RemoteFilesystem,
-                                         SFTPRemoteFilesystem)
-from composer.utils.object_store.sftp_object_store import SFTPRemoteFilesystem
+import composer.utils.remote_filesystem
+import composer.utils.remote_filesystem.remote_filesystem_hparams
+import composer.utils.remote_filesystem.sftp_remote_filesystem
+from composer.utils.remote_filesystem import (LibcloudRemoteFilesystem, RemoteFilesystem, S3RemoteFilesystem,
+                                              SFTPRemoteFilesystem)
+from composer.utils.remote_filesystem.sftp_remote_filesystem import SFTPRemoteFilesystem
 from tests.common import get_module_subclasses
 
 try:
@@ -41,7 +41,7 @@ try:
 except ImportError:
     _SFTP_AVAILABLE = False
 
-_object_store_marks = {
+_remote_filesystem_marks = {
     LibcloudRemoteFilesystem: [pytest.mark.skipif(not _LIBCLOUD_AVAILABLE, reason='Missing dependency')],
     S3RemoteFilesystem: [
         pytest.mark.skipif(not _BOTO3_AVAILABLE, reason='Missing dependency'),
@@ -54,19 +54,19 @@ _object_store_marks = {
     ],
 }
 
-object_stores = [
-    pytest.param(x, marks=_object_store_marks[x], id=x.__name__)
-    for x in get_module_subclasses(composer.utils.object_store, RemoteFilesystem)
+remote_filesystems = [
+    pytest.param(x, marks=_remote_filesystem_marks[x], id=x.__name__)
+    for x in get_module_subclasses(composer.utils.remote_filesystem, RemoteFilesystem)
 ]
 
 
 @contextlib.contextmanager
-def get_object_store_ctx(object_store_cls: Type[RemoteFilesystem],
-                         object_store_kwargs: Dict[str, Any],
-                         monkeypatch: pytest.MonkeyPatch,
-                         tmp_path: pathlib.Path,
-                         remote: bool = False):
-    if object_store_cls is S3RemoteFilesystem:
+def get_remote_filesystem_ctx(remote_filesystem_cls: Type[RemoteFilesystem],
+                              remote_filesystem_kwargs: Dict[str, Any],
+                              monkeypatch: pytest.MonkeyPatch,
+                              tmp_path: pathlib.Path,
+                              remote: bool = False):
+    if remote_filesystem_cls is S3RemoteFilesystem:
         pytest.importorskip('boto3')
         import boto3
         if remote:
@@ -80,21 +80,21 @@ def get_object_store_ctx(object_store_cls: Type[RemoteFilesystem],
             with moto.mock_s3():
                 # create the dummy bucket
                 s3 = boto3.client('s3')
-                s3.create_bucket(Bucket=object_store_kwargs['bucket'])
+                s3.create_bucket(Bucket=remote_filesystem_kwargs['bucket'])
                 yield
-    elif object_store_cls is LibcloudRemoteFilesystem:
+    elif remote_filesystem_cls is LibcloudRemoteFilesystem:
         pytest.importorskip('libcloud')
         if remote:
             pytest.skip('Libcloud remote filesystem has no remote tests.')
-        monkeypatch.setenv(object_store_kwargs['key_environ'], '.')
+        monkeypatch.setenv(remote_filesystem_kwargs['key_environ'], '.')
 
         remote_dir = tmp_path / 'remote_dir'
         os.makedirs(remote_dir)
-        if 'provider_kwargs' not in object_store_kwargs:
-            object_store_kwargs['provider_kwargs'] = {}
-        object_store_kwargs['provider_kwargs']['key'] = remote_dir
+        if 'provider_kwargs' not in remote_filesystem_kwargs:
+            remote_filesystem_kwargs['provider_kwargs'] = {}
+        remote_filesystem_kwargs['provider_kwargs']['key'] = remote_dir
         yield
-    elif object_store_cls is SFTPRemoteFilesystem:
+    elif remote_filesystem_cls is SFTPRemoteFilesystem:
         pytest.importorskip('paramiko')
         if remote:
             yield
@@ -104,7 +104,7 @@ def get_object_store_ctx(object_store_cls: Type[RemoteFilesystem],
                                             format=serialization.PrivateFormat.TraditionalOpenSSL,
                                             encryption_algorithm=serialization.NoEncryption())
             private_key_path = tmp_path / 'test_rsa_key'
-            username = object_store_kwargs['username']
+            username = remote_filesystem_kwargs['username']
             with open(private_key_path, 'wb') as private_key_file:
                 private_key_file.write(pem)
             with mockssh.Server(users={
@@ -112,7 +112,8 @@ def get_object_store_ctx(object_store_cls: Type[RemoteFilesystem],
             }) as server:
                 client = server.client(username)
                 monkeypatch.setattr(client, 'connect', lambda *args, **kwargs: None)
-                monkeypatch.setattr(composer.utils.object_store.sftp_object_store, 'SSHClient', lambda: client)
+                monkeypatch.setattr(composer.utils.remote_filesystem.sftp_remote_filesystem, 'SSHClient',
+                                    lambda: client)
                 yield
 
     else:

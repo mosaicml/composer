@@ -22,7 +22,7 @@ from composer.utils import dist
 from composer.utils.checkpoint import download_checkpoint
 from composer.utils.iter_helpers import ensure_tuple
 from composer.utils.misc import is_model_ddp, is_model_deepspeed, model_eval_mode
-from composer.utils.object_store import RemoteFilesystem
+from composer.utils.remote_filesystem import RemoteFilesystem
 from composer.utils.string_enum import StringEnum
 
 if TYPE_CHECKING:
@@ -61,13 +61,13 @@ def export_for_inference(
     model: nn.Module,
     save_format: Union[str, ExportFormat],
     save_path: str,
-    save_object_store: Optional[RemoteFilesystem] = None,
+    save_remote_filesystem: Optional[RemoteFilesystem] = None,
     sample_input: Optional[Any] = None,
     dynamic_axes: Optional[Any] = None,
     surgery_algs: Optional[Union[Callable[[nn.Module], nn.Module], Sequence[Callable[[nn.Module], nn.Module]]]] = None,
     transforms: Optional[Sequence[Transform]] = None,
     load_path: Optional[str] = None,
-    load_object_store: Optional[RemoteFilesystem] = None,
+    load_remote_filesystem: Optional[RemoteFilesystem] = None,
     load_strict: bool = False,
 ) -> None:
     """Export a model for inference.
@@ -77,9 +77,9 @@ def export_for_inference(
             Instead, export-related transformations are applied to a  copy of the model.
         save_format (Union[str, ExportFormat]):  Format to export to. Either ``"torchscript"`` or ``"onnx"``.
         save_path: (str): The path for storing the exported model. It can be a path to a file on the local disk,
-        a URL, or if ``save_object_store`` is set, the object name
+        a URL, or if ``save_remote_filesystem`` is set, the object name
             in a cloud bucket. For example, ``my_run/exported_model``.
-        save_object_store (RemoteFilesystem, optional): If the ``save_path`` is in an object name in a cloud bucket
+        save_remote_filesystem (RemoteFilesystem, optional): If the ``save_path`` is in an object name in a cloud bucket
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.RemoteFilesystem` which will be used
             to store the exported model. Set this to ``None`` if ``save_path`` is a local filepath.
@@ -96,9 +96,9 @@ def export_for_inference(
             be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
             ``transforms`` are applied after ``surgery_algs``. (default: ``None``)
         load_path (str): The path to an existing checkpoint file.
-            It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
+            It can be a path to a file on the local disk, a URL, or if ``load_remote_filesystem`` is set, the object name
             for a checkpoint in a cloud bucket. For example, run_name/checkpoints/ep0-ba4-rank0. (default: ``None``)
-        load_object_store (RemoteFilesystem, optional): If the ``load_path`` is in an object name  in a cloud bucket
+        load_remote_filesystem (RemoteFilesystem, optional): If the ``load_path`` is in an object name  in a cloud bucket
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.RemoteFilesystem` which will be used to retreive the checkpoint.
             Otherwise, if the checkpoint is a local filepath, set to ``None``. (default: ``None``)
@@ -150,7 +150,7 @@ def export_for_inference(
         with tempfile.TemporaryDirectory() as tempdir:
             composer_states_filepath, _, _ = download_checkpoint(path=load_path,
                                                                  node_checkpoint_folder=tempdir,
-                                                                 object_store=load_object_store,
+                                                                 remote_filesystem=load_remote_filesystem,
                                                                  progress_bar=True)
             state_dict = torch.load(composer_states_filepath, map_location='cpu')
             missing_keys, unexpected_keys = model.load_state_dict(state_dict['state']['model'], strict=load_strict)
@@ -164,7 +164,7 @@ def export_for_inference(
         for transform in ensure_tuple(transforms):
             model = transform(model)
 
-        is_remote_store = save_object_store is not None
+        is_remote_store = save_remote_filesystem is not None
         tempdir_ctx = tempfile.TemporaryDirectory() if is_remote_store else contextlib.nullcontext(None)
         with tempdir_ctx as tempdir:
             if is_remote_store:
@@ -218,7 +218,7 @@ def export_for_inference(
 
             # upload if required.
             if is_remote_store:
-                save_object_store.upload_object(save_path, local_save_path)
+                save_remote_filesystem.upload_object(save_path, local_save_path)
 
 
 def export_with_logger(
@@ -226,14 +226,14 @@ def export_with_logger(
     save_format: Union[str, ExportFormat],
     save_path: str,
     logger: Logger,
-    save_object_store: Optional[RemoteFilesystem] = None,
+    save_remote_filesystem: Optional[RemoteFilesystem] = None,
     sample_input: Optional[Any] = None,
     transforms: Optional[Sequence[Transform]] = None,
 ) -> None:
     """Helper method for exporting a model for inference.
 
     Exports the model to:
-    1) save_object_store, if one is provided,
+    1) save_remote_filesystem, if one is provided,
     2) logger.upload_file(save_path), if (1) does not apply and the logger has a destination that supports file uploading,
     3) locally, if (1) and (2) do not apply.
 
@@ -242,11 +242,11 @@ def export_with_logger(
             Instead, export-related transformations are applied to a  copy of the model.
         save_format (Union[str, ExportFormat]):  Format to export to. Either ``"torchscript"`` or ``"onnx"``.
         save_path: (str): The path for storing the exported model. It can be a path to a file on the local disk,
-        a URL, or if ``save_object_store`` is set, the object name
+        a URL, or if ``save_remote_filesystem`` is set, the object name
             in a cloud bucket. For example, ``my_run/exported_model``.
-        logger (Logger): If this logger has a destination that supports file uploading, and save_object_store
+        logger (Logger): If this logger has a destination that supports file uploading, and save_remote_filesystem
             is not provided, this logger is used to export the model.
-        save_object_store (RemoteFilesystem, optional): If the ``save_path`` is in an object name in a cloud bucket
+        save_remote_filesystem (RemoteFilesystem, optional): If the ``save_path`` is in an object name in a cloud bucket
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.RemoteFilesystem` which will be used
             to store the exported model. Set this to ``None`` if the logger should be used to export the model or
@@ -262,7 +262,7 @@ def export_with_logger(
     Returns:
         None
     """
-    if save_object_store == None and logger.has_file_upload_destination():
+    if save_remote_filesystem == None and logger.has_file_upload_destination():
         with tempfile.TemporaryDirectory() as tmpdir:
             temp_local_save_path = os.path.join(str(tmpdir), f'model')
             export_for_inference(model=model,
@@ -275,6 +275,6 @@ def export_with_logger(
         export_for_inference(model=model,
                              save_format=save_format,
                              save_path=save_path,
-                             save_object_store=save_object_store,
+                             save_remote_filesystem=save_remote_filesystem,
                              sample_input=sample_input,
                              transforms=transforms)

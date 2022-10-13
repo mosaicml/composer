@@ -7,14 +7,16 @@ from typing import Any, Dict, Type
 import pytest
 
 import composer
-import composer.utils.object_store.object_store_hparams
-from composer.utils.object_store import RemoteFilesystem
-from composer.utils.object_store.object_store_hparams import (LibcloudRemoteFilesystemHparams, RemoteFilesystemHparams,
-                                                              S3RemoteFilesystemHparams, SFTPRemoteFilesystemHparams,
-                                                              object_store_registry)
+import composer.utils.remote_filesystem.remote_filesystem_hparams
+from composer.utils.remote_filesystem import RemoteFilesystem
+from composer.utils.remote_filesystem.remote_filesystem_hparams import (LibcloudRemoteFilesystemHparams,
+                                                                        RemoteFilesystemHparams,
+                                                                        S3RemoteFilesystemHparams,
+                                                                        SFTPRemoteFilesystemHparams,
+                                                                        remote_filesystem_registry)
 from tests.common import get_module_subclasses
 from tests.hparams.common import assert_in_registry, construct_from_yaml
-from tests.utils.object_store.object_store_settings import get_object_store_ctx
+from tests.utils.remote_filesystem.remote_filesystem_settings import get_remote_filesystem_ctx
 
 try:
     import libcloud
@@ -37,7 +39,7 @@ try:
 except ImportError:
     _SFTP_AVAILABLE = False
 
-object_store_hparam_kwargs: Dict[Type[RemoteFilesystemHparams], Dict[str, Any]] = {
+remote_filesystem_hparam_kwargs: Dict[Type[RemoteFilesystemHparams], Dict[str, Any]] = {
     S3RemoteFilesystemHparams: {
         'bucket': 'my-bucket',
     },
@@ -53,7 +55,7 @@ object_store_hparam_kwargs: Dict[Type[RemoteFilesystemHparams], Dict[str, Any]] 
     }
 }
 
-_object_store_marks = {
+_remote_filesystem_marks = {
     LibcloudRemoteFilesystemHparams: [pytest.mark.skipif(not _LIBCLOUD_AVAILABLE, reason='Missing dependency')],
     S3RemoteFilesystemHparams: [pytest.mark.skipif(not _BOTO3_AVAILABLE, reason='Missing dependency')],
     SFTPRemoteFilesystemHparams: [
@@ -62,27 +64,27 @@ _object_store_marks = {
     ],
 }
 
-object_store_hparams = [
-    pytest.param(x, marks=_object_store_marks[x], id=x.__name__) for x in get_module_subclasses(
-        composer.utils.object_store.object_store_hparams,
+remote_filesystem_hparams = [
+    pytest.param(x, marks=_remote_filesystem_marks[x], id=x.__name__) for x in get_module_subclasses(
+        composer.utils.remote_filesystem.remote_filesystem_hparams,
         RemoteFilesystemHparams,
     )
 ]
 
 
-@pytest.mark.parametrize('constructor', object_store_hparams)
-def test_object_store_hparams_is_constructable(
+@pytest.mark.parametrize('constructor', remote_filesystem_hparams)
+def test_remote_filesystem_hparams_is_constructable(
     constructor: Type[RemoteFilesystemHparams],
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: pathlib.Path,
 ):
-    yaml_dict = object_store_hparam_kwargs[constructor]
+    yaml_dict = remote_filesystem_hparam_kwargs[constructor]
     instance = construct_from_yaml(constructor, yaml_dict=yaml_dict)
-    with get_object_store_ctx(instance.get_object_store_cls(), yaml_dict, monkeypatch, tmp_path):
-        with instance.initialize_object() as object_store:
-            assert isinstance(object_store, RemoteFilesystem)
+    with get_remote_filesystem_ctx(instance.get_remote_filesystem_cls(), yaml_dict, monkeypatch, tmp_path):
+        with instance.initialize_object() as remote_filesystem:
+            assert isinstance(remote_filesystem, RemoteFilesystem)
 
 
-@pytest.mark.parametrize('constructor', object_store_hparams)
+@pytest.mark.parametrize('constructor', remote_filesystem_hparams)
 def test_hparams_in_registry(constructor: Type[RemoteFilesystemHparams]):
-    assert_in_registry(constructor, object_store_registry)
+    assert_in_registry(constructor, remote_filesystem_registry)

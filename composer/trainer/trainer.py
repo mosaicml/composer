@@ -497,7 +497,7 @@ class Trainer:
             ``'stdout'`` or ``'stderr'``. (default: :attr:`sys.stderr`)
         load_path (str, optional):  The path format string to an existing checkpoint file.
 
-            It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
+            It can be a path to a file on the local disk, a URL, or if ``load_remote_filesystem`` is set, the object name
             for a checkpoint in a cloud bucket.
 
             When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, checkpoints are shareded by rank.
@@ -529,7 +529,7 @@ class Trainer:
             correct state.
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
-        load_object_store (Union[RemoteFilesystem, LoggerDestination], optional): If the ``load_path`` is in an
+        load_remote_filesystem (Union[RemoteFilesystem, LoggerDestination], optional): If the ``load_path`` is in an
             remote filesystem (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.RemoteFilesystem` or
             :class:`.LoggerDestination` which will be used to retreive the checkpoint. Otherwise, if the
             checkpoint is a local filepath, set to ``None``. Ignored if ``load_path`` is ``None``.
@@ -549,13 +549,13 @@ class Trainer:
                 from composer.utils import LibcloudRemoteFilesystem
 
                 # Create the remote filesystem provider with the specified credentials
-                creds = {"key": "object_store_key",
-                         "secret": "object_store_secret"}
+                creds = {"key": "remote_filesystem_key",
+                         "secret": "remote_filesystem_secret"}
                 store = LibcloudRemoteFilesystem(provider="s3",
                                             container="my_container",
                                             provider_kwargs=creds)
 
-                checkpoint_path = "./path_to_the_checkpoint_in_object_store"
+                checkpoint_path = "./path_to_the_checkpoint_in_remote_filesystem"
 
                 # Create a trainer which will load a checkpoint from the specified remote filesystem
                 trainer = Trainer(
@@ -568,7 +568,7 @@ class Trainer:
                     device="cpu",
                     eval_interval="1ep",
                     load_path=checkpoint_path,
-                    load_object_store=store,
+                    load_remote_filesystem=store,
                 )
         load_weights_only (bool, optional): Whether or not to only restore the weights from the checkpoint without
             restoring the associated state. Ignored if ``load_path`` is ``None``. (default: ``False``)
@@ -773,7 +773,7 @@ class Trainer:
 
         # Load Checkpoint
         load_path: Optional[str] = None,
-        load_object_store: Optional[Union[RemoteFilesystem, LoggerDestination]] = None,
+        load_remote_filesystem: Optional[Union[RemoteFilesystem, LoggerDestination]] = None,
         load_weights_only: bool = False,
         load_strict_model_weights: bool = False,
         load_progress_bar: bool = True,
@@ -1141,9 +1141,9 @@ class Trainer:
             # Found latest checkpoint path, load that instead
             if autoresume_checkpoint_path:
                 load_path = autoresume_checkpoint_path
-                # Disable object_store since _get_autoresume_checkpoint will download the checkpoint
+                # Disable remote_filesystem since _get_autoresume_checkpoint will download the checkpoint
                 # To the save folder, if needed.
-                load_object_store = None
+                load_remote_filesystem = None
                 # Disable `load_weights_only` since this applies only to the initial training run
                 load_weights_only = False
                 log.info('Autoresuming training from checkpoint')
@@ -1154,7 +1154,7 @@ class Trainer:
             self._rng_state = checkpoint.load_checkpoint(
                 state=self.state,
                 path=load_path,
-                object_store=load_object_store,
+                remote_filesystem=load_remote_filesystem,
                 load_weights_only=load_weights_only,
                 strict_model_weights=load_strict_model_weights,
                 progress_bar=load_progress_bar,
@@ -1219,7 +1219,7 @@ class Trainer:
                     get_file(
                         path=save_latest_remote_file_name,
                         destination=latest_checkpoint_path,
-                        object_store=logger,
+                        remote_filesystem=logger,
                         overwrite=True,
                         progress_bar=load_progress_bar,
                     )
@@ -2541,7 +2541,7 @@ class Trainer:
         self,
         save_format: Union[str, ExportFormat],
         save_path: str,
-        save_object_store: Optional[RemoteFilesystem] = None,
+        save_remote_filesystem: Optional[RemoteFilesystem] = None,
         sample_input: Optional[Any] = None,
         transforms: Optional[Sequence[Transform]] = None,
     ):
@@ -2550,9 +2550,9 @@ class Trainer:
         Args:
             save_format (Union[str, ExportFormat]):  Format to export to. Either ``"torchscript"`` or ``"onnx"``.
             save_path: (str): The path for storing the exported model. It can be a path to a file on the local disk,
-            a URL, or if ``save_object_store`` is set, the object name
+            a URL, or if ``save_remote_filesystem`` is set, the object name
                 in a cloud bucket. For example, ``my_run/exported_model``.
-            save_object_store (RemoteFilesystem, optional): If the ``save_path`` is in an object name in a cloud bucket
+            save_remote_filesystem (RemoteFilesystem, optional): If the ``save_path`` is in an object name in a cloud bucket
                 (i.e. AWS S3 or Google Cloud Storage), an instance of
                 :class:`~.RemoteFilesystem` which will be used
                 to store the exported model. If this is set to ``None``,  will save to ``save_path`` using the trainer's
@@ -2575,6 +2575,6 @@ class Trainer:
                            save_format=save_format,
                            save_path=save_path,
                            logger=self.logger,
-                           save_object_store=save_object_store,
+                           save_remote_filesystem=save_remote_filesystem,
                            sample_input=(sample_input, {}),
                            transforms=transforms)

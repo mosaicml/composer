@@ -176,7 +176,7 @@ The following rules apply to public APIs:
     This signature allows a user to pass a string for a device,
     rather than having to import our custom device class.
 
-    Parameters that are for power users (such as `load_object_store`) in the Trainer are exempt from this rule.
+    Parameters that are for power users (such as `load_remote_filesystem`) in the Trainer are exempt from this rule.
     These parameters can require custom imports.
 
 1. Parameters that could take a sequence of elements should also allow `None` or a singleton.
