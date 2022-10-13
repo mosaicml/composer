@@ -63,18 +63,18 @@ For an example code, see the `Checkpoint Autoresumption <examples/checkpoint_aut
 Implementation
 --------------
 
-During training, the trainer always symlinks the latest checkpoint to a format (default is ``latest-rank{rank}`` for local files and ``{run_name}/checkpoints/latest-rank{rank}`` for object stores). When ``autoresume=True``, the Trainer searches for checkpoints of that format in the following order:
+During training, the trainer always symlinks the latest checkpoint to a format (default is ``latest-rank{rank}`` for local files and ``{run_name}/checkpoints/latest-rank{rank}`` for remote file systems). When ``autoresume=True``, the Trainer searches for checkpoints of that format in the following order:
 
 1. Local checkpoints of the format ``"{save_folder}/latest-rank0"``. The format for the latest checkpoint can be configured with ``save_latest_filename`` argument (default: ``latest-rank{rank}``).
-2. If no local checkpoints are found, then each logger is checked for files of the format ``"{run_name}/checkpoints/latest-rank{rank}"``. This is often used for resuming from an object store such as S3.
+2. If no local checkpoints are found, then each logger is checked for files of the format ``"{run_name}/checkpoints/latest-rank{rank}"``. This is often used for resuming from a remote file system such as S3.
 3. Finally, ``load_path`` is used to load a checkpoint. This can be used for example, a fine-tuning run on a spot instance, where ``load_path`` would be set to the original weights.
 
-Below, are some examples that demonstrate the object store logger (#2 above) and using the ``load_path`` for fine-tuning purposes (#3 above).
+Below, are some examples that demonstrate the ``RemoteUploaderDownloader`` (#2 above) and using the ``load_path`` for fine-tuning purposes (#3 above).
 
 Example: Object Store
 ---------------------
 
-A typical use case is saving checkpoints to object store (e.g. S3) when there is no local file storage shared across runs. For example, a setup such as this:
+A typical use case is saving checkpoints to a remote file system (e.g. S3) when there is no local file storage shared across runs. For example, a setup such as this:
 
 
 .. testcode::
@@ -101,12 +101,12 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
     trainer.fit()
 
 
-During resumption, there would be no local checkpoints, so the trainer would then look in the object store logger's provided bucket and checkpoint folder (`checkpoint-debugging/my_cool_run/checkpoints`) to find the latest checkpoint.
+During resumption, there would be no local checkpoints, so the trainer would then look in the ``RemoteUploaderDownloader``'s provided bucket and checkpoint folder (`checkpoint-debugging/my_cool_run/checkpoints`) to find the latest checkpoint.
 
 Example: Fine-tuning
 --------------------
 
-To run fine-tuning on a spot instance, ``load_path`` would be set to the original weights and an object store logger would be added.
+To run fine-tuning on a spot instance, ``load_path`` would be set to the original weights and a ``RemoteUploaderDownloader`` would be added.
 
 .. testsetup:: fine_tune
     :skipif: not _LIBCLOUD_INSTALLED
@@ -145,8 +145,8 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
     )
 
 
-In the original run, ``load_path`` would be used to get the starting checkpoint. For any future restarts, such as due to the spot instance being terminated, the loggers would be queried for the latest checkpoint the object store logger would be downloaded and used to resume training, and the ``load_path`` would be ignored.
+In the original run, ``load_path`` would be used to get the starting checkpoint. For any future restarts, such as due to the spot instance being terminated, the loggers would be queried for the latest checkpoint, which would be downloaded and used to resume training, and the ``load_path`` would be ignored.
 
 .. note::
 
-    The pretrained weights can also be loaded from object store with the trainer's ``load_object_store`` argument. In that way, our trainer is fully independent of any local storage!
+    The pretrained weights can also be loaded from a remote file system with the trainer's ``load_object_store`` argument. In that way, our trainer is fully independent of any local storage!
