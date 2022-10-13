@@ -38,7 +38,7 @@ def _main():
 
     if len(sys.argv) == 1:
         sys.argv.append('--help')
-        
+
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
 
     trainer = hparams.initialize_object()
