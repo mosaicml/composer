@@ -12,7 +12,7 @@ are the most common examples. Each file to upload must be a single, local file.
 Collections of files can be combined into a single tarball, and a file can be stored in a temporary folder.
 
 Each remote file must have a name, which is independent of the file's local filepath.
-A remote backend is responsible for storing and organizing the file by the file's
+A remote filesystem is responsible for storing and organizing the file by the file's
 name. A remote file with the same name should override a previous remote file with that name. It is recommended that
 remote file names include file extensions.
 

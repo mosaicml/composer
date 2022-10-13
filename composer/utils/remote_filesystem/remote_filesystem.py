@@ -138,7 +138,7 @@ class RemoteFilesystem(abc.ABC):
         raise NotImplementedError(f'{type(self).__name__}.download_object is not implemented')
 
     def close(self):
-        """Close the remote backend."""
+        """Close the remote filesystem."""
         pass
 
     def __enter__(self):

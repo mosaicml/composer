@@ -280,10 +280,10 @@ def test_valid_backend_names():
          patch('composer.loggers.remote_uploader_downloader.LibcloudRemoteFilesystem') as _:
         for name in valid_backend_names:
             remote_uploader_downloader = RemoteUploaderDownloader(bucket_uri=f'{name}://not-a-real-bucket')
-            # Access the remote_backend property so that it is built
-            _ = remote_uploader_downloader.remote_backend
+            # Access the remote_filesystem property so that it is built
+            _ = remote_uploader_downloader.remote_filesystem
 
     with pytest.raises(ValueError):
         remote_uploader_downloader = RemoteUploaderDownloader(bucket_uri='magicloud://not-a-real-bucket')
-        # Access the remote_backend property so that it is built
-        _ = remote_uploader_downloader.remote_backend
+        # Access the remote_filesystem property so that it is built
+        _ = remote_uploader_downloader.remote_filesystem

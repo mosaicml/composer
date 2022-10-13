@@ -31,23 +31,23 @@ log = logging.getLogger(__name__)
 __all__ = ['RemoteUploaderDownloader']
 
 
-def _build_remote_backend(remote_backend_name: str, backend_kwargs: Dict[str, Any]):
-    remote_backend_name_to_cls = {
+def _build_remote_filesystem(remote_filesystem_name: str, backend_kwargs: Dict[str, Any]):
+    remote_filesystem_name_to_cls = {
         's3': S3RemoteFilesystem,
         'sftp': SFTPRemoteFilesystem,
         'libcloud': LibcloudRemoteFilesystem
     }
-    remote_backend_cls = remote_backend_name_to_cls.get(remote_backend_name, None)
-    if remote_backend_cls is None:
+    remote_filesystem_cls = remote_filesystem_name_to_cls.get(remote_filesystem_name, None)
+    if remote_filesystem_cls is None:
         raise ValueError(
-            f'The remote backend {remote_backend_name} is not supported. Please use one of ({list(remote_backend_name_to_cls.keys())})'
+            f'The remote filesystem {remote_filesystem_name} is not supported. Please use one of ({list(remote_filesystem_name_to_cls.keys())})'
         )
 
-    return remote_backend_cls(**backend_kwargs)
+    return remote_filesystem_cls(**backend_kwargs)
 
 
 class RemoteUploaderDownloader(LoggerDestination):
-    r"""Logger destination that uploads (downloads) files to (from) a remote backend.
+    r"""Logger destination that uploads (downloads) files to (from) a remote filesystem.
 
     This logger destination handles calls to :meth:`.Logger.upload_file`
     and uploads files to :class:`.RemoteFilesystem`, such as AWS S3 or Google Cloud Storage. To minimize the training
@@ -113,12 +113,12 @@ class RemoteUploaderDownloader(LoggerDestination):
         bucket_uri (str): The remote uri for the bucket to use (e.g. s3://my-bucket).
 
             As individual :class:`.RemoteFilesystem` instances are not necessarily thread safe, each worker will construct
-            its own :class:`.RemoteFilesystem` instance from ``remote_backend`` and ``backend_kwargs``.
+            its own :class:`.RemoteFilesystem` instance from ``remote_filesystem`` and ``backend_kwargs``.
 
-        backend_kwargs (Dict[str, Any]): The keyword arguments to construct the remote backend indicated by ``bucket_uri``.
+        backend_kwargs (Dict[str, Any]): The keyword arguments to construct the remote filesystem indicated by ``bucket_uri``.
 
             As individual :class:`.RemoteFilesystem` instances are not necessarily thread safe, each worker will construct
-            its own :class:`.RemoteFilesystem` instance from ``remote_backend`` and ``backend_kwargs``.
+            its own :class:`.RemoteFilesystem` instance from ``remote_filesystem`` and ``backend_kwargs``.
 
         file_path_format_string (str, optional): A format string used to determine the remote file path (within the specified bucket).
 
@@ -176,7 +176,7 @@ class RemoteUploaderDownloader(LoggerDestination):
                 remote_uploader_downloader._check_workers()
                 remote_uploader_downloader.post_close()
 
-            Assuming that the process's rank is ``0``, the remote backend would store the contents of
+            Assuming that the process's rank is ``0``, the remote filesystem would store the contents of
             ``'path/to/file.txt'`` in at ``'rank0/bar.txt'``.
 
             Default: ``'{remote_file_name}'``
@@ -199,13 +199,13 @@ class RemoteUploaderDownloader(LoggerDestination):
                  use_procs: bool = True,
                  num_attempts: int = 3) -> None:
         parsed_remote_bucket = urlparse(bucket_uri)
-        self.remote_backend_name, remote_bucket_name = parsed_remote_bucket.scheme, parsed_remote_bucket.netloc
+        self.remote_filesystem_name, remote_bucket_name = parsed_remote_bucket.scheme, parsed_remote_bucket.netloc
         self.backend_kwargs = backend_kwargs if backend_kwargs is not None else {}
-        if self.remote_backend_name == 's3' and 'bucket' not in self.backend_kwargs:
+        if self.remote_filesystem_name == 's3' and 'bucket' not in self.backend_kwargs:
             self.backend_kwargs['bucket'] = remote_bucket_name
-        elif self.remote_backend_name == 'sftp' and 'host' not in self.backend_kwargs:
+        elif self.remote_filesystem_name == 'sftp' and 'host' not in self.backend_kwargs:
             self.backend_kwargs['host'] = f'sftp://{remote_bucket_name}'
-        elif self.remote_backend_name == 'libcloud' and 'container' not in self.backend_kwargs:
+        elif self.remote_filesystem_name == 'libcloud' and 'container' not in self.backend_kwargs:
             self.backend_kwargs['container'] = remote_bucket_name
 
         self.file_path_format_string = file_path_format_string
@@ -262,14 +262,14 @@ class RemoteUploaderDownloader(LoggerDestination):
         self._worker_flag: Optional[Union[multiprocessing._EventType, threading.Event]] = None
         self._workers: List[Union[SpawnProcess, threading.Thread]] = []
         # the remote filesystem instance for the main thread. Deferring the construction of the remote_filesystem to first use.
-        self._remote_backend = None
+        self._remote_filesystem = None
 
     @property
-    def remote_backend(self) -> RemoteFilesystem:
+    def remote_filesystem(self) -> RemoteFilesystem:
         """The :class:`.RemoteFilesystem` instance for the main thread."""
-        if self._remote_backend is None:
-            self._remote_backend = _build_remote_backend(self.remote_backend_name, self.backend_kwargs)
-        return self._remote_backend
+        if self._remote_filesystem is None:
+            self._remote_filesystem = _build_remote_filesystem(self.remote_filesystem_name, self.backend_kwargs)
+        return self._remote_filesystem
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -286,7 +286,7 @@ class RemoteUploaderDownloader(LoggerDestination):
 
         if dist.get_global_rank() == 0:
             retry(RemoteFilesystemTransientError,
-                  self.num_attempts)(lambda: _validate_credentials(self.remote_backend, file_name_to_test))()
+                  self.num_attempts)(lambda: _validate_credentials(self.remote_filesystem, file_name_to_test))()
         assert len(self._workers) == 0, 'workers should be empty if self._worker_flag was None'
         for _ in range(self._num_concurrent_uploads):
             worker = self._proc_class(
@@ -294,7 +294,7 @@ class RemoteUploaderDownloader(LoggerDestination):
                 kwargs={
                     'file_queue': self._file_upload_queue,
                     'is_finished': self._worker_flag,
-                    'remote_backend_name': self.remote_backend_name,
+                    'remote_filesystem_name': self.remote_filesystem_name,
                     'backend_kwargs': self.backend_kwargs,
                     'num_attempts': self.num_attempts,
                     'completed_queue': self._completed_queue,
@@ -404,7 +404,7 @@ class RemoteUploaderDownloader(LoggerDestination):
     ):
         get_file(path=remote_file_name,
                  destination=destination,
-                 remote_filesystem=self.remote_backend,
+                 remote_filesystem=self.remote_filesystem,
                  overwrite=overwrite,
                  progress_bar=progress_bar)
 
@@ -497,7 +497,7 @@ class RemoteUploaderDownloader(LoggerDestination):
             str: The uri corresponding to the uploaded location of the remote file.
         """
         formatted_remote_file_name = self._remote_file_name(remote_file_name)
-        return self.remote_backend.get_uri(formatted_remote_file_name.lstrip('/'))
+        return self.remote_filesystem.get_uri(formatted_remote_file_name.lstrip('/'))
 
     def _remote_file_name(self, remote_file_name: str):
         """Format the ``remote_file_name`` according to the ``file_path_format_string``."""
@@ -514,14 +514,14 @@ class RemoteUploaderDownloader(LoggerDestination):
 
 
 def _validate_credentials(
-    remote_backend: RemoteFilesystem,
+    remote_filesystem: RemoteFilesystem,
     remote_file_name_to_test: str,
 ) -> None:
     # Validates the credentials by attempting to touch a file in the bucket
     # raises an error if there was a credentials failure.
     with tempfile.NamedTemporaryFile('wb') as f:
         f.write(b'credentials_validated_successfully')
-        remote_backend.upload_object(
+        remote_filesystem.upload_object(
             object_name=remote_file_name_to_test,
             filename=f.name,
         )
@@ -531,7 +531,7 @@ def _upload_worker(
     file_queue: Union[queue.Queue[Tuple[str, str, bool]], multiprocessing.JoinableQueue[Tuple[str, str, bool]]],
     completed_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str]],
     is_finished: Union[multiprocessing._EventType, threading.Event],
-    remote_backend_name: str,
+    remote_filesystem_name: str,
     backend_kwargs: Dict[str, Any],
     num_attempts: int,
 ):
@@ -540,7 +540,7 @@ def _upload_worker(
     The worker will continuously poll ``file_queue`` for files to upload. Once ``is_finished`` is set, the worker will
     exit once ``file_queue`` is empty.
     """
-    remote_backend = _build_remote_backend(remote_backend_name, backend_kwargs)
+    remote_filesystem = _build_remote_filesystem(remote_filesystem_name, backend_kwargs)
     while True:
         try:
             file_path_to_upload, remote_file_name, overwrite = file_queue.get(block=True, timeout=0.5)
@@ -549,14 +549,14 @@ def _upload_worker(
                 break
             else:
                 continue
-        uri = remote_backend.get_uri(remote_file_name)
+        uri = remote_filesystem.get_uri(remote_file_name)
 
         # defining as a function-in-function to use decorator notation with num_attempts as an argument
         @retry(RemoteFilesystemTransientError, num_attempts=num_attempts)
         def upload_file():
             if not overwrite:
                 try:
-                    remote_backend.get_object_size(remote_file_name)
+                    remote_filesystem.get_object_size(remote_file_name)
                 except FileNotFoundError:
                     # Good! It shouldn't exist.
                     pass
@@ -564,7 +564,7 @@ def _upload_worker(
                     # Exceptions will be detected on the next batch_end or epoch_end event
                     raise FileExistsError(f'Object {uri} already exists, but allow_overwrite was set to False.')
             log.info('Uploading file %s to %s', file_path_to_upload, uri)
-            remote_backend.upload_object(
+            remote_filesystem.upload_object(
                 object_name=remote_file_name,
                 filename=file_path_to_upload,
             )

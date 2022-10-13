@@ -87,21 +87,21 @@ class TestRemoteFilesystem:
         tmp_path: pathlib.Path,
         remote: bool,
     ):
-        remote_backend_name_to_class = {
+        remote_filesystem_name_to_class = {
             's3': S3RemoteFilesystem,
             'sftp': SFTPRemoteFilesystem,
             'libcloud': LibcloudRemoteFilesystem
         }
         bucket_uri, kwargs = bucket_uri_and_kwargs
-        remote_backend_name = urlparse(bucket_uri).scheme
-        with get_remote_filesystem_ctx(remote_backend_name_to_class[remote_backend_name],
+        remote_filesystem_name = urlparse(bucket_uri).scheme
+        with get_remote_filesystem_ctx(remote_filesystem_name_to_class[remote_filesystem_name],
                                        kwargs,
                                        monkeypatch,
                                        tmp_path,
                                        remote=remote):
             copied_config = copy.deepcopy(kwargs)
             # type error: Type[RemoteFilesystem] is not callable
-            remote_filesystem = remote_backend_name_to_class[remote_backend_name](**copied_config)  # type: ignore
+            remote_filesystem = remote_filesystem_name_to_class[remote_filesystem_name](**copied_config)  # type: ignore
             with remote_filesystem:
                 yield remote_filesystem
 
