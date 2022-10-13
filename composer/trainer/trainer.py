@@ -42,13 +42,17 @@ from composer.profiler import Profiler
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
-from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
+from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU, get_device, is_tpu_installed
 from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
 from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, map_collection,
                             model_eval_mode, reproducibility)
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.inference import ExportFormat, Transform, export_with_logger
+
+if is_tpu_installed():
+    import torch_xla.core.xla_model as xm
+    import torch_xla.distributed.parallel_loader as pl
 
 log = logging.getLogger(__name__)
 
@@ -225,27 +229,6 @@ def _adjust_eval_batch_split(state: State, device_batch_size):
     torch.cuda.empty_cache()
 
 
-def _get_device(device: Optional[Union[str, Device]]):
-    if not device:
-        device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU()
-    elif isinstance(device, str):
-        if device.lower() == 'cpu':
-            device = DeviceCPU()
-        elif device.lower() == 'gpu':
-            device = DeviceGPU()
-        elif device.lower() == 'mps':
-            device = DeviceMPS()
-        elif device.lower() == 'tpu':
-            if not _is_tpu_installed():
-                raise ImportError(
-                    'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla'
-                )
-            device = DeviceTPU()
-        else:
-            raise ValueError(f'device ({device}) must be one of (cpu, gpu, mps, tpu).')
-    return device
-
-
 def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
     if not seed:
         seed = reproducibility.get_random_seed()
@@ -287,21 +270,6 @@ def _generate_run_name() -> str:
     dist.broadcast_object_list(run_name_list)
     generated_run_name = run_name_list[0]
     return generated_run_name
-
-
-def _is_tpu_installed() -> bool:
-    try:
-        import torch_xla.core.xla_model as xm
-        del xm
-    except ImportError:
-        return False
-    else:
-        return True
-
-
-if _is_tpu_installed():
-    import torch_xla.core.xla_model as xm
-    import torch_xla.distributed.parallel_loader as pl
 
 
 class Trainer:
@@ -819,7 +787,7 @@ class Trainer:
         algorithms = list(ensure_tuple(algorithms))
 
         # Device
-        self._device = _get_device(device)
+        self._device = get_device(device)
 
         # Determine whether DeepSpeed and FSDP are enabled
         self.deepspeed_config = deepspeed_config
@@ -838,7 +806,7 @@ class Trainer:
         if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
-            dist.initialize_dist(self._device, datetime.timedelta(seconds=dist_timeout))
+            dist.initialize_dist(self._device, dist_timeout)
 
         # Handle FSDP sharding
         if self.fsdp_config is not None:

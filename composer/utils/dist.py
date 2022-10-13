@@ -36,11 +36,13 @@ import datetime
 import logging
 import os
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, List, Optional, Sequence, TypeVar, cast
+from typing import TYPE_CHECKING, Any, List, Optional, Sequence, TypeVar, Union, cast
 
 import torch
 import torch.distributed as dist
 import torch.utils.data
+
+from composer.trainer.devices.utils import get_device
 
 if TYPE_CHECKING:
     from composer.trainer.devices import Device
@@ -348,7 +350,7 @@ def is_initialized():
     return dist.is_initialized()
 
 
-def initialize_dist(device: Device, timeout: datetime.timedelta):
+def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
     """Initialize the default PyTorch distributed process group.
 
     This function assumes that the following environment variables are set:
@@ -367,9 +369,17 @@ def initialize_dist(device: Device, timeout: datetime.timedelta):
     .. seealso:: :func:`torch.distributed.init_process_group`
 
     Args:
-        device (str): The device from which the distributed backend is interpreted.
-        timeout (datetime.timedelta): The timeout for operations executed against the process group.
+        device (str | Device): The device from which the distributed backend is
+            interpreted. Either a string corresponding to a device (one of ``'cpu'``,
+            ``'gpu'``, ``'mps'``, or ``'tpu'``) or a :class:`.Device`.
+        timeout (float, optional): The timeout for operations executed against the process
+            group, expressed in seconds. (default: ``300.0``).
     """
+    # If device is string, get corresponding composer.trainer.devices.Device object
+    device = get_device(device)
+
+    timeout = datetime.timedelta(seconds=timeout)  # type: ignore
+
     if get_world_size() > 1 and not dist.is_available():
         raise RuntimeError('When the world size is > 1, ``torch.distributed`` must be used. However, it is '
                            'not available in your installation of PyTorch. Please install or build PyTorch '
