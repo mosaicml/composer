@@ -113,7 +113,8 @@ def _main():
     if args.download:
         torchvision.datasets.utils.download_and_extract_archive(url=ADE20K_URL,
                                                                 download_root=args.data_dir,
-                                                                filename=ADE20K_FILE)
+                                                                filename=ADE20K_FILE,
+                                                                remove_finished=True)
         # Adjust the data_dir to include the extracted directory
         args.data_dir = os.path.join(args.data_dir, 'ADEChallengeData2016')
 
@@ -203,7 +204,7 @@ def _main():
 
     val_sampler = None
     if dist.get_world_size():
-        # Nifty function to instantiate a PyTorch DistributedSAmpler based on your hardware
+        # Nifty function to instantiate a PyTorch DistributedSampler based on your hardware
         val_sampler = dist.get_sampler(val_dataset, drop_last=False, shuffle=False)
 
     val_dataloader = DataLoader(
@@ -308,7 +309,7 @@ def _main():
     elif args.recipe_name == 'hot':
         algorithms = [
             ChannelsLast(),
-            EMA(half_life='2000ba', update_interval='10ba'),
+            EMA(half_life='2000ba', update_interval='1ba'),
             SAM(rho=0.3, interval=1),
             MixUp(alpha=0.5),
         ]

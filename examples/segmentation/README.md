@@ -1,13 +1,14 @@
 # Semantic Segmentation Example
 
-This example illustrates how to train a semantic segmentation model in composer
+This example illustrates how to train a semantic segmentation model in composer.
+
+Please ensure [Composer](https://github.com/mosaicml/composer) is installed with `pip install mosaicml`. Additionally, our models are pulled from [MMsegmentation](https://github.com/open-mmlab/mmsegmentation), so follow the [MMcv install instructions](https://mmcv.readthedocs.io/en/latest/get_started/installation.html) (which is dependent on your CUDA and PyTorch versions), then install MMsegmentation with `pip install mmsegmentation`.
 
 ## DeepLabv3+ on ADE20k
 
-The `train_deeplabv3_ade20k.py` script trains a DeepLabv3+ model with either a ResNet-50 or ResNet-101 on the ADE20k semantic segmentation benchmark.
+The `train_deeplabv3_ade20k.py` script trains a DeepLabv3+ model with either a ResNet-50 or ResNet-101 backbone on the ADE20k semantic segmentation benchmark. To download ADE20k locally (~1 GB), specify the `--download` option when running the script, then the dataset will be downloaded to the path specified in the first argument.
 
-Before running the script, ADE20k semantic segmentation benchmark must be downloaded from [here](http://data.csail.mit.edu/places/ADEchallenge/ADEChallengeData2016.zip), then unzip. The path to the dataset will be used as the first argument to the script.
-
+We designed the script to be hackable, so try our recipes on your own models and datsets!
 ### Example configurations
 
 <!--pytest.mark.skip-->
