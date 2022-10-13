@@ -140,7 +140,7 @@ class StreamingDatasetWriter(object):
                 out.write(data)
 
         if self.remote is not None:
-            self.remote.upload_object(basename, filename)
+            self.remote.upload_file(basename, filename)
 
         self.samples_per_shard.append(len(self.new_samples))
         self.bytes_per_shard.append(self.new_shard_size)
@@ -157,7 +157,7 @@ class StreamingDatasetWriter(object):
         with open(filename, 'x') as out:
             out.write(self.compression_scheme + '\n')
         if self.remote is not None:
-            self.remote.upload_object(basename, filename)
+            self.remote.upload_file(basename, filename)
 
     def _write_index(self) -> None:
         """Save dataset index file."""
@@ -172,7 +172,7 @@ class StreamingDatasetWriter(object):
         with self._create_binary_file(filename) as out:
             index.dump(out)
         if self.remote is not None:
-            self.remote.upload_object(basename, filename)
+            self.remote.upload_file(basename, filename)
 
     def write_sample(self, sample: Dict[str, bytes]) -> None:
         """Add a sample to the dataset.

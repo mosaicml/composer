@@ -53,7 +53,7 @@ def test_libcloud_remote_filesystem_callback(remote_dir: pathlib.Path, local_dir
         num_calls += 1
         total_bytes_written = bytes_written
 
-    provider.upload_object('upload_object', local_file_path, callback=cb)
+    provider.upload_file('upload_file', local_file_path, callback=cb)
     # the expected num calls should be 1 more than the ceiling division
     expected_num_calls = (total_len - 1) // chunk_size + 1 + 1
     assert num_calls == expected_num_calls
@@ -63,7 +63,7 @@ def test_libcloud_remote_filesystem_callback(remote_dir: pathlib.Path, local_dir
     total_bytes_written = 0
 
     local_file_path_download = os.path.join(local_dir, 'dummy_file_downloaded')
-    provider.download_object('upload_object', local_file_path_download, callback=cb)
+    provider.download_object('upload_file', local_file_path_download, callback=cb)
 
     assert total_bytes_written == total_len
     assert num_calls == expected_num_calls

@@ -210,7 +210,7 @@ class SFTPRemoteFilesystem(RemoteFilesystem):
         assert channel is not None, 'channels not be None if the transport is alive'
         return channel.active and not channel.closed
 
-    def upload_object(
+    def upload_file(
         self,
         object_name: str,
         filename: Union[str, pathlib.Path],

@@ -27,7 +27,7 @@ class RemoteFilesystemTransientError(RuntimeError):
 
         class S3RemoteFilesystem(RemoteFilesystem):
 
-            def upload_object(self, file_path: str, object_name: str):
+            def upload_file(self, file_path: str, object_name: str):
                 try:
                     ...
                 except botocore.exceptions.ClientError as e:
@@ -45,7 +45,7 @@ class RemoteFilesystemTransientError(RuntimeError):
         def upload_file(remote_filesystem: RemoteFilesystem, max_num_attempts: int = 3):
             for i in range(max_num_attempts):
                 try:
-                    remote_filesystem.upload_object(...)
+                    remote_filesystem.upload_file(...)
                 except RemoteFilesystemTransientError:
                     if i + 1 == max_num_attempts:
                         raise
@@ -78,7 +78,7 @@ class RemoteFilesystem(abc.ABC):
         """
         raise NotImplementedError(f'{type(self).__name__}.get_uri is not implemented')
 
-    def upload_object(
+    def upload_file(
         self,
         object_name: str,
         filename: Union[str, pathlib.Path],
@@ -96,7 +96,7 @@ class RemoteFilesystem(abc.ABC):
             RemoteFilesystemTransientError: If there was a transient connection issue with uploading the object.
         """
         del object_name, filename, callback  # unused
-        raise NotImplementedError(f'{type(self).__name__}.upload_object is not implemented')
+        raise NotImplementedError(f'{type(self).__name__}.upload_file is not implemented')
 
     def get_object_size(self, object_name: str) -> int:
         """Get the size of an object, in bytes.

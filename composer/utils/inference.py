@@ -218,7 +218,7 @@ def export_for_inference(
 
             # upload if required.
             if is_remote_store:
-                save_remote_filesystem.upload_object(save_path, local_save_path)
+                save_remote_filesystem.upload_file(save_path, local_save_path)
 
 
 def export_with_logger(

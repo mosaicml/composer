@@ -484,7 +484,7 @@ def create_symlink_file(
     """Create a symlink file, which can be followed by :func:`get_file`.
 
     Unlike unix symlinks, symlink files can be created by this function are normal text files and can be
-    uploaded to remote filesystems via :meth:`.RemoteFilesystem.upload_object` or loggers via :meth:`.Logger.upload_file`
+    uploaded to remote filesystems via :meth:`.RemoteFilesystem.upload_file` or loggers via :meth:`.Logger.upload_file`
     that otherwise would not support unix-style symlinks.
 
     Args:

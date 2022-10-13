@@ -116,7 +116,7 @@ class TestRemoteFilesystem:
         del remote  # unused
         object_name = 'tmpfile_object_name'
         cb = MockCallback(dummy_obj.stat().st_size)
-        remote_filesystem.upload_object(object_name, str(dummy_obj), callback=cb)
+        remote_filesystem.upload_file(object_name, str(dummy_obj), callback=cb)
         cb.assert_all_data_transferred()
 
     def test_get_uri(self, remote_filesystem: RemoteFilesystem, remote: bool):
@@ -135,7 +135,7 @@ class TestRemoteFilesystem:
     def test_get_file_size(self, remote_filesystem: RemoteFilesystem, dummy_obj: pathlib.Path, remote: bool):
         del remote  # unused
         object_name = 'tmpfile_object_name'
-        remote_filesystem.upload_object(object_name, str(dummy_obj))
+        remote_filesystem.upload_file(object_name, str(dummy_obj))
         assert remote_filesystem.get_object_size(object_name) == dummy_obj.stat().st_size
 
     def test_get_file_size_not_found(self, remote_filesystem: RemoteFilesystem, remote: bool):
@@ -154,7 +154,7 @@ class TestRemoteFilesystem:
     ):
         del remote  # unused
         object_name = 'tmpfile_object_name'
-        remote_filesystem.upload_object(object_name, str(dummy_obj))
+        remote_filesystem.upload_file(object_name, str(dummy_obj))
         filepath = str(tmp_path / 'destination_path')
         cb = MockCallback(dummy_obj.stat().st_size)
         remote_filesystem.download_object(object_name, filepath, callback=cb)

@@ -112,7 +112,7 @@ class LibcloudRemoteFilesystem(RemoteFilesystem):
     def get_uri(self, object_name: str):
         return f'{self._provider_name}://{self._container.name}/{object_name}'
 
-    def upload_object(
+    def upload_file(
         self,
         object_name: str,
         filename: Union[str, pathlib.Path],

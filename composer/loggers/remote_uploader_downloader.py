@@ -521,7 +521,7 @@ def _validate_credentials(
     # raises an error if there was a credentials failure.
     with tempfile.NamedTemporaryFile('wb') as f:
         f.write(b'credentials_validated_successfully')
-        remote_filesystem.upload_object(
+        remote_filesystem.upload_file(
             object_name=remote_file_name_to_test,
             filename=f.name,
         )
@@ -564,7 +564,7 @@ def _upload_worker(
                     # Exceptions will be detected on the next batch_end or epoch_end event
                     raise FileExistsError(f'Object {uri} already exists, but allow_overwrite was set to False.')
             log.info('Uploading file %s to %s', file_path_to_upload, uri)
-            remote_filesystem.upload_object(
+            remote_filesystem.upload_file(
                 object_name=remote_file_name,
                 filename=file_path_to_upload,
             )

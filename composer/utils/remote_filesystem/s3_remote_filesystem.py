@@ -119,7 +119,7 @@ class S3RemoteFilesystem(RemoteFilesystem):
             _ensure_not_found_errors_are_wrapped(self.get_uri(object_name), e)
         return obj['ContentLength']
 
-    def upload_object(
+    def upload_file(
         self,
         object_name: str,
         filename: Union[str, pathlib.Path],

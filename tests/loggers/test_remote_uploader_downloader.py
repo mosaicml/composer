@@ -34,7 +34,7 @@ class DummyRemoteFilesystem(RemoteFilesystem):
     def _get_abs_path(self, object_name: str):
         return self.dir + '/' + object_name
 
-    def upload_object(
+    def upload_file(
         self,
         object_name: str,
         filename: Union[str, pathlib.Path],
