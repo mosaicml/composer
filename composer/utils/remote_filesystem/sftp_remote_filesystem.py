@@ -174,7 +174,7 @@ class SFTPRemoteFilesystem(RemoteFilesystem):
     def get_uri(self, object_name: str) -> str:
         return self._base_uri + object_name
 
-    def get_object_size(self, object_name: str) -> int:
+    def get_file_size(self, object_name: str) -> int:
         object_name = os.path.join(self.cwd, object_name)
         with self._handle_transient_errors():
             st_size = self.sftp_client.stat(object_name).st_size
@@ -226,7 +226,7 @@ class SFTPRemoteFilesystem(RemoteFilesystem):
             # This logic was adapted from the original source -- see
             # https://github.com/paramiko/paramiko/blob/1824a27c644132e5d46f2294c1e2fa131c523559/paramiko/sftp_client.py#L719-L724
             local_file_size = os.stat(filename).st_size
-            remote_file_size = self.get_object_size(object_name)
+            remote_file_size = self.get_file_size(object_name)
             if local_file_size != remote_file_size:
                 raise RemoteFilesystemTransientError(
                     f'Size mismatch in put: local size ({local_file_size}) != remote size ({remote_file_size})')

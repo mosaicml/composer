@@ -56,7 +56,7 @@ class DummyRemoteFilesystem(RemoteFilesystem):
             raise FileExistsError
         return shutil.copy2(self._get_abs_path(object_name), filename)
 
-    def get_object_size(self, object_name: str) -> int:
+    def get_file_size(self, object_name: str) -> int:
         size = os.stat(self._get_abs_path(object_name)).st_size
         return size
 

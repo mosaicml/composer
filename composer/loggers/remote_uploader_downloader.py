@@ -556,7 +556,7 @@ def _upload_worker(
         def upload_file():
             if not overwrite:
                 try:
-                    remote_filesystem.get_object_size(remote_file_name)
+                    remote_filesystem.get_file_size(remote_file_name)
                 except FileNotFoundError:
                     # Good! It shouldn't exist.
                     pass

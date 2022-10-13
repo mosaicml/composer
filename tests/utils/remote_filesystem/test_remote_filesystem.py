@@ -136,12 +136,12 @@ class TestRemoteFilesystem:
         del remote  # unused
         object_name = 'tmpfile_object_name'
         remote_filesystem.upload_file(object_name, str(dummy_obj))
-        assert remote_filesystem.get_object_size(object_name) == dummy_obj.stat().st_size
+        assert remote_filesystem.get_file_size(object_name) == dummy_obj.stat().st_size
 
     def test_get_file_size_not_found(self, remote_filesystem: RemoteFilesystem, remote: bool):
         del remote  # unused
         with pytest.raises(FileNotFoundError):
-            remote_filesystem.get_object_size('not found object')
+            remote_filesystem.get_file_size('not found object')
 
     @pytest.mark.parametrize('overwrite', [True, False])
     def test_download(

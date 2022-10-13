@@ -98,7 +98,7 @@ class RemoteFilesystem(abc.ABC):
         del object_name, filename, callback  # unused
         raise NotImplementedError(f'{type(self).__name__}.upload_file is not implemented')
 
-    def get_object_size(self, object_name: str) -> int:
+    def get_file_size(self, object_name: str) -> int:
         """Get the size of an object, in bytes.
 
         Args:
@@ -111,7 +111,7 @@ class RemoteFilesystem(abc.ABC):
             FileNotFoundError: If the file was not found in the remote filesystem.
             RemoteFilesystemTransientError: If there was a transient connection issue with getting the object size.
         """
-        raise NotImplementedError(f'{type(self).__name__}.get_object_size is not implemented')
+        raise NotImplementedError(f'{type(self).__name__}.get_file_size is not implemented')
 
     def download_object(
         self,

@@ -402,7 +402,7 @@ def _get_file(
     # Underlying _get_file logic that does not deal with symlinks
     if remote_filesystem is not None:
         if isinstance(remote_filesystem, RemoteFilesystem):
-            total_size_in_bytes = remote_filesystem.get_object_size(path)
+            total_size_in_bytes = remote_filesystem.get_file_size(path)
             remote_filesystem.download_object(
                 object_name=path,
                 filename=destination,

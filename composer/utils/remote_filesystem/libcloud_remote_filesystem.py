@@ -156,7 +156,7 @@ class LibcloudRemoteFilesystem(RemoteFilesystem):
         except Exception as e:
             self._ensure_transient_errors_are_wrapped(e)
 
-    def get_object_size(self, object_name: str) -> int:
+    def get_file_size(self, object_name: str) -> int:
         return self._get_object(object_name).size
 
     def download_object(

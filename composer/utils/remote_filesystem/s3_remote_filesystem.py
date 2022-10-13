@@ -112,7 +112,7 @@ class S3RemoteFilesystem(RemoteFilesystem):
     def get_key(self, object_name: str) -> str:
         return f'{self.prefix}{object_name}'
 
-    def get_object_size(self, object_name: str) -> int:
+    def get_file_size(self, object_name: str) -> int:
         try:
             obj = self.client.get_object(Bucket=self.bucket, Key=self.get_key(object_name))
         except Exception as e:
@@ -146,7 +146,7 @@ class S3RemoteFilesystem(RemoteFilesystem):
         if callback is None:
             cb_wrapper = None
         else:
-            file_size = self.get_object_size(object_name)
+            file_size = self.get_file_size(object_name)
             cb_wrapper = lambda bytes_transferred: callback(bytes_transferred, file_size)
 
         try:
