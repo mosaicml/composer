@@ -171,15 +171,15 @@ class SFTPRemoteFilesystem(RemoteFilesystem):
         self.sftp_client.close()
         self.ssh_client.close()
 
-    def get_uri(self, object_name: str) -> str:
-        return self._base_uri + object_name
+    def get_uri(self, remote_file_name: str) -> str:
+        return self._base_uri + remote_file_name
 
-    def get_file_size(self, object_name: str) -> int:
-        object_name = os.path.join(self.cwd, object_name)
+    def get_file_size(self, remote_file_name: str) -> int:
+        remote_file_name = os.path.join(self.cwd, remote_file_name)
         with self._handle_transient_errors():
-            st_size = self.sftp_client.stat(object_name).st_size
+            st_size = self.sftp_client.stat(remote_file_name).st_size
         if st_size is None:
-            raise RuntimeError('Cannot determine object size: stat(object_name).st_size is None')
+            raise RuntimeError('Cannot determine object size: stat(remote_file_name).st_size is None')
         return st_size
 
     @contextlib.contextmanager
@@ -212,33 +212,33 @@ class SFTPRemoteFilesystem(RemoteFilesystem):
 
     def upload_file(
         self,
-        object_name: str,
+        remote_file_name: str,
         filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
     ) -> None:
-        remote_object_name = os.path.join(self.cwd, object_name)
-        dirname = os.path.dirname(remote_object_name)
+        full_remote_file_name = os.path.join(self.cwd, remote_file_name)
+        dirname = os.path.dirname(full_remote_file_name)
         with self._handle_transient_errors():
             if dirname:
                 self.ssh_client.exec_command(f'mkdir -p {dirname}')
-            self.sftp_client.put(str(filename), remote_object_name, callback=callback, confirm=False)
+            self.sftp_client.put(str(filename), full_remote_file_name, callback=callback, confirm=False)
             # Validating manually to raise RemoteFilesystemTransientErrors if the size mismatches
             # This logic was adapted from the original source -- see
             # https://github.com/paramiko/paramiko/blob/1824a27c644132e5d46f2294c1e2fa131c523559/paramiko/sftp_client.py#L719-L724
             local_file_size = os.stat(filename).st_size
-            remote_file_size = self.get_file_size(object_name)
+            remote_file_size = self.get_file_size(remote_file_name)
             if local_file_size != remote_file_size:
                 raise RemoteFilesystemTransientError(
                     f'Size mismatch in put: local size ({local_file_size}) != remote size ({remote_file_size})')
 
     def download_file(
         self,
-        object_name: str,
+        remote_file_name: str,
         filename: Union[str, pathlib.Path],
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
     ) -> None:
-        object_name = os.path.join(self.cwd, object_name)
+        remote_file_name = os.path.join(self.cwd, remote_file_name)
         dirname = os.path.dirname(filename)
         if dirname:
             os.makedirs(dirname, exist_ok=True)
@@ -250,7 +250,7 @@ class SFTPRemoteFilesystem(RemoteFilesystem):
 
         try:
             with self._handle_transient_errors():
-                self.sftp_client.get(remotepath=object_name, localpath=tmp_path, callback=callback)
+                self.sftp_client.get(remotepath=remote_file_name, localpath=tmp_path, callback=callback)
         except Exception:
             # Make a best effort attempt to clean up the temporary file
             try:

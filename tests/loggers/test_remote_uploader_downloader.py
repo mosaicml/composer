@@ -28,25 +28,25 @@ class DummyRemoteFilesystem(RemoteFilesystem):
         self.always_fail = always_fail
         os.makedirs(self.dir, exist_ok=True)
 
-    def get_uri(self, object_name: str) -> str:
-        return 'local://' + object_name
+    def get_uri(self, remote_file_name: str) -> str:
+        return 'local://' + remote_file_name
 
-    def _get_abs_path(self, object_name: str):
-        return self.dir + '/' + object_name
+    def _get_abs_path(self, remote_file_name: str):
+        return self.dir + '/' + remote_file_name
 
     def upload_file(
         self,
-        object_name: str,
+        remote_file_name: str,
         filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
     ) -> None:
-        if self.always_fail and object_name != '.credentials_validated_successfully':
+        if self.always_fail and remote_file_name != '.credentials_validated_successfully':
             raise RuntimeError
         time.sleep(random.random() * 0.5)  # random sleep to simulate random network latency
-        shutil.copy2(filename, self._get_abs_path(object_name))
+        shutil.copy2(filename, self._get_abs_path(remote_file_name))
 
     def download_file(self,
-                      object_name: str,
+                      remote_file_name: str,
                       filename: Union[str, pathlib.Path],
                       overwrite: bool = False,
                       callback: Optional[Callable[[int, int], None]] = None) -> None:
@@ -54,10 +54,10 @@ class DummyRemoteFilesystem(RemoteFilesystem):
             raise RuntimeError
         if not overwrite and os.path.exists(filename):
             raise FileExistsError
-        return shutil.copy2(self._get_abs_path(object_name), filename)
+        return shutil.copy2(self._get_abs_path(remote_file_name), filename)
 
-    def get_file_size(self, object_name: str) -> int:
-        size = os.stat(self._get_abs_path(object_name)).st_size
+    def get_file_size(self, remote_file_name: str) -> int:
+        size = os.stat(self._get_abs_path(remote_file_name)).st_size
         return size
 
 

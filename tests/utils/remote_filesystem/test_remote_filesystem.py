@@ -114,29 +114,29 @@ class TestRemoteFilesystem:
 
     def test_upload(self, remote_filesystem: RemoteFilesystem, dummy_obj: pathlib.Path, remote: bool):
         del remote  # unused
-        object_name = 'tmpfile_object_name'
+        remote_file_name = 'tmpfile_remote_file_name'
         cb = MockCallback(dummy_obj.stat().st_size)
-        remote_filesystem.upload_file(object_name, str(dummy_obj), callback=cb)
+        remote_filesystem.upload_file(remote_file_name, str(dummy_obj), callback=cb)
         cb.assert_all_data_transferred()
 
     def test_get_uri(self, remote_filesystem: RemoteFilesystem, remote: bool):
         if remote:
             pytest.skip('This test_get_uri does not make any remote calls.')
-        uri = remote_filesystem.get_uri('tmpfile_object_name')
+        uri = remote_filesystem.get_uri('tmpfile_remote_file_name')
         if isinstance(remote_filesystem, S3RemoteFilesystem):
-            assert uri == 's3://my-bucket/folder/subfolder/tmpfile_object_name'
+            assert uri == 's3://my-bucket/folder/subfolder/tmpfile_remote_file_name'
         elif isinstance(remote_filesystem, LibcloudRemoteFilesystem):
-            assert uri == 'local://./tmpfile_object_name'
+            assert uri == 'local://./tmpfile_remote_file_name'
         elif isinstance(remote_filesystem, SFTPRemoteFilesystem):
-            assert uri == 'sftp://test_user@localhost:23/tmpfile_object_name'
+            assert uri == 'sftp://test_user@localhost:23/tmpfile_remote_file_name'
         else:
             raise NotImplementedError(f'Object store {type(remote_filesystem)} not implemented.')
 
     def test_get_file_size(self, remote_filesystem: RemoteFilesystem, dummy_obj: pathlib.Path, remote: bool):
         del remote  # unused
-        object_name = 'tmpfile_object_name'
-        remote_filesystem.upload_file(object_name, str(dummy_obj))
-        assert remote_filesystem.get_file_size(object_name) == dummy_obj.stat().st_size
+        remote_file_name = 'tmpfile_remote_file_name'
+        remote_filesystem.upload_file(remote_file_name, str(dummy_obj))
+        assert remote_filesystem.get_file_size(remote_file_name) == dummy_obj.stat().st_size
 
     def test_get_file_size_not_found(self, remote_filesystem: RemoteFilesystem, remote: bool):
         del remote  # unused
@@ -153,14 +153,14 @@ class TestRemoteFilesystem:
         remote: bool,
     ):
         del remote  # unused
-        object_name = 'tmpfile_object_name'
-        remote_filesystem.upload_file(object_name, str(dummy_obj))
+        remote_file_name = 'tmpfile_remote_file_name'
+        remote_filesystem.upload_file(remote_file_name, str(dummy_obj))
         filepath = str(tmp_path / 'destination_path')
         cb = MockCallback(dummy_obj.stat().st_size)
-        remote_filesystem.download_file(object_name, filepath, callback=cb)
+        remote_filesystem.download_file(remote_file_name, filepath, callback=cb)
         ctx = contextlib.nullcontext() if overwrite else pytest.raises(FileExistsError)
         with ctx:
-            remote_filesystem.download_file(object_name, filepath, callback=cb, overwrite=overwrite)
+            remote_filesystem.download_file(remote_file_name, filepath, callback=cb, overwrite=overwrite)
         cb.assert_all_data_transferred()
 
     def test_download_not_found(self, remote_filesystem: RemoteFilesystem, remote: bool):

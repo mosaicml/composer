@@ -106,36 +106,36 @@ class S3RemoteFilesystem(RemoteFilesystem):
             transfer_config = {}
         self.transfer_config = TransferConfig(**transfer_config)
 
-    def get_uri(self, object_name: str) -> str:
-        return f's3://{self.bucket}/{self.get_key(object_name)}'
+    def get_uri(self, remote_file_name: str) -> str:
+        return f's3://{self.bucket}/{self.get_key(remote_file_name)}'
 
-    def get_key(self, object_name: str) -> str:
-        return f'{self.prefix}{object_name}'
+    def get_key(self, remote_file_name: str) -> str:
+        return f'{self.prefix}{remote_file_name}'
 
-    def get_file_size(self, object_name: str) -> int:
+    def get_file_size(self, remote_file_name: str) -> int:
         try:
-            obj = self.client.get_object(Bucket=self.bucket, Key=self.get_key(object_name))
+            obj = self.client.get_object(Bucket=self.bucket, Key=self.get_key(remote_file_name))
         except Exception as e:
-            _ensure_not_found_errors_are_wrapped(self.get_uri(object_name), e)
+            _ensure_not_found_errors_are_wrapped(self.get_uri(remote_file_name), e)
         return obj['ContentLength']
 
     def upload_file(
         self,
-        object_name: str,
+        remote_file_name: str,
         filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
     ):
         file_size = os.path.getsize(filename)
         cb_wrapper = None if callback is None else lambda bytes_transferred: callback(bytes_transferred, file_size)
         self.client.upload_file(Bucket=self.bucket,
-                                Key=self.get_key(object_name),
+                                Key=self.get_key(remote_file_name),
                                 Filename=filename,
                                 Callback=cb_wrapper,
                                 Config=self.transfer_config)
 
     def download_file(
         self,
-        object_name: str,
+        remote_file_name: str,
         filename: Union[str, pathlib.Path],
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
@@ -146,18 +146,18 @@ class S3RemoteFilesystem(RemoteFilesystem):
         if callback is None:
             cb_wrapper = None
         else:
-            file_size = self.get_file_size(object_name)
+            file_size = self.get_file_size(remote_file_name)
             cb_wrapper = lambda bytes_transferred: callback(bytes_transferred, file_size)
 
         try:
             try:
                 self.client.download_file(Bucket=self.bucket,
-                                          Key=self.get_key(object_name),
+                                          Key=self.get_key(remote_file_name),
                                           Filename=tmp_path,
                                           Callback=cb_wrapper,
                                           Config=self.transfer_config)
             except Exception as e:
-                _ensure_not_found_errors_are_wrapped(self.get_uri(object_name), e)
+                _ensure_not_found_errors_are_wrapped(self.get_uri(remote_file_name), e)
         except:
             # Make a best effort attempt to clean up the temporary file
             try:

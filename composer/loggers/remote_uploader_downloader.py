@@ -363,22 +363,22 @@ class RemoteUploaderDownloader(LoggerDestination):
                 # Remove all objects from self._enqueued_objects that have been successfully uploaded
                 while True:
                     try:
-                        object_name = self._completed_queue.get_nowait()
+                        remote_file_name = self._completed_queue.get_nowait()
                     except queue.Empty:
                         break
-                    self._enqueued_objects.remove(object_name)
+                    self._enqueued_objects.remove(remote_file_name)
                     self._completed_queue.task_done()
 
                 # Enqueue all objects that are in self._logged_objects but not in self._file_upload_queue
                 objects_to_delete = []
-                for object_name, (copied_path, overwrite) in self._logged_objects.items():
-                    if object_name in self._enqueued_objects:
+                for remote_file_name, (copied_path, overwrite) in self._logged_objects.items():
+                    if remote_file_name in self._enqueued_objects:
                         continue
-                    self._file_upload_queue.put_nowait((copied_path, object_name, overwrite))
-                    objects_to_delete.append(object_name)
-                    self._enqueued_objects.add(object_name)
-                for object_name in objects_to_delete:
-                    del self._logged_objects[object_name]
+                    self._file_upload_queue.put_nowait((copied_path, remote_file_name, overwrite))
+                    objects_to_delete.append(remote_file_name)
+                    self._enqueued_objects.add(remote_file_name)
+                for remote_file_name in objects_to_delete:
+                    del self._logged_objects[remote_file_name]
 
                 # Shutdown if the enqueue thread flag is set, which means that no more objects will be added to
                 # self._logged_objects
@@ -464,16 +464,16 @@ class RemoteUploaderDownloader(LoggerDestination):
         # This cleanup will not be done by the enqueue_thread anymore, as that thread has been shut down
         while True:
             try:
-                object_name = self._completed_queue.get_nowait()
+                remote_file_name = self._completed_queue.get_nowait()
             except queue.Empty:
                 break
-            self._enqueued_objects.remove(object_name)
+            self._enqueued_objects.remove(remote_file_name)
             self._completed_queue.task_done()
 
         if len(self._enqueued_objects) > 0 or len(self._logged_objects) > 0:
             # Warn on all objects that have not been uploaded
-            object_names = list(self._enqueued_objects)
-            object_names.extend(self._logged_objects.keys())
+            remote_file_names = list(self._enqueued_objects)
+            remote_file_names.extend(self._logged_objects.keys())
             warnings.warn(
                 RuntimeWarning('The following objects may not have been uploaded, likely due to a worker crash: ' +
                                ', '.join(self._enqueued_objects)))
@@ -522,7 +522,7 @@ def _validate_credentials(
     with tempfile.NamedTemporaryFile('wb') as f:
         f.write(b'credentials_validated_successfully')
         remote_filesystem.upload_file(
-            object_name=remote_file_name_to_test,
+            remote_file_name=remote_file_name_to_test,
             filename=f.name,
         )
 
@@ -565,7 +565,7 @@ def _upload_worker(
                     raise FileExistsError(f'Object {uri} already exists, but allow_overwrite was set to False.')
             log.info('Uploading file %s to %s', file_path_to_upload, uri)
             remote_filesystem.upload_file(
-                object_name=remote_file_name,
+                remote_file_name=remote_file_name,
                 filename=file_path_to_upload,
             )
             os.remove(file_path_to_upload)

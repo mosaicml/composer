@@ -109,12 +109,12 @@ class LibcloudRemoteFilesystem(RemoteFilesystem):
         self._provider = provider_cls(**provider_kwargs)
         self._container = self._provider.get_container(container)
 
-    def get_uri(self, object_name: str):
-        return f'{self._provider_name}://{self._container.name}/{object_name}'
+    def get_uri(self, remote_file_name: str):
+        return f'{self._provider_name}://{self._container.name}/{remote_file_name}'
 
     def upload_file(
         self,
-        object_name: str,
+        remote_file_name: str,
         filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
     ):
@@ -125,7 +125,7 @@ class LibcloudRemoteFilesystem(RemoteFilesystem):
                 self._provider.upload_object_via_stream(
                     stream,
                     container=self._container,
-                    object_name=object_name,
+                    object_name=remote_file_name,
                 )
             except Exception as e:
                 self._ensure_transient_errors_are_wrapped(e)
@@ -142,26 +142,26 @@ class LibcloudRemoteFilesystem(RemoteFilesystem):
             raise RemoteFilesystemTransientError() from exc
         raise exc
 
-    def _get_object(self, object_name: str):
+    def _get_object(self, remote_file_name: str):
         """Get object from remote filesystem.
 
         Args:
-            object_name (str): The name of the object.
+            remote_file_name (str): The name of the object.
         """
         from libcloud.storage.types import ObjectDoesNotExistError
         try:
-            return self._provider.get_object(self._container.name, object_name)
+            return self._provider.get_object(self._container.name, remote_file_name)
         except ObjectDoesNotExistError as e:
-            raise FileNotFoundError(f'Object not found: {self.get_uri(object_name)}') from e
+            raise FileNotFoundError(f'Object not found: {self.get_uri(remote_file_name)}') from e
         except Exception as e:
             self._ensure_transient_errors_are_wrapped(e)
 
-    def get_file_size(self, object_name: str) -> int:
-        return self._get_object(object_name).size
+    def get_file_size(self, remote_file_name: str) -> int:
+        return self._get_object(remote_file_name).size
 
     def download_file(
         self,
-        object_name: str,
+        remote_file_name: str,
         filename: Union[str, pathlib.Path],
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
@@ -170,7 +170,7 @@ class LibcloudRemoteFilesystem(RemoteFilesystem):
             # If the file already exits, short-circuit and skip the download
             raise FileExistsError(f'filename {filename} exists and overwrite was set to False.')
 
-        obj = self._get_object(object_name)
+        obj = self._get_object(remote_file_name)
         # Download first to a tempfile, and then rename, in case if the file gets corrupted in transit
         tmp_filepath = str(filename) + f'.{uuid.uuid4()}.tmp'
         try:

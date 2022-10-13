@@ -27,7 +27,7 @@ class RemoteFilesystemTransientError(RuntimeError):
 
         class S3RemoteFilesystem(RemoteFilesystem):
 
-            def upload_file(self, file_path: str, object_name: str):
+            def upload_file(self, file_path: str, remote_file_name: str):
                 try:
                     ...
                 except botocore.exceptions.ClientError as e:
@@ -62,32 +62,32 @@ class RemoteFilesystemTransientError(RuntimeError):
 class RemoteFilesystem(abc.ABC):
     """Abstract class for implementing remote filesystem backends, such as LibcloudRemoteFilesystem and S3RemoteFilesystem."""
 
-    def get_uri(self, object_name: str) -> str:
-        """Returns the URI for ``object_name``.
+    def get_uri(self, remote_file_name: str) -> str:
+        """Returns the URI for ``remote_file_name``.
 
         .. note::
 
-            This function does not check that ``object_name`` is in the remote filesystem.
+            This function does not check that ``remote_file_name`` is in the remote filesystem.
             It computes the URI statically.
 
         Args:
-            object_name (str): The object name.
+            remote_file_name (str): The object name.
 
         Returns:
-            str: The URI for ``object_name`` in the remote filesystem.
+            str: The URI for ``remote_file_name`` in the remote filesystem.
         """
         raise NotImplementedError(f'{type(self).__name__}.get_uri is not implemented')
 
     def upload_file(
         self,
-        object_name: str,
+        remote_file_name: str,
         filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
     ) -> None:
         """Upload an object currently located on a disk.
 
         Args:
-            object_name (str): Object name (where object will be stored in the container)
+            remote_file_name (str): Object name (where object will be stored in the container)
             filename (str | pathlib.Path): Path the the object on disk
             callback ((int, int) -> None, optional): If specified, the callback is periodically called with the number of bytes
                 uploaded and the total size of the object being uploaded.
@@ -95,14 +95,14 @@ class RemoteFilesystem(abc.ABC):
         Raises:
             RemoteFilesystemTransientError: If there was a transient connection issue with uploading the object.
         """
-        del object_name, filename, callback  # unused
+        del remote_file_name, filename, callback  # unused
         raise NotImplementedError(f'{type(self).__name__}.upload_file is not implemented')
 
-    def get_file_size(self, object_name: str) -> int:
+    def get_file_size(self, remote_file_name: str) -> int:
         """Get the size of an object, in bytes.
 
         Args:
-            object_name (str): The name of the object.
+            remote_file_name (str): The name of the object.
 
         Returns:
             int: The object size, in bytes.
@@ -115,7 +115,7 @@ class RemoteFilesystem(abc.ABC):
 
     def download_file(
         self,
-        object_name: str,
+        remote_file_name: str,
         filename: Union[str, pathlib.Path],
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
@@ -123,7 +123,7 @@ class RemoteFilesystem(abc.ABC):
         """Download an object to the specified destination path.
 
         Args:
-            object_name (str): The name of the object to download.
+            remote_file_name (str): The name of the object to download.
             filename (str | pathlib.Path): Full path to a file or a directory where the incoming file will be saved.
             overwrite (bool, optional): Whether to overwrite an existing file at ``filename``, if it exists.
                 (default: ``False``)
@@ -134,7 +134,7 @@ class RemoteFilesystem(abc.ABC):
             FileNotFoundError: If the file was not found in the remote filesystem.
             RemoteFilesystemTransientError: If there was a transient connection issue with downloading the object.
         """
-        del object_name, filename, overwrite, callback  # unused
+        del remote_file_name, filename, overwrite, callback  # unused
         raise NotImplementedError(f'{type(self).__name__}.download_file is not implemented')
 
     def close(self):
