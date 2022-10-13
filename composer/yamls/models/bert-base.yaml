@@ -79,5 +79,4 @@ loggers:
   # Optional, some nice default parameters for remote file system checkpointing. Uncomment this if you want to checkpoint to cloud.
   # object_store:
   #  object_store_hparams:
-  #    s3:
-  #      bucket:
+  #    bucket_uri: "s3://<your-bucket-here>"
