@@ -257,10 +257,10 @@ class CheckpointSaver(Callback):  # noqa: D101
             Checkpoints will be removed after they have been uploaded. For example, when this callback
             is used in conjunction with the :class:`.RemoteUploaderDownloader`, set this
             parameter to ``0`` to immediately delete checkpoints from the local disk after they have been uploaded to
-            the object store.
+            the remote filesystem.
 
             This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
-            remote file systems.
+            remote filesystems.
 
     Attributes:
         saved_checkpoints (List[Tuple[Timestamp, List[pathlib.Path]]]): The checkpoint timestamps and filepaths.

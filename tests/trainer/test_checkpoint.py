@@ -168,7 +168,7 @@ class TestCheckpointLoading:
         )
 
     def get_logger(self, tmp_path: pathlib.Path):
-        """Returns an object store logger that saves locally."""
+        """Returns a RemoteUploaderDownloader that saves locally."""
         remote_dir = str(tmp_path / 'object_store')
         os.makedirs(remote_dir, exist_ok=True)
 
@@ -278,7 +278,7 @@ class TestCheckpointLoading:
         trainer_1.close()
 
         if delete_local:
-            # delete files locally, forcing trainer to look in object store
+            # delete files locally, forcing trainer to look in remote file system
             shutil.rmtree('first')
 
         trainer_2 = self.get_trainer(

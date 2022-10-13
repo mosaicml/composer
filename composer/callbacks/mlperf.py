@@ -178,7 +178,7 @@ class MLPerfCallback(Callback):
         self.systems_path = os.path.join(root_folder, 'systems', f'{system_name}.json')
         self.filename = os.path.join(root_folder, 'results', system_name, benchmark, f'result_{index}.txt')
 
-        # upload names for object store logging
+        # upload names for remote filesystem logging
         self.upload_name = '{run_name}' + f'/results/{system_name}/{benchmark}/result_{index}.txt'
         self.system_desc_upload_name = '{run_name}' + f'/systems/{system_name}.json'
 
@@ -342,7 +342,7 @@ class MLPerfCallback(Callback):
                 self.mllogger.logger.removeHandler(self._file_handler)
                 self.success = True  # only log once
 
-            # upload to object store after eval complete
+            # upload to remote filesystem after eval complete
             logger.upload_file(remote_file_name=self.upload_name, file_path=self.filename)
 
         if accuracy > self.target and self.exit_at_target:

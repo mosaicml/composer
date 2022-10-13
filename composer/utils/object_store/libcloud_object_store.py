@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Utility for uploading to and downloading from cloud object stores."""
+"""Utility for uploading to and downloading from remote file systems."""
 import io
 import os
 import pathlib
@@ -143,7 +143,7 @@ class LibcloudRemoteFilesystem(RemoteFilesystem):
         raise exc
 
     def _get_object(self, object_name: str):
-        """Get object from object store.
+        """Get object from remote file system.
 
         Args:
             object_name (str): The name of the object.

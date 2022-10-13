@@ -31,7 +31,7 @@ class RemoteFilesystemHparams(hp.Hparams, abc.ABC):
 
     @abc.abstractmethod
     def get_kwargs(self) -> Dict[str, Any]:
-        """Returns the kwargs to construct the object store returned by :meth:`get_object_store_class`.
+        """Returns the kwargs to construct the remote file system returned by :meth:`get_object_store_class`.
 
         Returns:
             Dict[str, Any]: The kwargs.
@@ -186,7 +186,7 @@ class S3RemoteFilesystemHparams(RemoteFilesystemHparams):
     """:class:`~.S3RemoteFilesystem` hyperparameters.
 
     The :class:`.S3RemoteFilesystem` uses :mod:`boto3` to handle uploading files to and downloading files from
-    S3-Compatible object stores.
+    S3-Compatible remote file systems.
 
     .. note::
 

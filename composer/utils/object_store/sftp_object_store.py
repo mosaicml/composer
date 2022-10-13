@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Utility for uploading to and downloading from cloud object stores."""
+"""Utility for uploading to and downloading from remote file systems."""
 
 from __future__ import annotations
 

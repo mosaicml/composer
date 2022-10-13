@@ -310,7 +310,7 @@ def get_file(
     overwrite: bool = False,
     progress_bar: bool = True,
 ):
-    """Get a file from a local folder, URL, or object store.
+    """Get a file from a local folder, URL, or remote file system.
 
     Args:
         path (str): The path to the file to retrieve.
@@ -329,10 +329,10 @@ def get_file(
             Otherwise, ``path`` will be downloaded to a file at ``destination``.
 
         object_store (RemoteFilesystem, optional): An :class:`~.RemoteFilesystem`, if ``path`` is located inside
-            an object store (i.e. AWS S3 or Google Cloud Storage). (default: ``None``)
+            a remote file system (i.e. AWS S3 or Google Cloud Storage). (default: ``None``)
 
             This :class:`~.RemoteFilesystem` instance will be used to retrieve the file. The ``path`` parameter
-            should be set to the object name within the object store.
+            should be set to the object name within the remote file system.
 
             Set this parameter to ``None`` (the default) if ``path`` is a URL or a local file.
 
@@ -484,7 +484,7 @@ def create_symlink_file(
     """Create a symlink file, which can be followed by :func:`get_file`.
 
     Unlike unix symlinks, symlink files can be created by this function are normal text files and can be
-    uploaded to object stores via :meth:`.RemoteFilesystem.upload_object` or loggers via :meth:`.Logger.upload_file`
+    uploaded to remote file systems via :meth:`.RemoteFilesystem.upload_object` or loggers via :meth:`.Logger.upload_file`
     that otherwise would not support unix-style symlinks.
 
     Args:

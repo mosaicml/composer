@@ -35,7 +35,7 @@ class RemoteUploaderDownloaderHparams(hp.Hparams):
     """Hyperparameters for the :class:`~.RemoteUploaderDownloader`.
 
     Args:
-        object_store_hparams (RemoteFilesystemHparams): The object store provider hparams.
+        object_store_hparams (RemoteFilesystemHparams): The remote filesystem provider hparams.
         file_path_format_string (str, optional): See :class:`.RemoteUploaderDownloader`.
         num_concurrent_uploads (int, optional): See :class:`.RemoteUploaderDownloader`.
         upload_staging_folder (str, optional): See :class:`.RemoteUploaderDownloader`.

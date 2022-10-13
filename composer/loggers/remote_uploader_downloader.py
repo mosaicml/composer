@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Log files to an object store."""
+"""Log files to a remote filesystem."""
 
 from __future__ import annotations
 
@@ -225,7 +225,7 @@ class RemoteUploaderDownloader(LoggerDestination):
 
         # There could be multiple upload workers uploading to the same object
         # If multiple workers are uploading to the same object simultaneously (e.g. the checkpoint latest symlink file), then
-        # The object store might keep the earlier file rather than the latter file as the "latest" version
+        # The remote filesystem might keep the earlier file rather than the latter file as the "latest" version
 
         # To work around this, each object name can appear at most once in `self._file_upload_queue`
         # The main separately keeps track of {file_path_format_string: tempfile_path} for each API call to self.upload_file
@@ -261,7 +261,7 @@ class RemoteUploaderDownloader(LoggerDestination):
             self._proc_class = threading.Thread
         self._worker_flag: Optional[Union[multiprocessing._EventType, threading.Event]] = None
         self._workers: List[Union[SpawnProcess, threading.Thread]] = []
-        # the object store instance for the main thread. Deferring the construction of the object_store to first use.
+        # the remote filesystem instance for the main thread. Deferring the construction of the object_store to first use.
         self._remote_backend = None
 
     @property
@@ -488,7 +488,7 @@ class RemoteUploaderDownloader(LoggerDestination):
         self._workers.clear()
 
     def get_uri_for_file(self, remote_file_name: str) -> str:
-        """Get the object store provider uri for a remote file.
+        """Get the remote filesystem provider uri for a remote file.
 
         Args:
             remote_file_name (str): The name of a remote file.
@@ -535,7 +535,7 @@ def _upload_worker(
     backend_kwargs: Dict[str, Any],
     num_attempts: int,
 ):
-    """A long-running function to handle uploading files to the object store.
+    """A long-running function to handle uploading files to the remote filesystem.
 
     The worker will continuously poll ``file_queue`` for files to upload. Once ``is_finished`` is set, the worker will
     exit once ``file_queue`` is empty.

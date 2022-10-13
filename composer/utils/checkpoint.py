@@ -98,7 +98,7 @@ def load_checkpoint(
     progress_bar: bool = True,
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
 ):
-    """Load a checkpoint from a local file, URI, or cloud object store into ``state``.
+    """Load a checkpoint from a local file, URI, or remote file system into ``state``.
 
     Args:
         path (str): The path format string to an existing checkpoint file.
@@ -135,7 +135,7 @@ def load_checkpoint(
             correct state.
 
         state (State): The :class:`~composer.core.State` to load the checkpoint into.
-        object_store (Union[RemoteFilesystem, LoggerDestination], optional): If the ``path`` is in an object store
+        object_store (Union[RemoteFilesystem, LoggerDestination], optional): If the ``path`` is in a remote file system
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.RemoteFilesystem` or :class:`~.LoggerDestination` which will be used
             to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath, set to ``None``.

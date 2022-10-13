@@ -172,7 +172,7 @@ def test_remote_uploader_downloader_no_overwrite(tmp_path: pathlib.Path, dummy_s
 
 @pytest.mark.parametrize('use_procs', [True, False])
 def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_state: State):
-    # Test a race condition with the object store logger where multiple files with the same name are logged in rapid succession
+    # Test a race condition with the RemoteUploaderDownloader where multiple files with the same name are logged in rapid succession
     # The latest version should be the one that is uploaded
 
     # Setup: Prep files
@@ -187,7 +187,7 @@ def test_race_with_overwrite(tmp_path: pathlib.Path, use_procs: bool, dummy_stat
     fork_context = multiprocessing.get_context('fork')
     with patch('composer.loggers.remote_uploader_downloader.S3RemoteFilesystem', DummyRemoteFilesystem):
         with patch('composer.loggers.remote_uploader_downloader.multiprocessing.get_context', lambda _: fork_context):
-            # Create the object store logger
+            # Create the RemoteUploaderDownloader
             remote_uploader_downloader = RemoteUploaderDownloader(
                 bucket_uri=f"s3://{tmp_path}/'object_store_backend",
                 backend_kwargs={
@@ -228,7 +228,7 @@ def test_close_on_failure(tmp_path: pathlib.Path, dummy_state: State):
     """Test that .close() and .post_close() does not hang even when a worker crashes."""
 
     with patch('composer.loggers.remote_uploader_downloader.S3RemoteFilesystem', DummyRemoteFilesystem):
-        # Create the object store logger
+        # Create the RemoteUploaderDownloader
         remote_uploader_downloader = RemoteUploaderDownloader(
             bucket_uri=f"s3://{tmp_path}/'object_store_backend",
             backend_kwargs={

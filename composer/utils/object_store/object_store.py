@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Abstract class for utilities that upload to and download from object stores."""
+"""Abstract class for utilities that upload to and download from remote file systems."""
 
 import abc
 import pathlib
@@ -60,21 +60,21 @@ class RemoteFilesystemTransientError(RuntimeError):
 
 
 class RemoteFilesystem(abc.ABC):
-    """Abstract class for implementing remote file system backends, such as LibcloudRemoteFilesystem and S3RemoteFilesystem."""
+    """Abstract class for implementing remote filesystem backends, such as LibcloudRemoteFilesystem and S3RemoteFilesystem."""
 
     def get_uri(self, object_name: str) -> str:
         """Returns the URI for ``object_name``.
 
         .. note::
 
-            This function does not check that ``object_name`` is in the object store.
+            This function does not check that ``object_name`` is in the remote file system.
             It computes the URI statically.
 
         Args:
             object_name (str): The object name.
 
         Returns:
-            str: The URI for ``object_name`` in the object store.
+            str: The URI for ``object_name`` in the remote file system.
         """
         raise NotImplementedError(f'{type(self).__name__}.get_uri is not implemented')
 
@@ -108,7 +108,7 @@ class RemoteFilesystem(abc.ABC):
             int: The object size, in bytes.
 
         Raises:
-            FileNotFoundError: If the file was not found in the object store.
+            FileNotFoundError: If the file was not found in the remote file system.
             RemoteFilesystemTransientError: If there was a transient connection issue with getting the object size.
         """
         raise NotImplementedError(f'{type(self).__name__}.get_object_size is not implemented')
@@ -131,7 +131,7 @@ class RemoteFilesystem(abc.ABC):
                 downloaded and the total size of the object.
 
         Raises:
-            FileNotFoundError: If the file was not found in the object store.
+            FileNotFoundError: If the file was not found in the remote file system.
             RemoteFilesystemTransientError: If there was a transient connection issue with downloading the object.
         """
         del object_name, filename, overwrite, callback  # unused

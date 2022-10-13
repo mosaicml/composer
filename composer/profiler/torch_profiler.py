@@ -120,11 +120,11 @@ class TorchProfiler(Callback):  # noqa: D101
 
             After a trace has been saved and uploaded, the oldest traces are removed until
             ``num_traces_to_keep`` traces remain. This parameter only controls how many traces are kept locally;
-            traces are not deleted from remote file systems.
+            traces are not deleted from remote filesystems.
 
             It can be useful to set this parameter to ``0`` when using a remote file uploader such as the
             :class:`.RemoteUploaderDownloader`. This combination will minimize local
-            disk usage by deleting trace files immediately after they have been uploaded to the object store.
+            disk usage by deleting trace files immediately after they have been uploaded to the remote file system.
 
     Attributes:
         saved_traces (List[Tuple[Timestamp, List[pathlib.Path]]]): The trace timestamps and filepaths.

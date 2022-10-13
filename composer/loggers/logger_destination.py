@@ -86,7 +86,7 @@ class LoggerDestination(Callback, ABC):
         """Handle uploading a file stored at ``file_path`` to a file named ``remote_file_name``.
 
         Subclasses should implement this method to store logged files (e.g. copy it to another folder or upload it to
-        an object store). However, not all loggers need to implement this method.
+        a remote filesystem). However, not all loggers need to implement this method.
         For example, the :class:`.TQDMLogger` does not implement this method, as it cannot
         handle file uploads.
 
