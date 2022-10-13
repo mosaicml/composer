@@ -1273,7 +1273,7 @@ class Trainer:
                                                   loggers, load_progress_bar)
                 if not os.path.exists(latest_checkpoint_path):
                     raise RuntimeError('Downloading the checkpoint on to all nodes failed')
-
+            dist.barrier()
             return latest_checkpoint_path
 
     def fit(
