@@ -113,7 +113,7 @@ class RemoteFilesystem(abc.ABC):
         """
         raise NotImplementedError(f'{type(self).__name__}.get_file_size is not implemented')
 
-    def download_object(
+    def download_file(
         self,
         object_name: str,
         filename: Union[str, pathlib.Path],
@@ -135,7 +135,7 @@ class RemoteFilesystem(abc.ABC):
             RemoteFilesystemTransientError: If there was a transient connection issue with downloading the object.
         """
         del object_name, filename, overwrite, callback  # unused
-        raise NotImplementedError(f'{type(self).__name__}.download_object is not implemented')
+        raise NotImplementedError(f'{type(self).__name__}.download_file is not implemented')
 
     def close(self):
         """Close the remote filesystem."""

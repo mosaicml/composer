@@ -98,7 +98,7 @@ def dispatch_download(remote: Optional[str], local: str):
         url = urllib.parse.urlsplit(remote)
         remote_path = url.path.strip('/')
         remote_filesystem = get_remote_filesystem(remote)
-        remote_filesystem.download_object(remote_path, local)
+        remote_filesystem.download_file(remote_path, local)
     elif remote.startswith('http://'):
         download_from_http(remote, local)
     else:

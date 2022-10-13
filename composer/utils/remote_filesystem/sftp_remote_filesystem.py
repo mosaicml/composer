@@ -231,7 +231,7 @@ class SFTPRemoteFilesystem(RemoteFilesystem):
                 raise RemoteFilesystemTransientError(
                     f'Size mismatch in put: local size ({local_file_size}) != remote size ({remote_file_size})')
 
-    def download_object(
+    def download_file(
         self,
         object_name: str,
         filename: Union[str, pathlib.Path],

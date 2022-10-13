@@ -403,7 +403,7 @@ def _get_file(
     if remote_filesystem is not None:
         if isinstance(remote_filesystem, RemoteFilesystem):
             total_size_in_bytes = remote_filesystem.get_file_size(path)
-            remote_filesystem.download_object(
+            remote_filesystem.download_file(
                 object_name=path,
                 filename=destination,
                 callback=_get_callback(f'Downloading {path}') if progress_bar else None,

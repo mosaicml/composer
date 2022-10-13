@@ -133,7 +133,7 @@ class S3RemoteFilesystem(RemoteFilesystem):
                                 Callback=cb_wrapper,
                                 Config=self.transfer_config)
 
-    def download_object(
+    def download_file(
         self,
         object_name: str,
         filename: Union[str, pathlib.Path],

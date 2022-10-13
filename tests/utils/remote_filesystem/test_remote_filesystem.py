@@ -157,15 +157,15 @@ class TestRemoteFilesystem:
         remote_filesystem.upload_file(object_name, str(dummy_obj))
         filepath = str(tmp_path / 'destination_path')
         cb = MockCallback(dummy_obj.stat().st_size)
-        remote_filesystem.download_object(object_name, filepath, callback=cb)
+        remote_filesystem.download_file(object_name, filepath, callback=cb)
         ctx = contextlib.nullcontext() if overwrite else pytest.raises(FileExistsError)
         with ctx:
-            remote_filesystem.download_object(object_name, filepath, callback=cb, overwrite=overwrite)
+            remote_filesystem.download_file(object_name, filepath, callback=cb, overwrite=overwrite)
         cb.assert_all_data_transferred()
 
     def test_download_not_found(self, remote_filesystem: RemoteFilesystem, remote: bool):
         with pytest.raises(FileNotFoundError):
-            remote_filesystem.download_object('not_found_object', filename='not used')
+            remote_filesystem.download_file('not_found_object', filename='not used')
 
 
 @pytest.mark.filterwarnings(r'ignore:setDaemon\(\) is deprecated:DeprecationWarning')

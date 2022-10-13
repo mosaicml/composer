@@ -63,7 +63,7 @@ def test_libcloud_remote_filesystem_callback(remote_dir: pathlib.Path, local_dir
     total_bytes_written = 0
 
     local_file_path_download = os.path.join(local_dir, 'dummy_file_downloaded')
-    provider.download_object('upload_file', local_file_path_download, callback=cb)
+    provider.download_file('upload_file', local_file_path_download, callback=cb)
 
     assert total_bytes_written == total_len
     assert num_calls == expected_num_calls

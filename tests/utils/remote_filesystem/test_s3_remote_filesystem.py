@@ -14,7 +14,7 @@ def _worker(bucket: str, tmp_path: pathlib.Path, tid: int):
     remote_filesystem = S3RemoteFilesystem(bucket=bucket)
     os.makedirs(tmp_path / str(tid))
     with pytest.raises(FileNotFoundError):
-        remote_filesystem.download_object('this_key_should_not_exist', filename=tmp_path / str(tid) / 'dummy_file')
+        remote_filesystem.download_file('this_key_should_not_exist', filename=tmp_path / str(tid) / 'dummy_file')
 
 
 # This test requires properly configured aws credentials; otherwise the s3 client would hit a NoCredentialsError

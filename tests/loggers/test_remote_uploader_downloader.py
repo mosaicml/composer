@@ -45,11 +45,11 @@ class DummyRemoteFilesystem(RemoteFilesystem):
         time.sleep(random.random() * 0.5)  # random sleep to simulate random network latency
         shutil.copy2(filename, self._get_abs_path(object_name))
 
-    def download_object(self,
-                        object_name: str,
-                        filename: Union[str, pathlib.Path],
-                        overwrite: bool = False,
-                        callback: Optional[Callable[[int, int], None]] = None) -> None:
+    def download_file(self,
+                      object_name: str,
+                      filename: Union[str, pathlib.Path],
+                      overwrite: bool = False,
+                      callback: Optional[Callable[[int, int], None]] = None) -> None:
         if self.always_fail:
             raise RuntimeError
         if not overwrite and os.path.exists(filename):

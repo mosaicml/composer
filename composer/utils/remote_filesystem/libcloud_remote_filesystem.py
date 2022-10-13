@@ -159,7 +159,7 @@ class LibcloudRemoteFilesystem(RemoteFilesystem):
     def get_file_size(self, object_name: str) -> int:
         return self._get_object(object_name).size
 
-    def download_object(
+    def download_file(
         self,
         object_name: str,
         filename: Union[str, pathlib.Path],
