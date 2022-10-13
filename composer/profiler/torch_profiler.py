@@ -124,7 +124,7 @@ class TorchProfiler(Callback):  # noqa: D101
 
             It can be useful to set this parameter to ``0`` when using a remote file uploader such as the
             :class:`.RemoteUploaderDownloader`. This combination will minimize local
-            disk usage by deleting trace files immediately after they have been uploaded to the remote file system.
+            disk usage by deleting trace files immediately after they have been uploaded to the remote filesystem.
 
     Attributes:
         saved_traces (List[Tuple[Timestamp, List[pathlib.Path]]]): The trace timestamps and filepaths.

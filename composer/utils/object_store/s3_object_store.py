@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""S3-Compatible remote file system."""
+"""S3-Compatible remote filesystem."""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ class S3RemoteFilesystem(RemoteFilesystem):
         prefix (str): A path prefix such as `folder/subfolder/` to prepend to object names. Defaults to ''.
         region_name (str, optional): The region name. Must be specified if not available in
             a config file or environment variables. Defaults to None.
-        endpoint_url (str, optional): The URL to an S3-Compatible remote file system. Must be specified if using something
+        endpoint_url (str, optional): The URL to an S3-Compatible remote filesystem. Must be specified if using something
             other than Amazon S3, like Google Cloud Storage. Defaults to None.
         aws_access_key_id (str, optional): The access key id. Must be specified if not available in
             a config file or environment variables. Defaults to None.

@@ -283,7 +283,7 @@ class TestCheckpointLoading:
         trainer_1.close()
 
         if delete_local:
-            # delete files locally, forcing trainer to look in remote file system
+            # delete files locally, forcing trainer to look in remote filesystem
             shutil.rmtree('first')
 
         trainer_2 = self.get_trainer(

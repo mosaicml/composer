@@ -337,8 +337,8 @@ class TrainerHparams(hp.Hparams):
     # Load Checkpoint
     load_path: Optional[str] = hp.auto(Trainer, 'load_path')
     load_object_store: Optional[RemoteFilesystemHparams] = hp.optional(
-        doc=(('If the checkpoint is in a remote file system (i.e. AWS S3 or Google Cloud Storage), the parameters for '
-              'connecting to the cloud provider remote file system. Otherwise, if the checkpoint is a local filepath, '
+        doc=(('If the checkpoint is in a remote filesystem (i.e. AWS S3 or Google Cloud Storage), the parameters for '
+              'connecting to the cloud provider remote filesystem. Otherwise, if the checkpoint is a local filepath, '
               'leave blank. This parameter has no effect if `load_path` is not specified.')),
         default=None)
     load_logger_destination: Optional[LoggerDestination] = hp.optional(

@@ -71,10 +71,10 @@ def test_get_file_object_store_with_symlink(tmp_path: pathlib.Path, monkeypatch:
         key_environ='OBJECT_STORE_KEY',
         container='.',
     )
-    # Add file to remote file system
+    # Add file to remote filesystem
     with open(str(remote_dir / 'checkpoint.txt'), 'wb') as f:
         f.write(b'checkpoint1')
-    # Add symlink to remote file system
+    # Add symlink to remote filesystem
     with open(str(remote_dir / 'latest.symlink'), 'w') as f:
         f.write('checkpoint.txt')
     # Fetch object, should automatically follow symlink

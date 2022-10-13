@@ -127,7 +127,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
             Traces will be removed after they have been uploaded. For example, when this handler
             is used in conjunction with the :class:`.RemoteUploaderDownloader`, set this
             parameter to ``0`` to immediately delete traces from the local disk after they have been uploaded to
-            the remote file system.
+            the remote filesystem.
 
             This parameter only controls how many traces are kept locally; traces are not deleted from
             remote filesystems.

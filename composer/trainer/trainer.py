@@ -530,7 +530,7 @@ class Trainer:
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
         load_object_store (Union[RemoteFilesystem, LoggerDestination], optional): If the ``load_path`` is in an
-            remote file system (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.RemoteFilesystem` or
+            remote filesystem (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.RemoteFilesystem` or
             :class:`.LoggerDestination` which will be used to retreive the checkpoint. Otherwise, if the
             checkpoint is a local filepath, set to ``None``. Ignored if ``load_path`` is ``None``.
             (default: ``None``)
@@ -548,7 +548,7 @@ class Trainer:
                 from composer import Trainer
                 from composer.utils import LibcloudRemoteFilesystem
 
-                # Create the remote file system provider with the specified credentials
+                # Create the remote filesystem provider with the specified credentials
                 creds = {"key": "object_store_key",
                          "secret": "object_store_secret"}
                 store = LibcloudRemoteFilesystem(provider="s3",
@@ -557,7 +557,7 @@ class Trainer:
 
                 checkpoint_path = "./path_to_the_checkpoint_in_object_store"
 
-                # Create a trainer which will load a checkpoint from the specified remote file system
+                # Create a trainer which will load a checkpoint from the specified remote filesystem
                 trainer = Trainer(
                     model=model,
                     train_dataloader=train_dataloader,
@@ -648,7 +648,7 @@ class Trainer:
             Checkpoints will be removed after they have been uploaded. For example, when this callback
             is used in conjunction with the :class:`.RemoteUploaderDownloader`, set this
             parameter to ``0`` to immediately delete checkpoints from the local disk after they have been uploaded to
-            the remote file system.
+            the remote filesystem.
 
             This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
             remote filesystems.
@@ -663,9 +663,9 @@ class Trainer:
             used to load a checkpoint if specified. This should only occur at the start of a run using autoresume.
 
             For example, to run a fine-tuning run on a spot instance, ``load_path`` would be set to the original
-            weights and an remote file system logger would be added. In the original run, ``load_path`` would be used
+            weights and an remote filesystem logger would be added. In the original run, ``load_path`` would be used
             to get the starting checkpoint. For any future restarts, such as due to the spot instance being killed,
-            the loggers would be queried for the latest checkpoint the remote file system logger would be downloaded and
+            the loggers would be queried for the latest checkpoint the remote filesystem logger would be downloaded and
             used to resume training.
         deepspeed_config (Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. (default: ``None``)

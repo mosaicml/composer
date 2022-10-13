@@ -85,7 +85,7 @@ def get_object_store_ctx(object_store_cls: Type[RemoteFilesystem],
     elif object_store_cls is LibcloudRemoteFilesystem:
         pytest.importorskip('libcloud')
         if remote:
-            pytest.skip('Libcloud remote file system has no remote tests.')
+            pytest.skip('Libcloud remote filesystem has no remote tests.')
         monkeypatch.setenv(object_store_kwargs['key_environ'], '.')
 
         remote_dir = tmp_path / 'remote_dir'

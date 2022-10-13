@@ -291,9 +291,9 @@ model outside of a :class:`.Trainer`, use :meth:`torch.load`:
 Uploading to Object Store
 -------------------------
 
-Checkpoints can also be saved to and loaded from your remote file system of choice (e.g. AWS S3 or Google Cloud Storage).
-Writing checkpoints to a remote file system is a two-step process. The checkpoints are first written to the local filesystem,
-and then the :class:`.RemoteUploaderDownloader` logger will upload checkpoints to the specified remote file system.
+Checkpoints can also be saved to and loaded from your remote filesystem of choice (e.g. AWS S3 or Google Cloud Storage).
+Writing checkpoints to a remote filesystem is a two-step process. The checkpoints are first written to the local filesystem,
+and then the :class:`.RemoteUploaderDownloader` logger will upload checkpoints to the specified remote filesystem.
 
 Behind the scenes, the :class:`.RemoteUploaderDownloader` uses :doc:`Apache Libcloud <libcloud:storage/index>`.
 
@@ -318,14 +318,14 @@ Behind the scenes, the :class:`.RemoteUploaderDownloader` uses :doc:`Apache Libc
 
 .. seealso::
 
-    *   :doc:`Full list of remote file system providers <libcloud:storage/supported_providers>`
+    *   :doc:`Full list of remote filesystem providers <libcloud:storage/supported_providers>`
     *   :class:`~.RemoteUploaderDownloader`
 
 There are a few additional trainer arguments which can be helpful to configure:
 
 *   ``save_num_checkpoints_to_keep``: Set this parameter to remove checkpoints from the local disk after they have been
     uploaded. For example, setting this parameter to 1 will only keep the latest checkpoint locally; setting it to 0
-    will remove each checkpoint after it has been uploaded. Checkpoints are never deleted from remote file systems.
+    will remove each checkpoint after it has been uploaded. Checkpoints are never deleted from remote filesystems.
 *   ``save_remote_file_name``: To customize how checkpoints are named in the cloud bucket, modify this parameter. By
     default, they will be named as ``'{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}'``. See the
     :class:`.CheckpointSaver` documentation for the available format variables.
@@ -371,7 +371,7 @@ and delete the checkpoints from the local disk.
 Loading from Object Store
 -------------------------
 
-Checkpoints saved to a remote file system can also be loaded in the same way as files saved on disk. Provide the
+Checkpoints saved to a remote filesystem can also be loaded in the same way as files saved on disk. Provide the
 :class:`.LibcloudRemoteFilesystem` to the trainer's ``load_object_store`` argument.  The ``load_path`` argument
 should be the path to the checkpoint file *within the container/bucket*.
 

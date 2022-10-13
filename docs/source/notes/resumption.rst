@@ -63,10 +63,10 @@ For an example code, see the `Checkpoint Autoresumption <examples/checkpoint_aut
 Implementation
 --------------
 
-During training, the trainer always symlinks the latest checkpoint to a format (default is ``latest-rank{rank}`` for local files and ``{run_name}/checkpoints/latest-rank{rank}`` for remote file systems). When ``autoresume=True``, the Trainer searches for checkpoints of that format in the following order:
+During training, the trainer always symlinks the latest checkpoint to a format (default is ``latest-rank{rank}`` for local files and ``{run_name}/checkpoints/latest-rank{rank}`` for remote filesystems). When ``autoresume=True``, the Trainer searches for checkpoints of that format in the following order:
 
 1. Local checkpoints of the format ``"{save_folder}/latest-rank0"``. The format for the latest checkpoint can be configured with ``save_latest_filename`` argument (default: ``latest-rank{rank}``).
-2. If no local checkpoints are found, then each logger is checked for files of the format ``"{run_name}/checkpoints/latest-rank{rank}"``. This is often used for resuming from a remote file system such as S3.
+2. If no local checkpoints are found, then each logger is checked for files of the format ``"{run_name}/checkpoints/latest-rank{rank}"``. This is often used for resuming from a remote filesystem such as S3.
 3. Finally, ``load_path`` is used to load a checkpoint. This can be used for example, a fine-tuning run on a spot instance, where ``load_path`` would be set to the original weights.
 
 Below, are some examples that demonstrate the ``RemoteUploaderDownloader`` (#2 above) and using the ``load_path`` for fine-tuning purposes (#3 above).
@@ -74,7 +74,7 @@ Below, are some examples that demonstrate the ``RemoteUploaderDownloader`` (#2 a
 Example: Object Store
 ---------------------
 
-A typical use case is saving checkpoints to a remote file system (e.g. S3) when there is no local file storage shared across runs. For example, a setup such as this:
+A typical use case is saving checkpoints to a remote filesystem (e.g. S3) when there is no local file storage shared across runs. For example, a setup such as this:
 
 
 .. testcode::
@@ -149,4 +149,4 @@ In the original run, ``load_path`` would be used to get the starting checkpoint.
 
 .. note::
 
-    The pretrained weights can also be loaded from a remote file system with the trainer's ``load_object_store`` argument. In that way, our trainer is fully independent of any local storage!
+    The pretrained weights can also be loaded from a remote filesystem with the trainer's ``load_object_store`` argument. In that way, our trainer is fully independent of any local storage!

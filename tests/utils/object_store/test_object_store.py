@@ -21,7 +21,7 @@ def bucket_uri_and_kwargs(request, s3_bucket: str, sftp_uri: str, test_session_n
 
     if request.param is LibcloudRemoteFilesystem:
         if remote:
-            pytest.skip('Libcloud remote file system has no remote tests')
+            pytest.skip('Libcloud remote filesystem has no remote tests')
         else:
             bucket_uri = 'libcloud://.'
             kwargs = {
@@ -54,7 +54,7 @@ def bucket_uri_and_kwargs(request, s3_bucket: str, sftp_uri: str, test_session_n
                 'username': 'test_user',
             }
     else:
-        raise ValueError(f'Invalid remote file system type: {request.param.__name__}')
+        raise ValueError(f'Invalid remote filesystem type: {request.param.__name__}')
     return bucket_uri, kwargs
 
 
