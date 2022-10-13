@@ -9,6 +9,11 @@ import torch.cuda
 
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 
+__all__ = [
+    'get_device',
+    'is_tpu_installed',
+]
+
 
 def get_device(device: Optional[Union[str, Device]]) -> Device:
     """Takes string or Device and returns the corresponding :class:`~composer.trainer.devices.Device`.

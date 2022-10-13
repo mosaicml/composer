@@ -42,7 +42,7 @@ import torch
 import torch.distributed as dist
 import torch.utils.data
 
-from composer.trainer.devices.utils import get_device
+from composer.utils.device import get_device
 
 if TYPE_CHECKING:
     from composer.trainer.devices import Device
@@ -377,8 +377,7 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
     """
     # If device is string, get corresponding composer.trainer.devices.Device object
     device = get_device(device)
-
-    timeout = datetime.timedelta(seconds=timeout)  # type: ignore
+    timeout_datetime = datetime.timedelta(seconds=timeout)
 
     if get_world_size() > 1 and not dist.is_available():
         raise RuntimeError('When the world size is > 1, ``torch.distributed`` must be used. However, it is '
@@ -423,7 +422,7 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
         os.environ.update(dist_env_var_defaults)
         dist.init_process_group(device.dist_backend, store=dist.HashStore(), world_size=1, rank=0)
     else:
-        dist.init_process_group(device.dist_backend, timeout=timeout)
+        dist.init_process_group(device.dist_backend, timeout=timeout_datetime)
 
 
 def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool, shuffle: bool):
