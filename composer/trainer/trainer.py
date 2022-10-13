@@ -1246,8 +1246,8 @@ class Trainer:
 
             if int(latest_checkpoint_exists_on_all_ranks.item()) == 0:
                 raise RuntimeError('DeepSpeed was enabled, but checkpoints were not found for all ranks')
-            else:
-                return latest_checkpoint_path
+
+            return latest_checkpoint_path
         else:
             # The checkpoint must at least exist for rank zero
             latest_checkpoint_exists_on_rank_zero = self._device.tensor_to_device(
@@ -1257,32 +1257,32 @@ class Trainer:
 
             if int(latest_checkpoint_exists_on_rank_zero.item()) == 0:
                 return None
-            else:
-                # broadcast the checkpoint path to all ranks
-                latest_checkpoint_path_list = [os.path.abspath(latest_checkpoint_path)]
-                dist.broadcast_object_list(latest_checkpoint_path_list, src=0)
-                latest_checkpoint_path = latest_checkpoint_path_list[0]
 
-                # download the checkpoint on local rank 0 of all nodes
-                if dist.get_local_rank() == 0 and not os.path.exists(latest_checkpoint_path):
-                    log.debug('Attempting to download the checkpoint on to all nodes')
-                    os.makedirs(save_folder, exist_ok=True)
-                    self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
-                                                  load_progress_bar)
+            # broadcast the checkpoint path to all ranks
+            latest_checkpoint_path_list = [os.path.abspath(latest_checkpoint_path)]
+            dist.broadcast_object_list(latest_checkpoint_path_list, src=0)
+            latest_checkpoint_path = latest_checkpoint_path_list[0]
 
-                log.debug(
-                    f'Checkpoint {latest_checkpoint_path} exists on rank {dist.get_global_rank()}? {os.path.exists(latest_checkpoint_path)}'
-                )
+            # download the checkpoint on local rank 0 of all nodes
+            if dist.get_local_rank() == 0 and not os.path.exists(latest_checkpoint_path):
+                log.debug('Attempting to download the checkpoint on to all nodes')
+                os.makedirs(save_folder, exist_ok=True)
+                self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
+                                              load_progress_bar)
 
-                # At this point the rank 0 filepath should exist on all ranks
-                latest_checkpoint_exists_on_all_ranks = self._device.tensor_to_device(
-                    torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
-                dist.all_reduce(latest_checkpoint_exists_on_all_ranks, reduce_operation='MIN')
+            log.debug(
+                f'Checkpoint {latest_checkpoint_path} exists on rank {dist.get_global_rank()}? {os.path.exists(latest_checkpoint_path)}'
+            )
 
-                if int(latest_checkpoint_exists_on_all_ranks.item()) == 0:
-                    raise RuntimeError('Downloading the checkpoint to all nodes failed')
-                else:
-                    return latest_checkpoint_path
+            # At this point the rank 0 filepath should exist on all ranks
+            latest_checkpoint_exists_on_all_ranks = self._device.tensor_to_device(
+                torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
+            dist.all_reduce(latest_checkpoint_exists_on_all_ranks, reduce_operation='MIN')
+
+            if int(latest_checkpoint_exists_on_all_ranks.item()) == 0:
+                raise RuntimeError('Downloading the checkpoint to all nodes failed')
+
+            return latest_checkpoint_path
 
     def fit(
         self,
