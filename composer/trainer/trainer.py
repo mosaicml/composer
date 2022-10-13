@@ -1262,7 +1262,7 @@ class Trainer:
                 )
             else:
                 # broadcast the checkpoint path to all ranks
-                latest_checkpoint_path_list = [latest_checkpoint_path]
+                latest_checkpoint_path_list = [os.path.abspath(latest_checkpoint_path)]
                 dist.broadcast_object_list(latest_checkpoint_path_list, src=0)
                 latest_checkpoint_path = latest_checkpoint_path_list[0]
 
@@ -1271,10 +1271,20 @@ class Trainer:
                     log.debug('Attempting to download the checkpoint on to all nodes')
                     self._attempt_checkpoint_download(save_folder, latest_checkpoint_path, save_latest_remote_file_name,
                                                       loggers, load_progress_bar)
-                    if not os.path.exists(latest_checkpoint_path):
-                        raise RuntimeError('Downloading the checkpoint on to all nodes failed')
-                dist.barrier()
-                return latest_checkpoint_path
+
+                log.debug(
+                    f'Checkpoint {latest_checkpoint_path} exists on rank {dist.get_global_rank()}? {os.path.exists(latest_checkpoint_path)}'
+                )
+
+                # At this point the rank 0 filepath should exist on all ranks
+                latest_checkpoint_exists_on_all_ranks = self._device.tensor_to_device(
+                    torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
+                dist.all_reduce(latest_checkpoint_exists_on_all_ranks, reduce_operation='MIN')
+
+                if int(latest_checkpoint_exists_on_all_ranks.item()) == 0:
+                    raise RuntimeError('Downloading the checkpoint to all nodes failed')
+                else:
+                    return latest_checkpoint_path
 
     def fit(
         self,
