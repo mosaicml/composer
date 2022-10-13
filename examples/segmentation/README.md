@@ -13,11 +13,11 @@ Before running the script, ADE20k semantic segmentation benchmark must be downlo
 <!--pytest.mark.skip-->
 
 ```bash
-# Single GPU/CPU depending on torch.cuda.is_available():
-python train_deeplabv3_ade20k.py /path/to/ade20k
+# Downloads ADE20k and does single GPU/CPU training depending on torch.cuda.is_available():
+python train_deeplabv3_ade20k.py /path/to/ade20k --download
 
 # Log experiments to Weights and Biases:
-python train_deeplabv3_ade20k.py /path/to/ade20k --wandb_logger --wandb_entity my_username --wandb_project my_project --wandb_run_name my_run_name
+python train_deeplabv3_ade20k.py /path/to/ade20k --wandb_logger --wandb_entity my_username --wandb_project my_project --run_name my_run_name
 
 # Single/Multi GPU training (infers the number of GPUs available):
 composer train_deeplabv3_ade20k.py /path/to/ade20k
