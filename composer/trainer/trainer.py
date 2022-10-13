@@ -1213,7 +1213,7 @@ class Trainer:
         save_latest_remote_file_name: str,
         loggers: Sequence[LoggerDestination],
         load_progress_bar: bool,
-    ):
+    ) -> Optional[str]:
         """Determines the load path when using autoresume.
 
         First, check the ``save_folder`` for the latest checkpoint.
@@ -1256,9 +1256,7 @@ class Trainer:
             dist.all_reduce(latest_checkpoint_exists_on_rank_zero, reduce_operation='MAX')
 
             if int(latest_checkpoint_exists_on_rank_zero.item()) == 0:
-                raise RuntimeError(
-                    f'Checkpoint not found locally at {latest_checkpoint_path} or remotely at {save_latest_remote_file_name} for autoresumption'
-                )
+                return None
             else:
                 # broadcast the checkpoint path to all ranks
                 latest_checkpoint_path_list = [os.path.abspath(latest_checkpoint_path)]
