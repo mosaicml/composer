@@ -18,9 +18,10 @@ performing the same work, so inspecting the rank zero is sufficient to
 reason about memory, performance, and other properties.
 
 Within Composer, we have two options for data-parallelism-only
-execution: `Pytorch DDP`_, `DeepSpeed Zero`_, and `Pytorch FSDP`_. We currently default to
+execution: `Pytorch FSDP`_, `Pytorch DDP`_, and `DeepSpeed Zero`_. We currently default to
 Pytorch DDP, though DeepSpeed Zero can provide better performance and
-lower memory utilization when configured correctly. # TODO: add some commentary on FSDP
+lower memory utilization when configured correctly. We are also support Pytorch FSDP which produces
+the same results as Pytorch DDP, while also increasing memory and computational efficiency.
 
 
 Usage
@@ -155,7 +156,7 @@ The full spec and defaults for Composer's `fsdp_config` is here:
       'sharding_strategy': str = 'FULL_SHARD' | 'SHARD_GRAD_OP' | 'NO_SHARD', # Default: 'FULL_SHARD'
       'min_params': float # Default: 1e8
       'cpu_offload': bool = True | False, # Default: False, cpu_offload not supported yet
-      'mixed_precision': str = 'full' | 'default' | 'pure', # Default: 'default'
+      'mixed_precision': str = 'FULL' | 'DEFAULT' | 'PURE', # Default: 'DEFAULT'
       # Note: you can explictly provide a dictionary too
       # 'mixed_precision': dict = {
       #   'param_dtype': 'fp32' | 'fp16' | 'bf16',
@@ -165,6 +166,7 @@ The full spec and defaults for Composer's `fsdp_config` is here:
       'backward_prefetch': str = 'BACKWARD_PRE' | 'BACKWARD_POST' | 'NONE', # Default: 'BACKWARD_POST'
       'activation_checkpointing': bool = True | False, # Default: False
       'activation_cpu_offload': bool = True | False, # Default: False
+      'verbose': bool = True | False,
     }
 
 All values come with defaults and can be optionally defined in the :code:`fsdp_config`. Most parameters map directly to parameters in the `FSDP documentation <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.fsdp.FullyShardedDataParallel>`__.
@@ -193,14 +195,82 @@ One Composer-specific pattern is that if :code:`mixed_precision` is provided as 
       buffer_dtype=autocast_precision, # Low precision buffers
     )
 
+An example code snippet for using FSDP with composer is provided below:
+
+.. code:: python
+
+    import torch.nn as nn
+    from composer import Trainer
+
+    class Block (nn.Module):
+        ...
+
+    class Model(nn.Module):
+        def __init__(self, n_layers):
+            super().__init__()
+            self.blocks = nn.ModuleList([
+                Block(...) for _ in range(n_layers)
+            ]),
+            self.head = nn.Linear(...)
+
+        def forward(self, inputs):
+            ...
+
+        # FSDP Wrap Function
+        def fsdp_wrap_fn(self, module):
+            return isinstance(module, Block)
+
+        # Activation Checkpointing Function
+        def activation_checkpointing_fn(self, module):
+            return isinstance(module, Block)
+
+
+    class MyComposerModel(ComposerModel):
+
+        def __init__(self, n_layers):
+            super().__init__()
+            self.model = Model(n_layers)
+            ...
+
+        def forward(self, batch):
+            ...
+
+        def eval_forward(self, batch, outputs=None):
+            ...
+
+        def loss(self, outputs, batch):
+            ...
+
+        ...
+
+    composer_model = MyComposerModel(n_layers=3)
+
+    fsdp_config = {
+        'sharding_strategy': 'FULL_SHARD',
+        'min_params': 1e8,
+        'cpu_offload': False, # Not supported yet
+        'mixed_precision': 'DEFAULT',
+        'backward_prefetch': 'BACKWARD_POST',
+        'activation_checkpointing': False,
+        'activation_cpu_offload': False,
+        'verbose': True
+    }
+
+
+    trainer = Trainer(
+        model=composer_model,
+        fsdp_config=fsdp_config,
+        ...
+    )
+
+    trainer.fit()
+
+
 .. warning::
     As of now now we don't support :code:`CPU Offloading` for FSDP.
 
 .. warning::
     As of now, default parameters might not provide optimal convergence. Please proceed with caution.
-
-
-#TODO include example code snippet
 
 Composer's FSDP Auto Wrap Policy
 ---------
