@@ -634,7 +634,9 @@ class Trainer:
             (default: ``None``)
 
         save_folder (str, optional): Format string for the folder where checkpoints are saved.
-            If ``None``, checkpoints will not be saved. (default: ``None``)
+            If ``None``, checkpoints will not be saved. Can also be a URI for S3 paths only.
+            In the case of an S3 URI, the appropriate `~.RemoteUploader` object will be created
+            automatically. (default: ``None``)
 
             .. seealso:: :class:`~.CheckpointSaver`
 
