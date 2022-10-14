@@ -144,7 +144,7 @@ loggers:
   tensorboard:
     log_dir: my_tensorboard_logs
   remote_filesystem:
-    bucket: my-s3-bucket-name
+    bucket_uri: my-s3-bucket-name
 ```
 
 Once again you can run this job like so:

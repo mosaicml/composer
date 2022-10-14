@@ -79,10 +79,8 @@ pretrain_hparams:
 
   loggers:
     remote_filesystem:
-      remote_filesystem_hparams:
-        &bucket # The bucket to save checkpoints to, aliased as 'bucket' for future reference in this file
-        s3:
-          bucket: your-bucket-here #TODO
+      &bucket
+      bucket_uri: s3://your-bucket-here #TODO, The bucket to save checkpoints to, aliased as 'bucket' for future reference in this file
     wandb:
       tags:
         - pretrain
@@ -90,10 +88,11 @@ pretrain_hparams:
 finetune_hparams:
   # defaults
   loggers:
-    remote_filesystem:
-      remote_filesystem_hparams: *bucket # Refers to previously defined alias of 'bucket'
+    remote_filesystem: *bucket # Refers to previously defined alias of 'bucket'
     wandb:
       tags:
         - finetune
-  load_remote_filesystem: *bucket
+  load_remote_filesystem:
+    s3:
+      bucket: your-bucket-here
   save_folder: *folder # Refers to previously defined alias of 'folder'
