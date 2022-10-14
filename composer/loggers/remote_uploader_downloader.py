@@ -223,11 +223,11 @@ class RemoteUploaderDownloader(LoggerDestination):
             raise ValueError('num_concurrent_uploads must be >= 1. Blocking uploads are not supported.')
         self._num_concurrent_uploads = num_concurrent_uploads
 
-        # There could be multiple upload workers uploading to the same object
-        # If multiple workers are uploading to the same object simultaneously (e.g. the checkpoint latest symlink file), then
+        # There could be multiple upload workers uploading to the same remote file
+        # If multiple workers are uploading to the same remote file simultaneously (e.g. the checkpoint latest symlink file), then
         # The remote filesystem might keep the earlier file rather than the latter file as the "latest" version
 
-        # To work around this, each object name can appear at most once in `self._file_upload_queue`
+        # To work around this, each remote file name can appear at most once in `self._file_upload_queue`
         # The main separately keeps track of {file_path_format_string: tempfile_path} for each API call to self.upload_file
         # and then periodically transfers items from this dictionary onto the file upload queue
 

@@ -142,11 +142,11 @@ class LibcloudRemoteFilesystem(RemoteFilesystem):
             raise RemoteFilesystemTransientError() from exc
         raise exc
 
-    def _get_object(self, remote_file_name: str):
-        """Get object from remote filesystem.
+    def _get_file(self, remote_file_name: str):
+        """Get file from remote filesystem.
 
         Args:
-            remote_file_name (str): The name of the object.
+            remote_file_name (str): The name of the file.
         """
         from libcloud.storage.types import ObjectDoesNotExistError
         try:
@@ -157,7 +157,7 @@ class LibcloudRemoteFilesystem(RemoteFilesystem):
             self._ensure_transient_errors_are_wrapped(e)
 
     def get_file_size(self, remote_file_name: str) -> int:
-        return self._get_object(remote_file_name).size
+        return self._get_file(remote_file_name).size
 
     def download_file(
         self,
@@ -170,7 +170,7 @@ class LibcloudRemoteFilesystem(RemoteFilesystem):
             # If the file already exits, short-circuit and skip the download
             raise FileExistsError(f'filename {filename} exists and overwrite was set to False.')
 
-        obj = self._get_object(remote_file_name)
+        obj = self._get_file(remote_file_name)
         # Download first to a tempfile, and then rename, in case if the file gets corrupted in transit
         tmp_filepath = str(filename) + f'.{uuid.uuid4()}.tmp'
         try:
