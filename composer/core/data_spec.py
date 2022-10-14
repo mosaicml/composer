@@ -10,7 +10,9 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Mapping, Option
 
 import torch
 import torch.utils.data
+from torch.utils.data.distributed import DistributedSampler
 
+from composer.utils import dist
 from composer.utils.iter_helpers import ensure_tuple
 
 if TYPE_CHECKING:
@@ -174,14 +176,34 @@ class DataSpec:
             else:
                 self.num_samples = None
 
-        if isinstance(dataloader, torch.utils.data.DataLoader) and dataloader._iterator is not None:
-            raise ValueError(
-                ('The dataloader has an active iterator. This could occur '
-                 'if `persistent_workers=True` and the dataloader has already been iterated, '
-                 'or if the dataloader is mid-epoch. It is required that the training dataloader '
-                 'does not have an active iterator, so CPU dataset augmentations can be '
-                 'correctly inserted. To fix, please do not iterate over the dataloader before passing it into '
-                 'the Trainer.'))
+        if isinstance(dataloader, torch.utils.data.DataLoader):
+            if dataloader._iterator is not None:
+                raise ValueError(
+                    ('The dataloader has an active iterator. This could occur '
+                     'if `persistent_workers=True` and the dataloader has already been iterated, '
+                     'or if the dataloader is mid-epoch. It is required that the training dataloader '
+                     'does not have an active iterator, so CPU dataset augmentations can be '
+                     'correctly inserted. To fix, please do not iterate over the dataloader before passing it into '
+                     'the Trainer.'))
+            world_size = dist.get_world_size()
+            # Check for Distributed Sampler if not using IterableDataset on more than 1 GPU
+            if world_size > 1 and not isinstance(dataloader.dataset, torch.utils.data.IterableDataset):
+                is_sampler_distributed = dataloader.sampler is not None and isinstance(
+                    dataloader.sampler, DistributedSampler)
+                is_batch_sampler_distributed = dataloader.batch_sampler is not None and isinstance(
+                    dataloader.batch_sampler, DistributedSampler)
+                if not is_sampler_distributed and not is_batch_sampler_distributed:
+                    raise ValueError(
+                        f'The world_size({world_size}) > 1 but dataloader does not use '
+                        'DistributedSampler. This will cause all ranks to train on the same '
+                        'data, removing any benefit from multi-GPU training. To resolve this, '
+                        'create a Dataloader with DistributedSampler. For example, '
+                        'DataLoader(..., sampler=composer.utils.dist.get_sampler(...)).'
+                        'Alternatively, the process group can be instantiated with '
+                        'composer.utils.dist.instantiate_dist(...) and DistributedSampler can '
+                        'directly be created with DataLoader(..., sampler=DistributedSampler(...)). '
+                        'For more information, see https://pytorch.org/docs/stable/data.html#torch.utils.data.distributed.DistributedSampler.'
+                    )
 
     def _default_device_transforms(self, batch: Batch):
         return batch
