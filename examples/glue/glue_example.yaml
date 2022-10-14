@@ -94,5 +94,5 @@ finetune_hparams:
         - finetune
   load_remote_filesystem:
     s3:
-      bucket: your-bucket-here
+      bucket: your-bucket-here # TODO, change this bucket as well
   save_folder: *folder # Refers to previously defined alias of 'folder'
