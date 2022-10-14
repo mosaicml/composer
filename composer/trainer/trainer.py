@@ -295,7 +295,7 @@ def _maybe_create_remote_uploader_downloader_from_uri(
         uri: str, loggers: List[LoggerDestination]) -> Optional[RemoteUploaderDownloader]:
     existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
     parse_result = urlparse(uri)
-    backend, bucket_name, dir_path = parse_result.scheme, parse_result.netloc, parse_result.path.lstrip('/')
+    backend, bucket_name, _ = parse_result.scheme, parse_result.netloc, parse_result.path.lstrip('/')
     if backend == '':
         return None
     for existing_remote_ud in existing_remote_uds:
@@ -305,12 +305,24 @@ def _maybe_create_remote_uploader_downloader_from_uri(
                 f'There already exists a RemoteUploaderDownloader object to handle the uri: {uri} you specified')
             return None
     if backend == 's3':
-        return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}',
-                                        backend_kwargs={'bucket': bucket_name},
-                                        file_path_format_string=dir_path)
+        return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}', backend_kwargs={'bucket': bucket_name})
+
+    elif backend == 'wandb':
+        raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '
+                                  'WandBLogger with log_artifacts set to True')
+
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
                                   's3 or one of the supported RemoteUploaderDownloader object stores')
+
+
+def _parse_uri(uri: str) -> Tuple[str, str, str]:
+    parse_result = urlparse(uri)
+    backend, bucket_name, path = parse_result.scheme, parse_result.netloc, parse_result.path
+    if backend == '' and bucket_name == '':
+        return backend, bucket_name, path
+    else:
+        return backend, bucket_name, path.lstrip('/')
 
 
 def _is_tpu_installed() -> bool:
@@ -984,8 +996,9 @@ class Trainer:
         # Checkpoint Saving
         self._checkpoint_saver = None
         if save_folder is not None:
+            _, _, parsed_save_folder = _parse_uri(save_folder)
             self._checkpoint_saver = CheckpointSaver(
-                folder=save_folder,
+                folder=parsed_save_folder,
                 filename=save_filename,
                 remote_file_name=save_remote_file_name,
                 latest_filename=save_latest_filename,

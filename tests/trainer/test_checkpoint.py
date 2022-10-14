@@ -24,6 +24,7 @@ from composer.core.callback import Callback
 from composer.core.time import Time, TimeUnit
 from composer.loggers import RemoteUploaderDownloader, remote_uploader_downloader
 from composer.optim import ExponentialScheduler
+from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, is_tar
 from composer.utils.checkpoint import glob_filter
@@ -143,7 +144,7 @@ class TestCheckpointSaving:
         return Trainer(model=model, **kwargs)
 
     @pytest.mark.parametrize('add_remote_ud', [True, False])
-    def test_use_s3_uri(self, add_remote_ud: bool, monkeypatch: MonkeyPatch):
+    def test_s3_uri_creates_remote_ud(self, add_remote_ud: bool, monkeypatch: MonkeyPatch):
         mock_validate_credentials = MagicMock()
         monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
         if add_remote_ud:
@@ -164,7 +165,36 @@ class TestCheckpointSaving:
         remote_ud = remote_uds[0]
         assert remote_ud.remote_backend_name == 's3'
         assert remote_ud.remote_bucket_name == 'bucket_name'
-        assert remote_ud.file_path_format_string == '{run_name}/checkpoints'
+
+    @pytest.mark.parametrize('uri', ['wandb://foo/bar', 'gcs://foo/bar', 'sftp://foo/bar"'])
+    def test_other_uris_error_out(self, uri: str):
+        with pytest.raises(NotImplementedError):
+            self.get_trainer(save_folder=uri)
+
+    @pytest.mark.parametrize('local_path', ['foo/bar/baz'])
+    def test_local_paths_work(self, local_path: str):
+        self.get_trainer(save_folder=local_path)
+
+    @pytest.mark.parametrize('save_folder', ['s3://bucket_name/{run_name}/my_checkpoints', '{run_name}/my_checkpoints'])
+    def test_checkpoint_saver_properly_constructed(self, save_folder: str, monkeypatch: MonkeyPatch):
+        mock_validate_credentials = MagicMock()
+        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
+        mock_checkpoint_saver = MagicMock()
+        monkeypatch.setattr(trainer, 'CheckpointSaver', mock_checkpoint_saver)
+        self.get_trainer(save_folder=save_folder)
+        rest_of_checkpoint_saver_kwargs = {
+            'filename': 'ep{epoch}-ba{batch}-rank{rank}.pt',
+            'remote_file_name': '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
+            'latest_filename': 'latest-rank{rank}.pt',
+            'latest_remote_file_name': '{run_name}/checkpoints/latest-rank{rank}',
+            'overwrite': False,
+            'weights_only': False,
+            'save_interval': '1ep',
+            'num_checkpoints_to_keep': -1
+        }
+
+        mock_checkpoint_saver.assert_called_once_with(folder='{run_name}/my_checkpoints',
+                                                      **rest_of_checkpoint_saver_kwargs)
 
 
 class TestCheckpointLoading:
