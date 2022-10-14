@@ -294,8 +294,7 @@ def _generate_run_name() -> str:
 def _maybe_create_remote_uploader_downloader_from_uri(
         uri: str, loggers: List[LoggerDestination]) -> Optional[RemoteUploaderDownloader]:
     existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
-    parse_result = urlparse(uri)
-    backend, bucket_name, _ = parse_result.scheme, parse_result.netloc, parse_result.path.lstrip('/')
+    backend, bucket_name, _ = _parse_uri(uri)
     if backend == '':
         return None
     for existing_remote_ud in existing_remote_uds:
