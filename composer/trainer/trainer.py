@@ -1190,11 +1190,11 @@ class Trainer:
     def _try_checkpoint_download(self, latest_checkpoint_path: str, save_latest_remote_file_name: str,
                                  loggers: Sequence[LoggerDestination], load_progress_bar: bool) -> None:
         """Attempts to download the checkpoint from the logger destinations."""
+        log.debug(
+            f'Trying to download {save_latest_remote_file_name} to {latest_checkpoint_path} on rank {dist.get_global_rank()}'
+        )
         for logger in loggers:
             try:
-                log.debug(
-                    f'Trying to download {save_latest_remote_file_name} to {latest_checkpoint_path} on rank {dist.get_global_rank()}'
-                )
                 # Fetch from logger. If it succeeds, stop trying the rest of the loggers
                 get_file(
                     path=save_latest_remote_file_name,
@@ -1239,6 +1239,7 @@ class Trainer:
 
         # If latest checkpoint is not saved locally, try to fetch from loggers
         if not os.path.exists(latest_checkpoint_path) and (dist.get_global_rank() == 0 or self.deepspeed_enabled):
+            log.debug(f'Attempting to download the checkpoint on to rank {dist.get_global_rank()}')
             os.makedirs(save_folder, exist_ok=True)
             self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
                                           load_progress_bar)
