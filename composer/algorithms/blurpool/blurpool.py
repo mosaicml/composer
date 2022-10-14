@@ -176,6 +176,7 @@ def _maybe_replace_strided_conv2d(
     blur_first: bool,
     min_channels: int = 16,
 ):
-    if (np.max(module.stride) > 1 and module.in_channels >= min_channels):
+    already_blurpooled = hasattr(module, '_already_blurpooled') and module._already_blurpooled
+    if np.max(module.stride) > 1 and module.in_channels >= min_channels and not already_blurpooled:
         return BlurConv2d.from_conv2d(module, module_index, blur_first=blur_first)
     return None
