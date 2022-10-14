@@ -1193,7 +1193,7 @@ class Trainer:
         for logger in loggers:
             try:
                 log.debug(
-                    f'Downloading {save_latest_remote_file_name} to {latest_checkpoint_path} on rank {dist.get_global_rank()}'
+                    f'Trying to download {save_latest_remote_file_name} to {latest_checkpoint_path} on rank {dist.get_global_rank()}'
                 )
                 # Fetch from logger. If it succeeds, stop trying the rest of the loggers
                 get_file(
