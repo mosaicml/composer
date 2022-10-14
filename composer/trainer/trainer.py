@@ -1270,7 +1270,7 @@ class Trainer:
             latest_checkpoint_path = latest_checkpoint_path_list[0]
 
             # broadcast the remote checkpoint path to all ranks
-            save_latest_remote_file_name_list = [os.path.abspath(save_latest_remote_file_name)]
+            save_latest_remote_file_name_list = [save_latest_remote_file_name]
             dist.broadcast_object_list(save_latest_remote_file_name_list, src=0)
             save_latest_remote_file_name = save_latest_remote_file_name_list[0]
 
