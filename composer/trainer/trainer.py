@@ -1280,7 +1280,7 @@ class Trainer:
                 os.makedirs(save_folder, exist_ok=True)
                 self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
                                               load_progress_bar)
-
+            dist.barrier()
             # At this point the rank 0 filepath should exist on all ranks
             latest_checkpoint_exists_on_all_ranks = self._device.tensor_to_device(
                 torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
