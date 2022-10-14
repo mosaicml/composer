@@ -1192,6 +1192,9 @@ class Trainer:
         """Attempts to download the checkpoint from the logger destinations."""
         for logger in loggers:
             try:
+                log.debug(
+                    f'Downloading {save_latest_remote_file_name} to {latest_checkpoint_path} on rank {dist.get_global_rank()}'
+                )
                 # Fetch from logger. If it succeeds, stop trying the rest of the loggers
                 get_file(
                     path=save_latest_remote_file_name,
