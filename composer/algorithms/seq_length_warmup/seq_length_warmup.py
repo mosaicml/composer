@@ -292,6 +292,7 @@ class SeqLengthWarmup(Algorithm):
             model_inputs = {k: v[:per_gpu_batch] for k, v in batch_clone.items()}
 
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
+            num_alloc_retries = torch.cuda.memory_stats()['num_alloc_retries']
             try:
                 # start by running a forward and backward pass
                 # of the maximum sequence length to allocate cache.
@@ -315,6 +316,9 @@ class SeqLengthWarmup(Algorithm):
                     found_cuda_oom = 1
                 else:
                     raise
+            # Multiple alloc retries results in throughput degradation even if there's no OOM
+            if torch.cuda.memory_stats()['num_alloc_retries'] > num_alloc_retries:
+                found_cuda_oom = 1
 
             if state.auto_grad_accum:
                 devicegpu = DeviceGPU()

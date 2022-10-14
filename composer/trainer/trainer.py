@@ -1791,6 +1791,7 @@ class Trainer:
 
             total_loss_dict = {'loss/train/total': self._device.tensor_to_device(torch.zeros(size=(1,)))}
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
+            num_alloc_retries = torch.cuda.memory_stats()['num_alloc_retries']
             try:
                 assert self.state.scaler is not None
                 microbatches = self._train_data_spec.split_batch(device_batch, self.state.grad_accum)
@@ -1820,6 +1821,9 @@ class Trainer:
                     found_cuda_oom = 1
                 else:
                     raise
+            # Multiple alloc retries results in throughput degradation even if there's no OOM
+            if torch.cuda.memory_stats()['num_alloc_retries'] > num_alloc_retries:
+                found_cuda_oom = 1
 
             if self.state.auto_grad_accum:
                 # Propagate across all ranks if any rank hit CUDA OOM
@@ -2350,8 +2354,8 @@ class Trainer:
                 device_batch = self.state.batch
                 # Retry until we successfully complete evaluation
                 while True:
-                    # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
-                    found_cuda_oom = 0
+                    found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
+                    num_alloc_retries = torch.cuda.memory_stats()['num_alloc_retries']
                     try:
                         for eval_microbatch in data_spec.split_batch(self.state.batch, self.state.eval_batch_split):
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
@@ -2394,6 +2398,9 @@ class Trainer:
                             found_cuda_oom = 1
                         else:
                             raise
+                    # Multiple alloc retries results in throughput degradation even if there's no OOM
+                    if torch.cuda.memory_stats()['num_alloc_retries'] > num_alloc_retries:
+                        found_cuda_oom = 1
                     if self.state.auto_grad_accum:
                         # Propagate across all ranks if any rank hit CUDA OOM
                         found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom],
