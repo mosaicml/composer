@@ -288,7 +288,7 @@ model outside of a :class:`.Trainer`, use :meth:`torch.load`:
     state_dict = torch.load("./path/to/checkpoints/ep1.pt")
     model.load_state_dict(state_dict["state"]["model"])
 
-Uploading to Object Store
+Uploading to Remote Filesystem
 -------------------------
 
 Checkpoints can also be saved to and loaded from your remote filesystem of choice (e.g. AWS S3 or Google Cloud Storage).
@@ -368,7 +368,7 @@ Once you've configured your ``RemoteUploaderDownloader`` per above, all that's l
 This will train your model, saving the checkpoints locally, upload them to the S3 Bucket,
 and delete the checkpoints from the local disk.
 
-Loading from Object Store
+Loading from Remote Filesystem
 -------------------------
 
 Checkpoints saved to a remote filesystem can also be loaded in the same way as files saved on disk. Provide the

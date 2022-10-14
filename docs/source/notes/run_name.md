@@ -59,9 +59,9 @@ In addition to checkpointing, loggers also use the `run_name` for default loggin
 * The `run_name` you specify will be used by the {class}`~.WandBLogger` as the run name for Weights and Biases.
 * The `run_name` you specify will be used by the {class}`~.CometMLLogger` as the run name for your Comet experiment.
 
-#### Object Store Logger
+#### RemoteUploaderDownloader
 
-The {class}`~.RemoteUploaderDownloader` will often use the `run_name` as part of how it names objects.
+The {class}`~.RemoteUploaderDownloader` will often use the `run_name` as part of how it names files.
 
 #### File Logger
 

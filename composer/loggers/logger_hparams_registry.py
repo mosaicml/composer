@@ -48,7 +48,7 @@ class RemoteUploaderDownloaderHparams(hp.Hparams):
     }
 
     bucket_uri: str = hp.required('Remote bucket uri')
-    remote_filesystem_hparams: Optional[RemoteFilesystemHparams] = hp.optional('Object store provider hparams.',
+    remote_filesystem_hparams: Optional[RemoteFilesystemHparams] = hp.optional('Remote file system provider hparams.',
                                                                                default=None)
     file_path_format_string: str = hp.auto(RemoteUploaderDownloader, 'file_path_format_string')
     num_concurrent_uploads: int = hp.auto(RemoteUploaderDownloader, 'num_concurrent_uploads')

@@ -130,7 +130,7 @@ class TestRemoteFilesystem:
         elif isinstance(remote_filesystem, SFTPRemoteFilesystem):
             assert uri == 'sftp://test_user@localhost:23/tmpfile_remote_file_name'
         else:
-            raise NotImplementedError(f'Object store {type(remote_filesystem)} not implemented.')
+            raise NotImplementedError(f'Remote filesystem {type(remote_filesystem)} not implemented.')
 
     def test_get_file_size(self, remote_filesystem: RemoteFilesystem, dummy_obj: pathlib.Path, remote: bool):
         del remote  # unused

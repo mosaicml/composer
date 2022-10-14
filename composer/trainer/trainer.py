@@ -497,7 +497,7 @@ class Trainer:
             ``'stdout'`` or ``'stderr'``. (default: :attr:`sys.stderr`)
         load_path (str, optional):  The path format string to an existing checkpoint file.
 
-            It can be a path to a file on the local disk, a URL, or if ``load_remote_filesystem`` is set, the object name
+            It can be a path to a file on the local disk, a URL, or if ``load_remote_filesystem`` is set, the file name
             for a checkpoint in a cloud bucket.
 
             When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, checkpoints are shareded by rank.
@@ -2550,9 +2550,9 @@ class Trainer:
         Args:
             save_format (Union[str, ExportFormat]):  Format to export to. Either ``"torchscript"`` or ``"onnx"``.
             save_path: (str): The path for storing the exported model. It can be a path to a file on the local disk,
-            a URL, or if ``save_remote_filesystem`` is set, the object name
+            a URL, or if ``save_remote_filesystem`` is set, the file name
                 in a cloud bucket. For example, ``my_run/exported_model``.
-            save_remote_filesystem (RemoteFilesystem, optional): If the ``save_path`` is in an object name in a cloud bucket
+            save_remote_filesystem (RemoteFilesystem, optional): If the ``save_path`` is in a file name in a cloud bucket
                 (i.e. AWS S3 or Google Cloud Storage), an instance of
                 :class:`~.RemoteFilesystem` which will be used
                 to store the exported model. If this is set to ``None``,  will save to ``save_path`` using the trainer's

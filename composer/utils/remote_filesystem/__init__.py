@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Object store base class and implementations."""
+"""Remote file system base class and implementations."""
 
 from composer.utils.remote_filesystem.libcloud_remote_filesystem import LibcloudRemoteFilesystem
 from composer.utils.remote_filesystem.remote_filesystem import RemoteFilesystem, RemoteFilesystemTransientError

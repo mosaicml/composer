@@ -103,7 +103,7 @@ def load_checkpoint(
     Args:
         path (str): The path format string to an existing checkpoint file.
 
-            It can be a path to a file on the local disk, a URL, or if ``remote_filesystem`` is set, the object name
+            It can be a path to a file on the local disk, a URL, or if ``remote_filesystem`` is set, the file name
             for a checkpoint in a cloud bucket.
 
             When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, checkpoints are shareded by rank.
