@@ -220,16 +220,18 @@ class BlurConv2d(nn.Module):
 
     # based partially on https://pytorch.org/docs/stable/_modules/torch/nn/modules/conv.html#Conv2d
 
-    def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 kernel_size: _size_2_t,
-                 stride: _size_2_t = None,
-                 padding: _size_2_t = 0,
-                 dilation: _size_2_t = 1,
-                 groups: int = 1,
-                 bias: bool = True,
-                 blur_first: bool = True):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: _size_2_t,
+        stride: _size_2_t = None,
+        padding: _size_2_t = 0,
+        dilation: _size_2_t = 1,
+        groups: int = 1,
+        bias: bool = True,
+        blur_first: bool = True,
+    ):
 
         super(BlurConv2d, self).__init__()
         self.blur_first = blur_first
@@ -244,14 +246,17 @@ class BlurConv2d(nn.Module):
             self.blur_stride = kernel_size if (stride is None) else stride
             blur_nchannels = out_channels
 
-        self.conv = torch.nn.Conv2d(in_channels=in_channels,
-                                    out_channels=out_channels,
-                                    kernel_size=kernel_size,
-                                    stride=conv_stride,
-                                    padding=padding,
-                                    dilation=dilation,
-                                    groups=groups,
-                                    bias=bias)
+        self.conv = torch.nn.Conv2d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=conv_stride,
+            padding=padding,
+            dilation=dilation,
+            groups=groups,
+            bias=bias,
+        )
+        self.conv._already_blurpooled = True  # Mark to avoid rewrapping on duplicate calls
 
         # this is the full 4d tensor we want; materialize it once, instead
         # of just-in-time during forward; we can do this in this class but
@@ -276,15 +281,17 @@ class BlurConv2d(nn.Module):
     @staticmethod
     def from_conv2d(module: torch.nn.Conv2d, module_index: int = -1, blur_first: bool = True):
         has_bias = module.bias is not None and module.bias is not False
-        blurconv = BlurConv2d(in_channels=module.in_channels,
-                              out_channels=module.out_channels,
-                              kernel_size=module.kernel_size,
-                              stride=module.stride,
-                              padding=module.padding,
-                              dilation=module.dilation,
-                              groups=module.groups,
-                              bias=has_bias,
-                              blur_first=blur_first)
+        blurconv = BlurConv2d(
+            in_channels=module.in_channels,
+            out_channels=module.out_channels,
+            kernel_size=module.kernel_size,
+            stride=module.stride,
+            padding=module.padding,
+            dilation=module.dilation,
+            groups=module.groups,
+            bias=has_bias,
+            blur_first=blur_first,
+        )
 
         with torch.no_grad():
             blurconv.conv.weight.copy_(module.weight)
