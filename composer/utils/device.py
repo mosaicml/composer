@@ -24,9 +24,9 @@ def get_device(device: Optional[Union[str, 'Device']]) -> 'Device':
             ``'cpu'``, ``'gpu'``, ``'mps'``, or ``'tpu'``) or a :class:`.Device`.
 
     Returns:
-        composer.trainer.devices.Device: Device corresponding to the passed string or
+        Device: Device corresponding to the passed string or
             Device. If no argument is passed, returns :class:`.DeviceGPU` if available,
-            and :class:`.DeviceCPU` if no GPU is available.
+            or :class:`.DeviceCPU` if no GPU is available.
     """
     from composer.trainer.devices import DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 
