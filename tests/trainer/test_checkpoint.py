@@ -175,26 +175,30 @@ class TestCheckpointSaving:
     def test_local_paths_work(self, local_path: str):
         self.get_trainer(save_folder=local_path)
 
-    @pytest.mark.parametrize('save_folder', ['s3://bucket_name/{run_name}/my_checkpoints', '{run_name}/my_checkpoints'])
-    def test_checkpoint_saver_properly_constructed(self, save_folder: str, monkeypatch: MonkeyPatch):
+    @pytest.mark.parametrize('save_folder,expected_path',
+                             [('s3://bucket_name/{run_name}/my_checkpoints', '{run_name}/my_checkpoints'),
+                              ('{run_name}/my_checkpoints', '{run_name}/my_checkpoints'), ('s3://bucket_name/', ''),
+                              ('s3://bucket_name', '')])
+    def test_checkpoint_saver_properly_constructed(self, save_folder: str, expected_path: str,
+                                                   monkeypatch: MonkeyPatch):
         mock_validate_credentials = MagicMock()
         monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
         mock_checkpoint_saver = MagicMock()
         monkeypatch.setattr(trainer, 'CheckpointSaver', mock_checkpoint_saver)
         self.get_trainer(save_folder=save_folder)
+        expected_prefix = expected_path + '/' if expected_path != '' else expected_path
         rest_of_checkpoint_saver_kwargs = {
             'filename': 'ep{epoch}-ba{batch}-rank{rank}.pt',
-            'remote_file_name': '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
+            'remote_file_name': expected_prefix + 'ep{epoch}-ba{batch}-rank{rank}.pt',
             'latest_filename': 'latest-rank{rank}.pt',
-            'latest_remote_file_name': '{run_name}/checkpoints/latest-rank{rank}',
+            'latest_remote_file_name': expected_prefix + 'latest-rank{rank}.pt',
             'overwrite': False,
             'weights_only': False,
             'save_interval': '1ep',
             'num_checkpoints_to_keep': -1
         }
-
-        mock_checkpoint_saver.assert_called_once_with(folder='{run_name}/my_checkpoints',
-                                                      **rest_of_checkpoint_saver_kwargs)
+        expected_folder = expected_path.rstrip('/') if expected_path != '' else '.'
+        mock_checkpoint_saver.assert_called_once_with(folder=expected_folder, **rest_of_checkpoint_saver_kwargs)
 
 
 class TestCheckpointLoading:
@@ -298,7 +302,7 @@ class TestCheckpointLoading:
         pytest.importorskip('libcloud')
 
         trainer_1 = self.get_trainer(
-            save_folder='first',
+            save_folder='{run_name}/checkpoints',
             loggers=[self.get_logger(tmp_path)],
             run_name='electric-zebra',
         )
@@ -308,7 +312,7 @@ class TestCheckpointLoading:
         trainer_2 = self.get_trainer(
             loggers=[self.get_logger(tmp_path)],
             run_name='electric-zebra',
-            load_path='electric-zebra/checkpoints/latest-rank0',
+            load_path='electric-zebra/checkpoints/latest-rank0.pt',
             load_object_store=self.get_logger(tmp_path),
         )
 

@@ -326,9 +326,6 @@ There are a few additional trainer arguments which can be helpful to configure:
 *   ``save_num_checkpoints_to_keep``: Set this parameter to remove checkpoints from the local disk after they have been
     uploaded. For example, setting this parameter to 1 will only keep the latest checkpoint locally; setting it to 0
     will remove each checkpoint after it has been uploaded. Checkpoints are never deleted from object stores.
-*   ``save_remote_file_name``: To customize how checkpoints are named in the cloud bucket, modify this parameter. By
-    default, they will be named as ``'{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}'``. See the
-    :class:`.CheckpointSaver` documentation for the available format variables.
 
 Once you've configured your object store logger per above, all that's left is to add it to the
 :class:`.Trainer` as part of the ``loggers``:
@@ -358,7 +355,7 @@ Once you've configured your object store logger per above, all that's left is to
         save_folder='checkpoints',
         save_interval='1ep',
         save_overwrite=True,
-        save_remote_file_name='checkpoints/ep{epoch}.pt',
+        save_filename='ep{epoch}.pt',
         save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
         loggers=[remote_uploader_downloader],
     )

@@ -94,7 +94,7 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
         save_folder='checkpoints',
         save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
         run_name='my_cool_run',
-        save_remote_file_name='checkpoints/ep{epoch}.pt',
+        save_filename='ep{epoch}.pt',
         loggers=[remote_uploader_downloader],
     )
 

@@ -15,6 +15,7 @@ import re
 import time
 import warnings
 from copy import deepcopy
+from pathlib import Path
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
 from urllib.parse import urlparse
 
@@ -319,9 +320,9 @@ def _parse_uri(uri: str) -> Tuple[str, str, str]:
     parse_result = urlparse(uri)
     backend, bucket_name, path = parse_result.scheme, parse_result.netloc, parse_result.path
     if backend == '' and bucket_name == '':
-        return backend, bucket_name, path
+        return backend, bucket_name, str(path)
     else:
-        return backend, bucket_name, path.lstrip('/')
+        return backend, bucket_name, str(path.lstrip('/'))
 
 
 def _is_tpu_installed() -> bool:
@@ -650,22 +651,12 @@ class Trainer:
             (default: ``"ep{epoch}-ba{batch}-rank{rank}.pt"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-        save_remote_file_name (str, optional): A format string describing how to name checkpoints in loggers.
-            This parameter has no effect if ``save_folder`` is ``None``.
-            (default: ``"{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}"``)
-
-            .. seealso:: :class:`~.CheckpointSaver` and :doc:`Uploading Files</trainer/file_uploading>` notes.
         save_latest_filename (str, optional): A format string for the name of a symlink
             (relative to ``save_folder``) that points to the last saved checkpoint.
             This parameter has no effect if ``save_folder`` is ``None``.
             To disable symlinking, set this to ``None``. (default: ``"latest-rank{rank}.pt"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-        save_latest_remote_file_name (str, optional): A format string describing how to name symlinks in loggers.
-            This parameter has no effect if ``save_folder``, ``save_latest_filename``, or ``save_remote_file_name`` are ``None``.
-            To disable symlinking in logger, set this or ``save_latest_filename`` to ``None``. (default: ``"{run_name}/checkpoints/latest-rank{rank}"``)
-
-            .. seealso:: :class:`~.CheckpointSaver` and :doc:`Uploading Files</trainer/file_uploading>` notes.
         save_overwrite (bool, optional): Whether existing checkpoints should be overridden.
             This parameter has no effect if ``save_folder`` is None. (default: ``False``)
 
@@ -696,7 +687,7 @@ class Trainer:
 
             When enabled, the save_folder is checked for checkpoints of the format ``"{save_folder}/{save_latest_filename}"``,
             which are loaded to continue training. If no local checkpoints are found, each logger is checked for potential
-            checkpoints named ``save_latest_remote_file_name``. Finally, if no logged checkpoints are found, ``load_path`` is
+            remote checkpoints named ``"{save_folder}/{save_latest_filename}"``. Finally, if no logged checkpoints are found, ``load_path`` is
             used to load a checkpoint if specified. This should only occur at the start of a run using autoresume.
 
             For example, to run a fine-tuning run on a spot instance, ``load_path`` would be set to the original
@@ -819,9 +810,7 @@ class Trainer:
         # Save Checkpoint
         save_folder: Optional[str] = None,
         save_filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
-        save_remote_file_name: str = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
         save_latest_filename: Optional[str] = 'latest-rank{rank}.pt',
-        save_latest_remote_file_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
@@ -996,14 +985,34 @@ class Trainer:
 
         # Checkpoint Saving
         self._checkpoint_saver = None
+        latest_remote_file_name = None
         if save_folder is not None:
             _, _, parsed_save_folder = _parse_uri(save_folder)
+
+            # If user passes a URI with s3:// and a bucket_name, but no other
+            # path then we assume they just want their checkpoints saved directly in their
+            # bucket.
+            if parsed_save_folder == '':
+                folder = '.'
+                remote_file_name = save_filename
+                latest_remote_file_name = save_latest_filename
+
+            # If they actually specify a path, then we use that for their local save path
+            # and we prefix save_filename with that path for remote_file_name.
+            else:
+                folder = parsed_save_folder
+                remote_file_name = str(Path(parsed_save_folder) / Path(save_filename))
+                if save_latest_filename is not None:
+                    latest_remote_file_name = str(Path(parsed_save_folder) / Path(save_latest_filename))
+                else:
+                    latest_remote_file_name = None
+
             self._checkpoint_saver = CheckpointSaver(
-                folder=parsed_save_folder,
+                folder=folder,
                 filename=save_filename,
-                remote_file_name=save_remote_file_name,
+                remote_file_name=remote_file_name,
                 latest_filename=save_latest_filename,
-                latest_remote_file_name=save_latest_remote_file_name,
+                latest_remote_file_name=latest_remote_file_name,
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
                 save_interval=save_interval,
@@ -1167,18 +1176,15 @@ class Trainer:
             if save_latest_filename is None:
                 raise ValueError(
                     'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from.')
-            if save_latest_remote_file_name is None:
-                raise ValueError(
-                    'The `save_latest_remote_file_name` must be specified so autoresume can load the latest checkpoint.'
-                )
             if run_name is None:
                 raise ValueError(
                     'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
                 )
+            assert latest_remote_file_name is not None
             autoresume_checkpoint_path = self._get_autoresume_checkpoint(
                 save_folder=save_folder,
                 save_latest_filename=save_latest_filename,
-                save_latest_remote_file_name=save_latest_remote_file_name,
+                save_latest_remote_file_name=latest_remote_file_name,
                 loggers=loggers,
                 load_progress_bar=load_progress_bar)
             # Found latest checkpoint path, load that instead
