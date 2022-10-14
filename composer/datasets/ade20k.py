@@ -38,6 +38,20 @@ def build_ade20k_transformations(split,
                                  min_resize_scale: float = 0.5,
                                  max_resize_scale: float = 2.0,
                                  final_size: int = 512):
+    """Builds the transformations for the ADE20k dataset.
+
+       Args:
+           base_size (int): initial size of the image and target before other augmentations. Default: ``512``.
+           min_resize_scale (float): the minimum value the samples can be rescaled. Default: ``0.5``.
+           max_resize_scale (float): the maximum value the samples can be rescaled. Default: ``2.0``.
+           final_size (int): the final size of the image and target. Default: ``512``.
+
+       Returns:
+           both_transforms (torch.nn.Module): transformations to apply to a 2-tuple containing the input image and the
+               target semantic segmentation mask.
+           image_transforms (torch.nn.Module): transformations to apply to the input image only.
+           target_transforms (torch.nn.Module): transformations to apply to the target semantic segmentation mask only.
+    """
     if split == 'train':
         both_transforms = torch.nn.Sequential(
             RandomResizePair(
@@ -142,6 +156,23 @@ def build_streaming_ade20k_dataloader(
     ignore_background: bool = True,
     **dataloader_kwargs,
 ):
+    """Build an ADE20k streaming dataset.
+
+    Args:
+        batch_size (int): Batch size per device.
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+        version (int): Which version of streaming to use. Default: ``1``.
+        local (str): Local filesystem directory where dataset is cached during operation.
+            Default: ``'/tmp/mds-cache/mds-ade20k/```.
+        split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
+        base_size (int): initial size of the image and target before other augmentations. Default: ``512``.
+        min_resize_scale (float): the minimum value the samples can be rescaled. Default: ``0.5``.
+        max_resize_scale (float): the maximum value the samples can be rescaled. Default: ``2.0``.
+        final_size (int): the final size of the image and target. Default: ``512``.
+        ignore_background (bool): if true, ignore the background class when calculating the training loss.
+            Default: ``true``.
+        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+    """
     if version == 1:
         warn_streaming_dataset_deprecation(old_version=version, new_version=2)
         dataset = StreamingADE20k(remote=remote,
