@@ -10,10 +10,7 @@ import torch.cuda
 if TYPE_CHECKING:
     from composer.trainer.devices.Device import Device
 
-__all__ = [
-    'get_device',
-    'is_tpu_installed',
-]
+__all__ = ['get_device', 'is_tpu_installed']
 
 
 def get_device(device: Optional[Union[str, 'Device']]) -> 'Device':
