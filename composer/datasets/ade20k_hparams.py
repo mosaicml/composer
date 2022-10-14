@@ -99,6 +99,7 @@ class StreamingADE20kHparams(DatasetHparams):
     """DatasetHparams for creating an instance of StreamingADE20k.
 
     Args:
+        version (int): Which version of streaming to use. Default: ``1``.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
             Default: ``'s3://mosaicml-internal-dataset-ade20k/mds/1/```
         local (str): Local filesystem directory where dataset is cached during operation.
@@ -111,7 +112,7 @@ class StreamingADE20kHparams(DatasetHparams):
         ignore_background (bool): if true, ignore the background class when calculating the training loss.
             Default: ``true``.
     """
-
+    version: int = hp.optional('Version of streaming (1 or 2)', default=1)
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
                               default='s3://mosaicml-internal-dataset-ade20k/mds/2/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',

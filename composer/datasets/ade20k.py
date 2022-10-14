@@ -24,7 +24,7 @@ from composer.core.types import MemoryFormat
 from composer.datasets.streaming import StreamingDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
-from composer.utils import dist
+from composer.utils import dist, warn_streaming_dataset_deprecation
 from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['ADE20k', 'StreamingADE20k']
@@ -130,6 +130,7 @@ def build_streaming_ade20k_dataloader(
     batch_size: int,
     remote: str,
     *,
+    version: int = 2,
     local: str = '/tmp/mds-cache/mds-ade20k/',
     split: str = 'train',
     drop_last: bool = True,
@@ -141,32 +142,47 @@ def build_streaming_ade20k_dataloader(
     ignore_background: bool = True,
     **dataloader_kwargs,
 ):
-    try:
-        import streaming
-    except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
+    if version == 1:
+        warn_streaming_dataset_deprecation(old_version=version, new_version=2)
+        dataset = StreamingADE20k(remote=remote,
+                                  local=local,
+                                  split=split,
+                                  shuffle=shuffle,
+                                  base_size=base_size,
+                                  min_resize_scale=min_resize_scale,
+                                  max_resize_scale=max_resize_scale,
+                                  final_size=final_size,
+                                  batch_size=batch_size)
+    elif version == 2:
 
-    # Build the sets of transformations for ADE20k
-    all_transforms = build_ade20k_transformations(split=split,
-                                                  base_size=base_size,
-                                                  min_resize_scale=min_resize_scale,
-                                                  max_resize_scale=max_resize_scale,
-                                                  final_size=final_size)
+        try:
+            import streaming
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
 
-    dataset = streaming.vision.ADE20K(remote=remote,
-                                      local=local,
-                                      split=split,
-                                      shuffle=shuffle,
-                                      both_transforms=all_transforms[0],
-                                      image_transforms=all_transforms[1],
-                                      target_transforms=all_transforms[2])
+        # Build the sets of transformations for ADE20k
+        all_transforms = build_ade20k_transformations(split=split,
+                                                      base_size=base_size,
+                                                      min_resize_scale=min_resize_scale,
+                                                      max_resize_scale=max_resize_scale,
+                                                      final_size=final_size)
+
+        dataset = streaming.vision.ADE20K(remote=remote,
+                                          local=local,
+                                          split=split,
+                                          shuffle=shuffle,
+                                          both_transforms=all_transforms[0],
+                                          transform=all_transforms[1],
+                                          target_transform=all_transforms[2])
+
+    else:
+        raise ValueError(f'Invalid streaming version: {version}')
 
     dataloader = DataLoader(dataset=dataset,
                             batch_size=batch_size,
                             collate_fn=pil_image_collate,
                             drop_last=drop_last,
                             **dataloader_kwargs)
-
     device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
                                           std=IMAGENET_CHANNEL_STD,
                                           ignore_background=ignore_background)
