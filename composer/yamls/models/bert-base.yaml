@@ -78,5 +78,4 @@ loggers:
   progress_bar: {} # Add a TQDM progress bar
   # Optional, some nice default parameters for remote filesystem checkpointing. Uncomment this if you want to checkpoint to cloud.
   # remote_filesystem:
-  #  remote_filesystem_hparams:
-  #    bucket_uri: "s3://<your-bucket-here>"
+  #   bucket_uri: "s3://<your-bucket-here>"
