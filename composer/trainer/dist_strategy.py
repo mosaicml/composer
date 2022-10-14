@@ -238,6 +238,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                 mixed_precision=mixed_precision,
                 backward_prefetch=backward_prefetch,
                 param_init_fn=_param_init_fn,
+                device_id=torch.cuda.current_device(),
             )
 
             # Activation Checkpointing
