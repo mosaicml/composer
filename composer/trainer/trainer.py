@@ -197,8 +197,12 @@ def _adjust_grad_accum(state: State, device_batch_size):
                            'and the batch will be retrained with a '
                            f'micro-batchsize of {device_batch_size // state.grad_accum}'))
     # Clear gradients in case failure happened during backwards pass
+    if hasattr(state, 'outputs'):
+        del state.outputs
+    if hasattr(state, 'loss'):
+        del state.loss
     for optimizer in state.optimizers:
-        optimizer.zero_grad()
+        optimizer.zero_grad(set_to_none=True)
     torch.cuda.empty_cache()
 
 
