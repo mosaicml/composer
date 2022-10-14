@@ -162,20 +162,20 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     if cpu_offload is not None:
         raise ValueError('FSDP CPU Offload not supported yet.')
 
-    mixed_precision = fsdp_config.get('mixed_precision', 'default')
+    mixed_precision = fsdp_config.get('mixed_precision', 'DEFAULT').upper()
     if isinstance(mixed_precision, dict):
         param_dtype = get_torch_dtype(mixed_precision.get('param_dtype', 'float32'))
         reduce_dtype = get_torch_dtype(mixed_precision.get('reduce_dtype', 'float32'))
         buffer_dtype = get_torch_dtype(mixed_precision.get('buffer_dtype', 'float32'))
-    elif mixed_precision == 'full':
+    elif mixed_precision == 'FULL':
         param_dtype = torch.float32
         reduce_dtype = torch.float32
         buffer_dtype = torch.float32
-    elif mixed_precision == 'default':
+    elif mixed_precision == 'DEFAULT':
         param_dtype = torch.float32
         reduce_dtype = get_torch_dtype(precision)
         buffer_dtype = torch.float32
-    elif mixed_precision == 'pure':
+    elif mixed_precision == 'PURE':
         param_dtype = get_torch_dtype(precision)
         reduce_dtype = get_torch_dtype(precision)
         buffer_dtype = get_torch_dtype(precision)
