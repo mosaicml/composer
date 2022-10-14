@@ -376,9 +376,7 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
             group, expressed in seconds. (default: ``300.0``).
     """
     # If device is string, get corresponding composer.trainer.devices.Device object
-    device = get_device(device)
-    assert isinstance(device, Device)  # Gotta satisfy type checker
-
+    device_obj = get_device(device)
     timeout_timedelta = datetime.timedelta(seconds=timeout)
 
     if get_world_size() > 1 and not dist.is_available():
@@ -387,8 +385,8 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
                            'with distributed support.')
 
     if dist.is_initialized():
-        if dist.get_backend() != device.dist_backend.lower():
-            raise RuntimeError(f'The requested backend ({device.dist_backend}) differs from the backend '
+        if dist.get_backend() != device_obj.dist_backend.lower():
+            raise RuntimeError(f'The requested backend ({device_obj.dist_backend}) differs from the backend '
                                f'of the current process group ({dist.get_backend()}). If you '
                                'wish to change backends, please restart the python process.')
         return
@@ -422,9 +420,9 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
     if dist_env_vars_match_defaults:
         # Fill in the remaining single-rank variables
         os.environ.update(dist_env_var_defaults)
-        dist.init_process_group(device.dist_backend, store=dist.HashStore(), world_size=1, rank=0)
+        dist.init_process_group(device_obj.dist_backend, store=dist.HashStore(), world_size=1, rank=0)
     else:
-        dist.init_process_group(device.dist_backend, timeout=timeout_timedelta)
+        dist.init_process_group(device_obj.dist_backend, timeout=timeout_timedelta)
 
 
 def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool = False, shuffle: bool = False):
