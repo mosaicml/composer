@@ -109,7 +109,7 @@ class TensorboardLogger(LoggerDestination):
         summary_writer_log_dir = Path(self.log_dir) / self.run_name
 
         # Disable SummaryWriter's internal flushing to avoid file corruption while
-        # file staged for upload to an RemoteFilesystem.
+        # file staged for upload to a RemoteFilesystem.
         flush_secs = 365 * 3600 * 24
         self.writer = SummaryWriter(log_dir=summary_writer_log_dir, flush_secs=flush_secs)
 
