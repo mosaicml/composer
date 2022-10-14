@@ -3,11 +3,12 @@
 
 """Device-related helper methods and utilities."""
 
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import torch.cuda
 
-from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
+if TYPE_CHECKING:
+    from composer.trainer.devices.Device import Device
 
 __all__ = [
     'get_device',
@@ -15,7 +16,7 @@ __all__ = [
 ]
 
 
-def get_device(device: Optional[Union[str, Device]]) -> Device:
+def get_device(device: Optional[Union[str, 'Device']]) -> 'Device':
     """Takes string or Device and returns the corresponding :class:`~composer.trainer.devices.Device`.
 
     Args:
@@ -27,6 +28,8 @@ def get_device(device: Optional[Union[str, Device]]) -> Device:
             Device. If no argument is passed, returns :class:`.DeviceGPU` if available,
             and :class:`.DeviceCPU` if no GPU is available.
     """
+    from composer.trainer.devices import DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
+
     if not device:
         device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU()
     elif isinstance(device, str):

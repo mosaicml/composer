@@ -377,7 +377,9 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
     """
     # If device is string, get corresponding composer.trainer.devices.Device object
     device = get_device(device)
-    timeout_datetime = datetime.timedelta(seconds=timeout)
+    assert isinstance(device, Device)  # Gotta satisfy type checker
+
+    timeout_timedelta = datetime.timedelta(seconds=timeout)
 
     if get_world_size() > 1 and not dist.is_available():
         raise RuntimeError('When the world size is > 1, ``torch.distributed`` must be used. However, it is '
@@ -422,7 +424,7 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
         os.environ.update(dist_env_var_defaults)
         dist.init_process_group(device.dist_backend, store=dist.HashStore(), world_size=1, rank=0)
     else:
-        dist.init_process_group(device.dist_backend, timeout=timeout_datetime)
+        dist.init_process_group(device.dist_backend, timeout=timeout_timedelta)
 
 
 def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool = False, shuffle: bool = False):
