@@ -1261,10 +1261,15 @@ class Trainer:
             if int(latest_checkpoint_exists_on_rank_zero.item()) == 0:
                 return None
 
-            # broadcast the checkpoint path to all ranks
+            # broadcast the local checkpoint path to all ranks
             latest_checkpoint_path_list = [os.path.abspath(latest_checkpoint_path)]
             dist.broadcast_object_list(latest_checkpoint_path_list, src=0)
             latest_checkpoint_path = latest_checkpoint_path_list[0]
+
+            # broadcast the remote checkpoint path to all ranks
+            save_latest_remote_file_name_list = [os.path.abspath(save_latest_remote_file_name)]
+            dist.broadcast_object_list(save_latest_remote_file_name_list, src=0)
+            save_latest_remote_file_name = save_latest_remote_file_name_list[0]
 
             # download the checkpoint on local rank 0 of all nodes
             if dist.get_local_rank() == 0 and not os.path.exists(latest_checkpoint_path):
