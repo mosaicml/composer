@@ -72,7 +72,7 @@ During training, the trainer always symlinks the latest checkpoint to a format (
 Below, are some examples that demonstrate the ``RemoteUploaderDownloader`` (#2 above) and using the ``load_path`` for fine-tuning purposes (#3 above).
 
 Example: Remote filesystem
----------------------
+--------------------------
 
 A typical use case is saving checkpoints to a remote filesystem (e.g. S3) when there is no local file storage shared across runs. For example, a setup such as this:
 

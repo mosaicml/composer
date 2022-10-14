@@ -289,7 +289,7 @@ model outside of a :class:`.Trainer`, use :meth:`torch.load`:
     model.load_state_dict(state_dict["state"]["model"])
 
 Uploading to Remote Filesystem
--------------------------
+------------------------------
 
 Checkpoints can also be saved to and loaded from your remote filesystem of choice (e.g. AWS S3 or Google Cloud Storage).
 Writing checkpoints to a remote filesystem is a two-step process. The checkpoints are first written to the local filesystem,
@@ -369,7 +369,7 @@ This will train your model, saving the checkpoints locally, upload them to the S
 and delete the checkpoints from the local disk.
 
 Loading from Remote Filesystem
--------------------------
+------------------------------
 
 Checkpoints saved to a remote filesystem can also be loaded in the same way as files saved on disk. Provide the
 :class:`.LibcloudRemoteFilesystem` to the trainer's ``load_remote_filesystem`` argument.  The ``load_path`` argument
