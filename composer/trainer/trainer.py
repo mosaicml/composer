@@ -1276,7 +1276,7 @@ class Trainer:
 
             # download the checkpoint on local rank 0 of all nodes
             if dist.get_local_rank() == 0 and not os.path.exists(latest_checkpoint_path):
-                log.debug('Attempting to download the checkpoint on to all nodes')
+                log.debug(f'Attempting to download the checkpoint {save_latest_remote_file_name} on to all nodes')
                 os.makedirs(save_folder, exist_ok=True)
                 self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
                                               load_progress_bar)
