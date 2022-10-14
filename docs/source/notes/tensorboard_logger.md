@@ -116,9 +116,7 @@ If you are using YAML configs you can get S3 logging by adding the following lin
 ```yaml
 loggers:
   remote_filesystem:
-    remote_filesystem_hparams:
-      s3:
-        bucket: my-s3-bucket-name
+    bucket_uri: my-s3-bucket-name
 ```
 Remember to replace `my-s3-bucket-name` with the name of your bucket.
 
@@ -146,9 +144,7 @@ loggers:
   tensorboard:
     log_dir: my_tensorboard_logs
   remote_filesystem:
-    remote_filesystem_hparams:
-      s3:
-        bucket: my-s3-bucket-name
+    bucket: my-s3-bucket-name
 ```
 
 Once again you can run this job like so:
