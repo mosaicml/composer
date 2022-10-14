@@ -1226,6 +1226,8 @@ class Trainer:
         Returns:
             Optional[str]: The path to the latest checkpoint, if found, otherwise None.
         """
+        log.debug(
+            f'Entering _get_autoresume_checkpoint with save_latest_remote_file_name: {save_latest_remote_file_name}')
         save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
         save_folder = format_name_with_dist(save_folder, self.state.run_name)
         save_latest_remote_file_name = format_name_with_dist(save_latest_remote_file_name, self.state.run_name)
