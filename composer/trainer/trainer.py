@@ -1226,8 +1226,6 @@ class Trainer:
         Returns:
             Optional[str]: The path to the latest checkpoint, if found, otherwise None.
         """
-        log.debug(
-            f'Entering _get_autoresume_checkpoint with save_latest_remote_file_name: {save_latest_remote_file_name}')
         save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
         save_folder = format_name_with_dist(save_folder, self.state.run_name)
         save_latest_remote_file_name = format_name_with_dist(save_latest_remote_file_name, self.state.run_name)
@@ -1244,24 +1242,19 @@ class Trainer:
             self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
                                           load_progress_bar)
 
+        # list of whether the checkpoint exists on each rank
+        latest_checkpoint_exists = dist.all_gather_object(os.path.exists(latest_checkpoint_path))
+
         if self.deepspeed_enabled:
             # Require all ranks to have their own local checkpoint if we wish to restore from it for deepspeed
-            latest_checkpoint_exists_on_all_ranks = self._device.tensor_to_device(
-                torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
-            dist.all_reduce(latest_checkpoint_exists_on_all_ranks, reduce_operation='MIN')
-
-            if int(latest_checkpoint_exists_on_all_ranks.item()) == 0:
-                raise RuntimeError('DeepSpeed was enabled, but checkpoints were not found for all ranks')
+            if not all(latest_checkpoint_exists):
+                missing_ranks = [n for (n, exist) in enumerate(latest_checkpoint_exists) if not exist]
+                raise RuntimeError(f'Deepspeed was enabled, but checkpoints missing on ranks: {missing_ranks}')
 
             return latest_checkpoint_path
         else:
             # The checkpoint must at least exist for rank zero
-            latest_checkpoint_exists_on_rank_zero = self._device.tensor_to_device(
-                torch.tensor([os.path.exists(latest_checkpoint_path) and dist.get_global_rank() == 0],
-                             dtype=torch.uint8))
-            dist.all_reduce(latest_checkpoint_exists_on_rank_zero, reduce_operation='MAX')
-
-            if int(latest_checkpoint_exists_on_rank_zero.item()) == 0:
+            if not latest_checkpoint_exists[0]:
                 return None
 
             # broadcast the local checkpoint path to all ranks
