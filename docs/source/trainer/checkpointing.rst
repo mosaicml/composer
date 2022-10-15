@@ -297,38 +297,30 @@ and then the :class:`.RemoteUploaderDownloader` logger will upload checkpoints t
 
 Behind the scenes, the :class:`.RemoteUploaderDownloader` uses :doc:`Apache Libcloud <libcloud:storage/index>`.
 
+The easiest way to upload checkpoints to S3 is to prefix your ``save_folder``  with ``'s3://'``.
+
 .. testcode::
-    :skipif: not _LIBCLOUD_INSTALLED
-
-    from composer.loggers import RemoteUploaderDownloader
-    from composer.utils import LibcloudObjectStore
-
-    remote_uploader_downloader = RemoteUploaderDownloader(
-        bucket_uri="libcloud://my_bucket",
-        backend_kwargs={
-            "provider": "s3",  # The Apache Libcloud provider name
-            "container": "my_bucket",  # The name of the cloud container (i.e. bucket) to use.
-            "provider_kwargs": {  # The Apache Libcloud provider driver initialization arguments
-                'key': 'provider_key',  # The cloud provider key.
-                'secret': '*******',  # The cloud provider secret.
-                # Any additional arguments required for the cloud provider.
-            },
-        },
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration='90ep',
+        save_folder='s3://my_bucket/checkpoints',
+        save_interval='1ep',
+        save_overwrite=True,
+        save_filename='ep{epoch}.pt',
+        save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
     )
 
-.. seealso::
+    trainer.fit()
 
-    *   :doc:`Full list of object store providers <libcloud:storage/supported_providers>`
-    *   :class:`~.RemoteUploaderDownloader`
 
-There are a few additional trainer arguments which can be helpful to configure:
+This will train your model, saving the checkpoints locally, upload them to the S3 Bucket `my_bucket`,
+and delete the checkpoints from the local disk. The checkpoints will be located on S3 as
+`checkpoints/ep3.pt` for third epoch's checkpoints, for example.
 
-*   ``save_num_checkpoints_to_keep``: Set this parameter to remove checkpoints from the local disk after they have been
-    uploaded. For example, setting this parameter to 1 will only keep the latest checkpoint locally; setting it to 0
-    will remove each checkpoint after it has been uploaded. Checkpoints are never deleted from object stores.
-
-Once you've configured your object store logger per above, all that's left is to add it to the
-:class:`.Trainer` as part of the ``loggers``:
+This is equivalent to creating a RemoteUploaderDownloader object and adding it to loggers. This a more
+involved operation, but is necessary for uploading checkpoints to other cloud object stores, like
+GCS.
 
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
@@ -362,8 +354,17 @@ Once you've configured your object store logger per above, all that's left is to
 
     trainer.fit()
 
-This will train your model, saving the checkpoints locally, upload them to the S3 Bucket,
-and delete the checkpoints from the local disk.
+.. seealso::
+
+    *   :doc:`Full list of object store providers <libcloud:storage/supported_providers>`
+    *   :class:`~.RemoteUploaderDownloader`
+
+There are a few additional trainer arguments which can be helpful to configure:
+
+*   ``save_num_checkpoints_to_keep``: Set this parameter to remove checkpoints from the local disk after they have been
+    uploaded. For example, setting this parameter to 1 will only keep the latest checkpoint locally; setting it to 0
+    will remove each checkpoint after it has been uploaded. Checkpoints are never deleted from object stores.
+
 
 Loading from Object Store
 -------------------------
@@ -397,6 +398,7 @@ should be the path to the checkpoint file *within the container/bucket*.
     )
 
     new_trainer.fit()
+
 
 API Reference
 -------------
