@@ -26,6 +26,7 @@ from composer.trainer.trainer import Trainer
 from composer.utils import dist, is_tar
 from composer.utils.checkpoint import glob_filter
 from tests.common import RandomImageDataset, SimpleConvModel, deep_compare, device
+from tests.common.markers import world_size
 
 
 class DummyStatefulCallback(Callback):
@@ -144,15 +145,20 @@ class TestCheckpointLoading:
         model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
 
+        train_dataset = RandomImageDataset()
+        eval_dataset = RandomImageDataset()
+
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
-                dataset=RandomImageDataset(),
+                dataset=train_dataset,
                 batch_size=8,
+                sampler=dist.get_sampler(train_dataset),
             ),
             eval_dataloader=DataLoader(
-                dataset=RandomImageDataset(),
+                dataset=eval_dataset,
                 batch_size=16,
+                sampler=dist.get_sampler(eval_dataset),
             ),
             grad_accum=2,
             precision='fp32',
@@ -250,16 +256,12 @@ class TestCheckpointLoading:
             trainer_2.state.model,
         )
 
+    @world_size(1, 2)
     @device('cpu', 'gpu')
     @pytest.mark.parametrize('use_object_store', [True, False])
     @pytest.mark.parametrize('delete_local', [True, False])
-    def test_autoresume(
-        self,
-        device: str,
-        tmp_path: pathlib.Path,
-        use_object_store: bool,
-        delete_local: bool,
-    ):
+    def test_autoresume(self, device: str, tmp_path: pathlib.Path, use_object_store: bool, delete_local: bool,
+                        world_size: int):
         if delete_local and not use_object_store:
             pytest.skip('Invalid test setting.')
 
@@ -376,17 +378,20 @@ class TestCheckpointResumption:
         model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
 
+        train_dataset = RandomImageDataset()
+        eval_dataset = RandomImageDataset()
+
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
-                dataset=RandomImageDataset(),
+                dataset=train_dataset,
                 batch_size=8,
-                shuffle=False,
+                sampler=dist.get_sampler(train_dataset),
             ),
             eval_dataloader=DataLoader(
-                dataset=RandomImageDataset(),
+                dataset=eval_dataset,
                 batch_size=16,
-                shuffle=False,
+                sampler=dist.get_sampler(eval_dataset),
             ),
             grad_accum=2,
             precision='fp32',
@@ -573,14 +578,18 @@ def test_rotate_checkpoints(
     tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
     save_folder = tmp_paths[0]
 
+    deepseed_config = None
     if deepspeed_enabled:
         deepseed_config = {'zero_optimization': {'stage': zero_stage}}
-    else:
-        deepseed_config = None
+
+    train_dataset = RandomImageDataset()
 
     trainer = Trainer(
         model=SimpleConvModel(),
-        train_dataloader=DataLoader(dataset=RandomImageDataset()),
+        train_dataloader=DataLoader(
+            dataset=train_dataset,
+            sampler=dist.get_sampler(train_dataset),
+        ),
         save_folder=str(save_folder),
         save_filename='checkpoint_{rank}_{batch}.pt',
         save_interval='1ba',

@@ -36,11 +36,13 @@ import datetime
 import logging
 import os
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, List, Optional, Sequence, TypeVar, cast
+from typing import TYPE_CHECKING, Any, List, Optional, Sequence, TypeVar, Union, cast
 
 import torch
 import torch.distributed as dist
 import torch.utils.data
+
+from composer.utils.device import get_device
 
 if TYPE_CHECKING:
     from composer.trainer.devices import Device
@@ -348,7 +350,7 @@ def is_initialized():
     return dist.is_initialized()
 
 
-def initialize_dist(device: Device, timeout: datetime.timedelta):
+def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
     """Initialize the default PyTorch distributed process group.
 
     This function assumes that the following environment variables are set:
@@ -367,17 +369,24 @@ def initialize_dist(device: Device, timeout: datetime.timedelta):
     .. seealso:: :func:`torch.distributed.init_process_group`
 
     Args:
-        device (str): The device from which the distributed backend is interpreted.
-        timeout (datetime.timedelta): The timeout for operations executed against the process group.
+        device (str | Device): The device from which the distributed backend is
+            interpreted. Either a string corresponding to a device (one of ``'cpu'``,
+            ``'gpu'``, ``'mps'``, or ``'tpu'``) or a :class:`.Device`.
+        timeout (float, optional): The timeout for operations executed against the process
+            group, expressed in seconds. (default: ``300.0``).
     """
+    # If device is string, get corresponding composer.trainer.devices.Device object
+    device_obj = get_device(device)
+    timeout_timedelta = datetime.timedelta(seconds=timeout)
+
     if get_world_size() > 1 and not dist.is_available():
         raise RuntimeError('When the world size is > 1, ``torch.distributed`` must be used. However, it is '
                            'not available in your installation of PyTorch. Please install or build PyTorch '
                            'with distributed support.')
 
     if dist.is_initialized():
-        if dist.get_backend() != device.dist_backend.lower():
-            raise RuntimeError(f'The requested backend ({device.dist_backend}) differs from the backend '
+        if dist.get_backend() != device_obj.dist_backend.lower():
+            raise RuntimeError(f'The requested backend ({device_obj.dist_backend}) differs from the backend '
                                f'of the current process group ({dist.get_backend()}). If you '
                                'wish to change backends, please restart the python process.')
         return
@@ -411,12 +420,12 @@ def initialize_dist(device: Device, timeout: datetime.timedelta):
     if dist_env_vars_match_defaults:
         # Fill in the remaining single-rank variables
         os.environ.update(dist_env_var_defaults)
-        dist.init_process_group(device.dist_backend, store=dist.HashStore(), world_size=1, rank=0)
+        dist.init_process_group(device_obj.dist_backend, store=dist.HashStore(), world_size=1, rank=0)
     else:
-        dist.init_process_group(device.dist_backend, timeout=timeout)
+        dist.init_process_group(device_obj.dist_backend, timeout=timeout_timedelta)
 
 
-def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool, shuffle: bool):
+def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool = False, shuffle: bool = False):
     """Constructs a :class:`~torch.utils.data.distributed.DistributedSampler` for a dataset.
 
     The :class:`~torch.utils.data.distributed.DistributedSampler` assumes that each rank has a complete copy of the
