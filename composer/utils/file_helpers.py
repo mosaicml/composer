@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import pathlib
 import re
@@ -22,6 +23,8 @@ from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
     from composer.loggers import LoggerDestination
+
+log = logging.getLogger(__name__)
 
 __all__ = [
     'get_file',
@@ -358,6 +361,7 @@ def get_file(
             # Read object name in the symlink
             with open(symlink_file_name, 'r') as f:
                 real_path = f.read()
+                log.debug(f'Read path {real_path} from symlink file.')
 
         # Recurse
         return get_file(
