@@ -14,7 +14,6 @@ import sys
 import tempfile
 import time
 import traceback
-import warnings
 from argparse import ArgumentParser
 from typing import Any, Dict, List
 
