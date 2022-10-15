@@ -305,7 +305,7 @@ The easiest way to upload checkpoints to S3 is to prefix your ``save_folder``  w
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
-        max_duration='90ep',
+        max_duration='10ep',
         save_folder='s3://my_bucket/checkpoints',
         save_interval='1ep',
         save_overwrite=True,
@@ -346,7 +346,7 @@ GCS.
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
-        max_duration='90ep',
+        max_duration='10ep',
         save_folder='checkpoints',
         save_interval='1ep',
         save_overwrite=True,
