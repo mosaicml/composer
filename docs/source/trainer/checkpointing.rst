@@ -401,6 +401,21 @@ should be the path to the checkpoint file *within the container/bucket*.
 
     new_trainer.fit()
 
+An easier way to load checkpoints from S3 specifically is to just use a URI starting with ``s3://`` like so:
+
+.. testcode::
+
+    new_trainer = Trainer(
+    model=model,
+    train_dataloader=train_dataloader,
+    max_duration="10ep",
+    load_path="s3://checkpoints/ep1.pt",
+    )
+
+    new_trainer.fit()
+
+This will load the first epoch's checkpoints that we saved to S3 in the code example above for saving.
+
 API Reference
 -------------
 
