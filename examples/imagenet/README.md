@@ -3,7 +3,7 @@
 These examples illustrate how to train models on ImageNet-1k using Composer.
 
 Prerequisites:
-- Install Compose: `pip install mosaicml`
+- Install Composer: `pip install mosaicml`
 - ImageNet already downloaded on the system used for training
 
 ## ResNet
