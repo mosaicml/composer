@@ -177,7 +177,7 @@ class RemoteUploaderDownloader(LoggerDestination):
 
             Default: ``'{remote_file_name}'``
 
-        num_concurrent_uploads (int, optional): Maximum number of concurrent uploads. Defaults to 1.
+        num_concurrent_uploads (int, optional): Maximum number of concurrent uploads. Defaults to 4.
         upload_staging_folder (str, optional): A folder to use for staging uploads.
             If not specified, defaults to using a :func:`~tempfile.TemporaryDirectory`.
         use_procs (bool, optional): Whether to perform file uploads in background processes (as opposed to threads).
@@ -190,7 +190,7 @@ class RemoteUploaderDownloader(LoggerDestination):
                  bucket_uri: str,
                  backend_kwargs: Optional[Dict[str, Any]] = None,
                  file_path_format_string: str = '{remote_file_name}',
-                 num_concurrent_uploads: int = 1,
+                 num_concurrent_uploads: int = 4,
                  upload_staging_folder: Optional[str] = None,
                  use_procs: bool = True,
                  num_attempts: int = 3) -> None:
