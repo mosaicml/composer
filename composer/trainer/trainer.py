@@ -35,7 +35,7 @@ from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Eve
 from composer.core.precision import get_precision_context
 from composer.core.time import TimeUnit
 from composer.core.types import Batch, BreakEpochException, PyTorchScheduler, TrainerMode
-from composer.loggers import Logger, LoggerDestination, ProgressBarLogger
+from composer.loggers import Logger, LoggerDestination, ProgressBarLogger, WandBLogger
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.optim.scheduler import ComposerScheduler, compile_composer_scheduler
@@ -1179,6 +1179,10 @@ class Trainer:
         if load_path is not None:
             if load_object_store is None:
                 load_object_store = _maybe_create_object_store_from_uri(load_path)
+            if isinstance(load_object_store, WandBLogger):
+                import wandb
+                if wandb.run is None:
+                    load_object_store.init(self.state, self.logger)
             _, _, parsed_load_path = _parse_uri(load_path)
             self._rng_state = checkpoint.load_checkpoint(
                 state=self.state,
