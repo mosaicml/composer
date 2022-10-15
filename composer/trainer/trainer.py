@@ -310,12 +310,10 @@ def _maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     if backend == '':
         return None
     if backend == 's3':
-        return S3ObjectStore(
-            bucket=bucket_name)  #bucket_uri=f'{backend}://{bucket_name}', backend_kwargs={'bucket': bucket_name})
-
+        return S3ObjectStore(bucket=bucket_name)
     elif backend == 'wandb':
         raise NotImplementedError(f'There is no implementation for WandB load_object_store via URI. Please use '
-                                  'WandBLogger with log_artifacts set to True')
+                                  'WandBLogger')
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
                                   's3 or one of the supported object stores')
@@ -558,7 +556,7 @@ class Trainer:
         load_object_store (Union[ObjectStore, LoggerDestination], optional): If the ``load_path`` is in an
             object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` or
             :class:`.LoggerDestination` which will be used to retreive the checkpoint. Otherwise, if the
-            checkpoint is a local filepath, set to ``None``. Also, it can be ``None`` is the ``load_path`` is
+            checkpoint is a local filepath, set to ``None``. Also, it can be ``None`` if the ``load_path`` is
             an S3 URI because the appropriate object store will be automatically constructed in that case.
             Ignored if ``load_path`` is ``None``.
             (default: ``None``)
