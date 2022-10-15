@@ -300,6 +300,8 @@ Behind the scenes, the :class:`.RemoteUploaderDownloader` uses :doc:`Apache Libc
 The easiest way to upload checkpoints to S3 is to prefix your ``save_folder``  with ``'s3://'``.
 
 .. testcode::
+    from composer.trainer import Trainer
+
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
@@ -326,6 +328,7 @@ GCS.
     :skipif: not _LIBCLOUD_INSTALLED
 
     from composer.loggers import RemoteUploaderDownloader
+    from composer.trainer import Trainer
 
     remote_uploader_downloader = RemoteUploaderDownloader(
         bucket_uri="libcloud://checkpoint-debugging",

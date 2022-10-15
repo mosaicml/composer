@@ -305,7 +305,7 @@ def _maybe_create_remote_uploader_downloader_from_uri(
                 f'There already exists a RemoteUploaderDownloader object to handle the uri: {uri} you specified')
             return None
     if backend == 's3':
-        return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}', backend_kwargs={'bucket': bucket_name})
+        return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}')
 
     elif backend == 'wandb':
         raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '

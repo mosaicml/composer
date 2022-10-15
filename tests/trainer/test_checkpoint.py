@@ -177,8 +177,7 @@ class TestCheckpointSaving:
 
     @pytest.mark.parametrize('save_folder,expected_path',
                              [('s3://bucket_name/{run_name}/my_checkpoints', '{run_name}/my_checkpoints'),
-                              ('{run_name}/my_checkpoints', '{run_name}/my_checkpoints'), ('s3://bucket_name/', ''),
-                              ('s3://bucket_name', '')])
+                              ('{run_name}/my_checkpoints', '{run_name}/my_checkpoints'), ('s3://bucket_name', '')])
     def test_checkpoint_saver_properly_constructed(self, save_folder: str, expected_path: str,
                                                    monkeypatch: MonkeyPatch):
         mock_validate_credentials = MagicMock()

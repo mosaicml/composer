@@ -84,7 +84,7 @@ trainer = Trainer(
     load_path='checkpoints/epoch1.pt:latest',
     #  (Optional) Checkpoint Saving Configuration to continue to save new checkpoints
     loggers=wandb_logger,  # Log checkpoints via the WandB Logger
-    save_folder='checkpoints',  # The trainer requires that checkpoints must be saved locally before being upload
+    save_folder='checkpoints',  # The trainer requires that checkpoints must be saved locally before being uploaded
     save_interval='1ep',
     save_filename='epoch{epoch}.pt',  # Name checkpoints like epoch1.pt, epoch2.pt, etc...
     save_num_checkpoints_to_keep=0,  # Do not keep any checkpoints locally after they have been uploaded to W & B
