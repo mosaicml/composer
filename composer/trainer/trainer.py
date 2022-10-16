@@ -46,9 +46,14 @@ from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, De
 from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
 from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, map_collection,
                             model_eval_mode, reproducibility)
+from composer.utils.device import get_device, is_tpu_installed
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.inference import ExportFormat, Transform, export_with_logger
+
+if is_tpu_installed():
+    import torch_xla.core.xla_model as xm
+    import torch_xla.distributed.parallel_loader as pl
 
 log = logging.getLogger(__name__)
 
@@ -197,8 +202,12 @@ def _adjust_grad_accum(state: State, device_batch_size):
                            'and the batch will be retrained with a '
                            f'micro-batchsize of {device_batch_size // state.grad_accum}'))
     # Clear gradients in case failure happened during backwards pass
+    if hasattr(state, 'outputs'):
+        del state.outputs
+    if hasattr(state, 'loss'):
+        del state.loss
     for optimizer in state.optimizers:
-        optimizer.zero_grad()
+        optimizer.zero_grad(set_to_none=True)
     torch.cuda.empty_cache()
 
 
@@ -223,27 +232,6 @@ def _adjust_eval_batch_split(state: State, device_batch_size):
                            'and the batch will be retrained with a '
                            f'micro-batchsize of {device_batch_size // state.eval_batch_split}'))
     torch.cuda.empty_cache()
-
-
-def _get_device(device: Optional[Union[str, Device]]):
-    if not device:
-        device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU()
-    elif isinstance(device, str):
-        if device.lower() == 'cpu':
-            device = DeviceCPU()
-        elif device.lower() == 'gpu':
-            device = DeviceGPU()
-        elif device.lower() == 'mps':
-            device = DeviceMPS()
-        elif device.lower() == 'tpu':
-            if not _is_tpu_installed():
-                raise ImportError(
-                    'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla'
-                )
-            device = DeviceTPU()
-        else:
-            raise ValueError(f'device ({device}) must be one of (cpu, gpu, mps, tpu).')
-    return device
 
 
 def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
@@ -287,21 +275,6 @@ def _generate_run_name() -> str:
     dist.broadcast_object_list(run_name_list)
     generated_run_name = run_name_list[0]
     return generated_run_name
-
-
-def _is_tpu_installed() -> bool:
-    try:
-        import torch_xla.core.xla_model as xm
-        del xm
-    except ImportError:
-        return False
-    else:
-        return True
-
-
-if _is_tpu_installed():
-    import torch_xla.core.xla_model as xm
-    import torch_xla.distributed.parallel_loader as pl
 
 
 class Trainer:
@@ -819,7 +792,7 @@ class Trainer:
         algorithms = list(ensure_tuple(algorithms))
 
         # Device
-        self._device = _get_device(device)
+        self._device = get_device(device)
 
         # Determine whether DeepSpeed and FSDP are enabled
         self.deepspeed_config = deepspeed_config
@@ -838,7 +811,7 @@ class Trainer:
         if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
-            dist.initialize_dist(self._device, datetime.timedelta(seconds=dist_timeout))
+            dist.initialize_dist(self._device, dist_timeout)
 
         # Handle FSDP sharding
         if self.fsdp_config is not None:
@@ -1187,6 +1160,28 @@ class Trainer:
             return []
         return self._checkpoint_saver.saved_checkpoints
 
+    def _try_checkpoint_download(self, latest_checkpoint_path: str, save_latest_remote_file_name: str,
+                                 loggers: Sequence[LoggerDestination], load_progress_bar: bool) -> None:
+        """Attempts to download the checkpoint from the logger destinations."""
+        log.debug(
+            f'Trying to download {save_latest_remote_file_name} to {latest_checkpoint_path} on rank {dist.get_global_rank()}'
+        )
+        for logger in loggers:
+            try:
+                # Fetch from logger. If it succeeds, stop trying the rest of the loggers
+                get_file(
+                    path=save_latest_remote_file_name,
+                    destination=latest_checkpoint_path,
+                    object_store=logger,
+                    overwrite=True,
+                    progress_bar=load_progress_bar,
+                )
+                break
+            except (NotImplementedError, FileNotFoundError):
+                log.info(f'Checkpoint not found in: {logger}')
+                # Ignore errors caused by no checkpoint saved with logger
+                pass
+
     def _get_autoresume_checkpoint(
         self,
         save_folder: str,
@@ -1194,7 +1189,7 @@ class Trainer:
         save_latest_remote_file_name: str,
         loggers: Sequence[LoggerDestination],
         load_progress_bar: bool,
-    ):
+    ) -> Optional[str]:
         """Determines the load path when using autoresume.
 
         First, check the ``save_folder`` for the latest checkpoint.
@@ -1209,30 +1204,61 @@ class Trainer:
         save_latest_remote_file_name = format_name_with_dist(save_latest_remote_file_name, self.state.run_name)
         latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
 
+        log.info(
+            f'Looking for autoresume checkpoint: {save_latest_remote_file_name} (remote), {latest_checkpoint_path} (local)'
+        )
+
         # If latest checkpoint is not saved locally, try to fetch from loggers
-        if not os.path.exists(latest_checkpoint_path):
-            # Make save folder in case it doesn't exist so latest checkpoint can be downloaded
+        if not os.path.exists(latest_checkpoint_path) and (dist.get_global_rank() == 0 or self.deepspeed_enabled):
+            log.debug(f'Attempting to download the checkpoint on to rank {dist.get_global_rank()}')
             os.makedirs(save_folder, exist_ok=True)
-            for logger in loggers:
-                try:
-                    # Fetch from logger. If it succeeds, stop trying the rest of the loggers
-                    get_file(
-                        path=save_latest_remote_file_name,
-                        destination=latest_checkpoint_path,
-                        object_store=logger,
-                        overwrite=True,
-                        progress_bar=load_progress_bar,
-                    )
-                    break
-                except (NotImplementedError, FileNotFoundError):
-                    # Ignore errors caused by no checkpoint saved with logger
-                    pass
-        # Require all ranks to have local checkpoint if we wish to restore from it
-        latest_checkpoint_exists = self._device.tensor_to_device(
-            torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
-        dist.all_reduce(latest_checkpoint_exists, reduce_operation='MIN')
-        # If latest checkpoint is saved locally, change load_path to it
-        if int(latest_checkpoint_exists.item()) == 1:
+            self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
+                                          load_progress_bar)
+
+        # list of whether the checkpoint exists on each rank
+        latest_checkpoint_exists = dist.all_gather_object(os.path.exists(latest_checkpoint_path))
+
+        if self.deepspeed_enabled:
+            # Require all ranks to have their own local checkpoint if we wish to restore from it for deepspeed
+            if not all(latest_checkpoint_exists):
+                missing_ranks = [n for (n, exist) in enumerate(latest_checkpoint_exists) if not exist]
+                raise RuntimeError(f'Deepspeed was enabled, but checkpoints missing on ranks: {missing_ranks}')
+
+            return latest_checkpoint_path
+        else:
+            # The checkpoint must at least exist for rank zero
+            if not latest_checkpoint_exists[0]:
+                return None
+
+            # broadcast the local checkpoint path to all ranks
+            latest_checkpoint_path_list = [os.path.abspath(latest_checkpoint_path)]
+            dist.broadcast_object_list(latest_checkpoint_path_list, src=0)
+            latest_checkpoint_path = latest_checkpoint_path_list[0]
+
+            # broadcast the remote checkpoint path to all ranks
+            save_latest_remote_file_name_list = [save_latest_remote_file_name]
+            dist.broadcast_object_list(save_latest_remote_file_name_list, src=0)
+            save_latest_remote_file_name = save_latest_remote_file_name_list[0]
+
+            # download the checkpoint on local rank 0 of all nodes
+            if dist.get_local_rank() == 0 and not os.path.exists(latest_checkpoint_path):
+                log.debug(f'Attempting to download the checkpoint {save_latest_remote_file_name} on to all nodes')
+                os.makedirs(save_folder, exist_ok=True)
+                self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
+                                              load_progress_bar)
+            dist.barrier()
+            # At this point the rank 0 filepath should exist on all ranks
+            latest_checkpoint_exists_on_all_ranks = self._device.tensor_to_device(
+                torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
+            dist.all_reduce(latest_checkpoint_exists_on_all_ranks, reduce_operation='MIN')
+
+            log.debug(
+                f'Checkpoint {latest_checkpoint_path} exists on rank {dist.get_global_rank()}? {os.path.exists(latest_checkpoint_path)}'
+            )
+
+            if int(latest_checkpoint_exists_on_all_ranks.item()) == 0:
+                raise RuntimeError('Downloading the checkpoint to all nodes failed')
+
             return latest_checkpoint_path
 
     def fit(
