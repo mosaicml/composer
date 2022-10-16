@@ -1,21 +1,23 @@
 train_dataset:
-  c4:
+  streaming_c4:
+    version: 2
+    remote: s3://mosaicml-internal-dataset-c4/mds/2/
+    local: /tmp/mds-cache/mds-c4/
     split: train
-    num_samples: 5120000 # 10e9 tok ~= 256[bs] * 20000[ba] * 2048[msl] = 5120000[sa] * 2048[msl]
+    tokenizer_name: gp2
     max_seq_len: 2048
-    tokenizer_name: gpt2
     group_method: concat
-    seed: 17
     shuffle: true
     drop_last: true
 val_dataset:
-  c4:
+  streaming_c4:
+    version: 2
+    remote: s3://mosaicml-internal-dataset-c4/mds/2/
+    local: /tmp/mds-cache/mds-c4/
     split: validation
-    num_samples: 102400 # Approx 100k samples
+    tokenizer_name: gp2
     max_seq_len: 2048
-    tokenizer_name: gpt2
     group_method: concat
-    seed: 17
     shuffle: false
     drop_last: false
 model:
