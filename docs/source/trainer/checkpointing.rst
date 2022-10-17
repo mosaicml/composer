@@ -414,7 +414,7 @@ should be the path to the checkpoint file *within the container/bucket*.
 
 An easier way to load checkpoints from S3 specifically is to just use a URI starting with ``s3://``.
 If you use the S3 URI, it is not necessary to specify a ``load_object_store``. Note, that for other
-object stores like WandB or LibCloud, you must still specify a ``load_object_store`.
+object stores like WandB or LibCloud, you must still specify a ``load_object_store``.
 
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
