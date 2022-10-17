@@ -82,6 +82,5 @@ def test_idempotent(algo_name: str):
             model=copy.deepcopy(applied_once_model),
             algorithms=algorithm,
         ).state.model
-        # print(original_model, '\n', applied_once_model)
         compare_models(original_model, applied_twice_model, is_equal=False)  # Surgery actually changes model
         compare_models(applied_once_model, applied_twice_model, is_equal=True)  # Multiple applications are no-ops
