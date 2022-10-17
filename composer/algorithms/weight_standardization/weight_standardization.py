@@ -87,10 +87,6 @@ class WeightStandardization(Algorithm):
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(n_last_layers_ignore={self.n_last_layers_ignore})'
 
-    @staticmethod
-    def required_on_load() -> bool:
-        return True
-
     def match(self, event: Event, state: State):
         return (event == Event.INIT)
 
