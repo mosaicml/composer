@@ -102,7 +102,7 @@ class ThresholdStopper(Callback):
             metric_val = torch.tensor(metric_val)
 
         if self.comp_func(metric_val, self.threshold):
-            state.max_duration = state.timestamp.batch
+            state.stop_training()
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if self.dataloader_label == state.dataloader_label:
