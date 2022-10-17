@@ -83,6 +83,8 @@ def test_notebook(notebook: str, device: str):
         pytest.xfail('Dataset is only available via kaggle; need to authenticate on ci/cd')
     if notebook_name == 'auto_grad_accum' and device == 'cpu':
         pytest.skip('auto_grad_accum notebook only runs with a gpu')
+    if notebook_name == 'TPU_Training_in_composer':
+        pytest.skip('The CI does not support tpus')
     with testbook.testbook(notebook) as tb:
         tb.inject(trainer_monkeypatch_code)
         tb.inject('patch_notebooks()')
