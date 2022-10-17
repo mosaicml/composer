@@ -1,12 +1,17 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
+import copy
 from typing import Type
 
 import pytest
+import torch
 
-from composer import algorithms
+from composer import Trainer, algorithms
 from composer.core import Algorithm, Time, TimeUnit  # type: ignore imports used in `eval(representation)`
+from composer.models import composer_resnet, create_bert_classification
+from tests.common import BigConvModel
 
 
 def initialize_algorithm(algo_cls: Type):
@@ -21,6 +26,10 @@ def initialize_algorithm(algo_cls: Type):
     elif algo_cls == algorithms.GatedLinearUnits:
         pytest.importorskip('transformers')
         return algo_cls()
+    elif algo_cls == algorithms.Factorize:
+        return algo_cls(min_features=48, latent_features=24)
+    elif algo_cls == algorithms.SqueezeExcite:
+        return algo_cls(min_channels=32)
     else:
         return algo_cls()
 
@@ -33,3 +42,46 @@ def test_required_on_load_has_repr(algo_name: str):
         # Default repr prints memory address
         assert 'at 0x' not in representation
         eval(f'algorithms.{representation}')
+
+
+def compare_models(model_1, model_2, is_equal=True):
+    with contextlib.nullcontext() if is_equal else pytest.raises(Exception):
+        # Compare model module attributes as some algorithms, e.g. StochasticDepth, monkeypatch
+        # on new attributes. We only check this on non-HuggingFace models which hae .module
+        if hasattr(model_1, 'module') and hasattr(model_2, 'module'):
+            model_1_modules = list(model_1.module.modules())
+            model_2_modules = list(model_2.module.modules())
+            assert len(model_1_modules) == len(model_2_modules)
+            for module_1, module_2 in zip(model_1_modules, model_2_modules):
+                assert sorted(list(module_1.__dict__.keys())) == sorted(list(module_2.__dict__.keys()))
+        # Compare model parameters
+        for item1, item2 in zip(model_1.state_dict().items(), model_2.state_dict().items()):
+            assert item1[0] == item2[0]
+            assert torch.equal(item1[1], item2[1])
+
+
+@pytest.mark.filterwarnings('ignore:No instances of')
+@pytest.mark.parametrize('algo_name', algorithms.__all__)
+def test_idempotent(algo_name: str):
+    algo_cls = getattr(algorithms, algo_name)
+    if issubclass(algo_cls, Algorithm) and algo_cls.required_on_load():
+        algorithm = initialize_algorithm(algo_cls)
+
+        original_model = None
+        if algo_name == 'StochasticDepth':
+            original_model = composer_resnet(model_name='resnet50')
+        elif algo_name in ['Alibi', 'GatedLinearUnits']:
+            original_model = create_bert_classification()
+        else:
+            original_model = BigConvModel()
+        applied_once_model = Trainer(
+            model=copy.deepcopy(original_model),
+            algorithms=algorithm,
+        ).state.model
+        applied_twice_model = Trainer(
+            model=copy.deepcopy(applied_once_model),
+            algorithms=algorithm,
+        ).state.model
+        # print(original_model, '\n', applied_once_model)
+        compare_models(original_model, applied_twice_model, is_equal=False)  # Surgery actually changes model
+        compare_models(applied_once_model, applied_twice_model, is_equal=True)  # Multiple applications are no-ops
