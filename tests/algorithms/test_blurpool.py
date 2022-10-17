@@ -107,9 +107,11 @@ def test_blurpool_algorithm_logging(state: State, blurpool_instance: BlurPool):
 
     blurpool_instance.apply(Event.INIT, state, mock_logger)
 
+    # Note: The actual number of layers changed is 1, but the number replaced is recorded as 2
+    # because a reference to each layer is stored in model.layer_name to easily access it
     mock_logger.log_hyperparameters.assert_called_once_with({
-        'blurpool/num_blurpool_layers': 1 if blurpool_instance.replace_maxpools else 0,
-        'blurpool/num_blurconv_layers': 1 if blurpool_instance.replace_convs else 0,
+        'blurpool/num_blurpool_layers': 2 if blurpool_instance.replace_maxpools else 0,
+        'blurpool/num_blurconv_layers': 2 if blurpool_instance.replace_convs else 0,
     })
 
 
