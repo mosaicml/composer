@@ -297,7 +297,9 @@ and then the :class:`.RemoteUploaderDownloader` logger will upload checkpoints t
 
 Behind the scenes, the :class:`.RemoteUploaderDownloader` uses :doc:`Apache Libcloud <libcloud:storage/index>`.
 
-The easiest way to upload checkpoints to S3 is to prefix your ``save_folder``  with ``'s3://'``.
+The easiest way to upload checkpoints to S3 is to prefix your ``save_folder``  with ``'s3://'``. All other
+checkpoint arguments remain the same. For example, ``save_filename`` will be the name of the checkpoint file
+that gets uploaded to the S3 URI that you specified.
 
 .. testcode::
     from composer.trainer import Trainer
@@ -317,8 +319,9 @@ The easiest way to upload checkpoints to S3 is to prefix your ``save_folder``  w
 
 
 This will train your model, saving the checkpoints locally, upload them to the S3 Bucket `my_bucket`,
-and delete the checkpoints from the local disk. The checkpoints will be located on S3 as
-`checkpoints/ep3.pt` for third epoch's checkpoints, for example.
+and delete the checkpoints from the local disk. The checkpoints will be located on S3 inside your bucket as
+`checkpoints/ep3.pt` for third epoch's checkpoints, for example. The full URI in this case would be:
+`s3://my_bucket/checkpoints/ep3.pt`.
 
 This is equivalent to creating a RemoteUploaderDownloader object and adding it to loggers. This a more
 involved operation, but is necessary for uploading checkpoints to other cloud object stores, like
