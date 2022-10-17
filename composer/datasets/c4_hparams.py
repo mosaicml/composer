@@ -35,9 +35,7 @@ class StreamingC4Hparams(DatasetHparams):
         group_method (str): How to group text samples into token samples. Currently only `truncate` is supported.
         mlm (bool): Whether or not to use masked language modeling. Default: ``False``.
         mlm_probability (float): If ``mlm==True``, the probability that tokens are masked. Default: ``0.15``.
-        shuffle (bool): Whether to shuffle the samples in the dataset. Currently, shards are assigned and consumed with
-            deterministic per-device shard order, but shuffling affects the order of samples via (per-device) shuffle
-            buffers. Default: ``False``.
+        shuffle (bool): Whether to iterate over the samples in randomized order. Default: ``False``.
         max_retries (int): Number of download re-attempts before giving up. Default: 2.
         timeout (float): How long to wait for shard to download before raising an exception. Default: 120 sec.
         drop_last (bool): Whether to drop the last samples for the last batch. Default: ``True``.
@@ -56,9 +54,7 @@ class StreamingC4Hparams(DatasetHparams):
         'How to group text samples into token samples. Currently only `truncate` is supported.', default='truncate')
     mlm: bool = hp.optional('Whether or not to use masked language modeling.', default=False)
     mlm_probability: float = hp.optional('If `mlm==True`, the probability that tokens are masked.', default=0.15)
-    shuffle: bool = hp.optional(
-        'Whether to shuffle the samples in the dataset. Currently, shards are assigned and consumed with deterministic per-device shard order, but shuffling affects the order of samples via (per-device) shuffle buffers.',
-        default=True)
+    shuffle: bool = hp.optional('Whether to iterate over the samples in randomized order.', default=False)
     max_retries: int = hp.optional('Number of download re-attempts before giving up.', default=2)
     timeout: float = hp.optional('How long to wait for shard to download before raising an exception.', default=120)
     drop_last: bool = hp.optional('Whether to drop the last samples for the last batch.', default=True)
