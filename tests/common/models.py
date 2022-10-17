@@ -74,8 +74,7 @@ class SimpleConvModel(ComposerClassifier):
         )
         super().__init__(module=net)
 
-        # bind these to class for access during
-        # surgery tests
+        # bind these to class for access during surgery tests
         self.conv1 = conv1
         self.conv2 = conv2
 
@@ -110,6 +109,7 @@ class BigConvModel(ComposerClassifier):
 
         super().__init__(module=net)
 
+        # bind these to class for access during surgery tests
         self.conv1 = conv1
         self.conv2 = conv2
         self.conv3 = conv3

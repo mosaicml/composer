@@ -17,14 +17,13 @@ from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool
 from composer.algorithms.warnings import NoEffectWarning
 from composer.core import Event, State
 from composer.loggers import Logger
-from composer.models import ComposerClassifier
 from composer.utils import module_surgery
 from tests.common import BigConvModel
 
 
 @pytest.fixture
 def state(minimal_state: State):
-    minimal_state.model = ComposerClassifier(BigConvModel())
+    minimal_state.model = BigConvModel()
     return minimal_state
 
 
@@ -48,51 +47,51 @@ def blurpool_instance(request) -> BlurPool:
 
 def test_blurconv(state: State, blurpool_instance: BlurPool, empty_logger: Logger):
     blurpool_instance.apply(Event.INIT, state, empty_logger)
-    assert isinstance(state.model.module, BigConvModel)
+    assert isinstance(state.model, BigConvModel)
 
     if blurpool_instance.replace_convs:
-        assert type(state.model.module.conv1) is BlurConv2d
+        assert type(state.model.conv1) is BlurConv2d
     else:
-        assert type(state.model.module.conv1) is torch.nn.Conv2d
+        assert type(state.model.conv1) is torch.nn.Conv2d
 
 
 def test_maybe_replace_strided_conv_stride(state: State, blurpool_instance: BlurPool, empty_logger: Logger):
     blurpool_instance.apply(Event.INIT, state, empty_logger)
-    assert isinstance(state.model.module, BigConvModel)
+    assert isinstance(state.model, BigConvModel)
 
-    assert type(state.model.module.conv3) is torch.nn.Conv2d  # stride = 1, should be no replacement
+    assert type(state.model.conv3) is torch.nn.Conv2d  # stride = 1, should be no replacement
 
 
 def test_maybe_replace_strided_conv_channels(state: State, blurpool_instance: BlurPool, empty_logger: Logger):
     blurpool_instance.apply(Event.INIT, state, empty_logger)
-    assert isinstance(state.model.module, BigConvModel)
+    assert isinstance(state.model, BigConvModel)
 
-    assert type(state.model.module.conv2) is torch.nn.Conv2d  # channels < 16, should be no replacement
+    assert type(state.model.conv2) is torch.nn.Conv2d  # channels < 16, should be no replacement
 
 
 def test_blurconv_weights_preserved(state: State, blurpool_instance: BlurPool, empty_logger: Logger):
-    assert isinstance(state.model.module, BigConvModel)
+    assert isinstance(state.model, BigConvModel)
 
-    original_weights = state.model.module.conv1.weight.clone()
+    original_weights = state.model.conv1.weight.clone()
     blurpool_instance.apply(Event.INIT, state, empty_logger)
 
-    if isinstance(state.model.module.conv1, BlurConv2d):
-        new_weights = state.model.module.conv1.conv.weight
-    elif isinstance(state.model.module.conv1, torch.nn.Conv2d):
-        new_weights = state.model.module.conv1.weight
+    if isinstance(state.model.conv1, BlurConv2d):
+        new_weights = state.model.conv1.conv.weight
+    elif isinstance(state.model.conv1, torch.nn.Conv2d):
+        new_weights = state.model.conv1.weight
     else:
-        raise TypeError(f'Layer type {type(state.model.module.conv1)} not expected.')
+        raise TypeError(f'Layer type {type(state.model.conv1)} not expected.')
     assert torch.allclose(original_weights, new_weights)
 
 
 def test_blurpool(state: State, blurpool_instance: BlurPool, empty_logger: Logger):
     blurpool_instance.apply(Event.INIT, state, empty_logger)
-    assert isinstance(state.model.module, BigConvModel)
+    assert isinstance(state.model, BigConvModel)
 
     if blurpool_instance.replace_maxpools:
-        assert type(state.model.module.pool1) is BlurMaxPool2d
+        assert type(state.model.pool1) is BlurMaxPool2d
     else:
-        assert type(state.model.module.pool1) is torch.nn.MaxPool2d
+        assert type(state.model.pool1) is torch.nn.MaxPool2d
 
 
 def test_blurpool_wrong_event(state: State, blurpool_instance: BlurPool):
