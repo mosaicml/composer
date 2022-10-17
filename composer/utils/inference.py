@@ -13,7 +13,7 @@ import functools
 import logging
 import os
 import tempfile
-from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -55,6 +55,35 @@ class ExportFormat(StringEnum):
     """
     TORCHSCRIPT = 'torchscript'
     ONNX = 'onnx'
+
+
+def _move_sample_input_to_device(sample_input: Union[torch.Tensor, dict, list, Tuple],
+                                 device: torch.device) -> Union[torch.Tensor, dict, list, Tuple]:
+    """Handle moving sample_input of various types to a device. If possible, avoids creating copies of the input.
+
+    Raises:
+        ValueError: If the type is not one of {torch.Tensor, dict, list, tuple}
+    """
+    output = None
+    if isinstance(sample_input, torch.Tensor):
+        output = sample_input.to(device)
+    elif isinstance(sample_input, dict):
+        for key, value in sample_input.items():
+            sample_input[key] = _move_sample_input_to_device(value, device)
+        output = sample_input
+    elif isinstance(sample_input, list):
+        for i in range(len(sample_input)):
+            sample_input[i] = _move_sample_input_to_device(sample_input[i], device)
+        output = sample_input
+    elif isinstance(sample_input, tuple):
+        new_tuple = []
+        for tuple_item in sample_input:
+            new_tuple.append(_move_sample_input_to_device(tuple_item, device))
+        output = tuple(new_tuple)
+    else:
+        raise ValueError(f'Unexpected type of sample_input {type(sample_input)} passed to export_for_inference.')
+
+    return output
 
 
 def export_for_inference(
@@ -130,15 +159,11 @@ def export_for_inference(
     # Move model and sample input to CPU for export
     cpu = torch.device('cpu')
     model.to(device=cpu)
+
     if sample_input is not None:
         sample_input = ensure_tuple(sample_input)
-        for i in range(len(sample_input)):
-            if isinstance(sample_input[i], torch.Tensor):
-                sample_input[i] = sample_input[i].to(cpu)  # type: ignore
-            elif isinstance(sample_input[i], dict):
-                for key, value in sample_input[i].items():
-                    if isinstance(value, torch.Tensor):
-                        sample_input[i][key] = value.to(cpu)
+        sample_input = _move_sample_input_to_device(sample_input, cpu)
+        assert isinstance(sample_input, tuple)
 
     # Apply surgery algorithms in the given order
     for alg in ensure_tuple(surgery_algs):
@@ -200,6 +225,8 @@ def export_for_inference(
                 # Extract input names from sample_input if it contains dicts
                 for i in range(len(sample_input)):
                     if isinstance(sample_input[i], dict):
+                        assert isinstance(sample_input[i], dict)
+                        assert type(sample_input[i]) == dict
                         input_names += list(sample_input[i].keys())
 
                 # Default input name if no dict present

@@ -22,6 +22,7 @@ from composer.models import composer_resnet
 from composer.trainer.dist_strategy import prepare_ddp_module
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, export_with_logger, inference
+from tests.common import device
 from tests.common.datasets import RandomImageDataset
 
 
@@ -238,13 +239,14 @@ def test_gpu_huggingface_export_for_inference_onnx():
         )
 
 
+@device('cpu', 'gpu')
 @pytest.mark.parametrize(
     'model_cls, sample_input',
     [
         (partial(composer_resnet, 'resnet18'), (torch.rand(4, 3, 224, 224), torch.randint(10, (4,)))),
     ],
 )
-def test_export_for_inference_onnx(model_cls, sample_input):
+def test_export_for_inference_onnx(model_cls, sample_input, device):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
     import onnx
@@ -254,6 +256,9 @@ def test_export_for_inference_onnx(model_cls, sample_input):
     model = model_cls()
     model.eval()
 
+    torch_device = 'cuda' if device == 'gpu' else 'cpu'
+    sample_input = (sample_input[0].to(torch_device), sample_input[1].to(torch_device))
+    model.to(torch_device)
     orig_out = model(sample_input)
 
     save_format = 'onnx'
@@ -271,11 +276,11 @@ def test_export_for_inference_onnx(model_cls, sample_input):
         ort_session = ort.InferenceSession(save_path)
         loaded_model_out = ort_session.run(
             None,
-            {'input': sample_input[0].numpy()},
+            {'input': sample_input[0].cpu().numpy()},
         )
 
         torch.testing.assert_close(
-            orig_out.detach().numpy(),
+            orig_out.detach().cpu().numpy(),
             loaded_model_out[0],
             rtol=1e-4,  # lower tolerance for ONNX
             atol=1e-3,  # lower tolerance for ONNX
