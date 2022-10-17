@@ -27,6 +27,9 @@ def _to_pytest_param(filepath: str):
     if notebook_name == 'ffcv_dataloaders':
         marks.append(pytest.mark.vision)
 
+    if notebook_name == 'training_without_local_storage':
+        marks.append(pytest.mark.remote)
+
     return pytest.param(filepath, marks=marks)
 
 
@@ -62,7 +65,7 @@ def patch_notebooks():
     DataLoader.__iter__ = new_iter  # type: ignore  # error: DataLoader has a stricter return type than islice
 
 
-def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_source: str) -> str:
+def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_source: str, s3_bucket: str) -> str:
     # This function is called before each cell is executed
     if notebook_name == 'functional_api':
         # avoid div by 0 errors with batch size of 1
@@ -70,13 +73,15 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
         cell_source = cell_source.replace('acc_percent = 100 * num_right / eval_size', 'acc_percent = 1')
     if notebook_name == 'custom_speed_methods':
         cell_source = cell_source.replace('resnet_56', 'resnet_9')
+    if notebook_name == 'training_without_local_storage':
+        cell_source = cell_source.replace('my-bucket', s3_bucket)
     return cell_source
 
 
 @pytest.mark.parametrize('notebook', [_to_pytest_param(notebook) for notebook in NOTEBOOKS])
 @device('cpu', 'gpu')
 # @pytest.mark.daily
-def test_notebook(notebook: str, device: str):
+def test_notebook(notebook: str, device: str, s3_bucket: str):
     trainer_monkeypatch_code = inspect.getsource(patch_notebooks)
     notebook_name = os.path.split(notebook)[-1][:-len('.ipynb')]
     if notebook_name == 'medical_image_segmentation':
@@ -91,5 +96,8 @@ def test_notebook(notebook: str, device: str):
         for i, cell in enumerate(tb.cells):
             if cell['cell_type'] != 'code':
                 continue
-            cell['source'] = modify_cell_source(tb, notebook_name=notebook_name, cell_source=cell['source'])
+            cell['source'] = modify_cell_source(tb,
+                                                notebook_name=notebook_name,
+                                                cell_source=cell['source'],
+                                                s3_bucket=s3_bucket)
             tb.execute_cell(i)
