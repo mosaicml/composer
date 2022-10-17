@@ -225,8 +225,6 @@ def export_for_inference(
                 # Extract input names from sample_input if it contains dicts
                 for i in range(len(sample_input)):
                     if isinstance(sample_input[i], dict):
-                        assert isinstance(sample_input[i], dict)
-                        assert type(sample_input[i]) == dict
                         input_names += list(sample_input[i].keys())
 
                 # Default input name if no dict present
