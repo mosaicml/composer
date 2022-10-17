@@ -15,6 +15,7 @@ import re
 import time
 import warnings
 from copy import deepcopy
+from pathlib import Path
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
 from urllib.parse import urlparse
 
@@ -36,6 +37,7 @@ from composer.core.precision import get_precision_context
 from composer.core.time import TimeUnit
 from composer.core.types import Batch, BreakEpochException, PyTorchScheduler, TrainerMode
 from composer.loggers import Logger, LoggerDestination, ProgressBarLogger, WandBLogger
+from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.optim.scheduler import ComposerScheduler, compile_composer_scheduler
@@ -290,6 +292,28 @@ def _maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
                                   's3 or one of the supported object stores')
+def _maybe_create_remote_uploader_downloader_from_uri(
+        uri: str, loggers: List[LoggerDestination]) -> Optional[RemoteUploaderDownloader]:
+    existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
+    backend, bucket_name, _ = _parse_uri(uri)
+    if backend == '':
+        return None
+    for existing_remote_ud in existing_remote_uds:
+        if ((existing_remote_ud.remote_backend_name == backend) and
+            (existing_remote_ud.remote_bucket_name == bucket_name)):
+            warnings.warn(
+                f'There already exists a RemoteUploaderDownloader object to handle the uri: {uri} you specified')
+            return None
+    if backend == 's3':
+        return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}')
+
+    elif backend == 'wandb':
+        raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '
+                                  'WandBLogger with log_artifacts set to True')
+
+    else:
+        raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
+                                  's3 or one of the supported RemoteUploaderDownloader object stores')
 
 
 def _parse_uri(uri: str) -> Tuple[str, str, str]:
@@ -598,7 +622,9 @@ class Trainer:
             (default: ``None``)
 
         save_folder (str, optional): Format string for the folder where checkpoints are saved.
-            If ``None``, checkpoints will not be saved. (default: ``None``)
+            If ``None``, checkpoints will not be saved. Can also be a URI for S3 paths only.
+            In the case of an S3 URI, the appropriate `~.RemoteUploader` object will be created
+            automatically. (default: ``None``)
 
             .. seealso:: :class:`~.CheckpointSaver`
 
@@ -612,22 +638,12 @@ class Trainer:
             (default: ``"ep{epoch}-ba{batch}-rank{rank}.pt"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-        save_remote_file_name (str, optional): A format string describing how to name checkpoints in loggers.
-            This parameter has no effect if ``save_folder`` is ``None``.
-            (default: ``"{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}"``)
-
-            .. seealso:: :class:`~.CheckpointSaver` and :doc:`Uploading Files</trainer/file_uploading>` notes.
         save_latest_filename (str, optional): A format string for the name of a symlink
             (relative to ``save_folder``) that points to the last saved checkpoint.
             This parameter has no effect if ``save_folder`` is ``None``.
             To disable symlinking, set this to ``None``. (default: ``"latest-rank{rank}.pt"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-        save_latest_remote_file_name (str, optional): A format string describing how to name symlinks in loggers.
-            This parameter has no effect if ``save_folder``, ``save_latest_filename``, or ``save_remote_file_name`` are ``None``.
-            To disable symlinking in logger, set this or ``save_latest_filename`` to ``None``. (default: ``"{run_name}/checkpoints/latest-rank{rank}"``)
-
-            .. seealso:: :class:`~.CheckpointSaver` and :doc:`Uploading Files</trainer/file_uploading>` notes.
         save_overwrite (bool, optional): Whether existing checkpoints should be overridden.
             This parameter has no effect if ``save_folder`` is None. (default: ``False``)
 
@@ -658,7 +674,7 @@ class Trainer:
 
             When enabled, the save_folder is checked for checkpoints of the format ``"{save_folder}/{save_latest_filename}"``,
             which are loaded to continue training. If no local checkpoints are found, each logger is checked for potential
-            checkpoints named ``save_latest_remote_file_name``. Finally, if no logged checkpoints are found, ``load_path`` is
+            remote checkpoints named ``"{save_folder}/{save_latest_filename}"``. Finally, if no logged checkpoints are found, ``load_path`` is
             used to load a checkpoint if specified. This should only occur at the start of a run using autoresume.
 
             For example, to run a fine-tuning run on a spot instance, ``load_path`` would be set to the original
@@ -781,9 +797,7 @@ class Trainer:
         # Save Checkpoint
         save_folder: Optional[str] = None,
         save_filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
-        save_remote_file_name: str = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
         save_latest_filename: Optional[str] = 'latest-rank{rank}.pt',
-        save_latest_remote_file_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
@@ -945,6 +959,11 @@ class Trainer:
                     stream=console_stream,
                 ))
 
+        if save_folder is not None:
+            remote_ud = _maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
+            if remote_ud is not None:
+                loggers.append(remote_ud)
+
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
 
@@ -953,13 +972,34 @@ class Trainer:
 
         # Checkpoint Saving
         self._checkpoint_saver = None
+        latest_remote_file_name = None
         if save_folder is not None:
+            _, _, parsed_save_folder = _parse_uri(save_folder)
+
+            # If user passes a URI with s3:// and a bucket_name, but no other
+            # path then we assume they just want their checkpoints saved directly in their
+            # bucket.
+            if parsed_save_folder == '':
+                folder = '.'
+                remote_file_name = save_filename
+                latest_remote_file_name = save_latest_filename
+
+            # If they actually specify a path, then we use that for their local save path
+            # and we prefix save_filename with that path for remote_file_name.
+            else:
+                folder = parsed_save_folder
+                remote_file_name = str(Path(parsed_save_folder) / Path(save_filename))
+                if save_latest_filename is not None:
+                    latest_remote_file_name = str(Path(parsed_save_folder) / Path(save_latest_filename))
+                else:
+                    latest_remote_file_name = None
+
             self._checkpoint_saver = CheckpointSaver(
-                folder=save_folder,
+                folder=folder,
                 filename=save_filename,
-                remote_file_name=save_remote_file_name,
+                remote_file_name=remote_file_name,
                 latest_filename=save_latest_filename,
-                latest_remote_file_name=save_latest_remote_file_name,
+                latest_remote_file_name=latest_remote_file_name,
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
                 save_interval=save_interval,
@@ -1123,18 +1163,15 @@ class Trainer:
             if save_latest_filename is None:
                 raise ValueError(
                     'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from.')
-            if save_latest_remote_file_name is None:
-                raise ValueError(
-                    'The `save_latest_remote_file_name` must be specified so autoresume can load the latest checkpoint.'
-                )
             if run_name is None:
                 raise ValueError(
                     'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
                 )
+            assert latest_remote_file_name is not None
             autoresume_checkpoint_path = self._get_autoresume_checkpoint(
                 save_folder=save_folder,
                 save_latest_filename=save_latest_filename,
-                save_latest_remote_file_name=save_latest_remote_file_name,
+                save_latest_remote_file_name=latest_remote_file_name,
                 loggers=loggers,
                 load_progress_bar=load_progress_bar)
             # Found latest checkpoint path, load that instead
