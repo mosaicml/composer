@@ -347,7 +347,7 @@ class MLPerfCallback(Callback):
 
         if accuracy > self.target and self.exit_at_target:
             # stop training
-            state.max_duration = state.timestamp.batch
+            state.stop_training()
 
     def close(self, state: State, logger: Logger) -> None:
         if self._file_handler is not None:
