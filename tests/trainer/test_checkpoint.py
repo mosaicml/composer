@@ -11,20 +11,25 @@ import tempfile
 import time
 from glob import glob
 from typing import Any, Dict, List, Optional, Union
+from unittest.mock import MagicMock
 
 import pytest
 import torch
 import torch.distributed
+from pytest import MonkeyPatch
 from torch.utils.data import DataLoader
 
 from composer.algorithms import SqueezeExcite
 from composer.core.callback import Callback
 from composer.core.time import Time, TimeUnit
-from composer.loggers import RemoteUploaderDownloader
+from composer.loggers import RemoteUploaderDownloader, remote_uploader_downloader
 from composer.optim import ExponentialScheduler
+from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, is_tar
 from composer.utils.checkpoint import glob_filter
+from composer.utils.object_store.object_store import ObjectStore
+from composer.utils.object_store.s3_object_store import S3ObjectStore
 from tests.common import RandomImageDataset, SimpleConvModel, deep_compare, device
 from tests.common.markers import world_size
 
@@ -135,6 +140,69 @@ def test_ignore_params(remove_field_paths: List[List[str]], filter_params: List[
     assert base_dict == new_dict
 
 
+class TestCheckpointSaving:
+
+    def get_trainer(self, **kwargs):
+        model = SimpleConvModel()
+        return Trainer(model=model, **kwargs)
+
+    @pytest.mark.parametrize('add_remote_ud', [True, False])
+    def test_s3_uri_creates_remote_ud(self, add_remote_ud: bool, monkeypatch: MonkeyPatch):
+        mock_validate_credentials = MagicMock()
+        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
+        if add_remote_ud:
+            with pytest.warns(UserWarning):
+                trainer = self.get_trainer(save_folder='s3://bucket_name/{run_name}/checkpoints',
+                                           loggers=[
+                                               RemoteUploaderDownloader(
+                                                   's3://bucket_name', file_path_format_string='{run_name}/checkpoints')
+                                           ])
+        else:
+            trainer = self.get_trainer(save_folder='s3://bucket_name/{run_name}/checkpoints')
+
+        remote_uds = [
+            logger_dest for logger_dest in trainer.logger.destinations
+            if isinstance(logger_dest, RemoteUploaderDownloader)
+        ]
+        assert len(remote_uds) == 1
+        remote_ud = remote_uds[0]
+        assert remote_ud.remote_backend_name == 's3'
+        assert remote_ud.remote_bucket_name == 'bucket_name'
+
+    @pytest.mark.parametrize('uri', ['wandb://foo/bar', 'gcs://foo/bar', 'sftp://foo/bar"'])
+    def test_other_uris_error_out(self, uri: str):
+        with pytest.raises(NotImplementedError):
+            self.get_trainer(save_folder=uri)
+
+    @pytest.mark.parametrize('local_path', ['foo/bar/baz'])
+    def test_local_paths_work(self, local_path: str):
+        self.get_trainer(save_folder=local_path)
+
+    @pytest.mark.parametrize('save_folder,expected_path',
+                             [('s3://bucket_name/{run_name}/my_checkpoints', '{run_name}/my_checkpoints'),
+                              ('{run_name}/my_checkpoints', '{run_name}/my_checkpoints'), ('s3://bucket_name', '')])
+    def test_checkpoint_saver_properly_constructed(self, save_folder: str, expected_path: str,
+                                                   monkeypatch: MonkeyPatch):
+        mock_validate_credentials = MagicMock()
+        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
+        mock_checkpoint_saver = MagicMock()
+        monkeypatch.setattr(trainer, 'CheckpointSaver', mock_checkpoint_saver)
+        self.get_trainer(save_folder=save_folder)
+        expected_prefix = expected_path + '/' if expected_path != '' else expected_path
+        rest_of_checkpoint_saver_kwargs = {
+            'filename': 'ep{epoch}-ba{batch}-rank{rank}.pt',
+            'remote_file_name': expected_prefix + 'ep{epoch}-ba{batch}-rank{rank}.pt',
+            'latest_filename': 'latest-rank{rank}.pt',
+            'latest_remote_file_name': expected_prefix + 'latest-rank{rank}.pt',
+            'overwrite': False,
+            'weights_only': False,
+            'save_interval': '1ep',
+            'num_checkpoints_to_keep': -1
+        }
+        expected_folder = expected_path.rstrip('/') if expected_path != '' else '.'
+        mock_checkpoint_saver.assert_called_once_with(folder=expected_folder, **rest_of_checkpoint_saver_kwargs)
+
+
 class TestCheckpointLoading:
 
     def _assert_weights_equivalent(self, m1: torch.nn.Module, m2: torch.nn.Module):
@@ -192,6 +260,33 @@ class TestCheckpointLoading:
             upload_staging_folder=str(tmp_path / 'staging_folder'),
         )
 
+    @pytest.mark.parametrize('load_path,load_object_store',
+                             [('s3://my-bucket/my-run-name/my-checkpoints', None),
+                              ('s3://my-bucket/my-run-name/my-checkpoints', S3ObjectStore(bucket='my-bucket')),
+                              ('my-run-name/my-checkpoints', S3ObjectStore(bucket='my-bucket'))])
+    def test_load_from_uri(self, load_path: str, load_object_store: Optional[ObjectStore], monkeypatch: MonkeyPatch):
+
+        mock_validate_credentials = MagicMock()
+        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
+        mock_load_checkpoint = MagicMock()
+        monkeypatch.setattr(trainer.checkpoint, 'load_checkpoint', mock_load_checkpoint)
+        self.get_trainer(load_path=load_path, load_object_store=load_object_store)
+        mock_load_checkpoint.assert_called_once()
+        (_, call_kwargs), = mock_load_checkpoint.call_args_list
+        assert call_kwargs['path'] == 'my-run-name/my-checkpoints'
+        assert isinstance(call_kwargs['object_store'], S3ObjectStore)
+        assert call_kwargs['object_store'].bucket == 'my-bucket'
+
+    @pytest.mark.parametrize('load_path', [
+        'sftp://my-bucket/my-run-name/my-checkpoints', 'wandb://my-bucket/my-run-name/my-checkpoints',
+        'gcs://my-bucket/my-run-name/my-checkpoints'
+    ])
+    def test_other_backends_error(self, load_path: str, monkeypatch: MonkeyPatch):
+        mock_validate_credentials = MagicMock()
+        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
+        with pytest.raises(NotImplementedError):
+            self.get_trainer(load_path=load_path)
+
     @device('cpu', 'gpu')
     @pytest.mark.parametrize('load_weights_only', [True, False])
     def test_load_weights(self, device, load_weights_only):
@@ -236,7 +331,7 @@ class TestCheckpointLoading:
         pytest.importorskip('libcloud')
 
         trainer_1 = self.get_trainer(
-            save_folder='first',
+            save_folder='{run_name}/checkpoints',
             loggers=[self.get_logger(tmp_path)],
             run_name='electric-zebra',
         )
@@ -246,7 +341,7 @@ class TestCheckpointLoading:
         trainer_2 = self.get_trainer(
             loggers=[self.get_logger(tmp_path)],
             run_name='electric-zebra',
-            load_path='electric-zebra/checkpoints/latest-rank0',
+            load_path='electric-zebra/checkpoints/latest-rank0.pt',
             load_object_store=self.get_logger(tmp_path),
         )
 
