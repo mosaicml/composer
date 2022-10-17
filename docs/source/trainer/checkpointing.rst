@@ -404,12 +404,13 @@ should be the path to the checkpoint file *within the container/bucket*.
 An easier way to load checkpoints from S3 specifically is to just use a URI starting with ``s3://`` like so:
 
 .. testcode::
+    :skipif: not _LIBCLOUD_INSTALLED
 
     new_trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
     max_duration="10ep",
-    load_path="s3://checkpoints/ep1.pt",
+    load_path="s3://checkpoint-debugging/checkpoints/ep1.pt",
     )
 
     new_trainer.fit()

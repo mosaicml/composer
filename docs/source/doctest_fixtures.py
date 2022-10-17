@@ -51,6 +51,7 @@ from composer.models import ComposerModel as ComposerModel
 from composer.optim.scheduler import ConstantScheduler
 from composer.utils import LibcloudObjectStore
 from composer.utils import ensure_tuple as ensure_tuple
+from urllib.parse import urlparse
 
 try:
     import wandb
@@ -191,6 +192,9 @@ def _new_trainer_init(self, fake_ellipses: None = None, **kwargs: Any):
         kwargs['progress_bar'] = False  # hide tqdm logging
     if 'log_to_console' not in kwargs:
         kwargs['log_to_console'] = False  # hide console logging
+    if 'load_path' in kwargs and urlparse(kwargs['load_path']).scheme == 's3':
+        kwargs['load_path'] = urlparse(kwargs['load_path']).path.lstrip('/')
+        kwargs['load_object_store'] = LibcloudObjectStore()
     _original_trainer_init(self, **kwargs)
 
 
