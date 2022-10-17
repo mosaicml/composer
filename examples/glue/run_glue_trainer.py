@@ -38,6 +38,7 @@ import tempfile
 import warnings
 from dataclasses import dataclass
 from multiprocessing.managers import SyncManager
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -310,10 +311,10 @@ def train_finetune(
     if save_ckpt:
         # add task specific checkpoint uploading information
         ft_hparams.save_folder = f'{save_folder}/{task}-{parent_idx:03d}'
-        save_remote_file_name = f'{save_folder}/{task}-{parent_idx:03d}/ep{{epoch}}-ba{{batch}}-rank{{rank}}'  # ignored if not uploading
-        save_latest_remote_file_name = f'{save_folder}/{task}-{parent_idx:03d}/latest-rank{{rank}}'
-        ft_hparams.save_remote_file_name = save_remote_file_name
-        ft_hparams.save_latest_remote_file_name = save_latest_remote_file_name
+        save_filename = f'ep{{epoch}}-ba{{batch}}-rank{{rank}}.pt'  # ignored if not uploading
+        save_latest_filename = f'latest-rank{{rank}}.pt'
+        ft_hparams.save_filename = save_filename
+        ft_hparams.save_latest_filename = save_latest_filename
 
         if save_locally:
             if not os.path.exists(ft_hparams.save_folder):
@@ -441,7 +442,9 @@ def get_ckpt_names(hp: TrainerHparams, run_name: str, dataloader_len: int) -> Li
     while loop:
         if save:
             time = Timestamp(epoch=ep, batch=ba)
-            formatted_ckpt_name = format_name_with_dist_and_time(hp.save_remote_file_name, run_name, time)
+            assert hp.save_folder is not None
+            formatted_ckpt_name = format_name_with_dist_and_time(str(Path(hp.save_folder) / Path(hp.save_filename)),
+                                                                 run_name, time)
             ckpt_names.append(formatted_ckpt_name)
             save = False
 
@@ -472,7 +475,9 @@ def get_ckpt_names(hp: TrainerHparams, run_name: str, dataloader_len: int) -> Li
     # save very last batch if incrementing batches passed it
     if save_last_batch:
         time = Timestamp(epoch=ep, batch=ba)
-        formatted_ckpt_name = format_name_with_dist_and_time(hp.save_remote_file_name, run_name, time)
+        assert hp.save_folder is not None
+        formatted_ckpt_name = format_name_with_dist_and_time(str(Path(hp.save_folder) / Path(hp.save_filename)),
+                                                             run_name, time)
         ckpt_names.append(formatted_ckpt_name)
 
     return ckpt_names
