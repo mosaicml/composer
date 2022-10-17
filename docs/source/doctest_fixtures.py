@@ -15,6 +15,7 @@ import sys
 import tempfile
 from typing import Any
 from typing import Callable as Callable
+from urllib.parse import urlparse
 
 import numpy as np
 import torch
@@ -51,7 +52,6 @@ from composer.models import ComposerModel as ComposerModel
 from composer.optim.scheduler import ConstantScheduler
 from composer.utils import LibcloudObjectStore
 from composer.utils import ensure_tuple as ensure_tuple
-from urllib.parse import urlparse
 
 try:
     import wandb
