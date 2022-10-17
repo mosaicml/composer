@@ -292,6 +292,8 @@ def _maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
                                   's3 or one of the supported object stores')
+
+
 def _maybe_create_remote_uploader_downloader_from_uri(
         uri: str, loggers: List[LoggerDestination]) -> Optional[RemoteUploaderDownloader]:
     existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
