@@ -323,6 +323,13 @@ and delete the checkpoints from the local disk. The checkpoints will be located 
 `checkpoints/ep3.pt` for third epoch's checkpoints, for example. The full URI in this case would be:
 `s3://my_bucket/checkpoints/ep3.pt`.
 
+*   ``save_num_checkpoints_to_keep``: Set this parameter to remove checkpoints from the local disk after they have been
+    uploaded. For example, setting this parameter to 1 will only keep the latest checkpoint locally; setting it to 0
+    will remove each checkpoint after it has been uploaded. Checkpoints are never deleted from object stores.
+*   ``save_remote_file_name``: To customize how checkpoints are named in the cloud bucket, modify this parameter. By
+    default, they will be named as ``'{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}'``. See the
+    :class:`.CheckpointSaver` documentation for the available format variables.
+
 This is equivalent to creating a RemoteUploaderDownloader object and adding it to loggers. This a more
 involved operation, but is necessary for uploading checkpoints to other cloud object stores, like
 GCS.
@@ -405,6 +412,23 @@ should be the path to the checkpoint file *within the container/bucket*.
 
     new_trainer.fit()
 
+An easier way to load checkpoints from S3 specifically is to just use a URI starting with ``s3://``.
+If you use the S3 URI, it is not necessary to specify a ``load_object_store``. Note, that for other
+object stores like WandB or LibCloud, you must still specify a ``load_object_store``.
+
+.. testcode::
+    :skipif: not _LIBCLOUD_INSTALLED
+
+    new_trainer = Trainer(
+    model=model,
+    train_dataloader=train_dataloader,
+    max_duration="10ep",
+    load_path="s3://checkpoint-debugging/checkpoints/ep1.pt",
+    )
+
+    new_trainer.fit()
+
+This will load the first epoch's checkpoints from S3 and resume training in the second epoch.
 
 API Reference
 -------------

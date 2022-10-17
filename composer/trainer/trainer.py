@@ -36,7 +36,7 @@ from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Eve
 from composer.core.precision import get_precision_context
 from composer.core.time import TimeUnit
 from composer.core.types import Batch, BreakEpochException, PyTorchScheduler, TrainerMode
-from composer.loggers import Logger, LoggerDestination, ProgressBarLogger
+from composer.loggers import Logger, LoggerDestination, ProgressBarLogger, WandBLogger
 from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
@@ -47,8 +47,8 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
-from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, map_collection,
-                            model_eval_mode, reproducibility)
+from composer.utils import (ObjectStore, S3ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist,
+                            map_collection, model_eval_mode, reproducibility)
 from composer.utils.device import get_device, is_tpu_installed
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -280,6 +280,20 @@ def _generate_run_name() -> str:
     return generated_run_name
 
 
+def _maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
+    backend, bucket_name, _ = _parse_uri(uri)
+    if backend == '':
+        return None
+    if backend == 's3':
+        return S3ObjectStore(bucket=bucket_name)
+    elif backend == 'wandb':
+        raise NotImplementedError(f'There is no implementation for WandB load_object_store via URI. Please use '
+                                  'WandBLogger')
+    else:
+        raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
+                                  's3 or one of the supported object stores')
+
+
 def _maybe_create_remote_uploader_downloader_from_uri(
         uri: str, loggers: List[LoggerDestination]) -> Optional[RemoteUploaderDownloader]:
     existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
@@ -308,9 +322,9 @@ def _parse_uri(uri: str) -> Tuple[str, str, str]:
     parse_result = urlparse(uri)
     backend, bucket_name, path = parse_result.scheme, parse_result.netloc, parse_result.path
     if backend == '' and bucket_name == '':
-        return backend, bucket_name, str(path)
+        return backend, bucket_name, path
     else:
-        return backend, bucket_name, str(path.lstrip('/'))
+        return backend, bucket_name, path.lstrip('/')
 
 
 class Trainer:
@@ -507,7 +521,7 @@ class Trainer:
         load_path (str, optional):  The path format string to an existing checkpoint file.
 
             It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
-            for a checkpoint in a cloud bucket.
+            for a checkpoint in a cloud bucket. If a URI is specified, ``load_object_store`` does not need to be set.
 
             When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, checkpoints are shareded by rank.
             Instead of hard-coding the rank in the ``path``, use the following format variables:
@@ -541,7 +555,9 @@ class Trainer:
         load_object_store (Union[ObjectStore, LoggerDestination], optional): If the ``load_path`` is in an
             object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` or
             :class:`.LoggerDestination` which will be used to retreive the checkpoint. Otherwise, if the
-            checkpoint is a local filepath, set to ``None``. Ignored if ``load_path`` is ``None``.
+            checkpoint is a local filepath, set to ``None``. Also, it can be ``None`` if the ``load_path`` is
+            an S3 URI because the appropriate object store will be automatically constructed in that case.
+            Ignored if ``load_path`` is ``None``.
             (default: ``None``)
 
             Example:
@@ -1173,9 +1189,16 @@ class Trainer:
                 log.info('No previous autoresume checkpoint found')
         # Actually load the checkpoint from potentially updated arguments
         if load_path is not None:
+            if load_object_store is None:
+                load_object_store = _maybe_create_object_store_from_uri(load_path)
+            if isinstance(load_object_store, WandBLogger):
+                import wandb
+                if wandb.run is None:
+                    load_object_store.init(self.state, self.logger)
+            _, _, parsed_load_path = _parse_uri(load_path)
             self._rng_state = checkpoint.load_checkpoint(
                 state=self.state,
-                path=load_path,
+                path=parsed_load_path,
                 object_store=load_object_store,
                 load_weights_only=load_weights_only,
                 strict_model_weights=load_strict_model_weights,

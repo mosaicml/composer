@@ -28,6 +28,8 @@ from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, is_tar
 from composer.utils.checkpoint import glob_filter
+from composer.utils.object_store.object_store import ObjectStore
+from composer.utils.object_store.s3_object_store import S3ObjectStore
 from tests.common import RandomImageDataset, SimpleConvModel, deep_compare, device
 from tests.common.markers import world_size
 
@@ -257,6 +259,33 @@ class TestCheckpointLoading:
             use_procs=False,
             upload_staging_folder=str(tmp_path / 'staging_folder'),
         )
+
+    @pytest.mark.parametrize('load_path,load_object_store',
+                             [('s3://my-bucket/my-run-name/my-checkpoints', None),
+                              ('s3://my-bucket/my-run-name/my-checkpoints', S3ObjectStore(bucket='my-bucket')),
+                              ('my-run-name/my-checkpoints', S3ObjectStore(bucket='my-bucket'))])
+    def test_load_from_uri(self, load_path: str, load_object_store: Optional[ObjectStore], monkeypatch: MonkeyPatch):
+
+        mock_validate_credentials = MagicMock()
+        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
+        mock_load_checkpoint = MagicMock()
+        monkeypatch.setattr(trainer.checkpoint, 'load_checkpoint', mock_load_checkpoint)
+        self.get_trainer(load_path=load_path, load_object_store=load_object_store)
+        mock_load_checkpoint.assert_called_once()
+        (_, call_kwargs), = mock_load_checkpoint.call_args_list
+        assert call_kwargs['path'] == 'my-run-name/my-checkpoints'
+        assert isinstance(call_kwargs['object_store'], S3ObjectStore)
+        assert call_kwargs['object_store'].bucket == 'my-bucket'
+
+    @pytest.mark.parametrize('load_path', [
+        'sftp://my-bucket/my-run-name/my-checkpoints', 'wandb://my-bucket/my-run-name/my-checkpoints',
+        'gcs://my-bucket/my-run-name/my-checkpoints'
+    ])
+    def test_other_backends_error(self, load_path: str, monkeypatch: MonkeyPatch):
+        mock_validate_credentials = MagicMock()
+        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
+        with pytest.raises(NotImplementedError):
+            self.get_trainer(load_path=load_path)
 
     @device('cpu', 'gpu')
     @pytest.mark.parametrize('load_weights_only', [True, False])
