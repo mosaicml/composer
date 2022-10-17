@@ -27,9 +27,6 @@ def _to_pytest_param(filepath: str):
     if notebook_name == 'ffcv_dataloaders':
         marks.append(pytest.mark.vision)
 
-    if notebook_name == 'huggingface_models':
-        marks.append(pytest.mark.xfail('bug in notebook -- see https://mosaicml.atlassian.net/browse/CO-497'))
-
     return pytest.param(filepath, marks=marks)
 
 
@@ -78,7 +75,7 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
 
 @pytest.mark.parametrize('notebook', [_to_pytest_param(notebook) for notebook in NOTEBOOKS])
 @device('cpu', 'gpu')
-@pytest.mark.daily
+# @pytest.mark.daily
 def test_notebook(notebook: str, device: str):
     del device  # unused
     trainer_monkeypatch_code = inspect.getsource(patch_notebooks)
