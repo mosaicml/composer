@@ -73,7 +73,7 @@ Instead, our trainer supports the ``autoresume=True`` feature. With autoresume, 
         autoresume=True,
         save_folder='./path/to/folder',
         run_name='my_cool_run',
-        max_duration='90ep'
+        max_duration='10ep'
     )
 
 With autoresume, users can re-submit the _same_ code to the training run, and the trainer will handle finding and resuming from the latest checkpoints. This works well with systems like Kubernetes that automatically resubmit the same job when there is a node failure (due to spot instances as well). For ``autoresume=True`` to work, we require that both a ``save_folder`` and a ``run_name`` be provided. These are used to search for existing checkpoints.
@@ -144,7 +144,7 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
         run_name='my_cool_run',
         save_filename='ep{epoch}.pt',
         loggers=[remote_uploader_downloader],
-        max_duration='90ep'
+        max_duration='10ep'
     )
 
     trainer.fit()
@@ -192,7 +192,7 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
         loggers=[
             remote_uploader_downloader
         ],
-        max_duration='90ep'
+        max_duration='10ep'
     )
 
 
