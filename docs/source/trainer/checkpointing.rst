@@ -412,7 +412,9 @@ should be the path to the checkpoint file *within the container/bucket*.
 
     new_trainer.fit()
 
-An easier way to load checkpoints from S3 specifically is to just use a URI starting with ``s3://`` like so:
+An easier way to load checkpoints from S3 specifically is to just use a URI starting with ``s3://``.
+If you use the S3 URI, it is not necessary to specify a ``load_object_store``. Note, that for other
+object stores like WandB or LibCloud, you must still specify a ``load_object_store`.
 
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
@@ -426,7 +428,7 @@ An easier way to load checkpoints from S3 specifically is to just use a URI star
 
     new_trainer.fit()
 
-This will load the first epoch's checkpoints that we saved to S3 in the code example above for saving.
+This will load the first epoch's checkpoints from S3 and resume training in the second epoch.
 
 API Reference
 -------------
