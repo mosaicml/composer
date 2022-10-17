@@ -57,7 +57,7 @@ def patch_notebooks():
     original_iter = DataLoader.__iter__
 
     def new_iter(self: DataLoader):
-        return itertools.islice(original_iter(self), 1)
+        return itertools.islice(original_iter(self), 2)
 
     DataLoader.__iter__ = new_iter  # type: ignore  # error: DataLoader has a stricter return type than islice
 
@@ -77,11 +77,12 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
 @device('cpu', 'gpu')
 # @pytest.mark.daily
 def test_notebook(notebook: str, device: str):
-    del device  # unused
     trainer_monkeypatch_code = inspect.getsource(patch_notebooks)
     notebook_name = os.path.split(notebook)[-1][:-len('.ipynb')]
     if notebook_name == 'medical_image_segmentation':
         pytest.xfail('Dataset is only available via kaggle; need to authenticate on ci/cd')
+    if notebook_name == 'auto_grad_accum' and device == 'cpu':
+        pytest.skip('auto_grad_accum notebook only runs with a gpu')
     with testbook.testbook(notebook) as tb:
         tb.inject(trainer_monkeypatch_code)
         tb.inject('patch_notebooks()')
