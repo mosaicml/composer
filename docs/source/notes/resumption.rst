@@ -62,6 +62,7 @@ Instead, our trainer supports the ``autoresume=True`` feature. With autoresume, 
         save_folder="./path/to/folder",
         save_overwrite=True,
         save_interval="1ep",  # Save checkpoints every epoch
+        run_name='my_cool_run_1'
     )
     trainer.fit()
     trainer.close()
@@ -72,7 +73,7 @@ Instead, our trainer supports the ``autoresume=True`` feature. With autoresume, 
         ...,
         autoresume=True,
         save_folder='./path/to/folder',
-        run_name='my_cool_run',
+        run_name='my_cool_run_1',
         max_duration='10ep'
     )
 
@@ -121,6 +122,7 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
         save_overwrite=True,
         save_interval="1ep",  # Save checkpoints every epoch
         loggers=[remote_uploader_downloader],
+        run_name='my_cool_run_2'
     )
     trainer.fit()
     trainer.close()
@@ -141,7 +143,7 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
         autoresume=True,
         save_folder='checkpoints',
         save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
-        run_name='my_cool_run',
+        run_name='my_cool_run_2',
         save_filename='ep{epoch}.pt',
         loggers=[remote_uploader_downloader],
         max_duration='10ep'
@@ -173,7 +175,7 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
         ...,
         save_filename='pretrained_weights/model.pt',
         save_folder='checkpoints',
-        run_name='my_cool_run',
+        run_name='my_cool_run_3',
         max_duration='1ep'
     )
 
@@ -188,7 +190,7 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
         load_path='pretrained_weights/model.pt',
         load_weights_only=True,
         save_folder='checkpoints',
-        run_name='my_cool_run',
+        run_name='my_cool_run_3',
         loggers=[
             remote_uploader_downloader
         ],
