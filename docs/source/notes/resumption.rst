@@ -96,35 +96,6 @@ Example: Object Store
 
 A typical use case is saving checkpoints to object store (e.g. S3) when there is no local file storage shared across runs. For example, a setup such as this:
 
-.. testsetup::
-    :skipif: not _LIBCLOUD_INSTALLED
-
-    from composer.loggers import RemoteUploaderDownloader
-    from composer.utils.object_store import S3ObjectStore
-
-    # this assumes credentials are already configured via boto3
-    remote_uploader_downloader = RemoteUploaderDownloader(
-        bucket_uri=f"s3://checkpoint-debugging",
-    )
-
-    import os
-    import shutil
-
-    from composer import Trainer
-
-    trainer = Trainer(
-        model=model,
-        train_dataloader=train_dataloader,
-        max_duration="1ep",
-        save_filename="ep{epoch}.pt",
-        save_folder="checkpoints",
-        save_overwrite=True,
-        save_interval="1ep",  # Save checkpoints every epoch
-        loggers=[remote_uploader_downloader],
-    )
-    trainer.fit()
-    trainer.close()
-
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
 
