@@ -15,6 +15,7 @@ import sys
 import tempfile
 from typing import Any
 from typing import Callable as Callable
+from urllib.parse import urlparse
 
 import numpy as np
 import torch
@@ -191,6 +192,9 @@ def _new_trainer_init(self, fake_ellipses: None = None, **kwargs: Any):
         kwargs['progress_bar'] = False  # hide tqdm logging
     if 'log_to_console' not in kwargs:
         kwargs['log_to_console'] = False  # hide console logging
+    if 'load_path' in kwargs and urlparse(kwargs['load_path']).scheme == 's3':
+        kwargs['load_path'] = urlparse(kwargs['load_path']).path.lstrip('/')
+        kwargs['load_object_store'] = LibcloudObjectStore()
     _original_trainer_init(self, **kwargs)
 
 
