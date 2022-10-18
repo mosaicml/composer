@@ -24,7 +24,7 @@ from composer.core.types import MemoryFormat
 from composer.datasets.streaming import StreamingDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
-from composer.utils import dist
+from composer.utils import dist, warn_streaming_dataset_deprecation
 from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['ADE20k', 'StreamingADE20k']
@@ -38,6 +38,20 @@ def build_ade20k_transformations(split,
                                  min_resize_scale: float = 0.5,
                                  max_resize_scale: float = 2.0,
                                  final_size: int = 512):
+    """Builds the transformations for the ADE20k dataset.
+
+       Args:
+           base_size (int): Initial size of the image and target before other augmentations. Default: ``512``.
+           min_resize_scale (float): The minimum value the samples can be rescaled. Default: ``0.5``.
+           max_resize_scale (float): The maximum value the samples can be rescaled. Default: ``2.0``.
+           final_size (int): The final size of the image and target. Default: ``512``.
+
+       Returns:
+           both_transforms (torch.nn.Module): Transformations to apply to a 2-tuple containing the input image and the
+               target semantic segmentation mask.
+           image_transforms (torch.nn.Module): Transformations to apply to the input image only.
+           target_transforms (torch.nn.Module): Transformations to apply to the target semantic segmentation mask only.
+    """
     if split == 'train':
         both_transforms = torch.nn.Sequential(
             RandomResizePair(
@@ -85,16 +99,16 @@ def build_ade20k_dataloader(
     """Builds an ADE20k dataloader.
 
     Args:
-        datadir (str): path to location of dataset.
+        datadir (str): Path to location of dataset.
         batch_size (int): Batch size per device.
-        split (str): the dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
-        drop_last (bool): whether to drop last samples. Default: ``True``.
-        shuffle (bool): whether to shuffle the dataset. Default: ``True``.
-        base_size (int): initial size of the image and target before other augmentations. Default: ``512``.
-        min_resize_scale (float): the minimum value the samples can be rescaled. Default: ``0.5``.
-        max_resize_scale (float): the maximum value the samples can be rescaled. Default: ``2.0``.
-        final_size (int): the final size of the image and target. Default: ``512``.
-        ignore_background (bool): if true, ignore the background class when calculating the training loss.
+        split (str): The dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
+        drop_last (bool): Whether to drop last samples. Default: ``True``.
+        shuffle (bool): Whether to shuffle the dataset. Default: ``True``.
+        base_size (int): Initial size of the image and target before other augmentations. Default: ``512``.
+        min_resize_scale (float): The minimum value the samples can be rescaled. Default: ``0.5``.
+        max_resize_scale (float): The maximum value the samples can be rescaled. Default: ``2.0``.
+        final_size (int): The final size of the image and target. Default: ``512``.
+        ignore_background (bool): If true, ignore the background class when calculating the training loss.
             Default: ``true``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
@@ -130,6 +144,7 @@ def build_streaming_ade20k_dataloader(
     batch_size: int,
     remote: str,
     *,
+    version: int = 2,
     local: str = '/tmp/mds-cache/mds-ade20k/',
     split: str = 'train',
     drop_last: bool = True,
@@ -141,32 +156,64 @@ def build_streaming_ade20k_dataloader(
     ignore_background: bool = True,
     **dataloader_kwargs,
 ):
-    try:
-        import streaming
-    except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
+    """Build an ADE20k streaming dataset.
 
-    # Build the sets of transformations for ADE20k
-    all_transforms = build_ade20k_transformations(split=split,
-                                                  base_size=base_size,
-                                                  min_resize_scale=min_resize_scale,
-                                                  max_resize_scale=max_resize_scale,
-                                                  final_size=final_size)
+    Args:
+        batch_size (int): Batch size per device.
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+        version (int): Which version of streaming to use. Default: ``1``.
+        local (str): Local filesystem directory where dataset is cached during operation.
+            Default: ``'/tmp/mds-cache/mds-ade20k/```.
+        split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
+        base_size (int): Initial size of the image and target before other augmentations. Default: ``512``.
+        min_resize_scale (float): The minimum value the samples can be rescaled. Default: ``0.5``.
+        max_resize_scale (float): The maximum value the samples can be rescaled. Default: ``2.0``.
+        final_size (int): The final size of the image and target. Default: ``512``.
+        ignore_background (bool): If true, ignore the background class when calculating the training loss.
+            Default: ``true``.
+        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+    """
+    if version == 1:
+        warn_streaming_dataset_deprecation(old_version=version, new_version=2)
+        dataset = StreamingADE20k(remote=remote,
+                                  local=local,
+                                  split=split,
+                                  shuffle=shuffle,
+                                  base_size=base_size,
+                                  min_resize_scale=min_resize_scale,
+                                  max_resize_scale=max_resize_scale,
+                                  final_size=final_size,
+                                  batch_size=batch_size)
+    elif version == 2:
 
-    dataset = streaming.vision.ADE20K(remote=remote,
-                                      local=local,
-                                      split=split,
-                                      shuffle=shuffle,
-                                      both_transforms=all_transforms[0],
-                                      image_transforms=all_transforms[1],
-                                      target_transforms=all_transforms[2])
+        try:
+            import streaming
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
+
+        # Build the sets of transformations for ADE20k
+        all_transforms = build_ade20k_transformations(split=split,
+                                                      base_size=base_size,
+                                                      min_resize_scale=min_resize_scale,
+                                                      max_resize_scale=max_resize_scale,
+                                                      final_size=final_size)
+
+        dataset = streaming.vision.ADE20K(remote=remote,
+                                          local=local,
+                                          split=split,
+                                          shuffle=shuffle,
+                                          both_transforms=all_transforms[0],
+                                          transform=all_transforms[1],
+                                          target_transform=all_transforms[2])
+
+    else:
+        raise ValueError(f'Invalid streaming version: {version}')
 
     dataloader = DataLoader(dataset=dataset,
                             batch_size=batch_size,
                             collate_fn=pil_image_collate,
                             drop_last=drop_last,
                             **dataloader_kwargs)
-
     device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
                                           std=IMAGENET_CHANNEL_STD,
                                           ignore_background=ignore_background)
@@ -190,13 +237,13 @@ def build_synthetic_ade20k_dataloader(
 
     Args:
         batch_size (int): Batch size per device.
-        split (str): the dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
-        drop_last (bool): whether to drop last samples. Default: ``True``.
-        shuffle (bool): whether to shuffle the dataset. Default: ``True``.
-        final_size (int): the final size of the image and target. Default: ``512``.
-        num_unique_samples (int): number of unique samples in synthetic dataset. Default: ``100``.
-        device (str): device with which to load the dataset. Default: ``cpu``.
-        memory_format (MemoryFormat): memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
+        split (str): The dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
+        drop_last (bool): Whether to drop last samples. Default: ``True``.
+        shuffle (bool): Whether to shuffle the dataset. Default: ``True``.
+        final_size (int): The final size of the image and target. Default: ``512``.
+        num_unique_samples (int): Number of unique samples in synthetic dataset. Default: ``100``.
+        device (str): Device with which to load the dataset. Default: ``cpu``.
+        memory_format (MemoryFormat): Memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
     if split == 'train':
