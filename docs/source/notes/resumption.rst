@@ -47,6 +47,25 @@ However, recovering from a failure here would still require manual intervention 
 
 Instead, our trainer supports the ``autoresume=True`` feature. With autoresume, the trainer will automatically check the ``save_folder`` for the latest checkpoints and resume training.
 
+.. testsetup::
+
+    import os
+    import shutil
+
+    from composer import Trainer
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration="1ep",
+        save_filename="ep{epoch}.pt",
+        save_folder="./path/to/folder",
+        save_overwrite=True,
+        save_interval="1ep",  # Save checkpoints every epoch
+    )
+    trainer.fit()
+    trainer.close()
+
 .. testcode::
 
     trainer = Trainer(
@@ -54,6 +73,7 @@ Instead, our trainer supports the ``autoresume=True`` feature. With autoresume, 
         autoresume=True,
         save_folder='./path/to/folder',
         run_name='my_cool_run',
+        max_duration='10ep'
     )
 
 With autoresume, users can re-submit the _same_ code to the training run, and the trainer will handle finding and resuming from the latest checkpoints. This works well with systems like Kubernetes that automatically resubmit the same job when there is a node failure (due to spot instances as well). For ``autoresume=True`` to work, we require that both a ``save_folder`` and a ``run_name`` be provided. These are used to search for existing checkpoints.
@@ -76,7 +96,6 @@ Example: Object Store
 
 A typical use case is saving checkpoints to object store (e.g. S3) when there is no local file storage shared across runs. For example, a setup such as this:
 
-
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
 
@@ -85,10 +104,7 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
 
     # this assumes credentials are already configured via boto3
     remote_uploader_downloader = RemoteUploaderDownloader(
-        object_store_cls=S3ObjectStore,
-        object_store_kwargs={
-            "bucket": "checkpoint-debugging",
-            },
+        bucket_uri=f"s3://checkpoint-debugging",
     )
 
     trainer = Trainer(
@@ -97,8 +113,9 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
         save_folder='checkpoints',
         save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
         run_name='my_cool_run',
-        save_remote_file_name='checkpoints/ep{epoch}.pt',
+        save_filename='ep{epoch}.pt',
         loggers=[remote_uploader_downloader],
+        max_duration='10ep'
     )
 
     trainer.fit()
@@ -118,10 +135,7 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
     from composer.utils.object_store import S3ObjectStore
 
     remote_uploader_downloader = RemoteUploaderDownloader(
-        object_store_cls=S3ObjectStore,
-        object_store_kwargs={
-            "bucket": "checkpoint-debugging_2",
-        },
+        bucket_uri=f"s3://checkpoint-debugging_2",
     )
 
     # Train to generate and save the "pretrained_weights/model.pt",
@@ -129,8 +143,9 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
     trainer = Trainer(
         ...,
         save_filename='pretrained_weights/model.pt',
-        save_folder='.',
+        save_folder='checkpoints',
         run_name='my_cool_run',
+        max_duration='1ep'
     )
 
     trainer.fit()
@@ -147,7 +162,8 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
         run_name='my_cool_run',
         loggers=[
             remote_uploader_downloader
-        ]
+        ],
+        max_duration='10ep'
     )
 
 

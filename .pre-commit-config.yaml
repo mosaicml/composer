@@ -43,8 +43,6 @@ repos:
       - id: check-added-large-files
       - id: check-ast
       - id: check-builtin-literals
-        args:
-          - --no-allow-dict-kwargs
       - id: check-case-conflict
       - id: check-docstring-first
       - id: check-executables-have-shebangs

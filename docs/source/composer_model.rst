@@ -233,8 +233,37 @@ and make it compatible with our trainer.
     # composer model, ready to be passed to our trainer
     composer_model = HuggingFaceModel(model, metrics=metrics)
 
+YOLOX Example with MMDetection
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In this example, we create a YOLO model loaded from MMDetection
+and make it compatible with our trainer.
+
+.. code:: python
+
+    from mmdet.models import build_detector
+    from mmcv import ConfigDict
+    from composer.models import MMDetModel
+
+    # yolox config from https://github.com/open-mmlab/mmdetection/blob/master/configs/yolox/yolox_s_8x8_300e_coco.py
+    yolox_s_config = dict(
+        type='YOLOX',
+        input_size=(640, 640),
+        random_size_range=(15, 25),
+        random_size_interval=10,
+        backbone=dict(type='CSPDarknet', deepen_factor=0.33, widen_factor=0.5),
+        neck=dict(type='YOLOXPAFPN', in_channels=[128, 256, 512], out_channels=128, num_csp_blocks=1),
+        bbox_head=dict(type='YOLOXHead', num_classes=80, in_channels=128, feat_channels=128),
+        train_cfg=dict(assigner=dict(type='SimOTAAssigner', center_radius=2.5)),
+        test_cfg=dict(score_thr=0.01, nms=dict(type='nms', iou_threshold=0.65)))
+
+    yolox = build_detector(ConfigDict(yolox_s_config))
+    yolox.init_weights()
+    model = MMDetModel(yolox)
+
 .. |forward| replace:: :meth:`~.ComposerModel.forward`
 .. |loss| replace:: :meth:`~.ComposerModel.loss`
+.. _MMDetection: https://mmdetection.readthedocs.io/en/latest/
 .. _Transformers: https://huggingface.co/docs/transformers/index
 .. _TIMM: https://fastai.github.io/timmdocs/
 .. _torchvision: https://pytorch.org/vision/stable/models.html
