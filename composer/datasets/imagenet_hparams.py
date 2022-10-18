@@ -12,20 +12,13 @@ from dataclasses import asdict, dataclass
 from typing import Optional
 
 import yahp as hp
-from torchvision import transforms
 
 from composer.core import DataSpec
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
-from composer.datasets.imagenet import (StreamingImageNet1k, build_ffcv_imagenet_dataloader, build_imagenet_dataloader,
-                                        build_synthetic_imagenet_dataloader, build_streaming_imagenet1k_dataloader,write_ffcv_imagenet)
+from composer.datasets.imagenet import (build_ffcv_imagenet_dataloader, build_imagenet_dataloader,
+                                        build_streaming_imagenet1k_dataloader, build_synthetic_imagenet_dataloader,
+                                        write_ffcv_imagenet)
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
-from composer.datasets.utils import NormalizationFn, pil_image_collate
-from composer.utils import warn_streaming_dataset_deprecation
-from composer.utils.import_helpers import MissingConditionalImportError
-
-# ImageNet normalization values from torchvision: https://pytorch.org/vision/stable/models.html
-IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
-IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
 
 __all__ = ['ImagenetDatasetHparams', 'StreamingImageNet1kHparams']
 

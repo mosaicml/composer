@@ -30,7 +30,7 @@ from composer.utils.import_helpers import MissingConditionalImportError
 __all__ = [
     'StreamingImageNet1k',
     'build_imagenet_dataloader',
-    'build_streaming_imagenet1k_dataloader'
+    'build_streaming_imagenet1k_dataloader',
     'build_synthetic_imagenet_dataloader',
     'write_ffcv_imagenet',
     'build_ffcv_imagenet_dataloader',
@@ -263,6 +263,7 @@ def build_ffcv_imagenet_dataloader(
         drop_last=drop_last,
     )
 
+
 def build_streaming_imagenet1k_dataloader(
     batch_size: int,
     remote: str,
@@ -282,7 +283,7 @@ def build_streaming_imagenet1k_dataloader(
         batch_size (int): Batch size per device.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
         version (int, optional): Which version of streaming to use. Default: ``2``.
-        local (str, optional): Local filesystem directory where dataset is cached during operation. 
+        local (str, optional): Local filesystem directory where dataset is cached during operation.
             Defaults to ``'/tmp/mds-cache/mds-imagenet1k/```.
         split (str): Which split of the dataset to use. Either ['train', 'val']. Default:
             ``'train```.
@@ -296,18 +297,17 @@ def build_streaming_imagenet1k_dataloader(
     if version == 1:
         warn_streaming_dataset_deprecation(old_version=version, new_version=2)
         dataset = StreamingImageNet1k(remote=remote,
-                                        local=local,
-                                        split=split,
-                                        shuffle=shuffle,
-                                        resize_size=resize_size,
-                                        crop_size=crop_size,
-                                        batch_size=batch_size)
+                                      local=local,
+                                      split=split,
+                                      shuffle=shuffle,
+                                      resize_size=resize_size,
+                                      crop_size=crop_size,
+                                      batch_size=batch_size)
     elif version == 2:
         try:
             from streaming.vision import ImageNet
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='streaming',
-                                                conda_package='mosaicml-streaming') from e
+            raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
         transform = []
         if split == 'train':
             # include fixed-size resize before RandomResizedCrop in training only
@@ -326,15 +326,13 @@ def build_streaming_imagenet1k_dataloader(
         transform.append(lambda image: image.convert('RGB'))
         transform = transforms.Compose(transform)
         dataset = ImageNet(local=local,
-                            remote=remote,
-                            split=split,
-                            shuffle=shuffle,
-                            transform=transform,
-                            batch_size=batch_size)
+                           remote=remote,
+                           split=split,
+                           shuffle=shuffle,
+                           transform=transform,
+                           batch_size=batch_size)
     else:
         raise ValueError(f'Invalid streaming version: {version}')
-
-    sampler = dist.get_sampler(dataset, drop_last=drop_last, shuffle=shuffle)
 
     dataloader = DataLoader(
         dataset=dataset,
