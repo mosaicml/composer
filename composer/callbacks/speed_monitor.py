@@ -96,7 +96,7 @@ class SpeedMonitor(Callback):
         )
         self.total_eval_wct = state['total_eval_wct']
 
-    def batch_start(self, state: State, logger: Logger) -> None:
+    def before_dataloader(self, state: State, logger: Logger) -> None:
         del logger  # unused
         self.batch_start_wct = state.timestamp.total_wct.total_seconds()
         self.batch_start_num_samples = int(state.timestamp.sample)
