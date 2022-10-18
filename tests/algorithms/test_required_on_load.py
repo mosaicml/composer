@@ -47,7 +47,7 @@ def test_required_on_load_has_repr(algo_name: str):
 def compare_models(model_1, model_2, is_equal=True):
     with contextlib.nullcontext() if is_equal else pytest.raises(Exception):
         # Compare model module attributes as some algorithms, e.g. StochasticDepth, monkeypatch
-        # on new attributes. We only check this on non-HuggingFace models which hae .module
+        # on new attributes. We only check this on non-HuggingFace models which have .module
         if hasattr(model_1, 'module') and hasattr(model_2, 'module'):
             model_1_modules = list(model_1.module.modules())
             model_2_modules = list(model_2.module.modules())
