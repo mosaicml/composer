@@ -59,11 +59,7 @@ class ExportFormat(StringEnum):
 
 def _move_sample_input_to_device(sample_input: Union[torch.Tensor, dict, list, Tuple],
                                  device: torch.device) -> Union[torch.Tensor, dict, list, Tuple]:
-    """Handle moving sample_input of various types to a device. If possible, avoids creating copies of the input.
-
-    Raises:
-        ValueError: If the type is not one of {torch.Tensor, dict, list, tuple}
-    """
+    """Handle moving sample_input of various types to a device. If possible, avoids creating copies of the input."""
     output = None
     if isinstance(sample_input, torch.Tensor):
         output = sample_input.to(device)
@@ -80,8 +76,6 @@ def _move_sample_input_to_device(sample_input: Union[torch.Tensor, dict, list, T
         for tuple_item in sample_input:
             new_tuple.append(_move_sample_input_to_device(tuple_item, device))
         output = tuple(new_tuple)
-    else:
-        raise ValueError(f'Unexpected type of sample_input {type(sample_input)} passed to export_for_inference.')
 
     return output
 
