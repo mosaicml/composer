@@ -14,7 +14,7 @@ Resuming from checkpoints is commonly used to recover from hardware failures (e.
         model=model,
         train_dataloader=train_dataloader,
         max_duration="1ep",
-        save_filename='ep{epoch}.pt',
+        save_filename="ep{epoch}.pt",
         save_folder="./path/to/checkpoints",
         save_overwrite=True,
         save_interval="1ep",  # Save checkpoints every epoch
@@ -58,11 +58,10 @@ Instead, our trainer supports the ``autoresume=True`` feature. With autoresume, 
         model=model,
         train_dataloader=train_dataloader,
         max_duration="1ep",
-        save_filename='ep{epoch}.pt',
+        save_filename="ep{epoch}.pt",
         save_folder="./path/to/folder",
         save_overwrite=True,
         save_interval="1ep",  # Save checkpoints every epoch
-        run_name='my_cool_run'
     )
     trainer.fit()
     trainer.close()
@@ -73,7 +72,7 @@ Instead, our trainer supports the ``autoresume=True`` feature. With autoresume, 
         ...,
         autoresume=True,
         save_folder='./path/to/folder',
-        run_name='my_cool_run_1',
+        run_name='my_cool_run',
         max_duration='10ep'
     )
 
@@ -113,7 +112,7 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
         autoresume=True,
         save_folder='checkpoints',
         save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
-        run_name='my_cool_run_2',
+        run_name='my_cool_run',
         save_filename='ep{epoch}.pt',
         loggers=[remote_uploader_downloader],
         max_duration='10ep'
