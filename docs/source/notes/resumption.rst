@@ -58,11 +58,11 @@ Instead, our trainer supports the ``autoresume=True`` feature. With autoresume, 
         model=model,
         train_dataloader=train_dataloader,
         max_duration="1ep",
-        save_filename='ep{epoch}-ba{batch}-rank{rank}.pt',
+        save_filename='ep{epoch}.pt',
         save_folder="./path/to/folder",
         save_overwrite=True,
         save_interval="1ep",  # Save checkpoints every epoch
-        run_name='my_cool_run_1'
+        run_name='my_cool_run'
     )
     trainer.fit()
     trainer.close()
@@ -97,36 +97,6 @@ Example: Object Store
 
 A typical use case is saving checkpoints to object store (e.g. S3) when there is no local file storage shared across runs. For example, a setup such as this:
 
-.. testsetup::
-    :skipif: not _LIBCLOUD_INSTALLED
-
-    from composer.loggers import RemoteUploaderDownloader
-    from composer.utils.object_store import S3ObjectStore
-
-    # this assumes credentials are already configured via boto3
-    remote_uploader_downloader = RemoteUploaderDownloader(
-        bucket_uri=f"s3://checkpoint-debugging",
-    )
-
-    import os
-    import shutil
-
-    from composer import Trainer
-
-    trainer = Trainer(
-        model=model,
-        train_dataloader=train_dataloader,
-        max_duration="1ep",
-        save_filename='ep{epoch}-ba{batch}-rank{rank}.pt',
-        save_folder="checkpoints",
-        save_overwrite=True,
-        save_interval="1ep",  # Save checkpoints every epoch
-        loggers=[remote_uploader_downloader],
-        run_name='my_cool_run_2'
-    )
-    trainer.fit()
-    trainer.close()
-
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
 
@@ -144,7 +114,7 @@ A typical use case is saving checkpoints to object store (e.g. S3) when there is
         save_folder='checkpoints',
         save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
         run_name='my_cool_run_2',
-        save_filename='ep{epoch}-ba{batch}-rank{rank}.pt',
+        save_filename='ep{epoch}.pt',
         loggers=[remote_uploader_downloader],
         max_duration='10ep'
     )
@@ -175,7 +145,7 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
         ...,
         save_filename='pretrained_weights/model.pt',
         save_folder='checkpoints',
-        run_name='my_cool_run_3',
+        run_name='my_cool_run',
         max_duration='1ep'
     )
 
@@ -190,7 +160,7 @@ To run fine-tuning on a spot instance, ``load_path`` would be set to the origina
         load_path='pretrained_weights/model.pt',
         load_weights_only=True,
         save_folder='checkpoints',
-        run_name='my_cool_run_3',
+        run_name='my_cool_run',
         loggers=[
             remote_uploader_downloader
         ],
