@@ -17,7 +17,7 @@ from torchvision import transforms
 from composer.core import DataSpec
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.datasets.imagenet import (StreamingImageNet1k, build_ffcv_imagenet_dataloader, build_imagenet_dataloader,
-                                        build_synthetic_imagenet_dataloader, write_ffcv_imagenet)
+                                        build_synthetic_imagenet_dataloader, build_streaming_imagenet1k_dataloader,write_ffcv_imagenet)
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.datasets.utils import NormalizationFn, pil_image_collate
 from composer.utils import warn_streaming_dataset_deprecation
@@ -142,53 +142,14 @@ class StreamingImageNet1kHparams(DatasetHparams):
     crop_size: int = hp.optional('Crop size', default=224)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
-        if self.version == 1:
-            warn_streaming_dataset_deprecation(old_version=self.version, new_version=2)
-            dataset = StreamingImageNet1k(remote=self.remote,
-                                          local=self.local,
-                                          split=self.split,
-                                          shuffle=self.shuffle,
-                                          resize_size=self.resize_size,
-                                          crop_size=self.crop_size,
-                                          batch_size=batch_size)
-        elif self.version == 2:
-            try:
-                from streaming.vision import ImageNet
-            except ImportError as e:
-                raise MissingConditionalImportError(extra_deps_group='streaming',
-                                                    conda_package='mosaicml-streaming') from e
-            transform = []
-            if self.split == 'train':
-                # include fixed-size resize before RandomResizedCrop in training only
-                # if requested (by specifying a size > 0)
-                if self.resize_size > 0:
-                    transform.append(transforms.Resize(self.resize_size))
-                # always include RandomResizedCrop and RandomHorizontalFlip
-                transform += [
-                    transforms.RandomResizedCrop(self.crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
-                    transforms.RandomHorizontalFlip()
-                ]
-            else:
-                if self.resize_size > 0:
-                    transform.append(transforms.Resize(self.resize_size))
-                transform.append(transforms.CenterCrop(self.crop_size))
-            transform.append(lambda image: image.convert('RGB'))
-            transform = transforms.Compose(transform)
-            dataset = ImageNet(local=self.local,
-                               remote=self.remote,
-                               split=self.split,
-                               shuffle=self.shuffle,
-                               transform=transform,
-                               batch_size=batch_size)
-        else:
-            raise ValueError(f'Invalid streaming version: {self.version}')
-        collate_fn = pil_image_collate
-        device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
-        return DataSpec(dataloader=dataloader_hparams.initialize_object(
-            dataset=dataset,
+        return build_streaming_imagenet1k_dataloader(
             batch_size=batch_size,
-            sampler=None,
+            remote=self.remote,
+            local=self.local,
+            split=self.split,
+            resize_size=self.resize_size,
+            crops_size=self.crop_size,
             drop_last=self.drop_last,
-            collate_fn=collate_fn,
-        ),
-                        device_transforms=device_transform_fn)
+            shuffle=self.shuffle,
+            **asdict(dataloader_hparams),
+        )
