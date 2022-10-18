@@ -82,6 +82,7 @@ def test_idempotent(algo_name: str):
         if algo_name == 'StochasticDepth':
             original_model = composer_resnet(model_name='resnet50')
         elif algo_name in ['Alibi', 'GatedLinearUnits']:
+            pytest.importorskip('transformers')
             original_model = create_bert_classification()
         else:
             original_model = ConvModel()
@@ -89,7 +90,7 @@ def test_idempotent(algo_name: str):
             model=copy.deepcopy(original_model),
             algorithms=algorithm,
         ).state.model
-        assert isinstance(applied_once_model, ComposerModel)  # Assert type for pyright deepcopy
+        assert isinstance(applied_once_model, ComposerModel)  # Assert type for pyright deepcopyg
         applied_twice_model = Trainer(
             model=copy.deepcopy(applied_once_model),
             algorithms=algorithm,
