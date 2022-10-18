@@ -57,8 +57,8 @@ class ExportFormat(StringEnum):
     ONNX = 'onnx'
 
 
-def _move_sample_input_to_device(sample_input: Union[torch.Tensor, dict, list, Tuple],
-                                 device: torch.device) -> Union[torch.Tensor, dict, list, Tuple]:
+def _move_sample_input_to_device(sample_input: Optional[Union[torch.Tensor, dict, list, Tuple]],
+                                 device: torch.device) -> Optional[Union[torch.Tensor, dict, list, Tuple]]:
     """Handle moving sample_input of various types to a device. If possible, avoids creating copies of the input."""
     output = None
     if isinstance(sample_input, torch.Tensor):
@@ -157,7 +157,6 @@ def export_for_inference(
     if sample_input is not None:
         sample_input = ensure_tuple(sample_input)
         sample_input = _move_sample_input_to_device(sample_input, cpu)
-        assert isinstance(sample_input, tuple)
 
     # Apply surgery algorithms in the given order
     for alg in ensure_tuple(surgery_algs):
@@ -216,6 +215,8 @@ def export_for_inference(
 
                 input_names = []
 
+                # assert statement for pyright error: Cannot access member "keys" for type "Tensor"
+                assert isinstance(sample_input, tuple)
                 # Extract input names from sample_input if it contains dicts
                 for i in range(len(sample_input)):
                     if isinstance(sample_input[i], dict):
