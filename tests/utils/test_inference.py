@@ -283,7 +283,7 @@ def test_export_for_inference_onnx(model_cls, sample_input, device):
             orig_out.detach().cpu().numpy(),
             loaded_model_out[0],
             rtol=1e-4 if device == 'cpu' else 1e-3,  # lower tolerance for ONNX
-            atol=1e-3,  # lower tolerance for ONNX
+            atol=1e-3 if device == 'cpu' else 1e-2,  # lower tolerance for ONNX
             msg=lambda msg: f'output mismatch with {save_format}\n\nOriginal message: {msg}',
         )
 
