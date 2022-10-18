@@ -15,7 +15,9 @@ import re
 import time
 import warnings
 from copy import deepcopy
+from pathlib import Path
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
+from urllib.parse import urlparse
 
 import coolname
 import torch
@@ -34,7 +36,8 @@ from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Eve
 from composer.core.precision import get_precision_context
 from composer.core.time import TimeUnit
 from composer.core.types import Batch, BreakEpochException, PyTorchScheduler, TrainerMode
-from composer.loggers import Logger, LoggerDestination, ProgressBarLogger
+from composer.loggers import Logger, LoggerDestination, ProgressBarLogger, WandBLogger
+from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.optim.scheduler import ComposerScheduler, compile_composer_scheduler
@@ -44,11 +47,16 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
-from composer.utils import (ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist, map_collection,
-                            model_eval_mode, reproducibility)
+from composer.utils import (ObjectStore, S3ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist,
+                            map_collection, model_eval_mode, reproducibility)
+from composer.utils.device import get_device, is_tpu_installed
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.inference import ExportFormat, Transform, export_with_logger
+
+if is_tpu_installed():
+    import torch_xla.core.xla_model as xm
+    import torch_xla.distributed.parallel_loader as pl
 
 log = logging.getLogger(__name__)
 
@@ -197,8 +205,12 @@ def _adjust_grad_accum(state: State, device_batch_size):
                            'and the batch will be retrained with a '
                            f'micro-batchsize of {device_batch_size // state.grad_accum}'))
     # Clear gradients in case failure happened during backwards pass
+    if hasattr(state, 'outputs'):
+        del state.outputs
+    if hasattr(state, 'loss'):
+        del state.loss
     for optimizer in state.optimizers:
-        optimizer.zero_grad()
+        optimizer.zero_grad(set_to_none=True)
     torch.cuda.empty_cache()
 
 
@@ -223,27 +235,6 @@ def _adjust_eval_batch_split(state: State, device_batch_size):
                            'and the batch will be retrained with a '
                            f'micro-batchsize of {device_batch_size // state.eval_batch_split}'))
     torch.cuda.empty_cache()
-
-
-def _get_device(device: Optional[Union[str, Device]]):
-    if not device:
-        device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU()
-    elif isinstance(device, str):
-        if device.lower() == 'cpu':
-            device = DeviceCPU()
-        elif device.lower() == 'gpu':
-            device = DeviceGPU()
-        elif device.lower() == 'mps':
-            device = DeviceMPS()
-        elif device.lower() == 'tpu':
-            if not _is_tpu_installed():
-                raise ImportError(
-                    'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla'
-                )
-            device = DeviceTPU()
-        else:
-            raise ValueError(f'device ({device}) must be one of (cpu, gpu, mps, tpu).')
-    return device
 
 
 def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
@@ -289,19 +280,51 @@ def _generate_run_name() -> str:
     return generated_run_name
 
 
-def _is_tpu_installed() -> bool:
-    try:
-        import torch_xla.core.xla_model as xm
-        del xm
-    except ImportError:
-        return False
+def _maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
+    backend, bucket_name, _ = _parse_uri(uri)
+    if backend == '':
+        return None
+    if backend == 's3':
+        return S3ObjectStore(bucket=bucket_name)
+    elif backend == 'wandb':
+        raise NotImplementedError(f'There is no implementation for WandB load_object_store via URI. Please use '
+                                  'WandBLogger')
     else:
-        return True
+        raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
+                                  's3 or one of the supported object stores')
 
 
-if _is_tpu_installed():
-    import torch_xla.core.xla_model as xm
-    import torch_xla.distributed.parallel_loader as pl
+def _maybe_create_remote_uploader_downloader_from_uri(
+        uri: str, loggers: List[LoggerDestination]) -> Optional[RemoteUploaderDownloader]:
+    existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
+    backend, bucket_name, _ = _parse_uri(uri)
+    if backend == '':
+        return None
+    for existing_remote_ud in existing_remote_uds:
+        if ((existing_remote_ud.remote_backend_name == backend) and
+            (existing_remote_ud.remote_bucket_name == bucket_name)):
+            warnings.warn(
+                f'There already exists a RemoteUploaderDownloader object to handle the uri: {uri} you specified')
+            return None
+    if backend == 's3':
+        return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}')
+
+    elif backend == 'wandb':
+        raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '
+                                  'WandBLogger with log_artifacts set to True')
+
+    else:
+        raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
+                                  's3 or one of the supported RemoteUploaderDownloader object stores')
+
+
+def _parse_uri(uri: str) -> Tuple[str, str, str]:
+    parse_result = urlparse(uri)
+    backend, bucket_name, path = parse_result.scheme, parse_result.netloc, parse_result.path
+    if backend == '' and bucket_name == '':
+        return backend, bucket_name, path
+    else:
+        return backend, bucket_name, path.lstrip('/')
 
 
 class Trainer:
@@ -498,7 +521,7 @@ class Trainer:
         load_path (str, optional):  The path format string to an existing checkpoint file.
 
             It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
-            for a checkpoint in a cloud bucket.
+            for a checkpoint in a cloud bucket. If a URI is specified, ``load_object_store`` does not need to be set.
 
             When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, checkpoints are shareded by rank.
             Instead of hard-coding the rank in the ``path``, use the following format variables:
@@ -532,7 +555,9 @@ class Trainer:
         load_object_store (Union[ObjectStore, LoggerDestination], optional): If the ``load_path`` is in an
             object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` or
             :class:`.LoggerDestination` which will be used to retreive the checkpoint. Otherwise, if the
-            checkpoint is a local filepath, set to ``None``. Ignored if ``load_path`` is ``None``.
+            checkpoint is a local filepath, set to ``None``. Also, it can be ``None`` if the ``load_path`` is
+            an S3 URI because the appropriate object store will be automatically constructed in that case.
+            Ignored if ``load_path`` is ``None``.
             (default: ``None``)
 
             Example:
@@ -599,7 +624,9 @@ class Trainer:
             (default: ``None``)
 
         save_folder (str, optional): Format string for the folder where checkpoints are saved.
-            If ``None``, checkpoints will not be saved. (default: ``None``)
+            If ``None``, checkpoints will not be saved. Can also be a URI for S3 paths only.
+            In the case of an S3 URI, the appropriate `~.RemoteUploader` object will be created
+            automatically. (default: ``None``)
 
             .. seealso:: :class:`~.CheckpointSaver`
 
@@ -613,22 +640,12 @@ class Trainer:
             (default: ``"ep{epoch}-ba{batch}-rank{rank}.pt"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-        save_artifact_name (str, optional): A format string describing how to name checkpoints in loggers.
-            This parameter has no effect if ``save_folder`` is ``None``.
-            (default: ``"{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}"``)
-
-            .. seealso:: :class:`~.CheckpointSaver` and :doc:`Artifact Logging</trainer/artifact_logging>` notes.
         save_latest_filename (str, optional): A format string for the name of a symlink
             (relative to ``save_folder``) that points to the last saved checkpoint.
             This parameter has no effect if ``save_folder`` is ``None``.
             To disable symlinking, set this to ``None``. (default: ``"latest-rank{rank}.pt"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-        save_latest_artifact_name (str, optional): A format string describing how to name symlinks in loggers.
-            This parameter has no effect if ``save_folder``, ``save_latest_filename``, or ``save_artifact_name`` are ``None``.
-            To disable symlinking in logger, set this or ``save_latest_filename`` to ``None``. (default: ``"{run_name}/checkpoints/latest-rank{rank}"``)
-
-            .. seealso:: :class:`~.CheckpointSaver` and :doc:`Artifact Logging</trainer/artifact_logging>` notes.
         save_overwrite (bool, optional): Whether existing checkpoints should be overridden.
             This parameter has no effect if ``save_folder`` is None. (default: ``False``)
 
@@ -645,13 +662,13 @@ class Trainer:
         save_num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
             are removed first. Set to ``-1`` to keep all checkpoints locally. (default: ``-1``)
 
-            Checkpoints will be removed after they have been logged as a file artifact. For example, when this callback
-            is used in conjunction with the :class:`.ObjectStoreLogger`, set this
+            Checkpoints will be removed after they have been uploaded. For example, when this callback
+            is used in conjunction with the :class:`.RemoteUploaderDownloader`, set this
             parameter to ``0`` to immediately delete checkpoints from the local disk after they have been uploaded to
             the object store.
 
             This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
-            artifact stores.
+            remote file systems.
         autoresume (bool, optional): Whether or not to enable autoresume, which allows for stopping and resuming
             training. This allows use of spot instances, as the training run is now fault tolerant.  This parameter
             requires ``save_folder`` and ``run_name`` to be specified and ``save_overwrite`` to be ``False``.
@@ -659,7 +676,7 @@ class Trainer:
 
             When enabled, the save_folder is checked for checkpoints of the format ``"{save_folder}/{save_latest_filename}"``,
             which are loaded to continue training. If no local checkpoints are found, each logger is checked for potential
-            checkpoints named ``save_latest_artifact_name``. Finally, if no logged checkpoints are found, ``load_path`` is
+            remote checkpoints named ``"{save_folder}/{save_latest_filename}"``. Finally, if no logged checkpoints are found, ``load_path`` is
             used to load a checkpoint if specified. This should only occur at the start of a run using autoresume.
 
             For example, to run a fine-tuning run on a spot instance, ``load_path`` would be set to the original
@@ -782,9 +799,7 @@ class Trainer:
         # Save Checkpoint
         save_folder: Optional[str] = None,
         save_filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
-        save_artifact_name: str = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}',
         save_latest_filename: Optional[str] = 'latest-rank{rank}.pt',
-        save_latest_artifact_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}',
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
@@ -819,7 +834,7 @@ class Trainer:
         algorithms = list(ensure_tuple(algorithms))
 
         # Device
-        self._device = _get_device(device)
+        self._device = get_device(device)
 
         # Determine whether DeepSpeed and FSDP are enabled
         self.deepspeed_config = deepspeed_config
@@ -838,7 +853,7 @@ class Trainer:
         if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
-            dist.initialize_dist(self._device, datetime.timedelta(seconds=dist_timeout))
+            dist.initialize_dist(self._device, dist_timeout)
 
         # Handle FSDP sharding
         if self.fsdp_config is not None:
@@ -946,6 +961,11 @@ class Trainer:
                     stream=console_stream,
                 ))
 
+        if save_folder is not None:
+            remote_ud = _maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
+            if remote_ud is not None:
+                loggers.append(remote_ud)
+
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
 
@@ -954,13 +974,34 @@ class Trainer:
 
         # Checkpoint Saving
         self._checkpoint_saver = None
+        latest_remote_file_name = None
         if save_folder is not None:
+            _, _, parsed_save_folder = _parse_uri(save_folder)
+
+            # If user passes a URI with s3:// and a bucket_name, but no other
+            # path then we assume they just want their checkpoints saved directly in their
+            # bucket.
+            if parsed_save_folder == '':
+                folder = '.'
+                remote_file_name = save_filename
+                latest_remote_file_name = save_latest_filename
+
+            # If they actually specify a path, then we use that for their local save path
+            # and we prefix save_filename with that path for remote_file_name.
+            else:
+                folder = parsed_save_folder
+                remote_file_name = str(Path(parsed_save_folder) / Path(save_filename))
+                if save_latest_filename is not None:
+                    latest_remote_file_name = str(Path(parsed_save_folder) / Path(save_latest_filename))
+                else:
+                    latest_remote_file_name = None
+
             self._checkpoint_saver = CheckpointSaver(
-                folder=save_folder,
+                folder=folder,
                 filename=save_filename,
-                artifact_name=save_artifact_name,
+                remote_file_name=remote_file_name,
                 latest_filename=save_latest_filename,
-                latest_artifact_name=save_latest_artifact_name,
+                latest_remote_file_name=latest_remote_file_name,
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
                 save_interval=save_interval,
@@ -976,6 +1017,13 @@ class Trainer:
 
         # Run Event.INIT
         self.engine.run_event(Event.INIT)
+
+        # Log gpus and nodes.
+        device_name = self._device.__class__.__name__.lstrip('Device').lower()
+        self.logger.log_hyperparameters({
+            'num_nodes': int(dist.get_world_size() / dist.get_local_world_size()),
+            f'num_{device_name}s_per_node': dist.get_local_world_size(),
+        })
 
         if not isinstance(self.state.model, ComposerModel):
             raise ValueError('Provided model should be a subclass of ComposerModel.')
@@ -1117,17 +1165,15 @@ class Trainer:
             if save_latest_filename is None:
                 raise ValueError(
                     'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from.')
-            if save_latest_artifact_name is None:
-                raise ValueError(
-                    'The `save_latest_artifact_name` must be specified so autoresume can load the latest checkpoint.')
             if run_name is None:
                 raise ValueError(
                     'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
                 )
+            assert latest_remote_file_name is not None
             autoresume_checkpoint_path = self._get_autoresume_checkpoint(
                 save_folder=save_folder,
                 save_latest_filename=save_latest_filename,
-                save_latest_artifact_name=save_latest_artifact_name,
+                save_latest_remote_file_name=latest_remote_file_name,
                 loggers=loggers,
                 load_progress_bar=load_progress_bar)
             # Found latest checkpoint path, load that instead
@@ -1143,9 +1189,16 @@ class Trainer:
                 log.info('No previous autoresume checkpoint found')
         # Actually load the checkpoint from potentially updated arguments
         if load_path is not None:
+            if load_object_store is None:
+                load_object_store = _maybe_create_object_store_from_uri(load_path)
+            if isinstance(load_object_store, WandBLogger):
+                import wandb
+                if wandb.run is None:
+                    load_object_store.init(self.state, self.logger)
+            _, _, parsed_load_path = _parse_uri(load_path)
             self._rng_state = checkpoint.load_checkpoint(
                 state=self.state,
-                path=load_path,
+                path=parsed_load_path,
                 object_store=load_object_store,
                 load_weights_only=load_weights_only,
                 strict_model_weights=load_strict_model_weights,
@@ -1179,14 +1232,36 @@ class Trainer:
             return []
         return self._checkpoint_saver.saved_checkpoints
 
+    def _try_checkpoint_download(self, latest_checkpoint_path: str, save_latest_remote_file_name: str,
+                                 loggers: Sequence[LoggerDestination], load_progress_bar: bool) -> None:
+        """Attempts to download the checkpoint from the logger destinations."""
+        log.debug(
+            f'Trying to download {save_latest_remote_file_name} to {latest_checkpoint_path} on rank {dist.get_global_rank()}'
+        )
+        for logger in loggers:
+            try:
+                # Fetch from logger. If it succeeds, stop trying the rest of the loggers
+                get_file(
+                    path=save_latest_remote_file_name,
+                    destination=latest_checkpoint_path,
+                    object_store=logger,
+                    overwrite=True,
+                    progress_bar=load_progress_bar,
+                )
+                break
+            except (NotImplementedError, FileNotFoundError):
+                log.info(f'Checkpoint not found in: {logger}')
+                # Ignore errors caused by no checkpoint saved with logger
+                pass
+
     def _get_autoresume_checkpoint(
         self,
         save_folder: str,
         save_latest_filename: str,
-        save_latest_artifact_name: str,
+        save_latest_remote_file_name: str,
         loggers: Sequence[LoggerDestination],
         load_progress_bar: bool,
-    ):
+    ) -> Optional[str]:
         """Determines the load path when using autoresume.
 
         First, check the ``save_folder`` for the latest checkpoint.
@@ -1198,33 +1273,64 @@ class Trainer:
         """
         save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
         save_folder = format_name_with_dist(save_folder, self.state.run_name)
-        save_latest_artifact_name = format_name_with_dist(save_latest_artifact_name, self.state.run_name)
+        save_latest_remote_file_name = format_name_with_dist(save_latest_remote_file_name, self.state.run_name)
         latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
 
+        log.info(
+            f'Looking for autoresume checkpoint: {save_latest_remote_file_name} (remote), {latest_checkpoint_path} (local)'
+        )
+
         # If latest checkpoint is not saved locally, try to fetch from loggers
-        if not os.path.exists(latest_checkpoint_path):
-            # Make save folder in case it doesn't exist so latest checkpoint can be downloaded
+        if not os.path.exists(latest_checkpoint_path) and (dist.get_global_rank() == 0 or self.deepspeed_enabled):
+            log.debug(f'Attempting to download the checkpoint on to rank {dist.get_global_rank()}')
             os.makedirs(save_folder, exist_ok=True)
-            for logger in loggers:
-                try:
-                    # Fetch from logger. If it succeeds, stop trying the rest of the loggers
-                    get_file(
-                        path=save_latest_artifact_name,
-                        destination=latest_checkpoint_path,
-                        object_store=logger,
-                        overwrite=True,
-                        progress_bar=load_progress_bar,
-                    )
-                    break
-                except (NotImplementedError, FileNotFoundError):
-                    # Ignore errors caused by no checkpoint saved with logger
-                    pass
-        # Require all ranks to have local checkpoint if we wish to restore from it
-        latest_checkpoint_exists = self._device.tensor_to_device(
-            torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
-        dist.all_reduce(latest_checkpoint_exists, reduce_operation='MIN')
-        # If latest checkpoint is saved locally, change load_path to it
-        if int(latest_checkpoint_exists.item()) == 1:
+            self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
+                                          load_progress_bar)
+
+        # list of whether the checkpoint exists on each rank
+        latest_checkpoint_exists = dist.all_gather_object(os.path.exists(latest_checkpoint_path))
+
+        if self.deepspeed_enabled:
+            # Require all ranks to have their own local checkpoint if we wish to restore from it for deepspeed
+            if not all(latest_checkpoint_exists):
+                missing_ranks = [n for (n, exist) in enumerate(latest_checkpoint_exists) if not exist]
+                raise RuntimeError(f'Deepspeed was enabled, but checkpoints missing on ranks: {missing_ranks}')
+
+            return latest_checkpoint_path
+        else:
+            # The checkpoint must at least exist for rank zero
+            if not latest_checkpoint_exists[0]:
+                return None
+
+            # broadcast the local checkpoint path to all ranks
+            latest_checkpoint_path_list = [os.path.abspath(latest_checkpoint_path)]
+            dist.broadcast_object_list(latest_checkpoint_path_list, src=0)
+            latest_checkpoint_path = latest_checkpoint_path_list[0]
+
+            # broadcast the remote checkpoint path to all ranks
+            save_latest_remote_file_name_list = [save_latest_remote_file_name]
+            dist.broadcast_object_list(save_latest_remote_file_name_list, src=0)
+            save_latest_remote_file_name = save_latest_remote_file_name_list[0]
+
+            # download the checkpoint on local rank 0 of all nodes
+            if dist.get_local_rank() == 0 and not os.path.exists(latest_checkpoint_path):
+                log.debug(f'Attempting to download the checkpoint {save_latest_remote_file_name} on to all nodes')
+                os.makedirs(save_folder, exist_ok=True)
+                self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
+                                              load_progress_bar)
+            dist.barrier()
+            # At this point the rank 0 filepath should exist on all ranks
+            latest_checkpoint_exists_on_all_ranks = self._device.tensor_to_device(
+                torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
+            dist.all_reduce(latest_checkpoint_exists_on_all_ranks, reduce_operation='MIN')
+
+            log.debug(
+                f'Checkpoint {latest_checkpoint_path} exists on rank {dist.get_global_rank()}? {os.path.exists(latest_checkpoint_path)}'
+            )
+
+            if int(latest_checkpoint_exists_on_all_ranks.item()) == 0:
+                raise RuntimeError('Downloading the checkpoint to all nodes failed')
+
             return latest_checkpoint_path
 
     def fit(
@@ -2002,7 +2108,7 @@ class Trainer:
                 from torch.utils.data import DataLoader
 
                 from composer import Trainer, Callback
-                from composer.loggers import Logger, LogLevel
+                from composer.loggers import Logger
 
                 class PredictionSaver(Callback):
                     def __init__(self, folder: str):
@@ -2014,8 +2120,8 @@ class Trainer:
                         filepath = os.path.join(self.folder, name)
                         torch.save(state.outputs, filepath)
 
-                        # Also log the outputs as an artifact
-                        logger.file_artifact(LogLevel.BATCH, artifact_name=name, file_path=filepath)
+                        # Also upload the files
+                        logger.upload_file(remote_file_name=name, file_path=filepath)
 
                 trainer = Trainer(
                     ...,

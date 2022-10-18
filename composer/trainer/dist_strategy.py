@@ -162,20 +162,20 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     if cpu_offload is not None:
         raise ValueError('FSDP CPU Offload not supported yet.')
 
-    mixed_precision = fsdp_config.get('mixed_precision', 'default')
+    mixed_precision = fsdp_config.get('mixed_precision', 'DEFAULT').upper()
     if isinstance(mixed_precision, dict):
         param_dtype = get_torch_dtype(mixed_precision.get('param_dtype', 'float32'))
         reduce_dtype = get_torch_dtype(mixed_precision.get('reduce_dtype', 'float32'))
         buffer_dtype = get_torch_dtype(mixed_precision.get('buffer_dtype', 'float32'))
-    elif mixed_precision == 'full':
+    elif mixed_precision == 'FULL':
         param_dtype = torch.float32
         reduce_dtype = torch.float32
         buffer_dtype = torch.float32
-    elif mixed_precision == 'default':
+    elif mixed_precision == 'DEFAULT':
         param_dtype = torch.float32
         reduce_dtype = get_torch_dtype(precision)
         buffer_dtype = torch.float32
-    elif mixed_precision == 'pure':
+    elif mixed_precision == 'PURE':
         param_dtype = get_torch_dtype(precision)
         reduce_dtype = get_torch_dtype(precision)
         buffer_dtype = get_torch_dtype(precision)
@@ -194,7 +194,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         'BACKWARD_POST': BackwardPrefetch.BACKWARD_POST,
     }
     backward_prefetch = backward_prefetch_map[fsdp_config.get('backward_prefetch', 'BACKWARD_POST').upper()]
-    min_params = int(fsdp_config.get('min_params', 1e8))
+    min_params = int(float(fsdp_config.get('min_params', 1e9)))
     activation_checkpointing = fsdp_config.get('activation_checkpointing', False)
     activation_cpu_offload = fsdp_config.get('activation_cpu_offload', False)
 
@@ -238,6 +238,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                 mixed_precision=mixed_precision,
                 backward_prefetch=backward_prefetch,
                 param_init_fn=_param_init_fn,
+                device_id=torch.cuda.current_device(),
             )
 
             # Activation Checkpointing

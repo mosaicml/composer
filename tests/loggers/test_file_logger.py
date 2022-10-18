@@ -8,32 +8,31 @@ import sys
 from torch.utils.data import DataLoader
 
 from composer import Callback, Event, State, Trainer
-from composer.loggers import FileLogger, Logger, LoggerDestination, LogLevel
+from composer.loggers import FileLogger, Logger, LoggerDestination
 from composer.utils.collect_env import disable_env_report
 from tests.common.datasets import RandomClassificationDataset
 from tests.common.models import SimpleModel
 
 
-class FileArtifactLoggerTracker(LoggerDestination):
+class FileUploaderTracker(LoggerDestination):
 
     def __init__(self) -> None:
-        self.logged_artifacts = []
+        self.uploaded_files = []
 
-    def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
-                          overwrite: bool):
+    def upload_file(self, state: State, remote_file_name: str, file_path: pathlib.Path, *, overwrite: bool):
         del state, overwrite  # unused
-        self.logged_artifacts.append((log_level, artifact_name, file_path))
+        self.uploaded_files.append((remote_file_name, file_path))
 
 
 def test_file_logger(dummy_state: State, tmp_path: pathlib.Path):
     log_file_name = os.path.join(tmp_path, 'output.log')
     log_destination = FileLogger(
         filename=log_file_name,
-        artifact_name='{run_name}/rank{rank}.log',
+        remote_file_name='{run_name}/rank{rank}.log',
         buffer_size=1,
         flush_interval=1,
     )
-    file_tracker_destination = FileArtifactLoggerTracker()
+    file_tracker_destination = FileUploaderTracker()
     logger = Logger(dummy_state, destinations=[log_destination, file_tracker_destination])
     log_destination.run_event(Event.INIT, dummy_state, logger)
     logger.log_hyperparameters({'foo': 3})

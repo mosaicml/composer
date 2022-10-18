@@ -75,7 +75,7 @@ while True:
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
-    'torchmetrics>=0.7.0,<0.8',
+    'torchmetrics>=0.7.0,<0.10.0',
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.10.0',  # torchvision has strict pytorch requirements
     'torch>=1.10,<2',
@@ -84,7 +84,7 @@ install_requires = [
     'numpy>=1.21.5,<1.23.0',
     'psutil>=5.8.0,<6',
     'coolname>=1.1.0,<2',
-    'tabulate==0.8.10',  # for auto-generating tables
+    'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<9',
     'packaging>=21.3.0,<22',
     'importlib-metadata>=5.0.0,<6',
@@ -129,7 +129,7 @@ extra_deps['dev'] = [
     'nbsphinx==0.8.9',
     'pandoc==2.2',
     'pypandoc==1.9',
-    'GitPython==3.1.27',
+    'GitPython==3.1.28',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
     'cryptography==38.0.1',
@@ -180,7 +180,7 @@ extra_deps['mlperf'] = [
 ]
 
 extra_deps['streaming'] = [
-    'mosaicml-streaming',
+    'mosaicml-streaming<=0.1.*',
     'boto3>=1.21.45,<2',
     'paramiko>=2.11.0,<3',
 ]
