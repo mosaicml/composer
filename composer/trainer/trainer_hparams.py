@@ -244,10 +244,8 @@ class TrainerHparams(hp.Hparams):
 
         save_folder (str, optional): See :class:`.CheckpointSaver`.
         save_filename (str, optional): See :class:`.CheckpointSaver`.
-        save_remote_file_name (str, optional): See :class:`.CheckpointSaver`.
         save_latest_filename (str, optional): See
             :class:`.CheckpointSaver`.
-        save_latest_remote_file_name (str, optional): See :class:`.CheckpointSaver`.
         save_overwrite (str, optional): See :class:`.CheckpointSaver`.
         save_weights_only (bool, optional): See :class:`.CheckpointSaver`.
         save_interval (str, optional): See
@@ -354,9 +352,7 @@ class TrainerHparams(hp.Hparams):
     # Save Checkpoint
     save_folder: Optional[str] = hp.auto(Trainer, 'save_folder')
     save_filename: str = hp.auto(Trainer, 'save_filename')
-    save_remote_file_name: str = hp.auto(Trainer, 'save_remote_file_name')
     save_latest_filename: str = hp.auto(Trainer, 'save_latest_filename')
-    save_latest_remote_file_name: str = hp.auto(Trainer, 'save_latest_remote_file_name')
     save_overwrite: bool = hp.auto(Trainer, 'save_overwrite')
     save_weights_only: bool = hp.auto(Trainer, 'save_weights_only')
     save_interval: str = hp.auto(Trainer, 'save_interval')
@@ -561,8 +557,6 @@ class TrainerHparams(hp.Hparams):
             save_overwrite=self.save_overwrite,
             save_filename=self.save_filename,
             save_latest_filename=self.save_latest_filename,
-            save_remote_file_name=self.save_remote_file_name,
-            save_latest_remote_file_name=self.save_latest_remote_file_name,
             save_interval=self.save_interval,
             save_weights_only=self.save_weights_only,
             save_num_checkpoints_to_keep=self.save_num_checkpoints_to_keep,
