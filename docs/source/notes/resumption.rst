@@ -14,7 +14,7 @@ Resuming from checkpoints is commonly used to recover from hardware failures (e.
         model=model,
         train_dataloader=train_dataloader,
         max_duration="1ep",
-        save_filename='ep{epoch}-ba{batch}-rank{rank}.pt',
+        save_filename='ep{epoch}.pt',
         save_folder="./path/to/checkpoints",
         save_overwrite=True,
         save_interval="1ep",  # Save checkpoints every epoch
