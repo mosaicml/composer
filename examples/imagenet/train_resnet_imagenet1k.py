@@ -100,7 +100,6 @@ parser.add_argument('--eval_interval',
                     type=Time.from_timestring,
                     default='1ep')
 
-# Local storage checkpointing
 args = parser.parse_args()
 
 
@@ -111,8 +110,10 @@ def _main():
         args.train_batch_size = args.train_batch_size // dist.get_world_size()
         args.eval_batch_size = args.eval_batch_size // dist.get_world_size()
 
-    IMAGENET_CHANNEL_MEAN = (0.485, 0.456, 0.406)
-    IMAGENET_CHANNEL_STD = (0.229, 0.224, 0.225)
+    # Scale by 255 since the collate `pil_image_collate` results in images in range 0-255
+    # If using ToTensor() and the default collate, remove the scaling by 255
+    IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
+    IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
 
     # Train dataset
     logging.info('Building train dataloader')

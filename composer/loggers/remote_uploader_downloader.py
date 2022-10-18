@@ -177,7 +177,7 @@ class RemoteUploaderDownloader(LoggerDestination):
 
             Default: ``'{remote_file_name}'``
 
-        num_concurrent_uploads (int, optional): Maximum number of concurrent uploads. Defaults to 4.
+        num_concurrent_uploads (int, optional): Maximum number of concurrent uploads. Defaults to 1.
         upload_staging_folder (str, optional): A folder to use for staging uploads.
             If not specified, defaults to using a :func:`~tempfile.TemporaryDirectory`.
         use_procs (bool, optional): Whether to perform file uploads in background processes (as opposed to threads).
@@ -190,19 +190,19 @@ class RemoteUploaderDownloader(LoggerDestination):
                  bucket_uri: str,
                  backend_kwargs: Optional[Dict[str, Any]] = None,
                  file_path_format_string: str = '{remote_file_name}',
-                 num_concurrent_uploads: int = 4,
+                 num_concurrent_uploads: int = 1,
                  upload_staging_folder: Optional[str] = None,
                  use_procs: bool = True,
                  num_attempts: int = 3) -> None:
         parsed_remote_bucket = urlparse(bucket_uri)
-        self.remote_backend_name, remote_bucket_name = parsed_remote_bucket.scheme, parsed_remote_bucket.netloc
+        self.remote_backend_name, self.remote_bucket_name = parsed_remote_bucket.scheme, parsed_remote_bucket.netloc
         self.backend_kwargs = backend_kwargs if backend_kwargs is not None else {}
         if self.remote_backend_name == 's3' and 'bucket' not in self.backend_kwargs:
-            self.backend_kwargs['bucket'] = remote_bucket_name
+            self.backend_kwargs['bucket'] = self.remote_bucket_name
         elif self.remote_backend_name == 'sftp' and 'host' not in self.backend_kwargs:
-            self.backend_kwargs['host'] = f'sftp://{remote_bucket_name}'
+            self.backend_kwargs['host'] = f'sftp://{self.remote_bucket_name}'
         elif self.remote_backend_name == 'libcloud' and 'container' not in self.backend_kwargs:
-            self.backend_kwargs['container'] = remote_bucket_name
+            self.backend_kwargs['container'] = self.remote_bucket_name
 
         self.file_path_format_string = file_path_format_string
         self.num_attempts = num_attempts

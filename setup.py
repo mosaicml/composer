@@ -75,7 +75,7 @@ while True:
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
-    'torchmetrics>=0.7.0,<0.8',
+    'torchmetrics>=0.7.0,<0.10.0',
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.10.0',  # torchvision has strict pytorch requirements
     'torch>=1.10,<2',
@@ -180,7 +180,7 @@ extra_deps['mlperf'] = [
 ]
 
 extra_deps['streaming'] = [
-    'mosaicml-streaming',
+    'mosaicml-streaming<=0.1.*',
     'boto3>=1.21.45,<2',
     'paramiko>=2.11.0,<3',
 ]

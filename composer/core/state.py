@@ -396,6 +396,14 @@ class State(Serializable):
             return None
         return self.timestamp.get(self.max_duration.unit) / self.max_duration
 
+    def stop_training(self):
+        """Gracefully stop training.
+
+        The current batch of training will finish, and any scheduled evaluation,
+        logging, and evaluation for that batch, as well as any epoch end events.
+        """
+        self.max_duration = self.timestamp.batch
+
     @property
     def optimizers(self):
         """The optimizers."""

@@ -134,10 +134,10 @@ class EarlyStopper(Callback):
         assert self.best_occurred is not None
         if self.patience.unit == TimeUnit.EPOCH:
             if state.timestamp.epoch - self.best_occurred.epoch > self.patience:
-                state.max_duration = state.timestamp.batch
+                state.stop_training()
         elif self.patience.unit == TimeUnit.BATCH:
             if state.timestamp.batch - self.best_occurred.batch > self.patience:
-                state.max_duration = state.timestamp.batch
+                state.stop_training()
         else:
             raise ValueError(f'The units of `patience` should be EPOCH or BATCH.')
 

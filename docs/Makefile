@@ -8,7 +8,7 @@ SPHINXBUILD   ?= sphinx-build
 SOURCEDIR     = source
 BUILDDIR      = _build
 PYTHON_BIN 	  ?= python
-HTML_BUILDDIR ?= $(BUILDDIR)/_html
+HTML_BUILDDIR ?= $(BUILDDIR)/html
 HTTP_MODULE   = http.server
 
 # Put it first so that "make" without argument is like "make help".
