@@ -284,7 +284,7 @@ def test_export_for_inference_onnx(model_cls, sample_input, device):
             loaded_model_out[0],
             rtol=1e-4,  # lower tolerance for ONNX
             atol=1e-3,  # lower tolerance for ONNX
-            msg=f'output mismatch with {save_format}',
+            msg=lambda msg: f'output mismatch with {save_format}\n\nOriginal message: {msg}',
         )
 
 
