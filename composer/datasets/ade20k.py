@@ -161,7 +161,7 @@ def build_streaming_ade20k_dataloader(
     Args:
         batch_size (int): Batch size per device.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-        version (int): Which version of streaming to use. Default: ``1``.
+        version (int): Which version of streaming to use. Default: ``2``.
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-ade20k/```.
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
@@ -204,7 +204,8 @@ def build_streaming_ade20k_dataloader(
                                           shuffle=shuffle,
                                           both_transforms=all_transforms[0],
                                           transform=all_transforms[1],
-                                          target_transform=all_transforms[2])
+                                          target_transform=all_transforms[2],
+                                          batch_size=batch_size)
 
     else:
         raise ValueError(f'Invalid streaming version: {version}')
