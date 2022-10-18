@@ -79,8 +79,8 @@ class SimpleConvModel(ComposerClassifier):
         self.conv2 = conv2
 
 
-class BigConvModel(ComposerClassifier):
-    """Convolution Model with layers designed to test different properties of the blurpool algorithm."""
+class ConvModel(ComposerClassifier):
+    """Convolutional network featuring strided convs, a batchnorm, max pooling, and average pooling."""
 
     def __init__(self):
         conv_args = {'kernel_size': (3, 3), 'padding': 1}

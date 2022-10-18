@@ -18,12 +18,12 @@ from composer.algorithms.warnings import NoEffectWarning
 from composer.core import Event, State
 from composer.loggers import Logger
 from composer.utils import module_surgery
-from tests.common import BigConvModel
+from tests.common import ConvModel
 
 
 @pytest.fixture
 def state(minimal_state: State):
-    minimal_state.model = BigConvModel()
+    minimal_state.model = ConvModel()
     return minimal_state
 
 
@@ -47,7 +47,7 @@ def blurpool_instance(request) -> BlurPool:
 
 def test_blurconv(state: State, blurpool_instance: BlurPool, empty_logger: Logger):
     blurpool_instance.apply(Event.INIT, state, empty_logger)
-    assert isinstance(state.model, BigConvModel)
+    assert isinstance(state.model, ConvModel)
 
     if blurpool_instance.replace_convs:
         assert type(state.model.conv1) is BlurConv2d
@@ -57,20 +57,20 @@ def test_blurconv(state: State, blurpool_instance: BlurPool, empty_logger: Logge
 
 def test_maybe_replace_strided_conv_stride(state: State, blurpool_instance: BlurPool, empty_logger: Logger):
     blurpool_instance.apply(Event.INIT, state, empty_logger)
-    assert isinstance(state.model, BigConvModel)
+    assert isinstance(state.model, ConvModel)
 
     assert type(state.model.conv3) is torch.nn.Conv2d  # stride = 1, should be no replacement
 
 
 def test_maybe_replace_strided_conv_channels(state: State, blurpool_instance: BlurPool, empty_logger: Logger):
     blurpool_instance.apply(Event.INIT, state, empty_logger)
-    assert isinstance(state.model, BigConvModel)
+    assert isinstance(state.model, ConvModel)
 
     assert type(state.model.conv2) is torch.nn.Conv2d  # channels < 16, should be no replacement
 
 
 def test_blurconv_weights_preserved(state: State, blurpool_instance: BlurPool, empty_logger: Logger):
-    assert isinstance(state.model, BigConvModel)
+    assert isinstance(state.model, ConvModel)
 
     original_weights = state.model.conv1.weight.clone()
     blurpool_instance.apply(Event.INIT, state, empty_logger)
@@ -86,7 +86,7 @@ def test_blurconv_weights_preserved(state: State, blurpool_instance: BlurPool, e
 
 def test_blurpool(state: State, blurpool_instance: BlurPool, empty_logger: Logger):
     blurpool_instance.apply(Event.INIT, state, empty_logger)
-    assert isinstance(state.model, BigConvModel)
+    assert isinstance(state.model, ConvModel)
 
     if blurpool_instance.replace_maxpools:
         assert type(state.model.pool1) is BlurMaxPool2d
@@ -107,11 +107,9 @@ def test_blurpool_algorithm_logging(state: State, blurpool_instance: BlurPool):
 
     blurpool_instance.apply(Event.INIT, state, mock_logger)
 
-    # Note: The actual number of layers changed is 1, but the number replaced is recorded as 2
-    # because a reference to each layer is stored in model.layer_name to easily access it
     mock_logger.log_hyperparameters.assert_called_once_with({
-        'blurpool/num_blurpool_layers': 2 if blurpool_instance.replace_maxpools else 0,
-        'blurpool/num_blurconv_layers': 2 if blurpool_instance.replace_convs else 0,
+        'blurpool/num_blurpool_layers': 1 if blurpool_instance.replace_maxpools else 0,
+        'blurpool/num_blurconv_layers': 1 if blurpool_instance.replace_convs else 0,
     })
 
 
@@ -129,7 +127,7 @@ def test_blurpool_min_channels():
 
 def test_blurconv2d_optimizer_params_updated():
 
-    model = BigConvModel()
+    model = ConvModel()
 
     original_layer = model.conv1
     assert original_layer.stride == (2, 2)  # fail fast if test model changes

@@ -11,7 +11,7 @@ import torch
 from composer import Trainer, algorithms
 from composer.core import Algorithm, Time, TimeUnit  # type: ignore imports used in `eval(representation)`
 from composer.models import composer_resnet, create_bert_classification
-from tests.common import BigConvModel
+from tests.common import ConvModel
 
 
 def initialize_algorithm(algo_cls: Type):
@@ -44,10 +44,21 @@ def test_required_on_load_has_repr(algo_name: str):
         eval(f'algorithms.{representation}')
 
 
-def compare_models(model_1, model_2, is_equal=True):
+def compare_models(model_1: torch.nn.Module, model_2: torch.nn.Module, is_equal: bool = True):
+    """Check if two models are the same.
+
+    To check equivalence, we first verify the modules are the same in each model by checking the
+    list of attributes for each module. This checks if the same set of modules are used and if any
+    module has been marked by adding an attribute. Next, we directly iterate over the state dict
+    and verify the parameters are equal.
+
+    This is not a comprehensive comparison. For example, an algorithm could silently monkeypatch
+    over a forward function for a module. However, it is sufficient to provide coverage for our
+    existing set of algorithms.
+    """
     with contextlib.nullcontext() if is_equal else pytest.raises(Exception):
-        # Compare model module attributes as some algorithms, e.g. StochasticDepth, monkeypatch
-        # on new attributes. We only check this on non-HuggingFace models which have .module
+        # Compare model module attributes since algorithms like StochasticDepth monkeypatch
+        # on new attributes. We only check this on non-HuggingFace models that have .module
         if hasattr(model_1, 'module') and hasattr(model_2, 'module'):
             model_1_modules = list(model_1.module.modules())
             model_2_modules = list(model_2.module.modules())
@@ -55,9 +66,9 @@ def compare_models(model_1, model_2, is_equal=True):
             for module_1, module_2 in zip(model_1_modules, model_2_modules):
                 assert sorted(list(module_1.__dict__.keys())) == sorted(list(module_2.__dict__.keys()))
         # Compare model parameters
-        for item1, item2 in zip(model_1.state_dict().items(), model_2.state_dict().items()):
-            assert item1[0] == item2[0]
-            assert torch.equal(item1[1], item2[1])
+        for (name0, tensor0), (name1, tensor1) in zip(model_1.state_dict().items(), model_2.state_dict().items()):
+            assert name0 == name1
+            assert torch.equal(tensor0, tensor1)
 
 
 @pytest.mark.filterwarnings('ignore:No instances of')
@@ -73,7 +84,7 @@ def test_idempotent(algo_name: str):
         elif algo_name in ['Alibi', 'GatedLinearUnits']:
             original_model = create_bert_classification()
         else:
-            original_model = BigConvModel()
+            original_model = ConvModel()
         applied_once_model = Trainer(
             model=copy.deepcopy(original_model),
             algorithms=algorithm,
