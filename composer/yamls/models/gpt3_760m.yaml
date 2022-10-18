@@ -5,7 +5,6 @@ train_dataset:
     local: /tmp/mds-cache/mds-c4/
     split: train
     tokenizer_name: gpt2
-    max_duration: 20000ba
     max_seq_len: 2048
     group_method: concat
     shuffle: true
@@ -17,7 +16,6 @@ val_dataset:
     local: /tmp/mds-cache/mds-c4/
     split: validation
     tokenizer_name: gpt2
-    max_duration: 400ba
     max_seq_len: 2048
     group_method: concat
     shuffle: false
