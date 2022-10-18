@@ -10,7 +10,7 @@ import torch
 
 from composer import Trainer, algorithms
 from composer.core import Algorithm, Time, TimeUnit  # type: ignore imports used in `eval(representation)`
-from composer.models import composer_resnet, create_bert_classification
+from composer.models import ComposerClassifier, ComposerModel, composer_resnet, create_bert_classification
 from tests.common import ConvModel
 
 
@@ -58,8 +58,8 @@ def compare_models(model_1: torch.nn.Module, model_2: torch.nn.Module, is_equal:
     """
     with contextlib.nullcontext() if is_equal else pytest.raises(Exception):
         # Compare model module attributes since algorithms like StochasticDepth monkeypatch
-        # on new attributes. We only check this on non-HuggingFace models that have .module
-        if hasattr(model_1, 'module') and hasattr(model_2, 'module'):
+        # on new attributes. We only check this on ComposerClassifier models that have .module
+        if isinstance(model_1, ComposerClassifier) and isinstance(model_2, ComposerClassifier):
             model_1_modules = list(model_1.module.modules())
             model_2_modules = list(model_2.module.modules())
             assert len(model_1_modules) == len(model_2_modules)
@@ -89,6 +89,7 @@ def test_idempotent(algo_name: str):
             model=copy.deepcopy(original_model),
             algorithms=algorithm,
         ).state.model
+        assert isinstance(applied_once_model, ComposerModel)  # Assert type for pyright deepcopy
         applied_twice_model = Trainer(
             model=copy.deepcopy(applied_once_model),
             algorithms=algorithm,
