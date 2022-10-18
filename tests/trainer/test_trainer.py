@@ -33,7 +33,7 @@ from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices import Device
 from composer.trainer.trainer import _generate_run_name
-from composer.utils import dist, is_model_deepspeed, reproducibility
+from composer.utils import dist, is_model_deepspeed, is_model_fsdp, reproducibility
 from composer.utils.iter_helpers import map_collection
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
@@ -414,6 +414,40 @@ class TestTrainerInitOrFit:
         trainer.fit()
 
     @pytest.mark.gpu
+    @pytest.mark.parametrize('precision', list(Precision))
+    def test_fsdp(
+        self,
+        model: ComposerModel,
+        precision: Precision,
+        max_duration: Time[int],
+        train_dataloader: DataLoader,
+    ):
+
+        fsdp_config = {
+            'sharding_strategy': 'FULL_SHARD',
+            'min_params': 1e8,
+            'cpu_offload': False,
+            'mixed_precision': 'DEFAULT',
+            'backward_prefetch': 'BACKWARD_PRE',
+            'activation_checkpointing': False,
+            'activation_ocpu_offload': False,
+            'verbose': False
+        }
+
+        trainer = Trainer(
+            model=model,
+            precision=precision,
+            fsdp_config=fsdp_config,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+        )
+
+        assert is_model_fsdp(trainer.state.model)
+
+        assert trainer.state.fsdp_enabled
+        trainer.fit()
+
+    @pytest.mark.gpu
     def test_device(
         self,
         model: ComposerModel,
@@ -468,10 +502,11 @@ class TestTrainerInitOrFit:
         should_error = False
         ctx = contextlib.nullcontext()
         if device == 'cpu' and precision != Precision.FP32:
-            ctx = pytest.raises(ValueError, match='not supproted for CPU training')
+            ctx = pytest.raises(ValueError, match='not supproted for CPU training.')
             should_error = True
         elif precision == Precision.FP16:
-            ctx = pytest.raises(ValueError, match='FP16 precision is only supported when training with DeepSpeed')
+            ctx = pytest.raises(ValueError,
+                                match='FP16 precision is only supported when training with DeepSpeed or FSDP.')
             should_error = True
 
         with ctx:
