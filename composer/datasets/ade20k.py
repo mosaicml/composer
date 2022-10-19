@@ -112,17 +112,18 @@ def build_ade20k_dataloader(
             Default: ``true``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
-    all_transforms = build_ade20k_transformations(split=split,
-                                                  base_size=base_size,
-                                                  min_resize_scale=min_resize_scale,
-                                                  max_resize_scale=max_resize_scale,
-                                                  final_size=final_size)
+    both_transforms, image_transforms, target_transforms = build_ade20k_transformations(
+        split=split,
+        base_size=base_size,
+        min_resize_scale=min_resize_scale,
+        max_resize_scale=max_resize_scale,
+        final_size=final_size)
 
     dataset = ADE20k(datadir=datadir,
                      split=split,
-                     both_transforms=all_transforms[0],
-                     image_transforms=all_transforms[1],
-                     target_transforms=all_transforms[2])
+                     both_transforms=both_transforms,
+                     image_transforms=image_transforms,
+                     target_transforms=target_transforms)
 
     sampler = dist.get_sampler(dataset, drop_last=drop_last, shuffle=shuffle)
     device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
@@ -192,19 +193,20 @@ def build_streaming_ade20k_dataloader(
             raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
 
         # Build the sets of transformations for ADE20k
-        all_transforms = build_ade20k_transformations(split=split,
-                                                      base_size=base_size,
-                                                      min_resize_scale=min_resize_scale,
-                                                      max_resize_scale=max_resize_scale,
-                                                      final_size=final_size)
+        both_transforms, image_transforms, target_transforms = build_ade20k_transformations(
+            split=split,
+            base_size=base_size,
+            min_resize_scale=min_resize_scale,
+            max_resize_scale=max_resize_scale,
+            final_size=final_size)
 
         dataset = streaming.vision.ADE20K(remote=remote,
                                           local=local,
                                           split=split,
                                           shuffle=shuffle,
-                                          both_transforms=all_transforms[0],
-                                          transform=all_transforms[1],
-                                          target_transform=all_transforms[2],
+                                          both_transforms=both_transforms,
+                                          transform=image_transforms,
+                                          target_transform=target_transforms,
                                           batch_size=batch_size)
 
     else:
@@ -584,20 +586,21 @@ class StreamingADE20k(StreamingDataset):
                          batch_size=batch_size)
 
         # Define custom transforms
-        self.transforms = build_ade20k_transformations(split=split,
-                                                       base_size=base_size,
-                                                       min_resize_scale=min_resize_scale,
-                                                       max_resize_scale=max_resize_scale,
-                                                       final_size=final_size)
+        self.both_transforms, self.image_transforms, self.target_transforms = build_ade20k_transformations(
+            split=split,
+            base_size=base_size,
+            min_resize_scale=min_resize_scale,
+            max_resize_scale=max_resize_scale,
+            final_size=final_size)
 
     def __getitem__(self, idx: int) -> Tuple[Any, Any]:
         obj = super().__getitem__(idx)
         x = obj['image']
         y = obj['annotation']
-        if self.transforms[0]:
-            x, y = self.transforms[0]((x, y))
-        if self.transforms[1]:
-            x = self.transforms[1](x)
-        if self.transforms[2]:
-            y = self.transforms[2](y)
+        if self.both_transforms:
+            x, y = self.both_transforms((x, y))
+        if self.image_transforms:
+            x = self.image_transforms(x)
+        if self.target_transforms:
+            y = self.target_transforms(y)
         return x, y
