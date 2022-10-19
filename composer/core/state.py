@@ -18,7 +18,10 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
 from torchmetrics import Metric
 
-from composer.core import Event, Precision, Serializable, Time, Timestamp, TimeUnit
+from composer.core.event import Event
+from composer.core.precision import Precision
+from composer.core.serializable import Serializable
+from composer.core.time import Time, Timestamp, TimeUnit
 from composer.utils import batch_get, batch_set, dist, ensure_tuple, is_model_deepspeed
 
 if TYPE_CHECKING:
@@ -609,7 +612,7 @@ class State(Serializable):
             if len(missing_required_algos) > 0:
                 raise ValueError('The following surgery algorithms were enabled when training this checkpoint '
                                  f"and are required to successfully load it: {', '.join(missing_required_algos)}. "
-                                 'Attempted to autocreate and apply required algorithms but an Exception was '
+                                 'Attempted to autocreate and apply required algorithms but an exception was '
                                  'encountered. If you wish to use pretrained weights and reinitialize layers which '
                                  'have undergone surgery, set `load_weights_only=True`.') from e
 
