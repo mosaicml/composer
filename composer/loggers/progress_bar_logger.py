@@ -10,13 +10,13 @@ import sys
 from typing import Any, Dict, List, Optional, TextIO, Union
 
 import tqdm.auto
+import yaml
 
 from composer.core.state import State
 from composer.core.time import Timestamp, TimeUnit
 from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist, is_notebook
-import yaml
 
 __all__ = ['ProgressBarLogger']
 
@@ -178,13 +178,8 @@ class ProgressBarLogger(LoggerDestination):
                 self._log_to_console(f'[trace]: {trace_name}:' + trace_str + '\n')
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
-        # Lazy logging of hyperparameters
+        # Lazy logging of hyperparameters.
         self.hparams.update(hyperparameters)
-        # self.hparams.update(hyperparameters)
-        # for hparam_name, hparam in hyperparameters.items():
-        #     hparam_str = format_log_data_value(hparam)
-        #     log_str = f'[hyperparameter]: {hparam_name}: {hparam_str}'
-        #     self._log_to_console(log_str)
 
     def _log_hparams_to_console(self):
         if self.should_log_to_console or self._show_pbar:
@@ -193,7 +188,6 @@ class ProgressBarLogger(LoggerDestination):
                 self._log_to_console('Config:')
                 self._log_to_console(yaml.dump(self.hparams))
                 self._log_to_console('*' * 30)
-
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
         for metric_name, metric_value in metrics.items():
@@ -323,17 +317,15 @@ class ProgressBarLogger(LoggerDestination):
         if not self.hparams_already_logged_to_console:
             self.hparams_already_logged_to_console = True
             self._log_hparams_to_console()
-    
-    def eval_start(self, state: State, logger: Logger) -> None:
-        if not self.hparams_already_logged_to_console:
-            self.hparams_already_logged_to_console = True
-            self._log_hparams_to_console()
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         if self.show_pbar and not self.train_pbar:
             self.train_pbar = self._build_pbar(state=state, is_train=True)
 
     def eval_start(self, state: State, logger: Logger) -> None:
+        if not self.hparams_already_logged_to_console:
+            self.hparams_already_logged_to_console = True
+            self._log_hparams_to_console()
         if self.show_pbar:
             self.eval_pbar = self._build_pbar(state, is_train=False)
 
