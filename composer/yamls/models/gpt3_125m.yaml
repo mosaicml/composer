@@ -65,7 +65,7 @@ optimizers:
 schedulers:
   - cosine_decay_with_warmup:
       t_warmup: 0.01dur
-max_duration: 1ep
+max_duration: 20000ba
 train_batch_size: 256 # 0.5e6 tok ~= 256[bs] * 2048[msl]
 grad_accum: 8 # 256[bs] / 8[devices] / 4[per_gpu_microbatch_size] = 8[ga], assuming 8xA100-40GB
 eval_batch_size: 32 # 32[bs] / 8[devices] = 4[per_gpu_microbatch_size], assuming 8xA100-40GB
