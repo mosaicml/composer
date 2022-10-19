@@ -756,87 +756,88 @@ class Trainer:
     """
 
     def __init__(
-            self,
-            *,
-            # The Model
-            model: ComposerModel,
+        self,
+        *,
+        # The Model
+        model: ComposerModel,
 
-            # Train Dataloader
-            train_dataloader: Optional[Union[Iterable, DataSpec, Dict[str, Any]]] = None,
-            train_dataloader_label: str = 'train',
-            train_subset_num_batches: int = -1,
+        # Train Dataloader
+        train_dataloader: Optional[Union[Iterable, DataSpec, Dict[str, Any]]] = None,
+        train_dataloader_label: str = 'train',
+        train_subset_num_batches: int = -1,
 
-            # Stopping Condition
-            max_duration: Optional[Union[int, str, Time]] = None,
+        # Stopping Condition
+        max_duration: Optional[Union[int, str, Time]] = None,
 
-            # Algorithms
-            algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
+        # Algorithms
+        algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
 
-            # Optimizers and Scheduling
-            optimizers: Optional[torch.optim.Optimizer] = None,
-            schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
-                                                                                           PyTorchScheduler]]]] = None,
-            scale_schedule_ratio: float = 1.0,
-            step_schedulers_every_batch: Optional[bool] = None,
+        # Optimizers and Scheduling
+        optimizers: Optional[torch.optim.Optimizer] = None,
+        schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
+                                                                                       PyTorchScheduler]]]] = None,
+        scale_schedule_ratio: float = 1.0,
+        step_schedulers_every_batch: Optional[bool] = None,
 
-            # Evaluators
-            eval_dataloader: Optional[Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
-            eval_interval: Union[int, str, Time, Callable[[State, Event], bool]] = 1,
-            eval_subset_num_batches: int = -1,
+        # Evaluators
+        eval_dataloader: Optional[Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
+        eval_interval: Union[int, str, Time, Callable[[State, Event], bool]] = 1,
+        eval_subset_num_batches: int = -1,
 
-            # Callbacks and Logging
-            callbacks: Optional[Union[Callback, Sequence[Callback]]] = None,
-            loggers: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
-            run_name: Optional[str] = None,
-            progress_bar: bool = True,
-            log_to_console: Optional[bool] = None,
-            console_stream: Union[str, TextIO] = 'stderr',
+        # Callbacks and Logging
+        callbacks: Optional[Union[Callback, Sequence[Callback]]] = None,
+        loggers: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
+        run_name: Optional[str] = None,
+        progress_bar: bool = True,
+        log_to_console: Optional[bool] = None,
+        console_stream: Union[str, TextIO] = 'stderr',
 
-            # Load Checkpoint
-            load_path: Optional[str] = None,
-            load_object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
-            load_weights_only: bool = False,
-            load_strict_model_weights: bool = False,
-            load_progress_bar: bool = True,
-            load_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
+        # Load Checkpoint
+        load_path: Optional[str] = None,
+        load_object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
+        load_weights_only: bool = False,
+        load_strict_model_weights: bool = False,
+        load_progress_bar: bool = True,
+        load_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
 
-            # Save Checkpoint
-            save_folder: Optional[str] = None,
-            save_filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
-            save_latest_filename: Optional[str] = 'latest-rank{rank}.pt',
-            save_overwrite: bool = False,
-            save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
-            save_weights_only: bool = False,
-            save_num_checkpoints_to_keep: int = -1,
+        # Save Checkpoint
+        save_folder: Optional[str] = None,
+        save_filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
+        save_latest_filename: Optional[str] = 'latest-rank{rank}.pt',
+        save_overwrite: bool = False,
+        save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
+        save_weights_only: bool = False,
+        save_num_checkpoints_to_keep: int = -1,
 
-            # Graceful Resumption
-            autoresume: bool = False,
+        # Graceful Resumption
+        autoresume: bool = False,
 
-            # DeepSpeed
-            deepspeed_config: Optional[Dict[str, Any]] = None,
-            fsdp_config: Optional[Dict[str, Any]] = None,
+        # DeepSpeed
+        deepspeed_config: Optional[Dict[str, Any]] = None,
+        fsdp_config: Optional[Dict[str, Any]] = None,
 
-            # System/Numerics
-            device: Optional[Union[str, Device]] = None,
-            precision: Optional[Union[str, Precision]] = None,
-            grad_accum: Union[int, str] = 1,
+        # System/Numerics
+        device: Optional[Union[str, Device]] = None,
+        precision: Optional[Union[str, Precision]] = None,
+        grad_accum: Union[int, str] = 1,
 
-            # Reproducibility
-            seed: Optional[int] = None,
-            deterministic_mode: bool = False,
+        # Reproducibility
+        seed: Optional[int] = None,
+        deterministic_mode: bool = False,
 
-            # Distributed Training
-            dist_timeout: float = 300.0,
-            ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
+        # Distributed Training
+        dist_timeout: float = 300.0,
+        ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
 
-            # Grad Clip Norm
-            grad_clip_norm: float = -1.0,
+        # Grad Clip Norm
+        grad_clip_norm: float = -1.0,
 
-            # Profiling
-            profiler: Optional[Profiler] = None,
+        # Profiling
+        profiler: Optional[Profiler] = None,
 
-            # Python logging
-            python_log_level: str = 'INFO'):
+        # Python logging
+        python_log_level: str = 'INFO',
+    ):
 
         self.python_log_level = python_log_level
         if self.python_log_level is not None:
