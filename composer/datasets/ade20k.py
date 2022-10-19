@@ -150,7 +150,7 @@ def build_streaming_ade20k_dataloader(
     split: str = 'train',
     drop_last: bool = True,
     shuffle: bool = True,
-    base_size=512,
+    base_size: int = 512,
     min_resize_scale: float = 0.5,
     max_resize_scale: float = 2.0,
     final_size: int = 512,
