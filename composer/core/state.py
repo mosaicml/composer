@@ -18,9 +18,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
 from torchmetrics import Metric
 
-from composer.core.precision import Precision
-from composer.core.serializable import Serializable
-from composer.core.time import Time, Timestamp, TimeUnit
+from composer.core import Event, Precision, Serializable, Time, Timestamp, TimeUnit
 from composer.utils import batch_get, batch_set, dist, ensure_tuple, is_model_deepspeed
 
 if TYPE_CHECKING:
@@ -574,8 +572,8 @@ class State(Serializable):
             else:
                 target.load_state_dict(source)
 
-    def _verify_required_algorithms_enabled(self, state: Dict[str, Any]):
-        """Verifies all required algorithms are enabled when loading state.
+    def _apply_required_algorithms(self, state: Dict[str, Any]):
+        """Applies all required algorithms which haven't already been specified.
 
         Args:
             state (Dict[str, Any]): State from checkpoint.
@@ -583,9 +581,7 @@ class State(Serializable):
         import composer.algorithms as algorithms
 
         # Get repr of existing algorithms
-        state_algos = set()
-        for algo in self.algorithms:
-            state_algos.add(algo.__repr__())
+        state_algos = {algo.__repr__() for algo in self.algorithms if algo.required_on_load()}
 
         # Get repr of checkpoint algorithms
         checkpoint_algos = set()
@@ -598,16 +594,24 @@ class State(Serializable):
                     f'Found algorithm of unknown type: {algo}. Skipping check for if it is required when loading checkpoint.'
                 )
 
-        missing_surgery_algos = []
+        missing_required_algos = []
         for repr in checkpoint_algos:
             if repr not in state_algos:
-                missing_surgery_algos.append(repr)
+                missing_required_algos.append(repr)
 
-        if len(missing_surgery_algos) > 0:
-            raise ValueError('The following surgery algorithms were enabled when training this checkpoint '
-                             f"and are required to successfully load it: {', '.join(missing_surgery_algos)}. "
-                             'If you wish to use pretrained weights and reinitialize layers which have '
-                             'undergone surgery, set `load_weights_only=True`.')
+        try:
+            for required_algo in missing_required_algos:
+                algo = eval(required_algo)
+                if algo.match(Event.INIT, self):
+                    algo.apply(Event.INIT, self)
+                self.algorithms.append(algo)
+        except Exception as e:
+            if len(missing_required_algos) > 0:
+                raise ValueError('The following surgery algorithms were enabled when training this checkpoint '
+                                 f"and are required to successfully load it: {', '.join(missing_required_algos)}. "
+                                 'Attempted to autocreate and apply required algorithms but an Exception was '
+                                 'encountered. If you wish to use pretrained weights and reinitialize layers which '
+                                 'have undergone surgery, set `load_weights_only=True`.') from e
 
     def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
         """Loads the state.
@@ -620,7 +624,7 @@ class State(Serializable):
         state = _ensure_backwards_compatible_checkpointing(state)
 
         if 'algorithms' in state:
-            self._verify_required_algorithms_enabled(state)
+            self._apply_required_algorithms(state)
 
         for attribute_name, serialized_value in state.items():
             if attribute_name not in self.serialized_attributes:
