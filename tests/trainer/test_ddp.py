@@ -169,7 +169,7 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
             'mixed_precision': 'DEFAULT',
             'backward_prefetch': 'BACKWARD_PRE',
             'activation_checkpointing': False,
-            'activation_ocpu_offload': False,
+            'activation_cpu_offload': False,
             'verbose': False
         }
 

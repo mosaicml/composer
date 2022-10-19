@@ -113,11 +113,11 @@ def _filter_metrics(metrics: Dict[str, Metric], metric_names: Optional[List[str]
         return filtered_metrics
 
 
-def _validate_precision(precision: Precision, device: Device, deepspeed_enabled: bool, fsdp_enabled: bool):
+def _validate_precision(precision: Precision, device: Device, deepspeed_enabled: bool):
     if isinstance(device, DeviceCPU) and precision != Precision.FP32:
         raise ValueError(f'{precision} is not supproted for CPU training.')
-    if not (deepspeed_enabled or fsdp_enabled) and precision == Precision.FP16:
-        raise ValueError('FP16 precision is only supported when training with DeepSpeed or FSDP.')
+    if not deepspeed_enabled and precision == Precision.FP16:
+        raise ValueError('FP16 precision is only supported when training with DeepSpeed.')
 
 
 def _compile_schedulers(
@@ -847,7 +847,7 @@ class Trainer:
             precision = Precision.AMP if isinstance(self._device, DeviceGPU) else Precision.FP32
         if isinstance(precision, str):
             precision = Precision(precision)
-        _validate_precision(precision, self._device, self.deepspeed_enabled, self.fsdp_enabled)
+        _validate_precision(precision, self._device, self.deepspeed_enabled)
 
         # Distributed
         if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
@@ -1567,7 +1567,7 @@ class Trainer:
             if self.deepspeed_enabled:
                 raise ValueError('Changing the precision when using DeepSpeed is not supported')
             precision = Precision(precision)
-            _validate_precision(precision, self._device, self.deepspeed_enabled, self.fsdp_enabled)
+            _validate_precision(precision, self._device, self.deepspeed_enabled)
             self.state.precision = precision
 
             # update scaler since precision was provided

@@ -430,22 +430,32 @@ class TestTrainerInitOrFit:
             'mixed_precision': 'DEFAULT',
             'backward_prefetch': 'BACKWARD_PRE',
             'activation_checkpointing': False,
-            'activation_ocpu_offload': False,
+            'activation_cpu_offload': False,
             'verbose': False
         }
 
-        trainer = Trainer(
-            model=model,
-            precision=precision,
-            fsdp_config=fsdp_config,
-            max_duration=max_duration,
-            train_dataloader=train_dataloader,
-        )
+        # Need to catch the case where we try to train
+        # with precision FP16.
+        ctx = contextlib.nullcontext()
+        should_error = False
+        if precision == Precision.FP16:
+            ctx = pytest.raises(ValueError, match='FP16 precision is only supported when training with DeepSpeed.')
+            should_error = True
 
-        assert is_model_fsdp(trainer.state.model)
+        with ctx:
+            trainer = Trainer(
+                model=model,
+                precision=precision,
+                fsdp_config=fsdp_config,
+                max_duration=max_duration,
+                train_dataloader=train_dataloader,
+            )
 
-        assert trainer.state.fsdp_enabled
-        trainer.fit()
+        if not should_error:
+            assert is_model_fsdp(trainer.state.model)
+
+            assert trainer.state.fsdp_enabled
+            trainer.fit()
 
     @pytest.mark.gpu
     def test_device(
@@ -505,8 +515,7 @@ class TestTrainerInitOrFit:
             ctx = pytest.raises(ValueError, match='not supproted for CPU training.')
             should_error = True
         elif precision == Precision.FP16:
-            ctx = pytest.raises(ValueError,
-                                match='FP16 precision is only supported when training with DeepSpeed or FSDP.')
+            ctx = pytest.raises(ValueError, match='FP16 precision is only supported when training with DeepSpeed.')
             should_error = True
 
         with ctx:
