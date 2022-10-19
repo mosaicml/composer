@@ -318,6 +318,11 @@ class ProgressBarLogger(LoggerDestination):
             self.hparams_already_logged_to_console = True
             self._log_hparams_to_console()
 
+    def predict_start(self, state: State, logger: Logger) -> None:
+        if not self.hparams_already_logged_to_console:
+            self.hparams_already_logged_to_console = True
+            self._log_hparams_to_console()
+
     def epoch_start(self, state: State, logger: Logger) -> None:
         if self.show_pbar and not self.train_pbar:
             self.train_pbar = self._build_pbar(state=state, is_train=True)
