@@ -743,8 +743,8 @@ class Trainer:
                 See the :doc:`Profiling Guide </trainer/performance_tutorials/profiling>` for
                 additional information.
         python_log_level (str, optional): The Python log level to use for log statements in the :mod:`composer`
-            module. (default: ``None``). If it is ``None``, python logging will not be configured (i.e. calling
-            ``logging.basicConfig``).
+            module. (default: ``None``). If it is ``None``, python logging will not be configured (i.e.
+            ``logging.basicConfig`` won't be called).
 
             .. seealso:: The :mod:`logging` module in Python.
 
