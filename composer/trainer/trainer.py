@@ -1598,7 +1598,6 @@ class Trainer:
         .. seealso:: :meth:`.Engine.close` for additional information.
         """
         self.engine.close()
-        log.info(f'Closing trainer on rank {dist.get_global_rank()}')
         dist.barrier()
 
     def _ensure_metrics_device_and_dtype(self, metrics: Dict[str, Metric]):
