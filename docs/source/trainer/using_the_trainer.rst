@@ -404,6 +404,42 @@ from the trainer.
     The ``deepspeed_config`` must not conflict with any other parameters
     passed to the trainer.
 
+FSDP Integration (beta)
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Composer comes with preliminary FSDP support, which allows you to leverage
+their features and enables you to train large models across multiple nodes.
+For more details on FSDP, see `their website <https://pytorch.org/docs/stable/fsdp.html>`__.
+
+To enable FSDP, simply pass in as shown below:
+
+.. code:: python
+
+    fsdp_config = {
+        'sharding_strategy': 'FULL_SHARD',
+        'min_params': 1e9,
+        'cpu_offload': False, # Not supported yet
+        'mixed_precision': 'DEFAULT',
+        'backward_prefetch': 'BACKWARD_POST',
+        'activation_checkpointing': False,
+        'activation_cpu_offload': False,
+        'verbose': True
+    }
+
+
+    trainer = Trainer(
+        model=composer_model,
+        fsdp_config=fsdp_config,
+        ...
+    )
+
+    trainer.fit()
+
+.. warning::
+
+    Right now ``fsdp_config`` doesn't support cpu_offloading.
+
+
 
 Callbacks
 ~~~~~~~~~
