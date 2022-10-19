@@ -319,6 +319,7 @@ class ProgressBarLogger(LoggerDestination):
             self._log_hparams_to_console()
 
     def predict_start(self, state: State, logger: Logger) -> None:
+
         if not self.hparams_already_logged_to_console:
             self.hparams_already_logged_to_console = True
             self._log_hparams_to_console()
