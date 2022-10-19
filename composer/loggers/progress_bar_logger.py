@@ -175,10 +175,11 @@ class ProgressBarLogger(LoggerDestination):
                 self._log_to_console(f'[trace]: {trace_name}:' + trace_str + '\n')
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
-        for hparam_name, hparam in hyperparameters.items():
-            hparam_str = format_log_data_value(hparam)
-            log_str = f'[hyperparameter]: {hparam_name}: {hparam_str}'
-            self._log_to_console(log_str)
+        if self.should_log_to_console or self._show_pbar:
+            for hparam_name, hparam in hyperparameters.items():
+                hparam_str = format_log_data_value(hparam)
+                log_str = f'[hyperparameter]: {hparam_name}: {hparam_str}'
+                self._log_to_console(log_str)
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
         for metric_name, metric_value in metrics.items():
