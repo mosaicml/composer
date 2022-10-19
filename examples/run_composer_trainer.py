@@ -58,13 +58,6 @@ def _main():
                 overwrite=True,
             )
 
-    # Print the config to the terminal and log to remote file system if on each local rank 0
-    if dist.get_local_rank() == 0:
-        print('*' * 30)
-        print('Config:')
-        print(hparams.to_yaml())
-        print('*' * 30)
-
     trainer.fit()
 
 
