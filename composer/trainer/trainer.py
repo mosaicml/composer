@@ -837,6 +837,7 @@ class Trainer:
 
             # Python logging
             python_log_level: str = 'INFO'):
+
         self.python_log_level = python_log_level
         if self.python_log_level is not None:
             logging.basicConfig(
