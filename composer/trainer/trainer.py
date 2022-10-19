@@ -1228,11 +1228,15 @@ class Trainer:
             )
             self.state.run_name = run_name
 
+        self.engine.run_event(Event.AFTER_LOAD)
+
         # reseed here. This helps with a couple of issues:
-        # 1. rng state may change at Event.INIT. For example, if an algorithm creates a new module and module
-        # parameters are initialized randomly, rng state will change. This reseeding nullifies such effects.
-        # 2. While resuming from a checkpoint, we want to spin dataloader and bring it back to the same state as at the time
-        # of the checkpoint. Therefore, spinning needs to start from the same rng state as in the original run.
+        # 1. rng state may change at Event.INIT/Event.AFTER_LOAD. For example, if an algorithm
+        # creates a new module and module parameters are initialized randomly, rng state will
+        # change. This reseeding nullifies such effects.
+        # 2. While resuming from a checkpoint, we want to spin dataloader and bring it back to the
+        # same state as at the time of the checkpoint. Therefore, spinning needs to start from the
+        # same rng state as in the original run.
         log.info(f'Setting seed to {self.state.seed}')
         reproducibility.seed_all(self.state.seed)
 
