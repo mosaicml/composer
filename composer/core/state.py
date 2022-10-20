@@ -279,6 +279,7 @@ class State(Serializable):
         dataloader_label: Optional[str] = None,
         dataloader_len: Union[int, Time[int]] = -1,
         dataset_state: Optional[Dict[str, Any]] = None,
+        dataloader_resumption_support: bool = False,
 
         # precision
         precision: Union[str, Precision] = Precision.FP32,
@@ -307,10 +308,11 @@ class State(Serializable):
         self._dataloader_label = None
         self.set_dataloader(dataloader, dataloader_label, dataloader_len)
         self.dataset_state = dataset_state
+        self.dataloader_resumption_support = dataloader_resumption_support
         self._max_duration = None
         self.max_duration = max_duration
 
-        self.train_dataloader = train_dataloader
+        self._train_dataloader = train_dataloader
         self._evaluators = list(ensure_tuple(evaluators))
 
         self.timestamp = Timestamp()
@@ -360,6 +362,20 @@ class State(Serializable):
 
         self.train_metrics: Dict[str, Metric] = {}
         self.eval_metrics: Dict[str, Dict[str, Metric]] = {}
+
+    @property
+    def train_dataloader(self):
+        """The train dataloader."""
+        return self._train_dataloader
+
+    @train_dataloader.setter
+    def train_dataloader(self, train_dataloader: Optional[types.DataLoader]):
+        self._train_dataloader = train_dataloader
+        if self.dataset_state:
+            if hasattr(self._train_dataloader.dataset, 'load_state_dict'):
+                self._train_dataloader.dataset.load_state_dict(serialized_value)
+                self.dataloader_resumption_support = True
+            self.dataset_state = None  # Clear dataset state
 
     @property
     def current_metrics(self):
@@ -507,8 +523,8 @@ class State(Serializable):
         for attribute_name in self.serialized_attributes:
             attribute_value = getattr(self, attribute_name)
             if attribute_name == 'dataset_state':
-                if self.dataloader and hasattr(self.dataloader.dataset, 'state_dict'):
-                    serialized_value = self.dataloader.dataset.state_dict()
+                if self.train_dataloader and hasattr(self.train_dataloader.dataset, 'state_dict'):
+                    serialized_value = self.train_dataloader.dataset.state_dict()
             elif attribute_name == 'model':
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                 # If it is DDP wrapped, do not save the `module.` prefix, as that is an implmentation detail
@@ -628,8 +644,9 @@ class State(Serializable):
                 continue
 
             if attribute_name == 'dataset_state':
-                if self.dataloader and hasattr(self.dataloader.dataset, 'load_state_dict'):
-                    self.dataloader.dataset.load_state_dict(serialized_value)
+                if self.train_dataloader and hasattr(self.train_dataloader.dataset, 'load_state_dict'):
+                    self.train_dataloader.dataset.load_state_dict(serialized_value)
+                    self.dataloader_resumption_support = True
             elif attribute_name == 'model':
                 self.load_model_state(state, strict=strict)
             elif attribute_name == 'optimizers':
