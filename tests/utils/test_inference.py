@@ -19,9 +19,11 @@ from composer.functional import apply_gated_linear_units
 from composer.loggers import InMemoryLogger, Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.models import composer_resnet
+from composer.trainer.devices import DeviceCPU
 from composer.trainer.dist_strategy import prepare_ddp_module
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, export_with_logger, inference
+from composer.utils.device import get_device
 from tests.common import device
 from tests.common.datasets import RandomImageDataset
 
@@ -256,9 +258,9 @@ def test_export_for_inference_onnx(model_cls, sample_input, device):
     model = model_cls()
     model.eval()
 
-    torch_device = 'cuda' if device == 'gpu' else 'cpu'
-    sample_input = (sample_input[0].to(torch_device), sample_input[1].to(torch_device))
-    model.to(torch_device)
+    device = get_device(device)
+    sample_input = (device.tensor_to_device(sample_input[0]), device.tensor_to_device(sample_input[1]))
+    device.module_to_device(model)
     orig_out = model(sample_input)
 
     save_format = 'onnx'
@@ -276,14 +278,14 @@ def test_export_for_inference_onnx(model_cls, sample_input, device):
         ort_session = ort.InferenceSession(save_path)
         loaded_model_out = ort_session.run(
             None,
-            {'input': sample_input[0].cpu().numpy()},
+            {'input': device.tensor_to_device(sample_input[0]).numpy()},
         )
 
         torch.testing.assert_close(
             orig_out.detach().cpu().numpy(),
             loaded_model_out[0],
-            rtol=1e-4 if device == 'cpu' else 1e-3,  # lower tolerance for ONNX
-            atol=1e-3 if device == 'cpu' else 1e-2,  # lower tolerance for ONNX
+            rtol=1e-4 if isinstance(device, DeviceCPU) else 1e-3,  # lower tolerance for ONNX
+            atol=1e-3 if isinstance(device, DeviceCPU) else 1e-2,  # lower tolerance for ONNX
             msg=lambda msg: f'output mismatch with {save_format}\n\nOriginal message: {msg}',
         )
 
