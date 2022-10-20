@@ -581,40 +581,50 @@ class State(Serializable):
         Args:
             state (Dict[str, Any]): State from checkpoint.
         """
-        import composer.algorithms as algorithms
+        import composer.algorithms as algorithms  # type: ignore imports used in `eval(representation)`
 
         # Get repr of existing algorithms
-        state_algos = {algo.__repr__() for algo in self.algorithms if algo.required_on_load()}
+        state_algos = {}
+        for algo in self.algorithms:
+            if algo.required_on_load():
+                if type(algo) not in state_algos:
+                    state_algos[type(algo)] = []
+                state_algos[type(algo)].append(algo.__repr__())
 
-        # Get repr of checkpoint algorithms
-        checkpoint_algos = set()
-        for algo, serialized_value in state['algorithms'].items():
+        missing_algorithms = []
+        for algo_name, serialized_value in state['algorithms'].items():
             try:
-                if getattr(algorithms, algo).required_on_load():
-                    checkpoint_algos.add(serialized_value['repr'])
+                algo = eval(f"algorithms.{serialized_value['repr']}")
+                if algo.required_on_load():
+                    if type(algo) in state_algos and not serialized_value['repr'] in state_algos[type(algo)]:
+                        warnings.warn(
+                            f"required_on_load algorithm {serialized_value['repr']} was enabled when training the "
+                            f"loaded checkpoint but is now specified in the following forms: {', '.join(state_algos[type(algo)])}."
+                            'Potential paarameter discrepencies for this required_on_load algorithm may lead to '
+                            'unexpected behavior, including failing to load weights for some layers.')
+                    elif type(algo) not in state_algos:
+                        missing_algorithms.append((algo, serialized_value['repr']))
             except AttributeError:
                 logger.warning(
-                    f'Found algorithm of unknown type: {algo}. Skipping check for if it is required when loading checkpoint.'
+                    f'Found unknown algorithm {algo_name}. Skipping check for if it is required when loading checkpoint.'
                 )
 
-        missing_required_algos = []
-        for repr in checkpoint_algos:
-            if repr not in state_algos:
-                missing_required_algos.append(repr)
-
         try:
-            for required_algo in missing_required_algos:
-                algo = eval(required_algo)
+            for algo, algo_repr in missing_algorithms:
                 if algo.match(Event.INIT, self):
                     algo.apply(Event.INIT, self)
                 self.algorithms.append(algo)
+                warnings.warn(
+                    f'Automatically adding required_on_load algorithm {algo_repr} to trainer, which was enabled '
+                    'when training the loaded checkpoint. If you wish to use pretrained weights and ignore '
+                    'required_on_load algorithms, which may result in some weights failing to load, set `load_weights_only=True`.'
+                )
         except Exception as e:
-            if len(missing_required_algos) > 0:
-                raise ValueError('The following surgery algorithms were enabled when training this checkpoint '
-                                 f"and are required to successfully load it: {', '.join(missing_required_algos)}. "
-                                 'Attempted to autocreate and apply required algorithms but an exception was '
-                                 'encountered. If you wish to use pretrained weights and reinitialize layers which '
-                                 'have undergone surgery, set `load_weights_only=True`.') from e
+            raise ValueError('The following algorithms were enabled when training this checkpoint '
+                             f"and are required to successfully load it: {', '.join(missing_algorithms)}. "
+                             'Attempted to autocreate and apply required algorithms but an exception was '
+                             'encountered. If you wish to use pretrained weights and reinitialize layers which '
+                             'have undergone surgery, set `load_weights_only=True`.') from e
 
     def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
         """Loads the state.
