@@ -1,7 +1,7 @@
 train_dataset:
   streaming_c4:
-    version: 2
-    remote: s3://mosaicml-internal-dataset-c4/mds/2/
+    version: 1
+    remote: s3://mosaicml-internal-dataset-c4/mds/1/
     local: /tmp/mds-cache/mds-c4/
     split: train
     tokenizer_name: gpt2
@@ -11,10 +11,10 @@ train_dataset:
     drop_last: true
 val_dataset:
   streaming_c4:
-    version: 2
-    remote: s3://mosaicml-internal-dataset-c4/mds/2/
+    version: 1
+    remote: s3://mosaicml-internal-dataset-c4/mds/1/
     local: /tmp/mds-cache/mds-c4/
-    split: validation
+    split: val
     tokenizer_name: gpt2
     max_seq_len: 2048
     group_method: concat
