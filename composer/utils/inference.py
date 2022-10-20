@@ -18,7 +18,6 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Tuple, Unio
 import torch
 import torch.nn as nn
 
-from composer.trainer.devices import Device
 from composer.utils import dist
 from composer.utils.checkpoint import download_checkpoint
 from composer.utils.device import get_device
@@ -29,6 +28,7 @@ from composer.utils.string_enum import StringEnum
 
 if TYPE_CHECKING:
     from composer.loggers import Logger
+    from composer.trainer.devices import Device
 
 log = logging.getLogger(__name__)
 
