@@ -6,7 +6,7 @@ from typing import Callable, Dict, Type
 import pytest
 
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
-from composer.datasets.dataset_hparams_registry import (ADE20kDatasetHparams, BratsDatasetHparams, C4DatasetHparams,
+from composer.datasets.dataset_hparams_registry import (ADE20kDatasetHparams, BratsDatasetHparams,
                                                         CIFAR10DatasetHparams, COCODatasetHparams, GLUEHparams,
                                                         ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams,
                                                         StreamingADE20kHparams, StreamingC4Hparams,
@@ -67,14 +67,6 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
         ),
     StreamingCOCOHparams:
         lambda: StreamingCOCOHparams(split='val'),
-    C4DatasetHparams:
-        lambda: C4DatasetHparams(
-            split='train',
-            num_samples=1000,
-            max_seq_len=100,
-            tokenizer_name='gpt2',
-            group_method='concat',
-        ),
     StreamingC4Hparams:
         lambda: StreamingC4Hparams(split='val'),
     StreamingEnWikiHparams:

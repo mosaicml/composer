@@ -145,7 +145,9 @@ extra_deps['wandb'] = [
     'wandb>=0.13.2,<0.14',
 ]
 
-extra_deps['comet_ml'] = ['comet_ml>=3.31.12,<4.0.0']
+extra_deps['comet_ml'] = [
+    'comet_ml>=3.31.12,<4.0.0',
+]
 
 extra_deps['tensorboard'] = [
     'tensorboard>=2.9.1,<3.0.0',
@@ -170,7 +172,6 @@ extra_deps['coco'] = [
 
 extra_deps['nlp'] = [
     'transformers>=4.11,<5',
-    'datasets>=2.4.0,<3',
 ]
 
 extra_deps['mlperf'] = [
