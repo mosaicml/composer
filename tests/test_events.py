@@ -58,7 +58,7 @@ class TestEventCalls:
     ])
     @pytest.mark.parametrize('device,deepspeed_zero_stage,use_fsdp', [
         pytest.param('cpu', None, False, id='cpu-ddp'),
-        pytest.param('gpu', None, False, id='gpu-ddp', marks=pytest.mark.gpu),
+        pytest.param('gpu', True, False, id='gpu-ddp', marks=pytest.mark.gpu),
         pytest.param('gpu', None, True, id='gpu-fsdp', marks=pytest.mark.gpu),
     ])
     @pytest.mark.parametrize('save_interval', ['1ep', '1ba'])
