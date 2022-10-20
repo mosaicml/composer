@@ -10,6 +10,7 @@ assignees: ''
 ** Environment **
 <!-- Provide the below as necessary -->
 
+- composer version: [dev]
 - OS: [Ubuntu 20.04]
 - Hardware (GPU, or instance type): [V100]
 
