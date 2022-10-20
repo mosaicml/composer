@@ -512,7 +512,7 @@ class TestTrainerInitOrFit:
         should_error = False
         ctx = contextlib.nullcontext()
         if device == 'cpu' and precision != Precision.FP32:
-            ctx = pytest.raises(ValueError, match='not supproted for CPU training.')
+            ctx = pytest.raises(ValueError, match='not supported for CPU training.')
             should_error = True
         elif precision == Precision.FP16:
             ctx = pytest.raises(ValueError, match='FP16 precision is only supported when training with DeepSpeed.')
