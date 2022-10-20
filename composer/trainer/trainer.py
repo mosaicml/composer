@@ -115,7 +115,7 @@ def _filter_metrics(metrics: Dict[str, Metric], metric_names: Optional[List[str]
 
 def _validate_precision(precision: Precision, device: Device, deepspeed_enabled: bool):
     if isinstance(device, DeviceCPU) and precision != Precision.FP32:
-        raise ValueError(f'{precision} is not supproted for CPU training.')
+        raise ValueError(f'{precision} is not supported for CPU training.')
     if not deepspeed_enabled and precision == Precision.FP16:
         raise ValueError('FP16 precision is only supported when training with DeepSpeed.')
 
