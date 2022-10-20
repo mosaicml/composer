@@ -119,7 +119,8 @@ RUN apt-get update && \
         libfreetype6-dev \
         liblcms2-dev \
         tcl \
-        libjpeg8-dev && \
+        libjpeg8-dev \
+        less && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
