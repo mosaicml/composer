@@ -80,16 +80,17 @@ class CheckBatch0(Callback):
             )
 
 
-@pytest.mark.parametrize('device,deepspeed', [
-    pytest.param('cpu', False, id='cpu'),
-    pytest.param('gpu', False, id='gpu', marks=pytest.mark.gpu),
-    pytest.param('gpu', True, id='deepspeed', marks=pytest.mark.gpu),
+@pytest.mark.parametrize('device,deepspeed,fsdp', [
+    pytest.param('cpu', False, False, id='cpu'),
+    pytest.param('gpu', False, False, id='gpu', marks=pytest.mark.gpu),
+    pytest.param('gpu', True, False, id='deepspeed', marks=pytest.mark.gpu),
+    pytest.param('gpu', False, True, id='fsdp', marks=pytest.mark.gpu),
 ])
 @pytest.mark.parametrize('world_size', [
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
-def test_ddp(device: str, world_size: int, deepspeed: bool, tmp_path: pathlib.Path) -> None:
+def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path: pathlib.Path) -> None:
     """test strategy for ddp: 1) Train a dummy model on two gps, for two epochs, using the tracked dataset. 2) The
     tracked dataset should record two -- and only two -- accesses for each sample -- one for each epoch If each sample
     is accessed more than this number of times, then the distributed sampler isn't working properly If each sample is
@@ -159,6 +160,19 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, tmp_path: pathlib.Pa
         ),
     )
 
+    fsdp_config = None
+    if fsdp:
+        fsdp_config = {
+            'sharding_strategy': 'FULL_SHARD',
+            'min_params': 1e8,
+            'cpu_offload': False,
+            'mixed_precision': 'DEFAULT',
+            'backward_prefetch': 'BACKWARD_PRE',
+            'activation_checkpointing': False,
+            'activation_cpu_offload': False,
+            'verbose': False
+        }
+
     max_epochs = 2
     trainer = Trainer(model=model,
                       train_dataloader=train_dataloader,
@@ -169,6 +183,7 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, tmp_path: pathlib.Pa
                       eval_subset_num_batches=eval_subset_num_batches,
                       train_subset_num_batches=train_subset_num_batches,
                       deepspeed_config={} if deepspeed else None,
+                      fsdp_config=fsdp_config,
                       callbacks=[CheckBatch0(tmp_path)])
 
     trainer.fit()

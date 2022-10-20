@@ -10,7 +10,9 @@ from typing import Type
 import torch
 from torch.nn.parallel import DistributedDataParallel
 
-__all__ = ['is_model_deepspeed', 'is_notebook', 'warning_on_one_line', 'get_free_tcp_port', 'model_eval_mode']
+__all__ = [
+    'is_model_deepspeed', 'is_model_fsdp', 'is_notebook', 'warning_on_one_line', 'get_free_tcp_port', 'model_eval_mode'
+]
 
 
 def is_model_deepspeed(model: torch.nn.Module) -> bool:
@@ -26,6 +28,20 @@ def is_model_deepspeed(model: torch.nn.Module) -> bool:
 def is_model_ddp(model: torch.nn.Module) -> bool:
     """Whether ``model`` is an instance of a :class:`.DistributedDataParallel`."""
     return isinstance(model, DistributedDataParallel)
+
+
+def is_model_fsdp(model: torch.nn.Module) -> bool:
+    """Whether ``model`` is an instance of a :class:`.FullyShardedDataParallel`."""
+    try:
+        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+        is_fsdp = False
+        # Check if model is wrapped with FSDP
+        for _, obj in model.named_children():
+            if isinstance(obj, FSDP):
+                is_fsdp = True
+        return is_fsdp
+    except ImportError:
+        return False
 
 
 def is_notebook():
