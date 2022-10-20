@@ -18,8 +18,10 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Tuple, Unio
 import torch
 import torch.nn as nn
 
+from composer.trainer.devices import Device
 from composer.utils import dist
 from composer.utils.checkpoint import download_checkpoint
+from composer.utils.device import get_device
 from composer.utils.iter_helpers import ensure_tuple
 from composer.utils.misc import is_model_ddp, is_model_deepspeed, model_eval_mode
 from composer.utils.object_store import ObjectStore
@@ -58,11 +60,11 @@ class ExportFormat(StringEnum):
 
 
 def _move_sample_input_to_device(sample_input: Optional[Union[torch.Tensor, dict, list, Tuple]],
-                                 device: torch.device) -> Optional[Union[torch.Tensor, dict, list, Tuple]]:
+                                 device: Device) -> Optional[Union[torch.Tensor, dict, list, Tuple]]:
     """Handle moving sample_input of various types to a device. If possible, avoids creating copies of the input."""
     output = None
     if isinstance(sample_input, torch.Tensor):
-        output = sample_input.to(device)
+        output = device.tensor_to_device(sample_input)
     elif isinstance(sample_input, dict):
         for key, value in sample_input.items():
             sample_input[key] = _move_sample_input_to_device(value, device)
@@ -151,8 +153,8 @@ def export_for_inference(
     sample_input = copy.deepcopy(sample_input)
 
     # Move model and sample input to CPU for export
-    cpu = torch.device('cpu')
-    model.to(device=cpu)
+    cpu = get_device('cpu')
+    cpu.module_to_device(model)
 
     if sample_input is not None:
         sample_input = ensure_tuple(sample_input)
