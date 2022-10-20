@@ -203,6 +203,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         cd /tmp/apex && \
         git clone https://github.com/NVIDIA/apex && \
         cd apex && \
+        pip${PYTHON_VERSION} install --no-cache-dir -r requirements.txt && \
         pip${PYTHON_VERSION} install --no-cache-dir \
             --global-option="--cpp_ext" \
             --global-option="--cuda_ext" \
