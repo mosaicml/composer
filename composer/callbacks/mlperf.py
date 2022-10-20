@@ -13,13 +13,12 @@ import warnings
 from typing import Any, Dict, Iterable, Optional
 
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, IterableDataset
 
 import composer
 from composer.core import State
 from composer.core.callback import Callback
 from composer.loggers import Logger
-from composer.loggers.logger import LogLevel
 from composer.utils import dist
 
 try:
@@ -33,7 +32,7 @@ except ImportError:
     mlperf_available = False
 
 # this callback only supports the following options:
-BENCHMARKS = ('resnet',)
+BENCHMARKS = ('resnet', 'bert')
 DIVISIONS = ('open',)
 STATUS = ('onprem', 'cloud', 'preview')
 
@@ -127,6 +126,7 @@ class MLPerfCallback(Callback):
         cache_clear_cmd (str, optional): Command to invoke during the cache clear. This callback
             will call ``os.system(cache_clear_cmd)``. Default is disabled (None)
         host_processors_per_node (int, optional): Total number of host processors per node.  Default: ``None``.
+        exit_at_target (bool, optional): Whether to exit training when target metric is met. Default: ``False``.
     """
 
     def __init__(
@@ -143,6 +143,7 @@ class MLPerfCallback(Callback):
         status: str = 'onprem',
         cache_clear_cmd: Optional[str] = None,
         host_processors_per_node: Optional[int] = None,
+        exit_at_target: bool = False,
     ) -> None:
 
         _require_mlperf_logging()
@@ -165,6 +166,7 @@ class MLPerfCallback(Callback):
         self.root_folder = root_folder
         self.metric_name = metric_name
         self.metric_label = metric_label
+        self.exit_at_target = exit_at_target
         self._file_handler = None
 
         self.system_desc = get_system_description(submitter, division, status, system_name, host_processors_per_node)
@@ -221,7 +223,7 @@ class MLPerfCallback(Callback):
             })
 
             # optionally, upload the system description file
-            logger.file_artifact(LogLevel.FIT, self.system_desc_upload_name, self.systems_path)
+            logger.upload_file(self.system_desc_upload_name, self.systems_path)
 
     def _create_submission_folders(self, root_folder: str, system_name: str, benchmark: str):
         os.makedirs(root_folder, exist_ok=True)
@@ -247,10 +249,21 @@ class MLPerfCallback(Callback):
         metric = state.eval_metrics[self.metric_label][self.metric_name].compute()
         return float(metric)
 
+    def _get_time(self, state: State) -> int:
+        """Different benchmarks log different units of time."""
+        benchmark_time = {
+            'resnet': state.timestamp.epoch.value,
+            'bert': state.timestamp.sample.value,
+        }
+        return benchmark_time[self.benchmark]
+
     def _get_dataloader_stats(self, dataloader: Iterable):
         """Returns a tuple of ``(batch_size, num_samples)``."""
         if isinstance(dataloader, DataLoader):
-            return (dataloader.batch_size, len(dataloader.dataset))  # type: ignore
+            num_samples = len(dataloader.dataset)  # type: ignore
+            if isinstance(dataloader.dataset, IterableDataset):
+                num_samples *= dist.get_world_size()
+            return (dataloader.batch_size, num_samples)
         try:
             # attempt to import ffcv and test if its an ffcv loader.
             import ffcv  # type: ignore
@@ -298,36 +311,43 @@ class MLPerfCallback(Callback):
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         if _global_rank_zero():
-            self.mllogger.event(key=constants.EPOCH_START, metadata={'epoch_num': state.timestamp.epoch.value})
+            self.mllogger.event(key=constants.EPOCH_START, metadata={'epoch_num': self._get_time(state)})
             self.mllogger.event(key=constants.BLOCK_START,
                                 metadata={
-                                    'first_epoch_num': state.timestamp.epoch.value,
+                                    'first_epoch_num': self._get_time(state),
                                     'epoch_count': 1
                                 })
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         if _global_rank_zero():
-            self.mllogger.event(key=constants.EPOCH_STOP, metadata={'epoch_num': state.timestamp.epoch.value})
-            logger.file_artifact(LogLevel.FIT, artifact_name=self.upload_name, file_path=self.filename)
+            self.mllogger.event(key=constants.EPOCH_STOP, metadata={'epoch_num': self._get_time(state)})
+            logger.upload_file(remote_file_name=self.upload_name, file_path=self.filename)
 
     def eval_start(self, state: State, logger: Logger) -> None:
         if _global_rank_zero():
-            self.mllogger.event(key=constants.EVAL_START, metadata={'epoch_num': state.timestamp.epoch.value})
+            self.mllogger.event(key=constants.EVAL_START, metadata={'epoch_num': self._get_time(state)})
 
     def eval_end(self, state: State, logger: Logger) -> None:
-        if _global_rank_zero():
-            accuracy = self._get_accuracy(state)
+        accuracy = self._get_accuracy(state)
 
-            self.mllogger.event(key=constants.EVAL_STOP, metadata={'epoch_num': state.timestamp.epoch.value})
+        if _global_rank_zero():
+            self.mllogger.event(key=constants.EVAL_STOP, metadata={'epoch_num': self._get_time(state)})
             self.mllogger.event(key=constants.EVAL_ACCURACY,
                                 value=accuracy,
-                                metadata={'epoch_num': state.timestamp.epoch.value})
-            self.mllogger.event(key=constants.BLOCK_STOP, metadata={'first_epoch_num': state.timestamp.epoch.value})
+                                metadata={'epoch_num': self._get_time(state)})
+            self.mllogger.event(key=constants.BLOCK_STOP, metadata={'first_epoch_num': self._get_time(state)})
 
             if accuracy > self.target and not self.success:
                 self.mllogger.event(key=constants.RUN_STOP, metadata={'status': 'success'})
                 self.mllogger.logger.removeHandler(self._file_handler)
                 self.success = True  # only log once
+
+            # upload to object store after eval complete
+            logger.upload_file(remote_file_name=self.upload_name, file_path=self.filename)
+
+        if accuracy > self.target and self.exit_at_target:
+            # stop training
+            state.stop_training()
 
     def close(self, state: State, logger: Logger) -> None:
         if self._file_handler is not None:

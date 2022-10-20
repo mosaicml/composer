@@ -10,11 +10,15 @@ The script is run before any doctests are executed,
 so all imports and variables are available in any doctest.
 The output of this setup script does not show up in the documentation.
 """
+import logging
+
+logging.basicConfig(level=logging.WARN)
 import os
 import sys
 import tempfile
 from typing import Any
 from typing import Callable as Callable
+from urllib.parse import urlparse
 
 import numpy as np
 import torch
@@ -25,7 +29,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 
 import composer
 import composer.loggers
-import composer.loggers.object_store_logger
+import composer.loggers.remote_uploader_downloader
 import composer.trainer
 import composer.trainer.trainer
 import composer.utils
@@ -46,8 +50,7 @@ from composer.core import types as types
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.loggers import InMemoryLogger as InMemoryLogger
 from composer.loggers import Logger as Logger
-from composer.loggers import LogLevel as LogLevel
-from composer.loggers import ObjectStoreLogger
+from composer.loggers import RemoteUploaderDownloader
 from composer.models import ComposerModel as ComposerModel
 from composer.optim.scheduler import ConstantScheduler
 from composer.utils import LibcloudObjectStore
@@ -192,6 +195,9 @@ def _new_trainer_init(self, fake_ellipses: None = None, **kwargs: Any):
         kwargs['progress_bar'] = False  # hide tqdm logging
     if 'log_to_console' not in kwargs:
         kwargs['log_to_console'] = False  # hide console logging
+    if 'load_path' in kwargs and urlparse(kwargs['load_path']).scheme == 's3':
+        kwargs['load_path'] = urlparse(kwargs['load_path']).path.lstrip('/')
+        kwargs['load_object_store'] = LibcloudObjectStore()
     _original_trainer_init(self, **kwargs)
 
 
@@ -203,28 +209,28 @@ def _do_not_validate(*args, **kwargs) -> None:
     pass
 
 
-composer.loggers.object_store_logger._validate_credentials = _do_not_validate  # type: ignore
+composer.loggers.remote_uploader_downloader._validate_credentials = _do_not_validate  # type: ignore
 
-# Patch ObjectStoreLogger __init__ function to replace arguments while preserving type
-_original_objectStoreLogger_init = ObjectStoreLogger.__init__
+# Patch RemoteUploaderDownloader __init__ function to replace arguments while preserving type
+_original_RemoteUploaderDownloader_init = RemoteUploaderDownloader.__init__
 
 
-def _new_objectStoreLogger_init(self, fake_ellipses: None = None, **kwargs: Any):
+def _new_RemoteUploaderDownloader_init(self, fake_ellipses: None = None, **kwargs: Any):
     os.makedirs('./object_store', exist_ok=True)
     kwargs.update(use_procs=False,
                   num_concurrent_uploads=1,
-                  object_store_cls=LibcloudObjectStore,
-                  object_store_kwargs={
+                  bucket_uri='libcloud://.',
+                  backend_kwargs={
                       'provider': 'local',
                       'container': '.',
                       'provider_kwargs': {
                           'key': os.path.abspath('./object_store'),
                       },
                   })
-    _original_objectStoreLogger_init(self, **kwargs)
+    _original_RemoteUploaderDownloader_init(self, **kwargs)
 
 
-ObjectStoreLogger.__init__ = _new_objectStoreLogger_init  # type: ignore
+RemoteUploaderDownloader.__init__ = _new_RemoteUploaderDownloader_init  # type: ignore
 
 # Patch ObjectStore __init__ function to replace arguments while preserving type
 _original_libcloudObjectStore_init = LibcloudObjectStore.__init__

@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import dataclasses
-import datetime
 import logging
 import os
 import warnings
@@ -34,11 +33,12 @@ from composer.optim import ComposerScheduler
 from composer.optim.optimizer_hparams_registry import OptimizerHparams, optimizer_registry
 from composer.optim.scheduler_hparams_registry import scheduler_registry
 from composer.profiler import Profiler
+from composer.trainer import Trainer
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceTPU
 from composer.trainer.devices.device_hparams_registry import device_registry
 from composer.trainer.dist_strategy import DDPSyncStrategy
-from composer.trainer.trainer import Trainer, _is_tpu_installed
 from composer.utils import dist, reproducibility
+from composer.utils.device import is_tpu_installed
 from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
 
 if TYPE_CHECKING:
@@ -244,10 +244,8 @@ class TrainerHparams(hp.Hparams):
 
         save_folder (str, optional): See :class:`.CheckpointSaver`.
         save_filename (str, optional): See :class:`.CheckpointSaver`.
-        save_artifact_name (str, optional): See :class:`.CheckpointSaver`.
         save_latest_filename (str, optional): See
             :class:`.CheckpointSaver`.
-        save_latest_artifact_name (str, optional): See :class:`.CheckpointSaver`.
         save_overwrite (str, optional): See :class:`.CheckpointSaver`.
         save_weights_only (bool, optional): See :class:`.CheckpointSaver`.
         save_interval (str, optional): See
@@ -354,9 +352,7 @@ class TrainerHparams(hp.Hparams):
     # Save Checkpoint
     save_folder: Optional[str] = hp.auto(Trainer, 'save_folder')
     save_filename: str = hp.auto(Trainer, 'save_filename')
-    save_artifact_name: str = hp.auto(Trainer, 'save_artifact_name')
     save_latest_filename: str = hp.auto(Trainer, 'save_latest_filename')
-    save_latest_artifact_name: str = hp.auto(Trainer, 'save_latest_artifact_name')
     save_overwrite: bool = hp.auto(Trainer, 'save_overwrite')
     save_weights_only: bool = hp.auto(Trainer, 'save_weights_only')
     save_interval: str = hp.auto(Trainer, 'save_interval')
@@ -462,7 +458,7 @@ class TrainerHparams(hp.Hparams):
         # Distributed
         # Initialized here so it is available within dataloaders
         if dist.get_world_size() > 1:
-            dist.initialize_dist(device, datetime.timedelta(seconds=self.dist_timeout))
+            dist.initialize_dist(device, self.dist_timeout)
 
         # Reproducibility
         seed = self.seed if self.seed else reproducibility.get_random_seed()
@@ -476,7 +472,7 @@ class TrainerHparams(hp.Hparams):
         model = self.model.initialize_object()
         # on TPUs, model must be moved to device before optimizer creation
         if isinstance(device, DeviceTPU):
-            if not _is_tpu_installed():
+            if not is_tpu_installed():
                 raise ImportError(
                     'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla'
                 )
@@ -561,8 +557,6 @@ class TrainerHparams(hp.Hparams):
             save_overwrite=self.save_overwrite,
             save_filename=self.save_filename,
             save_latest_filename=self.save_latest_filename,
-            save_artifact_name=self.save_artifact_name,
-            save_latest_artifact_name=self.save_latest_artifact_name,
             save_interval=self.save_interval,
             save_weights_only=self.save_weights_only,
             save_num_checkpoints_to_keep=self.save_num_checkpoints_to_keep,

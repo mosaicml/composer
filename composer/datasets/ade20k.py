@@ -336,7 +336,7 @@ class ADE20k(Dataset):
 
     Args:
         datadir (str): the path to the ADE20k folder.
-        split (str): the dataset split to use, either 'train', 'val', or 'test'. Default: ``'train'``.
+        split (str): the dataset split to use, either 'training', 'validation', or 'test'. Default: ``'training'``.
         both_transforms (torch.nn.Module): transformations to apply to the image and target simultaneously.
             Default: ``None``.
         image_transforms (torch.nn.Module): transformations to apply to the image only. Default: ``None``.
@@ -345,7 +345,7 @@ class ADE20k(Dataset):
 
     def __init__(self,
                  datadir: str,
-                 split: str = 'train',
+                 split: str = 'training',
                  both_transforms: Optional[torch.nn.Module] = None,
                  image_transforms: Optional[torch.nn.Module] = None,
                  target_transforms: Optional[torch.nn.Module] = None):
@@ -363,8 +363,8 @@ class ADE20k(Dataset):
             raise FileNotFoundError(f'datadir path does not exist: {self.datadir}')
 
         # Check split value
-        if self.split not in ['train', 'val', 'test']:
-            raise ValueError(f'split must be one of [`train`, `val`, `test`] but is: {self.split}')
+        if self.split not in ['training', 'validation', 'test']:
+            raise ValueError(f'split must be one of [`training`, `validation`, `test`] but is: {self.split}')
 
         self.image_dir = os.path.join(self.datadir, 'images', self.split)
         if not os.path.exists(self.image_dir):
@@ -376,7 +376,7 @@ class ADE20k(Dataset):
         self.image_files = [f for f in self.image_files if f[:3] == 'ADE']
 
         # Remove grayscale samples
-        if self.split == 'train':
+        if self.split == 'training':
             corrupted_samples = ['00003020', '00001701', '00013508', '00008455']
             for sample in corrupted_samples:
                 sample_file = f'ADE_train_{sample}.jpg'
@@ -390,7 +390,7 @@ class ADE20k(Dataset):
         image = Image.open(image_path)
 
         # Load annotation target if using either train or val splits
-        if self.split in ['train', 'val']:
+        if self.split in ['training', 'validation']:
             target_path = os.path.join(self.datadir, 'annotations', self.split, image_file.split('.')[0] + '.png')
             target = Image.open(target_path)
 
@@ -403,7 +403,7 @@ class ADE20k(Dataset):
         if self.image_transforms:
             image = self.image_transforms(image)
 
-        if self.split in ['train', 'val']:
+        if self.split in ['training', 'validation']:
             return image, target  # type: ignore
         else:
             return image

@@ -57,8 +57,16 @@ def test_progress_bar_logger(max_duration: Time[int], monkeypatch: MonkeyPatch, 
         max_duration=max_duration,
         eval_interval=eval_interval,
         progress_bar=True,
-        train_dataloader=torch.utils.data.DataLoader(train_dataset, batch_size=batch_size),
-        eval_dataloader=torch.utils.data.DataLoader(eval_dataset, batch_size=batch_size),
+        train_dataloader=torch.utils.data.DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            sampler=dist.get_sampler(train_dataset),
+        ),
+        eval_dataloader=torch.utils.data.DataLoader(
+            eval_dataset,
+            batch_size=batch_size,
+            sampler=dist.get_sampler(train_dataset),
+        ),
         eval_subset_num_batches=eval_subset_num_batches,
     )
 

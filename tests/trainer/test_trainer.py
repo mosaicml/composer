@@ -80,6 +80,15 @@ class TestTrainerInit():
         with pytest.raises(ValueError, match='magic_device'):
             Trainer(model=model, device='magic_device')
 
+    @world_size(1, 2)
+    @device('gpu', 'cpu')
+    def test_gpu_logging(self, model: ComposerModel, world_size: int, device: str):
+        in_mem_logger = InMemoryLogger()
+        Trainer(model=model, loggers=[in_mem_logger])
+        expected_key, expected_value = f'num_{device}s_per_node', world_size
+        assert expected_key in in_mem_logger.hyperparameters
+        assert in_mem_logger.hyperparameters[expected_key] == expected_value
+
     @device('gpu', 'cpu')
     def test_optimizer_params_on_device(
         self,
@@ -87,13 +96,13 @@ class TestTrainerInit():
         device: str,
     ):
         # Train a model
-        train_dataloader = DataLoader(RandomClassificationDataset())
+        train_dataset = RandomClassificationDataset()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
         max_duration = '2ba'
         trainer = Trainer(
             model=model,
             max_duration=max_duration,
-            train_dataloader=train_dataloader,
+            train_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
             optimizers=optimizer,
         )
         trainer.fit()
@@ -111,12 +120,18 @@ def _assert_optimizer_is_on_device(optimizer: torch.optim.Optimizer):
                 assert v.device.type == 'cuda'
 
 
+def _get_classification_dataloader():
+    dataset = RandomClassificationDataset(size=2)
+    return DataLoader(dataset, sampler=dist.get_sampler(dataset))
+
+
 class TestTrainerInitOrFit:
     """Validate that certain parameters can be passed in on `Trainer.__init__()` or `Trainer.fit()`"""
 
     @pytest.fixture
     def train_dataloader(self):
-        return DataLoader(dataset=RandomClassificationDataset(), batch_size=2)
+        dataset = RandomClassificationDataset()
+        return DataLoader(dataset=dataset, batch_size=2, sampler=dist.get_sampler(dataset))
 
     @pytest.fixture
     def model(self):
@@ -279,19 +294,26 @@ class TestTrainerInitOrFit:
     @pytest.mark.parametrize(
         'eval_dataloader',
         [
-            DataLoader(RandomClassificationDataset(size=2)),  # a normal dataloader
-            Evaluator(label='eval',
-                      dataloader=DataLoader(RandomClassificationDataset(size=2)),
-                      metric_names=['Accuracy']),  # an evaluator
+            _get_classification_dataloader(),  # a normal dataloader
+            Evaluator(
+                label='eval',
+                dataloader=_get_classification_dataloader(),
+                metric_names=['Accuracy'],
+            ),  # an evaluator
             [  # multiple evaluators
-                Evaluator(label='eval1',
-                          dataloader=DataLoader(RandomClassificationDataset(size=2)),
-                          metric_names=['Accuracy']),
-                Evaluator(label='eval2',
-                          dataloader=DataLoader(RandomClassificationDataset(size=2)),
-                          metric_names=['Accuracy'])
+                Evaluator(
+                    label='eval1',
+                    dataloader=_get_classification_dataloader(),
+                    metric_names=['Accuracy'],
+                ),
+                Evaluator(
+                    label='eval2',
+                    dataloader=_get_classification_dataloader(),
+                    metric_names=['Accuracy'],
+                ),
             ],
-        ])
+        ],
+    )
     def test_eval_dataloader(
         self,
         train_dataloader: DataLoader,
@@ -515,10 +537,12 @@ class TestTrainerInitOrFit:
         assert_state_equivalent(init_trainer.state, algo_trainer.state)
 
     def test_dataloader_active_iterator_error(self, model: ComposerModel):
+        dataset = RandomClassificationDataset()
         dataloader = DataLoader(
-            dataset=RandomClassificationDataset(),
+            dataset=dataset,
             persistent_workers=True,
             num_workers=1,
+            sampler=dist.get_sampler(dataset),
         )
 
         # spin one sample
@@ -573,11 +597,16 @@ class TestTrainerInitOrFit:
             event=Event.EVAL_AFTER_FORWARD,
         )
         event_counter_callback = EventCounterCallback()
+        dataset = RandomClassificationDataset()
         trainer = Trainer(
             model=model,
             train_dataloader=train_dataloader,
             train_subset_num_batches=2,  # make training fast
-            eval_dataloader=DataLoader(dataset=RandomClassificationDataset(), batch_size=2),
+            eval_dataloader=DataLoader(
+                dataset=dataset,
+                batch_size=2,
+                sampler=dist.get_sampler(dataset),
+            ),
             callbacks=[sleepy_callback, event_counter_callback],
             eval_interval=eval_interval,
             max_duration='2ep',
@@ -795,21 +824,31 @@ class TestTrainerEquivalence():
     def config(self, device: Device, precision: Precision, world_size: int, rank_zero_seed: int):
         """Returns the reference config."""
 
+        train_dataset = RandomClassificationDataset()
+        eval_dataset = RandomClassificationDataset()
+
         return {
-            'model': SimpleModel(),
-            'train_dataloader': DataLoader(
-                dataset=RandomClassificationDataset(),
-                batch_size=4,
-                shuffle=False,
-            ),
-            'eval_dataloader': DataLoader(
-                dataset=RandomClassificationDataset(),
-                shuffle=False,
-            ),
-            'max_duration': '2ep',
-            'seed': rank_zero_seed,
-            'device': device,
-            'precision': precision,
+            'model':
+                SimpleModel(),
+            'train_dataloader':
+                DataLoader(
+                    dataset=train_dataset,
+                    batch_size=4,
+                    sampler=dist.get_sampler(train_dataset),
+                ),
+            'eval_dataloader':
+                DataLoader(
+                    dataset=eval_dataset,
+                    sampler=dist.get_sampler(eval_dataset),
+                ),
+            'max_duration':
+                '2ep',
+            'seed':
+                rank_zero_seed,
+            'device':
+                device,
+            'precision':
+                precision,
             'loggers': [],  # no progress bar
         }
 
@@ -837,8 +876,8 @@ class TestTrainerEquivalence():
         # grad accum requires non-zero tolerance
         # Precision.AMP requires a even higher tolerance.
         threshold = {
-            'atol': 1e-04 if precision == Precision.AMP else 1e-08,
-            'rtol': 1e-02 if precision == Precision.AMP else 1e-05,
+            'atol': 1e-04 if precision == Precision.AMP else 1e-05,
+            'rtol': 1e-02 if precision == Precision.AMP else 1e-04,
         }
 
         config.update({
@@ -963,11 +1002,13 @@ class TestTrainerEvents():
 
     @pytest.fixture
     def config(self, rank_zero_seed: int):
+        dataset = RandomImageDataset(size=16)
         return {
             'model': SimpleConvModel(),
             'train_dataloader': DataLoader(
-                dataset=RandomImageDataset(size=16),
+                dataset=dataset,
                 batch_size=4,
+                sampler=dist.get_sampler(dataset),
             ),
             'eval_dataloader': None,
             'max_duration': '1ep',

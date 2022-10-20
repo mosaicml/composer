@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 from composer import Trainer
 from composer.core import Event, Time
 from composer.core.time import TimeUnit
+from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
 from tests.common.events import EventCounterCallback
 
@@ -26,17 +27,20 @@ class TestEventCalls:
         model = SimpleModel()
         optimizer = torch.optim.Adam(model.parameters())
 
+        train_dataset = RandomClassificationDataset()
+        eval_dataset = RandomClassificationDataset()
+
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
-                dataset=RandomClassificationDataset(),
-                batch_size=8,
-                shuffle=False,
+                dataset=train_dataset,
+                batch_size=4,
+                sampler=dist.get_sampler(train_dataset),
             ),
             eval_dataloader=DataLoader(
-                dataset=RandomClassificationDataset(),
-                batch_size=16,
-                shuffle=False,
+                dataset=eval_dataset,
+                batch_size=8,
+                sampler=dist.get_sampler(eval_dataset),
             ),
             grad_accum=2,
             precision='fp32',
@@ -60,10 +64,9 @@ class TestEventCalls:
     def test_event_calls(self, world_size, device, deepspeed_zero_stage, save_interval):
         save_interval = Time.from_timestring(save_interval)
 
+        deepspeed_config = None
         if deepspeed_zero_stage:
             deepspeed_config = {'zero_optimization': {'stage': deepspeed_zero_stage}}
-        else:
-            deepspeed_config = None
 
         trainer = self.get_trainer(
             device=device,
