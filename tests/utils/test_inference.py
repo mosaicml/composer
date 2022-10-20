@@ -259,6 +259,7 @@ def test_export_for_inference_onnx(model_cls, sample_input, device):
     model.eval()
 
     composer_device = get_device(device)
+    cpu_device = get_device('cpu')
     sample_input = (composer_device.tensor_to_device(sample_input[0]),
                     composer_device.tensor_to_device(sample_input[1]))
     composer_device.module_to_device(model)
@@ -279,11 +280,11 @@ def test_export_for_inference_onnx(model_cls, sample_input, device):
         ort_session = ort.InferenceSession(save_path)
         loaded_model_out = ort_session.run(
             None,
-            {'input': composer_device.tensor_to_device(sample_input[0]).numpy()},
+            {'input': cpu_device.tensor_to_device(sample_input[0]).numpy()},
         )
 
         torch.testing.assert_close(
-            composer_device.tensor_to_device(orig_out.detach()).numpy(),
+            cpu_device.tensor_to_device(orig_out.detach()).numpy(),
             loaded_model_out[0],
             rtol=1e-4 if isinstance(composer_device, DeviceCPU) else 1e-3,  # lower tolerance for ONNX
             atol=1e-3 if isinstance(composer_device, DeviceCPU) else 1e-2,  # lower tolerance for ONNX
