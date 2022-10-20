@@ -8,11 +8,7 @@ assignees: ''
 ---
 
 ** Environment **
-<!-- Provide the below as necessary -->
-
-- composer version: [dev]
-- OS: [Ubuntu 20.04]
-- Hardware (GPU, or instance type): [V100]
+<!-- Please copy paste the output of running `composer_collect_env` below-->
 
 <!-- if your bug is CUDA related, please also provide your CUDA version -->
 
