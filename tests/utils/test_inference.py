@@ -258,9 +258,10 @@ def test_export_for_inference_onnx(model_cls, sample_input, device):
     model = model_cls()
     model.eval()
 
-    device = get_device(device)
-    sample_input = (device.tensor_to_device(sample_input[0]), device.tensor_to_device(sample_input[1]))
-    device.module_to_device(model)
+    composer_device = get_device(device)
+    sample_input = (composer_device.tensor_to_device(sample_input[0]),
+                    composer_device.tensor_to_device(sample_input[1]))
+    composer_device.module_to_device(model)
     orig_out = model(sample_input)
 
     save_format = 'onnx'
@@ -278,14 +279,14 @@ def test_export_for_inference_onnx(model_cls, sample_input, device):
         ort_session = ort.InferenceSession(save_path)
         loaded_model_out = ort_session.run(
             None,
-            {'input': device.tensor_to_device(sample_input[0]).numpy()},
+            {'input': composer_device.tensor_to_device(sample_input[0]).numpy()},
         )
 
         torch.testing.assert_close(
-            orig_out.detach().cpu().numpy(),
+            composer_device.tensor_to_device(orig_out.detach()).numpy(),
             loaded_model_out[0],
-            rtol=1e-4 if isinstance(device, DeviceCPU) else 1e-3,  # lower tolerance for ONNX
-            atol=1e-3 if isinstance(device, DeviceCPU) else 1e-2,  # lower tolerance for ONNX
+            rtol=1e-4 if isinstance(composer_device, DeviceCPU) else 1e-3,  # lower tolerance for ONNX
+            atol=1e-3 if isinstance(composer_device, DeviceCPU) else 1e-2,  # lower tolerance for ONNX
             msg=lambda msg: f'output mismatch with {save_format}\n\nOriginal message: {msg}',
         )
 
