@@ -434,6 +434,7 @@ def _modules_to_rst() -> List[types.ModuleType]:
         composer.utils.dist,
         composer.utils.reproducibility,
         composer.core.types,
+        composer.core.engine,
     ]
     exclude_modules: List[types.Module] = [composer.trainer, composer._version]
     for name in composer.__dict__:
