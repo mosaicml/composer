@@ -75,6 +75,10 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
         cell_source = cell_source.replace('resnet_56', 'resnet_9')
     if notebook_name == 'training_without_local_storage':
         cell_source = cell_source.replace('my-bucket', s3_bucket)
+    if notebook_name == 'huggingface_models':
+        cell_source = cell_source.replace(
+            'sst2_dataset = datasets.load_dataset("glue", "sst2")',
+            'sst2_dataset = datasets.load_dataset("glue", "sst2", download_mode="force_redownload")')
     return cell_source
 
 
