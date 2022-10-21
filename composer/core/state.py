@@ -599,21 +599,22 @@ class State(Serializable):
         if algorithm_passes is not None:
             for algo_pass in algorithm_passes:
                 algorithms = algo_pass(algorithms, Event.INIT)
-        # Raise ValueError if algorithm_passes order any checkpoint algorithm is ordered before an
-        # already applied user specified algorithm
+        # Raise ValueError if algorithm_passes order any checkpoint algorithm before an already
+        # applied user specified algorithm
         encountered_ckpt_algo = False
         for algo in algorithms:
             if algo in missing_algos:
                 encountered_ckpt_algo = True
             elif encountered_ckpt_algo:
                 raise ValueError(
-                    textwrap.dedent(
-                        'The following algorithms were enabled when training this checkpoint '
-                        f'and are required to successfully load it: {missing_algo_reprs}. '
-                        'Attempted to autocreate and apply required algorithms but an exception was '
-                        'encountered. If you wish to use pretrained weights and reinitialize layers which '
-                        'have undergone surgery, the following algorithms may be excluded using '
-                        f'`load_exclude_algorithms`, e.g. `load_exclude_algorithms=[{missing_algo_names}]`.'))
+                    textwrap.dedent('The following algorithms were enabled when training this checkpoint '
+                                    f'and are required to successfully load it: {missing_algo_reprs}. '
+                                    'Attempted to autocreate and apply required algorithms, but at least one '
+                                    'of the loaded algorithms was ordered before a user specified algorithm, '
+                                    'preventing automatic application of algorithms. If you wish to use pretrained '
+                                    'weights and reinitialize layers which have undergone surgery, the following '
+                                    'algorithms may be excluded using `load_exclude_algorithms`, e.g. '
+                                    f'`load_exclude_algorithms=[{missing_algo_names}]`.'))
 
         try:
             for algo in missing_algos:  # TODO: use compiled algorithm order
