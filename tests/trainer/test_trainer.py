@@ -12,6 +12,7 @@ from typing import List, Optional, Union
 
 import pytest
 import torch
+from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 
@@ -414,6 +415,8 @@ class TestTrainerInitOrFit:
         trainer.fit()
 
     @pytest.mark.gpu
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.12.0'),
+                        reason='requires PyTorch 1.12 or higher')
     @pytest.mark.parametrize('precision', list(Precision))
     def test_fsdp(
         self,
