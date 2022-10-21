@@ -94,6 +94,8 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
         pytest.skip('auto_grad_accum notebook only runs with a gpu')
     if notebook_name == 'TPU_Training_in_composer':
         pytest.skip('The CI does not support tpus')
+    if notebook_name == 'ffcv_dataloaders' and device == 'cpu':
+        pytest.skip('The FFCV notebook requires CUDA')
     with testbook.testbook(notebook) as tb:
         tb.inject(trainer_monkeypatch_code)
         tb.inject('patch_notebooks()')
