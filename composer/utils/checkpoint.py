@@ -98,6 +98,7 @@ def load_checkpoint(
     strict_model_weights: bool = False,
     progress_bar: bool = True,
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
+    exclude_algorithms: Optional[List[str]] = None,
 ):
     """Load a checkpoint from a local file, URI, or cloud object store into ``state``.
 
@@ -169,6 +170,17 @@ def load_checkpoint(
             the state_dict before it is loaded.
 
             (default: ``None``)
+        exclude_algorithms (List[str], optional): A list of algorithm names to exclude from loading.
+            By default, algorithms with `required_on_load=True` which were enabled when training the loaded
+            checkpoint are automatically applied unless they conflict with a user specified algorithm. These
+            algorithms often change the model, and not applying them could result in certain layers not having
+            weights loaded.
+
+            Example 1: ``exclude_algorithms = ["BlurPool"]`` would exclude BlurPool from loading.
+
+            Example 2: ``exclude_algorithms = ["FusedLayerNorm", "Alibi"]`` would exclude FusedLayerNorm and Alibi from loading.
+
+            (default: ``None``)
 
     Returns:
         Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
@@ -195,6 +207,7 @@ def load_checkpoint(
                 load_weights_only=load_weights_only,
                 strict_model_weights=strict_model_weights,
                 ignore_keys=ignore_keys,
+                exclude_algorithms=exclude_algorithms,
             )
         finally:
             # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
@@ -377,6 +390,7 @@ def _restore_checkpoint(
     load_weights_only: bool,
     strict_model_weights: bool,
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]],
+    exclude_algorithms: Optional[List[str]],
 ) -> Optional[List[Dict[str, Any]]]:
     """Restore a checkpoint into ``state`` and returns the rng state dicts (if ``load_weights_only`` is False)."""
     # Now, all ranks load the checkpoint that local rank zero downloaded
@@ -406,10 +420,14 @@ def _restore_checkpoint(
         if load_path is None:
             raise RuntimeError(f'Failed to load DeepSpeed checkpoint')
     elif load_weights_only:
-        state.load_model_state(state_dict['state'], logger, strict=strict_model_weights)
-
+        state.load_model_state(
+            state_dict['state'],
+            logger,
+            strict=strict_model_weights,
+            exclude_algorithms=exclude_algorithms,
+        )
     if not load_weights_only:
-        state.load_state_dict(state_dict['state'], logger)
+        state.load_state_dict(state_dict['state'], logger, exclude_algorithms=exclude_algorithms)
         return state_dict['rng']
 
 

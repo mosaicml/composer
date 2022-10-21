@@ -103,9 +103,13 @@ def test_idempotent(algo_name: str):
 
 
 @pytest.mark.parametrize('algo_name', algorithms.__all__)
-@pytest.mark.parametrize('already_added', [False, True])
-@pytest.mark.parametrize('load_weights_only', [False, True])
-def test_autoload(algo_name: str, already_added: bool, load_weights_only: bool, tmp_path: pathlib.Path):
+@pytest.mark.parametrize('load_weights_only,already_added,exclude', [
+    [False, False, False],
+    [True, False, False],
+    [False, True, False],
+    [False, False, True],
+])
+def test_autoload(algo_name: str, load_weights_only: bool, already_added: bool, exclude: bool, tmp_path: pathlib.Path):
     algo_cls = getattr(algorithms, algo_name)
     if issubclass(algo_cls, Algorithm) and algo_cls.required_on_load():
         algorithm = initialize_algorithm(algo_cls)
@@ -123,19 +127,36 @@ def test_autoload(algo_name: str, already_added: bool, load_weights_only: bool, 
                            algorithms=algorithm,
                            save_folder=str(tmp_path),
                            save_filename='ckpt.pt')
-        checkpoint_saver = [callback for callback in trainer1.state.callbacks if isinstance(callback, CheckpointSaver)
-                           ][0]
+        checkpoint_saver = [cb for cb in trainer1.state.callbacks if isinstance(cb, CheckpointSaver)][0]
         checkpoint_saver._save_checkpoint(trainer1.state, trainer1.logger)
 
         context = contextlib.nullcontext()
-        if not already_added:
+        # Emit warning when autoloading
+        if not already_added and not exclude:
             context = pytest.warns(UserWarning, match='Automatically adding required_on_load algorithm*')
+        # Excluding some algorithms leads to errors when loading
+        elif exclude:
+            if algo_name in ['Factorize', 'SqueezeExcite']:
+                context = pytest.raises(
+                    ValueError,
+                    match=
+                    "loaded state dict contains a parameter group that doesn't match the size of optimizer's group",
+                )
+            elif algo_name == 'Alibi':
+                context = pytest.raises(RuntimeError)
+
         with context:
             trainer2 = Trainer(
                 model=copy.deepcopy(original_model),
                 algorithms=[initialize_algorithm(algo_cls)] if already_added else [],
                 load_path=os.path.join(str(tmp_path), 'ckpt.pt'),
                 load_weights_only=load_weights_only,
+                load_exclude_algorithms=[algo_name] if exclude else None,
             )
-        assert len(trainer2.state.algorithms) == 1
-        assert isinstance(trainer2.state.algorithms[0], algo_cls)
+            # No algorithms are added if we've excluded them
+            if exclude:
+                assert len(trainer2.state.algorithms) == 0
+            # Otherwise, check exactly one copy of algorithm is present
+            else:
+                assert len(trainer2.state.algorithms) == 1
+                assert isinstance(trainer2.state.algorithms[0], algo_cls)

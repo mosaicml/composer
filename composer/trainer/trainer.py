@@ -622,6 +622,17 @@ class Trainer:
             the state_dict before it is loaded.
 
             (default: ``None``)
+        load_exclude_algorithms (List[str], optional): A list of algorithm names to exclude from loading.
+            By default, algorithms with `required_on_load=True` which were enabled when training the loaded
+            checkpoint are automatically applied unless they conflict with a user specified algorithm. These
+            algorithms often change the model, and not applying them could result in certain layers not having
+            weights loaded.
+
+            Example 1: ``load_exclude_algorithms = ["BlurPool"]`` would exclude BlurPool from loading.
+
+            Example 2: ``load_exclude_algorithms = ["FusedLayerNorm", "Alibi"]`` would exclude FusedLayerNorm and Alibi from loading.
+
+            (default: ``None``)
 
         save_folder (str, optional): Format string for the folder where checkpoints are saved.
             If ``None``, checkpoints will not be saved. Can also be a URI for S3 paths only.
@@ -795,6 +806,7 @@ class Trainer:
         load_strict_model_weights: bool = False,
         load_progress_bar: bool = True,
         load_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
+        load_exclude_algorithms: Optional[List[str]] = None,
 
         # Save Checkpoint
         save_folder: Optional[str] = None,
@@ -1205,6 +1217,7 @@ class Trainer:
                 strict_model_weights=load_strict_model_weights,
                 progress_bar=load_progress_bar,
                 ignore_keys=load_ignore_keys,
+                exclude_algorithms=load_exclude_algorithms,
             )
             self.state.run_name = run_name
 

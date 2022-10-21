@@ -7,9 +7,10 @@ from __future__ import annotations
 import collections.abc
 import contextlib
 import logging
+import textwrap
 import warnings
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
@@ -542,12 +543,18 @@ class State(Serializable):
 
         return state_dict
 
-    def _apply_required_algorithms(self, state: Dict[str, Any], logger: Logger):
-        """Applies all required algorithms which haven't already been specified.
+    def _apply_required_algorithms(
+        self,
+        state: Dict[str, Any],
+        logger: Logger,
+        exclude_algorithms: Optional[List[str]] = None,
+    ):
+        """Applies required algorithms which haven't been specified and aren't in the exclude list.
 
         Args:
             state (Dict[str, Any]): State from checkpoint.
             logger (Logger): Logger to use.
+            exclude_algorithms (List[str], optional): List of algorithm names to exclude.
         """
         import composer.algorithms as algorithms  # type: ignore imports used in `eval(representation)`
 
@@ -563,13 +570,15 @@ class State(Serializable):
         for algo_name, serialized_value in state['algorithms'].items():
             try:
                 algo = eval(f"algorithms.{serialized_value['repr']}")
-                if algo.required_on_load():
+                if algo.required_on_load() and (exclude_algorithms is None or
+                                                type(algo).__qualname__ not in exclude_algorithms):
                     if type(algo) in state_algos and not serialized_value['repr'] in state_algos[type(algo)]:
                         warnings.warn(
-                            f"required_on_load algorithm {serialized_value['repr']} was enabled when training the "
-                            f"loaded checkpoint but is now specified in the following forms: {', '.join(state_algos[type(algo)])}."
-                            'Potential paarameter discrepencies for this required_on_load algorithm may lead to '
-                            'unexpected behavior, including failing to load weights for some layers.')
+                            textwrap.dedent(
+                                f"required_on_load algorithm {serialized_value['repr']} was enabled when training the "
+                                f"loaded checkpoint but is now specified in the following forms: {', '.join(state_algos[type(algo)])}."
+                                'Potential paarameter discrepencies for this required_on_load algorithm may lead to '
+                                'unexpected behavior, including failing to load weights for some layers.'))
                     elif type(algo) not in state_algos:
                         missing_algorithms.append((algo, serialized_value['repr']))
             except AttributeError:
@@ -583,18 +592,30 @@ class State(Serializable):
                     algo.apply(Event.INIT, self, logger)
                 self.algorithms.append(algo)
                 warnings.warn(
-                    f'Automatically adding required_on_load algorithm {algo_repr} to trainer, which was enabled '
-                    'when training the loaded checkpoint. If you wish to use pretrained weights and ignore '
-                    'required_on_load algorithms, which may result in some weights failing to load, set `load_weights_only=True`.'
-                )
+                    textwrap.dedent(
+                        f'Automatically adding required_on_load algorithm {algo_repr} to trainer, which was enabled '
+                        'when training the loaded checkpoint. If you wish to use pretrained weights and ignore '
+                        f'required_on_load algorithms, which may result in some weights failing to load, include {type(algo).__qualname__} '
+                        f"in `load_exclude_algorithms`, e.g. `load_exclude_algorithms=['{type(algo).__qualname__}']`."))
         except Exception as e:
-            raise ValueError('The following algorithms were enabled when training this checkpoint '
-                             f"and are required to successfully load it: {', '.join(missing_algorithms)}. "
-                             'Attempted to autocreate and apply required algorithms but an exception was '
-                             'encountered. If you wish to use pretrained weights and reinitialize layers which '
-                             'have undergone surgery, set `load_weights_only=True`.') from e
+            missing_algo_names = ', '.join([f"'{type(algo).__qualname__}'" for algo, _ in missing_algorithms])
+            missing_algo_reprs = ', '.join([algo_repr for _, algo_repr in missing_algorithms])
+            raise ValueError(
+                textwrap.dedent(
+                    'The following algorithms were enabled when training this checkpoint '
+                    f'and are required to successfully load it: {missing_algo_reprs}. '
+                    'Attempted to autocreate and apply required algorithms but an exception was '
+                    'encountered. If you wish to use pretrained weights and reinitialize layers which '
+                    'have undergone surgery, the following algorithms may be excluded using '
+                    f'`load_exclude_algorithms`, e.g. `load_exclude_algorithms=[{missing_algo_names}]`.')) from e
 
-    def load_model_state(self, state_dict: Dict[str, Any], logger: Logger, strict: bool):
+    def load_model_state(
+        self,
+        state_dict: Dict[str, Any],
+        logger: Logger,
+        strict: bool,
+        exclude_algorithms: Optional[List[str]] = None,
+    ):
         """Loads the model's state from a ``state_dict``.
 
         Args:
@@ -602,9 +623,10 @@ class State(Serializable):
             logger (Logger): The logger.
             strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
                 perfectly match the keys in the model instance.
+            exclude_algorithms (List[str], optional): List of algorithm names to exclude from autoloading. Defaults to None.
         """
         if 'algorithms' in state_dict:
-            self._apply_required_algorithms(state_dict, logger)
+            self._apply_required_algorithms(state_dict, logger, exclude_algorithms)
 
         if state_dict.get('is_model_ddp', False) and not self.is_model_ddp:
             # This check is for backwards compatibility, as pre-v0.6.0 checkpoints serialized the state
@@ -632,7 +654,13 @@ class State(Serializable):
             else:
                 target.load_state_dict(source)
 
-    def load_state_dict(self, state: Dict[str, Any], logger: Logger, strict: bool = False):
+    def load_state_dict(
+        self,
+        state: Dict[str, Any],
+        logger: Logger,
+        strict: bool = False,
+        exclude_algorithms: Optional[List[str]] = None,
+    ):
         """Loads the state.
 
         Args:
@@ -640,12 +668,18 @@ class State(Serializable):
             logger (Logger): The logger.
             strict (bool): whether the keys in the ``state["model"]`` should perfectly match the keys in the
                 ``self.model``. Defaults to False.
+            exclude_algorithms (List[str], optional): List of algorithm names to exclude from autoloading. Defaults to None.
         """
         state = _ensure_backwards_compatible_checkpointing(state)
 
         # Call load_model_state since it applies required algorithms
         if 'model' in state:
-            self.load_model_state(state, logger, strict=strict)
+            self.load_model_state(
+                state,
+                logger,
+                strict=strict,
+                exclude_algorithms=exclude_algorithms,
+            )
 
         for attribute_name, serialized_value in state.items():
             # Skip removed attributes and model, which was already loaded
