@@ -1240,6 +1240,7 @@ class Trainer:
                 progress_bar=load_progress_bar,
                 ignore_keys=load_ignore_keys,
                 exclude_algorithms=load_exclude_algorithms,
+                algorithm_passes=self.engine.algorithm_passes,
             )
             self.state.run_name = run_name
 

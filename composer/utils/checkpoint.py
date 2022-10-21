@@ -25,6 +25,7 @@ from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
+    from composer.core.passes import AlgorithmPass
     from composer.core.state import State
     from composer.loggers import Logger, LoggerDestination
 
@@ -99,6 +100,7 @@ def load_checkpoint(
     progress_bar: bool = True,
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
     exclude_algorithms: Optional[List[str]] = None,
+    algorithm_passes: Optional[List[AlgorithmPass]] = None,
 ):
     """Load a checkpoint from a local file, URI, or cloud object store into ``state``.
 
@@ -181,6 +183,8 @@ def load_checkpoint(
             Example 2: ``exclude_algorithms = ["FusedLayerNorm", "Alibi"]`` would exclude FusedLayerNorm and Alibi from loading.
 
             (default: ``None``)
+        algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
+            to sort them into the correct order. (default: ``None``)
 
     Returns:
         Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
@@ -208,6 +212,7 @@ def load_checkpoint(
                 strict_model_weights=strict_model_weights,
                 ignore_keys=ignore_keys,
                 exclude_algorithms=exclude_algorithms,
+                algorithm_passes=algorithm_passes,
             )
         finally:
             # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
@@ -391,6 +396,7 @@ def _restore_checkpoint(
     strict_model_weights: bool,
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]],
     exclude_algorithms: Optional[List[str]],
+    algorithm_passes: Optional[List[AlgorithmPass]],
 ) -> Optional[List[Dict[str, Any]]]:
     """Restore a checkpoint into ``state`` and returns the rng state dicts (if ``load_weights_only`` is False)."""
     # Now, all ranks load the checkpoint that local rank zero downloaded
@@ -425,9 +431,15 @@ def _restore_checkpoint(
             logger,
             strict=strict_model_weights,
             exclude_algorithms=exclude_algorithms,
+            algorithm_passes=algorithm_passes,
         )
     if not load_weights_only:
-        state.load_state_dict(state_dict['state'], logger, exclude_algorithms=exclude_algorithms)
+        state.load_state_dict(
+            state_dict['state'],
+            logger,
+            exclude_algorithms=exclude_algorithms,
+            algorithm_passes=algorithm_passes,
+        )
         return state_dict['rng']
 
 

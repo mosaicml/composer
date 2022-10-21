@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
     from composer.core.evaluator import Evaluator
+    from composer.core.passes import AlgorithmPass
     from composer.loggers import Logger
     from composer.profiler import Profiler
 
@@ -551,13 +552,16 @@ class State(Serializable):
         state: Dict[str, Any],
         logger: Logger,
         exclude_algorithms: Optional[List[str]] = None,
+        algorithm_passes: Optional[List[AlgorithmPass]] = None,
     ):
         """Applies required algorithms which haven't been specified and aren't in the exclude list.
 
         Args:
             state (Dict[str, Any]): State from checkpoint.
             logger (Logger): Logger to use.
-            exclude_algorithms (List[str], optional): List of algorithm names to exclude.
+            exclude_algorithms (List[str], optional): List of algorithm names to exclude. (default: ``None``)
+            algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
+                to sort them into the correct order. (default: ``None``)
         """
         import composer.algorithms as algorithms  # type: ignore imports used in `eval(representation)`
 
@@ -569,7 +573,10 @@ class State(Serializable):
                     state_algos[type(algo)] = []
                 state_algos[type(algo)].append(algo.__repr__())
 
-        missing_algorithms = []
+        # Gather algorithms to apply
+        missing_algos = set()
+        missing_algo_names = []
+        missing_algo_reprs = []
         for algo_name, serialized_value in state['algorithms']:
             if hasattr(algorithms, algo_name) and getattr(algorithms, algo_name).required_on_load():
                 algo = eval(f"algorithms.{serialized_value['repr']}")
@@ -579,26 +586,46 @@ class State(Serializable):
                             textwrap.dedent(
                                 f"required_on_load algorithm {serialized_value['repr']} was enabled when training the "
                                 f"loaded checkpoint but is now specified in the following forms: {', '.join(state_algos[type(algo)])}."
-                                'Potential paarameter discrepencies for this required_on_load algorithm may lead to '
+                                'Potential parameter discrepancies for this required_on_load algorithm may lead to '
                                 'unexpected behavior, including failing to load weights for some layers.'))
                     elif type(algo) not in state_algos:
-                        missing_algorithms.append((algo, serialized_value['repr']))
+                        missing_algos.add(algo)
+                        missing_algo_names.append(algo_name)
+                        missing_algo_reprs.append(serialized_value['repr'])
+                        self.algorithms.append(algo)
+
+        # Reorder algorithms based on algorithm_passes from engine
+        algorithms = self.algorithms
+        if algorithm_passes is not None:
+            for passes in algorithm_passes:
+                algorithms = passes(algorithms, Event.INIT)
+        # Raise ValueError if algorithm_passes order any checkpoint algorithm is ordered before an
+        # already applied user specified algorithm
+        encountered_ckpt_algo = False
+        for algo in algorithms:
+            if algo in missing_algos:
+                encountered_ckpt_algo = True
+            elif encountered_ckpt_algo:
+                raise ValueError(
+                    textwrap.dedent(
+                        'The following algorithms were enabled when training this checkpoint '
+                        f'and are required to successfully load it: {missing_algo_reprs}. '
+                        'Attempted to autocreate and apply required algorithms but an exception was '
+                        'encountered. If you wish to use pretrained weights and reinitialize layers which '
+                        'have undergone surgery, the following algorithms may be excluded using '
+                        f'`load_exclude_algorithms`, e.g. `load_exclude_algorithms=[{missing_algo_names}]`.'))
 
         try:
-            for algo, algo_repr in missing_algorithms:
+            for algo in missing_algos:  # TODO: use compiled algorithm order
                 if algo.match(Event.INIT, self):
                     algo.apply(Event.INIT, self, logger)
-                self.algorithms.append(algo)
                 warnings.warn(
                     textwrap.dedent(
-                        f'Automatically adding required_on_load algorithm {algo_repr} to trainer, which was enabled '
-                        'when training the loaded checkpoint. This may result in algorithms applied in the wrong order '
-                        f'so it is recommended to manually specify {algo_repr}. If you wish to use pretrained weights and ignore '
+                        f'Automatically adding required_on_load algorithm {repr(algo)} to trainer, which was enabled '
+                        'when training the loaded checkpoint. If you wish to use pretrained weights and ignore '
                         f'required_on_load algorithms, which may result in some weights failing to load, include {type(algo).__qualname__} '
                         f"in `load_exclude_algorithms`, e.g. `load_exclude_algorithms=['{type(algo).__qualname__}']`."))
         except Exception as e:
-            missing_algo_names = ', '.join([f"'{type(algo).__qualname__}'" for algo, _ in missing_algorithms])
-            missing_algo_reprs = ', '.join([algo_repr for _, algo_repr in missing_algorithms])
             raise ValueError(
                 textwrap.dedent(
                     'The following algorithms were enabled when training this checkpoint '
@@ -614,6 +641,7 @@ class State(Serializable):
         logger: Logger,
         strict: bool,
         exclude_algorithms: Optional[List[str]] = None,
+        algorithm_passes: Optional[List[AlgorithmPass]] = None,
     ):
         """Loads the model's state from a ``state_dict``.
 
@@ -622,10 +650,12 @@ class State(Serializable):
             logger (Logger): The logger.
             strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
                 perfectly match the keys in the model instance.
-            exclude_algorithms (List[str], optional): List of algorithm names to exclude from autoloading. Defaults to None.
+            exclude_algorithms (List[str], optional): List of algorithm names to exclude from autoloading. (default: ``None``)
+            algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
+                to sort them into the correct order. (default: ``None``)
         """
         if 'algorithms' in state_dict:
-            self._apply_required_algorithms(state_dict, logger, exclude_algorithms)
+            self._apply_required_algorithms(state_dict, logger, exclude_algorithms, algorithm_passes)
 
         if state_dict.get('is_model_ddp', False) and not self.is_model_ddp:
             # This check is for backwards compatibility, as pre-v0.6.0 checkpoints serialized the state
@@ -659,6 +689,7 @@ class State(Serializable):
         logger: Logger,
         strict: bool = False,
         exclude_algorithms: Optional[List[str]] = None,
+        algorithm_passes: Optional[List[AlgorithmPass]] = None,
     ):
         """Loads the state.
 
@@ -667,7 +698,9 @@ class State(Serializable):
             logger (Logger): The logger.
             strict (bool): whether the keys in the ``state["model"]`` should perfectly match the keys in the
                 ``self.model``. Defaults to False.
-            exclude_algorithms (List[str], optional): List of algorithm names to exclude from autoloading. Defaults to None.
+            exclude_algorithms (List[str], optional): List of algorithm names to exclude from autoloading. (default: ``None``)
+            algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
+                to sort them into the correct order. (default: ``None``)
         """
         state = _ensure_backwards_compatible_checkpointing(state)
 
@@ -678,6 +711,7 @@ class State(Serializable):
                 logger,
                 strict=strict,
                 exclude_algorithms=exclude_algorithms,
+                algorithm_passes=algorithm_passes,
             )
 
         for attribute_name, serialized_value in state.items():
