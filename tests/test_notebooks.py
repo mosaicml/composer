@@ -98,6 +98,8 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
         pytest.skip('The FFCV notebook requires CUDA')
     if notebook_name == 'streaming_dataloader_facesynthetics':
         pytest.skip('Jenkins is killing this notebook for some reason, it should work locally')
+    if notebook_name == 'training_without_local_storage':
+        pytest.skip('Jenkins is not getting the S3 credentials set up properly, it should work locally')
     with testbook.testbook(notebook) as tb:
         tb.inject(trainer_monkeypatch_code)
         tb.inject('patch_notebooks()')
