@@ -534,6 +534,9 @@ class State(Serializable):
                     serialized_value = {
                         type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)
                     }
+            elif attribute_name == 'algorithms':
+                # Store as list to preserve order in which algorithms were applied
+                serialized_value = [(type(obj).__qualname__, obj.state_dict()) for obj in ensure_tuple(attribute_value)]
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 serialized_value = {type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)}
             else:
@@ -567,7 +570,7 @@ class State(Serializable):
                 state_algos[type(algo)].append(algo.__repr__())
 
         missing_algorithms = []
-        for algo_name, serialized_value in state['algorithms'].items():
+        for algo_name, serialized_value in state['algorithms']:
             if hasattr(algorithms, algo_name) and getattr(algorithms, algo_name).required_on_load():
                 algo = eval(f"algorithms.{serialized_value['repr']}")
                 if exclude_algorithms is None or type(algo).__qualname__ not in exclude_algorithms:
@@ -589,7 +592,8 @@ class State(Serializable):
                 warnings.warn(
                     textwrap.dedent(
                         f'Automatically adding required_on_load algorithm {algo_repr} to trainer, which was enabled '
-                        'when training the loaded checkpoint. If you wish to use pretrained weights and ignore '
+                        'when training the loaded checkpoint. This may result in algorithms applied in the wrong order '
+                        f'so it is recommended to manually specify {algo_repr}. If you wish to use pretrained weights and ignore '
                         f'required_on_load algorithms, which may result in some weights failing to load, include {type(algo).__qualname__} '
                         f"in `load_exclude_algorithms`, e.g. `load_exclude_algorithms=['{type(algo).__qualname__}']`."))
         except Exception as e:
@@ -677,9 +681,8 @@ class State(Serializable):
             )
 
         for attribute_name, serialized_value in state.items():
-            # Skip removed attributes and model, which was already loaded
-            if attribute_name not in self.serialized_attributes or attribute_name == 'model':
-                # It's possible we removed some attributes
+            # Skip removed attributes as well as algorithms and model, which was already loaded
+            if attribute_name not in self.serialized_attributes or attribute_name == 'algorithms' or attribute_name == 'model':
                 continue
 
             if attribute_name == 'optimizers':
