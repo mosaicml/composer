@@ -51,7 +51,8 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
     """
 
     def maybe_replace(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
-        if isinstance(module, _TORCH_BATCHNORM_BASE_CLASS):
+        already_ghost_batchnormed = hasattr(module, '_already_ghost_batchnormed') and module._already_ghost_batchnormed
+        if isinstance(module, _TORCH_BATCHNORM_BASE_CLASS) and not already_ghost_batchnormed:
             return _GhostBatchNorm.from_batchnorm(module, ghost_batch_size=ghost_batch_size)
 
     # we have to specify class names explicitly because replace_module_classes
@@ -152,6 +153,7 @@ class _GhostBatchNorm(torch.nn.Module):
         super().__init__()
         self.ghost_batch_size = ghost_batch_size
         self.batchnorm = base_batchnorm
+        self.batchnorm._already_ghost_batchnormed = True  # Mark to avoid rewrapping on duplicate calls
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:  # type: ignore
         batch_size = input.shape[0]

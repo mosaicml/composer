@@ -115,7 +115,7 @@ def _filter_metrics(metrics: Dict[str, Metric], metric_names: Optional[List[str]
 
 def _validate_precision(precision: Precision, device: Device, deepspeed_enabled: bool):
     if isinstance(device, DeviceCPU) and precision != Precision.FP32:
-        raise ValueError(f'{precision} is not supproted for CPU training.')
+        raise ValueError(f'{precision} is not supported for CPU training.')
     if not deepspeed_enabled and precision == Precision.FP16:
         raise ValueError('FP16 precision is only supported when training with DeepSpeed.')
 
@@ -250,7 +250,8 @@ def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
 
     # using int64 to prevent overflow
     rank_zero_seed = device.tensor_to_device(torch.tensor([seed], dtype=torch.int64))
-    dist.broadcast(rank_zero_seed, src=0)
+    if dist.get_world_size() > 1:
+        dist.broadcast(rank_zero_seed, src=0)
     rank_zero_seed = rank_zero_seed.item()
     assert isinstance(rank_zero_seed, int)
     seed = rank_zero_seed + dist.get_global_rank()
@@ -742,6 +743,11 @@ class Trainer:
 
                 See the :doc:`Profiling Guide </trainer/performance_tutorials/profiling>` for
                 additional information.
+        python_log_level (str, optional): The Python log level to use for log statements in the :mod:`composer`
+            module. (default: ``None``). If it is ``None``, python logging will not be configured (i.e.
+            ``logging.basicConfig`` won't be called).
+
+            .. seealso:: The :mod:`logging` module in Python.
 
     Attributes:
         state (State): The :class:`.State` object used to store training state.
@@ -830,7 +836,23 @@ class Trainer:
 
         # Profiling
         profiler: Optional[Profiler] = None,
+
+        # Python logging
+        python_log_level: Optional[str] = None,
     ):
+
+        self.python_log_level = python_log_level
+        if self.python_log_level is not None:
+            logging.basicConfig(
+                # Example of format string
+                # 2022-06-29 11:22:26,152: rank0[822018][MainThread]: INFO: composer.trainer.trainer: Using precision Precision.FP32
+                # Including the PID and thread name to help with debugging dataloader workers and callbacks that spawn background
+                # threads / processes
+                format=
+                f'%(asctime)s: rank{dist.get_global_rank()}[%(process)d][%(threadName)s]: %(levelname)s: %(name)s: %(message)s'
+            )
+            logging.getLogger('composer').setLevel(self.python_log_level.upper())
+
         algorithms = list(ensure_tuple(algorithms))
 
         # Device
@@ -1207,11 +1229,15 @@ class Trainer:
             )
             self.state.run_name = run_name
 
+        self.engine.run_event(Event.AFTER_LOAD)
+
         # reseed here. This helps with a couple of issues:
-        # 1. rng state may change at Event.INIT. For example, if an algorithm creates a new module and module
-        # parameters are initialized randomly, rng state will change. This reseeding nullifies such effects.
-        # 2. While resuming from a checkpoint, we want to spin dataloader and bring it back to the same state as at the time
-        # of the checkpoint. Therefore, spinning needs to start from the same rng state as in the original run.
+        # 1. rng state may change at Event.INIT/Event.AFTER_LOAD. For example, if an algorithm
+        # creates a new module and module parameters are initialized randomly, rng state will
+        # change. This reseeding nullifies such effects.
+        # 2. While resuming from a checkpoint, we want to spin dataloader and bring it back to the
+        # same state as at the time of the checkpoint. Therefore, spinning needs to start from the
+        # same rng state as in the original run.
         log.info(f'Setting seed to {self.state.seed}')
         reproducibility.seed_all(self.state.seed)
 
