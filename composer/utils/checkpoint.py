@@ -26,7 +26,7 @@ from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
     from composer.core.state import State
-    from composer.loggers import LoggerDestination
+    from composer.loggers import Logger, LoggerDestination
 
 log = logging.getLogger(__name__)
 
@@ -92,6 +92,7 @@ class PartialFilePath:
 def load_checkpoint(
     path: str,
     state: State,
+    logger: Logger,
     object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
     load_weights_only: bool = False,
     strict_model_weights: bool = False,
@@ -135,6 +136,7 @@ def load_checkpoint(
             correct state.
 
         state (State): The :class:`~composer.core.State` to load the checkpoint into.
+        logger (Logger): The :class:`~composer.logger.Logger` to log any information.
         object_store (Union[ObjectStore, LoggerDestination], optional): If the ``path`` is in an object store
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.ObjectStore` or :class:`~.LoggerDestination` which will be used
@@ -186,6 +188,7 @@ def load_checkpoint(
             )
             rng_state_dicts = _restore_checkpoint(
                 state,
+                logger,
                 composer_states_filepath,
                 extracted_rank_n,
                 extracted_checkpoint_folder,
@@ -367,6 +370,7 @@ def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
 
 def _restore_checkpoint(
     state: State,
+    logger: Logger,
     composer_states_filepath: str,
     extracted_rank_n: bool,
     extracted_checkpoint_folder: Optional[str],
@@ -402,10 +406,10 @@ def _restore_checkpoint(
         if load_path is None:
             raise RuntimeError(f'Failed to load DeepSpeed checkpoint')
     elif load_weights_only:
-        state.load_model_state(state_dict['state'], strict=strict_model_weights)
+        state.load_model_state(state_dict['state'], logger, strict=strict_model_weights)
 
     if not load_weights_only:
-        state.load_state_dict(state_dict['state'])
+        state.load_state_dict(state_dict['state'], logger)
         return state_dict['rng']
 
 

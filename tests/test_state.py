@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 
 from composer.core import Precision, State
 from composer.core.types import Batch
+from composer.loggers import Logger
 from tests.common import SimpleModel, assert_state_equivalent
 from tests.common.datasets import RandomClassificationDataset
 
@@ -57,7 +58,7 @@ def train_one_step(state: State, batch: Batch) -> None:
     state.timestamp = state.timestamp.to_next_batch(len(batch))
 
 
-def test_state_serialize(tmp_path: pathlib.Path,):
+def test_state_serialize(tmp_path: pathlib.Path, empty_logger: Logger):
     state1 = get_dummy_state()
     state2 = get_dummy_state()
 
@@ -79,7 +80,7 @@ def test_state_serialize(tmp_path: pathlib.Path,):
     torch.save(state_dict, filepath)
 
     state_dict_2 = torch.load(filepath, map_location='cpu')
-    state2.load_state_dict(state_dict_2)
+    state2.load_state_dict(state_dict_2, empty_logger)
 
     # serialization/deserialization should be exact
     assert_state_equivalent(state1, state2)

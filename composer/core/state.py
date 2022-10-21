@@ -31,11 +31,12 @@ if TYPE_CHECKING:
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
     from composer.core.evaluator import Evaluator
+    from composer.loggers import Logger
     from composer.profiler import Profiler
 
 __all__ = ['State']
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 @contextmanager
@@ -541,45 +542,12 @@ class State(Serializable):
 
         return state_dict
 
-    def load_model_state(self, state_dict: Dict[str, Any], strict: bool):
-        """Loads the model's state from a ``state_dict``.
-
-        Args:
-            state_dict (Dict[str, Any]): The state dict, generated from a previous call to :meth:`state_dict`.
-            strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
-                perfectly match the keys in the model instance.
-        """
-        if state_dict.get('is_model_ddp', False) and not self.is_model_ddp:
-            # This check is for backwards compatibility, as pre-v0.6.0 checkpoints serialized the state
-            # with the `module.` prefix
-            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
-
-        with get_fsdp_rank0_cpu_save_context(self.model) if self.fsdp_enabled else contextlib.nullcontext():
-            missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
-        if len(missing_keys) > 0:
-            logger.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
-        if len(unexpected_keys) > 0:
-            logger.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
-
-    def load_optim_state(self, state_dict: Dict[str, Any]):
-        serialized_value = state_dict['optimizers']
-        for target in ensure_tuple(self.optimizers):
-            if type(target).__qualname__ not in serialized_value:
-                warnings.warn(f'{type(target).__qualname__} is not in the state_dict. Its state will not be restored.',
-                              category=UserWarning)
-                continue
-            source = serialized_value[type(target).__qualname__]
-            if self.fsdp_enabled:
-                sharded_osd = get_fsdp_sharded_optim_state_dict(full_optim_state_dict=source, model=self.model)
-                target.load_state_dict(sharded_osd)
-            else:
-                target.load_state_dict(source)
-
-    def _apply_required_algorithms(self, state: Dict[str, Any]):
+    def _apply_required_algorithms(self, state: Dict[str, Any], logger: Logger):
         """Applies all required algorithms which haven't already been specified.
 
         Args:
             state (Dict[str, Any]): State from checkpoint.
+            logger (Logger): Logger to use.
         """
         import composer.algorithms as algorithms  # type: ignore imports used in `eval(representation)`
 
@@ -605,14 +573,14 @@ class State(Serializable):
                     elif type(algo) not in state_algos:
                         missing_algorithms.append((algo, serialized_value['repr']))
             except AttributeError:
-                logger.warning(
+                log.warning(
                     f'Found unknown algorithm {algo_name}. Skipping check for if it is required when loading checkpoint.'
                 )
 
         try:
             for algo, algo_repr in missing_algorithms:
                 if algo.match(Event.INIT, self):
-                    algo.apply(Event.INIT, self)
+                    algo.apply(Event.INIT, self, logger)
                 self.algorithms.append(algo)
                 warnings.warn(
                     f'Automatically adding required_on_load algorithm {algo_repr} to trainer, which was enabled '
@@ -626,27 +594,66 @@ class State(Serializable):
                              'encountered. If you wish to use pretrained weights and reinitialize layers which '
                              'have undergone surgery, set `load_weights_only=True`.') from e
 
-    def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
+    def load_model_state(self, state_dict: Dict[str, Any], logger: Logger, strict: bool):
+        """Loads the model's state from a ``state_dict``.
+
+        Args:
+            state_dict (Dict[str, Any]): The state dict, generated from a previous call to :meth:`state_dict`.
+            logger (Logger): The logger.
+            strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
+                perfectly match the keys in the model instance.
+        """
+        if 'algorithms' in state_dict:
+            self._apply_required_algorithms(state_dict, logger)
+
+        if state_dict.get('is_model_ddp', False) and not self.is_model_ddp:
+            # This check is for backwards compatibility, as pre-v0.6.0 checkpoints serialized the state
+            # with the `module.` prefix
+            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
+
+        with get_fsdp_rank0_cpu_save_context(self.model) if self.fsdp_enabled else contextlib.nullcontext():
+            missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
+        if len(missing_keys) > 0:
+            log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
+        if len(unexpected_keys) > 0:
+            log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
+
+    def load_optim_state(self, state_dict: Dict[str, Any]):
+        serialized_value = state_dict['optimizers']
+        for target in ensure_tuple(self.optimizers):
+            if type(target).__qualname__ not in serialized_value:
+                warnings.warn(f'{type(target).__qualname__} is not in the state_dict. Its state will not be restored.',
+                              category=UserWarning)
+                continue
+            source = serialized_value[type(target).__qualname__]
+            if self.fsdp_enabled:
+                sharded_osd = get_fsdp_sharded_optim_state_dict(full_optim_state_dict=source, model=self.model)
+                target.load_state_dict(sharded_osd)
+            else:
+                target.load_state_dict(source)
+
+    def load_state_dict(self, state: Dict[str, Any], logger: Logger, strict: bool = False):
         """Loads the state.
 
         Args:
             state (Dict[str, Any]): object returned from call to :meth:`state_dict`.
+            logger (Logger): The logger.
             strict (bool): whether the keys in the ``state["model"]`` should perfectly match the keys in the
                 ``self.model``. Defaults to False.
         """
         state = _ensure_backwards_compatible_checkpointing(state)
 
-        if 'algorithms' in state:
-            self._apply_required_algorithms(state)
+        # Call load_model_state since it applies required algorithms
+        if 'model' in state:
+            self.load_model_state(state, logger, strict=strict)
 
         for attribute_name, serialized_value in state.items():
-            if attribute_name not in self.serialized_attributes:
-                # It's possible some attributes we removed
+            # Skip removed attributes and model, which was already loaded
+            if attribute_name not in self.serialized_attributes or attribute_name == 'model':
+                # It's possible we removed some attributes
                 continue
 
-            if attribute_name == 'model':
-                self.load_model_state(state, strict=strict)
-            elif attribute_name == 'optimizers':
+            if attribute_name == 'optimizers':
                 self.load_optim_state(state)
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 state_field_value = getattr(self, attribute_name)

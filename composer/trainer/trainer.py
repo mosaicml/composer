@@ -1198,6 +1198,7 @@ class Trainer:
             _, _, parsed_load_path = _parse_uri(load_path)
             self._rng_state = checkpoint.load_checkpoint(
                 state=self.state,
+                logger=self.logger,
                 path=parsed_load_path,
                 object_store=load_object_store,
                 load_weights_only=load_weights_only,

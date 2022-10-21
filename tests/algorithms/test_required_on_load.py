@@ -3,12 +3,15 @@
 
 import contextlib
 import copy
+import os
+import pathlib
 from typing import Type
 
 import pytest
 import torch
 
 from composer import Trainer, algorithms
+from composer.callbacks import CheckpointSaver
 from composer.core import Algorithm, Time, TimeUnit  # type: ignore imports used in `eval(representation)`
 from composer.models import ComposerClassifier, ComposerModel, composer_resnet, create_bert_classification
 from tests.common import ConvModel
@@ -97,3 +100,42 @@ def test_idempotent(algo_name: str):
         ).state.model
         compare_models(original_model, applied_twice_model, is_equal=False)  # Surgery actually changes model
         compare_models(applied_once_model, applied_twice_model, is_equal=True)  # Multiple applications are no-ops
+
+
+@pytest.mark.parametrize('algo_name', algorithms.__all__)
+@pytest.mark.parametrize('already_added', [False, True])
+@pytest.mark.parametrize('load_weights_only', [False, True])
+def test_autoload(algo_name: str, already_added: bool, load_weights_only: bool, tmp_path: pathlib.Path):
+    algo_cls = getattr(algorithms, algo_name)
+    if issubclass(algo_cls, Algorithm) and algo_cls.required_on_load():
+        algorithm = initialize_algorithm(algo_cls)
+
+        original_model = None
+        if algo_name == 'StochasticDepth':
+            original_model = composer_resnet(model_name='resnet50')
+        elif algo_name in ['Alibi', 'GatedLinearUnits']:
+            pytest.importorskip('transformers')
+            original_model = create_bert_classification()
+        else:
+            original_model = ConvModel()
+
+        trainer1 = Trainer(model=copy.deepcopy(original_model),
+                           algorithms=algorithm,
+                           save_folder=str(tmp_path),
+                           save_filename='ckpt.pt')
+        checkpoint_saver = [callback for callback in trainer1.state.callbacks if isinstance(callback, CheckpointSaver)
+                           ][0]
+        checkpoint_saver._save_checkpoint(trainer1.state, trainer1.logger)
+
+        context = contextlib.nullcontext()
+        if not already_added:
+            context = pytest.warns(UserWarning, match='Automatically adding required_on_load algorithm*')
+        with context:
+            trainer2 = Trainer(
+                model=copy.deepcopy(original_model),
+                algorithms=[initialize_algorithm(algo_cls)] if already_added else [],
+                load_path=os.path.join(str(tmp_path), 'ckpt.pt'),
+                load_weights_only=load_weights_only,
+            )
+        assert len(trainer2.state.algorithms) == 1
+        assert isinstance(trainer2.state.algorithms[0], algo_cls)
