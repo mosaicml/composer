@@ -597,8 +597,8 @@ class State(Serializable):
         # Reorder algorithms based on algorithm_passes from engine
         algorithms = self.algorithms
         if algorithm_passes is not None:
-            for passes in algorithm_passes:
-                algorithms = passes(algorithms, Event.INIT)
+            for algo_pass in algorithm_passes:
+                algorithms = algo_pass(algorithms, Event.INIT)
         # Raise ValueError if algorithm_passes order any checkpoint algorithm is ordered before an
         # already applied user specified algorithm
         encountered_ckpt_algo = False
