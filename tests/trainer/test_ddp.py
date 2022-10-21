@@ -7,6 +7,7 @@ import pathlib
 import pytest
 import torch
 import torch.distributed
+from packaging import version
 from torch.utils.data import DataLoader
 
 import composer.core.types as types
@@ -84,7 +85,15 @@ class CheckBatch0(Callback):
     pytest.param('cpu', False, False, id='cpu'),
     pytest.param('gpu', False, False, id='gpu', marks=pytest.mark.gpu),
     pytest.param('gpu', True, False, id='deepspeed', marks=pytest.mark.gpu),
-    pytest.param('gpu', False, True, id='fsdp', marks=pytest.mark.gpu),
+    pytest.param('gpu',
+                 False,
+                 True,
+                 id='fsdp',
+                 marks=[
+                     pytest.mark.gpu,
+                     pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.12.0'),
+                                        reason='requires PyTorch 1.12 or higher')
+                 ]),
 ])
 @pytest.mark.parametrize('world_size', [
     pytest.param(1),
