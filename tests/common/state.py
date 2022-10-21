@@ -37,10 +37,10 @@ def assert_state_equivalent(state1: State, state2: State):
 
     # Remove algorithm representations which are memory addresses
     for i, algo_info in enumerate(state_dict_1['algorithms']):
-        if '0x' in algo_info[1]:
+        if '0x' in algo_info[1]['repr']:
             del state_dict_1['algorithms'][i]
     for i, algo_info in enumerate(state_dict_2['algorithms']):
-        if '0x' in algo_info[1]:
+        if '0x' in algo_info[1]['repr']:
             del state_dict_2['algorithms'][i]
 
     # Compare the state dicts
