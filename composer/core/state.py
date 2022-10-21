@@ -568,10 +568,9 @@ class State(Serializable):
 
         missing_algorithms = []
         for algo_name, serialized_value in state['algorithms'].items():
-            try:
+            if hasattr(algorithms, algo_name) and getattr(algorithms, algo_name).required_on_load():
                 algo = eval(f"algorithms.{serialized_value['repr']}")
-                if algo.required_on_load() and (exclude_algorithms is None or
-                                                type(algo).__qualname__ not in exclude_algorithms):
+                if exclude_algorithms is None or type(algo).__qualname__ not in exclude_algorithms:
                     if type(algo) in state_algos and not serialized_value['repr'] in state_algos[type(algo)]:
                         warnings.warn(
                             textwrap.dedent(
@@ -581,10 +580,6 @@ class State(Serializable):
                                 'unexpected behavior, including failing to load weights for some layers.'))
                     elif type(algo) not in state_algos:
                         missing_algorithms.append((algo, serialized_value['repr']))
-            except AttributeError:
-                log.warning(
-                    f'Found unknown algorithm {algo_name}. Skipping check for if it is required when loading checkpoint.'
-                )
 
         try:
             for algo, algo_repr in missing_algorithms:
