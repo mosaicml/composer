@@ -46,7 +46,7 @@ transforms. For example, with :doc:`/method_cards/randaugment`:
 
     from composer import functional as cf
 
-    c10_transforms = transforms.Compose([cf.randaugment(), # <---- Add RandAugment
+    c10_transforms = transforms.Compose([cf.randaugment_image(), # <---- Add RandAugment
                                         transforms.ToTensor(),
                                         transforms.Normalize(mean, std)])
 
@@ -167,10 +167,12 @@ training loop at various :class:`.Events` and effect their changes by modifing t
 .. state.model = model()
 .. state.train_dataloader = train_dataloader()
 .. state.optimizers = optimizers()
+.. load_checkpoint()
+.. EVENT.AFTER_LOAD
 .. EVENT.FIT_START
 .. for epoch in epochs:
 .. 	EVENT.EPOCH_START
-.. 	for batch in state,train_dataloader:
+.. 	for batch in state.train_dataloader:
 .. 		EVENT.AFTER_DATALOADER
 .. 		EVENT.BATCH_START
 .. 		prepare_batch_for_training()

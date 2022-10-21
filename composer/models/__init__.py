@@ -24,6 +24,7 @@ from composer.models.gpt2 import GPT2Hparams as GPT2Hparams
 from composer.models.gpt2 import create_gpt2 as create_gpt2
 from composer.models.huggingface import HuggingFaceModel as HuggingFaceModel
 from composer.models.initializers import Initializer as Initializer
+from composer.models.mmdetection import MMDetModel as MMDetModel
 from composer.models.model_hparams import ModelHparams as ModelHparams
 from composer.models.resnet import ResNetHparams as ResNetHparams
 from composer.models.resnet import composer_resnet as composer_resnet

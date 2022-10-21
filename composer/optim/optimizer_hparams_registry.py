@@ -25,6 +25,7 @@ __all__ = [
     'SGDHparams',
     'DecoupledSGDWHparams',
     'RMSpropHparams',
+    'LambHparams',
 ]
 
 
@@ -214,6 +215,33 @@ class RMSpropHparams(OptimizerHparams):
     centered: float = hp.auto(torch.optim.RMSprop, 'centered', ignore_docstring_errors=True)
 
 
+@dataclass
+class LambHparams(OptimizerHparams):
+    """Hyperparameters for the :class:`~torch_optimizer.Lamb` optimizer.
+
+    See :class:`~torch_optimizer.Lamb` for documentation.
+
+    Args:
+        lr (float, optional): See :class:`~torch_optimizer.Lamb`.
+        betas (List[float], optional): See :class:`~torch_optimizer.Lamb`.
+        eps (float, optional): See :class:`~torch_optimizer.Lamb`.
+        weight_decay (float, optional): See :class:`~torch_optimizer.Lamb`.
+        clamp_value (float, optional): See :class:`~torch_optimizer.Lamb`.
+        adam (bool, optional): See :class:`~torch_optimizer.Lamb`.
+        debias (bool, optional): See :class:`~torch_optimizer.Lamb`.
+    """
+    from torch_optimizer import Lamb
+    optimizer_cls = Lamb
+
+    lr: float = hp.auto(Lamb, 'lr', ignore_docstring_errors=True)
+    betas: List[float] = hp.auto(Lamb, 'betas', ignore_docstring_errors=True)
+    eps: float = hp.auto(Lamb, 'eps', ignore_docstring_errors=True)
+    weight_decay: float = hp.auto(Lamb, 'weight_decay', ignore_docstring_errors=True)
+    clamp_value: float = hp.auto(Lamb, 'clamp_value', ignore_docstring_errors=True)
+    adam: bool = hp.auto(Lamb, 'adam', ignore_docstring_errors=True)
+    debias: bool = hp.auto(Lamb, 'debias', ignore_docstring_errors=True)
+
+
 optimizer_registry = {
     'adam': AdamHparams,
     'adamw': AdamWHparams,
@@ -222,4 +250,5 @@ optimizer_registry = {
     'sgd': SGDHparams,
     'decoupled_sgdw': DecoupledSGDWHparams,
     'rmsprop': RMSpropHparams,
+    'lamb': LambHparams,
 }

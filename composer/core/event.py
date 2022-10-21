@@ -18,6 +18,7 @@ class Event(StringEnum):
     .. code-block:: python
 
         # <INIT>
+        # <AFTER_LOAD>
         # <FIT_START>
         for epoch in range(NUM_EPOCHS):
             # <EPOCH_START>
@@ -86,6 +87,7 @@ class Event(StringEnum):
     Attributes:
         INIT: Invoked in the constructor of :class:`~.trainer.Trainer`. Model surgery (see
             :mod:`~composer.utils.module_surgery`) typically occurs here.
+        AFTER_LOAD: Immediately after checkpoint is loaded in constructor of :class:`~.trainer.Trainer`.
         FIT_START: Invoked at the beginning of each call to :meth:`.Trainer.fit`. Dataset transformations typically
             occur here.
         EPOCH_START: Start of an epoch.
@@ -129,6 +131,7 @@ class Event(StringEnum):
     """
 
     INIT = 'init'
+    AFTER_LOAD = 'after_load'
     FIT_START = 'fit_start'
 
     EPOCH_START = 'epoch_start'

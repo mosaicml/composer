@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Log artifacts to an object store."""
+"""Log files to an object store."""
 
 from __future__ import annotations
 
@@ -18,43 +18,63 @@ import uuid
 import warnings
 from multiprocessing.context import SpawnProcess
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
+from urllib.parse import urlparse
 
 from composer.core.state import State
-from composer.loggers.logger import Logger, LogLevel
+from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import ObjectStore, ObjectStoreTransientError, dist, format_name_with_dist, get_file, retry
+from composer.utils import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, S3ObjectStore, SFTPObjectStore,
+                            dist, format_name_with_dist, get_file, retry)
 
 log = logging.getLogger(__name__)
 
-__all__ = ['ObjectStoreLogger']
+__all__ = ['RemoteUploaderDownloader']
 
 
-def _always_log(state: State, log_level: LogLevel, artifact_name: str):
-    """Function that can be passed into ``should_log_artifact`` to log all artifacts."""
-    del state, log_level, artifact_name  # unused
-    return True
+def _build_remote_backend(remote_backend_name: str, backend_kwargs: Dict[str, Any]):
+    remote_backend_name_to_cls = {'s3': S3ObjectStore, 'sftp': SFTPObjectStore, 'libcloud': LibcloudObjectStore}
+    remote_backend_cls = remote_backend_name_to_cls.get(remote_backend_name, None)
+    if remote_backend_cls is None:
+        raise ValueError(
+            f'The remote backend {remote_backend_name} is not supported. Please use one of ({list(remote_backend_name_to_cls.keys())})'
+        )
+
+    return remote_backend_cls(**backend_kwargs)
 
 
-def _build_object_store(object_store_cls: Type[ObjectStore], object_store_kwargs: Dict[str, Any]):
-    # error: Expected no arguments to "ObjectStore" constructor
-    return object_store_cls(**object_store_kwargs)  # type: ignore
+class RemoteUploaderDownloader(LoggerDestination):
+    r"""Logger destination that uploads (downloads) files to (from) a remote backend.
 
-
-class ObjectStoreLogger(LoggerDestination):
-    r"""Logger destination that uploads artifacts to an object store.
-
-    This logger destination handles calls to :meth:`.Logger.file_artifact`
+    This logger destination handles calls to :meth:`.Logger.upload_file`
     and uploads files to :class:`.ObjectStore`, such as AWS S3 or Google Cloud Storage. To minimize the training
     loop performance hit, it supports background uploads.
 
-    .. testcode:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
+    .. testcode:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__
 
-        from composer.loggers import ObjectStoreLogger
+        from composer.loggers import RemoteUploaderDownloader
         from composer.utils import LibcloudObjectStore
 
-        object_store_logger = ObjectStoreLogger(
-            object_store_cls=LibcloudObjectStore,
-            object_store_kwargs={
+        remote_uploader_downloader = RemoteUploaderDownloader(
+            bucket_uri="s3://my-bucket",
+            file_path_format_string="path/to/my/checkpoints/{remote_file_name}",
+        )
+
+        # Construct the trainer using this logger
+        trainer = Trainer(
+            ...,
+            loggers=[remote_uploader_downloader],
+        )
+
+    or
+
+    .. testcode:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__
+
+        from composer.loggers import RemoteUploaderDownloader
+        from composer.utils import LibcloudObjectStore
+
+        remote_uploader_downloader = RemoteUploaderDownloader(
+            bucket_uri="libcloud://my-bucket",
+            backend_kwargs={
                 'provider': 's3',
                 'container': 'my-bucket',
                 'provider_kwargs=': {
@@ -68,15 +88,13 @@ class ObjectStoreLogger(LoggerDestination):
         # Construct the trainer using this logger
         trainer = Trainer(
             ...,
-            loggers=[object_store_logger],
+            loggers=[remote_uploader_downloader],
         )
 
     .. note::
 
-        This callback blocks the training loop to copy each artifact where ``should_log_artifact`` returns ``True``, as
+        This callback blocks the training loop to upload each file, as
         the uploading happens in the background. Here are some additional tips for minimizing the performance impact:
-
-        *   Set ``should_log`` to filter which artifacts will be logged. By default, all artifacts are logged.
 
         *   Set ``use_procs=True`` (the default) to use background processes, instead of threads, to perform the file
             uploads. Processes are recommended to ensure that the GIL is not blocking the training loop when
@@ -88,32 +106,24 @@ class ObjectStoreLogger(LoggerDestination):
             be raised.
 
     Args:
-        object_store_cls (Type[ObjectStore]): The object store class.
+        bucket_uri (str): The remote uri for the bucket to use (e.g. s3://my-bucket).
 
             As individual :class:`.ObjectStore` instances are not necessarily thread safe, each worker will construct
-            its own :class:`.ObjectStore` instance from ``object_store_cls`` and ``object_store_kwargs``.
+            its own :class:`.ObjectStore` instance from ``remote_backend`` and ``backend_kwargs``.
 
-        object_store_kwargs (Dict[str, Any]): The keyword arguments to construct ``object_store_cls``.
+        backend_kwargs (Dict[str, Any]): The keyword arguments to construct the remote backend indicated by ``bucket_uri``.
 
             As individual :class:`.ObjectStore` instances are not necessarily thread safe, each worker will construct
-            its own :class:`.ObjectStore` instance from ``object_store_cls`` and ``object_store_kwargs``.
+            its own :class:`.ObjectStore` instance from ``remote_backend`` and ``backend_kwargs``.
 
-        should_log_artifact ((State, LogLevel, str) -> bool, optional): A function to filter which artifacts
-            are uploaded.
-
-            The function should take the (current training state, log level, artifact name) and return a boolean
-            indicating whether this file should be uploaded.
-
-            By default, all artifacts will be uploaded.
-
-        object_name (str, optional): A format string used to determine the object name.
+        file_path_format_string (str, optional): A format string used to determine the remote file path (within the specified bucket).
 
             The following format variables are available:
 
             +------------------------+-------------------------------------------------------+
             | Variable               | Description                                           |
             +========================+=======================================================+
-            | ``{artifact_name}``    | The name of the artifact being logged.                |
+            | ``{remote_file_name}`` | The name of the file being logged.                    |
             +------------------------+-------------------------------------------------------+
             | ``{run_name}``         | The name of the training run. See                     |
             |                        | :attr:`.State.run_name`.                              |
@@ -136,9 +146,9 @@ class ObjectStoreLogger(LoggerDestination):
 
             Leading slashes (``'/'``) will be stripped.
 
-            Consider the following example, which subfolders the artifacts by their rank:
+            Consider the following example, which subfolders the remote files by their rank:
 
-            .. testsetup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name
+            .. testsetup:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.file_path_format_string
 
                 import os
 
@@ -147,28 +157,27 @@ class ObjectStoreLogger(LoggerDestination):
                 with open('path/to/file.txt', 'w+') as f:
                     f.write('hi')
 
-            .. doctest:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name
+            .. doctest:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.file_path_format_string
 
-                >>> object_store_logger = ObjectStoreLogger(..., object_name='rank_{rank}/{artifact_name}')
-                >>> trainer = Trainer(..., run_name='foo', loggers=[object_store_logger])
-                >>> trainer.logger.file_artifact(
-                ...     log_level=LogLevel.EPOCH,
-                ...     artifact_name='bar.txt',
+                >>> remote_uploader_downloader = RemoteUploaderDownloader(..., file_path_format_string='rank_{rank}/{remote_file_name}')
+                >>> trainer = Trainer(..., run_name='foo', loggers=[remote_uploader_downloader])
+                >>> trainer.logger.upload_file(
+                ...     remote_file_name='bar.txt',
                 ...     file_path='path/to/file.txt',
                 ... )
 
-            .. testcleanup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name
+            .. testcleanup:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.file_path_format_string
 
                 # Shut down the uploader
-                object_store_logger._check_workers()
-                object_store_logger.post_close()
+                remote_uploader_downloader._check_workers()
+                remote_uploader_downloader.post_close()
 
-            Assuming that the process's rank is ``0``, the object store would store the contents of
-            ``'path/to/file.txt'`` in an object named ``'rank0/bar.txt'``.
+            Assuming that the process's rank is ``0``, the remote backend would store the contents of
+            ``'path/to/file.txt'`` in at ``'rank0/bar.txt'``.
 
-            Default: ``'{artifact_name}'``
+            Default: ``'{remote_file_name}'``
 
-        num_concurrent_uploads (int, optional): Maximum number of concurrent uploads. Defaults to 4.
+        num_concurrent_uploads (int, optional): Maximum number of concurrent uploads. Defaults to 1.
         upload_staging_folder (str, optional): A folder to use for staging uploads.
             If not specified, defaults to using a :func:`~tempfile.TemporaryDirectory`.
         use_procs (bool, optional): Whether to perform file uploads in background processes (as opposed to threads).
@@ -178,20 +187,24 @@ class ObjectStoreLogger(LoggerDestination):
     """
 
     def __init__(self,
-                 object_store_cls: Type[ObjectStore],
-                 object_store_kwargs: Dict[str, Any],
-                 should_log_artifact: Optional[Callable[[State, LogLevel, str], bool]] = None,
-                 object_name: str = '{artifact_name}',
-                 num_concurrent_uploads: int = 4,
+                 bucket_uri: str,
+                 backend_kwargs: Optional[Dict[str, Any]] = None,
+                 file_path_format_string: str = '{remote_file_name}',
+                 num_concurrent_uploads: int = 1,
                  upload_staging_folder: Optional[str] = None,
                  use_procs: bool = True,
                  num_attempts: int = 3) -> None:
-        self.object_store_cls = object_store_cls
-        self.object_store_kwargs = object_store_kwargs
-        if should_log_artifact is None:
-            should_log_artifact = _always_log
-        self.should_log_artifact = should_log_artifact
-        self.object_name = object_name
+        parsed_remote_bucket = urlparse(bucket_uri)
+        self.remote_backend_name, self.remote_bucket_name = parsed_remote_bucket.scheme, parsed_remote_bucket.netloc
+        self.backend_kwargs = backend_kwargs if backend_kwargs is not None else {}
+        if self.remote_backend_name == 's3' and 'bucket' not in self.backend_kwargs:
+            self.backend_kwargs['bucket'] = self.remote_bucket_name
+        elif self.remote_backend_name == 'sftp' and 'host' not in self.backend_kwargs:
+            self.backend_kwargs['host'] = f'sftp://{self.remote_bucket_name}'
+        elif self.remote_backend_name == 'libcloud' and 'container' not in self.backend_kwargs:
+            self.backend_kwargs['container'] = self.remote_bucket_name
+
+        self.file_path_format_string = file_path_format_string
         self.num_attempts = num_attempts
         self._run_name = None
 
@@ -211,7 +224,7 @@ class ObjectStoreLogger(LoggerDestination):
         # The object store might keep the earlier file rather than the latter file as the "latest" version
 
         # To work around this, each object name can appear at most once in `self._file_upload_queue`
-        # The main separately keeps track of {object_name: tempfile_path} for each API call to self.log_file_artifact
+        # The main separately keeps track of {file_path_format_string: tempfile_path} for each API call to self.upload_file
         # and then periodically transfers items from this dictionary onto the file upload queue
 
         # Lock for modifying `logged_objects` or `enqueued_objects`
@@ -245,22 +258,22 @@ class ObjectStoreLogger(LoggerDestination):
         self._worker_flag: Optional[Union[multiprocessing._EventType, threading.Event]] = None
         self._workers: List[Union[SpawnProcess, threading.Thread]] = []
         # the object store instance for the main thread. Deferring the construction of the object_store to first use.
-        self._object_store = None
+        self._remote_backend = None
 
     @property
-    def object_store(self) -> ObjectStore:
+    def remote_backend(self) -> ObjectStore:
         """The :class:`.ObjectStore` instance for the main thread."""
-        if self._object_store is None:
-            self._object_store = _build_object_store(self.object_store_cls, self.object_store_kwargs)
-        return self._object_store
+        if self._remote_backend is None:
+            self._remote_backend = _build_remote_backend(self.remote_backend_name, self.backend_kwargs)
+        return self._remote_backend
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
         if self._worker_flag is not None:
-            raise RuntimeError('The ObjectStoreLogger is already initialized.')
+            raise RuntimeError('The RemoteUploaderDownloader is already initialized.')
         self._worker_flag = self._finished_cls()
         self._run_name = state.run_name
-        object_name_to_test = self._object_name('.credentials_validated_successfully')
+        file_name_to_test = self._remote_file_name('.credentials_validated_successfully')
 
         # Create the enqueue thread
         self._enqueue_thread_flag = self._finished_cls()
@@ -269,7 +282,7 @@ class ObjectStoreLogger(LoggerDestination):
 
         if dist.get_global_rank() == 0:
             retry(ObjectStoreTransientError,
-                  self.num_attempts)(lambda: _validate_credentials(self.object_store, object_name_to_test))()
+                  self.num_attempts)(lambda: _validate_credentials(self.remote_backend, file_name_to_test))()
         assert len(self._workers) == 0, 'workers should be empty if self._worker_flag was None'
         for _ in range(self._num_concurrent_uploads):
             worker = self._proc_class(
@@ -277,8 +290,8 @@ class ObjectStoreLogger(LoggerDestination):
                 kwargs={
                     'file_queue': self._file_upload_queue,
                     'is_finished': self._worker_flag,
-                    'object_store_cls': self.object_store_cls,
-                    'object_store_kwargs': self.object_store_kwargs,
+                    'remote_backend_name': self.remote_backend_name,
+                    'backend_kwargs': self.backend_kwargs,
                     'num_attempts': self.num_attempts,
                     'completed_queue': self._completed_queue,
                 },
@@ -310,28 +323,26 @@ class ObjectStoreLogger(LoggerDestination):
         if not self._all_workers_alive:
             raise RuntimeError('Upload worker crashed. Please check the logs.')
 
-    def log_file_artifact(
+    def upload_file(
         self,
         state: State,
-        log_level: LogLevel,
-        artifact_name: str,
+        remote_file_name: str,
         file_path: pathlib.Path,
         *,
         overwrite: bool,
     ):
-        if not self.should_log_artifact(state, log_level, artifact_name):
-            return
         copied_path = os.path.join(self._upload_staging_folder, str(uuid.uuid4()))
         os.makedirs(self._upload_staging_folder, exist_ok=True)
         shutil.copy2(file_path, copied_path)
-        object_name = self._object_name(artifact_name)
+        formatted_remote_file_name = self._remote_file_name(remote_file_name)
         with self._object_lock:
-            if object_name in self._logged_objects and not overwrite:
-                raise FileExistsError(f'Object {object_name} was already enqueued to be uploaded, but overwrite=False.')
-            self._logged_objects[object_name] = (copied_path, overwrite)
+            if formatted_remote_file_name in self._logged_objects and not overwrite:
+                raise FileExistsError(
+                    f'Object {formatted_remote_file_name} was already enqueued to be uploaded, but overwrite=False.')
+            self._logged_objects[formatted_remote_file_name] = (copied_path, overwrite)
 
-    def can_log_file_artifacts(self) -> bool:
-        """Whether the logger supports logging file artifacts."""
+    def can_upload_files(self) -> bool:
+        """Whether the logger supports uploading files."""
         return True
 
     def _enqueue_uploads(self):
@@ -378,18 +389,18 @@ class ObjectStoreLogger(LoggerDestination):
                         # so break. Some files may not be uploaded.
                         break
 
-            time.sleep(0.2)  # Yield lock for `self.log_file_artifact`
+            time.sleep(0.2)  # Yield lock for `self.upload_file`
 
-    def get_file_artifact(
+    def download_file(
         self,
-        artifact_name: str,
+        remote_file_name: str,
         destination: str,
         overwrite: bool = False,
         progress_bar: bool = True,
     ):
-        get_file(path=artifact_name,
+        get_file(path=remote_file_name,
                  destination=destination,
-                 object_store=self.object_store,
+                 object_store=self.remote_backend,
                  overwrite=overwrite,
                  progress_bar=progress_bar)
 
@@ -472,26 +483,26 @@ class ObjectStoreLogger(LoggerDestination):
         self._enqueue_thread_flag = None
         self._workers.clear()
 
-    def get_uri_for_artifact(self, artifact_name: str) -> str:
-        """Get the object store provider uri for an artfact.
+    def get_uri_for_file(self, remote_file_name: str) -> str:
+        """Get the object store provider uri for a remote file.
 
         Args:
-            artifact_name (str): The name of an artifact.
+            remote_file_name (str): The name of a remote file.
 
         Returns:
-            str: The uri corresponding to the uploaded location of the artifact.
+            str: The uri corresponding to the uploaded location of the remote file.
         """
-        obj_name = self._object_name(artifact_name)
-        return self.object_store.get_uri(obj_name.lstrip('/'))
+        formatted_remote_file_name = self._remote_file_name(remote_file_name)
+        return self.remote_backend.get_uri(formatted_remote_file_name.lstrip('/'))
 
-    def _object_name(self, artifact_name: str):
-        """Format the ``artifact_name`` according to the ``object_name_string``."""
+    def _remote_file_name(self, remote_file_name: str):
+        """Format the ``remote_file_name`` according to the ``file_path_format_string``."""
         if self._run_name is None:
             raise RuntimeError('The run name is not set. It should have been set on Event.INIT.')
         key_name = format_name_with_dist(
-            self.object_name,
+            self.file_path_format_string,
             run_name=self._run_name,
-            artifact_name=artifact_name,
+            remote_file_name=remote_file_name,
         )
         key_name = key_name.lstrip('/')
 
@@ -499,15 +510,15 @@ class ObjectStoreLogger(LoggerDestination):
 
 
 def _validate_credentials(
-    object_store: ObjectStore,
-    object_name_to_test: str,
+    remote_backend: ObjectStore,
+    remote_file_name_to_test: str,
 ) -> None:
     # Validates the credentials by attempting to touch a file in the bucket
     # raises an error if there was a credentials failure.
     with tempfile.NamedTemporaryFile('wb') as f:
         f.write(b'credentials_validated_successfully')
-        object_store.upload_object(
-            object_name=object_name_to_test,
+        remote_backend.upload_object(
+            object_name=remote_file_name_to_test,
             filename=f.name,
         )
 
@@ -516,8 +527,8 @@ def _upload_worker(
     file_queue: Union[queue.Queue[Tuple[str, str, bool]], multiprocessing.JoinableQueue[Tuple[str, str, bool]]],
     completed_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str]],
     is_finished: Union[multiprocessing._EventType, threading.Event],
-    object_store_cls: Type[ObjectStore],
-    object_store_kwargs: Dict[str, Any],
+    remote_backend_name: str,
+    backend_kwargs: Dict[str, Any],
     num_attempts: int,
 ):
     """A long-running function to handle uploading files to the object store.
@@ -525,23 +536,23 @@ def _upload_worker(
     The worker will continuously poll ``file_queue`` for files to upload. Once ``is_finished`` is set, the worker will
     exit once ``file_queue`` is empty.
     """
-    object_store = _build_object_store(object_store_cls, object_store_kwargs)
+    remote_backend = _build_remote_backend(remote_backend_name, backend_kwargs)
     while True:
         try:
-            file_path_to_upload, object_name, overwrite = file_queue.get(block=True, timeout=0.5)
+            file_path_to_upload, remote_file_name, overwrite = file_queue.get(block=True, timeout=0.5)
         except queue.Empty:
             if is_finished.is_set():
                 break
             else:
                 continue
-        uri = object_store.get_uri(object_name)
+        uri = remote_backend.get_uri(remote_file_name)
 
         # defining as a function-in-function to use decorator notation with num_attempts as an argument
         @retry(ObjectStoreTransientError, num_attempts=num_attempts)
         def upload_file():
             if not overwrite:
                 try:
-                    object_store.get_object_size(object_name)
+                    remote_backend.get_object_size(remote_file_name)
                 except FileNotFoundError:
                     # Good! It shouldn't exist.
                     pass
@@ -549,12 +560,12 @@ def _upload_worker(
                     # Exceptions will be detected on the next batch_end or epoch_end event
                     raise FileExistsError(f'Object {uri} already exists, but allow_overwrite was set to False.')
             log.info('Uploading file %s to %s', file_path_to_upload, uri)
-            object_store.upload_object(
-                object_name=object_name,
+            remote_backend.upload_object(
+                object_name=remote_file_name,
                 filename=file_path_to_upload,
             )
             os.remove(file_path_to_upload)
             file_queue.task_done()
-            completed_queue.put_nowait(object_name)
+            completed_queue.put_nowait(remote_file_name)
 
         upload_file()

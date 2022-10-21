@@ -20,7 +20,7 @@ To set up the development environment in your local box, run the commands below.
 
 <!--pytest.mark.skip-->
 ```bash
-pip install -e '.[dev]'
+pip install -e '.[all]'
 ```
 
 2\. Configure [pre-commit](https://pre-commit.com/), which automatically formats code before

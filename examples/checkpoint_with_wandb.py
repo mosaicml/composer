@@ -48,9 +48,9 @@ trainer = Trainer(
 
     # Checkpoint Saving Configuration
     loggers=wandb_logger,  # Log checkpoints via the WandB Logger
-    save_folder='/tmp/checkpoints',  # The trainer requires that checkpoints must be saved locally before being upload
+    save_folder='checkpoints',  # This the folder that checkpoints are saved to locally and remotely.
     save_interval='1ep',
-    save_artifact_name='epoch{epoch}.pt',  # Name checkpoints like epoch1.pt, epoch2.pt, etc...
+    save_filename='epoch{epoch}.pt',  # Name checkpoints like epoch1.pt, epoch2.pt, etc...
     save_num_checkpoints_to_keep=0,  # Do not keep any checkpoints locally after they have been uploaded to W & B
 )
 
@@ -58,7 +58,7 @@ trainer = Trainer(
 trainer.fit()
 
 # Remove the temporary folder to ensure that the checkpoint is downloaded from the cloud
-shutil.rmtree('/tmp/checkpoints', ignore_errors=True)
+shutil.rmtree('checkpoints', ignore_errors=True)
 
 # Close the existing trainer to trigger W & B to mark the run as "finished", and be ready for the next training run
 trainer.close()
@@ -80,13 +80,13 @@ trainer = Trainer(
 
     # Checkpoint Loading Configuration
     load_object_store=wandb_logger,
-    load_path='epoch1.pt:latest',  # Load the checkpoint -- WandB requires that the load_path include the "latest" tag
-
+    # Load the checkpoint using the save_folder plus the save_filename -- WandB requires that the load_path include the "latest" tag
+    load_path='checkpoints/epoch1.pt:latest',
     #  (Optional) Checkpoint Saving Configuration to continue to save new checkpoints
     loggers=wandb_logger,  # Log checkpoints via the WandB Logger
-    save_folder='/tmp/checkpoints',  # The trainer requires that checkpoints must be saved locally before being upload
+    save_folder='checkpoints',  # The trainer requires that checkpoints must be saved locally before being uploaded
     save_interval='1ep',
-    save_artifact_name='epoch{epoch}.pt',  # Name checkpoints like epoch1.pt, epoch2.pt, etc...
+    save_filename='epoch{epoch}.pt',  # Name checkpoints like epoch1.pt, epoch2.pt, etc...
     save_num_checkpoints_to_keep=0,  # Do not keep any checkpoints locally after they have been uploaded to W & B
 )
 

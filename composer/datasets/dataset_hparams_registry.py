@@ -9,9 +9,10 @@ Attributes:
 
 from composer.datasets.ade20k_hparams import ADE20kDatasetHparams, StreamingADE20kHparams
 from composer.datasets.brats_hparams import BratsDatasetHparams
-from composer.datasets.c4_hparams import C4DatasetHparams, StreamingC4Hparams
+from composer.datasets.c4_hparams import StreamingC4Hparams
 from composer.datasets.cifar_hparams import CIFAR10DatasetHparams, StreamingCIFAR10Hparams
 from composer.datasets.coco_hparams import COCODatasetHparams, StreamingCOCOHparams
+from composer.datasets.enwiki_hparams import StreamingEnWikiHparams
 from composer.datasets.glue_hparams import GLUEHparams
 from composer.datasets.imagenet_hparams import ImagenetDatasetHparams, StreamingImageNet1kHparams
 from composer.datasets.lm_dataset_hparams import LMDatasetHparams
@@ -32,6 +33,6 @@ dataset_registry = {
     'glue': GLUEHparams,
     'coco': COCODatasetHparams,
     'streaming_coco': StreamingCOCOHparams,
-    'c4': C4DatasetHparams,
     'streaming_c4': StreamingC4Hparams,
+    'streaming_enwiki': StreamingEnWikiHparams,
 }

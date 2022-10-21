@@ -6,12 +6,13 @@ from typing import Callable, Dict, Type
 import pytest
 
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
-from composer.datasets.dataset_hparams_registry import (ADE20kDatasetHparams, BratsDatasetHparams, C4DatasetHparams,
+from composer.datasets.dataset_hparams_registry import (ADE20kDatasetHparams, BratsDatasetHparams,
                                                         CIFAR10DatasetHparams, COCODatasetHparams, GLUEHparams,
                                                         ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams,
                                                         StreamingADE20kHparams, StreamingC4Hparams,
-                                                        StreamingCIFAR10Hparams, StreamingCOCOHparams,
-                                                        StreamingImageNet1kHparams, dataset_registry)
+                                                        StreamingCIFAR10Hparams, StreamingCOCOHparams)
+from composer.datasets.dataset_hparams_registry import StreamingEnWikiHparams as StreamingEnWikiHparams
+from composer.datasets.dataset_hparams_registry import StreamingImageNet1kHparams, dataset_registry
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 
 # for testing, we provide values for required hparams fields
@@ -66,16 +67,10 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
         ),
     StreamingCOCOHparams:
         lambda: StreamingCOCOHparams(split='val'),
-    C4DatasetHparams:
-        lambda: C4DatasetHparams(
-            split='train',
-            num_samples=1000,
-            max_seq_len=100,
-            tokenizer_name='gpt2',
-            group_method='concat',
-        ),
     StreamingC4Hparams:
         lambda: StreamingC4Hparams(split='val'),
+    StreamingEnWikiHparams:
+        lambda: StreamingEnWikiHparams(split='val'),
 }
 
 

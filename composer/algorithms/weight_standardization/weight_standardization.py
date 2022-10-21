@@ -84,6 +84,9 @@ class WeightStandardization(Algorithm):
     def __init__(self, n_last_layers_ignore: int = 0):
         self.n_last_layers_ignore = n_last_layers_ignore
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(n_last_layers_ignore={self.n_last_layers_ignore})'
+
     def match(self, event: Event, state: State):
         return (event == Event.INIT)
 

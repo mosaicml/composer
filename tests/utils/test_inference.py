@@ -19,16 +19,19 @@ from composer.functional import apply_gated_linear_units
 from composer.loggers import InMemoryLogger, Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.models import composer_resnet
+from composer.trainer.devices import DeviceCPU
 from composer.trainer.dist_strategy import prepare_ddp_module
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, export_with_logger, inference
+from composer.utils.device import get_device
+from tests.common import device
 from tests.common.datasets import RandomImageDataset
 
 
-class MockFileArtifactLogger(LoggerDestination):
-    """Mocks a generic file artifact logger interface."""
+class MockFileUploader(LoggerDestination):
+    """Mocks a generic file uploader interface."""
 
-    def can_log_file_artifacts(self) -> bool:
+    def can_upload_files(self) -> bool:
         return True
 
 
@@ -238,13 +241,14 @@ def test_gpu_huggingface_export_for_inference_onnx():
         )
 
 
+@device('cpu', 'gpu')
 @pytest.mark.parametrize(
     'model_cls, sample_input',
     [
         (partial(composer_resnet, 'resnet18'), (torch.rand(4, 3, 224, 224), torch.randint(10, (4,)))),
     ],
 )
-def test_export_for_inference_onnx(model_cls, sample_input):
+def test_export_for_inference_onnx(model_cls, sample_input, device):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
     import onnx
@@ -254,6 +258,11 @@ def test_export_for_inference_onnx(model_cls, sample_input):
     model = model_cls()
     model.eval()
 
+    composer_device = get_device(device)
+    cpu_device = get_device('cpu')
+    sample_input = (composer_device.tensor_to_device(sample_input[0]),
+                    composer_device.tensor_to_device(sample_input[1]))
+    composer_device.module_to_device(model)
     orig_out = model(sample_input)
 
     save_format = 'onnx'
@@ -271,15 +280,15 @@ def test_export_for_inference_onnx(model_cls, sample_input):
         ort_session = ort.InferenceSession(save_path)
         loaded_model_out = ort_session.run(
             None,
-            {'input': sample_input[0].numpy()},
+            {'input': cpu_device.tensor_to_device(sample_input[0]).numpy()},
         )
 
         torch.testing.assert_close(
-            orig_out.detach().numpy(),
+            cpu_device.tensor_to_device(orig_out.detach()).numpy(),
             loaded_model_out[0],
-            rtol=1e-4,  # lower tolerance for ONNX
-            atol=1e-3,  # lower tolerance for ONNX
-            msg=f'output mismatch with {save_format}',
+            rtol=1e-4 if isinstance(composer_device, DeviceCPU) else 1e-3,  # lower tolerance for ONNX
+            atol=1e-3 if isinstance(composer_device, DeviceCPU) else 1e-2,  # lower tolerance for ONNX
+            msg=lambda msg: f'output mismatch with {save_format}\n\nOriginal message: {msg}',
         )
 
 
@@ -401,11 +410,11 @@ def test_export_for_inference_torchscript_ddp(model_cls, sample_input):
         (partial(composer_resnet, 'resnet18'), (torch.rand(1, 3, 224, 224), torch.randint(10, (1,)))),
     ],
 )
-def test_export_with_file_artifact_logger(model_cls, sample_input):
+def test_export_with_file_uploading_logger(model_cls, sample_input):
     with patch('composer.utils.inference.export_for_inference'):
         save_format = 'torchscript'
         model = model_cls()
-        mock_obj_logger = MockFileArtifactLogger()
+        mock_obj_logger = MockFileUploader()
         with tempfile.TemporaryDirectory() as tempdir:
             save_path = os.path.join(tempdir, f'model.pt')
 
@@ -446,7 +455,7 @@ def test_export_with_other_logger(model_cls, sample_input):
     with patch('composer.utils.inference.export_for_inference'):
         save_format = 'torchscript'
         model = model_cls()
-        non_file_artifact_logger = InMemoryLogger()
+        non_file_uploading_logger = InMemoryLogger()
         with tempfile.TemporaryDirectory() as tempdir:
             save_path = os.path.join(tempdir, f'model.pt')
 
@@ -460,7 +469,7 @@ def test_export_with_other_logger(model_cls, sample_input):
 
             mock_logger = Logger(
                 state=trainer.state,
-                destinations=[non_file_artifact_logger],
+                destinations=[non_file_uploading_logger],
             )
 
             export_with_logger(

@@ -67,9 +67,9 @@ def apply_squeeze_excite(
 
     def convert_module(module: torch.nn.Module, module_index: int):
         assert isinstance(module, torch.nn.Conv2d), 'should only be called with conv2d'
-        if min(module.in_channels, module.out_channels) < min_channels:
-            return None
-        return SqueezeExciteConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
+        already_squeeze_excited = hasattr(module, '_already_squeeze_excited') and module._already_squeeze_excited
+        if min(module.in_channels, module.out_channels) >= min_channels and not already_squeeze_excited:
+            return SqueezeExciteConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
 
     module_surgery.replace_module_classes(model, optimizers=optimizers, policies={torch.nn.Conv2d: convert_module})
 
@@ -114,6 +114,7 @@ class SqueezeExciteConv2d(torch.nn.Module):
     def __init__(self, *args, latent_channels: float = 0.125, conv: Optional[torch.nn.Conv2d] = None, **kwargs):
         super().__init__()
         self.conv = torch.nn.Conv2d(*args, **kwargs) if conv is None else conv
+        self.conv._already_squeeze_excited = True  # Mark to avoid rewrapping on duplicate calls
         self.se = SqueezeExcite2d(num_features=self.conv.out_channels, latent_channels=latent_channels)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:

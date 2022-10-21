@@ -16,7 +16,7 @@ import warnings
 from typing import Any, Dict, List, Optional
 
 from composer.core.state import State
-from composer.loggers.logger import Logger, LogLevel
+from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -161,9 +161,8 @@ class WandBLogger(LoggerDestination):
         assert self.entity is not None, 'entity should be defined'
         assert self.project is not None, 'project should be defined'
 
-    def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
-                          overwrite: bool):
-        del log_level, overwrite  # unused
+    def upload_file(self, state: State, remote_file_name: str, file_path: pathlib.Path, *, overwrite: bool):
+        del overwrite  # unused
 
         if self._enabled and self._log_artifacts:
             import wandb
@@ -174,12 +173,12 @@ class WandBLogger(LoggerDestination):
 
             # replace all unsupported characters with periods
             # Only alpha-numeric, periods, hyphens, and underscores are supported by wandb.
-            new_artifact_name = re.sub(r'[^a-zA-Z0-9-_\.]', '.', artifact_name)
-            if new_artifact_name != artifact_name:
-                warnings.warn(('WandB permits only alpha-numeric, periods, hyphens, and underscores in artifact names. '
-                               f"The artifact with name '{artifact_name}' will be stored as '{new_artifact_name}'."))
+            new_remote_file_name = re.sub(r'[^a-zA-Z0-9-_\.]', '.', remote_file_name)
+            if new_remote_file_name != remote_file_name:
+                warnings.warn(('WandB permits only alpha-numeric, periods, hyphens, and underscores in file names. '
+                               f"The file with name '{remote_file_name}' will be stored as '{new_remote_file_name}'."))
 
-            extension = new_artifact_name.split('.')[-1]
+            extension = new_remote_file_name.split('.')[-1]
 
             metadata = {f'timestamp/{k}': v for (k, v) in state.timestamp.state_dict().items()}
             # if evaluating, also log the evaluation timestamp
@@ -188,21 +187,21 @@ class WandBLogger(LoggerDestination):
                 # the trainer is evaluating or predicting. Assuming evaluation in this case.
                 metadata.update({f'eval_timestamp/{k}': v for (k, v) in state.eval_timestamp.state_dict().items()})
 
-            artifact = wandb.Artifact(
-                name=new_artifact_name,
+            wandb_artifact = wandb.Artifact(
+                name=new_remote_file_name,
                 type=extension,
                 metadata=metadata,
             )
-            artifact.add_file(os.path.abspath(file_path))
-            wandb.log_artifact(artifact, aliases=aliases)
+            wandb_artifact.add_file(os.path.abspath(file_path))
+            wandb.log_artifact(wandb_artifact, aliases=aliases)
 
-    def can_log_file_artifacts(self) -> bool:
-        """Whether the logger supports logging file artifacts."""
+    def can_upload_files(self) -> bool:
+        """Whether the logger supports uploading files."""
         return True
 
-    def get_file_artifact(
+    def download_file(
         self,
-        artifact_name: str,
+        remote_file_name: str,
         destination: str,
         overwrite: bool = False,
         progress_bar: bool = True,
@@ -220,34 +219,35 @@ class WandBLogger(LoggerDestination):
 
         # replace all unsupported characters with periods
         # Only alpha-numeric, periods, hyphens, and underscores are supported by wandb.
-        if ':' not in artifact_name:
-            artifact_name += ':latest'
+        if ':' not in remote_file_name:
+            remote_file_name += ':latest'
 
-        new_artifact_name = re.sub(r'[^a-zA-Z0-9-_\.:]', '.', artifact_name)
-        if new_artifact_name != artifact_name:
-            warnings.warn(('WandB permits only alpha-numeric, periods, hyphens, and underscores in artifact names. '
-                           f"The artifact with name '{artifact_name}' will be stored as '{new_artifact_name}'."))
+        new_remote_file_name = re.sub(r'[^a-zA-Z0-9-_\.:]', '.', remote_file_name)
+        if new_remote_file_name != remote_file_name:
+            warnings.warn(('WandB permits only alpha-numeric, periods, hyphens, and underscores in file names. '
+                           f"The file with name '{remote_file_name}' will be stored as '{new_remote_file_name}'."))
 
         try:
-            artifact = api.artifact('/'.join([self.entity, self.project, new_artifact_name]))
+            wandb_artifact = api.artifact('/'.join([self.entity, self.project, new_remote_file_name]))
         except wandb.errors.CommError as e:
             if 'does not contain artifact' in str(e):
-                raise FileNotFoundError(f'Artifact {new_artifact_name} not found') from e
+                raise FileNotFoundError(f'WandB Artifact {new_remote_file_name} not found') from e
             raise e
         with tempfile.TemporaryDirectory() as tmpdir:
-            artifact_folder = os.path.join(tmpdir, 'artifact_folder')
-            artifact.download(root=artifact_folder)
-            artifact_names = os.listdir(artifact_folder)
+            wandb_artifact_folder = os.path.join(tmpdir, 'wandb_artifact_folder')
+            wandb_artifact.download(root=wandb_artifact_folder)
+            wandb_artifact_names = os.listdir(wandb_artifact_folder)
             # We only log one file per artifact
-            if len(artifact_names) > 1:
+            if len(wandb_artifact_names) > 1:
                 raise RuntimeError(
-                    'Found more than one file in artifact. We assume the checkpoint is the only file in the artifact.')
-            artifact_name = artifact_names[0]
-            artifact_path = os.path.join(artifact_folder, artifact_name)
+                    'Found more than one file in WandB artifact. We assume the checkpoint is the only file in the WandB artifact.'
+                )
+            wandb_artifact_name = wandb_artifact_names[0]
+            wandb_artifact_path = os.path.join(wandb_artifact_folder, wandb_artifact_name)
             if overwrite:
-                os.replace(artifact_path, destination)
+                os.replace(wandb_artifact_path, destination)
             else:
-                os.rename(artifact_path, destination)
+                os.rename(wandb_artifact_path, destination)
 
     def post_close(self) -> None:
         import wandb
