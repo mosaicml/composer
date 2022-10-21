@@ -96,6 +96,8 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
         pytest.skip('The CI does not support tpus')
     if notebook_name == 'ffcv_dataloaders' and device == 'cpu':
         pytest.skip('The FFCV notebook requires CUDA')
+    if notebook_name == 'streaming_dataloader_facesynthetics':
+        pytest.skip('Jenkins is killing this notebook for some reason, it should work locally')
     with testbook.testbook(notebook) as tb:
         tb.inject(trainer_monkeypatch_code)
         tb.inject('patch_notebooks()')
