@@ -36,12 +36,12 @@ def assert_state_equivalent(state1: State, state2: State):
     del state_dict_2['run_name']
 
     # Remove algorithm representations which are memory addresses
-    for algorithm in state_dict_1['algorithms']:
-        if '0x' in state_dict_1['algorithms'][algorithm]['repr']:
-            del state_dict_1['algorithms'][algorithm]['repr']
-    for algorithm in state_dict_2['algorithms']:
-        if '0x' in state_dict_2['algorithms'][algorithm]['repr']:
-            del state_dict_2['algorithms'][algorithm]['repr']
+    for i, algo_info in enumerate(state_dict_1['algorithms']):
+        if '0x' in algo_info[1]:
+            del state_dict_1['algorithms'][i]
+    for i, algo_info in enumerate(state_dict_2['algorithms']):
+        if '0x' in algo_info[1]:
+            del state_dict_2['algorithms'][i]
 
     # Compare the state dicts
     deep_compare(state_dict_1, state_dict_2, atol=atol, rtol=rtol)
