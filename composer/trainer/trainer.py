@@ -115,7 +115,7 @@ def _filter_metrics(metrics: Dict[str, Metric], metric_names: Optional[List[str]
 
 def _validate_precision(precision: Precision, device: Device, deepspeed_enabled: bool):
     if isinstance(device, DeviceCPU) and precision != Precision.FP32:
-        raise ValueError(f'{precision} is not supproted for CPU training.')
+        raise ValueError(f'{precision} is not supported for CPU training.')
     if not deepspeed_enabled and precision == Precision.FP16:
         raise ValueError('FP16 precision is only supported when training with DeepSpeed.')
 
@@ -250,7 +250,8 @@ def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
 
     # using int64 to prevent overflow
     rank_zero_seed = device.tensor_to_device(torch.tensor([seed], dtype=torch.int64))
-    dist.broadcast(rank_zero_seed, src=0)
+    if dist.get_world_size() > 1:
+        dist.broadcast(rank_zero_seed, src=0)
     rank_zero_seed = rank_zero_seed.item()
     assert isinstance(rank_zero_seed, int)
     seed = rank_zero_seed + dist.get_global_rank()

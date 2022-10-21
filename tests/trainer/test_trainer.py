@@ -12,6 +12,7 @@ from typing import List, Optional, Union
 
 import pytest
 import torch
+from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 
@@ -33,7 +34,7 @@ from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices import Device
 from composer.trainer.trainer import _generate_run_name
-from composer.utils import dist, is_model_deepspeed, reproducibility
+from composer.utils import dist, is_model_deepspeed, is_model_fsdp, reproducibility
 from composer.utils.iter_helpers import map_collection
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
@@ -414,6 +415,52 @@ class TestTrainerInitOrFit:
         trainer.fit()
 
     @pytest.mark.gpu
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.12.0'),
+                        reason='requires PyTorch 1.12 or higher')
+    @pytest.mark.parametrize('precision', list(Precision))
+    def test_fsdp(
+        self,
+        model: ComposerModel,
+        precision: Precision,
+        max_duration: Time[int],
+        train_dataloader: DataLoader,
+    ):
+
+        fsdp_config = {
+            'sharding_strategy': 'FULL_SHARD',
+            'min_params': 1e8,
+            'cpu_offload': False,
+            'mixed_precision': 'DEFAULT',
+            'backward_prefetch': 'BACKWARD_PRE',
+            'activation_checkpointing': False,
+            'activation_cpu_offload': False,
+            'verbose': False
+        }
+
+        # Need to catch the case where we try to train
+        # with precision FP16.
+        ctx = contextlib.nullcontext()
+        should_error = False
+        if precision == Precision.FP16:
+            ctx = pytest.raises(ValueError, match='FP16 precision is only supported when training with DeepSpeed.')
+            should_error = True
+
+        with ctx:
+            trainer = Trainer(
+                model=model,
+                precision=precision,
+                fsdp_config=fsdp_config,
+                max_duration=max_duration,
+                train_dataloader=train_dataloader,
+            )
+
+        if not should_error:
+            assert is_model_fsdp(trainer.state.model)
+
+            assert trainer.state.fsdp_enabled
+            trainer.fit()
+
+    @pytest.mark.gpu
     def test_device(
         self,
         model: ComposerModel,
@@ -468,10 +515,10 @@ class TestTrainerInitOrFit:
         should_error = False
         ctx = contextlib.nullcontext()
         if device == 'cpu' and precision != Precision.FP32:
-            ctx = pytest.raises(ValueError, match='not supproted for CPU training')
+            ctx = pytest.raises(ValueError, match='not supported for CPU training.')
             should_error = True
         elif precision == Precision.FP16:
-            ctx = pytest.raises(ValueError, match='FP16 precision is only supported when training with DeepSpeed')
+            ctx = pytest.raises(ValueError, match='FP16 precision is only supported when training with DeepSpeed.')
             should_error = True
 
         with ctx:
