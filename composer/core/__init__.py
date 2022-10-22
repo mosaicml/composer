@@ -4,8 +4,8 @@
 """Central components used by other modules.
 
 Central parts of composer such as :class:`~.engine.Engine`, base class for critical components such as
-:class:`~.algorithm.Algorithm` and :class:`~.callback.Callback` and other useful functionality such as
-:class:`~.logger.Logger` and :class:`~.time.Timestamp` are implemented under core.
+:class:`~.algorithm.Algorithm` and :class:`~.callback.Callback`, and other useful functionality such as
+:class:`~.time.Timestamp` are implemented under core.
 """
 
 from composer.core.algorithm import Algorithm

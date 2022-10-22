@@ -110,15 +110,6 @@ def _set_atexit_ran():
 atexit.register(_set_atexit_ran)
 
 
-def _get_default_passes():
-    return [
-        passes.sort_selective_backprop_first,
-        passes.sort_fused_layernorm_last,
-        passes.set_filo_order,
-        passes.warn_if_multiple_loss_interpolation,
-    ]
-
-
 @dataclass
 class Trace():
     """Record of an algorithm's execution.
@@ -161,12 +152,17 @@ class Engine():
             specific metrics.
     """
 
+    algorithm_passes: List[passes.AlgorithmPass] = [
+        passes.sort_selective_backprop_first,
+        passes.sort_fused_layernorm_last,
+        passes.set_filo_order,
+        passes.warn_if_multiple_loss_interpolation,
+    ]
+
     def __init__(self, state: State, logger: Logger):
         self.logger = logger
         self.state = state
         self._is_closed = False
-
-        self.algorithm_passes: List[passes.AlgorithmPass] = _get_default_passes()
 
         atexit.register(self._close, state, logger)
 
@@ -281,7 +277,8 @@ class Engine():
         if event.is_before_event and duration_marker is not None:
             duration_marker.start()
 
-    def register_pass(self, algorithm_pass: passes.AlgorithmPass, index: int = -1):
+    @classmethod
+    def register_pass(cls, algorithm_pass: passes.AlgorithmPass, index: int = -1):
         """Registers an algorithm pass with the Engine.
 
         Args:
@@ -291,9 +288,9 @@ class Engine():
                 If -1 (default), the pass will be insert to the end of the list.
         """
         if index == -1:
-            index = len(self.algorithm_passes)
+            index = len(cls.algorithm_passes)
 
-        self.algorithm_passes.insert(index, algorithm_pass)
+        cls.algorithm_passes.insert(index, algorithm_pass)
 
     @staticmethod
     def _assert_dataloader_and_duration_set(state: State, event: Event):
