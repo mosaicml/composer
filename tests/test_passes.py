@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
 from typing import List, Type
 from unittest.mock import Mock
 
@@ -40,11 +41,13 @@ def test_register_pass(dummy_state, dummy_logger):
         return algorithms
 
     engine = Engine(dummy_state, dummy_logger)
+    original_passes = copy.deepcopy(engine.algorithm_passes)
     engine.register_pass(insert_dummy_algorithm)
 
     trace = engine.run_event(Event.INIT)
 
     assert 'dummy' in [tr.exit_code for tr in trace.values()]
+    Engine.algorithm_passes = original_passes
 
 
 class TestLIFOPass:
