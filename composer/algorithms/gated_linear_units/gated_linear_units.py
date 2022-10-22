@@ -39,11 +39,11 @@ def from_BertOutput(layer: torch.nn.Module,
         layer, BertOutput
     ), 'The replacement policy requires an instance of transformers.models.bert.modeling_bert.BertOutput for the necessary fields to be defined.'
     return BERTGatedFFOutput(
-        d_embed=layer.dense.out_features,  #type: ignore, dense.out_features member of BertOutput
-        d_ff=layer.dense.in_features,  #type: ignore, dense.in_features member of BertOutput
-        dropout_rate=layer.dropout.p,  #type: ignore, dropout.p member of BertOutput
+        d_embed=layer.dense.out_features,  #type: ignore dense.out_features member of BertOutput
+        d_ff=layer.dense.in_features,  #type: ignore dense.in_features member of BertOutput
+        dropout_rate=layer.dropout.p,  #type: ignore dropout.p member of BertOutput
         act_fn=act_fn,
-        layernorm_eps=layer.LayerNorm.eps,  #type: ignore, LayerNorm.eps member of BertOutput
+        layernorm_eps=layer.LayerNorm.eps,  #type: ignore LayerNorm.eps member of BertOutput
         gated_layer_bias=gated_layer_bias,
         non_gated_layer_bias=non_gated_layer_bias)
 

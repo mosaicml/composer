@@ -29,7 +29,7 @@ def gpt2_attention_converter(module: torch.nn.Module, module_index: int, max_seq
     del module_index  # unused
     module = register_alibi(
         module=module,
-        n_heads=int(module.num_heads),  #type: ignore, num_heads member of GPT2Attention
+        n_heads=int(module.num_heads),  #type: ignore num_heads member of GPT2Attention
         max_token_length=max_sequence_length,
         causal=True)
     setattr(module, '_attn', MethodType(_attn, module))
