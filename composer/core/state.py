@@ -281,7 +281,7 @@ class State(Serializable):
         dataloader_label: Optional[str] = None,
         dataloader_len: Union[int, Time[int]] = -1,
         dataset_state: Optional[Dict[str, Any]] = None,
-        dataloader_resumption_support: bool = False,
+        dataloader_resumption: Optional[Dict] = None,
 
         # precision
         precision: Union[str, Precision] = Precision.FP32,
@@ -310,7 +310,7 @@ class State(Serializable):
         self._dataloader_label = None
         self.set_dataloader(dataloader, dataloader_label, dataloader_len)
         self.dataset_state = dataset_state
-        self.dataloader_resumption_support = dataloader_resumption_support
+        self.dataloader_resumption = dataloader_resumption or {}
         self._max_duration = None
         self.max_duration = max_duration
 
@@ -374,10 +374,11 @@ class State(Serializable):
     def train_dataloader(self, train_dataloader: Optional[types.DataLoader]):
         self._train_dataloader = train_dataloader
         if self.dataset_state:
-            if hasattr(self._train_dataloader.dataset, 'load_state_dict'):
-                self._train_dataloader.dataset.load_state_dict(self.dataset_state)
-                self.dataloader_resumption_support = True
-            self.dataset_state = None  # Clear dataset state
+            dataset = self._dataset_of(self._train_dataloader)
+            if hasattr(dataset, 'load_state_dict'):
+                dataset.load_state_dict(self.dataset_state['train'])
+                self.dataloader_resumption['train'] = True
+            self.dataset_state['train'] = None
 
     @property
     def current_metrics(self):
@@ -502,6 +503,16 @@ class State(Serializable):
     def algorithms(self, algorithms: Sequence[Algorithm]):
         self._algorithms[:] = algorithms
 
+    def _dataset_of(self, obj: Optional[Union[Evaluator, DataSpec, types.DataLoader]]) -> Dataset:
+        from composer.core.evaluator import Evaluator
+        if obj is None:
+            return None
+        if isinstance(obj, Evaluator):
+            obj = obj.dataloader
+        if isinstance(obj, DataSpec):
+            obj = obj.dataloader
+        return obj.dataset
+
     @property
     def evaluators(self):
         """The evaluators."""
@@ -510,6 +521,14 @@ class State(Serializable):
     @evaluators.setter
     def evaluators(self, evaluators: Union[Evaluator, Sequence[Evaluator]]):
         self._evaluators[:] = list(ensure_tuple(evaluators))
+        if self.dataset_state:
+            state = self.dataset_state['eval']
+            for evaluator in self._evaluators:
+                dataset = self._dataset_of(evaluator)
+                if hasattr(dataset, 'load_state_dict') and evaluator.label in state:
+                    dataset.load_state_dict(state[evaluator.label])
+                # del state[evaluator.label]
+            del self.dataset_state['eval']
 
     @property
     def deepspeed_enabled(self):
@@ -526,13 +545,6 @@ class State(Serializable):
             if isinstance(module, FullyShardedDataParallel):
                 return True
         return False
-
-    def _dataset_of(self, dataloader: Optional[Union[types.DataLoader, DataSpec]]) -> Dataset:
-        if dataloader is None:
-            return None
-        if isinstance(dataloader, DataSpec):
-            dataloader = dataloader.dataloader
-        return dataloader.dataset
 
     def dataset_state_dict(self) -> Dict[str, Any]:
         obj = {
@@ -666,13 +678,16 @@ class State(Serializable):
         if hasattr(dataset, 'load_state_dict'):
             dataset.load_state_dict(obj['train'])
             obj['train'] = None
-            self.dataloader_resumption_support = True
+            self.dataloader_resumption['train'] = True
 
         for evaluator in self.evaluators:
-            dataset = self._dataset_of(evaluator.dataloader)
+            dataset = self._dataset_of(evaluator)
             if hasattr(dataset, 'load_state_dict') and evaluator.label in obj['eval']:
                 dataset.load_state_dict(obj['eval'][evaluator.label])
                 del obj['eval'][evaluator.label]
+                if 'eval' not in self.dataloader_resumption:
+                    self.dataloader_resumption['eval'] = {}
+                self.dataloader_resumption['eval'][evaluator.label] = True
 
     def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
         """Loads the state.

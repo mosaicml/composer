@@ -1653,24 +1653,28 @@ class Trainer:
         Only one batch must be loaded to seed the sampler's generator. since only the first batch is being loaded, the
         dataloader may not be completely iterated through.
         """
+        log.debug('Spinning the dataloaders if direct resume is not available')
+
         # spin the evaluator dataloaders once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
-        log.debug('Spinning the dataloaders')
+        eval_state = self.state.dataloader_resumption.get('eval', {})
         for evaluator in self.state.evaluators:
             dataloader = evaluator.dataloader.dataloader
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                 dataloader.sampler.set_epoch(0)
-            for _ in dataloader:
-                break
+            if evaluator.label not in eval_state:
+                for _ in dataloader:
+                    break
 
         # spin the train dataloader's sampler to get to the state of the desired epoch
         dataloader = self.state.dataloader
         assert dataloader is not None, 'train dataloader is set on state after FIT_START'
-        for epoch in range(int(self.state.timestamp.epoch)):
-            if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
-                dataloader.sampler.set_epoch(epoch)
-            for _ in dataloader:
-                break
+        if 'train' not in self.state.dataloader_resumption:
+            for epoch in range(int(self.state.timestamp.epoch)):
+                if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
+                    dataloader.sampler.set_epoch(epoch)
+                for _ in dataloader:
+                    break
 
     def _accumulate_time_across_ranks(
         self,
@@ -1708,9 +1712,7 @@ class Trainer:
 
         use_grad_scaling = self._use_grad_scaling(self.state.precision, self.state.scaler)
 
-        # Don't spin if dataloader handles it internally
-        if not self.state.dataloader_resumption_support:
-            self._spin_dataloaders()
+        self._spin_dataloaders()
 
         if self.state.timestamp.batch_in_epoch == 0 and self._rng_state is not None:
             # only restore the rng state here if the step in the current epoch is zero.
@@ -1733,7 +1735,7 @@ class Trainer:
 
                 for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
                     # Don't spin if dataloader handles it internally. Otherwise, if resuming, skip dataloader forward
-                    if not self.state.dataloader_resumption_support and batch_idx < int(self.state.timestamp.batch_in_epoch):
+                    if 'train' not in self.state.dataloader_resumption and batch_idx < int(self.state.timestamp.batch_in_epoch):
                         # Restore the RNG state immediately before the next batch is yielded from the dataloader
                         if batch_idx + 1 == int(self.state.timestamp.batch_in_epoch) and self._rng_state is not None:
                             reproducibility.load_rng_state(self._rng_state)
