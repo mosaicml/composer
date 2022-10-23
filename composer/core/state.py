@@ -666,7 +666,7 @@ class State(Serializable):
         if hasattr(dataset, 'load_state_dict'):
             dataset.load_state_dict(obj['train'])
             obj['train'] = None
-            self.dataloader_resumption_resupport = True
+            self.dataloader_resumption_support = True
 
         for evaluator in self.evaluators:
             dataset = self._dataset_of(evaluator.dataloader)
