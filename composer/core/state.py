@@ -16,8 +16,10 @@ import torch.nn.modules.utils
 from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
+from torch.utils.data import Dataset
 from torchmetrics import Metric
 
+from composer.core.data_spec import DataSpec
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit
@@ -114,7 +116,7 @@ class State(Serializable):
             size for each device becomes ``microbatch_size = eval_batch_size / (num_devices * eval_batch_split)``.
         auto_grad_accum (bool, optional): Whether automatic gradient accumulation is enabled.
         train_dataloader (types.DataLoader, optional): Dataloader used for training
-        evaluators (Evalutor | Evaluators, optional): :class:`.Evaluator` used for evaluation.
+        evaluators (Evaluator | Evaluators, optional): :class:`.Evaluator` used for evaluation.
         dataloader (types.DataLoader, optional): The active DataLoader.
         dataloader_len (int | Time[int], optional): The number of batches per dataloader iteration (e.g. epoch).
             The trainer will yield the first ``dataloader_len`` batches per iteration. If ``-1`` (the default),
@@ -517,21 +519,45 @@ class State(Serializable):
                 return True
         return False
 
+    def _dataset_of(self, dataloader: Optional[Union[types.DataLoader, DataSpec]]) -> Dataset:
+        if dataloader is None:
+            return None
+        if isinstance(dataloader, DataSpec):
+            dataloader = dataloader.dataloader
+        return dataloader.dataset
+
+    def dataset_state_dict(self) -> Dict[str, Any]:
+        obj = {
+            'train': None,
+            'eval': {},
+        }
+
+        dataset = self._dataset_of(self.train_dataloader)
+        if hasattr(dataset, 'state_dict'):
+            obj['train'] = dataset.state_dict()
+
+        for evaluator in self.evaluators:
+            dataset = self._dataset_of(evaluator.dataloader)
+            if hasattr(dataset, 'state_dict'):
+                st = dataset.state_dict()
+                st['sessions'] = []  # Don't save eval split's sessions, because we do not checkpoint during eval.
+                obj['eval'][evaluator.label] = st
+
+        return obj
+
     def state_dict(self) -> Dict[str, Any]:
         state_dict = {}
 
         for attribute_name in self.serialized_attributes:
             attribute_value = getattr(self, attribute_name)
             if attribute_name == 'dataset_state':
-                if self.train_dataloader and hasattr(self.train_dataloader.dataset, 'state_dict'):
-                    serialized_value = self.train_dataloader.dataset.state_dict()
+                serialized_value = self.dataset_state_dict()
             elif attribute_name == 'model':
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                 # If it is DDP wrapped, do not save the `module.` prefix, as that is an implmentation detail
                 with get_fsdp_rank0_cpu_save_context(
                         attribute_value) if self.fsdp_enabled else contextlib.nullcontext():
                     model_state = attribute_value.state_dict()
-
                 if self.is_model_ddp:
                     torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state, 'module.')
                 serialized_value = model_state
@@ -625,6 +651,21 @@ class State(Serializable):
                              'If you wish to use pretrained weights and reinitialize layers which have '
                              'undergone surgery, set `load_weights_only=True`.')
 
+    def load_dataset_state(self, obj: Dict[str, Any]) -> None:
+        self.dataset_state = obj
+
+        dataset = self._dataset_of(self.train_dataloader)
+        if hasattr(dataset, 'load_state_dict'):
+            dataset.load_state_dict(obj['train'])
+            obj['train'] = None
+            self.dataloader_resumption_resupport = True
+
+        for evaluator in self.evaluators:
+            dataset = self._dataset_of(evaluator.dataloader)
+            if hasattr(dataset, 'load_state_dict') and evaluator.label in obj['eval']:
+                dataset.load_state_dict(obj['eval'][evaluator.label])
+                del obj['eval'][evaluator.label]
+
     def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
         """Loads the state.
 
@@ -644,9 +685,7 @@ class State(Serializable):
                 continue
 
             if attribute_name == 'dataset_state':
-                if self.train_dataloader and hasattr(self.train_dataloader.dataset, 'load_state_dict'):
-                    self.train_dataloader.dataset.load_state_dict(serialized_value)
-                    self.dataloader_resumption_support = True
+                self.load_dataset_state(serialized_value)
             elif attribute_name == 'model':
                 self.load_model_state(state, strict=strict)
             elif attribute_name == 'optimizers':
