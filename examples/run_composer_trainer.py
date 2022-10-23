@@ -52,18 +52,11 @@ def _main():
             hparams_name = os.path.join(tmpdir, 'hparams.yaml')
             with open(hparams_name, 'w+') as f:
                 f.write(hparams.to_yaml())
-            trainer.logger.file_artifact(
-                artifact_name=f'{trainer.state.run_name}/hparams.yaml',
+            trainer.logger.upload_file(
+                remote_file_name=f'{trainer.state.run_name}/hparams.yaml',
                 file_path=f.name,
                 overwrite=True,
             )
-
-    # Print the config to the terminal and log to artifact store if on each local rank 0
-    if dist.get_local_rank() == 0:
-        print('*' * 30)
-        print('Config:')
-        print(hparams.to_yaml())
-        print('*' * 30)
 
     trainer.fit()
 

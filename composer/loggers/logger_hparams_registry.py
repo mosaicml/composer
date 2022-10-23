@@ -18,46 +18,47 @@ from composer.loggers.cometml_logger import CometMLLogger
 from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.progress_bar_logger import ProgressBarLogger
+from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.loggers.tensorboard_logger import TensorboardLogger
 from composer.loggers.wandb_logger import WandBLogger
 from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
 
 __all__ = [
-    'ObjectStoreLoggerHparams',
+    'RemoteUploaderDownloaderHparams',
     'logger_registry',
 ]
 
 
 @dataclass
-class ObjectStoreLoggerHparams(hp.Hparams):
-    """Hyperparameters for the :class:`~.ObjectStoreLogger`.
+class RemoteUploaderDownloaderHparams(hp.Hparams):
+    """Hyperparameters for the :class:`~.RemoteUploaderDownloader`.
 
     Args:
         object_store_hparams (ObjectStoreHparams): The object store provider hparams.
-        object_name (str, optional): See :class:`.ObjectStoreLogger`.
-        num_concurrent_uploads (int, optional): See :class:`.ObjectStoreLogger`.
-        upload_staging_folder (str, optional): See :class:`.ObjectStoreLogger`.
-        use_procs (bool, optional): See :class:`.ObjectStoreLogger`.
+        file_path_format_string (str, optional): See :class:`.RemoteUploaderDownloader`.
+        num_concurrent_uploads (int, optional): See :class:`.RemoteUploaderDownloader`.
+        upload_staging_folder (str, optional): See :class:`.RemoteUploaderDownloader`.
+        use_procs (bool, optional): See :class:`.RemoteUploaderDownloader`.
     """
 
     hparams_registry = {
         'object_store_hparams': object_store_registry,
     }
 
-    object_store_hparams: ObjectStoreHparams = hp.required('Object store provider hparams.')
-    object_name: str = hp.auto(ObjectStoreLogger, 'object_name')
-    num_concurrent_uploads: int = hp.auto(ObjectStoreLogger, 'num_concurrent_uploads')
-    use_procs: bool = hp.auto(ObjectStoreLogger, 'use_procs')
-    upload_staging_folder: Optional[str] = hp.auto(ObjectStoreLogger, 'upload_staging_folder')
-    num_attempts: int = hp.auto(ObjectStoreLogger, 'num_attempts')
+    bucket_uri: str = hp.required('Remote bucket uri')
+    object_store_hparams: Optional[ObjectStoreHparams] = hp.optional('Object store provider hparams.', default=None)
+    file_path_format_string: str = hp.auto(RemoteUploaderDownloader, 'file_path_format_string')
+    num_concurrent_uploads: int = hp.auto(RemoteUploaderDownloader, 'num_concurrent_uploads')
+    use_procs: bool = hp.auto(RemoteUploaderDownloader, 'use_procs')
+    upload_staging_folder: Optional[str] = hp.auto(RemoteUploaderDownloader, 'upload_staging_folder')
+    num_attempts: int = hp.auto(RemoteUploaderDownloader, 'num_attempts')
 
-    def initialize_object(self) -> ObjectStoreLogger:
-        return ObjectStoreLogger(
-            object_store_cls=self.object_store_hparams.get_object_store_cls(),
-            object_store_kwargs=self.object_store_hparams.get_kwargs(),
-            object_name=self.object_name,
+    def initialize_object(self) -> RemoteUploaderDownloader:
+        return RemoteUploaderDownloader(
+            bucket_uri=self.bucket_uri,
+            backend_kwargs=self.object_store_hparams.get_kwargs() if self.object_store_hparams is not None else {},
+            file_path_format_string=self.file_path_format_string,
             num_concurrent_uploads=self.num_concurrent_uploads,
             upload_staging_folder=self.upload_staging_folder,
             use_procs=self.use_procs,
@@ -71,6 +72,6 @@ logger_registry: Dict[str, Union[Type[LoggerDestination], Type[hp.Hparams]]] = {
     'progress_bar': ProgressBarLogger,
     'tensorboard': TensorboardLogger,
     'in_memory': InMemoryLogger,
-    'object_store': ObjectStoreLoggerHparams,
+    'object_store': RemoteUploaderDownloaderHparams,
     'comet_ml': CometMLLogger,
 }
