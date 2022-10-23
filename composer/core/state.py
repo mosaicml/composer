@@ -373,7 +373,7 @@ class State(Serializable):
         self._train_dataloader = train_dataloader
         if self.dataset_state:
             if hasattr(self._train_dataloader.dataset, 'load_state_dict'):
-                self._train_dataloader.dataset.load_state_dict(serialized_value)
+                self._train_dataloader.dataset.load_state_dict(self.dataset_state)
                 self.dataloader_resumption_support = True
             self.dataset_state = None  # Clear dataset state
 
