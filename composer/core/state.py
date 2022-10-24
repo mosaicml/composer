@@ -563,7 +563,6 @@ class State(Serializable):
             algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
                 to sort them into the correct order. (default: ``None``)
         """
-        print(state['algorithms'])
         import composer.algorithms as algorithms  # type: ignore imports used in `eval(representation)`
 
         # Get repr of existing algorithms
@@ -590,6 +589,7 @@ class State(Serializable):
                                 'Potential parameter discrepancies for this required_on_load algorithm may lead to '
                                 'unexpected behavior, including failing to load weights for some layers.'))
                     elif type(algo) not in state_algos:
+                        print('add algo', type(algo), algo)
                         missing_algos.add(algo)
                         missing_algo_names.append(algo_name)
                         missing_algo_reprs.append(serialized_value['repr'])
