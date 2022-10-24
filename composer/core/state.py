@@ -720,6 +720,10 @@ class State(Serializable):
             if attribute_name not in self.serialized_attributes or attribute_name == 'model':
                 continue
 
+            # Restructure algorithms serialized_value from list to dict
+            if attribute_name == 'algorithms':
+                serialized_value = {algo_name: algo_serialized for algo_name, algo_serialized in serialized_value}
+
             if attribute_name == 'optimizers':
                 self.load_optim_state(state)
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
