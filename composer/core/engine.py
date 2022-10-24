@@ -164,8 +164,8 @@ class Engine():
         logger (Logger): A :class:`.Logger` instance to be used for logging algorithm and callback
             specific metrics.
         algorithm_passes ([AlgorithmPass | Tuple[AlgorithmPass, int] | Sequence[AlgorithmPass | Tuple[AlgorithmPass, int]], optional):
-            A sequence of algorithm_passes to be registered in Engine.
-
+            Optional list of passes to change order in which algorithms are applied. These passes are merged with the
+            default passes specified in :class:`.Engine`. If ``None``, then no additional passes will be used.
     """
 
     def __init__(

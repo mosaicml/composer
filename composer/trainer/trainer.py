@@ -435,8 +435,9 @@ class Trainer:
 
             .. seealso:: :mod:`composer.algorithms` for the different algorithms built into Composer.
         algorithm_passes ([AlgorithmPass | Tuple[AlgorithmPass, int] | Sequence[AlgorithmPass | Tuple[AlgorithmPass, int]], optional):
-            Optional list of passes to change order in which algorithms are applied. These passes are merged with already
-            specified passes in :class:`.Engine`. If ``None``, then no passes will be used. (default: ``None``)
+            Optional list of passes to change order in which algorithms are applied. These passes are merged with the
+            default passes specified in :class:`.Engine`. If ``None``, then no additional passes will be used.
+            (default: ``None``)
 
             .. seealso:: :class:`composer.core.Engine` for more information.
         optimizers (torch.optim.Optimizer, optional): The optimizer.
