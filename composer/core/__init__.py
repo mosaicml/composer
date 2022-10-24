@@ -15,6 +15,7 @@ from composer.core.engine import Engine, Trace
 from composer.core.evaluator import Evaluator, ensure_evaluator
 from composer.core.event import Event
 from composer.core.precision import Precision
+from composer.core.serializable import Serializable
 from composer.core.state import State
 from composer.core.time import Time, Timestamp, TimeUnit, ensure_time
 
@@ -28,6 +29,7 @@ __all__ = [
     'Evaluator',
     'Event',
     'Precision',
+    'Serializable',
     'State',
     'Time',
     'Timestamp',
