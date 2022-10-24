@@ -589,7 +589,6 @@ class State(Serializable):
                                 'Potential parameter discrepancies for this required_on_load algorithm may lead to '
                                 'unexpected behavior, including failing to load weights for some layers.'))
                     elif type(algo) not in state_algos:
-                        print('add algo', type(algo), algo)
                         missing_algos.add(algo)
                         missing_algo_names.append(algo_name)
                         missing_algo_reprs.append(serialized_value['repr'])
@@ -718,7 +717,7 @@ class State(Serializable):
 
         for attribute_name, serialized_value in state.items():
             # Skip removed attributes as well as algorithms and model, which was already loaded
-            if attribute_name not in self.serialized_attributes or attribute_name == 'algorithms' or attribute_name == 'model':
+            if attribute_name not in self.serialized_attributes or attribute_name == 'model':
                 continue
 
             if attribute_name == 'optimizers':
