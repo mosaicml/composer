@@ -138,7 +138,7 @@ extra_deps['dev'] = [
 ]
 
 extra_deps['deepspeed'] = [
-    'deepspeed==0.5.10',  # TODO should this be >=0.5.10,<0.6
+    'deepspeed==0.7.4',  # TODO should this be >=0.5.10,<0.6
 ]
 
 extra_deps['wandb'] = [
