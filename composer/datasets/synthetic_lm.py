@@ -185,7 +185,8 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
             raise ValueError(f'{tokenizer_params.tokenizer_cls} should sub-class transformers.PreTrainedTokenizer.')
         # print("Temporary path:", tmp_path)
         # input("Waiting for input..")
-        tokenizer = tokenizer_params.tokenizer_cls.from_pretrained(tmp_tokenizer_dir)
+        tokenizer = tokenizer_params.tokenizer_cls.from_pretrained(  #type: ignore
+            tmp_tokenizer_dir)
 
     return tokenizer
 

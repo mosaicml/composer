@@ -252,13 +252,25 @@ def count_module_instances(module: torch.nn.Module, module_class: Union[Type[tor
     Returns:
         int: The number of instances of ``module_class`` in ``module``
     """
-    count = 0
+    found_instances = set()
+    _recur_count_module_instances(module, module_class, found_instances)
+    return len(found_instances)
+
+
+def _recur_count_module_instances(
+    module: torch.nn.Module,
+    module_class: Union[Type[torch.nn.Module], Tuple[Type[torch.nn.Module], ...]],
+    found_instances: set,
+):
+    """Counts instances of ``module_class`` in ``module``, recursively, using a set to deduplicate.
+
+    We require creating a set of all found modules of instance module_class since a model might
+    have duplicate references to a particular module.
+    """
     for _, child in module.named_children():
         if isinstance(child, module_class):
-            count += 1
-        count += count_module_instances(child, module_class)
-
-    return count
+            found_instances.add(child)
+        _recur_count_module_instances(child, module_class, found_instances)
 
 
 def _tensor_in(tensor: torch.Tensor, iterable: Iterable[torch.Tensor]):
