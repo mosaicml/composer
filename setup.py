@@ -75,7 +75,7 @@ while True:
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
-    'torchmetrics>=0.7.0,<0.8',
+    'torchmetrics>=0.7.0,<0.10.0',
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.10.0',  # torchvision has strict pytorch requirements
     'torch>=1.10,<2',
@@ -145,7 +145,9 @@ extra_deps['wandb'] = [
     'wandb>=0.13.2,<0.14',
 ]
 
-extra_deps['comet_ml'] = ['comet_ml>=3.31.12,<4.0.0']
+extra_deps['comet_ml'] = [
+    'comet_ml>=3.31.12,<4.0.0',
+]
 
 extra_deps['tensorboard'] = [
     'tensorboard>=2.9.1,<3.0.0',
@@ -170,7 +172,6 @@ extra_deps['coco'] = [
 
 extra_deps['nlp'] = [
     'transformers>=4.11,<5',
-    'datasets>=2.4.0,<3',
 ]
 
 extra_deps['mlperf'] = [
@@ -180,7 +181,7 @@ extra_deps['mlperf'] = [
 ]
 
 extra_deps['streaming'] = [
-    'mosaicml-streaming',
+    'mosaicml-streaming<0.2.*',
     'boto3>=1.21.45,<2',
     'paramiko>=2.11.0,<3',
 ]

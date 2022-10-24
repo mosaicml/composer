@@ -38,13 +38,14 @@ def from_BertOutput(layer: torch.nn.Module,
     assert isinstance(
         layer, BertOutput
     ), 'The replacement policy requires an instance of transformers.models.bert.modeling_bert.BertOutput for the necessary fields to be defined.'
-    return BERTGatedFFOutput(d_embed=layer.dense.out_features,
-                             d_ff=layer.dense.in_features,
-                             dropout_rate=layer.dropout.p,
-                             act_fn=act_fn,
-                             layernorm_eps=layer.LayerNorm.eps,
-                             gated_layer_bias=gated_layer_bias,
-                             non_gated_layer_bias=non_gated_layer_bias)
+    return BERTGatedFFOutput(
+        d_embed=layer.dense.out_features,  #type: ignore dense.out_features member of BertOutput
+        d_ff=layer.dense.in_features,  #type: ignore dense.in_features member of BertOutput
+        dropout_rate=layer.dropout.p,  #type: ignore dropout.p member of BertOutput
+        act_fn=act_fn,
+        layernorm_eps=layer.LayerNorm.eps,  #type: ignore LayerNorm.eps member of BertOutput
+        gated_layer_bias=gated_layer_bias,
+        non_gated_layer_bias=non_gated_layer_bias)
 
 
 def from_BertIntermediate(layer: torch.nn.Module, module_index: int) -> torch.nn.Identity:
@@ -108,7 +109,7 @@ def apply_gated_linear_units(model: torch.nn.Module,
                              'specify `act_fn` to manually override activation functions.')
 
         # since our set is of 1, let's extract the only activation function remaining.
-        (act_fn,) = act_fns
+        (act_fn,) = act_fns  #type: ignore will fail below if None
 
         if act_fn is None:
             raise ValueError(

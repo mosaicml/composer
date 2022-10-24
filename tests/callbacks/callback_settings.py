@@ -19,7 +19,6 @@ from composer.loggers import CometMLLogger, RemoteUploaderDownloader, Tensorboar
 from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.logger_hparams_registry import RemoteUploaderDownloaderHparams, logger_registry
 from composer.loggers.progress_bar_logger import ProgressBarLogger
-from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
 from tests.common import get_module_subclasses
 
 try:
@@ -63,8 +62,8 @@ except ImportError:
 
 _callback_kwargs: Dict[Union[Type[Callback], Type[hp.Hparams]], Dict[str, Any],] = {
     RemoteUploaderDownloader: {
-        'object_store_cls': LibcloudObjectStore,
-        'object_store_kwargs': {
+        'bucket_uri': 'libcloud://.',
+        'backend_kwargs': {
             'provider': 'local',
             'container': '.',
             'provider_kwargs': {
@@ -95,6 +94,7 @@ _callback_kwargs: Dict[Union[Type[Callback], Type[hp.Hparams]], Dict[str, Any],]
         'window_size': 1,
     },
     RemoteUploaderDownloaderHparams: {
+        'bucket_uri': 'libcloud://.',
         'object_store_hparams': {
             'libcloud': {
                 'provider': 'local',

@@ -14,7 +14,6 @@ import sys
 import tempfile
 import time
 import traceback
-import warnings
 from argparse import ArgumentParser
 from typing import Any, Dict, List
 
@@ -220,9 +219,6 @@ def _parse_args():
             args.master_addr = '127.0.0.1'
 
         if args.master_port is None:
-            warnings.warn('AutoSelectPortWarning: The distributed key-value port was auto-selected. '
-                          'This may lead to race conditions when launching multiple training processes simultaneously. '
-                          'To eliminate this race condition, explicitly specify a port with --master_port PORT_NUMBER')
             args.master_port = get_free_tcp_port()
 
     return args

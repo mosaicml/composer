@@ -12,13 +12,18 @@ from composer.core.evaluator import Evaluator, evaluate_periodically
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
 from composer.trainer import Trainer
+from composer.utils import dist
 from tests.common import EventCounterCallback, RandomClassificationDataset, SimpleModel
 
 
 def test_eval():
     # Construct the trainer
+    dataset = RandomClassificationDataset()
     trainer = Trainer(
-        eval_dataloader=DataLoader(dataset=RandomClassificationDataset()),
+        eval_dataloader=DataLoader(
+            dataset=dataset,
+            sampler=dist.get_sampler(dataset),
+        ),
         model=SimpleModel(),
     )
 
@@ -34,7 +39,11 @@ def test_eval_call():
     trainer = Trainer(model=SimpleModel(),)
 
     # Evaluate the model
-    trainer.eval(eval_dataloader=DataLoader(dataset=RandomClassificationDataset()))
+    dataset = RandomClassificationDataset()
+    trainer.eval(eval_dataloader=DataLoader(
+        dataset=dataset,
+        sampler=dist.get_sampler(dataset),
+    ))
 
     # Assert that there is some accuracy
     assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
@@ -45,8 +54,12 @@ def test_eval_deprecation_error():
     trainer = Trainer(model=SimpleModel(),)
 
     with pytest.raises(ValueError):
+        dataset = RandomClassificationDataset()
         trainer.eval(
-            dataloader=DataLoader(dataset=RandomClassificationDataset()),
+            dataloader=DataLoader(
+                dataset=dataset,
+                sampler=dist.get_sampler(dataset),
+            ),
             dataloader_label='test',
             metrics=Accuracy(),
         )
@@ -65,7 +78,11 @@ def test_trainer_eval_loop():
     trainer = Trainer(model=SimpleModel())
 
     # Evaluate the model
-    eval_dataloader = DataLoader(dataset=RandomClassificationDataset())
+    dataset = RandomClassificationDataset()
+    eval_dataloader = DataLoader(
+        dataset=dataset,
+        sampler=dist.get_sampler(dataset),
+    )
     trainer._eval_loop(
         dataloader=eval_dataloader,
         dataloader_label='eval',
@@ -85,7 +102,11 @@ def test_trainer_eval_subset_num_batches():
     )
 
     # Evaluate the model
-    eval_dataloader = DataLoader(dataset=RandomClassificationDataset())
+    dataset = RandomClassificationDataset()
+    eval_dataloader = DataLoader(
+        dataset=dataset,
+        sampler=dist.get_sampler(dataset),
+    )
     trainer.eval(
         eval_dataloader=eval_dataloader,
         subset_num_batches=1,
@@ -106,7 +127,11 @@ def test_trainer_eval_timestamp():
     )
 
     # Evaluate the model
-    eval_dataloader = DataLoader(dataset=RandomClassificationDataset())
+    dataset = RandomClassificationDataset()
+    eval_dataloader = DataLoader(
+        dataset=dataset,
+        sampler=dist.get_sampler(dataset),
+    )
     trainer.eval(eval_dataloader=eval_dataloader)
 
     # Ensure that the eval timestamp matches the number of evaluation events
@@ -144,12 +169,21 @@ def test_eval_at_fit_end(eval_interval: Union[str, Time, int], max_duration: str
     """Test the `eval_subset_num_batches` and `eval_interval` works when specified on init."""
 
     # Construct the trainer
-    train_dataloader = DataLoader(dataset=RandomClassificationDataset(), batch_size=2)
+    train_dataset = RandomClassificationDataset()
+    train_dataloader = DataLoader(
+        dataset=train_dataset,
+        batch_size=2,
+        sampler=dist.get_sampler(train_dataset),
+    )
     event_counter_callback = EventCounterCallback()
     eval_interval = eval_interval
+    eval_dataset = RandomClassificationDataset()
     evaluator = Evaluator(
         label='eval',
-        dataloader=DataLoader(dataset=RandomClassificationDataset()),
+        dataloader=DataLoader(
+            dataset=eval_dataset,
+            sampler=dist.get_sampler(eval_dataset),
+        ),
         metric_names=['Accuracy'],
     )
 
@@ -180,11 +214,16 @@ def test_eval_at_fit_end(eval_interval: Union[str, Time, int], max_duration: str
         assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == expected_eval_batch_start_calls
 
 
+def _get_classification_dataloader():
+    dataset = RandomClassificationDataset()
+    return DataLoader(dataset, sampler=dist.get_sampler(dataset))
+
+
 @pytest.mark.parametrize('eval_dataloader', [
-    DataLoader(dataset=RandomClassificationDataset()),
+    _get_classification_dataloader(),
     Evaluator(
         label='eval',
-        dataloader=DataLoader(dataset=RandomClassificationDataset()),
+        dataloader=_get_classification_dataloader(),
         metric_names=['Accuracy'],
     ),
 ])
@@ -203,7 +242,8 @@ def test_eval_params_init(
     """Test the `eval_subset_num_batches` and `eval_interval` works when specified on init."""
 
     # Construct the trainer
-    train_dataloader = DataLoader(dataset=RandomClassificationDataset())
+    train_dataset = RandomClassificationDataset()
+    train_dataloader = DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset))
     event_counter_callback = EventCounterCallback()
     trainer = Trainer(
         model=SimpleModel(),
@@ -226,12 +266,17 @@ def test_eval_params_init(
 def test_eval_params_evaluator():
     """Test the `eval_subset_num_batches` and `eval_interval` works when specified as part of an evaluator."""
     # Construct the trainer
-    train_dataloader = DataLoader(dataset=RandomClassificationDataset())
+    train_dataset = RandomClassificationDataset()
+    train_dataloader = DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset))
     eval_interval_batches = 1
     eval_subset_num_batches = 2
+    eval_dataset = RandomClassificationDataset()
     eval_dataloader = Evaluator(
         label='eval',
-        dataloader=DataLoader(dataset=RandomClassificationDataset()),
+        dataloader=DataLoader(
+            dataset=eval_dataset,
+            sampler=dist.get_sampler(eval_dataset),
+        ),
         metric_names=['Accuracy'],
         eval_interval=f'{eval_interval_batches}ba',
         subset_num_batches=eval_subset_num_batches,
