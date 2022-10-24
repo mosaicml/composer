@@ -586,7 +586,7 @@ class StreamingADE20k(StreamingDataset):
                          batch_size=batch_size)
 
         # Define custom transforms
-        self.both_transforms, self.image_transforms, self.target_transforms = build_ade20k_transformations(
+        self.both_transform, self.image_transform, self.target_transform = build_ade20k_transformations(
             split=split,
             base_size=base_size,
             min_resize_scale=min_resize_scale,
@@ -597,10 +597,10 @@ class StreamingADE20k(StreamingDataset):
         obj = super().__getitem__(idx)
         x = obj['image']
         y = obj['annotation']
-        if self.both_transforms:
-            x, y = self.both_transforms((x, y))
-        if self.image_transforms:
-            x = self.image_transforms(x)
-        if self.target_transforms:
-            y = self.target_transforms(y)
+        if self.both_transform:
+            x, y = self.both_transform((x, y))
+        if self.image_transform:
+            x = self.image_transform(x)
+        if self.target_transform:
+            y = self.target_transform(y)
         return x, y
