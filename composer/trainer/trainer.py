@@ -33,6 +33,7 @@ from composer.algorithms import GradientClipping
 from composer.callbacks import CheckpointSaver, GradMonitor
 from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp,
                            ensure_data_spec, ensure_evaluator, ensure_time)
+from composer.core.passes import AlgorithmPass
 from composer.core.precision import get_precision_context
 from composer.core.time import TimeUnit
 from composer.core.types import Batch, BreakEpochException, PyTorchScheduler, TrainerMode
@@ -433,6 +434,12 @@ class Trainer:
             no algorithms will be used. (default: ``None``)
 
             .. seealso:: :mod:`composer.algorithms` for the different algorithms built into Composer.
+        algorithm_passes ([AlgorithmPass | Tuple[AlgorithmPass, int] | Sequence[AlgorithmPass | Tuple[AlgorithmPass, int]], optional):
+            Optional list of passes to change order in which algorithms are applied. These passes are merged with the
+            default passes specified in :class:`.Engine`. If ``None``, then no additional passes will be used.
+            (default: ``None``)
+
+            .. seealso:: :class:`composer.core.Engine` for more information.
         optimizers (torch.optim.Optimizer, optional): The optimizer.
             If ``None``, will be set to ``DecoupledSGDW(model.parameters(), lr=0.1)``. (default: ``None``)
 
@@ -774,6 +781,10 @@ class Trainer:
         # Algorithms
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
 
+        # Engine Pass Registration
+        algorithm_passes: Optional[Union[AlgorithmPass, Tuple[AlgorithmPass, int],
+                                         Sequence[Union[AlgorithmPass, Tuple[AlgorithmPass, int]]]]] = None,
+
         # Optimizers and Scheduling
         optimizers: Optional[torch.optim.Optimizer] = None,
         schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
@@ -1032,7 +1043,7 @@ class Trainer:
             self.state.callbacks.append(self._checkpoint_saver)
 
         # The Engine
-        self.engine = Engine(state=self.state, logger=self.logger)
+        self.engine = Engine(state=self.state, logger=self.logger, algorithm_passes=algorithm_passes)
 
         # Set the logger
         self.state.model.logger = self.logger
