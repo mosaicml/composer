@@ -549,7 +549,7 @@ class State(Serializable):
 
     def _apply_required_algorithms(
         self,
-        state: Dict[str, Any],
+        state_dict: Dict[str, Any],
         logger: Logger,
         exclude_algorithms: Optional[List[str]] = None,
         algorithm_passes: Optional[List[AlgorithmPass]] = None,
@@ -557,7 +557,7 @@ class State(Serializable):
         """Applies required algorithms which haven't been specified and aren't in the exclude list.
 
         Args:
-            state (Dict[str, Any]): State from checkpoint.
+            state_dict (Dict[str, Any]): State from checkpoint.
             logger (Logger): Logger to use.
             exclude_algorithms (List[str], optional): List of algorithm names to exclude. (default: ``None``)
             algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
@@ -566,43 +566,47 @@ class State(Serializable):
         import composer.algorithms as algorithms  # type: ignore imports used in `eval(representation)`
 
         # Get repr of existing algorithms
-        state_algos = {}
+        current_algos = {}
         for algo in self.algorithms:
             if algo.required_on_load():
-                if type(algo) not in state_algos:
-                    state_algos[type(algo)] = []
-                state_algos[type(algo)].append(algo.__repr__())
+                if type(algo) not in current_algos:
+                    current_algos[type(algo)] = []
+                current_algos[type(algo)].append(algo.__repr__())
 
         # Gather algorithms to apply
         missing_algos = set()
         missing_algo_names = []
         missing_algo_reprs = []
-        for algo_name, serialized_value in state['algorithms']:
+        for algo_name, serialized_value in state_dict['algorithms']:
+            # Check if required algorithm
             if hasattr(algorithms, algo_name) and getattr(algorithms, algo_name).required_on_load():
                 algo = eval(f"algorithms.{serialized_value['repr']}")
+                # Check that algorithm is not explicitly excluded by user
                 if exclude_algorithms is None or type(algo).__qualname__ not in exclude_algorithms:
-                    if type(algo) in state_algos and not serialized_value['repr'] in state_algos[type(algo)]:
+                    # Raise warning if we are unable to safely autoapply
+                    if type(algo) in current_algos and not serialized_value['repr'] in current_algos[type(algo)]:
                         warnings.warn(
                             textwrap.dedent(
                                 f"required_on_load algorithm {serialized_value['repr']} was enabled when training the "
-                                f"loaded checkpoint but is now specified in the following forms: {', '.join(state_algos[type(algo)])}."
+                                f"loaded checkpoint but is now specified in the following forms: {', '.join(current_algos[type(algo)])}."
                                 'Potential parameter discrepancies for this required_on_load algorithm may lead to '
                                 'unexpected behavior, including failing to load weights for some layers.'))
-                    elif type(algo) not in state_algos:
+                    # Otherwise, queue algorithm to be autoappled
+                    elif type(algo) not in current_algos:
                         missing_algos.add(algo)
                         missing_algo_names.append(algo_name)
                         missing_algo_reprs.append(serialized_value['repr'])
                         self.algorithms.append(algo)
 
         # Reorder algorithms based on algorithm_passes from engine
-        algorithms = self.algorithms
+        algo_list = self.algorithms
         if algorithm_passes is not None:
             for algo_pass in algorithm_passes:
-                algorithms = algo_pass(algorithms, Event.INIT)
+                algo_list = algo_pass(algo_list, Event.INIT)
         # Raise ValueError if algorithm_passes order any checkpoint algorithm before an already
         # applied user specified algorithm
         encountered_ckpt_algo = False
-        for algo in algorithms:
+        for algo in algo_list:
             if algo in missing_algos:
                 encountered_ckpt_algo = True
             elif encountered_ckpt_algo:
@@ -610,10 +614,11 @@ class State(Serializable):
                     textwrap.dedent('The following algorithms were enabled when training this checkpoint '
                                     f'and are required to successfully load it: {missing_algo_reprs}. '
                                     'Attempted to autocreate and apply required algorithms, but at least one '
-                                    'of the loaded algorithms was ordered before a user specified algorithm, '
-                                    'preventing automatic application of algorithms. If you wish to use pretrained '
-                                    'weights and reinitialize layers which have undergone surgery, the following '
-                                    'algorithms may be excluded using `load_exclude_algorithms`, e.g. '
+                                    'of the loaded algorithms was ordered before a user specified algorithm '
+                                    'which has already been applied, preventing automatic application of '
+                                    'algorithms. If you wish to use pretrained weights and reinitialize '
+                                    'layers which have undergone surgery, the following algorithms may be '
+                                    'excluded using `load_exclude_algorithms`, e.g. '
                                     f'`load_exclude_algorithms=[{missing_algo_names}]`.'))
 
         try:
