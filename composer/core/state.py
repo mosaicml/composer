@@ -563,6 +563,7 @@ class State(Serializable):
             algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
                 to sort them into the correct order. (default: ``None``)
         """
+        print(state['algorithms'])
         import composer.algorithms as algorithms  # type: ignore imports used in `eval(representation)`
 
         # Get repr of existing algorithms
