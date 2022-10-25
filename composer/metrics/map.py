@@ -148,6 +148,9 @@ class MAP(Metric):
         ValueError: If ``class_metrics`` is not a boolean.
     """
 
+    # Have default behavior for this complex metric
+    full_state_update = True
+
     def __init__(
             self,
             class_metrics: bool = False,
