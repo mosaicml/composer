@@ -112,11 +112,13 @@ def _assert_checkpoints_equal(file1, file2):
     del checkpoint1['state']['run_name']
     del checkpoint2['state']['run_name']
 
-    # Remove algorithm representations, which may be memory addresses
-    for algorithm in checkpoint1['state']['algorithms'].keys():
-        del checkpoint1['state']['algorithms'][algorithm]['repr']
-    for algorithm in checkpoint2['state']['algorithms'].keys():
-        del checkpoint2['state']['algorithms'][algorithm]['repr']
+    # Remove algorithm representations which are memory addresses
+    for i, algo_info in enumerate(checkpoint1['state']['algorithms']):
+        if '0x' in algo_info[1]['repr']:
+            del checkpoint1['state']['algorithms'][i]
+    for i, algo_info in enumerate(checkpoint2['state']['algorithms']):
+        if '0x' in algo_info[1]['repr']:
+            del checkpoint2['state']['algorithms'][i]
 
     deep_compare(checkpoint1['state'], checkpoint2['state'])
 
