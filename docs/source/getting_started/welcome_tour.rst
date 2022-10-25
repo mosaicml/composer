@@ -65,6 +65,7 @@ We could add events to our training loop as follows:
 .. code-block:: python
 
     # <INIT>
+    # <AFTER_LOAD>
     # <FIT_START>
     for epoch in range(NUM_EPOCHS):
         # <EPOCH_START>
