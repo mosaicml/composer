@@ -122,6 +122,9 @@ class SSD(ComposerModel):
 
 class coco_map(Metric):
 
+    # Have default behavior for this complex metric
+    full_state_update = True
+
     def __init__(self, data):
         super().__init__()
         try:
