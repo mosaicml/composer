@@ -7,10 +7,13 @@ from __future__ import annotations
 
 import pathlib
 from abc import ABC
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from composer.core.callback import Callback
 from composer.core.state import State
+import numpy as np
+import PIL
+import torch
 
 __all__ = ['LoggerDestination']
 
@@ -73,6 +76,21 @@ class LoggerDestination(Callback, ABC):
                 (Any).
         """
         del traces
+        pass
+
+    def log_images(self, images: Dict[str, Union[PIL.Image, np.ndarray, torch.Tensor]],
+                         masks: Optional[Dict[str, Dict[str, Union[PIL.Image, np.ndarray, torch.Tensor]]]]):
+        """Log images. Logs any images from tensors, arrays, or PIL images
+
+        Args:
+            images (Dict[str,PIL.Image | np.ndarray | torch.Tensor ]): Dictionary mapping 
+                image(s)' names (str) to an image of array of images.
+            masks (Dict[str, Union[PIL.Image, np.ndarray, torch.Tensor]): For segmentation inputs.
+                Dictionary mapping string to a dictionary specifying a 2D mask array and a
+                class label to name dictionary.
+            
+        """
+        del images, masks, use_table
         pass
 
     def upload_file(

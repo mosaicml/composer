@@ -13,7 +13,10 @@ import re
 import sys
 import tempfile
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
+import numpy as np
+import PIL
+import torch
 
 from composer.core.state import State
 from composer.loggers.logger import Logger
@@ -117,6 +120,16 @@ class WandBLogger(LoggerDestination):
             # side effects.
             metrics_copy = copy.deepcopy(metrics)
             wandb.log(metrics_copy, step)
+
+    def log_images(self, images: Dict[str, Union[PIL.Image, np.ndarray, torch.Tensor]],
+                         masks: Optional[Dict[str, Dict[str, Union[PIL.Image, np.ndarray, torch.Tensor]]]]):
+        if self._enabled:
+            import wandb
+            if masks is not None:
+                pass
+            ims = [wandb.Image(im, caption=name) for im, name in images.items()]
+            wandb.log({'images': ims})
+
 
     def state_dict(self) -> Dict[str, Any]:
         import wandb

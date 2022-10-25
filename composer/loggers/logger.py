@@ -15,6 +15,9 @@ import torch
 
 from composer.utils import ensure_tuple
 from composer.utils.file_helpers import format_name_with_dist
+import numpy as np
+import PIL
+import torch
 
 if TYPE_CHECKING:
     from composer.core.state import State
@@ -65,6 +68,22 @@ class Logger:
             step = self._state.timestamp.batch.value
         for destination in self.destinations:
             destination.log_metrics(metrics, step)
+
+    def log_images(self, images: Dict[str, Union[PIL.Image, np.ndarray, torch.Tensor]],
+                         masks: Optional[Dict[str, Union[PIL.Image, np.ndarray, torch.Tensor]]],
+                         use_table: bool = False):
+        """Log images. Logs any images from tensors, arrays, or PIL images
+
+        Args:
+            images (Dict[str,PIL.Image | np.ndarray | torch.Tensor ]): Dictionary mapping 
+                image(s)' names (str) to an image of array of images.
+            masks (Dict[str, Union[PIL.Image, np.ndarray, torch.Tensor]): For segmentation inputs.
+                Dictionary mapping string to a dictionary specifying a 2D mask array and a
+                class label to name dictionary.
+            
+        """
+        for destination in self.destinations:
+            destination.log_images(images, masks, use_table)
 
     def data_fit(self, data: Dict[str, Any]) -> None:
         raise NotImplementedError(
