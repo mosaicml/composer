@@ -1,5 +1,5 @@
 {
-    "fused_layernorm": {
+    "low_precision_layernorm": {
         "name": "Low Precision LayerNorm",
         "class_name": "LowPrecisionLayerNorm",
         "functional": "apply_low_precision_layernorm",
