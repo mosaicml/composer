@@ -7,9 +7,10 @@ from __future__ import annotations
 import collections.abc
 import contextlib
 import logging
+import textwrap
 import warnings
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
@@ -18,6 +19,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
 from torchmetrics import Metric
 
+from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit
@@ -30,11 +32,13 @@ if TYPE_CHECKING:
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
     from composer.core.evaluator import Evaluator
+    from composer.core.passes import AlgorithmPass
+    from composer.loggers import Logger
     from composer.profiler import Profiler
 
 __all__ = ['State']
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 @contextmanager
@@ -396,6 +400,14 @@ class State(Serializable):
             return None
         return self.timestamp.get(self.max_duration.unit) / self.max_duration
 
+    def stop_training(self):
+        """Gracefully stop training.
+
+        The current batch of training will finish, and any scheduled evaluation,
+        logging, and evaluation for that batch, as well as any epoch end events.
+        """
+        self.max_duration = self.timestamp.batch
+
     @property
     def optimizers(self):
         """The optimizers."""
@@ -523,6 +535,9 @@ class State(Serializable):
                     serialized_value = {
                         type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)
                     }
+            elif attribute_name == 'algorithms':
+                # Store as list to preserve order in which algorithms were applied
+                serialized_value = [(type(obj).__qualname__, obj.state_dict()) for obj in ensure_tuple(attribute_value)]
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 serialized_value = {type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)}
             else:
@@ -532,14 +547,122 @@ class State(Serializable):
 
         return state_dict
 
-    def load_model_state(self, state_dict: Dict[str, Any], strict: bool):
+    def _apply_required_algorithms(
+        self,
+        state_dict: Dict[str, Any],
+        logger: Logger,
+        exclude_algorithms: Optional[List[str]] = None,
+        algorithm_passes: Optional[List[AlgorithmPass]] = None,
+    ):
+        """Applies required algorithms which haven't been specified and aren't in the exclude list.
+
+        Args:
+            state_dict (Dict[str, Any]): State from checkpoint.
+            logger (Logger): Logger to use.
+            exclude_algorithms (List[str], optional): List of algorithm names to exclude. (default: ``None``)
+            algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
+                to sort them into the correct order. (default: ``None``)
+        """
+        import composer.algorithms as algorithms  # type: ignore imports used in `eval(representation)`
+
+        # Get repr of existing algorithms
+        current_algos = {}
+        for algo in self.algorithms:
+            if algo.required_on_load():
+                if type(algo) not in current_algos:
+                    current_algos[type(algo)] = []
+                current_algos[type(algo)].append(algo.__repr__())
+
+        # Gather algorithms to apply
+        missing_algos = set()
+        missing_algo_names = []
+        missing_algo_reprs = []
+        for algo_name, serialized_value in state_dict['algorithms']:
+            # Check if required algorithm
+            if hasattr(algorithms, algo_name) and getattr(algorithms, algo_name).required_on_load():
+                algo = eval(f"algorithms.{serialized_value['repr']}")
+                # Check that algorithm is not explicitly excluded by user
+                if exclude_algorithms is None or type(algo).__qualname__ not in exclude_algorithms:
+                    # Raise warning if we are unable to safely autoapply
+                    if type(algo) in current_algos and not serialized_value['repr'] in current_algos[type(algo)]:
+                        warnings.warn(
+                            textwrap.dedent(
+                                f"required_on_load algorithm {serialized_value['repr']} was enabled when training the "
+                                f"loaded checkpoint but is now specified in the following forms: {', '.join(current_algos[type(algo)])}."
+                                'Potential parameter discrepancies for this required_on_load algorithm may lead to '
+                                'unexpected behavior, including failing to load weights for some layers.'))
+                    # Otherwise, queue algorithm to be autoappled
+                    elif type(algo) not in current_algos:
+                        missing_algos.add(algo)
+                        missing_algo_names.append(algo_name)
+                        missing_algo_reprs.append(serialized_value['repr'])
+                        self.algorithms.append(algo)
+
+        # Reorder algorithms based on algorithm_passes from engine
+        algo_list = self.algorithms
+        if algorithm_passes is not None:
+            for algo_pass in algorithm_passes:
+                algo_list = algo_pass(algo_list, Event.INIT)
+        # Raise ValueError if algorithm_passes order any checkpoint algorithm before an already
+        # applied user specified algorithm
+        encountered_ckpt_algo = False
+        for algo in algo_list:
+            if algo in missing_algos:
+                encountered_ckpt_algo = True
+            elif encountered_ckpt_algo:
+                raise ValueError(
+                    textwrap.dedent('The following algorithms were enabled when training this checkpoint '
+                                    f'and are required to successfully load it: {missing_algo_reprs}. '
+                                    'Attempted to autocreate and apply required algorithms, but at least one '
+                                    'of the loaded algorithms was ordered before a user specified algorithm '
+                                    'which has already been applied, preventing automatic application of '
+                                    'algorithms. If you wish to use pretrained weights and reinitialize '
+                                    'layers which have undergone surgery, the following algorithms may be '
+                                    'excluded using `load_exclude_algorithms`, e.g. '
+                                    f'`load_exclude_algorithms=[{missing_algo_names}]`.'))
+
+        try:
+            for algo in missing_algos:  # TODO: use compiled algorithm order
+                if algo.match(Event.INIT, self):
+                    algo.apply(Event.INIT, self, logger)
+                warnings.warn(
+                    textwrap.dedent(
+                        f'Automatically adding required_on_load algorithm {repr(algo)} to trainer, which was enabled '
+                        'when training the loaded checkpoint. If you wish to use pretrained weights and ignore '
+                        f'required_on_load algorithms, which may result in some weights failing to load, include {type(algo).__qualname__} '
+                        f"in `load_exclude_algorithms`, e.g. `load_exclude_algorithms=['{type(algo).__qualname__}']`."))
+        except Exception as e:
+            raise ValueError(
+                textwrap.dedent(
+                    'The following algorithms were enabled when training this checkpoint '
+                    f'and are required to successfully load it: {missing_algo_reprs}. '
+                    'Attempted to autocreate and apply required algorithms but an exception was '
+                    'encountered. If you wish to use pretrained weights and reinitialize layers which '
+                    'have undergone surgery, the following algorithms may be excluded using '
+                    f'`load_exclude_algorithms`, e.g. `load_exclude_algorithms=[{missing_algo_names}]`.')) from e
+
+    def load_model_state(
+        self,
+        state_dict: Dict[str, Any],
+        logger: Logger,
+        strict: bool,
+        exclude_algorithms: Optional[List[str]] = None,
+        algorithm_passes: Optional[List[AlgorithmPass]] = None,
+    ):
         """Loads the model's state from a ``state_dict``.
 
         Args:
             state_dict (Dict[str, Any]): The state dict, generated from a previous call to :meth:`state_dict`.
+            logger (Logger): The logger.
             strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
                 perfectly match the keys in the model instance.
+            exclude_algorithms (List[str], optional): List of algorithm names to exclude from autoloading. (default: ``None``)
+            algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
+                to sort them into the correct order. (default: ``None``)
         """
+        if 'algorithms' in state_dict:
+            self._apply_required_algorithms(state_dict, logger, exclude_algorithms, algorithm_passes)
+
         if state_dict.get('is_model_ddp', False) and not self.is_model_ddp:
             # This check is for backwards compatibility, as pre-v0.6.0 checkpoints serialized the state
             # with the `module.` prefix
@@ -548,9 +671,9 @@ class State(Serializable):
         with get_fsdp_rank0_cpu_save_context(self.model) if self.fsdp_enabled else contextlib.nullcontext():
             missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
         if len(missing_keys) > 0:
-            logger.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
+            log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
         if len(unexpected_keys) > 0:
-            logger.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
+            log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
     def load_optim_state(self, state_dict: Dict[str, Any]):
         serialized_value = state_dict['optimizers']
@@ -566,62 +689,47 @@ class State(Serializable):
             else:
                 target.load_state_dict(source)
 
-    def _verify_required_algorithms_enabled(self, state: Dict[str, Any]):
-        """Verifies all required algorithms are enabled when loading state.
-
-        Args:
-            state (Dict[str, Any]): State from checkpoint.
-        """
-        import composer.algorithms as algorithms
-
-        # Get repr of existing algorithms
-        state_algos = set()
-        for algo in self.algorithms:
-            state_algos.add(algo.__repr__())
-
-        # Get repr of checkpoint algorithms
-        checkpoint_algos = set()
-        for algo, serialized_value in state['algorithms'].items():
-            try:
-                if getattr(algorithms, algo).required_on_load():
-                    checkpoint_algos.add(serialized_value['repr'])
-            except AttributeError:
-                logger.warning(
-                    f'Found algorithm of unknown type: {algo}. Skipping check for if it is required when loading checkpoint.'
-                )
-
-        missing_surgery_algos = []
-        for repr in checkpoint_algos:
-            if repr not in state_algos:
-                missing_surgery_algos.append(repr)
-
-        if len(missing_surgery_algos) > 0:
-            raise ValueError('The following surgery algorithms were enabled when training this checkpoint '
-                             f"and are required to successfully load it: {', '.join(missing_surgery_algos)}. "
-                             'If you wish to use pretrained weights and reinitialize layers which have '
-                             'undergone surgery, set `load_weights_only=True`.')
-
-    def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
+    def load_state_dict(
+        self,
+        state: Dict[str, Any],
+        logger: Logger,
+        strict: bool = False,
+        exclude_algorithms: Optional[List[str]] = None,
+        algorithm_passes: Optional[List[AlgorithmPass]] = None,
+    ):
         """Loads the state.
 
         Args:
             state (Dict[str, Any]): object returned from call to :meth:`state_dict`.
+            logger (Logger): The logger.
             strict (bool): whether the keys in the ``state["model"]`` should perfectly match the keys in the
                 ``self.model``. Defaults to False.
+            exclude_algorithms (List[str], optional): List of algorithm names to exclude from autoloading. (default: ``None``)
+            algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
+                to sort them into the correct order. (default: ``None``)
         """
         state = _ensure_backwards_compatible_checkpointing(state)
 
-        if 'algorithms' in state:
-            self._verify_required_algorithms_enabled(state)
+        # Call load_model_state since it applies required algorithms
+        if 'model' in state:
+            self.load_model_state(
+                state,
+                logger,
+                strict=strict,
+                exclude_algorithms=exclude_algorithms,
+                algorithm_passes=algorithm_passes,
+            )
 
         for attribute_name, serialized_value in state.items():
-            if attribute_name not in self.serialized_attributes:
-                # It's possible some attributes we removed
+            # Skip removed attributes as well as algorithms and model, which was already loaded
+            if attribute_name not in self.serialized_attributes or attribute_name == 'model':
                 continue
 
-            if attribute_name == 'model':
-                self.load_model_state(state, strict=strict)
-            elif attribute_name == 'optimizers':
+            # Restructure algorithms serialized_value from list to dict
+            if attribute_name == 'algorithms':
+                serialized_value = {algo_name: algo_serialized for algo_name, algo_serialized in serialized_value}
+
+            if attribute_name == 'optimizers':
                 self.load_optim_state(state)
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 state_field_value = getattr(self, attribute_name)

@@ -241,7 +241,7 @@ and make it compatible with our trainer.
 
 .. code:: python
 
-    from mmdet.models import build_model
+    from mmdet.models import build_detector
     from mmcv import ConfigDict
     from composer.models import MMDetModel
 
@@ -257,7 +257,7 @@ and make it compatible with our trainer.
         train_cfg=dict(assigner=dict(type='SimOTAAssigner', center_radius=2.5)),
         test_cfg=dict(score_thr=0.01, nms=dict(type='nms', iou_threshold=0.65)))
 
-    yolox = build_model(ConfigDict(yolox_s_config))
+    yolox = build_detector(ConfigDict(yolox_s_config))
     yolox.init_weights()
     model = MMDetModel(yolox)
 
