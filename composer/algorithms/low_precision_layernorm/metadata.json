@@ -9,7 +9,7 @@
         "domains": [
             "nlp"
         ],
-        "summary": "Autocast does not support `torch.nn.LayerNorm`, so this algorithm manually specifies the module into low precision",
+        "summary": "Run `torch.nn.LayerNorm` in low precision. Alternative to Fused LayerNorm.",
         "use": "LayerNorm normalization operations."
     }
 }

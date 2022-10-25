@@ -7,7 +7,8 @@ from unittest.mock import Mock
 import pytest
 
 from composer import Algorithm, Engine, Event, Logger, State, Trainer
-from composer.algorithms import FusedLayerNorm, SelectiveBackprop
+from composer.algorithms import FusedLayerNorm, LowPrecisionLayerNorm, SelectiveBackprop
+from composer.algorithms.low_precision_layernorm.low_precision_layernorm import LowPrecisionLayerNorm
 from composer.core.passes import sort_to_back, sort_to_front
 from tests.common import SimpleModel
 
@@ -79,7 +80,7 @@ class TestLIFOPass:
 
 class TestAlgorithmOrderingPasses:
 
-    @pytest.mark.parametrize('algorithm_cls', [FusedLayerNorm])
+    @pytest.mark.parametrize('algorithm_cls', [FusedLayerNorm, LowPrecisionLayerNorm])
     def test_algorithm_last(self, algorithm_cls: Type[Algorithm], always_match_algorithms: List[Algorithm],
                             dummy_logger: Logger, dummy_state: State):
 

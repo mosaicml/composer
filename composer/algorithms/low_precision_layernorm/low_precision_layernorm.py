@@ -30,7 +30,7 @@ def _cast_if_autocast_enabled(hidden_states):
         return torch.cuda.amp.autocast_mode._cast(hidden_states, torch.get_autocast_gpu_dtype())
 
 
-class CastLayerNorm(torch.nn.LayerNorm):
+class LPLayerNorm(torch.nn.LayerNorm):
 
     def __init__(self, normalized_shape, eps, elementwise_affine):
         super().__init__(normalized_shape=normalized_shape, eps=eps, elementwise_affine=elementwise_affine)
@@ -44,8 +44,10 @@ class CastLayerNorm(torch.nn.LayerNorm):
             return F.layer_norm(downcast_x, self.normalized_shape, downcast_weight, downcast_bias, self.eps)
 
 
-def from_Layer(layer: torch.nn.LayerNorm) -> CastLayerNorm:
-    return CastLayerNorm(layer.normalized_shape, layer.eps, layer.elementwise_affine)
+def from_Layer(layer: torch.nn.Module, module_index: int) -> LPLayerNorm:
+    assert isinstance(layer,
+                      torch.nn.LayerNorm), 'The replacement policy will look for all instances of torch.nn.LayerNorm'
+    return LPLayerNorm(layer.normalized_shape, layer.eps, layer.elementwise_affine)
 
 
 def apply_low_precision_layernorm(model, optimizers: Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]):
