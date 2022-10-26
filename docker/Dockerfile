@@ -119,7 +119,8 @@ RUN apt-get update && \
         libfreetype6-dev \
         liblcms2-dev \
         tcl \
-        libjpeg8-dev && \
+        libjpeg8-dev \
+        less && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -202,6 +203,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         cd /tmp/apex && \
         git clone https://github.com/NVIDIA/apex && \
         cd apex && \
+        pip${PYTHON_VERSION} install --no-cache-dir -r requirements.txt && \
         pip${PYTHON_VERSION} install --no-cache-dir \
             --global-option="--cpp_ext" \
             --global-option="--cuda_ext" \

@@ -109,6 +109,8 @@ class ImageVisualizer(Callback):
             raise ValueError(f'Invalid time unit for parameter interval: '
                              f'{self.interval.unit}')
 
+        self.last_train_time_value_logged = -1
+
     def _log_inputs(self, state: State, logger: Logger, data_name: str):
         inputs = state.batch_get_item(key=self.input_key)
         if isinstance(inputs, ndarray):
@@ -147,7 +149,10 @@ class ImageVisualizer(Callback):
                 destination.log_metrics({data_name: table}, state.timestamp.batch.value)
 
     def before_forward(self, state: State, logger: Logger):
-        if self.mode.lower() == 'input' and state.timestamp.get(self.interval.unit).value % self.interval.value == 0:
+        current_time_value = state.timestamp.get(self.interval.unit).value
+        if self.mode.lower(
+        ) == 'input' and current_time_value % self.interval.value == 0 and current_time_value != self.last_train_time_value_logged:
+            self.last_train_time_value_logged = current_time_value
             self._log_inputs(state, logger, 'Images/Train')
 
     def eval_before_forward(self, state: State, logger: Logger):
@@ -155,8 +160,10 @@ class ImageVisualizer(Callback):
             self._log_inputs(state, logger, 'Images/Eval')
 
     def before_loss(self, state: State, logger: Logger):
-        if self.mode.lower() == 'segmentation' and state.timestamp.get(
-                self.interval.unit).value % self.interval.value == 0:
+        current_time_value = state.timestamp.get(self.interval.unit).value
+        if self.mode.lower(
+        ) == 'segmentation' and current_time_value % self.interval.value == 0 and current_time_value != self.last_train_time_value_logged:
+            self.last_train_time_value_logged = current_time_value
             self._log_segmented_inputs(state, logger, 'Images/Train')
 
     def eval_after_forward(self, state: State, logger: Logger):
