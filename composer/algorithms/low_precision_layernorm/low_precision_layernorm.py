@@ -32,8 +32,14 @@ def _cast_if_autocast_enabled(hidden_states):
 
 class LPLayerNorm(torch.nn.LayerNorm):
 
-    def __init__(self, normalized_shape, eps, elementwise_affine):
-        super().__init__(normalized_shape=normalized_shape, eps=eps, elementwise_affine=elementwise_affine)
+    def __init__(self, layer):
+        super().__init__(normalized_shape=layer.normalized_shape,
+                         eps=layer.eps,
+                         elementwise_affine=layer.elementwise_affine)
+
+        with torch.no_grad():
+            self.weight.copy_(layer.weight)
+            self.bias.copy_(layer.bias)
 
     def forward(self, x):
         module_device = x.device
@@ -47,7 +53,7 @@ class LPLayerNorm(torch.nn.LayerNorm):
 def from_Layer(layer: torch.nn.Module, module_index: int) -> LPLayerNorm:
     assert isinstance(layer,
                       torch.nn.LayerNorm), 'The replacement policy will look for all instances of torch.nn.LayerNorm'
-    return LPLayerNorm(layer.normalized_shape, layer.eps, layer.elementwise_affine)
+    return LPLayerNorm(layer)
 
 
 def apply_low_precision_layernorm(model, optimizers: Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]):
@@ -63,10 +69,22 @@ def apply_low_precision_layernorm(model, optimizers: Union[torch.optim.Optimizer
 
 
 class LowPrecisionLayerNorm(Algorithm):
+    """
+    Replaces all instances of `torch.nn.LayerNorm` with `composer.algorithms.low_precision_layernorm.low_precision_layernorm.LPLayerNorm`.
 
-    def __init__(self):
-        # LowPrecisionLayerNorm takes no arguments
-        pass
+    LPLayerNorm is a thin wrapper around `torch.nn.LayerNorm` which forces the layer to run in lower precision (torch.float16 or torch.bfloat16)
+    if autocast is enabled.
+
+    This algorithm is intended to be used instead of Fused LayerNorm. They have similar behavior and performance.
+
+    Args:
+        apply_at (Event, optional): Event where algorithm is applied.
+    """
+
+    def __init__(self, apply_at: Optional[Event] = None):
+        self.apply_at = Event.INIT if apply_at is None else apply_at
+        if self.apply_at not in {Event.INIT, Event.AFTER_LOAD}:
+            raise ValueError('LowPrecisionLayerNorm only supports application on Event.INIT and Event.AFTER_LOAD.')
 
     @property
     def find_unused_parameters(self) -> bool:
@@ -74,7 +92,7 @@ class LowPrecisionLayerNorm(Algorithm):
 
     def match(self, event: Event, state: State) -> bool:
         del state  # unused
-        return event == Event.INIT
+        return event == self.apply_at
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         del event, logger  # unused
