@@ -33,6 +33,7 @@ from composer.algorithms import GradientClipping
 from composer.callbacks import CheckpointSaver, GradMonitor
 from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp,
                            ensure_data_spec, ensure_evaluator, ensure_time)
+from composer.core.passes import AlgorithmPass
 from composer.core.precision import get_precision_context
 from composer.core.time import TimeUnit
 from composer.core.types import Batch, BreakEpochException, PyTorchScheduler, TrainerMode
@@ -115,7 +116,7 @@ def _filter_metrics(metrics: Dict[str, Metric], metric_names: Optional[List[str]
 
 def _validate_precision(precision: Precision, device: Device, deepspeed_enabled: bool):
     if isinstance(device, DeviceCPU) and precision != Precision.FP32:
-        raise ValueError(f'{precision} is not supproted for CPU training.')
+        raise ValueError(f'{precision} is not supported for CPU training.')
     if not deepspeed_enabled and precision == Precision.FP16:
         raise ValueError('FP16 precision is only supported when training with DeepSpeed.')
 
@@ -250,7 +251,8 @@ def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
 
     # using int64 to prevent overflow
     rank_zero_seed = device.tensor_to_device(torch.tensor([seed], dtype=torch.int64))
-    dist.broadcast(rank_zero_seed, src=0)
+    if dist.get_world_size() > 1:
+        dist.broadcast(rank_zero_seed, src=0)
     rank_zero_seed = rank_zero_seed.item()
     assert isinstance(rank_zero_seed, int)
     seed = rank_zero_seed + dist.get_global_rank()
@@ -432,6 +434,12 @@ class Trainer:
             no algorithms will be used. (default: ``None``)
 
             .. seealso:: :mod:`composer.algorithms` for the different algorithms built into Composer.
+        algorithm_passes ([AlgorithmPass | Tuple[AlgorithmPass, int] | Sequence[AlgorithmPass | Tuple[AlgorithmPass, int]], optional):
+            Optional list of passes to change order in which algorithms are applied. These passes are merged with the
+            default passes specified in :class:`.Engine`. If ``None``, then no additional passes will be used.
+            (default: ``None``)
+
+            .. seealso:: :class:`composer.core.Engine` for more information.
         optimizers (torch.optim.Optimizer, optional): The optimizer.
             If ``None``, will be set to ``DecoupledSGDW(model.parameters(), lr=0.1)``. (default: ``None``)
 
@@ -622,6 +630,17 @@ class Trainer:
             the state_dict before it is loaded.
 
             (default: ``None``)
+        load_exclude_algorithms (List[str], optional): A list of algorithm names to exclude from loading.
+            By default, algorithms with `required_on_load=True` which were enabled when training the loaded
+            checkpoint are automatically applied unless they conflict with a user specified algorithm. These
+            algorithms often change the model, and not applying them could result in certain layers not having
+            weights loaded.
+
+            Example 1: ``load_exclude_algorithms = ["BlurPool"]`` would exclude BlurPool from loading.
+
+            Example 2: ``load_exclude_algorithms = ["FusedLayerNorm", "Alibi"]`` would exclude FusedLayerNorm and Alibi from loading.
+
+            (default: ``None``)
 
         save_folder (str, optional): Format string for the folder where checkpoints are saved.
             If ``None``, checkpoints will not be saved. Can also be a URI for S3 paths only.
@@ -773,6 +792,10 @@ class Trainer:
         # Algorithms
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
 
+        # Engine Pass Registration
+        algorithm_passes: Optional[Union[AlgorithmPass, Tuple[AlgorithmPass, int],
+                                         Sequence[Union[AlgorithmPass, Tuple[AlgorithmPass, int]]]]] = None,
+
         # Optimizers and Scheduling
         optimizers: Optional[torch.optim.Optimizer] = None,
         schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
@@ -800,6 +823,7 @@ class Trainer:
         load_strict_model_weights: bool = False,
         load_progress_bar: bool = True,
         load_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
+        load_exclude_algorithms: Optional[List[str]] = None,
 
         # Save Checkpoint
         save_folder: Optional[str] = None,
@@ -1031,7 +1055,7 @@ class Trainer:
             self.state.callbacks.append(self._checkpoint_saver)
 
         # The Engine
-        self.engine = Engine(state=self.state, logger=self.logger)
+        self.engine = Engine(state=self.state, logger=self.logger, algorithm_passes=algorithm_passes)
 
         # Set the logger
         self.state.model.logger = self.logger
@@ -1219,12 +1243,15 @@ class Trainer:
             _, _, parsed_load_path = _parse_uri(load_path)
             self._rng_state = checkpoint.load_checkpoint(
                 state=self.state,
+                logger=self.logger,
                 path=parsed_load_path,
                 object_store=load_object_store,
                 load_weights_only=load_weights_only,
                 strict_model_weights=load_strict_model_weights,
                 progress_bar=load_progress_bar,
                 ignore_keys=load_ignore_keys,
+                exclude_algorithms=load_exclude_algorithms,
+                algorithm_passes=self.engine.algorithm_passes,
             )
             self.state.run_name = run_name
 

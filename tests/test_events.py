@@ -3,6 +3,7 @@
 
 import pytest
 import torch
+from packaging import version
 from torch.utils.data import DataLoader
 
 from composer import Trainer
@@ -56,21 +57,44 @@ class TestEventCalls:
         pytest.param(1),
         pytest.param(2, marks=pytest.mark.world_size(2)),
     ])
-    @pytest.mark.parametrize('device,deepspeed_zero_stage', [
-        pytest.param('cpu', None, id='cpu-ddp'),
-        pytest.param('gpu', None, id='gpu-ddp', marks=pytest.mark.gpu),
+    @pytest.mark.parametrize('device,deepspeed_zero_stage,use_fsdp', [
+        pytest.param('cpu', None, False, id='cpu-ddp'),
+        pytest.param('gpu', True, False, id='gpu-ddp', marks=pytest.mark.gpu),
+        pytest.param('gpu',
+                     None,
+                     True,
+                     id='gpu-fsdp',
+                     marks=[
+                         pytest.mark.gpu,
+                         pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.12.0'),
+                                            reason='requires PyTorch 1.12 or higher')
+                     ]),
     ])
     @pytest.mark.parametrize('save_interval', ['1ep', '1ba'])
-    def test_event_calls(self, world_size, device, deepspeed_zero_stage, save_interval):
+    def test_event_calls(self, world_size, device, deepspeed_zero_stage, use_fsdp, save_interval):
         save_interval = Time.from_timestring(save_interval)
 
         deepspeed_config = None
         if deepspeed_zero_stage:
             deepspeed_config = {'zero_optimization': {'stage': deepspeed_zero_stage}}
 
+        fsdp_config = None
+        if use_fsdp:
+            fsdp_config = {
+                'sharding_strategy': 'FULL_SHARD',
+                'min_params': 1e8,
+                'cpu_offload': False,
+                'mixed_precision': 'DEFAULT',
+                'backward_prefetch': 'BACKWARD_PRE',
+                'activation_checkpointing': False,
+                'activation_ocpu_offload': False,
+                'verbose': False
+            }
+
         trainer = self.get_trainer(
             device=device,
             deepspeed_config=deepspeed_config,
+            fsdp_config=fsdp_config,
             save_interval=save_interval,
             eval_interval=save_interval,
         )
