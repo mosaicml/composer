@@ -24,7 +24,10 @@ from composer.datasets.streaming import StreamingDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import dist
 
-__all__ = ['build_cifar10_dataloader', 'build_synthetic_cifar10_dataloader', 'StreamingCIFAR10']
+__all__ = [
+    'build_cifar10_dataloader', 'build_ffcv_cifar10_dataloader', 'build_synthetic_cifar10_dataloader',
+    'StreamingCIFAR10'
+]
 
 
 def build_cifar10_dataloader(
