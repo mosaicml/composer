@@ -26,6 +26,9 @@ class MaskedAccuracy(Metric):
             each forward() before returning the value at the step. Default: ``False``.
     """
 
+    # Make torchmetrics call update only once
+    full_state_update = False
+
     def __init__(self, ignore_index: int = -100, dist_sync_on_step: bool = False):
         # state from multiple processes
         super().__init__(dist_sync_on_step=dist_sync_on_step)
@@ -66,6 +69,9 @@ class LanguageCrossEntropy(Metric):
             each forward() before returning the value at the step. Default: ``False``.
         ignore_index (int, optional): The class index to ignore. Default: ``-100``.
     """
+
+    # Make torchmetrics call update only once
+    full_state_update = False
 
     def __init__(self, vocab_size: int, dist_sync_on_step=False, ignore_index: int = -100):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
@@ -118,6 +124,9 @@ class BinaryF1Score(Metric):
             each forward() before returning the value at the step. Default: ``False``.
     """
 
+    # Make torchmetrics call update only once
+    full_state_update = False
+
     def __init__(self, dist_sync_on_step: bool = False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
@@ -162,6 +171,9 @@ class HFCrossEntropy(Metric):
         dist_sync_on_step (bool, optional): Synchronize metric state across processes at
             each forward() before returning the value at the step. Default: ``False``
     """
+
+    # Make torchmetrics call update only once
+    full_state_update = False
 
     def __init__(self, dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)

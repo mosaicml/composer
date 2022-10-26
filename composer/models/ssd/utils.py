@@ -18,7 +18,7 @@ import torch.nn.functional as F
 import torchvision.transforms as transforms
 from PIL import Image
 
-__all__ = ['Encoder', 'SSDTransformer', 'dboxes300_coco']
+__all__ = ['Encoder', 'SSDTransformer', 'dboxes300_coco', 'DefaultBoxes']
 
 
 # This function is from https://github.com/kuangliu/pytorch-ssd.

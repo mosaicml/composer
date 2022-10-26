@@ -14,15 +14,14 @@ from tests.common import RandomClassificationDataset, SimpleModel, device
 def test_memory_monitor_warnings_on_cpu_models(device: str):
     # Error if the user sets device=cpu even when cuda is available
     del device  # unused. always using cpu
-    trainer = Trainer(
-        model=SimpleModel(),
-        callbacks=MemoryMonitor(),
-        device='cpu',
-        train_dataloader=DataLoader(RandomClassificationDataset()),
-        max_duration='1ba',
-    )
     with pytest.warns(UserWarning, match='The memory monitor only works on CUDA devices'):
-        trainer.fit()
+        Trainer(
+            model=SimpleModel(),
+            callbacks=MemoryMonitor(),
+            device='cpu',
+            train_dataloader=DataLoader(RandomClassificationDataset()),
+            max_duration='1ba',
+        )
 
 
 @pytest.mark.gpu

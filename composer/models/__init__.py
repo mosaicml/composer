@@ -18,6 +18,7 @@ from composer.models.efficientnetb0 import composer_efficientnetb0 as composer_e
 from composer.models.gpt2 import create_gpt2 as create_gpt2
 from composer.models.huggingface import HuggingFaceModel as HuggingFaceModel
 from composer.models.initializers import Initializer as Initializer
+from composer.models.mmdetection import MMDetModel as MMDetModel
 from composer.models.resnet import composer_resnet as composer_resnet
 from composer.models.resnet_cifar import composer_resnet_cifar as composer_resnet_cifar
 from composer.models.ssd import SSD as SSD

@@ -54,7 +54,7 @@ if not shutil.which('pandoc'):
                 target_folder = '/Applications/pandoc'
             # Not handling windows; nobody uses root on windows lol
 
-        download_pandoc(version='2.18', download_folder=tmpdir, targetfolder=target_folder, delete_installer=True)
+        download_pandoc(version='2.19.2', download_folder=tmpdir, targetfolder=target_folder, delete_installer=True)
 
 sys.path.insert(0, os.path.abspath('..'))
 
@@ -138,7 +138,9 @@ source_suffix = ['.rst', '.md']
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'examples/imagenet/README.md']
+exclude_patterns = [
+    '_build', 'Thumbs.db', '.DS_Store', 'examples/imagenet/README.md', 'examples/segmentation/README.md'
+]
 
 napoleon_custom_sections = [('Returns', 'params_style')]
 

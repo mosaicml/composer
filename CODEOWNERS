@@ -17,10 +17,10 @@
 # as an owner for all sections, so anyone on Composer Eng can approve any Composer PR
 # According to the CODEOWNER docs, the last match takes precedence, so @mosaicml/composer-team-eng
 # must be mentioned for each rule below.
-/composer/algorithms/ @dskhudia
+/composer/algorithms/ @dskhudia @mvpatel2000
 /composer/cli/ @jbloxham
 /composer/datasets/ @knighton
-/composer/functional/ @dblalock
+/composer/functional/ @dblalock @mvpatel2000
 /composer/loggers/ @eracah
 /composer/loss/ @mosaicml/composer-team-eng
 /composer/metrics/ @mosaicml/composer-team-eng

@@ -119,7 +119,8 @@ RUN apt-get update && \
         libfreetype6-dev \
         liblcms2-dev \
         tcl \
-        libjpeg8-dev && \
+        libjpeg8-dev \
+        less && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -202,6 +203,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         cd /tmp/apex && \
         git clone https://github.com/NVIDIA/apex && \
         cd apex && \
+        pip${PYTHON_VERSION} install --no-cache-dir -r requirements.txt && \
         pip${PYTHON_VERSION} install --no-cache-dir \
             --global-option="--cpp_ext" \
             --global-option="--cuda_ext" \
@@ -217,6 +219,13 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --no-cache-dir git+https://github.com/mvpatel2000/flash-attention@main ; \
     fi
 
+###########################
+# Install Pandoc Dependency
+###########################
+# Pandoc is needed for the documentation buid and is a nuisance to install via pip so just installing via dpkg
+RUN wget https://github.com/jgm/pandoc/releases/download/2.19.2/pandoc-2.19.2-1-amd64.deb && \
+    dpkg -i pandoc-2.19.2-1-amd64.deb && \
+    rm pandoc-2.19.2-1-amd64.deb
 
 ################################
 # Use the correct python version

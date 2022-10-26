@@ -1,6 +1,6 @@
 # 🚚 EMA
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
 Exponential Moving Average (EMA) is a model averaging technique that maintains an exponentially weighted moving average of the model parameters during training. The averaged parameters are used for model evaluation. EMA typically results in less noisy validation metrics over the course of training, and sometimes increased generalization.
 
@@ -56,7 +56,6 @@ ema = EMA(half_life='50ba')
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
-                  eval_dataloader=eval_dataloader,
                   max_duration='1ep',
                   algorithms=[ema])
 
@@ -73,20 +72,36 @@ EMA also uses a bit of extra compute to calculate the moving average. This can l
 
 ## Suggested Hyperparameters
 
-The Composer Trainer implementation of EMA has two hyperparameters:
+The Composer Trainer implementation of EMA has several hyperparameters:
 
-- `half_life` - The half life for terms in the average. A longer half life means old information is remembered longer, a shorter half life means old information is discared sooner.
-- `update_interval` - The period at which updates to the moving average are computed. A longer update interval means that updates are computed less frequently.
+- `half_life` - The half life for terms in the average. A longer half life means old information is remembered longer, a shorter half life means old information is discared sooner. Defaults to `'1000ba'`
+- `update_interval` - The period at which updates to the moving average are computed. A longer update interval means that updates are computed less frequently. If left unspecified, this defaults to `1` in the units of `half_life`, or `1ba` if using `smoothing`.
+- `ema_start` -  The amount of training completed before SWA is applied. The default value is `'0.0dur'` which starts EMA at the start of training.
 
-A good typical starting value for `half_life` is `half_life="100ba"`, for a half life of 100 batches. At the same time, `update_interval` can be left unspecified which will default to `update_interval="1ba"`, or set to a larger value such as `update_interval="10ba"` to improve runtime. Shorter update intervals typically result in better generalization performance at the cost of somewhat increased runtime.
+A good typical starting value for `half_life` is `half_life="1000ba"`, for a half life of 1000 batches. At the same time, `update_interval` can be left unspecified which will default to `update_interval="1ba"`, or set to a larger value such as `update_interval="10ba"` to improve runtime. Shorter update intervals typically result in better generalization performance at the cost of somewhat increased runtime.
 
-Our implementation of EMA also provides the option to use the EMA weights as the training weights, which can be enabled by setting `train_with_ema_weights=True`. We reccomend leaving this off with the default value of `train_with_ema_weights=False.`
+For compatibility with other implementations, there is also an option to specify the value of `smoothing` directly.
+
+- `smoothing` - The coefficient representing the degree to which older observations are kept. The default (unspecified) value is `None`. Should only be used if `half_life` is not used
+
+To use this, `half_life` should be set to `half_life=None`, and the value of smoothing given instead. This value is not modified when `update_interval` is changed, and so changes to `update_interval` when using `smoothing` will result in changes to the time scale of the average.
+
 
 ## Technical Details
+
+> ✅ EMA Improves the Tradeoff Between Quality and Training Speed
+>
+> In our experiments, EMA improves the attainable tradeoffs between training speed and the final quality of the trained model.
+> We recommend EMA for training convolutional networks.
 
 >  ✅ EMA should result in less noisy validation metrics during training
 >
 > If evalutation metrics are computed over the course of training, EMA should result in these metrics being smoother and less noisy due to averaging.
+
+> 🚧 Composing Model-Averaging Methods
+>
+> As a general rule, model-averaging methods do not compose well. We recommend using one
+> of EMA or SWA, but not both.
 
 > ❗ EMA increases memory consumption
 >
@@ -98,7 +113,7 @@ Our implementation of EMA also provides the option to use the EMA weights as the
 
 > ❗ Evaluation should not be done with the training model
 >
-> Evaluation should be done with the `ema_model` in the functional impementation as this is the model containing the averaged parameters. The ema model can be accessed after training from the `EMA` object via `model = ema.get_ema_model(model)` in the composer trainer implementation.
+> Evaluation should be done with the `ema_model` in the functional impementation as this is the model containing the averaged parameters. The ema model can be accessed after training from the `EMA` object via `model = ema.ema_model` in the composer trainer implementation. Similarly, the model without ema applied (the training model) can be accessed via `model=ema.training_model`. By default, when saving checkpoints with the `CheckpointSaver` callback or through trainer arguments the weights saved will be the ema model weights. An exception is if saving is done by explicitly calling `trainer.save_checkpoint()` which will result in the training model weights being saved as `state.model`.
 
 
 ## Attribution
@@ -106,3 +121,9 @@ Our implementation of EMA also provides the option to use the EMA weights as the
 Our implementation of EMA was inspired by [Tensorflow's Exponential Moving Average](https://www.tensorflow.org/api_docs/python/tf/train/ExponentialMovingAverage)
 
 *This Composer implementation of this method and the accompanying documentation were produced by Cory Stephenson at MosaicML.*
+
+## API Reference
+
+**Algorithm class:** {class}`composer.algorithms.EMA`
+
+**Functional:** {func}`composer.functional.compute_ema`

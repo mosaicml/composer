@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import math
 import warnings
 from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
@@ -35,13 +36,14 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
     if isinstance(eval_interval, str):
         eval_interval = Time.from_timestring(eval_interval)
 
-    if eval_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH):
-        raise ValueError('The `eval_interval` must have units of EPOCH or BATCH, or be a function.')
+    if eval_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.DURATION):
+        raise ValueError('The `eval_interval` must have units of EPOCH, BATCH, DURATION or be a function.')
 
     last_batch_seen = -1
 
     def should_eval(state: State, event: Event):
-        if int(eval_interval) <= 0:
+        # `TimeUnit.Duration` value is a float from `[0.0, 1.0)`
+        if not eval_interval.unit == TimeUnit.DURATION and int(eval_interval) <= 0:
             return False
         nonlocal last_batch_seen  # required to use the last_batch_seen from the outer function scope
 
@@ -59,6 +61,31 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
             last_batch_seen = state.timestamp.batch
             return True
 
+        if eval_interval.unit == TimeUnit.DURATION:
+            assert state.max_duration is not None, 'max_duration should not be None'
+            if state.dataloader_len is None:
+                raise RuntimeError(
+                    f'Evaluation interval of type `dur` or {TimeUnit.DURATION} requires the dataloader to be sized.')
+            if state.max_duration.unit == TimeUnit.EPOCH and int(
+                    state.timestamp.batch) % math.ceil(state.max_duration.value * float(eval_interval) *
+                                                       state.dataloader_len) == 0 and event == Event.BATCH_END:
+                last_batch_seen = state.timestamp.batch
+                return True
+            elif state.max_duration.unit == TimeUnit.BATCH and int(state.timestamp.batch) % math.ceil(
+                    state.max_duration.value * eval_interval.value) == 0 and event == Event.BATCH_END:
+                last_batch_seen = state.timestamp.batch
+                return True
+            elif state.max_duration.unit == TimeUnit.SAMPLE and event == Event.BATCH_END:
+                # If last sample in batch is not evenly divisible by eval_interval, perform evaluation in next batch
+                if int(state.timestamp.batch) > 0:
+                    samples_in_a_batch = int(state.timestamp.sample) // int(state.timestamp.batch)
+                    if int(state.timestamp.sample) // math.ceil(state.max_duration.value * eval_interval) != int(
+                            state.timestamp.sample - samples_in_a_batch) // math.ceil(
+                                state.max_duration.value * eval_interval):
+                        last_batch_seen = state.timestamp.batch
+                        return True
+            elif state.max_duration.unit == TimeUnit.TOKEN and event == Event.BATCH_END:
+                raise ValueError(f'Evaluation interval of type `dur` is not supported yet for max_duration as `tok`')
         return False
 
     return should_eval

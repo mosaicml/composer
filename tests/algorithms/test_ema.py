@@ -9,7 +9,7 @@ import pytest
 import torch
 
 from composer.algorithms import EMA
-from composer.algorithms.ema.ema import ShadowModel, compute_ema
+from composer.algorithms.ema.ema import compute_ema
 from composer.core import Event, Time, Timestamp, TimeUnit
 from tests.common import SimpleConvModel, SimpleModel
 
@@ -42,36 +42,49 @@ def test_ema(smoothing):
 
 
 # params = [(half_life, update_interval)]
-@pytest.mark.parametrize('params', [('10ba', '1ba'), ('1ep', '1ep')])
+@pytest.mark.parametrize('params', [{
+    'half_life': '10ba',
+    'update_interval': '1ba'
+}, {
+    'half_life': '1ep',
+    'update_interval': '1ep'
+}, {
+    'smoothing': 0.999,
+    'update_interval': '1ba'
+}])
 def test_ema_algorithm(params, minimal_state, empty_logger):
 
     # Initialize input tensor
     input = torch.rand((32, 5))
-
-    half_life, update_interval = params[0], params[1]
-    algorithm = EMA(half_life=half_life, update_interval=update_interval, train_with_ema_weights=False)
+    if 'smoothing' in params:
+        smoothing, update_interval = params['smoothing'], params['update_interval']
+        algorithm = EMA(half_life=None, smoothing=smoothing, update_interval=update_interval)
+    else:
+        half_life, update_interval = params['half_life'], params['update_interval']
+        algorithm = EMA(half_life=half_life, update_interval=update_interval)
     state = minimal_state
     state.model = SimpleConvModel()
     state.batch = (input, torch.Tensor())
 
     # Start EMA
-    algorithm.ema_model = ShadowModel(state.model)
-    algorithm.training_model = ShadowModel(state.model)
+    algorithm.ema_model = copy.deepcopy(state.model)
+    algorithm.training_model = copy.deepcopy(state.model)
     # Check if ema correctly calculated smoothing
-    half_life = Time.from_timestring(params[0])
-    update_interval = Time.from_timestring(params[1])
-    smoothing = np.exp(-np.log(2) * (update_interval.value / half_life.value))
-    np.testing.assert_allclose(smoothing, algorithm.smoothing)
+    update_interval = Time.from_timestring(params['update_interval'])
+    if 'half_life' in params:
+        half_life = Time.from_timestring(params['half_life'])
+        smoothing = np.exp(-np.log(2) * (update_interval.value / half_life.value))
+        np.testing.assert_allclose(np.asarray(smoothing), np.asarray(algorithm.smoothing))
 
     # Fake a training update by replacing state.model after ema grabbed it.
     original_model = copy.deepcopy(state.model)
     state.model = SimpleConvModel()
     # Do the EMA update
     state.timestamp = Timestamp()
-    if half_life.unit == TimeUnit.BATCH:
+    if update_interval.unit == TimeUnit.BATCH:
         state.timestamp._batch = update_interval
         algorithm.apply(Event.BATCH_END, state, empty_logger)
-    elif half_life.unit == TimeUnit.EPOCH:
+    elif update_interval.unit == TimeUnit.EPOCH:
         state.timestamp._epoch = update_interval
         algorithm.apply(Event.EPOCH_END, state, empty_logger)
     else:
@@ -84,7 +97,3 @@ def test_ema_algorithm(params, minimal_state, empty_logger):
     # Check if the training model is swapped back in for training
     algorithm.apply(Event.EVAL_END, state, empty_logger)
     validate_model(state.model, algorithm.training_model)
-    # Check if the ema model can be extracted correctly
-    overwrite_model = copy.deepcopy(original_model)
-    overwrite_model = algorithm.get_ema_model(overwrite_model)
-    validate_model(overwrite_model, algorithm.ema_model)

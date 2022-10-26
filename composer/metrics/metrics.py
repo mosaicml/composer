@@ -30,6 +30,9 @@ class MIoU(Metric):
         ignore_index (int, optional): the index to ignore when computing mIoU. Default: ``-1``.
     """
 
+    # Make torchmetrics call update only once
+    full_state_update = False
+
     def __init__(self, num_classes: int, ignore_index: int = -1):
         super().__init__(dist_sync_on_step=True)
         self.num_classes = num_classes
@@ -55,7 +58,9 @@ class MIoU(Metric):
 
     def compute(self):
         """Aggregate state across all processes and compute final metric."""
-        return 100 * (self.total_intersect / self.total_union).mean()  #type: ignore (third-party)
+        total_intersect = self.total_intersect[self.total_union != 0]  # type: ignore (third-party)
+        total_union = self.total_union[self.total_union != 0]  # type: ignore (third-party)
+        return 100 * (total_intersect / total_union).mean()
 
 
 class Dice(Metric):
@@ -68,6 +73,9 @@ class Dice(Metric):
     Args:
         num_classes (int): the number of classes in the segmentation task.
     """
+
+    # Make torchmetrics call update only once
+    full_state_update = False
 
     def __init__(self, num_classes: int):
         super().__init__(dist_sync_on_step=True)
@@ -136,6 +144,9 @@ class CrossEntropy(Metric):
         dist_sync_on_step (bool, optional): sync distributed metrics every step. Default: ``False``.
     """
 
+    # Make torchmetrics call update only once
+    full_state_update = False
+
     def __init__(self, ignore_index: int = -100, dist_sync_on_step: bool = False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.ignore_index = ignore_index
@@ -165,6 +176,9 @@ class LossMetric(Metric):
 
         dist_sync_on_step (bool, optional): sync distributed metrics every step. Default: ``False``.
     """
+
+    # Make torchmetrics call update only once
+    full_state_update = False
 
     def __init__(self, loss_function: Callable, dist_sync_on_step: bool = False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)

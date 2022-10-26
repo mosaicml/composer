@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Loggers to store metrics and artifacts.
+"""Loggers to store metrics and checkpoints.
 
 In Composer, algorithms and callbacks can make calls to the :class:`~.logger.Logger`,
 which then routes the calls to the appropriate :class:`~.logger_destination.LoggerDestination` instances.
@@ -15,10 +15,10 @@ define a custom logger and use it when training.
 from composer.loggers.cometml_logger import CometMLLogger
 from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
-from composer.loggers.logger import Logger, LogLevel
+from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.progress_bar_logger import ProgressBarLogger
+from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.loggers.tensorboard_logger import TensorboardLogger
 from composer.loggers.wandb_logger import WandBLogger
 
@@ -26,12 +26,11 @@ from composer.loggers.wandb_logger import WandBLogger
 __all__ = [
     'Logger',
     'LoggerDestination',
-    'LogLevel',
     'FileLogger',
     'InMemoryLogger',
     'ProgressBarLogger',
     'WandBLogger',
-    'ObjectStoreLogger',
+    'RemoteUploaderDownloader',
     'TensorboardLogger',
     'CometMLLogger',
 ]

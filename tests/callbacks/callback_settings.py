@@ -13,10 +13,9 @@ from composer import Callback
 from composer.callbacks import EarlyStopper, ImageVisualizer, MemoryMonitor, SpeedMonitor, ThresholdStopper
 from composer.callbacks.export_for_inference import ExportForInferenceCallback
 from composer.callbacks.mlperf import MLPerfCallback
-from composer.loggers import CometMLLogger, ObjectStoreLogger, TensorboardLogger, WandBLogger
+from composer.loggers import CometMLLogger, RemoteUploaderDownloader, TensorboardLogger, WandBLogger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.progress_bar_logger import ProgressBarLogger
-from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
 from tests.common import get_module_subclasses
 
 try:
@@ -59,9 +58,9 @@ except ImportError:
     _LIBCLOUD_INSTALLED = False
 
 _callback_kwargs: Dict[Type[Callback], Dict[str, Any],] = {
-    ObjectStoreLogger: {
-        'object_store_cls': LibcloudObjectStore,
-        'object_store_kwargs': {
+    RemoteUploaderDownloader: {
+        'bucket_uri': 'libcloud://.',
+        'backend_kwargs': {
             'provider': 'local',
             'container': '.',
             'provider_kwargs': {
@@ -94,7 +93,7 @@ _callback_kwargs: Dict[Type[Callback], Dict[str, Any],] = {
 }
 
 _callback_marks: Dict[Type[Callback], List[pytest.MarkDecorator],] = {
-    ObjectStoreLogger: [
+    RemoteUploaderDownloader: [
         pytest.mark.filterwarnings(
             # post_close might not be called if being used outside of the trainer
             r'ignore:Implicitly cleaning up:ResourceWarning'),

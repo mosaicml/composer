@@ -1,6 +1,6 @@
 # 🎨 AugMix
 
-[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution) - [\[API Reference\]](#api-reference)
 
 `Computer Vision`
 
@@ -128,15 +128,15 @@ Hendrycks et al.’s original implementation of AugMix also includes a custom lo
 We omit this custom loss function from our AugMix implementation because it effectively triples the number of samples required for a parameter update step, imposing a significant computational burden.
 Our implementation, which consists only of the augmentation component of AugMix, is referred to by Hendrycks et al. as "AugmentAndMix."
 
+> ❗ AugMix Provided Limited Benefits in Our Experiments
+>
+> We found that using AugMix with the hyperparameters recommended by Hendrycks et al. can increase the data augmentation load on the CPU so much that it bottlenecks training.
+> Depending on the hardware configuration and model, we found that those hyperparameters increase training time by 1.1x-10x.
+
 Hendrycks et al. report a 13.8% accuracy improvement on CIFAR-10C (a benchmark for corruption robustness) over baseline for a 40-2 Wide ResNet and a 1.5-10% improvement over other augmentation schemes.
 Hendrycks et al. also report a 1.5% improvement over a baseline ResNet-50 on ImageNet, but this result uses AugMix in combination with the aforementioned custom loss function.
 When omitting the custom loss function and using the AugMix augmentation scheme alone, we observe an accuracy gain of about 0.5% over a baseline ResNet-50 on ImageNet.
 However, the increased CPU load imposed by AugMix substantially reduces throughput.
-
-> ❗ Potential CPU Bottleneck
->
-> We found that using AugMix with the hyperparameters recommended by Hendrycks et al. can increase the data augmentation load on the CPU so much that it bottlenecks training.
-> Depending on the hardware configuration and model, we found that those hyperparameters increase training time by 1.1x-10x.
 
 AugMix will be more useful in overparameterized regimes (i.e. larger models) and for longer training runs.
 Larger models typically take longer to run on a deep learning accelerator (e.g., a GPU), meaning there is more headroom to perform work on the CPU before augmentation becomes a bottleneck.
@@ -169,3 +169,9 @@ Doing so can allow models to reach higher quality, but this typically requires (
 [*AugMix: A Simple Data Processing Method to Improve Robustness and Uncertainty*](https://arxiv.org/abs/1912.02781) by Dan Hendrycks, Norman Mu, Ekin D. Cubuk, Barret Zoph, Justin Gilmer, and Balaji Lakshminarayanan. Published in ICLR 2020.
 
 *The Composer implementation of this method and the accompanying documentation were produced by Matthew Leavitt at MosaicML.*
+
+## API Reference
+
+**Algorithm class:** {class}`composer.algorithms.AugMix`, {class}`composer.algorithms.AugmentAndMixTransform`
+
+**Functional:** {func}`composer.functional.augmix_image`
