@@ -86,10 +86,6 @@ class LowPrecisionLayerNorm(Algorithm):
         if self.apply_at not in {Event.INIT, Event.AFTER_LOAD}:
             raise ValueError('LowPrecisionLayerNorm only supports application on Event.INIT and Event.AFTER_LOAD.')
 
-    @property
-    def find_unused_parameters(self) -> bool:
-        return True
-
     def match(self, event: Event, state: State) -> bool:
         del state  # unused
         return event == self.apply_at
