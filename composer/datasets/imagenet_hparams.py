@@ -179,7 +179,8 @@ class StreamingImageNet1kHparams(DatasetHparams):
                                split=self.split,
                                shuffle=self.shuffle,
                                transform=transform,
-                               batch_size=batch_size)
+                               batch_size=batch_size,
+                               num_workers=dataloader_hparams.num_workers)
         else:
             raise ValueError(f'Invalid streaming version: {self.version}')
         collate_fn = pil_image_collate
