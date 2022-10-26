@@ -98,23 +98,23 @@ def build_ffcv_cifar10_dataloader(
     ffcv_write_dataset: Union[str, bool] = False,
     datadir: Union[str, None] = None,
 ):
-    """Builds and FFCV CIFAR10 dataloader
+    """Builds an FFCV CIFAR10 dataloader.
 
     Args:
-        batch_size (int): Batch size per device
+        batch_size (int): Batch size per device.
         is_train (bool): Whether to load the training data or validation data. Default:
             ``True``.
         download (bool, optional): Whether to download the dataset, if needed. Default:
             ``True``.
-        drop_last (bool): Drop remainder samples. Default: ``True``.
-        drop_last (bool): whether to drop last samples. Default: ``True``.
+        drop_last (bool): Whether to drop last samples. Default: ``True``.
         prefetch_factor (int): Number of batches to prefect. Default: ``2``.
-        ffcv_dir (str, optional): A directory containing train/val <file>.ffcv files. If these files don't exist and
-            ``ffcv_write_dataset`` is ``True``, train/val <file>.ffcv files will be created in this dir. Default: ``"/tmp"``.
+        ffcv_dir (str, optional): A directory containing train/val <file>.ffcv files. If
+            these files don't exist and ``ffcv_write_dataset`` is ``True``, train/val
+            <file>.ffcv files will be created in this dir. Default: ``"/tmp"``.
         ffcv_dest (str, optional): <file>.ffcv file that has dataset samples. Default: ``"cifar_train.ffcv"``.
         ffcv_write_dataset (str | bool, optional): Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist. Default:
         ``False``.
-        datadir (str | None, optional): Path to the non-FFCV data directory
+        datadir (str | None, optional): Path to the non-FFCV data directory.
     """
     try:
         import ffcv
@@ -179,7 +179,7 @@ def build_ffcv_cifar10_dataloader(
         distributed=False,
         pipelines={
             'image': image_pipeline,
-            'label': label_pipeline
+            'label': label_pipeline,
         },
         batches_ahead=prefetch_factor,
         drop_last=drop_last,
