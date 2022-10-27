@@ -4,9 +4,7 @@
 """The `BERT <https://huggingface.co/docs/transformers/master/en/model_doc/bert>`_ model family using `Hugging Face
 Transformers <https://huggingface.co/transformers/>`_."""
 
-from composer.models.bert.bert_hparams import BERTForClassificationHparams as BERTForClassificationHparams
-from composer.models.bert.bert_hparams import BERTHparams as BERTHparams
 from composer.models.bert.model import create_bert_classification as create_bert_classification
 from composer.models.bert.model import create_bert_mlm as create_bert_mlm
 
-__all__ = ['BERTHparams', 'BERTForClassificationHparams', 'create_bert_classification', 'create_bert_mlm']
+__all__ = ['create_bert_classification', 'create_bert_mlm']
