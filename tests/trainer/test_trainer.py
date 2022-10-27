@@ -1108,8 +1108,9 @@ class TestFFCVDataloaders:
         datadir = os.path.join(self.tmp_path, self.train_file if is_train else self.val_file)
         return build_ffcv_imagenet_dataloader(
             datadir=str(datadir),
-            batch_size=1,
+            batch_size=4,
             is_train=is_train,
+            num_workers=0,
         )
 
     @pytest.fixture
