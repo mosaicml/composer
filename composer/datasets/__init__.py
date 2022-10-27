@@ -3,7 +3,8 @@
 
 """Natively supported datasets."""
 
-from composer.datasets.ade20k import ADE20k, StreamingADE20k, build_ade20k_dataloader, build_synthetic_ade20k_dataloader
+from composer.datasets.ade20k import (ADE20k, StreamingADE20k, build_ade20k_dataloader,
+                                      build_streaming_ade20k_dataloader, build_synthetic_ade20k_dataloader)
 from composer.datasets.brats import PytTrain, PytVal
 from composer.datasets.c4 import StreamingC4
 from composer.datasets.cifar import (StreamingCIFAR10, build_cifar10_dataloader, build_ffcv_cifar10_dataloader,
@@ -31,6 +32,7 @@ __all__ = [
     'SyntheticDataType',
     'SyntheticPILDataset',
     'build_ade20k_dataloader',
+    'build_streaming_ade20k_dataloader',
     'build_cifar10_dataloader',
     'build_ffcv_cifar10_dataloader',
     'build_synthetic_ade20k_dataloader',

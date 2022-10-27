@@ -24,7 +24,8 @@ from composer.core.types import MemoryFormat
 from composer.datasets.streaming import StreamingDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
-from composer.utils import dist
+from composer.utils import dist, warn_streaming_dataset_deprecation
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['ADE20k', 'StreamingADE20k']
 
@@ -32,35 +33,24 @@ IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
 IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
 
 
-def build_ade20k_dataloader(
-    batch_size: int,
-    datadir: str,
-    *,
-    split: str = 'train',
-    drop_last: bool = True,
-    shuffle: bool = True,
-    base_size: int = 512,
-    min_resize_scale: float = 0.5,
-    max_resize_scale: float = 2.0,
-    final_size: int = 512,
-    ignore_background: bool = True,
-    **dataloader_kwargs,
-):
-    """Builds an ADE20k dataloader.
+def build_ade20k_transformations(split,
+                                 base_size: int = 512,
+                                 min_resize_scale: float = 0.5,
+                                 max_resize_scale: float = 2.0,
+                                 final_size: int = 512):
+    """Builds the transformations for the ADE20k dataset.
 
-    Args:
-        datadir (str): path to location of dataset.
-        batch_size (int): Batch size per device.
-        split (str): the dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
-        drop_last (bool): whether to drop last samples. Default: ``True``.
-        shuffle (bool): whether to shuffle the dataset. Default: ``True``.
-        base_size (int): initial size of the image and target before other augmentations. Default: ``512``.
-        min_resize_scale (float): the minimum value the samples can be rescaled. Default: ``0.5``.
-        max_resize_scale (float): the maximum value the samples can be rescaled. Default: ``2.0``.
-        final_size (int): the final size of the image and target. Default: ``512``.
-        ignore_background (bool): if true, ignore the background class when calculating the training loss.
-            Default: ``true``.
-        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+       Args:
+           base_size (int): Initial size of the image and target before other augmentations. Default: ``512``.
+           min_resize_scale (float): The minimum value the samples can be rescaled. Default: ``0.5``.
+           max_resize_scale (float): The maximum value the samples can be rescaled. Default: ``2.0``.
+           final_size (int): The final size of the image and target. Default: ``512``.
+
+       Returns:
+           both_transforms (torch.nn.Module): Transformations to apply to a 2-tuple containing the input image and the
+               target semantic segmentation mask.
+           image_transforms (torch.nn.Module): Transformations to apply to the input image only.
+           target_transforms (torch.nn.Module): Transformations to apply to the target semantic segmentation mask only.
     """
     if split == 'train':
         both_transforms = torch.nn.Sequential(
@@ -89,6 +79,45 @@ def build_ade20k_dataloader(
         both_transforms = None
         image_transforms = transforms.Resize(size=(final_size, final_size), interpolation=TF.InterpolationMode.BILINEAR)
         target_transforms = transforms.Resize(size=(final_size, final_size), interpolation=TF.InterpolationMode.NEAREST)
+    return both_transforms, image_transforms, target_transforms
+
+
+def build_ade20k_dataloader(
+    batch_size: int,
+    datadir: str,
+    *,
+    split: str = 'train',
+    drop_last: bool = True,
+    shuffle: bool = True,
+    base_size: int = 512,
+    min_resize_scale: float = 0.5,
+    max_resize_scale: float = 2.0,
+    final_size: int = 512,
+    ignore_background: bool = True,
+    **dataloader_kwargs,
+):
+    """Builds an ADE20k dataloader.
+
+    Args:
+        datadir (str): Path to location of dataset.
+        batch_size (int): Batch size per device.
+        split (str): The dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
+        drop_last (bool): Whether to drop last samples. Default: ``True``.
+        shuffle (bool): Whether to shuffle the dataset. Default: ``True``.
+        base_size (int): Initial size of the image and target before other augmentations. Default: ``512``.
+        min_resize_scale (float): The minimum value the samples can be rescaled. Default: ``0.5``.
+        max_resize_scale (float): The maximum value the samples can be rescaled. Default: ``2.0``.
+        final_size (int): The final size of the image and target. Default: ``512``.
+        ignore_background (bool): If true, ignore the background class when calculating the training loss.
+            Default: ``true``.
+        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+    """
+    both_transforms, image_transforms, target_transforms = build_ade20k_transformations(
+        split=split,
+        base_size=base_size,
+        min_resize_scale=min_resize_scale,
+        max_resize_scale=max_resize_scale,
+        final_size=final_size)
 
     dataset = ADE20k(datadir=datadir,
                      split=split,
@@ -112,6 +141,89 @@ def build_ade20k_dataloader(
     )
 
 
+def build_streaming_ade20k_dataloader(
+    batch_size: int,
+    remote: str,
+    *,
+    version: int = 2,
+    local: str = '/tmp/mds-cache/mds-ade20k/',
+    split: str = 'train',
+    drop_last: bool = True,
+    shuffle: bool = True,
+    base_size: int = 512,
+    min_resize_scale: float = 0.5,
+    max_resize_scale: float = 2.0,
+    final_size: int = 512,
+    ignore_background: bool = True,
+    **dataloader_kwargs,
+):
+    """Build an ADE20k streaming dataset.
+
+    Args:
+        batch_size (int): Batch size per device.
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+        version (int): Which version of streaming to use. Default: ``2``.
+        local (str): Local filesystem directory where dataset is cached during operation.
+            Default: ``'/tmp/mds-cache/mds-ade20k/```.
+        split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
+        base_size (int): Initial size of the image and target before other augmentations. Default: ``512``.
+        min_resize_scale (float): The minimum value the samples can be rescaled. Default: ``0.5``.
+        max_resize_scale (float): The maximum value the samples can be rescaled. Default: ``2.0``.
+        final_size (int): The final size of the image and target. Default: ``512``.
+        ignore_background (bool): If true, ignore the background class when calculating the training loss.
+            Default: ``true``.
+        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+    """
+    if version == 1:
+        warn_streaming_dataset_deprecation(old_version=version, new_version=2)
+        dataset = StreamingADE20k(remote=remote,
+                                  local=local,
+                                  split=split,
+                                  shuffle=shuffle,
+                                  base_size=base_size,
+                                  min_resize_scale=min_resize_scale,
+                                  max_resize_scale=max_resize_scale,
+                                  final_size=final_size,
+                                  batch_size=batch_size)
+    elif version == 2:
+
+        try:
+            import streaming
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
+
+        # Build the sets of transformations for ADE20k
+        both_transforms, image_transforms, target_transforms = build_ade20k_transformations(
+            split=split,
+            base_size=base_size,
+            min_resize_scale=min_resize_scale,
+            max_resize_scale=max_resize_scale,
+            final_size=final_size)
+
+        dataset = streaming.vision.ADE20K(remote=remote,
+                                          local=local,
+                                          split=split,
+                                          shuffle=shuffle,
+                                          both_transforms=both_transforms,
+                                          transform=image_transforms,
+                                          target_transform=target_transforms,
+                                          batch_size=batch_size)
+
+    else:
+        raise ValueError(f'Invalid streaming version: {version}')
+
+    dataloader = DataLoader(dataset=dataset,
+                            batch_size=batch_size,
+                            collate_fn=pil_image_collate,
+                            drop_last=drop_last,
+                            **dataloader_kwargs)
+    device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
+                                          std=IMAGENET_CHANNEL_STD,
+                                          ignore_background=ignore_background)
+
+    return DataSpec(dataloader=dataloader, device_transforms=device_transform_fn)
+
+
 def build_synthetic_ade20k_dataloader(
     batch_size: int,
     *,
@@ -128,13 +240,13 @@ def build_synthetic_ade20k_dataloader(
 
     Args:
         batch_size (int): Batch size per device.
-        split (str): the dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
-        drop_last (bool): whether to drop last samples. Default: ``True``.
-        shuffle (bool): whether to shuffle the dataset. Default: ``True``.
-        final_size (int): the final size of the image and target. Default: ``512``.
-        num_unique_samples (int): number of unique samples in synthetic dataset. Default: ``100``.
-        device (str): device with which to load the dataset. Default: ``cpu``.
-        memory_format (MemoryFormat): memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
+        split (str): The dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
+        drop_last (bool): Whether to drop last samples. Default: ``True``.
+        shuffle (bool): Whether to shuffle the dataset. Default: ``True``.
+        final_size (int): The final size of the image and target. Default: ``512``.
+        num_unique_samples (int): Number of unique samples in synthetic dataset. Default: ``100``.
+        device (str): Device with which to load the dataset. Default: ``cpu``.
+        memory_format (MemoryFormat): Memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
     if split == 'train':
@@ -474,33 +586,12 @@ class StreamingADE20k(StreamingDataset):
                          batch_size=batch_size)
 
         # Define custom transforms
-        if split == 'train':
-            self.both_transform = torch.nn.Sequential(
-                RandomResizePair(min_scale=min_resize_scale,
-                                 max_scale=max_resize_scale,
-                                 base_size=(base_size, base_size)),
-                RandomCropPair(
-                    crop_size=(final_size, final_size),
-                    class_max_percent=0.75,
-                    num_retry=10,
-                ),
-                RandomHFlipPair(),
-            )
-
-            # Photometric distoration values come from mmsegmentation:
-            # https://github.com/open-mmlab/mmsegmentation/blob/aa50358c71fe9c4cccdd2abe42433bdf702e757b/mmseg/datasets/pipelines/transforms.py#L861
-            r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
-            self.image_transform = torch.nn.Sequential(
-                PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
-                PadToSize(size=(final_size, final_size), fill=(int(r_mean), int(g_mean), int(b_mean))))
-
-            self.annotation_transform = PadToSize(size=(final_size, final_size), fill=0)
-        else:
-            self.both_transform = None
-            self.image_transform = transforms.Resize(size=(final_size, final_size),
-                                                     interpolation=TF.InterpolationMode.BILINEAR)
-            self.annotation_transform = transforms.Resize(size=(final_size, final_size),
-                                                          interpolation=TF.InterpolationMode.NEAREST)
+        self.both_transform, self.image_transform, self.target_transform = build_ade20k_transformations(
+            split=split,
+            base_size=base_size,
+            min_resize_scale=min_resize_scale,
+            max_resize_scale=max_resize_scale,
+            final_size=final_size)
 
     def __getitem__(self, idx: int) -> Tuple[Any, Any]:
         obj = super().__getitem__(idx)
@@ -510,6 +601,6 @@ class StreamingADE20k(StreamingDataset):
             x, y = self.both_transform((x, y))
         if self.image_transform:
             x = self.image_transform(x)
-        if self.annotation_transform:
-            y = self.annotation_transform(y)
+        if self.target_transform:
+            y = self.target_transform(y)
         return x, y
