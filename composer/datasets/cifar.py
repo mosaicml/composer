@@ -8,20 +8,26 @@ The CIFAR datasets are a collection of labeled 32x32 colour images. Please refer
 """
 
 import os
-from typing import Any, Optional
+import textwrap
+from typing import Any, List, Optional, Union
 
 import numpy as np
+import torch
 from PIL import Image
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torchvision.datasets import VisionDataset
 
 from composer.core.types import MemoryFormat
+from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.streaming import StreamingDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import dist
 
-__all__ = ['build_cifar10_dataloader', 'build_synthetic_cifar10_dataloader', 'StreamingCIFAR10']
+__all__ = [
+    'build_cifar10_dataloader', 'build_ffcv_cifar10_dataloader', 'build_synthetic_cifar10_dataloader',
+    'StreamingCIFAR10'
+]
 
 
 def build_cifar10_dataloader(
@@ -77,6 +83,106 @@ def build_cifar10_dataloader(
         sampler=sampler,
         drop_last=drop_last,
         **dataloader_kwargs,
+    )
+
+
+def build_ffcv_cifar10_dataloader(
+    batch_size: int,
+    is_train: bool = True,
+    download: bool = True,
+    drop_last: bool = True,
+    prefetch_factor: int = 2,
+    num_workers: int = 8,
+    ffcv_dir: str = '/tmp',
+    ffcv_dest: str = 'cifar_train.ffcv',
+    ffcv_write_dataset: Union[str, bool] = False,
+    datadir: Union[str, None] = None,
+):
+    """Builds an FFCV CIFAR10 dataloader.
+
+    Args:
+        batch_size (int): Batch size per device.
+        is_train (bool): Whether to load the training data or validation data. Default:
+            ``True``.
+        download (bool, optional): Whether to download the dataset, if needed. Default:
+            ``True``.
+        drop_last (bool): Whether to drop last samples. Default: ``True``.
+        prefetch_factor (int): Number of batches to prefect. Default: ``2``.
+        ffcv_dir (str, optional): A directory containing train/val <file>.ffcv files. If
+            these files don't exist and ``ffcv_write_dataset`` is ``True``, train/val
+            <file>.ffcv files will be created in this dir. Default: ``"/tmp"``.
+        ffcv_dest (str, optional): <file>.ffcv file that has dataset samples. Default: ``"cifar_train.ffcv"``.
+        ffcv_write_dataset (str | bool, optional): Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist. Default:
+        ``False``.
+        datadir (str | None, optional): Path to the non-FFCV data directory.
+    """
+    try:
+        import ffcv
+        from ffcv.fields.decoders import IntDecoder, SimpleRGBImageDecoder
+        from ffcv.pipeline.operation import Operation
+    except ImportError:
+        raise ImportError(
+            textwrap.dedent("""\
+            Composer was installed without ffcv support.
+            To use ffcv with Composer, please install ffcv in your environment."""))
+
+    dataset_filepath = os.path.join(ffcv_dir, ffcv_dest)
+    # always create if ffcv_write_dataset is true
+    if ffcv_write_dataset:
+        if dist.get_local_rank() == 0:
+            if datadir is None:
+                raise ValueError('datadir is required if use_synthetic is False and ffcv_write_dataset is True.')
+            ds = datasets.CIFAR10(
+                datadir,
+                train=is_train,
+                download=download,
+            )
+
+            write_ffcv_dataset(dataset=ds, write_path=dataset_filepath)
+
+        # Wait for the local rank 0 to be done creating the dataset in ffcv format.
+        dist.barrier()
+
+    if not os.path.exists(dataset_filepath):
+        raise ValueError(
+            f'Dataset file containing samples not found at {dataset_filepath}. Use ffcv_dir flag to point to a dir containing {dataset_filepath}.'
+        )
+
+    # Please note that this mean/std is different from the mean/std used for regular PyTorch dataloader as
+    # ToTensor does the normalization for PyTorch dataloaders.
+    cifar10_mean_ffcv = [125.307, 122.961, 113.8575]
+    cifar10_std_ffcv = [51.5865, 50.847, 51.255]
+    label_pipeline: List[Operation] = [IntDecoder(), ffcv.transforms.ToTensor(), ffcv.transforms.Squeeze()]
+    image_pipeline: List[Operation] = [SimpleRGBImageDecoder()]
+
+    if is_train:
+        image_pipeline.extend([
+            ffcv.transforms.RandomHorizontalFlip(),
+            ffcv.transforms.RandomTranslate(padding=2, fill=tuple(map(int, cifar10_mean_ffcv))),
+            ffcv.transforms.Cutout(4, tuple(map(int, cifar10_mean_ffcv))),
+        ])
+    # Common transforms for train and test
+    image_pipeline.extend([
+        ffcv.transforms.ToTensor(),
+        ffcv.transforms.ToTorchImage(channels_last=False, convert_back_int16=False),
+        ffcv.transforms.Convert(torch.float32),
+        transforms.Normalize(cifar10_mean_ffcv, cifar10_std_ffcv),
+    ])
+
+    ordering = ffcv.loader.OrderOption.RANDOM if is_train else ffcv.loader.OrderOption.SEQUENTIAL
+
+    return ffcv.Loader(
+        dataset_filepath,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        order=ordering,
+        distributed=False,
+        pipelines={
+            'image': image_pipeline,
+            'label': label_pipeline,
+        },
+        batches_ahead=prefetch_factor,
+        drop_last=drop_last,
     )
 
 
