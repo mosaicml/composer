@@ -13,7 +13,6 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 import composer.utils.object_store
-import composer.utils.object_store.object_store_hparams
 import composer.utils.object_store.sftp_object_store
 from composer.utils.object_store import LibcloudObjectStore, ObjectStore, S3ObjectStore, SFTPObjectStore
 from composer.utils.object_store.sftp_object_store import SFTPObjectStore
