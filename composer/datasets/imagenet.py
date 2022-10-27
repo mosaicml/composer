@@ -24,11 +24,13 @@ from composer.datasets.ffcv_utils import ffcv_monkey_patches, write_ffcv_dataset
 from composer.datasets.streaming import StreamingDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
-from composer.utils import dist
+from composer.utils import dist, warn_streaming_dataset_deprecation
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = [
     'StreamingImageNet1k',
     'build_imagenet_dataloader',
+    'build_streaming_imagenet1k_dataloader',
     'build_synthetic_imagenet_dataloader',
     'write_ffcv_imagenet',
     'build_ffcv_imagenet_dataloader',
@@ -260,6 +262,89 @@ def build_ffcv_imagenet_dataloader(
         batches_ahead=prefetch_factor,
         drop_last=drop_last,
     )
+
+
+def build_streaming_imagenet1k_dataloader(
+    batch_size: int,
+    remote: str,
+    *,
+    version: int = 2,
+    local: str = '/tmp/mds-cache/mds-imagenet1k',
+    split: str = 'train',
+    drop_last: bool = True,
+    shuffle: bool = True,
+    resize_size: int = -1,
+    crop_size: int = 224,
+    **dataloader_kwargs,
+) -> DataSpec:
+    """Builds an imagenet1k streaming dataset
+
+    Args:
+        batch_size (int): Batch size per device.
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+        version (int, optional): Which version of streaming to use. Default: ``2``.
+        local (str, optional): Local filesystem directory where dataset is cached during operation.
+            Defaults to ``'/tmp/mds-cache/mds-imagenet1k/```.
+        split (str): Which split of the dataset to use. Either ['train', 'val']. Default:
+            ``'train```.
+        drop_last (bool, optional): whether to drop last samples. Default: ``True``.
+        shuffle (bool, optional): whether to shuffle dataset. Defaults to ``True``.
+        resize_size (int, optional): The resize size to use. Use ``-1`` to not resize. Default: ``-1``.
+        crop size (int): The crop size to use. Default: ``224``.
+        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+    """
+
+    if version == 1:
+        warn_streaming_dataset_deprecation(old_version=version, new_version=2)
+        dataset = StreamingImageNet1k(remote=remote,
+                                      local=local,
+                                      split=split,
+                                      shuffle=shuffle,
+                                      resize_size=resize_size,
+                                      crop_size=crop_size,
+                                      batch_size=batch_size)
+    elif version == 2:
+        try:
+            from streaming.vision import ImageNet
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
+        transform = []
+        if split == 'train':
+            # include fixed-size resize before RandomResizedCrop in training only
+            # if requested (by specifying a size > 0)
+            if resize_size > 0:
+                transform.append(transforms.Resize(resize_size))
+            # always include RandomResizedCrop and RandomHorizontalFlip
+            transform += [
+                transforms.RandomResizedCrop(crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
+                transforms.RandomHorizontalFlip()
+            ]
+        else:
+            if resize_size > 0:
+                transform.append(transforms.Resize(resize_size))
+            transform.append(transforms.CenterCrop(crop_size))
+        transform.append(lambda image: image.convert('RGB'))
+        transform = transforms.Compose(transform)
+        dataset = ImageNet(local=local,
+                           remote=remote,
+                           split=split,
+                           shuffle=shuffle,
+                           transform=transform,
+                           batch_size=batch_size)
+    else:
+        raise ValueError(f'Invalid streaming version: {version}')
+
+    dataloader = DataLoader(
+        dataset=dataset,
+        batch_size=batch_size,
+        collate_fn=pil_image_collate,
+        sampler=None,
+        drop_last=drop_last,
+        **dataloader_kwargs,
+    )
+
+    device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
+    return DataSpec(dataloader=dataloader, device_transforms=device_transform_fn)
 
 
 class StreamingImageNet1k(StreamingDataset, VisionDataset):
