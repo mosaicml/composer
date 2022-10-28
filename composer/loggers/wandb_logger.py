@@ -123,19 +123,24 @@ class WandBLogger(LoggerDestination):
             wandb.log(metrics_copy, step)
 
     def log_images(self, images: Union[np.ndarray, torch.Tensor, Sequence[np.ndarray], Sequence[torch.Tensor]],
-                         masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]]=None,
                          name: str = 'Images',
                          channels_last: bool = False,
-                         step: Optional[int] = None):
+                         step: Optional[int] = None,
+                         masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]]=None,
+                         segmentation_class_labels: Optional[Dict[int, str]]=None):
         if self._enabled:
             import wandb
             if masks is not None:
                 pass
             if not isinstance(images, Sequence) and images.ndim <= 3:
                 images = [images]
-            
 
-            wandb_images = [wandb.Image(_convert_to_wandb_image(image, channels_last)) for image in images]
+            images = (_convert_to_wandb_image(image, channels_last) for image in images)
+            if masks:
+                masks = _convert_to_wandb_masks(masks, segmentation_class_labels)
+                wandb_images = [wandb.Image(image, masks=mask) for image, mask in zip(images, masks)]
+            else:
+                wandb_images = [wandb.Image(image) for image in images]
 
             wandb.log({name: wandb_images}, step=step)
 
@@ -289,6 +294,9 @@ class WandBLogger(LoggerDestination):
             # record there was an error
             wandb.finish(1)
 
+
+def _convert_to_wandb_masks(masks, class_labels):
+    pass
 
 def _convert_to_wandb_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool):
     if isinstance(image, torch.Tensor):
