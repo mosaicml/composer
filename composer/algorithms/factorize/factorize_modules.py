@@ -279,7 +279,7 @@ class FactorizedConv2d(_FactorizedModule):
         self.convolution_kwargs = {k: v for k, v in kwargs.items() if k != 'bias'}
         self.module0, self.module1 = self._create_child_modules()
 
-    def _create_child_modules(self) -> Tuple[torch.nn.Module, torch.nn.Module]:
+    def _create_child_modules(self) -> Tuple[torch.nn.Conv2d, torch.nn.Conv2d]:
         if not self.should_factorize(self.latent_channels):
             raise ValueError(
                 f'latent_channels {self.latent_size} is not small enough to merit factorization! Must be <= {self._max_rank_with_speedup()}'
@@ -412,7 +412,7 @@ class FactorizedLinear(_FactorizedModule):
         self.bias = bias
         self.module0, self.module1 = self._create_child_modules()
 
-    def _create_child_modules(self) -> Tuple[torch.nn.Module, torch.nn.Module]:
+    def _create_child_modules(self) -> Tuple[torch.nn.Linear, torch.nn.Linear]:
         if not self.should_factorize(self.latent_size):
             raise ValueError(
                 f'latent_features {self.latent_size} is not small enough to merit factorization! Must be <= {self._max_rank_with_speedup()}'
