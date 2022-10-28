@@ -13,9 +13,9 @@ import re
 import sys
 import tempfile
 import warnings
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 import numpy as np
-import PIL
+import PIL.Image
 import torch
 
 from composer.core.state import State
@@ -23,6 +23,7 @@ from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
+import wandb
 
 __all__ = ['WandBLogger']
 
@@ -121,15 +122,22 @@ class WandBLogger(LoggerDestination):
             metrics_copy = copy.deepcopy(metrics)
             wandb.log(metrics_copy, step)
 
-    def log_images(self, images: Dict[str, Union[PIL.Image, np.ndarray, torch.Tensor]],
-                         masks: Optional[Dict[str, Dict[str, Union[PIL.Image, np.ndarray, torch.Tensor]]]]):
+    def log_images(self, images: Union[np.ndarray, torch.Tensor, Sequence[np.ndarray], Sequence[torch.Tensor]],
+                         masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]]=None,
+                         name: str = 'Images',
+                         channels_last: bool = False,
+                         step: Optional[int] = None):
         if self._enabled:
             import wandb
             if masks is not None:
                 pass
-            ims = [wandb.Image(im, caption=name) for im, name in images.items()]
-            wandb.log({'images': ims})
+            if not isinstance(images, Sequence) and images.ndim <= 3:
+                images = [images]
+            
 
+            wandb_images = [wandb.Image(_convert_to_wandb_image(image, channels_last)) for image in images]
+
+            wandb.log({name: wandb_images}, step=step)
 
     def state_dict(self) -> Dict[str, Any]:
         import wandb
@@ -280,3 +288,38 @@ class WandBLogger(LoggerDestination):
         else:
             # record there was an error
             wandb.finish(1)
+
+
+def _convert_to_wandb_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool):
+    if isinstance(image, torch.Tensor):
+        image = image.data.cpu().numpy()
+    
+    # Error out for empty arrays or weird arrays of dimension 0.
+    if np.any(np.equal(image.shape, 0)):
+        raise ValueError(f'Got an image (shape {image.shape}) with at least one dimension being 0! ')
+    
+    # Squeeze any singleton dimensions and then add them back in if image dimension 
+    # less than 3.
+    image = image.squeeze()
+
+    # Add in length-one dimensions to get back up to 3 
+    # putting channels last.
+    if image.ndim == 1:
+        image = image[:, None, None]
+        channels_last = True
+    if image.ndim == 2:
+        image = image[:, :, None]
+        channels_last = True
+
+    if image.ndim != 3:
+        raise ValueError('Input image must be 3 dimensions, but instead'
+                        f' got {image.ndim} dims at shape: {image.shape}'
+                        f' Your input image was interpreted as a batch of {image.ndim}-dimensional'
+                        f' images because you either specified a {image.ndim + 1}D image' 
+                        f' or a list of {image.ndim}D images.'
+                        ' Please specify either a 4D image of a list of 3D images')
+
+    if not channels_last:
+        assert isinstance(image, np.ndarray)
+        image = image.transpose(1,2,0)
+    return image
