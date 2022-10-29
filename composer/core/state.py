@@ -13,6 +13,7 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
 
 import torch
+import torch.nn as nn
 import torch.nn.modules.utils
 from packaging import version
 from torch.nn.parallel import DistributedDataParallel
@@ -42,7 +43,7 @@ log = logging.getLogger(__name__)
 
 
 @contextmanager
-def get_fsdp_rank0_cpu_save_context(obj: torch.nn.Module):
+def get_fsdp_rank0_cpu_save_context(obj: nn.Module):
     if version.parse(torch.__version__) < version.parse('1.12.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.12.0.')
     from torch.distributed.fsdp import FullStateDictConfig
@@ -53,14 +54,14 @@ def get_fsdp_rank0_cpu_save_context(obj: torch.nn.Module):
         yield
 
 
-def get_fsdp_sharded_optim_state_dict(full_optim_state_dict: Dict[str, Any], model: torch.nn.Module):
+def get_fsdp_sharded_optim_state_dict(full_optim_state_dict: Dict[str, Any], model: nn.Module):
     if version.parse(torch.__version__) < version.parse('1.12.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.12.0.')
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
     return FSDP.scatter_full_optim_state_dict(full_optim_state_dict=full_optim_state_dict, model=model)
 
 
-def get_fsdp_full_optim_state_dict(model: torch.nn.Module, optim: torch.optim.Optimizer, rank0_only: bool = True):
+def get_fsdp_full_optim_state_dict(model: nn.Module, optim: torch.optim.Optimizer, rank0_only: bool = True):
     if version.parse(torch.__version__) < version.parse('1.12.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.12.0.')
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -255,7 +256,7 @@ class State(Serializable):
     def __init__(
         self,
         # model
-        model: torch.nn.Module,
+        model: nn.Module,
 
         # determinism
         rank_zero_seed: int,
