@@ -16,7 +16,7 @@ import torch.nn.modules.utils
 from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 from torchmetrics import Metric
 
 from composer.core.data_spec import DataSpec
@@ -245,7 +245,7 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
             | run_name              | The run name for training.                                  |
             +-----------------------+-------------------------------------------------------------+
-            | dataset_state         | The dataset iteration state for checkpointing.              |
+            | dataloader_state      | The dataloader iteration state for checkpointing.           |
             +-----------------------+-------------------------------------------------------------+
 
         timestamp (Timestamp): The current training timestamp.
@@ -280,7 +280,7 @@ class State(Serializable):
         dataloader: Optional[Iterable] = None,
         dataloader_label: Optional[str] = None,
         dataloader_len: Union[int, Time[int]] = -1,
-        dataset_state: Optional[Dict[str, Any]] = None,
+        dataloader_state: Optional[Dict[str, Any]] = None,
         dataloader_resumption: Optional[Dict] = None,
 
         # precision
@@ -309,7 +309,7 @@ class State(Serializable):
         self._dataloader = None
         self._dataloader_label = None
         self.set_dataloader(dataloader, dataloader_label, dataloader_len)
-        self.dataset_state = dataset_state
+        self.dataloader_state = dataloader_state
         self.dataloader_resumption = dataloader_resumption or {}
         self._max_duration = None
         self.max_duration = max_duration
@@ -359,7 +359,7 @@ class State(Serializable):
             'train_metrics',
             'eval_metrics',
             'run_name',
-            'dataset_state',
+            'dataloader_state',
         ]
 
         self.train_metrics: Dict[str, Metric] = {}
@@ -373,12 +373,11 @@ class State(Serializable):
     @train_dataloader.setter
     def train_dataloader(self, train_dataloader: Optional[types.DataLoader]):
         self._train_dataloader = train_dataloader
-        if self.dataset_state:
-            dataset = self._dataset_of(self._train_dataloader)
-            if hasattr(dataset, 'load_state_dict'):
-                dataset.load_state_dict(self.dataset_state['train'])
+        if self.dataloader_state:
+            if hasattr(self._train_dataloader, 'load_state_dict'):
+                self._train_dataloader.load_state_dict(self.dataloader_state['train'])
                 self.dataloader_resumption['train'] = True
-            self.dataset_state['train'] = None
+            self.dataloader_state['train'] = None
 
     @property
     def current_metrics(self):
@@ -503,16 +502,6 @@ class State(Serializable):
     def algorithms(self, algorithms: Sequence[Algorithm]):
         self._algorithms[:] = algorithms
 
-    def _dataset_of(self, obj: Optional[Union[Evaluator, DataSpec, types.DataLoader]]) -> Dataset:
-        from composer.core.evaluator import Evaluator
-        if obj is None:
-            return None
-        if isinstance(obj, Evaluator):
-            obj = obj.dataloader
-        if isinstance(obj, DataSpec):
-            obj = obj.dataloader
-        return obj.dataset
-
     @property
     def evaluators(self):
         """The evaluators."""
@@ -521,14 +510,13 @@ class State(Serializable):
     @evaluators.setter
     def evaluators(self, evaluators: Union[Evaluator, Sequence[Evaluator]]):
         self._evaluators[:] = list(ensure_tuple(evaluators))
-        if self.dataset_state:
-            state = self.dataset_state['eval']
+        if self.dataloader_state:
+            state = self.dataloader_state['eval']
             for evaluator in self._evaluators:
-                dataset = self._dataset_of(evaluator)
-                if hasattr(dataset, 'load_state_dict') and evaluator.label in state:
-                    dataset.load_state_dict(state[evaluator.label])
+                if hasattr(evaluator.dataloader, 'load_state_dict') and evaluator.label in state:
+                    evaluator.dataloader.load_state_dict(state[evaluator.label])
                 # del state[evaluator.label]
-            del self.dataset_state['eval']
+            del self.dataloader_state['eval']
 
     @property
     def deepspeed_enabled(self):
@@ -546,23 +534,20 @@ class State(Serializable):
                 return True
         return False
 
-    def dataset_state_dict(self) -> Dict[str, Any]:
+    def dataloader_state_dict(self) -> Dict[str, Any]:
         obj = {
             'train': None,
             'eval': {},
         }
 
-        dataset = self._dataset_of(self.train_dataloader)
-        if hasattr(dataset, 'state_dict'):
-            obj['train'] = dataset.state_dict()
+        if hasattr(self.train_dataloader, 'state_dict'):
+            obj['train'] = self.train_dataloader.state_dict()
 
         for evaluator in self.evaluators:
-            dataset = self._dataset_of(evaluator.dataloader)
-            if hasattr(dataset, 'state_dict'):
-                st = dataset.state_dict()
+            if hasattr(evaluator.dataloader, 'state_dict'):
+                st = evaluator.dataloader.state_dict()
                 st['sessions'] = []  # Don't save eval split's sessions, because we do not checkpoint during eval.
                 obj['eval'][evaluator.label] = st
-
         return obj
 
     def state_dict(self) -> Dict[str, Any]:
@@ -570,8 +555,8 @@ class State(Serializable):
 
         for attribute_name in self.serialized_attributes:
             attribute_value = getattr(self, attribute_name)
-            if attribute_name == 'dataset_state':
-                serialized_value = self.dataset_state_dict()
+            if attribute_name == 'dataloader_state':
+                serialized_value = self.dataloader_state_dict()
             elif attribute_name == 'model':
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                 # If it is DDP wrapped, do not save the `module.` prefix, as that is an implmentation detail
@@ -671,19 +656,17 @@ class State(Serializable):
                              'If you wish to use pretrained weights and reinitialize layers which have '
                              'undergone surgery, set `load_weights_only=True`.')
 
-    def load_dataset_state(self, obj: Dict[str, Any]) -> None:
-        self.dataset_state = obj
+    def load_dataloader_state(self, obj: Dict[str, Any]) -> None:
+        self.dataloader_state = obj
 
-        dataset = self._dataset_of(self.train_dataloader)
-        if hasattr(dataset, 'load_state_dict'):
-            dataset.load_state_dict(obj['train'])
+        if hasattr(self.train_dataloader, 'load_state_dict'):
+            self.train_dataloader.load_state_dict(obj['train'])
             obj['train'] = None
             self.dataloader_resumption['train'] = True
 
         for evaluator in self.evaluators:
-            dataset = self._dataset_of(evaluator)
-            if hasattr(dataset, 'load_state_dict') and evaluator.label in obj['eval']:
-                dataset.load_state_dict(obj['eval'][evaluator.label])
+            if hasattr(evaluator.dataloader, 'load_state_dict') and evaluator.label in obj['eval']:
+                evaluator.dataloader.load_state_dict(obj['eval'][evaluator.label])
                 del obj['eval'][evaluator.label]
                 if 'eval' not in self.dataloader_resumption:
                     self.dataloader_resumption['eval'] = {}
@@ -710,8 +693,8 @@ class State(Serializable):
                 # It's possible some attributes we removed
                 continue
 
-            if attribute_name == 'dataset_state':
-                self.load_dataset_state(serialized_value)
+            if attribute_name == 'dataloader_state':
+                self.load_dataloader_state(serialized_value)
             elif attribute_name == 'model':
                 self.load_model_state(state, strict=strict)
             elif attribute_name == 'optimizers':

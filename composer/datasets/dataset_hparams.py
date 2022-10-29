@@ -90,8 +90,13 @@ class DataLoaderHparams(hp.Hparams):
         Returns:
             DataLoader: The dataloader.
         """
+        try:
+            from streaming.base.dataloader import StreamingDataLoader
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='streaming',
+                                                conda_package='mosaicml-streaming') from e
 
-        return torch.utils.data.DataLoader(
+        return StreamingDataLoader(
             dataset,
             batch_size=batch_size,
             num_workers=self.num_workers,
