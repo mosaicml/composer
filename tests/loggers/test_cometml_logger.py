@@ -6,11 +6,54 @@ from collections import defaultdict
 from json import JSONDecoder
 from pathlib import Path
 
+from typing import Sequence
 import pytest
 from torch.utils.data import DataLoader
+import torch
+from composer.algorithms.seq_length_warmup.seq_length_warmup import SeqLengthWarmup
 
 from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel
+
+
+@pytest.fixture
+def comet_offline_directory(tmp_path):
+    return str(tmp_path / Path('.my_cometml_runs'))
+
+
+@pytest.fixture
+def comet_logger(monkeypatch, comet_offline_directory):
+    pytest.importorskip('comet_ml', reason='comet_ml is optional')
+    import comet_ml
+
+    monkeypatch.setattr(comet_ml, 'Experiment', comet_ml.OfflineExperiment)
+    from composer.loggers import CometMLLogger
+
+    # Set offline directory.
+    os.environ['COMET_OFFLINE_DIRECTORY'] = comet_offline_directory
+
+    comet_logger = CometMLLogger()
+    return comet_logger
+
+
+@pytest.mark.parametrize('images,channels_last', 
+                        [(torch.rand(32), False),
+                        (torch.rand(32, 32), False),
+                        (torch.rand(32, 32, 3), True),
+                        (torch.rand(3, 32, 32), False),
+                        (torch.rand(8, 32, 32, 3), True),
+                        ([torch.rand(32, 32, 3)], True),
+                        ([torch.rand(32, 32, 3),torch.rand(32, 32, 3) ], True)])
+def test_comet_ml_log_image_returns(comet_logger, images, channels_last):
+    comet_logger.log_images(images, channels_last=channels_last)
+    if isinstance(images, Sequence):
+        np_images = [image.numpy() for image in images]
+    else:
+        np_images = images.numpy()
+    comet_logger.log_images(np_images, channels_last=channels_last)
+
+
+
 
 
 def test_comet_ml_logging_train_loop(monkeypatch, tmp_path):
