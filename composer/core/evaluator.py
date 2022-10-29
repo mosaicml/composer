@@ -19,22 +19,18 @@ from composer.core.time import Time, TimeUnit
 __all__ = ['Evaluator', 'evaluate_periodically', 'ensure_evaluator']
 
 
-def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end: bool = True):
+def evaluate_periodically(eval_interval: Time, eval_at_fit_end: bool = True):
     """Helper function to generate an evaluation interval callable.
 
     Args:
-        eval_interval (str | Time | int): A :class:`.Time` instance or time string, or integer in epochs,
-            representing how often to evaluate. Set to ``0`` to disable evaluation.
+        eval_interval (Time): A :class:`.Time` instance, representing how often to evaluate.
+            Set to ``0`` (e.g. ``Time(0, TimeUnit.EPOCH)`` or ``Time.from_timestring("0ep")``) to disable evaluation.
         eval_at_fit_end (bool): Whether to evaluate at the end of training, regardless of `eval_interval`.
             Default: True
     Returns:
         (State, Event) -> bool: A callable for the ``eval_interval`` argument of an
             :class:`.Evaluator`.
     """
-    if isinstance(eval_interval, int):
-        eval_interval = Time(eval_interval, TimeUnit.EPOCH)
-    if isinstance(eval_interval, str):
-        eval_interval = Time.from_timestring(eval_interval)
 
     if eval_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.DURATION):
         raise ValueError('The `eval_interval` must have units of EPOCH, BATCH, DURATION or be a function.')
@@ -181,6 +177,10 @@ class Evaluator:
         if eval_interval is None:
             self._eval_interval = None
         elif not callable(eval_interval):
+            if isinstance(eval_interval, int):
+                eval_interval = Time(eval_interval, TimeUnit.EPOCH)
+            if isinstance(eval_interval, str):
+                eval_interval = Time.from_timestring(eval_interval)
             self._eval_interval = evaluate_periodically(eval_interval)
         else:
             self._eval_interval = eval_interval
