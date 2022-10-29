@@ -687,7 +687,10 @@ class State(Serializable):
                 del obj['eval'][evaluator.label]
                 if 'eval' not in self.dataloader_resumption:
                     self.dataloader_resumption['eval'] = {}
-                self.dataloader_resumption['eval'][evaluator.label] = True
+                # Note: We currently disable setting dataloader_resumption for eval dataloaders,
+                # which means they have one sample fetched in _spin_dataloaders before training
+                # starts. This avoids "CUDA error: initialization error" -- its not clear why.
+                # self.dataloader_resumption['eval'][evaluator.label] = True
 
     def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
         """Loads the state.
