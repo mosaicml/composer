@@ -31,7 +31,6 @@ def evaluate_periodically(eval_interval: Time, eval_at_fit_end: bool = True):
         (State, Event) -> bool: A callable for the ``eval_interval`` argument of an
             :class:`.Evaluator`.
     """
-
     if eval_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.DURATION):
         raise ValueError('The `eval_interval` must have units of EPOCH, BATCH, DURATION or be a function.')
 
