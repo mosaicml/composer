@@ -8,12 +8,15 @@ from contextlib import contextmanager, nullcontext
 from typing import Any, Callable, ContextManager, Dict, Optional, Sequence, Union, cast
 
 import torch
+import torch.distributed as torch_dist
 from packaging import version
+from torch.distributed.algorithms.ddp_comm_hooks.default_hooks import allreduce_hook
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
 
 from composer.core import Precision
 from composer.core.state import State
+from composer.core.types import JSON
 from composer.trainer.activation_checkpointing import apply_activation_checkpointing_wrapper, checkpoint_wrapper
 from composer.utils import dist, ensure_tuple
 from composer.utils.string_enum import StringEnum
@@ -99,7 +102,12 @@ def ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Uni
         raise ValueError('Unknown sync strategy', sync_strategy)
 
 
-def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) -> torch.nn.Module:
+def prepare_ddp_module(
+    module: torch.nn.Module,
+    find_unused_parameters: bool,
+    adaptive_gradient_accumulation: bool,
+    dist_callback_obj: JSON,
+) -> torch.nn.Module:
     """Wraps the module in a :class:`torch.nn.parallel.DistributedDataParallel` object if running distributed training.
 
     Args:
@@ -107,11 +115,17 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
         find_unused_parameters (bool): Whether or not to do a pass over the autograd graph
             to find parameters to not expect gradients for. This is useful if there are some
             parameters in the model that are not being trained.
+        adaptive_gradient_accumulation (bool): Whether adaptive gradient accumulation is enabled. If
+            enabled, we require inserting a barrier ahead of gradient reduction to avoid deadlock.
+        dist_callback_obj (JSON): A JSON object containing data used in the distributed callback.
     """
     if dist.is_available() and dist.is_initialized():
         if any((p.requires_grad for p in module.parameters())):
             log.debug('Wrapping model with DistributedDataParallel')
             ddp_model = DistributedDataParallel(module, find_unused_parameters=find_unused_parameters)
+            if adaptive_gradient_accumulation:
+                # Wrap the default reduce hook with a barrier
+                ddp_model.register_comm_hook(dist_callback_obj, rank_sync_wrapper(allreduce_hook))
             return ddp_model
         return module
     if dist.is_available():
@@ -120,6 +134,47 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
     raise RuntimeError('When the world size is > 1, ``torch.distributed`` must be used. However, it is '
                        'not available in your installation of PyTorch. Please install or build PyTorch '
                        'with distributed support.')
+
+
+def rank_sync_wrapper(
+    hook: Callable[[Any, torch_dist.GradBucket], torch.futures.Future[torch.Tensor]]
+) -> Callable[[Any, torch_dist.GradBucket], torch.futures.Future[torch.Tensor]]:
+    """Wrapper to insert monitored_barrier if using adaptive gradient accumulation.
+
+    If a subset of ranks OOM, this monitored barrier fails and the error is caught so training can
+    continue. Otherwise, two ranks would enter different barriers, resulting in deadlock.
+    """
+
+    def rank_sync_wrapper_hook(hook_state, bucket: torch_dist.GradBucket) -> torch.futures.Future[torch.Tensor]:
+        try:
+            # Only put barrier in front of first bucket
+            if bucket.index() == 0:
+                dist.barrier(group=hook_state['group'])
+            # Raise error because monitored barrier in first bucket failed
+            elif hook['hook_error']:
+                raise RuntimeError('Timed out')
+        except RuntimeError as e:
+            # monitored_barrier was tripped
+            if 'Timed out' in str(e):
+                if bucket.index() == 0:
+                    hook_state['hook_error'] = True
+
+                def raise_timeout_error(fut):
+                    del fut
+                    raise e
+
+                # Use a no-op hook and return the same gradients already on the device. If we don't
+                # do the reduction, PyTorch will raise an internal error on the next backward pass
+                # as the previous reduction hasn't been completed. After completing the no-op
+                # reduction, re-raise the timeout error.
+                fut = torch.futures.Future()
+                fut.set_result(bucket.buffer())
+                return fut.then(raise_timeout_error)
+            else:
+                raise
+        return hook(hook_state['nested_state'], bucket)
+
+    return rank_sync_wrapper_hook
 
 
 def get_torch_dtype(dtype: Union[Precision, str]):

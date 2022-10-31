@@ -36,7 +36,7 @@ import datetime
 import logging
 import os
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, List, Optional, Sequence, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, TypeVar, Union, cast
 
 import torch
 import torch.distributed as dist
@@ -154,15 +154,18 @@ def get_node_rank() -> int:
     return _get_distributed_config_var(env_var='NODE_RANK', default=0, human_name='node rank')
 
 
-def barrier() -> None:
+def barrier(**kwargs: Dict[str, Any]) -> None:
     """Synchronizes all processes.
 
     This function blocks until all processes reach this function.
 
     .. seealso:: :func:`torch.distributed.barrier`
+
+    Args:
+        kwargs (Dict[str, Any]): Keyword arguments to pass to :func:`torch.distributed.barrier`.
     """
     if dist.is_available() and dist.is_initialized():
-        dist.barrier()
+        dist.barrier(**kwargs)
         return
     world_size = get_world_size()
     if world_size == 1:

@@ -185,6 +185,11 @@ def _is_cuda_oom(e: RuntimeError):
     return False
 
 
+def _is_timeout_error(e: RuntimeError):
+    """Determines if error is a timeout error."""
+    return 'Timed out' in str(e)
+
+
 def _adjust_grad_accum(state: State, device_batch_size):
     """Adjust grad_accum if we encounter OOM.
 
@@ -923,8 +928,8 @@ class Trainer:
         if num_optimizers != 1:
             raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
+        self.dist_callback_obj = {'nested_state': None, 'group': None}
         # Move the model and optimizers to the device
-
         if not (self.deepspeed_enabled or self.fsdp_enabled):
             # check if model is already on tpu
             if isinstance(self._device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
@@ -1269,7 +1274,12 @@ class Trainer:
 
         if not (self.deepspeed_enabled or self.fsdp_enabled) and dist.get_world_size() > 1:
             # Only wrap the module if required
-            self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
+            self.state.model = prepare_ddp_module(
+                self.state.model,
+                self._find_unused_parameters,
+                self.state.auto_grad_accum,
+                self.dist_callback_obj,
+            )
 
     @property
     def saved_checkpoints(self) -> List[str]:
@@ -1926,7 +1936,9 @@ class Trainer:
 
         # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
         device_batch = self.state.batch
-
+        self.dist_callback_obj['group'] = torch.distributed.new_group(backend='gloo',
+                                                                      timeout=datetime.timedelta(seconds=30))
+        self.dist_callback_obj['hook_error'] = False
         # Retry until we successfully complete training and return loss
         while True:
             # Reset train_metrics on every batch
@@ -1961,8 +1973,11 @@ class Trainer:
                                 else:
                                     optimizer.step()
             except RuntimeError as e:
-                if self.state.auto_grad_accum and _is_cuda_oom(e):
-                    log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
+                if self.state.auto_grad_accum:
+                    if _is_cuda_oom(e):
+                        log.debug(f"Rank {dist.get_global_rank()} OOM'd.")
+                    elif self.state.auto_grad_accum and _is_timeout_error(e):
+                        log.debug(f"Rank {dist.get_global_rank()} timed out. Another rank may have OOM'd.")
                     found_cuda_oom = 1
                 else:
                     raise
