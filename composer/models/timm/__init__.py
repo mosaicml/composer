@@ -5,6 +5,5 @@
 used to create :class:`.ComposerClassifier`."""
 
 from composer.models.timm.model import composer_timm as composer_timm
-from composer.models.timm.timm_hparams import TimmHparams as TimmHparams
 
-__all__ = ['composer_timm', 'TimmHparams']
+__all__ = ['composer_timm']
