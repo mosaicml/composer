@@ -38,6 +38,7 @@ from composer.algorithms.seq_length_warmup import set_batch_sequence_length
 from composer.algorithms.squeeze_excite import apply_squeeze_excite
 from composer.algorithms.stochastic_depth import apply_stochastic_depth
 from composer.algorithms.weight_standardization import apply_weight_standardization
+from composer.algorithms.gyro_dropout import apply_gyro_dropout
 
 # All must be manually defined so sphinx automodule will work properly
 __all__ = [
@@ -65,4 +66,5 @@ __all__ = [
     'apply_squeeze_excite',
     'apply_stochastic_depth',
     'apply_weight_standardization',
+    'apply_gyro_dropout,
 ]
