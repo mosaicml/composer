@@ -1015,10 +1015,12 @@ class Trainer:
         self.logger = Logger(state=self.state, destinations=loggers)
 
         if save_latest_filename is not None:
-            if any(
-                    isinstance(logger_destination, RemoteUploaderDownloader) and
-                    logger_destination.file_path_format_string != '{remote_file_name}'
-                    for logger_destination in self.logger.destinations):
+            remote_ud_has_format_string = [
+                isinstance(logger_destination, RemoteUploaderDownloader) and
+                logger_destination.file_path_format_string != '{remote_file_name}'
+                for logger_destination in self.logger.destinations
+            ]
+            if any(remote_ud_has_format_string):
                 raise ValueError(
                     'Specifying a `file_path_format_string` to a `RemoteUploaderDownloader` is not currently supported while using `save_latest_filename`. '
                     'Please specify the path formatting via `save_folder`, `save_filename`, and `save_latest_filename`')
@@ -1223,9 +1225,12 @@ class Trainer:
                 raise ValueError(
                     'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
                 )
-            if any(
-                    isinstance(logger_destination, RemoteUploaderDownloader) and
-                    logger_destination._num_concurrent_uploads != 1 for logger_destination in self.logger.destinations):
+
+            remote_ud_has_multiple_concurrent_uploads = [
+                isinstance(logger_destination, RemoteUploaderDownloader) and
+                logger_destination._num_concurrent_uploads != 1 for logger_destination in self.logger.destinations
+            ]
+            if any(remote_ud_has_multiple_concurrent_uploads):
                 raise ValueError(
                     'Multiple concurrent uploads is not currently supported when using autoresume. Please set `num_concurrent_uploads` to 1 '
                     'for all `RemoteUploaderDownloader` instances.')
