@@ -92,7 +92,7 @@ class LoggerDestination(Callback, ABC):
                 image(s)' names (str) to an image of array of images.
             name (str): The name of the image(s). (Default: ``'Images'``)
             channels_last (bool): Whether the channel dimension is first or last.
-                (Default: ``'False``)
+                (Default: ``False``)
             step (Optional[int], optional): The current step or batch of training at the
                 time of logging. Defaults to None. If not specified the specific
                 LoggerDestination implementation will choose a step (usually a running
