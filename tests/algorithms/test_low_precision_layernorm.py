@@ -38,7 +38,7 @@ def assert_is_lpln_instance(model):
 @device('gpu')
 def test_low_precision_layernorm_functional(synthetic_bert_state: Tuple, device: str):
     state, _, _ = synthetic_bert_state
-    apply_low_precision_layernorm(state.model, state.optimizers)
+    apply_low_precision_layernorm(state.model, state.optimizers, state.precision)
     assert_is_lpln_instance(state.model.model)
 
 

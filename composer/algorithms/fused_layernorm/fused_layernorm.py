@@ -55,7 +55,7 @@ def apply_fused_layernorm(model: torch.nn.Module, optimizers: Union[torch.optim.
         warnings.warn(
             NoEffectWarning(
                 'No instances of `torch.nn.LayerNorm` were found, and therefore, there were no modules to replace.'))
-    log.info(f'Successfully replaced {len(replaced_instances)} of LayerNorm with a Fused LayerNorm.')
+    log.info(f'TEST: Successfully replaced {len(replaced_instances)} of LayerNorm with a Fused LayerNorm.')
 
 
 class FusedLayerNorm(Algorithm):
@@ -106,7 +106,7 @@ class FusedLayerNorm(Algorithm):
 
     def match(self, event: Event, state: State) -> bool:
         del state  # unused
-        return event == Event.INIT
+        return event == Event.AFTER_LOAD
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         del event, logger  # unused

@@ -84,7 +84,7 @@ class TestAlgorithmOrderingPasses:
     def test_algorithm_last(self, algorithm_cls: Type[Algorithm], always_match_algorithms: List[Algorithm],
                             dummy_logger: Logger, dummy_state: State):
 
-        if algorithm_cls == FusedLayerNorm:
+        if algorithm_cls == FusedLayerNorm or LowPrecisionLayerNorm:
             pytest.importorskip('apex')
 
         algorithm = algorithm_cls()
