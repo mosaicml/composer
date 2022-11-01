@@ -25,6 +25,7 @@ import os
 from pathlib import Path
 import imghdr
 
+
 @pytest.fixture
 def test_wandb_logger(tmp_path, dummy_state):
     os.environ['WANDB_DIR'] = str(tmp_path)
