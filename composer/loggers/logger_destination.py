@@ -7,12 +7,13 @@ from __future__ import annotations
 
 import pathlib
 from abc import ABC
-from typing import Any, Dict, Optional, Union, Sequence
+from typing import Any, Dict, Optional, Sequence, Union
+
+import numpy as np
+import torch
 
 from composer.core.callback import Callback
 from composer.core.state import State
-import numpy as np
-import torch
 
 __all__ = ['LoggerDestination']
 
@@ -77,19 +78,20 @@ class LoggerDestination(Callback, ABC):
         del traces
         pass
 
-    def log_images(self, images: Union[np.ndarray, torch.Tensor, Sequence[np.ndarray], Sequence[torch.Tensor]],
-                         name: str = 'Images',
-                         channels_last: bool = False,
-                         step: Optional[int] = None,
-                         masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]]=None,
-                         segmentation_class_labels: Optional[Dict[int, str]]=None):
+    def log_images(self,
+                   images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
+                   name: str = 'Images',
+                   channels_last: bool = False,
+                   step: Optional[int] = None,
+                   masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]] = None,
+                   segmentation_class_labels: Optional[Dict[int, str]] = None):
         """Log images. Logs any images from tensors or arrays
 
         Args:
-            images (Dict[str,PIL.Image | np.ndarray | torch.Tensor ]): Dictionary mapping 
+            images (Dict[str,PIL.Image | np.ndarray | torch.Tensor ]): Dictionary mapping
                 image(s)' names (str) to an image of array of images.
             name (str): The name of the image(s). (Default: ``'Images'``)
-            channels_last (bool): Whether the channel dimension is first or last. 
+            channels_last (bool): Whether the channel dimension is first or last.
                 (Default: ``'False``)
             step (Optional[int], optional): The current step or batch of training at the
                 time of logging. Defaults to None. If not specified the specific
@@ -97,9 +99,9 @@ class LoggerDestination(Callback, ABC):
                 counter).
             masks (Dict[str, PIL.Image | np.ndarray | torch.Tensor]): For segmentation inputs.
                 Dictionary mapping string to a dictionary specifying a 2D mask array
-            segmentation_class_labels (Dict[int, str]): For segmentation inputs. A class 
+            segmentation_class_labels (Dict[int, str]): For segmentation inputs. A class
                 label to name dictionary.
-            
+
         """
         del images, name, channels_last, step, masks, segmentation_class_labels
         pass

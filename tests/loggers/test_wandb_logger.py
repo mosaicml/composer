@@ -2,10 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import contextlib
+import imghdr
 import json
+import os
 import pathlib
 import uuid
-from typing import Type, Sequence
+from pathlib import Path
+from typing import Sequence, Type
 
 import pytest
 import torch
@@ -21,9 +24,6 @@ from composer.trainer import Trainer
 from composer.utils import dist, retry
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cbs_and_marks
 from tests.common import RandomClassificationDataset, SimpleModel
-import os
-from pathlib import Path
-import imghdr
 
 
 @pytest.fixture
@@ -37,15 +37,12 @@ def test_wandb_logger(tmp_path, dummy_state):
     return wandb_logger
 
 
-@pytest.mark.parametrize('images,channels_last', 
-                        [(torch.rand(32, 32), False),
-                        (torch.rand(5, 3, 32, 32), False),
-                        (torch.rand(3, 32, 32), False),
-                        (torch.rand(8, 32, 32, 3), True),
-                        ([torch.rand(32, 32, 3)], True),
-                        ([torch.rand(32, 32, 3),torch.rand(32, 32, 3) ], True)])
+@pytest.mark.parametrize('images,channels_last', [(torch.rand(32, 32), False), (torch.rand(5, 3, 32, 32), False),
+                                                  (torch.rand(3, 32, 32), False), (torch.rand(8, 32, 32, 3), True),
+                                                  ([torch.rand(32, 32, 3)], True),
+                                                  ([torch.rand(32, 32, 3), torch.rand(32, 32, 3)], True)])
 def test_wandb_log_image(tmp_path: pathlib.Path, images, channels_last, test_wandb_logger):
-    
+
     img_dir = str(Path(tmp_path) / Path('wandb/latest-run/files/media/images'))
     if isinstance(images, Sequence):
         expected_num_images = len(images)
@@ -58,17 +55,20 @@ def test_wandb_log_image(tmp_path: pathlib.Path, images, channels_last, test_wan
     test_wandb_logger.log_images(images=np_images, channels_last=channels_last)
     test_wandb_logger.post_close()
 
-    expected_num_images *= 2 # One set of torch tensors, one set of numpy arrays
+    expected_num_images *= 2  # One set of torch tensors, one set of numpy arrays
     imgs = [filename for filename in os.listdir(img_dir) if imghdr.what(img_dir + '/' + filename) == 'png']
     actual_num_images = len(imgs)
     assert actual_num_images == expected_num_images
-    
 
-@pytest.mark.parametrize('images,channels_last', 
-                        [(torch.rand(32), False),
-                        (torch.rand(32, 0), False), # Has zero in dimension.
-                        (torch.rand(4, 4, 8, 32, 32), False), # > 4 dim.
-                        ([torch.rand(4, 32, 32, 3)], True),]) # sequence > 3 dim.
+
+@pytest.mark.parametrize(
+    'images,channels_last',
+    [
+        (torch.rand(32), False),
+        (torch.rand(32, 0), False),  # Has zero in dimension.
+        (torch.rand(4, 4, 8, 32, 32), False),  # > 4 dim.
+        ([torch.rand(4, 32, 32, 3)], True),
+    ])  # sequence > 3 dim.
 def test_comet_ml_log_image_errors_out(comet_logger, images, channels_last):
     with pytest.raises(ValueError):
         comet_logger.log_images(images, channels_last=channels_last)

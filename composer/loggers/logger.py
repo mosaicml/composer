@@ -11,13 +11,11 @@ import pathlib
 from functools import reduce
 from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
 
+import numpy as np
 import torch
 
 from composer.utils import ensure_tuple
 from composer.utils.file_helpers import format_name_with_dist
-import numpy as np
-import PIL
-import torch
 
 if TYPE_CHECKING:
     from composer.core.state import State
@@ -69,19 +67,20 @@ class Logger:
         for destination in self.destinations:
             destination.log_metrics(metrics, step)
 
-    def log_images(self, images: Union[np.ndarray, torch.Tensor, Sequence[np.ndarray], Sequence[torch.Tensor]],
-                         name: str = 'Images',
-                         channels_last: bool = False,
-                         step: Optional[int] = None,
-                         masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]]=None,
-                         segmentation_class_labels: Optional[Dict[int, str]]=None):
+    def log_images(self,
+                   images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
+                   name: str = 'Images',
+                   channels_last: bool = False,
+                   step: Optional[int] = None,
+                   masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]] = None,
+                   segmentation_class_labels: Optional[Dict[int, str]] = None):
         """Log images. Logs any images from tensors or arrays
 
         Args:
-            images (Dict[str,PIL.Image | np.ndarray | torch.Tensor ]): Dictionary mapping 
+            images (Dict[str,PIL.Image | np.ndarray | torch.Tensor ]): Dictionary mapping
                 image(s)' names (str) to an image of array of images.
             name (str): The name of the image(s). (Default: ``'Images'``)
-            channels_last (bool): Whether the channel dimension is first or last. 
+            channels_last (bool): Whether the channel dimension is first or last.
                 (Default: ``'False``)
             step (Optional[int], optional): The current step or batch of training at the
                 time of logging. Defaults to None. If not specified the specific
@@ -89,9 +88,9 @@ class Logger:
                 counter).
             masks (Dict[str, PIL.Image | np.ndarray | torch.Tensor]): For segmentation inputs.
                 Dictionary mapping string to a dictionary specifying a 2D mask array
-            segmentation_class_labels (Dict[int, str]): For segmentation inputs. A class 
+            segmentation_class_labels (Dict[int, str]): For segmentation inputs. A class
                 label to name dictionary.
-            
+
         """
         if not step:
             step = self._state.timestamp.batch.value

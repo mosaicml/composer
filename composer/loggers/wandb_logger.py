@@ -14,8 +14,8 @@ import sys
 import tempfile
 import warnings
 from typing import Any, Dict, List, Optional, Sequence, Union
+
 import numpy as np
-import PIL.Image
 import torch
 
 from composer.core.state import State
@@ -23,7 +23,6 @@ from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
-import wandb
 
 __all__ = ['WandBLogger']
 
@@ -122,12 +121,13 @@ class WandBLogger(LoggerDestination):
             metrics_copy = copy.deepcopy(metrics)
             wandb.log(metrics_copy, step)
 
-    def log_images(self, images: Union[np.ndarray, torch.Tensor, Sequence[np.ndarray], Sequence[torch.Tensor]],
-                         name: str = 'Images',
-                         channels_last: bool = False,
-                         step: Optional[int] = None,
-                         masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]]=None,
-                         segmentation_class_labels: Optional[Dict[int, str]]=None):
+    def log_images(self,
+                   images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
+                   name: str = 'Images',
+                   channels_last: bool = False,
+                   step: Optional[int] = None,
+                   masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]] = None,
+                   segmentation_class_labels: Optional[Dict[int, str]] = None):
         if self._enabled:
             import wandb
             if masks is not None:
@@ -135,12 +135,11 @@ class WandBLogger(LoggerDestination):
             if not isinstance(images, Sequence) and images.ndim <= 3:
                 images = [images]
 
-            images = (_convert_to_wandb_image(image, channels_last) for image in images)
+            wandb_images = (_convert_to_wandb_image(image, channels_last) for image in images)
             if masks:
-                masks = _convert_to_wandb_masks(masks, segmentation_class_labels)
-                wandb_images = [wandb.Image(image, masks=mask) for image, mask in zip(images, masks)]
+                raise NotImplementedError('Masks not implemented yet!')
             else:
-                wandb_images = [wandb.Image(image) for image in images]
+                wandb_images = [wandb.Image(image) for image in wandb_images]
 
             wandb.log({name: wandb_images}, step=step)
 
@@ -295,22 +294,19 @@ class WandBLogger(LoggerDestination):
             wandb.finish(1)
 
 
-def _convert_to_wandb_masks(masks, class_labels):
-    pass
-
 def _convert_to_wandb_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool):
     if isinstance(image, torch.Tensor):
         image = image.data.cpu().numpy()
-    
+
     # Error out for empty arrays or weird arrays of dimension 0.
     if np.any(np.equal(image.shape, 0)):
         raise ValueError(f'Got an image (shape {image.shape}) with at least one dimension being 0! ')
-    
-    # Squeeze any singleton dimensions and then add them back in if image dimension 
+
+    # Squeeze any singleton dimensions and then add them back in if image dimension
     # less than 3.
     image = image.squeeze()
 
-    # Add in length-one dimensions to get back up to 3 
+    # Add in length-one dimensions to get back up to 3
     # putting channels last.
     if image.ndim == 1:
         image = image[:, None, None]
@@ -321,13 +317,13 @@ def _convert_to_wandb_image(image: Union[np.ndarray, torch.Tensor], channels_las
 
     if image.ndim != 3:
         raise ValueError('Input image must be 3 dimensions, but instead'
-                        f' got {image.ndim} dims at shape: {image.shape}'
-                        f' Your input image was interpreted as a batch of {image.ndim}-dimensional'
-                        f' images because you either specified a {image.ndim + 1}D image' 
-                        f' or a list of {image.ndim}D images.'
-                        ' Please specify either a 4D image of a list of 3D images')
+                         f' got {image.ndim} dims at shape: {image.shape}'
+                         f' Your input image was interpreted as a batch of {image.ndim}-dimensional'
+                         f' images because you either specified a {image.ndim + 1}D image'
+                         f' or a list of {image.ndim}D images.'
+                         ' Please specify either a 4D image of a list of 3D images')
 
     if not channels_last:
         assert isinstance(image, np.ndarray)
-        image = image.transpose(1,2,0)
+        image = image.transpose(1, 2, 0)
     return image

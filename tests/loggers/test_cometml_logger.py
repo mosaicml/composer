@@ -6,12 +6,11 @@ import zipfile
 from collections import defaultdict
 from json import JSONDecoder
 from pathlib import Path
-
 from typing import Sequence
+
 import pytest
-from torch.utils.data import DataLoader
 import torch
-from composer.algorithms.seq_length_warmup.seq_length_warmup import SeqLengthWarmup
+from torch.utils.data import DataLoader
 
 from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel
@@ -37,14 +36,10 @@ def comet_logger(monkeypatch, comet_offline_directory):
     return comet_logger
 
 
-@pytest.mark.parametrize('images,channels_last', 
-                        [(torch.rand(32), False),
-                        (torch.rand(32, 32), False),
-                        (torch.rand(32, 32, 3), True),
-                        (torch.rand(3, 32, 32), False),
-                        (torch.rand(8, 32, 32, 3), True),
-                        ([torch.rand(32, 32, 3)], True),
-                        ([torch.rand(32, 32, 3),torch.rand(32, 32, 3) ], True)])
+@pytest.mark.parametrize('images,channels_last', [(torch.rand(32), False), (torch.rand(32, 32), False),
+                                                  (torch.rand(32, 32, 3), True), (torch.rand(3, 32, 32), False),
+                                                  (torch.rand(8, 32, 32, 3), True), ([torch.rand(32, 32, 3)], True),
+                                                  ([torch.rand(32, 32, 3), torch.rand(32, 32, 3)], True)])
 def test_comet_ml_log_image_saves_images(comet_logger, images, channels_last, capsys, comet_offline_directory):
     # Count expected images and generate numpy arrays from torch tensors.
     if isinstance(images, Sequence):
@@ -61,7 +56,7 @@ def test_comet_ml_log_image_saves_images(comet_logger, images, channels_last, ca
 
     comet_logger.post_close()
 
-    expected_num_images *= 2 # One set of torch tensors, one set of numpy arrays
+    expected_num_images *= 2  # One set of torch tensors, one set of numpy arrays
 
     # Extract all files saved to comet offline directory.
     comet_exp_dump_filepath = str(Path(comet_offline_directory) / Path(comet_logger.experiment.id).with_suffix('.zip'))
@@ -77,10 +72,13 @@ def test_comet_ml_log_image_saves_images(comet_logger, images, channels_last, ca
     assert actual_num_images == expected_num_images
 
 
-@pytest.mark.parametrize('images,channels_last', 
-                        [(torch.rand(32, 0), False), # Has zero in dimension.
-                        (torch.rand(4, 4, 8, 32, 32), False), # > 4 dim.
-                        ([torch.rand(4, 32, 32, 3)], True),]) # sequence > 3 dim.
+@pytest.mark.parametrize(
+    'images,channels_last',
+    [
+        (torch.rand(32, 0), False),  # Has zero in dimension.
+        (torch.rand(4, 4, 8, 32, 32), False),  # > 4 dim.
+        ([torch.rand(4, 32, 32, 3)], True),
+    ])  # sequence > 3 dim.
 def test_comet_ml_log_image_errors_out(comet_logger, images, channels_last):
     with pytest.raises(ValueError):
         comet_logger.log_images(images, channels_last=channels_last)
