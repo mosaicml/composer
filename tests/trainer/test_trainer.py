@@ -1216,13 +1216,17 @@ class TestAutoresumeCompatibility:
                         self.get_logger(tmp_path)]
         })
 
+        # Test that trainer errors out if autoresume is set, and RemoteUploaderDownloader does multiple concurrent uploads.
+        # The root cause of this is that it is possible for an updated symlink file to be uploaded before the corresponding
+        # checkpoint has finished uploading, and then the run dies, leaving the symlink contents pointing to a checkpoint that
+        # does not exist
         with pytest.raises(ValueError, match='There is a race condition'):
             _ = Trainer(**config)
 
-    def test_autoresume_and_object_format_string_error(self, tmp_path: pathlib.Path, config: Dict[str, Any]):
+    def test_latest_and_object_format_string_error(self, tmp_path: pathlib.Path, config: Dict[str, Any]):
         config.update({
             'run_name':
-                'autoresume_format_string_run',
+                'latest_format_string_run',
             'save_folder':
                 str(tmp_path / 'checkpoints'),
             'loggers': [
@@ -1231,8 +1235,15 @@ class TestAutoresumeCompatibility:
             ]
         })
 
+        # Test that trainer errors out if save_latest_filename is set, and RemoteUploaderDownloader file_path_format_string
+        # is not default. The root cause of this is that the symlink file contents are created outside of the RemoteUploaderDownloader
+        # and do not take into account its path formatting
         with pytest.raises(ValueError, match='There is an incompatibility'):
             _ = Trainer(**config)
+
+        # Ensure that if save_latest_filename is not set, it does not error
+        config.update({'save_latest_filename': None})
+        _ = Trainer(**config)
 
     def test_autoresume_and_default_remote_uploader_downloader(self, tmp_path: pathlib.Path, config: Dict[str, Any]):
         config.update({
@@ -1241,4 +1252,5 @@ class TestAutoresumeCompatibility:
             'loggers': [self.get_logger(tmp_path), self.get_logger(tmp_path)]
         })
 
+        # Just test that the default args for everything do not hit the above errors
         _ = Trainer(**config)
