@@ -72,7 +72,7 @@ class Logger:
                    name: str = 'Images',
                    channels_last: bool = False,
                    step: Optional[int] = None):
-        """Log images. Logs any images from tensors or arrays
+        """Log images. Logs any tensors or arrays as images.
 
         Args:
             images (np.ndarray | torch.Tensor | Sequence[np.ndarray | torch.Tensor]): Dictionary mapping
