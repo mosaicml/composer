@@ -14,6 +14,7 @@ from typing import Dict, Optional, Sequence, Type, Union
 
 import torch
 import torch.nn.functional as F
+from packaging import version
 
 from composer.algorithms.warnings import NoEffectWarning
 from composer.core import Algorithm, Event, State
@@ -22,12 +23,25 @@ from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
 
+try:
+    from apex.normalization.fused_layer_norm import FusedLayerNorm as APEXFusedLayerNorm
+    APEX_INSTALLED = True
+except ImportError as e:
+    APEX_INSTALLED = False
+
 
 def _cast_if_autocast_enabled(hidden_states):
     if not torch.is_autocast_enabled():
         return hidden_states
     else:
         return torch.cuda.amp.autocast_mode._cast(hidden_states, torch.get_autocast_gpu_dtype())
+
+
+def check_if_apex_installed():
+    if not APEX_INSTALLED:
+        raise ImportError(
+            'https://github.com/NVIDIA/apex is not installed. The Fused LayerNorm algorithm cannot be applied. The MosaicML Docker Images (https://hub.docker.com/r/mosaicml/pytorch) contain a copy of APEX for easy use.'
+        )
 
 
 class LPLayerNorm(torch.nn.LayerNorm):
@@ -50,15 +64,38 @@ class LPLayerNorm(torch.nn.LayerNorm):
             return F.layer_norm(downcast_x, self.normalized_shape, downcast_weight, downcast_bias, self.eps)
 
 
-def from_Layer(layer: torch.nn.Module, module_index: int) -> LPLayerNorm:
+def to_LPLayerNorm(layer: torch.nn.Module, module_index: int) -> LPLayerNorm:
     assert isinstance(layer,
                       torch.nn.LayerNorm), 'The replacement policy will look for all instances of torch.nn.LayerNorm'
     return LPLayerNorm(layer)
 
 
+def to_FusedLayerNorm(layer: torch.nn.Module, module_index: int) -> APEXFusedLayerNorm:
+    """Defines a replacement policy from a `torch.nn.LayerNorm` to a `apex.normalization.fused_layer_norm`"""
+    assert isinstance(layer,
+                      torch.nn.LayerNorm), 'The replacement policy will look for all instances of torch.nn.LayerNorm'
+    fused_layernorm = APEXFusedLayerNorm(normalized_shape=layer.normalized_shape, eps=layer.eps)
+    with torch.no_grad():
+        fused_layernorm.weight.copy_(layer.weight)
+        fused_layernorm.bias.copy_(layer.bias)
+    return fused_layernorm
+
+
 def apply_low_precision_layernorm(model, optimizers: Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]):
 
-    policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {torch.nn.LayerNorm: from_Layer}
+    # LayerNorm will not be replaced if without autocast (e.g. fp32 mode)
+    if not torch.is_autocast_enabled():
+        return model
+
+    policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {torch.nn.LayerNorm: to_LPLayerNorm}
+
+    # Prior to v1.13, torch.nn.LayerNorm is slow in bf16 precision.
+    # We use FusedLayerNorm as a fallback.
+    if version.parse(torch.__version__) < version.parse('1.13') \
+        and torch.get_autocast_gpu_dtype() == torch.bfloat16:
+        policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
+            torch.nn.LayerNorm: to_FusedLayerNorm
+        }
 
     replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
     if len(replaced_instances) == 0:
