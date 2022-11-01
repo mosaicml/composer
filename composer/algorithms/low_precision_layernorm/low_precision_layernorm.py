@@ -17,7 +17,7 @@ import torch.nn.functional as F
 from packaging import version
 
 from composer.algorithms.warnings import NoEffectWarning
-from composer.core import Algorithm, Event, State
+from composer.core import Algorithm, Event, State, Precision
 from composer.loggers import Logger
 from composer.utils import module_surgery
 
@@ -40,7 +40,7 @@ def _cast_if_autocast_enabled(hidden_states):
 def check_if_apex_installed():
     if not APEX_INSTALLED:
         raise ImportError(
-            'https://github.com/NVIDIA/apex is not installed. The Fused LayerNorm algorithm cannot be applied. The MosaicML Docker Images (https://hub.docker.com/r/mosaicml/pytorch) contain a copy of APEX for easy use.'
+            'https://github.com/NVIDIA/apex is not installed. The Low Precision LayerNorm algorithm cannot be applied. The MosaicML Docker Images (https://hub.docker.com/r/mosaicml/pytorch) contain a copy of APEX for easy use.'
         )
 
 
@@ -81,18 +81,18 @@ def to_FusedLayerNorm(layer: torch.nn.Module, module_index: int) -> APEXFusedLay
     return fused_layernorm
 
 
-def apply_low_precision_layernorm(model, optimizers: Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]):
+def apply_low_precision_layernorm(model, optimizers: Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]], precision: Precision):
 
-    # LayerNorm will not be replaced if without autocast (e.g. fp32 mode)
-    if not torch.is_autocast_enabled():
+    if (precision != Precision.AMP and precision != Precision.BF16):
+        warnings.warn(NoEffectWarning("Low Precision LayerNorm only applies to AMP and BF16 precisions."))
         return model
 
     policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {torch.nn.LayerNorm: to_LPLayerNorm}
 
     # Prior to v1.13, torch.nn.LayerNorm is slow in bf16 precision.
     # We use FusedLayerNorm as a fallback.
-    if version.parse(torch.__version__) < version.parse('1.13') \
-        and torch.get_autocast_gpu_dtype() == torch.bfloat16:
+    if version.parse(torch.__version__) < version.parse('1.13') and precision == Precision.BF16:
+        check_if_apex_installed();
         policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
             torch.nn.LayerNorm: to_FusedLayerNorm
         }
@@ -100,7 +100,7 @@ def apply_low_precision_layernorm(model, optimizers: Union[torch.optim.Optimizer
     replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
     if len(replaced_instances) == 0:
         warnings.warn(NoEffectWarning('No instances of torch.nn.LayerNorm found.'))
-    log.info(f'Successfully replaced {len(replaced_instances)} instances of LayerNorm')
+    log.info(f'Successfully replaced {len(replaced_instances)} instances of LayerNorm with LowPrecisionLayerNorm')
 
     return model
 
@@ -110,7 +110,7 @@ class LowPrecisionLayerNorm(Algorithm):
     Replaces all instances of `torch.nn.LayerNorm` with `composer.algorithms.low_precision_layernorm.low_precision_layernorm.LPLayerNorm`.
 
     LPLayerNorm is a thin wrapper around `torch.nn.LayerNorm` which forces the layer to run in lower precision (torch.float16 or torch.bfloat16)
-    if autocast is enabled.
+    if autocast is enabled. This algorithm has no effect in FP32 or DeepSpeed FP16 mode, where autocast is disabled.
 
     This algorithm is intended to be used instead of Fused LayerNorm. They have similar behavior and performance.
 
@@ -129,4 +129,4 @@ class LowPrecisionLayerNorm(Algorithm):
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         del event, logger  # unused
-        apply_low_precision_layernorm(model=state.model, optimizers=state.optimizers)
+        apply_low_precision_layernorm(model=state.model, optimizers=state.optimizers, precision=state.precision)
