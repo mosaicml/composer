@@ -62,7 +62,7 @@ class Logger:
             destination.log_hyperparameters(parameters)
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
-        if not step:
+        if step is None:
             step = self._state.timestamp.batch.value
         for destination in self.destinations:
             destination.log_metrics(metrics, step)
@@ -85,7 +85,7 @@ class Logger:
                 LoggerDestination implementation will choose a step (usually a running
                 counter).
         """
-        if not step:
+        if step is None:
             step = self._state.timestamp.batch.value
         for destination in self.destinations:
             destination.log_images(images, name, channels_last, step)
