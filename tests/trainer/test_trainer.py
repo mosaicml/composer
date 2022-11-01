@@ -8,7 +8,7 @@ import datetime
 import os
 import pathlib
 import time
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import pytest
 import torch
@@ -26,8 +26,7 @@ from composer.core.state import State
 from composer.core.time import Time, TimeUnit
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.imagenet import build_ffcv_imagenet_dataloader
-from composer.loggers.in_memory_logger import InMemoryLogger
-from composer.loggers.logger import Logger
+from composer.loggers import InMemoryLogger, Logger, RemoteUploaderDownloader
 from composer.loss import soft_cross_entropy
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
@@ -1154,3 +1153,92 @@ def test_state_run_name():
     run_names = dist.all_gather_object(run_name)
     assert len(run_names) == 2  # 2 ranks
     assert all(run_name == run_names[0] for run_name in run_names)
+
+
+class TestAutoresumeCompatibility:
+
+    def get_logger(self,
+                   tmp_path: pathlib.Path,
+                   num_concurrent_uploads: int = 1,
+                   file_path_format_string: Optional[str] = None):
+        """Returns an object store logger that saves locally."""
+        remote_dir = str(tmp_path / 'object_store')
+        os.makedirs(remote_dir, exist_ok=True)
+
+        return RemoteUploaderDownloader(bucket_uri='libcloud://.',
+                                        backend_kwargs={
+                                            'provider': 'local',
+                                            'container': '.',
+                                            'provider_kwargs': {
+                                                'key': remote_dir,
+                                            },
+                                        },
+                                        num_concurrent_uploads=num_concurrent_uploads,
+                                        use_procs=False,
+                                        upload_staging_folder=str(tmp_path / 'staging_folder'),
+                                        **({
+                                            'file_path_format_string': file_path_format_string
+                                        } if file_path_format_string is not None else {}))
+
+    @pytest.fixture
+    def config(self):
+        """Returns the reference config."""
+
+        train_dataset = RandomClassificationDataset()
+        eval_dataset = RandomClassificationDataset()
+
+        return {
+            'model':
+                SimpleModel(),
+            'train_dataloader':
+                DataLoader(
+                    dataset=train_dataset,
+                    batch_size=4,
+                    sampler=dist.get_sampler(train_dataset),
+                ),
+            'eval_dataloader':
+                DataLoader(
+                    dataset=eval_dataset,
+                    sampler=dist.get_sampler(eval_dataset),
+                ),
+            'max_duration':
+                '2ep',
+            'autoresume':
+                True,
+            'loggers': [],
+        }
+
+    def test_autoresume_and_concurrent_uploads_error(self, tmp_path: pathlib.Path, config: Dict[str, Any]):
+        config.update({
+            'run_name': 'autoresume_concurrent_uploads_run',
+            'save_folder': str(tmp_path / 'checkpoints'),
+            'loggers': [self.get_logger(tmp_path, num_concurrent_uploads=2),
+                        self.get_logger(tmp_path)]
+        })
+
+        with pytest.raises(ValueError, match='There is a race condition'):
+            _ = Trainer(**config)
+
+    def test_autoresume_and_object_format_string_error(self, tmp_path: pathlib.Path, config: Dict[str, Any]):
+        config.update({
+            'run_name':
+                'autoresume_format_string_run',
+            'save_folder':
+                str(tmp_path / 'checkpoints'),
+            'loggers': [
+                self.get_logger(tmp_path, file_path_format_string='test/{remote_file_name}'),
+                self.get_logger(tmp_path)
+            ]
+        })
+
+        with pytest.raises(ValueError, match='There is an incompatibility'):
+            _ = Trainer(**config)
+
+    def test_autoresume_and_default_remote_uploader_downloader(self, tmp_path: pathlib.Path, config: Dict[str, Any]):
+        config.update({
+            'run_name': 'autoresume_default_remote_ud_run',
+            'save_folder': str(tmp_path / 'checkpoints'),
+            'loggers': [self.get_logger(tmp_path), self.get_logger(tmp_path)]
+        })
+
+        _ = Trainer(**config)
