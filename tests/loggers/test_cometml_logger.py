@@ -12,6 +12,7 @@ import pytest
 import torch
 from torch.utils.data import DataLoader
 
+from composer.loggers import CometMLLogger
 from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel
 
@@ -40,7 +41,8 @@ def comet_logger(monkeypatch, comet_offline_directory):
                                                   (torch.rand(32, 32, 3), True), (torch.rand(3, 32, 32), False),
                                                   (torch.rand(8, 32, 32, 3), True), ([torch.rand(32, 32, 3)], True),
                                                   ([torch.rand(32, 32, 3), torch.rand(32, 32, 3)], True)])
-def test_comet_ml_log_image_saves_images(comet_logger, images, channels_last, capsys, comet_offline_directory):
+def test_comet_ml_log_image_saves_images(comet_logger: CometMLLogger, images, channels_last: bool,
+                                         comet_offline_directory: str):
     # Count expected images and generate numpy arrays from torch tensors.
     if isinstance(images, Sequence):
         expected_num_images = len(images)
@@ -59,6 +61,7 @@ def test_comet_ml_log_image_saves_images(comet_logger, images, channels_last, ca
     expected_num_images *= 2  # One set of torch tensors, one set of numpy arrays
 
     # Extract all files saved to comet offline directory.
+    assert comet_logger.experiment is not None
     comet_exp_dump_filepath = str(Path(comet_offline_directory) / Path(comet_logger.experiment.id).with_suffix('.zip'))
     zf = zipfile.ZipFile(comet_exp_dump_filepath)
     zf.extractall(comet_offline_directory)

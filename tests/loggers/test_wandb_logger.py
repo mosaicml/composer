@@ -43,7 +43,6 @@ def test_wandb_logger(tmp_path, dummy_state):
                                                   ([torch.rand(32, 32, 3), torch.rand(32, 32, 3)], True)])
 def test_wandb_log_image(tmp_path: pathlib.Path, images, channels_last, test_wandb_logger):
 
-    img_dir = str(Path(tmp_path) / Path('wandb/latest-run/files/media/images'))
     if isinstance(images, Sequence):
         expected_num_images = len(images)
         np_images = [image.numpy() for image in images]
@@ -54,7 +53,7 @@ def test_wandb_log_image(tmp_path: pathlib.Path, images, channels_last, test_wan
     test_wandb_logger.log_images(images=images, channels_last=channels_last)
     test_wandb_logger.log_images(images=np_images, channels_last=channels_last)
     test_wandb_logger.post_close()
-
+    img_dir = str(Path(test_wandb_logger.run_dir) / Path('media/images'))
     expected_num_images *= 2  # One set of torch tensors, one set of numpy arrays
     imgs = [filename for filename in os.listdir(img_dir) if imghdr.what(img_dir + '/' + filename) == 'png']
     actual_num_images = len(imgs)
@@ -69,9 +68,9 @@ def test_wandb_log_image(tmp_path: pathlib.Path, images, channels_last, test_wan
         (torch.rand(4, 4, 8, 32, 32), False),  # > 4 dim.
         ([torch.rand(4, 32, 32, 3)], True),
     ])  # sequence > 3 dim.
-def test_comet_ml_log_image_errors_out(comet_logger, images, channels_last):
+def test_wandb_ml_log_image_errors_out(test_wandb_logger, images, channels_last):
     with pytest.raises(ValueError):
-        comet_logger.log_images(images, channels_last=channels_last)
+        test_wandb_logger.log_images(images, channels_last=channels_last)
 
 
 @pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
