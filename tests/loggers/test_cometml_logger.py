@@ -15,10 +15,7 @@ from composer.algorithms.seq_length_warmup.seq_length_warmup import SeqLengthWar
 
 from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel
-from unittest.mock import MagicMock
 
-
-NUM_FILES_IN_EMPTY_EXPERIMENT_OFFLINE_DIR = 5
 
 @pytest.fixture
 def comet_offline_directory(tmp_path):
