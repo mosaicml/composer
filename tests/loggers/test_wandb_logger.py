@@ -28,6 +28,7 @@ from tests.common import RandomClassificationDataset, SimpleModel
 
 @pytest.fixture
 def test_wandb_logger(tmp_path, dummy_state):
+    pytest.importorskip('wandb', reason='wandb is optional')
     os.environ['WANDB_DIR'] = str(tmp_path)
     os.environ['WANDB_MODE'] = 'offline'
     dummy_state.run_name = 'wand-test-log-image'
@@ -42,7 +43,7 @@ def test_wandb_logger(tmp_path, dummy_state):
                                                   ([torch.rand(32, 32, 3)], True),
                                                   ([torch.rand(32, 32, 3), torch.rand(32, 32, 3)], True)])
 def test_wandb_log_image(tmp_path: pathlib.Path, images, channels_last, test_wandb_logger):
-
+    pytest.importorskip('wandb', reason='wandb is optional')
     if isinstance(images, Sequence):
         expected_num_images = len(images)
         np_images = [image.numpy() for image in images]
@@ -69,6 +70,7 @@ def test_wandb_log_image(tmp_path: pathlib.Path, images, channels_last, test_wan
         ([torch.rand(4, 32, 32, 3)], True),
     ])  # sequence > 3 dim.
 def test_wandb_ml_log_image_errors_out(test_wandb_logger, images, channels_last):
+    pytest.importorskip('wandb', reason='wandb is optional')
     with pytest.raises(ValueError):
         test_wandb_logger.log_images(images, channels_last=channels_last)
 
