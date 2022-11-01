@@ -145,7 +145,7 @@
       :text: LowPrecisionLayerNorm
       :classes: card-title
 
-   :badge:`NLP,badge-success`
+   :badge:`NLP,badge-primary` :badge:`CV,badge-success`
    ++++++++++++++
    Forces LayerNorm to run in lower precision.
 
