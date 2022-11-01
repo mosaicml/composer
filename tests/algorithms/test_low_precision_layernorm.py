@@ -31,8 +31,9 @@ def assert_is_lpln_instance(model):
         assert not isinstance(
             module_class, LayerNorm), 'A torch.nn.LayerNorm should not be found in the model after surgery is applied.'
 
-    assert any(isinstance(module_class, LPLayerNorm) for module_class in model.modules()
-              ), 'composer.algorithms.low_precision_layernorm.low_precision_layernorm.LPLayerNorm is not found in the post-surgery model.'
+    assert any(
+        isinstance(module_class, LPLayerNorm) for module_class in model.modules()
+    ), 'composer.algorithms.low_precision_layernorm.low_precision_layernorm.LPLayerNorm is not found in the post-surgery model.'
 
 
 @device('gpu')
