@@ -82,13 +82,11 @@ class LoggerDestination(Callback, ABC):
                    images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
                    name: str = 'Images',
                    channels_last: bool = False,
-                   step: Optional[int] = None,
-                   masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]] = None,
-                   segmentation_class_labels: Optional[Dict[int, str]] = None):
+                   step: Optional[int] = None):
         """Log images. Logs any images from tensors or arrays
 
         Args:
-            images (Dict[str,PIL.Image | np.ndarray | torch.Tensor ]): Dictionary mapping
+            images (np.ndarray | torch.Tensor | Sequence[np.ndarray | torch.Tensor]): Dictionary mapping
                 image(s)' names (str) to an image of array of images.
             name (str): The name of the image(s). (Default: ``'Images'``)
             channels_last (bool): Whether the channel dimension is first or last.
@@ -97,11 +95,6 @@ class LoggerDestination(Callback, ABC):
                 time of logging. Defaults to None. If not specified the specific
                 LoggerDestination implementation will choose a step (usually a running
                 counter).
-            masks (Dict[str, PIL.Image | np.ndarray | torch.Tensor]): For segmentation inputs.
-                Dictionary mapping string to a dictionary specifying a 2D mask array
-            segmentation_class_labels (Dict[int, str]): For segmentation inputs. A class
-                label to name dictionary.
-
         """
         del images, name, channels_last, step, masks, segmentation_class_labels
         pass

@@ -128,21 +128,16 @@ class WandBLogger(LoggerDestination):
                    images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
                    name: str = 'Images',
                    channels_last: bool = False,
-                   step: Optional[int] = None,
-                   masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]] = None,
-                   segmentation_class_labels: Optional[Dict[int, str]] = None):
+                   step: Optional[int] = None,):
         if self._enabled:
             import wandb
-            if masks is not None:
-                pass
             if not isinstance(images, Sequence) and images.ndim <= 3:
                 images = [images]
 
+            # _convert_to_wandb_image doesn't include wrapping with wandb.Image to future
+            # proof for when we support masks.
             wandb_images = (_convert_to_wandb_image(image, channels_last) for image in images)
-            if masks:
-                raise NotImplementedError('Masks not implemented yet!')
-            else:
-                wandb_images = [wandb.Image(image) for image in wandb_images]
+            wandb_images = [wandb.Image(image) for image in wandb_images]
 
             wandb.log({name: wandb_images}, step=step)
 

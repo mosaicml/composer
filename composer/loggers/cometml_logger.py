@@ -111,18 +111,16 @@ class CometMLLogger(LoggerDestination):
                    images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
                    name: str = 'Images',
                    channels_last: bool = False,
-                   step: Optional[int] = None,
-                   masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor]]] = None,
-                   segmentation_class_labels: Optional[Dict[int, str]] = None):
+                   step: Optional[int] = None):
 
         if self._enabled:
             if not isinstance(images, Sequence) and images.ndim <= 3:
                 images = [images]
 
+            assert self.experiment is not None
             image_channels = 'last' if channels_last else 'first'
             for image in images:
                 comet_image = _convert_to_comet_image(image)
-                assert self.experiment is not None
                 self.experiment.log_image(comet_image, name=name, image_channels=image_channels, step=step)
 
     def post_close(self):
