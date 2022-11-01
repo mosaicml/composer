@@ -310,10 +310,10 @@ def _convert_to_wandb_image(image: Union[np.ndarray, torch.Tensor], channels_las
     # Add in length-one dimensions to get back up to 3
     # putting channels last.
     if image.ndim == 1:
-        image = image[:, None, None]
+        image =  np.expand_dims(image, (1, 2))
         channels_last = True
     if image.ndim == 2:
-        image = image[:, :, None]
+        image = np.expand_dims(image, 2)
         channels_last = True
 
     if image.ndim != 3:
