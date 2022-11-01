@@ -17,7 +17,7 @@ import torch.nn.functional as F
 from packaging import version
 
 from composer.algorithms.warnings import NoEffectWarning
-from composer.core import Algorithm, Event, State, Precision
+from composer.core import Algorithm, Event, Precision, State
 from composer.loggers import Logger
 from composer.utils import module_surgery
 
@@ -81,10 +81,11 @@ def to_FusedLayerNorm(layer: torch.nn.Module, module_index: int) -> APEXFusedLay
     return fused_layernorm
 
 
-def apply_low_precision_layernorm(model, optimizers: Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]], precision: Precision):
+def apply_low_precision_layernorm(model, optimizers: Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]],
+                                  precision: Precision):
 
     if (precision != Precision.AMP and precision != Precision.BF16):
-        warnings.warn(NoEffectWarning("Low Precision LayerNorm only applies to AMP and BF16 precisions."))
+        warnings.warn(NoEffectWarning('Low Precision LayerNorm only applies to AMP and BF16 precisions.'))
         return model
 
     policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {torch.nn.LayerNorm: to_LPLayerNorm}
@@ -92,7 +93,7 @@ def apply_low_precision_layernorm(model, optimizers: Union[torch.optim.Optimizer
     # Prior to v1.13, torch.nn.LayerNorm is slow in bf16 precision.
     # We use FusedLayerNorm as a fallback.
     if version.parse(torch.__version__) < version.parse('1.13') and precision == Precision.BF16:
-        check_if_apex_installed();
+        check_if_apex_installed()
         policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
             torch.nn.LayerNorm: to_FusedLayerNorm
         }
