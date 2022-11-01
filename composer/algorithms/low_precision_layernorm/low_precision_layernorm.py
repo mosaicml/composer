@@ -130,4 +130,4 @@ class LowPrecisionLayerNorm(Algorithm):
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         del event, logger  # unused
-        apply_low_precision_layernorm(model=state.model, optimizers=state.optimizers, precision=state.precision)
+        apply_low_precision_layernorm(model=state.model, optimizers=state.optimizers, precision=state._precision)
