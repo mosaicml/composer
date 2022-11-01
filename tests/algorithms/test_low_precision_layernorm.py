@@ -9,6 +9,7 @@ from torch.nn import LayerNorm
 from composer.algorithms.low_precision_layernorm import LowPrecisionLayerNorm, apply_low_precision_layernorm
 from composer.algorithms.low_precision_layernorm.low_precision_layernorm import LPLayerNorm
 from composer.core.event import Event
+from composer.core.precision import Precision
 from composer.loggers import Logger
 from tests.common import device
 from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker
