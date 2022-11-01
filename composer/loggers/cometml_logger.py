@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import textwrap
 from typing import Any, Dict, Optional, Sequence, Union
 
 import numpy as np
@@ -15,7 +16,6 @@ from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
-import textwrap
 
 __all__ = ['CometMLLogger']
 
@@ -137,12 +137,11 @@ def _convert_to_comet_image(image: Union[np.ndarray, torch.Tensor]):
 
     if image.ndim > 3:
         raise ValueError(
-            textwrap.dedent(f'''Input image must be 1, 2, or 3 dimensions, but instead got 
+            textwrap.dedent(f'''Input image must be 1, 2, or 3 dimensions, but instead got
                             {image.ndim} dims at shape: {image.shape} Your input image was
-                             interpreted as a batch of {image.ndim}-dimensional images 
-                             because you either specified a {image.ndim + 1}D image or a 
-                             list of {image.ndim}D images. Please specify either a 4D 
-                             image of a list of 3D images''')
-                        )
+                             interpreted as a batch of {image.ndim}-dimensional images
+                             because you either specified a {image.ndim + 1}D image or a
+                             list of {image.ndim}D images. Please specify either a 4D
+                             image of a list of 3D images'''))
 
     return image
