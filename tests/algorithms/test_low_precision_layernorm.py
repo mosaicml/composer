@@ -28,9 +28,12 @@ def assert_is_lpln_instance(model):
     assert isinstance(model, BertForMaskedLM) or isinstance(model, BertForSequenceClassification)
     # ensure that within the entire model, no PyTorch LayerNorm exists, and at least one APEX FLN does.
     assert model.modules is not None, 'model has .modules method'
+
     for module_class in model.modules():
-        assert not isinstance(
-            module_class, LayerNorm), 'A torch.nn.LayerNorm should not be found in the model after surgery is applied.'
+        if isinstance(module_class, LayerNorm):
+            assert isinstance(
+                module_class,
+                LPLayerNorm), 'A standard torch.nn.LayerNorm should not be found in the model after surgery is applied.'
 
     assert any(
         isinstance(module_class, LPLayerNorm) for module_class in model.modules()
@@ -46,11 +49,12 @@ def test_low_precision_layernorm_functional(synthetic_bert_state: Tuple, device:
 
 
 @device('gpu')
-def test_fused_layernorm_algorithm(synthetic_bert_state: Tuple, empty_logger: Logger, device: str):
+def test_low_precision_layernorm_algorithm(synthetic_bert_state: Tuple, empty_logger: Logger, device: str):
     pytest.importorskip('transformers')
     from transformers import BertForMaskedLM, BertForSequenceClassification
 
     state, _, _ = synthetic_bert_state
+    state._precision = Precision('amp')
     low_precision_layernorm = LowPrecisionLayerNorm()
     if device == 'gpu':
         state.model = state.model.cuda()  # move the model to gpu
