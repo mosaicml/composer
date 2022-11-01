@@ -1209,6 +1209,7 @@ class TestAutoresumeCompatibility:
         }
 
     def test_autoresume_and_concurrent_uploads_error(self, tmp_path: pathlib.Path, config: Dict[str, Any]):
+        pytest.importorskip('libcloud')
         config.update({
             'run_name': 'autoresume_concurrent_uploads_run',
             'save_folder': str(tmp_path / 'checkpoints'),
@@ -1225,6 +1226,7 @@ class TestAutoresumeCompatibility:
             _ = Trainer(**config)
 
     def test_latest_and_object_format_string_error(self, tmp_path: pathlib.Path, config: Dict[str, Any]):
+        pytest.importorskip('libcloud')
         config.update({
             'run_name':
                 'latest_format_string_run',
@@ -1250,6 +1252,7 @@ class TestAutoresumeCompatibility:
         _ = Trainer(**config)
 
     def test_autoresume_and_default_remote_uploader_downloader(self, tmp_path: pathlib.Path, config: Dict[str, Any]):
+        pytest.importorskip('libcloud')
         config.update({
             'run_name': 'autoresume_default_remote_ud_run',
             'save_folder': str(tmp_path / 'checkpoints'),
