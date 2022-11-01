@@ -1791,7 +1791,6 @@ class Trainer:
                     })
 
                     total_loss_dict = self._train_batch(use_grad_scaling)
-
                     if use_grad_scaling:
                         self.state.scaler.update()
 
@@ -1976,9 +1975,14 @@ class Trainer:
                 if self.state.auto_grad_accum:
                     if _is_cuda_oom(e):
                         log.debug(f"Rank {dist.get_global_rank()} OOM'd.")
+                        print(f'OOM Encountered: {str(e)} on rank {dist.get_global_rank()}')
+                        found_cuda_oom = 1
                     elif self.state.auto_grad_accum and _is_timeout_error(e):
                         log.debug(f"Rank {dist.get_global_rank()} timed out. Another rank may have OOM'd.")
-                    found_cuda_oom = 1
+                        print(f'TLE Encountered: {str(e)} on rank {dist.get_global_rank()}')
+                        found_cuda_oom = 1
+                    else:
+                        raise
                 else:
                     raise
 

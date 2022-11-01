@@ -144,14 +144,14 @@ def rank_sync_wrapper(
     If a subset of ranks OOM, this monitored barrier fails and the error is caught so training can
     continue. Otherwise, two ranks would enter different barriers, resulting in deadlock.
     """
-
+    
     def rank_sync_wrapper_hook(hook_state, bucket: torch_dist.GradBucket) -> torch.futures.Future[torch.Tensor]:
         try:
             # Only put barrier in front of first bucket
             if bucket.index() == 0:
                 dist.barrier(group=hook_state['group'])
             # Raise error because monitored barrier in first bucket failed
-            elif hook['hook_error']:
+            elif hook_state['hook_error']:
                 raise RuntimeError('Timed out')
         except RuntimeError as e:
             # monitored_barrier was tripped
