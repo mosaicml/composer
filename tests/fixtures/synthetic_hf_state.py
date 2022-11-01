@@ -6,8 +6,7 @@ from typing import Any, Dict, Tuple
 import pytest
 
 from composer.core.state import State
-from composer.datasets.dataset_hparams import DataLoaderHparams
-from composer.datasets.lm_dataset_hparams import LMDatasetHparams
+from composer.datasets.lm_dataset import build_synthetic_lm_dataloader
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
 from composer.models import create_bert_mlm, create_gpt2
 from tests.datasets import test_synthetic_lm_data
@@ -126,15 +125,14 @@ def make_dummy_lm(model_name: str, max_position_embeddings: int, tokenizer):
 def make_synthetic_dataloader(dataset_config: dict):
     """creates a dataloader for synthetic sequence data."""
     pytest.importorskip('transformers')
-    dataloader = LMDatasetHparams(use_synthetic=True,
-                                  tokenizer_name=dataset_config['tokenizer_family'],
-                                  use_masked_lm=dataset_config['use_masked_lm'],
-                                  max_seq_length=dataset_config['chars_per_sample'],
-                                  split='train')
-    dataloader = dataloader.initialize_object(batch_size=dataset_config['num_samples'],
-                                              dataloader_hparams=DataLoaderHparams(num_workers=0,
-                                                                                   persistent_workers=False))
-    return dataloader
+    return build_synthetic_lm_dataloader(
+        synthetic_num_unique_samples=100,
+        batch_size=dataset_config['num_samples'],
+        tokenizer_name=dataset_config['tokenizer_family'],
+        use_masked_lm=dataset_config['use_masked_lm'],
+        max_seq_length=dataset_config['chars_per_sample'],
+        split='train',
+    )
 
 
 def make_synthetic_model(config):

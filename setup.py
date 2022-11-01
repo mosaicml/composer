@@ -79,13 +79,12 @@ install_requires = [
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.10.0',  # torchvision has strict pytorch requirements
     'torch>=1.10,<2',
-    'yahp>=0.1.3,<0.2',
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<1.23.0',
     'psutil>=5.8.0,<6',
-    'coolname>=1.1.0,<2',
+    'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
-    'py-cpuinfo>=8.0.0,<9',
+    'py-cpuinfo>=8.0.0,<10',
     'packaging>=21.3.0,<22',
     'importlib-metadata>=5.0.0,<6',
 ]
@@ -101,10 +100,10 @@ extra_deps['dev'] = [
     'junitparser==2.8.0',
     'coverage[toml]==6.5.0',
     'fasteners==0.18',  # object store tests require fasteners
-    'pytest==7.1.3',
+    'pytest==7.2.0',
     'toml==0.10.2',
     'ipython==7.32.0',
-    'ipykernel==6.16.0',
+    'ipykernel==6.16.2',
     'jupyter==1.0.0',
     'yamllint==1.28.0',
     'recommonmark==0.7.1',
@@ -125,10 +124,10 @@ extra_deps['dev'] = [
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.16.1',
-    'traitlets==5.4.0',
+    'traitlets==5.5.0',
     'nbsphinx==0.8.9',
     'pandoc==2.2',
-    'pypandoc==1.9',
+    'pypandoc==1.10',
     'GitPython==3.1.28',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
@@ -177,11 +176,11 @@ extra_deps['nlp'] = [
 extra_deps['mlperf'] = [
     # TODO: use pip when available: https://github.com/mlcommons/logging/issues/218
     # "mlperf_logging @ git+https://github.com/mlperf/logging.git",
-    'py-cpuinfo>=8.0.0,<9',
+    'py-cpuinfo>=8.0.0,<10',
 ]
 
 extra_deps['streaming'] = [
-    'mosaicml-streaming<=0.1.*',
+    'mosaicml-streaming<0.2.*',
     'boto3>=1.21.45,<2',
     'paramiko>=2.11.0,<3',
 ]

@@ -3,6 +3,7 @@
 
 import pytest
 import torch
+from packaging import version
 from torch.utils.data import DataLoader
 
 from composer import Trainer
@@ -59,7 +60,15 @@ class TestEventCalls:
     @pytest.mark.parametrize('device,deepspeed_zero_stage,use_fsdp', [
         pytest.param('cpu', None, False, id='cpu-ddp'),
         pytest.param('gpu', True, False, id='gpu-ddp', marks=pytest.mark.gpu),
-        pytest.param('gpu', None, True, id='gpu-fsdp', marks=pytest.mark.gpu),
+        pytest.param('gpu',
+                     None,
+                     True,
+                     id='gpu-fsdp',
+                     marks=[
+                         pytest.mark.gpu,
+                         pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.12.0'),
+                                            reason='requires PyTorch 1.12 or higher')
+                     ]),
     ])
     @pytest.mark.parametrize('save_interval', ['1ep', '1ba'])
     def test_event_calls(self, world_size, device, deepspeed_zero_stage, use_fsdp, save_interval):

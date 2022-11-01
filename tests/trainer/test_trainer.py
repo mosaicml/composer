@@ -12,6 +12,7 @@ from typing import List, Optional, Union
 
 import pytest
 import torch
+from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 
@@ -23,9 +24,8 @@ from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
-from composer.datasets.dataset_hparams import DataLoaderHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
-from composer.datasets.imagenet_hparams import ImagenetDatasetHparams
+from composer.datasets.imagenet import build_ffcv_imagenet_dataloader
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger import Logger
 from composer.loss import soft_cross_entropy
@@ -414,6 +414,8 @@ class TestTrainerInitOrFit:
         trainer.fit()
 
     @pytest.mark.gpu
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.12.0'),
+                        reason='requires PyTorch 1.12 or higher')
     @pytest.mark.parametrize('precision', list(Precision))
     def test_fsdp(
         self,
@@ -1103,12 +1105,13 @@ class TestFFCVDataloaders:
         assert self.tmp_path is not None
         assert self.train_file is not None
         assert self.val_file is not None
-        dl_hparams = DataLoaderHparams(num_workers=0)
-        ds_hparams = ImagenetDatasetHparams(is_train=is_train,
-                                            use_ffcv=True,
-                                            ffcv_dir=str(self.tmp_path),
-                                            ffcv_dest=self.train_file if is_train else self.val_file)
-        return ds_hparams.initialize_object(batch_size=4, dataloader_hparams=dl_hparams)
+        datadir = os.path.join(self.tmp_path, self.train_file if is_train else self.val_file)
+        return build_ffcv_imagenet_dataloader(
+            datadir=str(datadir),
+            batch_size=4,
+            is_train=is_train,
+            num_workers=0,
+        )
 
     @pytest.fixture
     def config(self):

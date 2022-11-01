@@ -8,7 +8,7 @@ import pytest
 from torch.utils.data import DataLoader
 
 from composer.callbacks import ImageVisualizer
-from composer.core import Time
+from composer.core import Time, TimeUnit
 from composer.loggers import InMemoryLogger, WandBLogger
 from composer.trainer import Trainer
 from tests.common.datasets import RandomImageDataset
@@ -23,11 +23,13 @@ except ImportError:
 
 
 @pytest.mark.skipif(not _WANDB_INSTALLED, reason='Wandb is optional')
-@pytest.mark.parametrize('interval', ['9ba', '90ba'])
+@pytest.mark.parametrize('interval', ['9ba', '90ba', '2ep', '3ep', '7ep'])
 def test_image_visualizer(interval: str):
     # Construct the callback
     image_visualizer = ImageVisualizer(interval=interval)
     in_memory_logger = InMemoryLogger()  # track the logged images in the in_memory_logger
+
+    num_train_epochs = 9
 
     # Construct the trainer and train
     trainer = Trainer(
@@ -36,7 +38,7 @@ def test_image_visualizer(interval: str):
         loggers=in_memory_logger,
         train_dataloader=DataLoader(RandomImageDataset()),
         eval_dataloader=DataLoader(RandomImageDataset()),
-        max_duration='1ep',
+        max_duration=f'{num_train_epochs}ep',
     )
 
     trainer.fit()
@@ -44,9 +46,13 @@ def test_image_visualizer(interval: str):
     num_train_tables = len(in_memory_logger.data['Images/Train'])
     num_eval_tables = len(in_memory_logger.data['Images/Eval'])
 
+    expected_train_tables = (((num_train_steps - 1) // image_visualizer.interval.value) +
+                             1) if image_visualizer.interval.unit == TimeUnit.BATCH else ((
+                                 (num_train_epochs - 1) // image_visualizer.interval.value) + 1)
+
     assert isinstance(image_visualizer.interval, Time)
-    assert num_train_tables == (num_train_steps - 1) // image_visualizer.interval.value + 1
-    assert num_eval_tables == 1
+    assert num_train_tables == expected_train_tables
+    assert num_eval_tables == num_train_epochs
 
 
 @pytest.mark.skipif(not _WANDB_INSTALLED, reason='Wandb is optional')
