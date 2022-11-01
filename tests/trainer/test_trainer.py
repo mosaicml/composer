@@ -1220,7 +1220,8 @@ class TestAutoresumeCompatibility:
         # The root cause of this is that it is possible for an updated symlink file to be uploaded before the corresponding
         # checkpoint has finished uploading, and then the run dies, leaving the symlink contents pointing to a checkpoint that
         # does not exist
-        with pytest.raises(ValueError, match='There is a race condition'):
+        with pytest.raises(ValueError,
+                           match='Multiple concurrent uploads is not currently supported when using autoresume'):
             _ = Trainer(**config)
 
     def test_latest_and_object_format_string_error(self, tmp_path: pathlib.Path, config: Dict[str, Any]):
@@ -1238,11 +1239,14 @@ class TestAutoresumeCompatibility:
         # Test that trainer errors out if save_latest_filename is set, and RemoteUploaderDownloader file_path_format_string
         # is not default. The root cause of this is that the symlink file contents are created outside of the RemoteUploaderDownloader
         # and do not take into account its path formatting
-        with pytest.raises(ValueError, match='There is an incompatibility'):
+        with pytest.raises(
+                ValueError,
+                match='Specifying a `file_path_format_string` to a `RemoteUploaderDownloader` is not currently supported'
+        ):
             _ = Trainer(**config)
 
         # Ensure that if save_latest_filename is not set, it does not error
-        config.update({'save_latest_filename': None})
+        config.update({'save_latest_filename': None, 'autoresume': False})
         _ = Trainer(**config)
 
     def test_autoresume_and_default_remote_uploader_downloader(self, tmp_path: pathlib.Path, config: Dict[str, Any]):
