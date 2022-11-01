@@ -70,7 +70,6 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    examples/checkpoint_autoresume.ipynb
    examples/training_without_local_storage.ipynb
    examples/exporting_for_inference.ipynb
-   examples/glue/glue_entrypoint.ipynb
    examples/TPU_Training_in_composer.ipynb
    tutorials/train_resnet50_on_aws.md
 
