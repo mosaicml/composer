@@ -155,6 +155,7 @@ class TestTrainerArg:
             [None, get_default_passes()],
             [sort_by_name, get_default_passes() + [sort_by_name]],
             [[sort_by_name], get_default_passes() + [sort_by_name]],
+            [[sort_by_name, 0], [sort_by_name] + get_default_passes()],  # type: ignore
             [(sort_by_name, 0), [sort_by_name] + get_default_passes()],  # type: ignore
             [[(sort_by_name, 0)], [sort_by_name] + get_default_passes()],  # type: ignore
         ])

@@ -182,6 +182,11 @@ class Engine():
 
         self.algorithm_passes: List[passes.AlgorithmPass] = _get_default_passes()
         if algorithm_passes is not None:
+            # Wrap in list if not already a list or if it's a length 2 list specifying a single
+            # call to register_pass with type [AlgorithmPass, int]
+            if not isinstance(algorithm_passes, list) or (len(algorithm_passes) == 2 and
+                                                          isinstance(algorithm_passes[1], int)):
+                algorithm_passes = [algorithm_passes]  # type: ignore wrapping list
             algo_passes = algorithm_passes if isinstance(algorithm_passes, list) else [algorithm_passes]
             for algo_pass in algo_passes:
                 algo_pass = ensure_tuple(algo_pass)
