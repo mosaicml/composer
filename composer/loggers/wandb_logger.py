@@ -137,7 +137,7 @@ class WandBLogger(LoggerDestination):
                 images = [images]
 
             # _convert_to_wandb_image doesn't include wrapping with wandb.Image to future
-            # proof for when we support masks. 
+            # proof for when we support masks.
             wandb_images = (_convert_to_wandb_image(image, channels_last) for image in images)
             wandb_images = [wandb.Image(image) for image in wandb_images]
 
