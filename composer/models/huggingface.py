@@ -88,11 +88,13 @@ class HuggingFaceModel(ComposerModel):
         self.labels = None  # set in eval_forward() if exists
 
     def forward(self, batch):
+        print('\t\t enter model fwd')
         for key in self.model_inputs:
             if key not in batch.keys():
                 raise ValueError(f'Batch missing key: {key}')
-
+        print('\t\t prepare for model fwd call')
         output = self.model(**batch)  # type: ignore (thirdparty)
+        print('\t\t finish model fwd call')
         return output
 
     def loss(self, outputs, batch):

@@ -90,6 +90,7 @@ def ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Uni
             with no_sync_context():
                 yield
         finally:
+            print('Exit force sync', is_final_microbatch)
             if is_final_microbatch:
                 for optimizer in state.optimizers:
                     for group in optimizer.param_groups:
@@ -146,15 +147,18 @@ def rank_sync_wrapper(
     """
     
     def rank_sync_wrapper_hook(hook_state, bucket: torch_dist.GradBucket) -> torch.futures.Future[torch.Tensor]:
+        print('enter sync: ', bucket.index())
         try:
             # Only put barrier in front of first bucket
             if bucket.index() == 0:
+                print('Enter barrier')
                 dist.barrier(group=hook_state['group'])
-            # Raise error because monitored barrier in first bucket failed
+                print('Exit barrier')
+            # Raise error because barrier in first bucket failed to go to no-op
             elif hook_state['hook_error']:
                 raise RuntimeError('Timed out')
         except RuntimeError as e:
-            # monitored_barrier was tripped
+            # barrier was tripped
             if 'Timed out' in str(e):
                 if bucket.index() == 0:
                     hook_state['hook_error'] = True
