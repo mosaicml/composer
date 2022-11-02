@@ -195,8 +195,8 @@ class ProgressBarLogger(LoggerDestination):
             if 'metric' in metric_name or 'loss' in metric_name:
                 if self._show_pbar:
                     self.log_to_pbar(data={metric_name: metric_value})
-            if self.should_log_to_console:
-                self.log_to_console(data={metric_name: metric_value})
+                if self.should_log_to_console:
+                    self.log_to_console(data={metric_name: metric_value})
 
     def log_to_pbar(self, data: Dict[str, Any]):
         # log to progress bar

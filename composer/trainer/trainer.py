@@ -37,7 +37,7 @@ from composer.core.passes import AlgorithmPass
 from composer.core.precision import get_precision_context
 from composer.core.time import TimeUnit
 from composer.core.types import Batch, BreakEpochException, PyTorchScheduler, TrainerMode
-from composer.loggers import Logger, LoggerDestination, ProgressBarLogger, WandBLogger
+from composer.loggers import Logger, LoggerDestination, ProgressBarLogger, WandBLogger, ConsoleLogger
 from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
@@ -526,6 +526,17 @@ class Trainer:
 
         console_stream (TextIO | str, optional): The stream to write to. If a string, it can either be
             ``'stdout'`` or ``'stderr'``. (default: :attr:`sys.stderr`)
+        console_log_interval (int | str | Time, optional): Specifies how frequently to log metrics to console. 
+            An integer, which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time`
+            object, or a callable. (default: ``1``)
+            Defaults to ``1`` (log metrics every epoch).
+
+            If an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the metrics will be logged
+            with this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of
+            :attr:`.TimeUnit.BATCH` or :attr:`.TimeUnit.EPOCH`.
+
+            Set to ``0`` to disable metrics logging to console. 
+
         load_path (str, optional):  The path format string to an existing checkpoint file.
 
             It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
@@ -815,6 +826,7 @@ class Trainer:
         progress_bar: bool = True,
         log_to_console: Optional[bool] = None,
         console_stream: Union[str, TextIO] = 'stderr',
+        console_log_interval: Union[int, str, Time] = 1,
 
         # Load Checkpoint
         load_path: Optional[str] = None,
@@ -1005,6 +1017,22 @@ class Trainer:
                     log_to_console=log_to_console,
                     stream=console_stream,
                 ))
+        
+        # Console Logging
+        if any(isinstance(x, ConsoleLogger) for x in loggers):
+            warnings.warn(
+                DeprecationWarning(
+                    (f'Specifying the {ConsoleLogger.__name__} via `loggers` is deprecated. Instead, '
+                     'please specify `log_to_console`, and `stream` arguments when '
+                     'constructing the trainer. If specified, these arguments will be ignored, as the '
+                     f'{ConsoleLogger.__name__} was already created.')))
+        else:
+            if log_to_console:
+                loggers.append(
+                    ConsoleLogger(
+                        stream=console_stream,
+                        log_traces=False
+                    ))
 
         if save_folder is not None:
             remote_ud = _maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
