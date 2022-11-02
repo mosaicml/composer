@@ -68,7 +68,7 @@ Low Precision LayerNorm is implemented by performing model surgery, which looks 
 
 ## Suggested Hyperparameters
 
-Low Precision LayerNorm utilizes the existing `normalized_shape` and `d_eps` from the original model. The functional version of Low Precision LayerNorm allows users to specify the `precision` mode, which should be set to the Composer [precision format](numerics) of your model. When using the algorithm through the Composer trainer, Low Precision LayerNorm will use the trainer's `precision` mode.
+Low Precision LayerNorm utilizes the existing `normalized_shape` and `d_eps` from the original model. The functional version of Low Precision LayerNorm allows users to specify the `precision` mode, which should be set to the Composer precision format of your model. When using the algorithm through the Composer trainer, Low Precision LayerNorm will use the trainer's `precision` mode.
 
 ## Technical Details
 
