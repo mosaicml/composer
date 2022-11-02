@@ -111,7 +111,7 @@ def apply_gated_linear_units(model: torch.nn.Module,
                              'specify `act_fn` to manually override activation functions.')
 
         # since our set is of 1, let's extract the activation function
-        act_fn = next(iter(act_fns))
+        act_fn = next(iter(act_fns))  # type: ignore will fail below if None
 
         if act_fn is None:
             raise ValueError(
