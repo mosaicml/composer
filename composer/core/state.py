@@ -563,6 +563,10 @@ class State(Serializable):
             algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
                 to sort them into the correct order. (default: ``None``)
         """
+        # Don't try to autoload on old checkpoints
+        if not isinstance(state_dict['algorithms'], list):
+            return
+
         import composer.algorithms as algorithms  # type: ignore imports used in `eval(representation)`
 
         # Get repr of existing algorithms
@@ -726,7 +730,7 @@ class State(Serializable):
                 continue
 
             # Restructure algorithms serialized_value from list to dict
-            if attribute_name == 'algorithms':
+            if attribute_name == 'algorithms' and isinstance(serialized_value, list):
                 serialized_value = {algo_name: algo_serialized for algo_name, algo_serialized in serialized_value}
 
             if attribute_name == 'optimizers':
