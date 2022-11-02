@@ -129,12 +129,16 @@ def create_should_log_to_console_fxn(console_log_interval: Union[str, Time, int]
 
 
     def _should_log_to_console(state: State):
-        if console_log_interval.unit == TimeUnit.EPOCH and int(
-                state.timestamp.epoch) % int(console_log_interval) == 0:
+        cur_batch = int(state.timestamp.batch)
+        cur_epoch = int(state.timestamp.epoch)
+        cur_batch_in_epoch = int(state.timestamp.batch_in_epoch)
+        unit = console_log_interval.unit
+        batches_in_an_epoch = state.dataloader_len
+
+        if unit == TimeUnit.EPOCH and cur_epoch % int(console_log_interval) == 0 and (cur_batch_in_epoch + 1) == batches_in_an_epoch:
             return True
 
-        if console_log_interval.unit == TimeUnit.BATCH and int(
-                state.timestamp.batch) % int(console_log_interval) == 0:
+        if unit == TimeUnit.BATCH and cur_batch % int(console_log_interval) == 0:
             return True
 
         return False
