@@ -41,7 +41,7 @@ def comet_logger(monkeypatch, comet_offline_directory):
                                                   (torch.rand(32, 32, 3), True), (torch.rand(3, 32, 32), False),
                                                   (torch.rand(8, 32, 32, 3), True), ([torch.rand(32, 32, 3)], True),
                                                   ([torch.rand(32, 32, 3), torch.rand(32, 32, 3)], True)])
-def test_comet_ml_log_image_saves_images(comet_logger: CometMLLogger, images, channels_last: bool,
+def test_comet_ml_log_image_saves_images(images: torch.Tensor, channels_last: bool, comet_logger: CometMLLogger, 
                                          comet_offline_directory: str):
     # Count expected images and generate numpy arrays from torch tensors.
     if isinstance(images, Sequence):
@@ -68,7 +68,7 @@ def test_comet_ml_log_image_saves_images(comet_logger: CometMLLogger, images, ch
 
     # Count the number of files that are images.
     actual_num_images = 0
-    for filename in os.listdir(comet_offline_directory):
+    for filename in Path(comet_offline_directory).iterdir():
         file_path = str(Path(comet_offline_directory) / Path(filename))
         if imghdr.what(file_path) == 'png':
             actual_num_images += 1
