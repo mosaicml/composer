@@ -99,7 +99,7 @@ def apply_gated_linear_units(model: torch.nn.Module,
             return
 
         # get the activation functions used
-        act_fns = {module.intermediate_act_fn for module in intermediate_modules}
+        act_fns = {type(module.intermediate_act_fn) for module in intermediate_modules}
         if len(act_fns) == 0:
             raise ValueError('Tried to get the activation function from the model, but none were found. '
                              'Please specify `act_fn` manually to use Gated Linear Units.')
