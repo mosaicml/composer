@@ -5,7 +5,7 @@
 
  `Natural Language Processing`, `Math Equivalent`
 
-Low Precision LayerNorm forces `torch.nn.LayerNorm` modules to run in float16 or bfloat16 precision, improving utilization. This should not affect final convergence values, but may result in occassional loss spikes.
+Low Precision LayerNorm forces `torch.nn.LayerNorm` modules to run in float16 or bfloat16 precision, improving utilization. This should not affect final convergence values, but in rare cases may cause loss spikes. This algorithm is an alternative to Fused LayerNorm, and should give very similar performance.
 
 
 ## How to Use
@@ -13,7 +13,6 @@ Low Precision LayerNorm wraps `torch.nn.LayerNorm`, forcing the module to run in
 
 This algorithm will have no effect if you are running in `fp32` or `fp16` mode.
 
-We recommend you use Low Precision LayerNorm instead of Fused LayerNorm if you are in `AMP` mode. On PyTorch version 1.13 or later, we recommend you also use this in `bf16` mode over Fused LayerNorm. This algorithm will give very similar performance to Fused LayerNorm. Prior to Pytorch 1.13, using Fused LayerNorm in `bf16` mode will be faster.
 
 ### Functional Interface
 
@@ -23,7 +22,7 @@ We recommend you use Low Precision LayerNorm instead of Fused LayerNorm if you a
 import composer.functional as cf
 
 def training_loop(model, train_loader):
-    cf.apply_low_precision_layernorm(model)
+    cf.apply_low_precision_layernorm(model, precision='amp')
 
     opt = torch.optim.Adam(model.parameters())
     loss_fn = F.cross_entropy
@@ -65,11 +64,11 @@ trainer.fit()
 
 ### Implementation Details
 
-Low Precision LayerNorm is implemented by performing model surgery, which looks for instances of `torch.nn.LayerNorm` and replaces them with `composer.algorithms.low_precision_layernorm.low_precision_layernorm.LPLayerNorm`, which is a thin wrapper around `torch.nn.LayerNorm` that manually turns autocast off and specifices the input dtype to lower precision.
+Low Precision LayerNorm is implemented by performing model surgery, which looks for instances of `torch.nn.LayerNorm` and replaces them with `composer.algorithms.low_precision_layernorm.low_precision_layernorm.LPLayerNorm`, which is a thin wrapper around `torch.nn.LayerNorm` that manually turns autocast off and specifices the input dtype to lower precision. In `bf16` mode on PyTorch versions prior to 1.13, Low Precision LayerNorm will fall back to Fused LayerNorm, replacing instances of `torch.nn.LayerNorm` with `apex.normalization.fused_layer_norm`.
 
 ## Suggested Hyperparameters
 
-Low Precision LayerNorm does not have any hyperparameters. It utilizes the existing `normalized_shape` and `d_eps` from the original model.
+Low Precision LayerNorm utilizes the existing `normalized_shape` and `d_eps` from the original model. The functional version of Low Precision LayerNorm allows users to specify the `precision` mode, which should be set to the Composer [precision format](numerics) of your model. When using the algorithm through the Composer trainer, Low Precision LayerNorm will use the trainer's `precision` mode.
 
 ## Technical Details
 
