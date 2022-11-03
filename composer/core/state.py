@@ -566,7 +566,7 @@ class State(Serializable):
             dataloader = self._dataloader_of(evaluator)
             if hasattr(dataloader, 'state_dict'):
                 state = dataloader.state_dict()  # pyright: ignore
-                state['sessions'] = []  # Don't save eval split's sessions, because we do not checkpoint during eval.
+                state['sample_in_epoch'] = 0  # Don't save eval progress, because we do not checkpoint during eval.
                 obj['eval'][evaluator.label] = state
         return obj
 
