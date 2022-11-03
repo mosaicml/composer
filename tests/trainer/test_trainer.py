@@ -26,12 +26,12 @@ from composer.core.state import State
 from composer.core.time import Time, TimeUnit
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.imagenet import build_ffcv_imagenet_dataloader
+from composer.devices import Device
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger import Logger
 from composer.loss import soft_cross_entropy
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
-from composer.trainer.devices import Device
 from composer.trainer.trainer import _generate_run_name
 from composer.utils import dist, is_model_deepspeed, is_model_fsdp, reproducibility
 from composer.utils.iter_helpers import map_collection
