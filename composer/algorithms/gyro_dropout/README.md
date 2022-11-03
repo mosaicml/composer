@@ -1,4 +1,4 @@
-# 🍰 Fused LayerNorm
+# 🍰 Gyro Dropout
 
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
@@ -7,7 +7,7 @@
 
 Gyro Dropout replaces implementations of `torch.nn.Dropout`. The Gyro Dropout provides increased accuracy compared with dropout.
 
-| ![FusedLayerNorm](https://miro.medium.com/max/1200/0*ugfR_r4J9PK8tXNb)|
+| ![]()|
 |:--|
 |*A visualization of the structure of Gyro dropout.*|
 
@@ -25,7 +25,8 @@ def training_loop(model, train_loader):
         model,
         sigma = 512,
         tau = 4,
-        max_iteration = 
+        iters_per_epoch = 196,
+        max_epoch = 100,
         )
 
     opt = torch.optim.Adam(model.parameters())
