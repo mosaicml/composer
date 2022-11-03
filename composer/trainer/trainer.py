@@ -31,29 +31,21 @@ from torchmetrics import Metric
 
 from composer.algorithms import GradientClipping
 from composer.callbacks import CheckpointSaver, GradMonitor
-from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp,
-                           ensure_data_spec, ensure_evaluator, ensure_time)
-from composer.core.passes import AlgorithmPass
-from composer.core.precision import get_precision_context
-from composer.core.time import TimeUnit
-from composer.core.types import Batch, BreakEpochException, PyTorchScheduler, TrainerMode
-from composer.loggers import Logger, LoggerDestination, ProgressBarLogger, WandBLogger
-from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
-from composer.models.base import ComposerModel
-from composer.optim.decoupled_weight_decay import DecoupledSGDW
-from composer.optim.scheduler import ComposerScheduler, compile_composer_scheduler
+from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException, Callback, DataSpec, Engine, Evaluator,
+                           Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
+                           ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context)
+from composer.loggers import Logger, LoggerDestination, ProgressBarLogger, RemoteUploaderDownloader, WandBLogger
+from composer.models import ComposerModel
+from composer.optim import ComposerScheduler, DecoupledSGDW, compile_composer_scheduler
 from composer.profiler import Profiler
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
-from composer.utils import (ObjectStore, S3ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist,
-                            map_collection, model_eval_mode, reproducibility)
-from composer.utils.device import get_device, is_tpu_installed
-from composer.utils.file_helpers import get_file
-from composer.utils.import_helpers import MissingConditionalImportError
-from composer.utils.inference import ExportFormat, Transform, export_with_logger
+from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, S3ObjectStore, Transform,
+                            checkpoint, dist, ensure_tuple, export_with_logger, format_name_with_dist, get_device,
+                            get_file, is_tpu_installed, map_collection, model_eval_mode, reproducibility)
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm

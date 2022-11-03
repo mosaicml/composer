@@ -15,7 +15,7 @@ from torch.optim import Optimizer
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
-from composer.utils.iter_helpers import ensure_tuple
+from composer.utils import ensure_tuple
 
 log = logging.getLogger(__name__)
 
