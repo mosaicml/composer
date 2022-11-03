@@ -261,7 +261,7 @@ class ProgressBarLogger(LoggerDestination):
             n = state.timestamp.epoch.value
             if self.train_pbar is None and not is_train:
                 # epochwise eval results refer to model from previous epoch (n-1)
-                n -= 1
+                n = n - 1 if n > 0 else 0
             if self.train_pbar is None:
                 desc += f'Epoch {n:3}'
             else:
