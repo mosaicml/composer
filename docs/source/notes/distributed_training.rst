@@ -107,8 +107,9 @@ parameters in :meth:`composer.utils.dist.get_sampler`.
     dataloader = DataLoader(dataset, batch_size=32, sampler=sampler)
 
 :class:`composer.datasets.StreamingDataset` is an IterableDataset so a
-DistributedSampler is not required as IterableDatasets need to handle multi-worker
-training internally.
+DistributedSampler is not supported as IterableDatasets need to handle multi-worker
+training internally. See IterableDataset [docs](https://pytorch.org/docs/stable/data.html#torch.utils.data.IterableDataset)
+for more information
 
 Deepspeed
 ---------
