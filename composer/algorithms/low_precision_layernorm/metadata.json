@@ -1,0 +1,16 @@
+{
+    "low_precision_layernorm": {
+        "name": "Low Precision LayerNorm",
+        "class_name": "LowPrecisionLayerNorm",
+        "functional": "apply_low_precision_layernorm",
+        "tldr": "Forces LayerNorm to fp16 or bf16",
+        "attribution": "",
+        "link": "",
+        "domains": [
+            "nlp",
+            "cv"
+        ],
+        "summary": "Run `torch.nn.LayerNorm` in low precision. Alternative to Fused LayerNorm.",
+        "use": "LayerNorm normalization operations."
+    }
+}
