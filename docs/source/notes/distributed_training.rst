@@ -88,6 +88,17 @@ accumulation, and vice versa. Our trainer strives to respect this equivalency
 and ensure identical behavior regardless of the combinations of space and time
 parallelization used.
 
+Distributed Sampling
+--------------------
+
+When providing :class:`torch.utils.data.IterableDataset` with :class:`torch.utils.data.DataLoader`
+to Composer, a  :class:`torch.utils.data.distributed.DistributedSampler` is
+necessary to ensure different devices receive different batches. Composer will
+raise an error if a DistributedSampler is not provided. :mod:`composer.utils.dist`
+provides a helper function to create a DistributedSampler with the correct
+parameters in :meth:`composer.utils.dist.get_sampler`. If using a custom dataset which
+addresses this internally, such as :class:`composer.datasets.StreamingDataset`
+or :class:`streaming.base.Dataset`, a DistributedSampler might not be required.
 
 Deepspeed
 ---------
