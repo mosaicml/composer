@@ -15,7 +15,7 @@
     # replace some layers with squeeze-excite
     cf.apply_squeeze_excite(model, latent_channels=64, min_channels=128)
 """
-from composer.algorithms.alibi.alibi import apply_alibi
+from composer.algorithms.alibi import apply_alibi
 from composer.algorithms.augmix import augmix_image
 from composer.algorithms.blurpool import apply_blurpool
 from composer.algorithms.channels_last import apply_channels_last
@@ -26,7 +26,7 @@ from composer.algorithms.ema import compute_ema
 from composer.algorithms.factorize import apply_factorization
 from composer.algorithms.fused_layernorm import apply_fused_layernorm
 from composer.algorithms.gated_linear_units import apply_gated_linear_units
-from composer.algorithms.ghost_batchnorm.ghost_batchnorm import apply_ghost_batchnorm
+from composer.algorithms.ghost_batchnorm import apply_ghost_batchnorm
 from composer.algorithms.gradient_clipping import apply_gradient_clipping
 from composer.algorithms.label_smoothing import smooth_labels
 from composer.algorithms.layer_freezing import freeze_layers
