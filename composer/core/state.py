@@ -359,6 +359,10 @@ class State(Serializable):
 
         self.train_metrics: Dict[str, Metric] = {}
         self.eval_metrics: Dict[str, Dict[str, Metric]] = {}
+        self.train_metric_values: Dict[str, float] = {}
+        self.eval_metric_values: Dict[str, float] = {}
+        self.total_loss_dict: Dict[str, float] = {}
+
 
     @property
     def current_metrics(self):

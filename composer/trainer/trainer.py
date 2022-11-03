@@ -1696,10 +1696,12 @@ class Trainer:
             assert isinstance(metric, Metric)
             if dataloader_label == 'train':
                 self.state.train_metrics[metric_name] = metric
+                self.state.train_metric_values[metric_name] = computed_metrics[metric_name]
             else:
                 if dataloader_label not in self.state.eval_metrics:
                     self.state.eval_metrics[dataloader_label] = {}
                 self.state.eval_metrics[dataloader_label][metric_name] = metric
+                self.state.eval_metric_values[metric_name] = computed_metrics[metric_name]
 
     def _spin_dataloaders(self):
         """Spin the dataloaders to restore sampler state.
@@ -1819,6 +1821,7 @@ class Trainer:
                         total_loss_dict = {
                             k: loss.cpu().item() / dist.get_world_size() for k, loss in total_loss_dict.items()
                         }
+                        self.state.total_loss_dict = total_loss_dict
                         self.logger.log_metrics(total_loss_dict)
 
                     # The scheduler step.step() and compute_and_log_metrics() are going to be included in the

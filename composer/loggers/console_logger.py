@@ -41,7 +41,16 @@ class ConsoleLogger(LoggerDestination):
         log_traces: bool = False
     ) -> None:
 
-        self.should_log = create_should_log_to_console_fxn(log_interval)
+        if isinstance(log_interval, int):
+            log_interval = Time(log_interval, TimeUnit.EPOCH)
+        if isinstance(log_interval, str):
+            log_interval = Time.from_timestring(log_interval)
+
+        if log_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH):
+            raise ValueError('The `console_log_interval` must have units of EPOCH or BATCH.')
+
+        self.log_interval = log_interval
+        # self.should_log = create_should_log_to_console_fxn(log_interval)
         # set the stream
         if isinstance(stream, str):
             if stream.lower() == 'stdout':
@@ -80,15 +89,57 @@ class ConsoleLogger(LoggerDestination):
             self._log_to_console('*' * 30)
 
     
-    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
-        if self.should_log(self.state):
-            for metric_name, metric_value in metrics.items():
-                if 'metric' in metric_name or 'loss' in metric_name:
-                    self.log_to_console(data={metric_name: metric_value})
+    # def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+    #     if self.should_log(self.state):
+    #         for metric_name, metric_value in metrics.items():
+    #             if 'metric' in metric_name or 'loss' in metric_name:
+    #                 self.log_to_console(data={metric_name: metric_value})
 
-    
+    def epoch_end(self, state: State, logger: Logger) -> None:
+        cur_epoch = int(self.state.timestamp.epoch) - 1 # epoch gets incremented right before EPOCH_END
+        unit = self.log_interval.unit
+
+        if unit == TimeUnit.EPOCH and cur_epoch % int(self.log_interval) == 0:
+            if self.state.total_loss_dict:
+                self.log_to_console(self.state.total_loss_dict)
+            self.log_to_console(self.state.train_metric_values)
+
+
+    def batch_end(self, state: State, logger: Logger) -> None:
+        cur_batch = int(self.state.timestamp.batch) - 1 # batch gets incremented right before BATCH_END
+        unit = self.log_interval.unit
+        if unit == TimeUnit.BATCH and cur_batch % int(self.log_interval) == 0:
+            if self.state.total_loss_dict:
+                self.log_to_console(self.state.total_loss_dict)
+            self.log_to_console(self.state.train_metric_values)
+
+    def fit_start(self, state: State, logger: Logger) -> None:
+        if not self.hparams_already_logged_to_console:
+            self.hparams_already_logged_to_console = True
+            self._log_hparams_to_console()
+
+    def predict_start(self, state: State, logger: Logger) -> None:
+        if not self.hparams_already_logged_to_console:
+            self.hparams_already_logged_to_console = True
+            self._log_hparams_to_console()
+
+    def eval_start(self, state: State, logger: Logger) -> None:
+        if not self.hparams_already_logged_to_console:
+            self.hparams_already_logged_to_console = True
+            self._log_hparams_to_console()
+
     def log_to_console(self, data: Dict[str, Any]) -> None:
         assert self.state is not None
+        batch_in_epoch = self.state.timestamp.batch_in_epoch
+        epoch = self.state.timestamp.epoch
+        # cur_batch = self.state.timestamp.batch - 1
+        if batch_in_epoch == 0:
+            if epoch > 0:
+                log_epoch = epoch - 1
+                log_batch_in_epoch = int(self.state.dataloader_len) if self.state.dataloader_len is not None else batch_in_epoch
+        else:
+            log_batch_in_epoch = batch_in_epoch - 1
+            log_epoch = epoch
         # log to console
         for data_name, data in data.items():
             data_str = format_log_data_value(data)
@@ -96,12 +147,12 @@ class ConsoleLogger(LoggerDestination):
                 training_progress = ''
             elif self.state.max_duration.unit == TimeUnit.EPOCH:
                 if self.state.dataloader_len is None:
-                    curr_progress = f'[batch={int(self.state.timestamp.batch_in_epoch)}]'
+                    curr_progress = f'[batch={int(batch_in_epoch)}]'
                 else:
                     total = int(self.state.dataloader_len)
-                    curr_progress = f'[batch={int(self.state.timestamp.batch_in_epoch)}/{total}]'
+                    curr_progress = f'[batch={int(log_batch_in_epoch)}/{total}]'
 
-                training_progress = f'[epoch={int(self.state.timestamp.epoch)}]{curr_progress}'
+                training_progress = f'[epoch={int(log_epoch)}]{curr_progress}'
             else:
                 unit = self.state.max_duration.unit
                 curr_duration = int(self.state.timestamp.get(unit))
@@ -118,29 +169,29 @@ class ConsoleLogger(LoggerDestination):
 
 
 
-def create_should_log_to_console_fxn(console_log_interval: Union[str, Time, int]):
-    if isinstance(console_log_interval, int):
-        console_log_interval = Time(console_log_interval, TimeUnit.EPOCH)
-    if isinstance(console_log_interval, str):
-        console_log_interval = Time.from_timestring(console_log_interval)
+# def create_should_log_to_console_fxn(console_log_interval: Union[str, Time, int]):
+#     if isinstance(console_log_interval, int):
+#         console_log_interval = Time(console_log_interval, TimeUnit.EPOCH)
+#     if isinstance(console_log_interval, str):
+#         console_log_interval = Time.from_timestring(console_log_interval)
 
-    if console_log_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH):
-        raise ValueError('The `console_log_interval` must have units of EPOCH or BATCH.')
+#     if console_log_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH):
+#         raise ValueError('The `console_log_interval` must have units of EPOCH or BATCH.')
 
 
-    def _should_log_to_console(state: State):
-        cur_batch = int(state.timestamp.batch)
-        cur_epoch = int(state.timestamp.epoch)
-        cur_batch_in_epoch = int(state.timestamp.batch_in_epoch)
-        unit = console_log_interval.unit
-        batches_in_an_epoch = state.dataloader_len
+#     def _should_log_to_console(state: State):
+#         cur_batch = int(state.timestamp.batch)
+#         cur_epoch = int(state.timestamp.epoch)
+#         cur_batch_in_epoch = int(state.timestamp.batch_in_epoch)
+#         unit = console_log_interval.unit
+#         batches_in_an_epoch = state.dataloader_len
 
-        if unit == TimeUnit.EPOCH and cur_epoch % int(console_log_interval) == 0 and (cur_batch_in_epoch + 1) == batches_in_an_epoch:
-            return True
+#         if unit == TimeUnit.EPOCH and cur_epoch % int(console_log_interval) == 0 and (cur_batch_in_epoch) == 0:
+#             return True
 
-        if unit == TimeUnit.BATCH and cur_batch % int(console_log_interval) == 0:
-            return True
+#         if unit == TimeUnit.BATCH and cur_batch % int(console_log_interval) == 0:
+#             return True
 
-        return False
+#         return False
 
-    return _should_log_to_console
+#     return _should_log_to_console
