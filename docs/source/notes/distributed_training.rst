@@ -99,6 +99,7 @@ provides a helper function to create a DistributedSampler with the correct
 parameters in :meth:`composer.utils.dist.get_sampler`.
 
 .. code:: python
+
     from composer.utils import dist
 
     sampler = dist.get_sampler(dataset, shuffle=True)
