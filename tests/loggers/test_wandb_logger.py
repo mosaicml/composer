@@ -2,13 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import contextlib
-import imghdr
 import json
-import os
 import pathlib
 import uuid
-from pathlib import Path
-from typing import Sequence, Type
+from typing import Type
 
 import pytest
 import torch
@@ -24,55 +21,6 @@ from composer.trainer import Trainer
 from composer.utils import dist, retry
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cbs_and_marks
 from tests.common import RandomClassificationDataset, SimpleModel
-
-
-@pytest.fixture
-def test_wandb_logger(tmp_path, dummy_state):
-    pytest.importorskip('wandb', reason='wandb is optional')
-    os.environ['WANDB_DIR'] = str(tmp_path)
-    os.environ['WANDB_MODE'] = 'offline'
-    dummy_state.run_name = 'wand-test-log-image'
-    logger = Logger(dummy_state, [])
-    wandb_logger = WandBLogger()
-    wandb_logger.init(dummy_state, logger)
-    return wandb_logger
-
-
-@pytest.mark.parametrize('images,channels_last', [(torch.rand(32, 32), False), (torch.rand(5, 3, 32, 32), False),
-                                                  (torch.rand(3, 32, 32), False), (torch.rand(8, 32, 32, 3), True),
-                                                  ([torch.rand(32, 32, 3)], True),
-                                                  ([torch.rand(32, 32, 3), torch.rand(32, 32, 3)], True)])
-def test_wandb_log_image(tmp_path: pathlib.Path, images, channels_last, test_wandb_logger):
-    pytest.importorskip('wandb', reason='wandb is optional')
-    if isinstance(images, Sequence):
-        expected_num_images = len(images)
-        np_images = [image.numpy() for image in images]
-
-    else:
-        expected_num_images = 1 if images.ndim < 4 else images.shape[0]
-        np_images = images.numpy()
-    test_wandb_logger.log_images(images=images, channels_last=channels_last)
-    test_wandb_logger.log_images(images=np_images, channels_last=channels_last)
-    test_wandb_logger.post_close()
-    img_dir = str(Path(test_wandb_logger.run_dir) / Path('media/images'))
-    expected_num_images *= 2  # One set of torch tensors, one set of numpy arrays
-    imgs = [filename for filename in os.listdir(img_dir) if imghdr.what(img_dir + '/' + filename) == 'png']
-    actual_num_images = len(imgs)
-    assert actual_num_images == expected_num_images
-
-
-@pytest.mark.parametrize(
-    'images,channels_last',
-    [
-        (torch.rand(32), False),
-        (torch.rand(32, 0), False),  # Has zero in dimension.
-        (torch.rand(4, 4, 8, 32, 32), False),  # > 4 dim.
-        ([torch.rand(4, 32, 32, 3)], True),
-    ])  # sequence > 3 dim.
-def test_wandb_ml_log_image_errors_out(test_wandb_logger, images, channels_last):
-    pytest.importorskip('wandb', reason='wandb is optional')
-    with pytest.raises(ValueError):
-        test_wandb_logger.log_images(images, channels_last=channels_last)
 
 
 @pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
