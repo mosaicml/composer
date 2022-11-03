@@ -91,14 +91,22 @@ parallelization used.
 Distributed Sampling
 --------------------
 
-When providing :class:`torch.utils.data.IterableDataset` with :class:`torch.utils.data.DataLoader`
-to Composer, a  :class:`torch.utils.data.distributed.DistributedSampler` is
-necessary to ensure different devices receive different batches. Composer will
+When providing :class:`torch.utils.data.Dataset` which is not :class:`torch.utils.data.IterableDataset`
+with :class:`torch.utils.data.DataLoader` to Composer, a :class:`torch.utils.data.distributed.DistributedSampler`
+is necessary to ensure different devices receive different batches. Composer will
 raise an error if a DistributedSampler is not provided. :mod:`composer.utils.dist`
 provides a helper function to create a DistributedSampler with the correct
-parameters in :meth:`composer.utils.dist.get_sampler`. If using a custom dataset which
-addresses this internally, such as :class:`composer.datasets.StreamingDataset`
-or :class:`streaming.base.Dataset`, a DistributedSampler might not be required.
+parameters in :meth:`composer.utils.dist.get_sampler`.
+
+.. code:: python
+    from composer.utils import dist
+
+    sampler = dist.get_sampler(dataset, shuffle=True)
+
+    dataloader = DataLoader(dataset, batch_size=32, sampler=sampler)
+
+:class:`composer.datasets.StreamingDataset` is an IterableDataset, so a
+DistributedSampler is not required.
 
 Deepspeed
 ---------
