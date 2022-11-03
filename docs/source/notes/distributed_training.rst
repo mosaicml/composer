@@ -88,6 +88,28 @@ accumulation, and vice versa. Our trainer strives to respect this equivalency
 and ensure identical behavior regardless of the combinations of space and time
 parallelization used.
 
+Distributed Sampling
+--------------------
+
+When providing :class:`torch.utils.data.Dataset` which is not :class:`torch.utils.data.IterableDataset`
+with :class:`torch.utils.data.DataLoader` to Composer, a :class:`torch.utils.data.distributed.DistributedSampler`
+is necessary to ensure different devices receive different batches. Composer will
+raise an error if a DistributedSampler is not provided. :mod:`composer.utils.dist`
+provides a helper function to create a DistributedSampler with the correct
+parameters in :meth:`composer.utils.dist.get_sampler`.
+
+.. code:: python
+
+    from composer.utils import dist
+
+    sampler = dist.get_sampler(dataset, shuffle=True)
+
+    dataloader = DataLoader(dataset, batch_size=32, sampler=sampler)
+
+:class:`composer.datasets.StreamingDataset` is an IterableDataset so a
+DistributedSampler is not supported as IterableDatasets need to handle multi-worker
+training internally. See IterableDataset [docs](https://pytorch.org/docs/stable/data.html#torch.utils.data.IterableDataset)
+for more information
 
 Deepspeed
 ---------
