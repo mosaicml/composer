@@ -188,7 +188,7 @@ RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_
     pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
         torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
         torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} \
-        torchtext==${TORCHTEXT_VERSION}+${CUDA_VERSION_TAG}
+        torchtext==${TORCHTEXT_VERSION}
 
 ###################################
 # Mellanox OFED driver installation
