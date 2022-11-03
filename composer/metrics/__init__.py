@@ -9,5 +9,5 @@ from composer.metrics.nlp import BinaryF1Score, HFCrossEntropy, LanguageCrossEnt
 
 __all__ = [
     'MAP', 'MIoU', 'Dice', 'CrossEntropy', 'LossMetric', 'Perplexity', 'BinaryF1Score', 'HFCrossEntropy',
-    'LanguageCrossEntropy', 'MaskedAccuracy'
+    'LanguageCrossEntropy', 'MaskedAccuracy',
 ]
