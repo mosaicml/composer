@@ -1,7 +1,5 @@
-# Copyright 2022 MosaicML Composer authors
+# Copyright 2022  Gihyun Park, Junyeol Lee, and Jiwon Seo
 # SPDX-License-Identifier: Apache-2.0
-
-# Copyright 2022 MosaicML. All Rights Reserved.
 
 from __future__ import annotations
 
@@ -41,14 +39,18 @@ class GyroDropoutLayer(torch.nn.Module):
                 is_cuda_tensor = x.is_cuda
 
                 if is_cuda_tensor:
+                    #self.preselect_masks = ...
                     self.mask_list = (torch.rand(self.sigma, x.shape[1]) > self.p).float().to("cuda")
                 else:
                     self.mask_list = (torch.rand(self.sigma, x.shape[1]) > self.p).float()
                 
                 self.training_period = int(self.iters_per_epoch * self.max_epoch / self.sigma) * self.tau
+                # training_period --> iter_num
+                # above simplified from: (iters_per_epoch*max_epoch*batch_size/sigma) / (batch_size/self.tau) 
             if self.training_step % self.training_period == 0:
                 pick_idx = np.random.choice(self.sigma, self.tau)
                 self.picked_subnets = self.mask_list[pick_idx]
+                # self.selected_masks = ...
 
             self.dropout_mask = torch.repeat_interleave(self.picked_subnets, x.shape[0] // self.tau, dim=0)
 
@@ -111,7 +113,7 @@ class GyroDropout(Algorithm):
 
            from composer.algorithms import GyroDropout
 
-           algorithm = GyroDropout(256, 16, 196)
+           algorithm = GyroDropout(p=0.5, sigma=256, tau=16, iters_per_epoch=196, max_epoch=100)
            trainer = Trainer(
                model=model,
                train_dataloader=train_dataloader,
@@ -121,7 +123,7 @@ class GyroDropout(Algorithm):
            )
     """
 
-    def __init__(self, p, sigma, tau, iters_per_epoch, max_epoch):  
+    def __init__(self, p, sigma, tau, iters_per_epoch, max_epoch):  # XXX: add default faluse. change the order of arguments
         self.p = p 
         self.sigma = sigma
         self.tau = tau
@@ -135,12 +137,12 @@ class GyroDropout(Algorithm):
     def required_on_load() -> bool:
         return True
 
-    def match(self, event: Event, state: State) -> bool:
+    def match(self, event: Event, state: State) -> bool: # XXX: not sure if this is correct.
         del state  # unused
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        del event, logger  # unused
+        del event, logger  # unused   XXX: not sure if this is correct. Copied from FusedLayerNorm.
         apply_gyro_dropout(model=state.model,
                            optimizers=state.optimizers,
                            p=self.p,
