@@ -746,7 +746,7 @@ class Trainer:
 
             .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
-            (default: ``15.0``)
+            (default: ``1800.0``)
         ddp_sync_strategy (str | DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
             Leave unset to let the trainer auto-configure this. See :class:`.DDPSyncStrategy`
             for more details.
@@ -851,7 +851,7 @@ class Trainer:
         deterministic_mode: bool = False,
 
         # Distributed Training
-        dist_timeout: float = 300.0,
+        dist_timeout: float = 1800.0,
         ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
 
         # Grad Clip Norm
@@ -1013,6 +1013,17 @@ class Trainer:
 
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
+
+        if save_latest_filename is not None:
+            remote_ud_has_format_string = [
+                isinstance(logger_destination, RemoteUploaderDownloader) and
+                logger_destination.file_path_format_string != '{remote_file_name}'
+                for logger_destination in self.logger.destinations
+            ]
+            if any(remote_ud_has_format_string):
+                raise ValueError(
+                    'Specifying a `file_path_format_string` to a `RemoteUploaderDownloader` is not currently supported while using `save_latest_filename`. '
+                    'Please specify the path formatting via `save_folder`, `save_filename`, and `save_latest_filename`')
 
         # Callbacks
         self.state.callbacks[:] = list(cast(List[Callback], loggers)) + self.state.callbacks
@@ -1214,6 +1225,15 @@ class Trainer:
                 raise ValueError(
                     'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
                 )
+
+            remote_ud_has_multiple_concurrent_uploads = [
+                isinstance(logger_destination, RemoteUploaderDownloader) and
+                logger_destination._num_concurrent_uploads != 1 for logger_destination in self.logger.destinations
+            ]
+            if any(remote_ud_has_multiple_concurrent_uploads):
+                raise ValueError(
+                    'Multiple concurrent uploads is not currently supported when using autoresume. Please set `num_concurrent_uploads` to 1 '
+                    'for all `RemoteUploaderDownloader` instances.')
             assert latest_remote_file_name is not None
             autoresume_checkpoint_path = self._get_autoresume_checkpoint(
                 save_folder=save_folder,

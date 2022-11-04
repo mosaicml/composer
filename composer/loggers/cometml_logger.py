@@ -5,7 +5,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+import textwrap
+from typing import Any, Dict, Optional, Sequence, Union
+
+import numpy as np
+import torch
 
 from composer.core.state import State
 from composer.loggers.logger import Logger
@@ -103,7 +107,41 @@ class CometMLLogger(LoggerDestination):
             assert self.experiment is not None
             self.experiment.log_parameters(hyperparameters)
 
+    def log_images(self,
+                   images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
+                   name: str = 'Images',
+                   channels_last: bool = False,
+                   step: Optional[int] = None):
+
+        if self._enabled:
+            if not isinstance(images, Sequence) and images.ndim <= 3:
+                images = [images]
+
+            assert self.experiment is not None
+            image_channels = 'last' if channels_last else 'first'
+            for image in images:
+                comet_image = _convert_to_comet_image(image)
+                self.experiment.log_image(comet_image, name=name, image_channels=image_channels, step=step)
+
     def post_close(self):
         if self._enabled:
             assert self.experiment is not None
             self.experiment.end()
+
+
+def _convert_to_comet_image(image: Union[np.ndarray, torch.Tensor]):
+
+    # Error out for empty arrays or weird arrays of dimension 0.
+    if np.any(np.equal(image.shape, 0)):
+        raise ValueError(f'Got an image (shape {image.shape}) with at least one dimension being 0! ')
+
+    if image.ndim > 3:
+        raise ValueError(
+            textwrap.dedent(f'''Input image must be 1, 2, or 3 dimensions, but instead got
+                            {image.ndim} dims at shape: {image.shape} Your input image was
+                             interpreted as a batch of {image.ndim}-dimensional images
+                             because you either specified a {image.ndim + 1}D image or a
+                             list of {image.ndim}D images. Please specify either a 4D
+                             image of a list of 3D images'''))
+
+    return image

@@ -25,6 +25,11 @@ ARG PYTORCH_VERSION=1.11.0
 # version that corresponds to the PyTorch version
 ARG TORCHVISION_VERSION=0.12.0
 
+# The Torchtext version to install.
+# Reference https://github.com/pytorch/text#installation to determine the Torchtext
+# version that corresponds to the PyTorch version
+ARG TORCHTEXT_VERSION=0.12.0
+
 # In the Dockerimage, Pillow-SIMD is installed instead of Pillow. To trick pip into thinking that
 # Pillow is also installed (so it won't override it with a future pip install), a Pillow stub is included
 # PILLOW_PSEUDOVERSION is the Pillow version that pip thinks is installed
@@ -174,11 +179,16 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
 #################
 ARG PYTORCH_VERSION
 ARG TORCHVISION_VERSION
+ARG TORCHTEXT_VERSION
+
+# Set so supporting PyTorch packages such as Torchvision, Torchaudio, Torchtext pin PyTorch version
+ENV PYTORCH_VERSION=${PYTORCH_VERSION}
 
 RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
     pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
         torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
-        torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG}
+        torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} \
+        torchtext==${TORCHTEXT_VERSION}
 
 ###################################
 # Mellanox OFED driver installation

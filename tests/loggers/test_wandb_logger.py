@@ -3,7 +3,9 @@
 
 import contextlib
 import json
+import os
 import pathlib
+import pickle
 import uuid
 from typing import Type
 
@@ -48,6 +50,28 @@ def test_logged_data_is_json_serializable(callback_cls: Type[Callback]):
             if isinstance(data, (WBValue, torch.Tensor)):
                 continue
             json.dumps(data)
+
+
+def test_wandb_is_pickleable_when_disabled(dummy_state: State):
+    pytest.importorskip('wandb', reason='wandb is optional')
+    original_wandb_mode = os.environ.get('WANDB_MODE', None)
+    os.environ['WANDB_MODE'] = 'disabled'
+    wandb_logger = WandBLogger()
+
+    # Need to initialize WandbLogger before calling .state_dict()
+    dummy_state.callbacks.append(wandb_logger)
+    logger = Logger(dummy_state, [wandb_logger])
+    engine = Engine(dummy_state, logger)
+    engine.run_event(Event.INIT)
+
+    # Just make sure this doesn't crash due to wandb.sdk.lib.disabled.RunDisabled not being pickleable
+    pickle.loads(pickle.dumps(wandb_logger.state_dict()))
+
+    # reset wandb mode
+    if original_wandb_mode is None:
+        del os.environ['WANDB_MODE']
+    else:
+        os.environ['WANDB_MODE'] = original_wandb_mode
 
 
 @pytest.mark.world_size(2)
