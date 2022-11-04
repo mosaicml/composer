@@ -14,7 +14,7 @@ __all__ = ['get_device', 'is_tpu_installed']
 
 
 def get_device(device: Optional[Union[str, 'Device']]) -> 'Device':
-    """Takes string or Device and returns the corresponding :class:`~composer.trainer.devices.Device`.
+    """Takes string or Device and returns the corresponding :class:`~composer.devices.Device`.
 
     Args:
         device (str | Device, optional): A string corresponding to a device (one of
