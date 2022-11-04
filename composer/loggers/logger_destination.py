@@ -7,12 +7,15 @@ from __future__ import annotations
 
 import pathlib
 from abc import ABC
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
 
 import numpy as np
 import torch
 
-from composer.core import Callback, State
+from composer.core.callback import Callback
+
+if TYPE_CHECKING:
+    from composer.core import State
 
 __all__ = ['LoggerDestination']
 
