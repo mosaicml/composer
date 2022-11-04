@@ -11,6 +11,7 @@ import pathlib
 from functools import reduce
 from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
 
+import numpy as np
 import torch
 
 from composer.utils import ensure_tuple
@@ -61,10 +62,33 @@ class Logger:
             destination.log_hyperparameters(parameters)
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
-        if not step:
+        if step is None:
             step = self._state.timestamp.batch.value
         for destination in self.destinations:
             destination.log_metrics(metrics, step)
+
+    def log_images(self,
+                   images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
+                   name: str = 'Images',
+                   channels_last: bool = False,
+                   step: Optional[int] = None):
+        """Log images. Logs any tensors or arrays as images.
+
+        Args:
+            images (np.ndarray | torch.Tensor | Sequence[np.ndarray | torch.Tensor]): Dictionary mapping
+                image(s)' names (str) to an image of array of images.
+            name (str): The name of the image(s). (Default: ``'Images'``)
+            channels_last (bool): Whether the channel dimension is first or last.
+                (Default: ``False``)
+            step (int, optional): The current step or batch of training at the
+                time of logging. Defaults to None. If not specified the specific
+                LoggerDestination implementation will choose a step (usually a running
+                counter).
+        """
+        if step is None:
+            step = self._state.timestamp.batch.value
+        for destination in self.destinations:
+            destination.log_images(images, name, channels_last, step)
 
     def data_fit(self, data: Dict[str, Any]) -> None:
         raise NotImplementedError(
