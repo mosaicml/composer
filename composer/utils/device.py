@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Optional, Union
 import torch.cuda
 
 if TYPE_CHECKING:
-    from composer.trainer.devices.Device import Device
+    from composer.devices import Device
 
 __all__ = ['get_device', 'is_tpu_installed']
 
@@ -25,7 +25,7 @@ def get_device(device: Optional[Union[str, 'Device']]) -> 'Device':
             Device. If no argument is passed, returns :class:`.DeviceGPU` if available,
             or :class:`.DeviceCPU` if no GPU is available.
     """
-    from composer.trainer.devices import DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
+    from composer.devices import DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 
     if not device:
         device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU()

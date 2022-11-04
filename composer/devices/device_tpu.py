@@ -10,7 +10,7 @@ from typing import Any, Dict, TypeVar
 
 import torch
 
-from composer.trainer.devices.device import Device
+from composer.devices.device import Device
 
 logger = logging.getLogger(__name__)
 

@@ -14,7 +14,7 @@ import torch.cuda
 import torch.cuda.amp
 import torch.utils.data
 
-from composer.trainer.devices.device import Device
+from composer.devices.device import Device
 from composer.utils import dist
 
 __all__ = ['DeviceGPU']
