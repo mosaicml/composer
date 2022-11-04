@@ -231,8 +231,7 @@ class StreamingCIFAR10Hparams(DatasetHparams):
                               split=self.split,
                               shuffle=self.shuffle,
                               transform=transform,
-                              batch_size=batch_size,
-                              num_workers=dataloader_hparams.num_workers)
+                              batch_size=batch_size)
         else:
             raise ValueError(f'Invalid streaming version: {self.version}')
 

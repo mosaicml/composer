@@ -566,7 +566,9 @@ class State(Serializable):
             dataloader = self._dataloader_of(evaluator)
             if hasattr(dataloader, 'state_dict'):
                 state = dataloader.state_dict()  # pyright: ignore
-                state['sample_in_epoch'] = 0  # Don't save eval progress, because we do not checkpoint during eval.
+                # Don't save eval progress because we do not checkpoint during eval.
+                if isinstance(state, dict):
+                    state['sample_in_epoch'] = 0
                 obj['eval'][evaluator.label] = state
         return obj
 
