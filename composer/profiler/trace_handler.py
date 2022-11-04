@@ -7,9 +7,12 @@ from __future__ import annotations
 
 import abc
 import pathlib
-from typing import Dict, List, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Tuple, Union
 
-from composer.core import Callback, Timestamp
+from composer.core.callback import Callback
+
+if TYPE_CHECKING:
+    from composer.core import Timestamp
 
 __all__ = ['TraceHandler']
 

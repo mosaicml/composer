@@ -8,10 +8,12 @@ from __future__ import annotations
 import functools
 import time
 from types import TracebackType
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
-from composer.core import State, Timestamp
 from composer.profiler.trace_handler import TraceHandler
+
+if TYPE_CHECKING:
+    from composer.core import State, Timestamp
 
 __all__ = ['Marker']
 
