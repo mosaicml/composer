@@ -65,7 +65,8 @@ Gyro Dropout is implemented by performing model surgery, which looks for instanc
 ## Suggested Hyperparameters
 
 Gyro Dropout has three hyperparameters - tau, sigma, num_iterations.
-
+###tau -> sigma sigma->tau 고치기
+###tau is the number of total pre-selected subnetworks
 tau is the number of pre-selected subnetworks
 sigma is the number of concurrently scheduled subnetworks in an iteration
 num_iterations is the number of iterations in an epoch.
