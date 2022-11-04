@@ -244,7 +244,7 @@ def build_synthetic_ade20k_dataloader(
         final_size (int): The final size of the image and target. Default: ``512``.
         num_unique_samples (int): Number of unique samples in synthetic dataset. Default: ``100``.
         device (str): Device with which to load the dataset. Default: ``cpu``.
-        memory_format (MemoryFormat): Memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
+        memory_format (:class:`composer.core.MemoryFormat`): Memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
     if split == 'train':
