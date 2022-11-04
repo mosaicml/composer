@@ -45,7 +45,7 @@ import torch.utils.data
 from composer.utils.device import get_device
 
 if TYPE_CHECKING:
-    from composer.trainer.devices import Device
+    from composer.devices import Device
 
 TObj = TypeVar('TObj')
 
@@ -375,7 +375,7 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
         timeout (float, optional): The timeout for operations executed against the process
             group, expressed in seconds. (default: ``300.0``).
     """
-    # If device is string, get corresponding composer.trainer.devices.Device object
+    # If device is string, get corresponding composer.devices.Device object
     device_obj = get_device(device)
     timeout_timedelta = datetime.timedelta(seconds=timeout)
 
