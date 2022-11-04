@@ -288,8 +288,8 @@ model outside of a :class:`.Trainer`, use :meth:`torch.load`:
     state_dict = torch.load("./path/to/checkpoints/ep1.pt")
     model.load_state_dict(state_dict["state"]["model"])
 
-Uploading to Object Store
--------------------------
+Uploading Checkpoints to Object Store
+-------------------------------------
 
 Checkpoints can also be saved to and loaded from your object store of choice (e.g. AWS S3 or Google Cloud Storage).
 Writing checkpoints to an object store is a two-step process. The checkpoints are first written to the local filesystem,
@@ -379,11 +379,56 @@ There are a few additional trainer arguments which can be helpful to configure:
     will remove each checkpoint after it has been uploaded. Checkpoints are never deleted from object stores.
 
 
-Loading from Object Store
--------------------------
+Saving Checkpoints to Google Cloud Storage (GCS)
+------------------------------------------------
+
+To save checkpoints to GCS, make sure to create a :class:`.RemoteUploaderDownloader` instance
+and pass it to the `Trainer` loggers argument.
+
+.. testcode::
+    :skipif: not _LIBCLOUD_INSTALLED
+
+    from composer.loggers import RemoteUploaderDownloader
+    from composer.trainer import Trainer
+
+    remote_uploader_downloader = RemoteUploaderDownloader(
+        bucket_uri="libcloud://my-gcs-bucket",
+        backend_kwargs={
+            "provider": "google_storage",  # The Apache Libcloud provider name
+            "container": "my-gcs-bucket",  # The name of the cloud container (i.e. bucket) to use.
+            "provider_kwargs": {  # The Apache Libcloud provider driver initialization arguments
+                'key': 'provider_key',  # The cloud provider key.
+                'secret': '*******',  # The cloud provider secret.
+                # Any additional arguments required for the cloud provider.
+            },
+        },
+    )
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration='10ep',
+        save_folder='checkpoints',
+        save_interval='1ep',
+        save_overwrite=True,
+        save_filename='ep{epoch}.pt',
+        save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
+        loggers=[remote_uploader_downloader],
+    )
+
+    trainer.fit()
+
+This will save checkpoints every epoch to the gs URI: ``gs://my-gcs-bucket/checkpoints``,
+Each checkpoint will then be at the gs URI: ``gs://my-gcs-bucket/checkpoints/ep{epoch}.pt``, where
+``{epoch}`` will be filled in with the epoch of that checkpoint. 
+
+
+Loading Checkpoints from Object Store
+-------------------------------------
 
 Checkpoints saved to an object store can also be loaded in the same way as files saved on disk. Provide the
-:class:`.LibcloudObjectStore` to the trainer's ``load_object_store`` argument.  The ``load_path`` argument
+:class:`.LibcloudObjectStore` to the trainer's ``load_object_store`` argument (you can also provide the full 
+:class:`.RemoteUploaderDownloader` object as well). The ``load_path`` argument
 should be the path to the checkpoint file *within the container/bucket*.
 
 .. testcode::
@@ -430,11 +475,52 @@ object stores like WandB or LibCloud, you must still specify a ``load_object_sto
 
 This will load the first epoch's checkpoints from S3 and resume training in the second epoch.
 
+
+Loading Checkpoints from Google Cloud Storage (GCS)
+---------------------------------------------------
+
+To load checkpoints from GCS, you need to once again create a :class:`.RemoteUploaderDownloader`
+instance, but this time make sure to pass the instance to the trainer's ``load_object_store`` argument.
+The ``load_path`` argument should be the path to the checkpoint file *within the container/bucket*.
+
+Here is an example for loading the 3rd eppch's checkpoint from a GCS bucket:
+
+.. testcode::
+    :skipif: not _LIBCLOUD_INSTALLED
+
+    from composer.loggers import RemoteUploaderDownloader
+    from composer.trainer import Trainer
+
+    remote_uploader_downloader = RemoteUploaderDownloader(
+        bucket_uri="libcloud://my-gcs-bucket",
+        backend_kwargs={
+            "provider": "google_storage",  # The Apache Libcloud provider name
+            "container": "my-gcs-bucket",  # The name of the cloud container (i.e. bucket) to use.
+            "provider_kwargs": {  # The Apache Libcloud provider driver initialization arguments
+                'key': 'provider_key',  # The cloud provider key.
+                'secret': '*******',  # The cloud provider secret.
+                # Any additional arguments required for the cloud provider.
+            },
+        },
+    )
+
+    new_trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration="10ep",
+        load_path="checkpoints/ep3.pt",
+        load_object_store=remote_uploader_downloader,
+    )
+
+    new_trainer.fit()
+
+This code will load the third epcoh's checkpoint from your GCS bucket and and resume the
+training run on the fourth epoch.
+
 API Reference
 -------------
-
-
 *   :class:`.RemoteUploaderDownloader` for saving checkpoints to cloud storage.
 *   :class:`.Trainer` for the trainer checkpoint arguments.
 *   :class:`.CheckpointSaver` for the CheckpointSaver arguments.
+*   :class:`.LibcloudObjectStore` for setting up libcloud-supported object stores.
 *   :mod:`composer.utils.checkpoint` for the underlying utilities to manually save and load checkpoints.
