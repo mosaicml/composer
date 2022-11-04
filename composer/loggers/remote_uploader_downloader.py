@@ -56,7 +56,6 @@ class RemoteUploaderDownloader(LoggerDestination):
 
         remote_uploader_downloader = RemoteUploaderDownloader(
             bucket_uri="s3://my-bucket",
-            file_path_format_string="path/to/my/checkpoints/{remote_file_name}",
         )
 
         # Construct the trainer using this logger
@@ -160,7 +159,7 @@ class RemoteUploaderDownloader(LoggerDestination):
             .. doctest:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.file_path_format_string
 
                 >>> remote_uploader_downloader = RemoteUploaderDownloader(..., file_path_format_string='rank_{rank}/{remote_file_name}')
-                >>> trainer = Trainer(..., run_name='foo', loggers=[remote_uploader_downloader])
+                >>> trainer = Trainer(..., save_latest_filename=None, run_name='foo', loggers=[remote_uploader_downloader])
                 >>> trainer.logger.upload_file(
                 ...     remote_file_name='bar.txt',
                 ...     file_path='path/to/file.txt',
