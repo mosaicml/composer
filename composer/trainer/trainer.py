@@ -37,6 +37,7 @@ from composer.core.passes import AlgorithmPass
 from composer.core.precision import get_precision_context
 from composer.core.time import TimeUnit
 from composer.core.types import Batch, BreakEpochException, PyTorchScheduler, TrainerMode
+from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.loggers import Logger, LoggerDestination, ProgressBarLogger, WandBLogger
 from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.models.base import ComposerModel
@@ -46,7 +47,6 @@ from composer.profiler import Profiler
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
-from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
 from composer.utils import (ObjectStore, S3ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist,
                             map_collection, model_eval_mode, reproducibility)
