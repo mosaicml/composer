@@ -90,6 +90,28 @@ class RemoteUploaderDownloader(LoggerDestination):
             loggers=[remote_uploader_downloader],
         )
 
+    or
+
+    .. testcode:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__
+        from composer.loggers import RemoteUploaderDownloader
+        from composer.utils import LibcloudObjectStore
+        remote_uploader_downloader = RemoteUploaderDownloader(
+            bucket_uri="libcloud://my-bucket",
+            backend_kwargs={
+                'provider': 'google_storage',
+                'container': 'my-bucket',
+                'provider_kwargs=': {
+                    'key': 'my-gcs-hmac-key',
+                    'secret': 'my-gcs-hmac-secret',
+                },
+            },
+        )
+        # Construct the trainer using this logger
+        trainer = Trainer(
+            ...,
+            loggers=[remote_uploader_downloader],
+        )
+
     .. note::
 
         This callback blocks the training loop to upload each file, as
