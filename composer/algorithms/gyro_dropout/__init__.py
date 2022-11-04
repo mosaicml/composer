@@ -1,13 +1,10 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Replaces all instances of `torch.nn.LayerNorm` with a `apex.normalization.fused_layer_norm.FusedLayerNorm
-<https://nvidia.github.io/apex/layernorm.html>`_.
+"""Replaces all instances of `torch.nn.Dropout` with a `GyroDropout`.
 
-By fusing multiple kernel launches into one, this usually improves GPU utilization.
-
-See the :doc:`Method Card </method_cards/fused_layernorm>` for more details.
-"""
+By masking Dropout layer, this usually improves accuracy.
+""" 
 
 from composer.algorithms.gyro_dropout.gyro_dropout import GyroDropout, apply_gyro_dropout
 

@@ -1,15 +1,15 @@
 {
-    "fused_layernorm": {
+    "gyro_dropout": {
         "name": "Gyro Dropout",
         "class_name": "GyroDropout",
         "functional": "apply_gyro_dropout",
-        "tldr": "Dropout layer by using GyrodropoutFuses",
-        "attribution": "NVIDIA",
+        "tldr": "Dropout layer by using Gyrodropout",
+        "attribution": "PyTorch",
         "link": "",
         "domains": [
-            "nlp"
+            "cv"
         ],
-        "summary": "",
-        "use": ""
+        "summary": "By masking Dropout layer, this usually improves accuracy.",
+        "use": "2D Convolutional Neural Networks"
     }
 }

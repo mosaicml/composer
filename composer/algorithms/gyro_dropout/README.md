@@ -1,4 +1,4 @@
-# 🍰 Gyro Dropout
+# 🍰 Fused LayerNorm
 
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
@@ -7,9 +7,12 @@
 
 Gyro Dropout replaces implementations of `torch.nn.Dropout`. The Gyro Dropout provides increased accuracy compared with dropout.
 
-| ![]()|
+| ![GyroDropout](https://miro.medium.com/max/1200/0*ugfR_r4J9PK8tXNb)|
 |:--|
 |*A visualization of the structure of Gyro dropout.*|
+Gyro dropout is a variant of dropout that improves the efficiency of training neural networks
+Instead of randomly dropping out neurons in every training iteration, gyro dropout pre-selects and trains a fixed
+number of subnetwork. 'Tau' is the number of pre-selected subnetworks and 'Sigma' is the number of concurrently scheduled subnetworks int an iteration
 
 ## How to Use
 
@@ -25,8 +28,7 @@ def training_loop(model, train_loader):
         model,
         sigma = 512,
         tau = 4,
-        iters_per_epoch = 196,
-        max_epoch = 100,
+        max_iteration = 196
         )
 
     opt = torch.optim.Adam(model.parameters())
@@ -50,26 +52,32 @@ from composer.algorithms import GyroDropout
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   eval_dataloader=eval_dataloader,
-                  max_duration='1ep',
-                  algorithms=[GyroDropout()])
+                  max_duration='100ep',
+                  algorithms=[GyroDropout(512, 4, 196)])
 
 trainer.fit()
 ```
 
 ### Implementation Details
 
-Fused LayerNorm is implemented by performing model surgery, which looks for instances of `torch.nn.LayerNorm` and replaces them with a `apex.normalization.fused_layer_norm`. This should be applicable to any model that utilizes a `torch.nn.LayerNorm`.
+Gyro Dropout is implemented by performing model surgery, which looks for instances of `torch.nn.Dropout`. This should be applicable to any model that utilizes a `torch.nn.Dropout`.
 
 ## Suggested Hyperparameters
 
-Fused LayerNorm does not have any hyperparameters. It utilizes the existing `normalized_shape` and `d_eps` from the original model.
+Gyro Dropout has three hyperparameters - tau, sigma, num_iterations.
+
+tau is the number of pre-selected subnetworks
+sigma is the number of concurrently scheduled subnetworks in an iteration
+num_iterations is the number of iterations in an epoch.
+
+These make subnetworks mask for gyro dropout.
 
 ## Technical Details
 
-APEX's FusedLayerNorm achieves a substantial speedup over PyTorch by doing a few things:
-1. Instead of a naive implementation, which requires two passes over the input in order to estimate variances, it uses [Welford's Online Algorithm](https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm) to estimate the variances in a single step, creating a substantive wall-clock speedup.
-2. Instead of requiring multiple CUDA kernel launches, it computes everything in a single kernel launch, therefore improving GPU utilization.
+GyroDropout achieves improved accuracy over PyTorch by doing a few things:
+1. Instead of conventional dropout randomly selecting different subnetworks in each training iteration, gyro dropout pre-selects a fixed number of subnetworks and train with them throughout learning
+2. Because of the selected subnetworks that are trained more robustly, their diversity increases and thus their ensemble achieves higher accuracy
 
 ## Attribution
-
-*The Composer implementation of this method and the accompanying documentation were produced by Moin Nadeem at MosaicML.*
+[*Gyro Dropout: Maximizing Ensemble Effect in Neural Network Training*](https://proceedings.mlsys.org/paper/2022/hash/be83ab3ecd0db773eb2dc1b0a17836a1-Abstract.html) by Junyeol Lee, Hyeongju Kim, Hyungjun Oh, Jaemin Kim, Hongseok Jeung, Yung-Kyun Noh, Jiwon Seo.
+*The Composer implementation of this method and the accompanying documentation were produced by Junyeol Lee and Gihyun Park at BDSL in Hanyang Univ.*
