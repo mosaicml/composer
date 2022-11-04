@@ -20,7 +20,7 @@ T_nnModule = TypeVar('T_nnModule', bound=torch.nn.Module)
 
 
 class DeviceTPU(Device):
-    """An extension of :class:`~composer.trainer.devices.device.Device` for TPUs.
+    """An extension of :class:`~composer.devices.device.Device` for TPUs.
 
     When running on TPUVMs, you need to `export PJRT_DEVICE=TPU`.
     More details.
