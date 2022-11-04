@@ -62,7 +62,7 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
             on the GPU and eliminate PCI-e bandwidth with the dataloader. Set to ``'cpu'``
             to move data between host memory and the gpu on every batch. Default:
             ``'cpu'``.
-        memory_format (MemoryFormat, optional): Memory format for the sample pool.
+        memory_format (:class:`composer.core.MemoryFormat`, optional): Memory format for the sample pool.
             Default: `MemoryFormat.CONTIGUOUS_FORMAT`.
         transform (Callable, optional): Transform(s) to apply to data. Default: ``None``.
     """

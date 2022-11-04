@@ -118,7 +118,7 @@ def build_synthetic_imagenet_dataloader(
         batch_size (int): Batch size per device.
         num_unique_samples (int): number of unique samples in synthetic dataset. Default: ``100``.
         device (str): device with which to load the dataset. Default: ``cpu``.
-        memory_format (MemoryFormat): memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
+        memory_format (:class:`composer.core.MemoryFormat`): memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
         is_train (bool): Whether to load the training data or validation data. Default:
             ``True``.
         crop size (int): The crop size to use. Default: ``224``.
