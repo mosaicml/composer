@@ -74,10 +74,7 @@ num_iterations is the number of iterations in an epoch.
 These make subnetworks mask for gyro dropout.
 
 ## Technical Details
-
-GyroDropout achieves improved accuracy over PyTorch by doing a few things:
-1. Instead of conventional dropout randomly selecting different subnetworks in each training iteration, gyro dropout pre-selects a fixed number of subnetworks and train with them throughout learning
-2. Because of the selected subnetworks that are trained more robustly, their diversity increases and thus their ensemble achieves higher accuracy
+GyroDropout achieves improved accuracy over conventional dropout by pre-selecting a fixed number of subnetworks and training with only those subnetworks. Because the selected subnetworks are trained more robustly (compared to the conventional dropout cases), their diversity increases and thus their ensemble achieves higher accuracy.
 
 ## Attribution
 [*Gyro Dropout: Maximizing Ensemble Effect in Neural Network Training*](https://proceedings.mlsys.org/paper/2022/hash/be83ab3ecd0db773eb2dc1b0a17836a1-Abstract.html) by Junyeol Lee, Hyeongju Kim, Hyungjun Oh, Jaemin Kim, Hongseok Jeung, Yung-Kyun Noh, Jiwon Seo.
