@@ -75,7 +75,7 @@ class MissingEnvironmentError(Exception):
 
 
 def _get_distributed_config_var(
-    env_var: int,
+    env_var: str,
     human_name: str,
     default: int,
     fetch_fn_name: Optional[str] = None,
