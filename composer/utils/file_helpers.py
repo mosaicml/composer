@@ -16,12 +16,12 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 import requests
 import tqdm
 
-from composer.core.time import Timestamp
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
 from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
+    from composer.core import Timestamp
     from composer.loggers import LoggerDestination
 
 log = logging.getLogger(__name__)
