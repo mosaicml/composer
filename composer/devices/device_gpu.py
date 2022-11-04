@@ -23,7 +23,7 @@ T_nnModule = TypeVar('T_nnModule', bound=torch.nn.Module)
 
 
 class DeviceGPU(Device):
-    """An extension of :class:`~composer.trainer.devices.device.Device` for GPUs.
+    """An extension of :class:`~composer.devices.device.Device` for GPUs.
 
     Args:
         device_id (int, optional): Integer ID of a GPU device to train with. If not specified, the local rank
