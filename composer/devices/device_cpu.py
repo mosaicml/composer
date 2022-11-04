@@ -20,7 +20,7 @@ T_nnModule = TypeVar('T_nnModule', bound=torch.nn.Module)
 
 
 class DeviceCPU(Device):
-    """An extension of :class:`~composer.trainer.devices.device.Device` for CPUs.
+    """An extension of :class:`~composer.devices.device.Device` for CPUs.
 
     This class takes no arguments.
     """
