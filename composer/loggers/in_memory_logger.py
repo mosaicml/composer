@@ -14,8 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from torch import Tensor
 
-from composer.core.state import State
-from composer.core.time import Time, Timestamp
+from composer.core import State, Time, Timestamp
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 

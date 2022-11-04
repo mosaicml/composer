@@ -13,10 +13,8 @@ from unittest.mock import patch
 
 import pytest
 
-from composer.core.event import Event
-from composer.core.state import State
-from composer.loggers import Logger
-from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
+from composer.core import Event, State
+from composer.loggers import Logger, RemoteUploaderDownloader
 from composer.utils.object_store.object_store import ObjectStore
 
 

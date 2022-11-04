@@ -9,8 +9,7 @@ import pathlib
 from abc import ABC
 from typing import Any, Dict, Optional
 
-from composer.core.callback import Callback
-from composer.core.state import State
+from composer.core import Callback, State
 
 __all__ = ['LoggerDestination']
 

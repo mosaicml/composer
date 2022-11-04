@@ -7,8 +7,7 @@ from typing import Any, Callable, Optional, Union
 
 import torch
 
-from composer.core import State
-from composer.core.callback import Callback
+from composer.core import Callback, State
 from composer.loggers import Logger
 
 

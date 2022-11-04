@@ -20,7 +20,7 @@ from multiprocessing.context import SpawnProcess
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 from urllib.parse import urlparse
 
-from composer.core.state import State
+from composer.core import State
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, S3ObjectStore, SFTPObjectStore,

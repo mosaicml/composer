@@ -11,8 +11,7 @@ import torch
 import torch.utils.data
 
 from composer.core import Batch, Precision, State
-from composer.utils import dist
-from composer.utils.iter_helpers import map_collection
+from composer.utils import dist, map_collection
 
 __all__ = ['_fix_batch_precision_for_deepspeed', '_parse_deepspeed_config']
 

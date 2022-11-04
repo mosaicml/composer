@@ -11,10 +11,10 @@ import sys
 import textwrap
 from typing import Any, Callable, Dict, Optional, TextIO
 
-from composer.core.state import State
+from composer.core import State
 from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils.file_helpers import FORMAT_NAME_WITH_DIST_TABLE, format_name_with_dist
+from composer.utils import FORMAT_NAME_WITH_DIST_TABLE, format_name_with_dist
 
 __all__ = ['FileLogger']
 

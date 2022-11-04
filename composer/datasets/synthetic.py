@@ -12,8 +12,8 @@ import torch.utils.data
 from PIL import Image
 from torchvision.datasets import VisionDataset
 
-from composer.core.types import MemoryFormat
-from composer.utils.string_enum import StringEnum
+from composer.core import MemoryFormat
+from composer.utils import StringEnum
 
 __all__ = ['SyntheticDataType', 'SyntheticDataLabelType', 'SyntheticBatchPairDataset', 'SyntheticPILDataset']
 

@@ -10,8 +10,7 @@ import time
 from types import TracebackType
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
-from composer.core.state import State
-from composer.core.time import Timestamp
+from composer.core import State, Timestamp
 from composer.profiler.trace_handler import TraceHandler
 
 __all__ = ['Marker']

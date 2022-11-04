@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torchvision.datasets import VisionDataset
 
-from composer.core.types import MemoryFormat
+from composer.core import MemoryFormat
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.streaming import StreamingDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset

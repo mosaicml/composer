@@ -6,7 +6,7 @@ from typing import Any
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-from composer.core.types import MemoryFormat
+from composer.core import MemoryFormat
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import dist
 

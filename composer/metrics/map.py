@@ -19,7 +19,7 @@ from torch import Tensor
 from torchmetrics.metric import Metric
 from torchvision.ops import box_convert
 
-from composer.utils.import_helpers import MissingConditionalImportError
+from composer.utils import MissingConditionalImportError
 
 __all__ = ['MAP']
 

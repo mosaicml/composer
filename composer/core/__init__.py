@@ -19,13 +19,14 @@ from composer.core.precision import Precision, get_precision_context
 from composer.core.serializable import Serializable
 from composer.core.state import State
 from composer.core.time import Time, Timestamp, TimeUnit, ensure_time
-from composer.core.types import JSON, Batch, BreakEpochException, MemoryFormat, PyTorchScheduler, TrainerMode
+from composer.core.types import JSON, Batch, BreakEpochException, Dataset, MemoryFormat, PyTorchScheduler, TrainerMode
 
 __all__ = [
     'Algorithm',
     'AlgorithmPass',
     'Callback',
     'DataSpec',
+    'Dataset',
     'ensure_data_spec',
     'Engine',
     'Trace',

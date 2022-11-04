@@ -6,11 +6,10 @@
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from composer.core.state import State
+from composer.core import State
 from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import dist
-from composer.utils.import_helpers import MissingConditionalImportError
+from composer.utils import MissingConditionalImportError, dist
 
 __all__ = ['TensorboardLogger']
 

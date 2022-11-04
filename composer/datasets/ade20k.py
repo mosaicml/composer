@@ -19,13 +19,11 @@ from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
-from composer.core.data_spec import DataSpec
-from composer.core.types import MemoryFormat
+from composer.core import DataSpec, MemoryFormat
 from composer.datasets.streaming import StreamingDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
-from composer.utils import dist, warn_streaming_dataset_deprecation
-from composer.utils.import_helpers import MissingConditionalImportError
+from composer.utils import MissingConditionalImportError, dist, warn_streaming_dataset_deprecation
 
 __all__ = ['ADE20k', 'StreamingADE20k']
 
