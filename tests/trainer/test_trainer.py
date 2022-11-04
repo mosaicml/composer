@@ -23,11 +23,11 @@ from composer.callbacks import LRMonitor
 from composer.core import Event, Precision, State, Time, TimeUnit
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.imagenet import build_ffcv_imagenet_dataloader
+from composer.devices import Device
 from composer.loggers import InMemoryLogger, Logger, RemoteUploaderDownloader
 from composer.loss import soft_cross_entropy
 from composer.models import ComposerModel
 from composer.optim import ExponentialScheduler
-from composer.trainer.devices import Device
 from composer.trainer.trainer import _generate_run_name
 from composer.utils import dist, is_model_deepspeed, is_model_fsdp, map_collection, reproducibility
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,

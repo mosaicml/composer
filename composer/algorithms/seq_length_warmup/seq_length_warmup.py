@@ -12,9 +12,9 @@ import torch
 import torch.utils.data
 
 from composer.core import Algorithm, Batch, Event, State, TimeUnit, get_precision_context
+from composer.devices import DeviceGPU
 from composer.loggers import Logger
 from composer.models import HuggingFaceModel
-from composer.trainer.devices import DeviceGPU
 from composer.utils import dist, ensure_tuple
 
 log = logging.getLogger(__name__)
