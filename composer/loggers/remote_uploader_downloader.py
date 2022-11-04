@@ -17,14 +17,16 @@ import time
 import uuid
 import warnings
 from multiprocessing.context import SpawnProcess
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 from urllib.parse import urlparse
 
-from composer.core import State
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, S3ObjectStore, SFTPObjectStore,
                             dist, format_name_with_dist, get_file, retry)
+
+if TYPE_CHECKING:
+    from composer.core import State
 
 log = logging.getLogger(__name__)
 

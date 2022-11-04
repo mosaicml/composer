@@ -14,15 +14,17 @@ import sys
 import tempfile
 import textwrap
 import warnings
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 import torch
 
-from composer.core import State
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import MissingConditionalImportError, dist
+
+if TYPE_CHECKING:
+    from composer.core import State
 
 __all__ = ['WandBLogger']
 
