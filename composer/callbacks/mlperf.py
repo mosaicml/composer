@@ -16,8 +16,7 @@ import torch
 from torch.utils.data import DataLoader, IterableDataset
 
 import composer
-from composer.core import State
-from composer.core.callback import Callback
+from composer.core import Callback, State
 from composer.loggers import Logger
 from composer.utils import dist
 

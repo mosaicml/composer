@@ -10,9 +10,7 @@ from typing import Any, Callable, Optional, Union
 
 import torch
 
-from composer.core import State, Time
-from composer.core.callback import Callback
-from composer.core.time import TimeUnit
+from composer.core import Callback, State, Time, TimeUnit
 from composer.loggers import Logger
 
 log = logging.getLogger(__name__)

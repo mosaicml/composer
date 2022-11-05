@@ -14,9 +14,8 @@ from torchmetrics import Metric
 
 from composer.algorithms import ghost_batchnorm as ghostbn
 from composer.algorithms.ghost_batchnorm.ghost_batchnorm import GhostBatchNorm, _GhostBatchNorm
-from composer.core import Event, State
-from composer.core.types import Batch
-from composer.models.base import ComposerModel
+from composer.core import Batch, Event, State
+from composer.models import ComposerModel
 from composer.utils import module_surgery
 
 _GHOSTBN_MODULE_CLASS = _GhostBatchNorm

@@ -9,8 +9,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from composer.core import Precision, State
-from composer.core.types import Batch
+from composer.core import Batch, Precision, State
 from composer.loggers import Logger
 from tests.common import SimpleModel, assert_state_equivalent
 from tests.common.datasets import RandomClassificationDataset
