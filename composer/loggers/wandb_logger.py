@@ -131,6 +131,9 @@ class WandBLogger(LoggerDestination):
         name: str = 'Images',
         channels_last: bool = False,
         step: Optional[int] = None,
+        masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
+        mask_class_labels: Optional[Dict[int, str]] = None,
+        use_table: bool = True,
     ):
         if self._enabled:
             import wandb
@@ -139,10 +142,24 @@ class WandBLogger(LoggerDestination):
 
             # _convert_to_wandb_image doesn't include wrapping with wandb.Image to future
             # proof for when we support masks.
-            wandb_images = (_convert_to_wandb_image(image, channels_last) for image in images)
-            wandb_images = [wandb.Image(image) for image in wandb_images]
+            images_generator = (_convert_to_wandb_image(image, channels_last) for image in images)
 
-            wandb.log({name: wandb_images}, step=step)
+            if masks is not None:
+                masks = _preprocess_mask_data(masks, channels_last)
+                mask_dicts_generator = _generate_mask_dicts(masks, mask_class_labels)
+                wandb_images = (wandb.Image(im, masks=mask_dict) for 
+                                            im, mask_dict in zip(images_generator, mask_dicts_generator))
+
+            else:
+                wandb_images = (wandb.Image(image) for image in images_generator)
+
+            if use_table:
+                table = wandb.Table(columns=[name])
+                for wandb_image in wandb_images:
+                    table.add_data(wandb_image)
+                wandb.log({name + ' Table': table}, step=step)
+            else:
+                wandb.log({name: list(wandb_images)}, step=step)
 
     def state_dict(self) -> Dict[str, Any]:
         import wandb
@@ -336,3 +353,28 @@ def _convert_to_wandb_image(image: Union[np.ndarray, torch.Tensor], channels_las
         assert isinstance(image, np.ndarray)
         image = image.transpose(1, 2, 0)
     return image
+
+def _convert_to_wandb_mask(mask: Union[np.ndarray, torch.Tensor], channels_last: bool):
+    mask = _convert_to_wandb_image(mask, channels_last)
+    mask = mask.squeeze()
+    if mask.ndim != 2:
+        raise ValueError(f"Mask must be a 2D array, but instead got array of shape: {mask.shape}")
+    return mask
+
+def _preprocess_mask_data(masks: Dict, channels_last: bool):
+    for mask_name, mask_data in masks.items():
+        if not isinstance(mask_data, Sequence):
+            mask_data = mask_data.squeeze()
+            if mask_data.ndim == 2:
+                mask_data = [masks]
+        masks[mask_name] = (_convert_to_wandb_mask(mask, channels_last) for mask in mask_data)
+    return masks
+
+def _generate_mask_dicts(masks, mask_class_labels):
+    for all_masks_for_single_example in zip(*list(masks.values())):
+        mask_dict = {name: {"mask_data": mask} for name, mask in zip(masks.keys(), 
+                                                                    all_masks_for_single_example)}
+        if mask_class_labels is not None:
+            for k in mask_dict.keys():
+                mask_dict[k].update({'class_labels': mask_class_labels})
+        yield mask_dict
