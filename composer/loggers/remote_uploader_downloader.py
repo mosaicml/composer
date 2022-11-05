@@ -101,8 +101,8 @@ class RemoteUploaderDownloader(LoggerDestination):
                 'provider': 'google_storage',
                 'container': 'my-bucket',
                 'provider_kwargs=': {
-                    'key': 'my-gcs-hmac-key',
-                    'secret': 'my-gcs-hmac-secret',
+                    'key': 'AKIA...',
+                    'secret': '*********',
                 },
             },
         )
