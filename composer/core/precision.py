@@ -8,7 +8,7 @@ from typing import Generator, Union
 
 import torch
 
-from composer.utils.string_enum import StringEnum
+from composer.utils import StringEnum
 
 __all__ = ['Precision', 'get_precision_context']
 

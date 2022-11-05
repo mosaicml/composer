@@ -16,8 +16,7 @@ import torch
 import torch.utils.data
 import torchvision
 
-from composer.utils import dist
-from composer.utils.import_helpers import MissingConditionalImportError
+from composer.utils import MissingConditionalImportError, dist
 
 PATCH_SIZE = [1, 192, 160]
 
