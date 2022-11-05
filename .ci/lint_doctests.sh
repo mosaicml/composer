@@ -9,7 +9,7 @@ set -euxo pipefail
 pip install '.[all]'
 
 # Mark the root folder as trusted (necessarry for pre-commit hooks to work on Jenkins)
-git config --global --add safe.directory $WORKSPACE
+#git config --global --add safe.directory $WORKSPACE
 
 # Clean and make the output directory
 BUILD_DIR="build/output"
@@ -17,4 +17,5 @@ rm -rf ${BUILD_DIR}
 mkdir -p ${BUILD_DIR}
 
 # Run lint and doctests through pytest
+BUILD_NUMBER=0
 pytest $(dirname $0)/test_lint_doctests.py --junitxml ${BUILD_DIR}/build${BUILD_NUMBER}_lint_doctests.junit.xml
