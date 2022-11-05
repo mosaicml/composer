@@ -147,8 +147,8 @@ class WandBLogger(LoggerDestination):
             if masks is not None:
                 masks = _preprocess_mask_data(masks, channels_last)
                 mask_dicts_generator = _generate_mask_dicts(masks, mask_class_labels)
-                wandb_images = (wandb.Image(im, masks=mask_dict) for 
-                                            im, mask_dict in zip(images_generator, mask_dicts_generator))
+                wandb_images = (
+                    wandb.Image(im, masks=mask_dict) for im, mask_dict in zip(images_generator, mask_dicts_generator))
 
             else:
                 wandb_images = (wandb.Image(image) for image in images_generator)
@@ -354,14 +354,17 @@ def _convert_to_wandb_image(image: Union[np.ndarray, torch.Tensor], channels_las
         image = image.transpose(1, 2, 0)
     return image
 
+
 def _convert_to_wandb_mask(mask: Union[np.ndarray, torch.Tensor], channels_last: bool):
     mask = _convert_to_wandb_image(mask, channels_last)
     mask = mask.squeeze()
     if mask.ndim != 2:
-        raise ValueError(f"Mask must be a 2D array, but instead got array of shape: {mask.shape}")
+        raise ValueError(f'Mask must be a 2D array, but instead got array of shape: {mask.shape}')
     return mask
 
-def _preprocess_mask_data(masks: Dict, channels_last: bool):
+
+def _preprocess_mask_data(masks: Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]],
+                          channels_last: bool):
     for mask_name, mask_data in masks.items():
         if not isinstance(mask_data, Sequence):
             mask_data = mask_data.squeeze()
@@ -370,10 +373,10 @@ def _preprocess_mask_data(masks: Dict, channels_last: bool):
         masks[mask_name] = (_convert_to_wandb_mask(mask, channels_last) for mask in mask_data)
     return masks
 
-def _generate_mask_dicts(masks, mask_class_labels):
+
+def _generate_mask_dicts(masks: Dict[str, Union[np.ndarray, Sequence[np.ndarray]]], mask_class_labels: Dict[int, str]):
     for all_masks_for_single_example in zip(*list(masks.values())):
-        mask_dict = {name: {"mask_data": mask} for name, mask in zip(masks.keys(), 
-                                                                    all_masks_for_single_example)}
+        mask_dict = {name: {'mask_data': mask} for name, mask in zip(masks.keys(), all_masks_for_single_example)}
         if mask_class_labels is not None:
             for k in mask_dict.keys():
                 mask_dict[k].update({'class_labels': mask_class_labels})
