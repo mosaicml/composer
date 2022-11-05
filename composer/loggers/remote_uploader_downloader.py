@@ -94,18 +94,18 @@ class RemoteUploaderDownloader(LoggerDestination):
 
     .. testcode:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__
         from composer.loggers import RemoteUploaderDownloader
-        from composer.utils import LibcloudObjectStore
+        from composer.trainer import Trainer
+
         remote_uploader_downloader = RemoteUploaderDownloader(
-            bucket_uri="libcloud://my-bucket",
+            bucket_uri="libcloud://my-gcs-bucket",
             backend_kwargs={
-                'provider': 'google_storage',
-                'container': 'my-bucket',
-                'provider_kwargs=': {
-                    'key': 'AKIA...',
-                    'secret': '*********',
-                },
+                "provider": "google_storage",
+                "container": "my-gcs-bucket",
+                "key_environ": "MY_HMAC_ACCESS_ID", # Name of env variable for HMAC access id.
+                "secret_environ": "MY_HMAC_SECRET", # Name of env variable for HMAC secret.
             },
         )
+
         # Construct the trainer using this logger
         trainer = Trainer(
             ...,
