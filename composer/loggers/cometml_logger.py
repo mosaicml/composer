@@ -110,9 +110,16 @@ class CometMLLogger(LoggerDestination):
                    images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
                    name: str = 'Images',
                    channels_last: bool = False,
-                   step: Optional[int] = None):
+                   step: Optional[int] = None,
+                   masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor, 
+                                   Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
+                   mask_class_labels: Optional[Dict[int, str]] = None,
+                   use_table: bool = True,):
 
+        del use_table # Unused.
         if self._enabled:
+            if masks is not None or mask_class_labels is not None:
+                raise NotImplementedError("Comet does not support logging masks yet!")
             if not isinstance(images, Sequence) and images.ndim <= 3:
                 images = [images]
 
