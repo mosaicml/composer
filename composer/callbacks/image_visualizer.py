@@ -112,8 +112,8 @@ class ImageVisualizer(Callback):
         inputs = state.batch_get_item(key=self.input_key)
         # Verify inputs is a valid shape for conversion to an image
         if _check_for_image_format(inputs):
-            inputs = _make_input_images(inputs, self.num_images, self.channels_last)
-            logger.log_images(inputs, name=data_name, use_table=True)
+            inputs = _make_input_images(inputs, self.num_images, self.channels_last)``
+            logger.log_images(inputs, name=data_name, use_table=True, channels_last=self.channels_last)
 
     def _log_segmented_inputs(self, state: State, logger: Logger, data_name: str):
         inputs = state.batch_get_item(key=self.input_key)

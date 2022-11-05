@@ -106,20 +106,21 @@ class CometMLLogger(LoggerDestination):
             assert self.experiment is not None
             self.experiment.log_parameters(hyperparameters)
 
-    def log_images(self,
-                   images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
-                   name: str = 'Images',
-                   channels_last: bool = False,
-                   step: Optional[int] = None,
-                   masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor, 
-                                   Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
-                   mask_class_labels: Optional[Dict[int, str]] = None,
-                   use_table: bool = True,):
+    def log_images(
+        self,
+        images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
+        name: str = 'Images',
+        channels_last: bool = False,
+        step: Optional[int] = None,
+        masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
+        mask_class_labels: Optional[Dict[int, str]] = None,
+        use_table: bool = True,
+    ):
 
-        del use_table # Unused.
+        del use_table  # Unused.
         if self._enabled:
             if masks is not None or mask_class_labels is not None:
-                raise NotImplementedError("Comet does not support logging masks yet!")
+                raise NotImplementedError('Comet does not support logging masks yet!')
             if not isinstance(images, Sequence) and images.ndim <= 3:
                 images = [images]
 
@@ -140,7 +141,7 @@ def _convert_to_comet_image(image: Union[np.ndarray, torch.Tensor]):
     # Error out for empty arrays or weird arrays of dimension 0.
     if np.any(np.equal(image.shape, 0)):
         raise ValueError(f'Got an image (shape {image.shape}) with at least one dimension being 0! ')
-
+    image = image.squeeze()
     if image.ndim > 3:
         raise ValueError(
             textwrap.dedent(f'''Input image must be 1, 2, or 3 dimensions, but instead got
