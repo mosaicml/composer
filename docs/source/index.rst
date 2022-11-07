@@ -133,6 +133,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/gated_linear_units.md
    method_cards/ghost_batchnorm.md
    method_cards/gradient_clipping.md
+   method_cards/gyro_dropout.md
    method_cards/label_smoothing.md
    method_cards/layer_freezing.md
    method_cards/mixup.md
