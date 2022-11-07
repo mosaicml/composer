@@ -137,7 +137,7 @@ class GyroDropout(Algorithm):
         apply_gyro_dropout(model=state.model,
                            optimizers=state.optimizers,
                            iters_per_epoch=self.iters_per_epoch,
-                           max_epoch=self.max_epoch
+                           max_epoch=self.max_epoch,
                            p=self.p,
                            sigma=self.sigma,
                            tau=self.tau,
