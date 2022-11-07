@@ -23,11 +23,11 @@ import composer.functional as cf
 def training_loop(model, train_loader):
     cf.apply_gyro_dropout(
         model,
+        iters_per_epoch = 196,
+        max_epoch = 100,
         p = 0.5
         sigma = 256,
         tau = 16,
-        iters_per_epoch = 196,
-        max_epoch = 100,
         )
 
     opt = torch.optim.Adam(model.parameters())
@@ -52,7 +52,7 @@ trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   eval_dataloader=eval_dataloader,
                   max_duration='100ep',
-                  algorithms=[GyroDropout(0.5, 256, 16, 196, 100)])
+                  algorithms=[GyroDropout(196, 100, 0.5, 256, 16)])
 
 trainer.fit()
 ```
