@@ -10,6 +10,6 @@
             "cv"
         ],
         "summary": "By masking Dropout layer, this usually improves accuracy.",
-        "use": "2D Convolutional Neural Networks"
+        "use": "Neural Networks that uses dropout"
     }
 }
