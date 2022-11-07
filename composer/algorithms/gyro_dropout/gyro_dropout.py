@@ -1,8 +1,5 @@
 # Copyright 2022  Gihyun Park, Junyeol Lee, and Jiwon Seo
 # SPDX-License-Identifier: Apache-2.0
-
-from __future__ import annotations
-
 import logging
 import warnings
 from typing import Dict, Optional, Sequence, Type, Union
@@ -20,16 +17,16 @@ log = logging.getLogger(__name__)
 
 
 class GyroDropoutLayer(torch.nn.Module):
-    def __init__(self, p=0.5, sigma=256, tau=16, iters_per_epoch=196, max_epoch=100):
+    def __init__(self, iters_per_epoch: int, max_epoch: int, p:float, sigma:int, tau:int):
         super(GyroDropoutLayer, self).__init__()    
 
         self.sigma = sigma
         self.tau = tau
         self.p = p
-        self.mask_list = None
+        self.preselect_masks = None
         self.dropout_mask = None
         self.training_step = 0
-        self.training_period = 0
+        self.iter_num = 0
         self.max_epoch = max_epoch
         self.iters_per_epoch = iters_per_epoch
         
@@ -39,20 +36,17 @@ class GyroDropoutLayer(torch.nn.Module):
                 is_cuda_tensor = x.is_cuda
 
                 if is_cuda_tensor:
-                    #self.preselect_masks = ...
-                    self.mask_list = (torch.rand(self.sigma, x.shape[1]) > self.p).float().to("cuda")
+                    self.preselect_masks = (torch.rand(self.sigma, x.shape[1]) > self.p).float().to("cuda")
                 else:
-                    self.mask_list = (torch.rand(self.sigma, x.shape[1]) > self.p).float()
+                    self.preselect_masks = (torch.rand(self.sigma, x.shape[1]) > self.p).float()
                 
-                self.training_period = int(self.iters_per_epoch * self.max_epoch / self.sigma) * self.tau
-                # training_period --> iter_num
+                self.iter_num = int(self.iters_per_epoch * self.max_epoch / self.sigma) * self.tau
                 # above simplified from: (iters_per_epoch*max_epoch*batch_size/sigma) / (batch_size/self.tau) 
-            if self.training_step % self.training_period == 0:
+            if self.training_step % self.iter_num == 0:
                 pick_idx = np.random.choice(self.sigma, self.tau)
-                self.picked_subnets = self.mask_list[pick_idx]
-                # self.selected_masks = ...
+                self.selected_masks = self.preselect_masks[pick_idx]
 
-            self.dropout_mask = torch.repeat_interleave(self.picked_subnets, x.shape[0] // self.tau, dim=0)
+            self.dropout_mask = torch.repeat_interleave(self.selected_masks, x.shape[0] // self.tau, dim=0)
 
             self.training_step += 1          
 
@@ -68,11 +62,11 @@ def from_Dropout(p: float, sigma: int, tau: int, num_iterations: int, epoch:int,
 
 
 def apply_gyro_dropout(model: torch.nn.Module, 
+                       iters_per_epoch: int,
+                       max_epoch: int,
                        p: float=0.5,
-                       sigma: int=1024, 
-                       tau: int=4, 
-                       iters_per_epoch: int=196, 
-                       max_epoch: int=100,
+                       sigma: int=256, 
+                       tau: int=16, 
                        optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,) -> None:
     """Replaces all instances of `torch.nn.Dropout` with a `GyroDropout`.
 
@@ -80,7 +74,7 @@ def apply_gyro_dropout(model: torch.nn.Module,
     """  
     # prepare the replacement policy and perform replacement
     from functools import partial
-    policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {torch.nn.Dropout: partial(from_Dropout, p, sigma, tau, iters_per_epoch, max_epoch)}
+    policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {torch.nn.Dropout: partial(from_Dropout, iters_per_epoch, max_epoch, p, sigma, tau)}
     replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
     if len(replaced_instances) == 0:
         warnings.warn(
@@ -93,27 +87,24 @@ class GyroDropout(Algorithm):
     """Replaces all instances of `torch.nn.Dropout` with a `GyroDropout`.
 
     By masking Dropout layer, this usually improves accuracy.
- 
-    #########Runs on ``Event.INIT``, so it can replace all instances of `torch.nn.Dropout` before the model is DDP wrapped. Has no hyperparameters.
 
+    Args:
+        iters_per_epoch (int): Total iterations per an epoch.
+        max_epoch (int): Total epoches in training.
+        p (float, optional): Float number of ratio to dropout.
+            Default: ``0.5``.
+        sigma (int, optional): the number of total pre-selected subnetwork
+            Default: ``256``.
+        tau (int, optional): the number of concurrently scheduled subnetworks in an iteration
+            Default: ``16``.
+            
     Example:
-        .. testsetup::
-
-           def no_op(self, *args): pass
-
-           from composer.algorithms import GyroDropout
-
-           GyroDropout.__init__ = no_op
-
-           GyroDropout.apply = no_op
-
-           model, train_dataloader, optimizer = _make_synthetic_bert_state()
-
+           
         .. testcode::
 
            from composer.algorithms import GyroDropout
 
-           algorithm = GyroDropout(p=0.5, sigma=256, tau=16, iters_per_epoch=196, max_epoch=100)
+           algorithm = GyroDropout(iters_per_epoch=196, max_epoch=100, p=0.5, sigma=256, tau=16)
            trainer = Trainer(
                model=model,
                train_dataloader=train_dataloader,
@@ -123,7 +114,7 @@ class GyroDropout(Algorithm):
            )
     """
 
-    def __init__(self, p, sigma, tau, iters_per_epoch, max_epoch):  # XXX: add default faluse. change the order of arguments
+    def __init__(self, iters_per_epoch:int, max_epoch:int, p:float, sigma:int, tau:int):  # XXX: add default faluse. change the order of arguments
         self.p = p 
         self.sigma = sigma
         self.tau = tau
@@ -145,9 +136,9 @@ class GyroDropout(Algorithm):
         del event, logger  # unused   XXX: not sure if this is correct. Copied from FusedLayerNorm.
         apply_gyro_dropout(model=state.model,
                            optimizers=state.optimizers,
+                           iters_per_epoch=self.iters_per_epoch,
+                           max_epoch=self.max_epoch
                            p=self.p,
                            sigma=self.sigma,
                            tau=self.tau,
-                           iters_per_epoch=self.iters_per_epoch,
-                           max_epoch=self.max_epoch
         )
