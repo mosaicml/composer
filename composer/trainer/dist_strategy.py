@@ -78,6 +78,7 @@ def ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Uni
 
     if sync_strategy == DDPSyncStrategy.SINGLE_AUTO_SYNC:
         context = auto_sync_context if is_final_microbatch else no_sync_context
+        print ("in ddp sync context, final is: ", is_final_microbatch, "is sync auto: ", context is auto_sync_context)
         with context():
             yield
 
@@ -176,9 +177,62 @@ def rank_sync_wrapper(
                 return fut.then(raise_timeout_error)
             else:
                 raise
+        print ("exiting sync")
+        print ("bucket is: ", bucket.is_last(), "length of parameters is: ", len(bucket.parameters()))
+        print ("length of gradients is: ", len(bucket.gradients()))
+        # for param in bucket.parameters():
+
         return hook(hook_state['nested_state'], bucket)
 
     return rank_sync_wrapper_hook
+
+def fsdp_sync_wrapper(
+    hook: Callable[torch_dist.GradBucket, torch.futures.Future[torch.Tensor]]
+) -> Callable[torch_dist.GradBucket, torch.futures.Future[torch.Tensor]]:
+    """Wrapper to insert monitored_barrier if using adaptive gradient accumulation.
+
+    If a subset of ranks OOM, this monitored barrier fails and the error is caught so training can
+    continue. Otherwise, two ranks would enter different barriers, resulting in deadlock.
+    """
+    
+    def fsdp_sync_wrapper_hook(hook_state, bucket: torch_dist.GradBucket) -> torch.futures.Future[torch.Tensor]:
+        # print('enter sync, with bucket size: ', bucket.size())
+        print ("type of bucket is: ", type(bucket))
+        try:
+            if hook_state['hook_error']:
+                raise RuntimeError('Timed out')
+            # Only put barrier in front of first bucket
+            # if bucket.index() == 0:
+            print('Enter barrier')
+            print ('hook state is: ', hook_state['group'])
+            dist.barrier(group=hook_state['group'])
+            print('Exit barrier')
+            # Raise error because barrier in first bucket failed to go to no-op
+        except RuntimeError as e:
+            # barrier was tripped
+            if 'Socket Timeout' in str(e):
+                # if bucket.index() == 0:
+                hook_state['hook_error'] = True
+
+                def raise_timeout_error(fut):
+                    del fut
+                    raise e
+
+                # Use a no-op hook and return the same gradients already on the device. If we don't
+                # do the reduction, PyTorch will raise an internal error on the next backward pass
+                # as the previous reduction hasn't been completed. After completing the no-op
+                # reduction, re-raise the timeout error.
+                fut = torch.futures.Future()
+                fut.set_result(bucket)
+                # fut.set_result(bucket.buffer())
+                return fut.then(raise_timeout_error)
+            else:
+                raise
+        print ("exiting sync")
+
+        return hook(hook_state["comm_hook_state"], bucket)
+
+    return fsdp_sync_wrapper_hook
 
 
 def get_torch_dtype(dtype: Union[Precision, str]):
@@ -196,7 +250,8 @@ def get_torch_dtype(dtype: Union[Precision, str]):
 
 def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch.optim.Optimizer,
                                                                            Sequence[torch.optim.Optimizer]]],
-                        fsdp_config: Dict[str, Any], precision: Precision) -> None:
+                        fsdp_config: Dict[str, Any], precision: Precision,
+                        dist_callback_obj: JSON,) -> None:
     """Prepare a module (assumed ComposerModel) and optimizer for use with :class:`torch.distributed.fsdp.FullyShardedDataParallel`.
 
     Args:
@@ -299,6 +354,10 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                 param_init_fn=_param_init_fn,
                 device_id=torch.cuda.current_device(),
             )
+
+            comm_hook = fsdp_obj._get_default_comm_hook()
+            dist_callback_obj["comm_hook_state"] = fsdp_obj._get_default_comm_hook_state()
+            fsdp_obj.register_comm_hook(dist_callback_obj, fsdp_sync_wrapper(comm_hook))
 
             # Activation Checkpointing
             if activation_checkpointing or activation_cpu_offload:

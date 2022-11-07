@@ -54,6 +54,8 @@ from composer.utils.device import get_device, is_tpu_installed
 from composer.utils.file_helpers import get_file
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.inference import ExportFormat, Transform, export_with_logger
+from torch.distributed.algorithms.ddp_comm_hooks.default_hooks import allreduce_hook
+
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -900,6 +902,8 @@ class Trainer:
             precision = Precision(precision)
         _validate_precision(precision, self._device, self.deepspeed_enabled)
 
+        self.dist_callback_obj = {'nested_state': None, 'group': None} # TODO: is nested_state needed
+
         # Distributed
         if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
@@ -908,7 +912,7 @@ class Trainer:
 
         # Handle FSDP sharding
         if self.fsdp_config is not None:
-            prepare_fsdp_module(model, optimizers, self.fsdp_config, precision)
+            prepare_fsdp_module(model, optimizers, self.fsdp_config, precision, self.dist_callback_obj)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, self._device)
@@ -929,7 +933,6 @@ class Trainer:
         if num_optimizers != 1:
             raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
-        self.dist_callback_obj = {'nested_state': None, 'group': None} # TODO: is nested_state needed
         # Move the model and optimizers to the device
         if not (self.deepspeed_enabled or self.fsdp_enabled):
             # check if model is already on tpu
@@ -942,7 +945,7 @@ class Trainer:
                 # It is possible that optimizer initialize created some internal tensors on CPU
                 # that need to be moved onto GPU.
             optimizers = map_collection(optimizers, self._device.optimizer_to_device)
-
+        
         # Grad Accum
         auto_grad_accum = _is_auto_grad_accum(grad_accum, device=self._device)
         if auto_grad_accum and profiler:
@@ -1947,7 +1950,7 @@ class Trainer:
             print('\t run for loop')
             # TODO: Only reinitialize group if necessary -- set was grad accum updated in dist_callback_obj
             self.dist_callback_obj['group'] = torch.distributed.new_group(backend='gloo',
-                                                                    timeout=datetime.timedelta(seconds=30))
+                                                                timeout=datetime.timedelta(seconds=5))
             self.dist_callback_obj['hook_error'] = False
             # Reset train_metrics on every batch
             # Placing reset here ensures that if auto grad accum catches an OOM, incomplete metric state is cleared
@@ -2008,13 +2011,15 @@ class Trainer:
                 found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
                 dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
                 print('Found OOM Status:', found_cuda_oom.item())
-                if found_cuda_oom.item() == 1:
+                # if found_cuda_oom.item() == 1:
+                if found_cuda_oom.item() >= 1:
                     device_batch_size = self._train_data_spec.get_num_samples_in_batch(device_batch)
                     _adjust_grad_accum(self.state, device_batch_size)
                     # Skip return and rerun after handling oom
                     continue
             # Log grad_accum and return loss if we've completed without OOMing.
             self.logger.log_metrics({'trainer/grad_accum': self.state.grad_accum})
+            assert False
             return total_loss_dict
 
     def _train_microbatches(self,
@@ -2065,6 +2070,7 @@ class Trainer:
                 print('\t pre train microbatch', microbatch_idx)
                 microbatch_loss_dict = self._train_microbatch(use_grad_scaling, current_batch_size, is_final_microbatch)
                 print('\t post train microbatch', microbatch_idx)
+                print ("")
                 # Aggregate each loss in microbatch_loss_dict into total_loss_dict
                 for k, microbatch_loss in microbatch_loss_dict.items():
                     loss_key = f'loss/train/{k}'
