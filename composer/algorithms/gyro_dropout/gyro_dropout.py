@@ -64,9 +64,9 @@ def from_Dropout(p: float, sigma: int, tau: int, num_iterations: int, epoch:int,
 def apply_gyro_dropout(model: torch.nn.Module, 
                        iters_per_epoch: int,
                        max_epoch: int,
-                       p: float=0.5,
-                       sigma: int=256, 
-                       tau: int=16, 
+                       p: float,
+                       sigma: int, 
+                       tau: int, 
                        optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,) -> None:
     """Replaces all instances of `torch.nn.Dropout` with a `GyroDropout`.
 
@@ -114,7 +114,7 @@ class GyroDropout(Algorithm):
            )
     """
 
-    def __init__(self, iters_per_epoch:int, max_epoch:int, p:float, sigma:int, tau:int):  # XXX: add default faluse. change the order of arguments
+    def __init__(self, iters_per_epoch: int, max_epoch: int, p: float=0.5, sigma: int=256, tau: int=16):  # XXX: add default faluse. change the order of arguments
         self.p = p 
         self.sigma = sigma
         self.tau = tau
