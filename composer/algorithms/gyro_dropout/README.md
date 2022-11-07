@@ -1,4 +1,4 @@
-# 🍰 Fused LayerNorm
+# 🍰 Gyro Dropout
 
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
@@ -7,12 +7,9 @@
 
 Gyro Dropout replaces implementations of `torch.nn.Dropout`. The Gyro Dropout provides increased accuracy compared with dropout.
 
-| ![GyroDropout](https://miro.medium.com/max/1200/0*ugfR_r4J9PK8tXNb)|
-|:--|
-|*A visualization of the structure of Gyro dropout.*|
 Gyro dropout is a variant of dropout that improves the efficiency of training neural networks
 Instead of randomly dropping out neurons in every training iteration, gyro dropout pre-selects and trains a fixed
-number of subnetwork. 'Tau' is the number of pre-selected subnetworks and 'Sigma' is the number of concurrently scheduled subnetworks int an iteration
+number of subnetwork. 'Sigma' is the number of total pre-selected subnetworks and 'Tau' is the number of concurrently scheduled subnetworks in an iteration
 
 ## How to Use
 
@@ -26,9 +23,11 @@ import composer.functional as cf
 def training_loop(model, train_loader):
     cf.apply_gyro_dropout(
         model,
-        sigma = 512,
-        tau = 4,
-        max_iteration = 196
+        p = 0.5
+        sigma = 256,
+        tau = 16,
+        iters_per_epoch = 196,
+        max_epoch = 100,
         )
 
     opt = torch.optim.Adam(model.parameters())
@@ -53,7 +52,7 @@ trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   eval_dataloader=eval_dataloader,
                   max_duration='100ep',
-                  algorithms=[GyroDropout(512, 4, 196)])
+                  algorithms=[GyroDropout(0.5, 256, 16, 196, 100)])
 
 trainer.fit()
 ```
@@ -64,14 +63,11 @@ Gyro Dropout is implemented by performing model surgery, which looks for instanc
 
 ## Suggested Hyperparameters
 
-Gyro Dropout has three hyperparameters - tau, sigma, num_iterations.
-###tau -> sigma sigma->tau 고치기
-###tau is the number of total pre-selected subnetworks
-tau is the number of pre-selected subnetworks
-sigma is the number of concurrently scheduled subnetworks in an iteration
-num_iterations is the number of iterations in an epoch.
+Gyro Dropout has two hyperparameters - sigma, tau. (iters_per_epoch and max_epoch is training dependent)
 
-These make subnetworks mask for gyro dropout.
+We recommend (256, 16) or (1024, 8) as hyperparameter set - (sigma, tau)
+
+But there may be another (sigma, tau) set that matches other models.
 
 ## Technical Details
 GyroDropout achieves improved accuracy over conventional dropout by pre-selecting a fixed number of subnetworks and training with only those subnetworks. Because the selected subnetworks are trained more robustly (compared to the conventional dropout cases), their diversity increases and thus their ensemble achieves higher accuracy.
