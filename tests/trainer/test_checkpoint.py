@@ -153,8 +153,8 @@ class TestCheckpointSaving:
             with pytest.warns(UserWarning):
                 trainer = self.get_trainer(save_folder='s3://bucket_name/{run_name}/checkpoints',
                                            loggers=[
-                                               RemoteUploaderDownloader(
-                                                   's3://bucket_name', file_path_format_string='{run_name}/checkpoints')
+                                               RemoteUploaderDownloader('s3://bucket_name',
+                                                                        file_path_format_string='{remote_file_name}')
                                            ])
         else:
             trainer = self.get_trainer(save_folder='s3://bucket_name/{run_name}/checkpoints')

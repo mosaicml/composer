@@ -18,14 +18,12 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets import ImageFolder, VisionDataset
 
-from composer.core.data_spec import DataSpec
-from composer.core.types import MemoryFormat
+from composer.core import DataSpec, MemoryFormat
 from composer.datasets.ffcv_utils import ffcv_monkey_patches, write_ffcv_dataset
 from composer.datasets.streaming import StreamingDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
-from composer.utils import dist, warn_streaming_dataset_deprecation
-from composer.utils.import_helpers import MissingConditionalImportError
+from composer.utils import MissingConditionalImportError, dist, warn_streaming_dataset_deprecation
 
 __all__ = [
     'StreamingImageNet1k',
@@ -120,7 +118,7 @@ def build_synthetic_imagenet_dataloader(
         batch_size (int): Batch size per device.
         num_unique_samples (int): number of unique samples in synthetic dataset. Default: ``100``.
         device (str): device with which to load the dataset. Default: ``cpu``.
-        memory_format (MemoryFormat): memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
+        memory_format (:class:`composer.core.MemoryFormat`): memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
         is_train (bool): Whether to load the training data or validation data. Default:
             ``True``.
         crop size (int): The crop size to use. Default: ``224``.

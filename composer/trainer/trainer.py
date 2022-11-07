@@ -31,29 +31,21 @@ from torchmetrics import Metric
 
 from composer.algorithms import GradientClipping
 from composer.callbacks import CheckpointSaver, GradMonitor
-from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp,
-                           ensure_data_spec, ensure_evaluator, ensure_time)
-from composer.core.passes import AlgorithmPass
-from composer.core.precision import get_precision_context
-from composer.core.time import TimeUnit
-from composer.core.types import Batch, BreakEpochException, PyTorchScheduler, TrainerMode
-from composer.loggers import Logger, LoggerDestination, ProgressBarLogger, WandBLogger
-from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
-from composer.models.base import ComposerModel
-from composer.optim.decoupled_weight_decay import DecoupledSGDW
-from composer.optim.scheduler import ComposerScheduler, compile_composer_scheduler
+from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException, Callback, DataSpec, Engine, Evaluator,
+                           Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
+                           ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context)
+from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
+from composer.loggers import Logger, LoggerDestination, ProgressBarLogger, RemoteUploaderDownloader, WandBLogger
+from composer.models import ComposerModel
+from composer.optim import ComposerScheduler, DecoupledSGDW, compile_composer_scheduler
 from composer.profiler import Profiler
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
-from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
-from composer.utils import (ObjectStore, S3ObjectStore, checkpoint, dist, ensure_tuple, format_name_with_dist,
-                            map_collection, model_eval_mode, reproducibility)
-from composer.utils.device import get_device, is_tpu_installed
-from composer.utils.file_helpers import get_file
-from composer.utils.import_helpers import MissingConditionalImportError
-from composer.utils.inference import ExportFormat, Transform, export_with_logger
+from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, S3ObjectStore, Transform,
+                            checkpoint, dist, ensure_tuple, export_with_logger, format_name_with_dist, get_device,
+                            get_file, is_tpu_installed, map_collection, model_eval_mode, reproducibility)
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -746,7 +738,7 @@ class Trainer:
 
             .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
-            (default: ``15.0``)
+            (default: ``1800.0``)
         ddp_sync_strategy (str | DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
             Leave unset to let the trainer auto-configure this. See :class:`.DDPSyncStrategy`
             for more details.
@@ -851,7 +843,7 @@ class Trainer:
         deterministic_mode: bool = False,
 
         # Distributed Training
-        dist_timeout: float = 300.0,
+        dist_timeout: float = 1800.0,
         ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
 
         # Grad Clip Norm
@@ -1013,6 +1005,17 @@ class Trainer:
 
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
+
+        if save_latest_filename is not None:
+            remote_ud_has_format_string = [
+                isinstance(logger_destination, RemoteUploaderDownloader) and
+                logger_destination.file_path_format_string != '{remote_file_name}'
+                for logger_destination in self.logger.destinations
+            ]
+            if any(remote_ud_has_format_string):
+                raise ValueError(
+                    'Specifying a `file_path_format_string` to a `RemoteUploaderDownloader` is not currently supported while using `save_latest_filename`. '
+                    'Please specify the path formatting via `save_folder`, `save_filename`, and `save_latest_filename`')
 
         # Callbacks
         self.state.callbacks[:] = list(cast(List[Callback], loggers)) + self.state.callbacks
@@ -1214,6 +1217,15 @@ class Trainer:
                 raise ValueError(
                     'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
                 )
+
+            remote_ud_has_multiple_concurrent_uploads = [
+                isinstance(logger_destination, RemoteUploaderDownloader) and
+                logger_destination._num_concurrent_uploads != 1 for logger_destination in self.logger.destinations
+            ]
+            if any(remote_ud_has_multiple_concurrent_uploads):
+                raise ValueError(
+                    'Multiple concurrent uploads is not currently supported when using autoresume. Please set `num_concurrent_uploads` to 1 '
+                    'for all `RemoteUploaderDownloader` instances.')
             assert latest_remote_file_name is not None
             autoresume_checkpoint_path = self._get_autoresume_checkpoint(
                 save_folder=save_folder,

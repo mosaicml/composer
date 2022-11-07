@@ -6,8 +6,8 @@ from typing import Dict, List, Tuple, Union
 import pytest
 import torch
 
-from composer.trainer.devices import DeviceCPU, DeviceGPU
-from composer.trainer.devices.device import _map_batch
+from composer.devices import DeviceCPU, DeviceGPU
+from composer.devices.device import _map_batch
 from tests.common import device
 
 

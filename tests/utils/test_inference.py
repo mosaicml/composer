@@ -15,11 +15,11 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from composer.core import State
+from composer.devices import DeviceCPU
 from composer.functional import apply_gated_linear_units
 from composer.loggers import InMemoryLogger, Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.models import composer_resnet
-from composer.trainer.devices import DeviceCPU
 from composer.trainer.dist_strategy import prepare_ddp_module
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, export_with_logger, inference

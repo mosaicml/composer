@@ -78,7 +78,7 @@ install_requires = [
     'torchmetrics>=0.7.0,<0.10.0',
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.10.0',  # torchvision has strict pytorch requirements
-    'torch>=1.10,<2',
+    'torch>=1.10,<1.13',
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<1.23.0',
     'psutil>=5.8.0,<6',
@@ -131,7 +131,7 @@ extra_deps['dev'] = [
     'GitPython==3.1.28',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
-    'cryptography==38.0.1',
+    'cryptography==38.0.3',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
 ]
