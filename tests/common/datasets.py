@@ -74,3 +74,38 @@ class RandomImageDataset(VisionDataset):
             return self.transform(x), y
         else:
             return x, y
+
+
+class RandomTextDataset(torch.utils.data.Dataset):
+    """ Text classification dataset with values (just input token ids) drawn uniformly
+    Args:
+        vocab_size (int): vocab size to use (default: 10)
+        size (int): number of samples (default: 100)
+        num_classes (int): number of classes (default: 2)
+        sequence_length (int): sequence length to use, all sequences will be of this length with no padding (default: 8)
+    """
+
+    def __init__(self, size: int = 100, vocab_size: int = 10, sequence_length: int = 8, num_classes: int = 2):
+        self.vocab_size = vocab_size
+        self.sequence_length = sequence_length
+        self.num_classes = num_classes
+
+        self.size = size
+        self.x = None
+        self.y = None
+
+        super().__init__()
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index: int):
+        if self.x is None:
+            self.x = torch.randint(low=0, high=self.vocab_size, size=(self.size, self.sequence_length))
+        if self.y is None:
+            self.y = torch.randint(low=0, high=self.num_classes, size=(self.size,))
+
+        x = self.x[index]
+        y = self.y[index]
+
+        return x, y
