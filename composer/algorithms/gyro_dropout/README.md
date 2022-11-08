@@ -63,11 +63,11 @@ Gyro Dropout is implemented by performing model surgery, which looks for instanc
 
 ## Suggested Hyperparameters
 
-Gyro Dropout has two hyperparameters - sigma, tau. (iters_per_epoch and max_epoch is training dependent)
+Gyro Dropout has two hyperparameters - sigma, tau. (iters_per_epoch and max_epoch is training-dependent)
 
-We recommend (256, 16) or (1024, 8) as hyperparameter set - (sigma, tau)
+We recommend (256, 16) or (1024, 8) as hyperparameter set (sigma, tau)
 
-But there may be another (sigma, tau) set that matches other models.
+But there may be another (sigma, tau) set that achieves higher accuracy for other models.
 
 ## Technical Details
 GyroDropout achieves improved accuracy over conventional dropout by pre-selecting a fixed number of subnetworks and training with only those subnetworks. Because the selected subnetworks are trained more robustly (compared to the conventional dropout cases), their diversity increases and thus their ensemble achieves higher accuracy.
