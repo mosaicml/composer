@@ -131,7 +131,7 @@ trainer = Trainer(model=model,
                   eval_dataloader=eval_dataloader,
                   max_duration='100ep',
                   optimizers=optimizer,
-                  algorithms=[GyroDropout(196, 100)]
+                  algorithms=[GyroDropout(iters_per_epoch=196, max_epoch=100)]
                 )
 
 trainer.fit()
