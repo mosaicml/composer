@@ -18,8 +18,6 @@ import pytest
 def check_output(proc: subprocess.CompletedProcess):
     # Check the subprocess output, and raise an exception with the stdout/stderr dump if there was a non-zero exit
     # The `check=True` flag available in `subprocess.run` does not print stdout/stderr
-    if proc.returncode == 0:
-        return
     error_msg = textwrap.dedent(f"""\
         Command {proc.args} failed with exit code {proc.returncode}.
         ----Begin stdout----
@@ -28,6 +26,9 @@ def check_output(proc: subprocess.CompletedProcess):
         ----Begin stderr----
         {proc.stderr}
         ----End stderr------""")
+    print(error_msg)
+    if proc.returncode == 0:
+        return
 
     raise RuntimeError(error_msg)
 
@@ -41,14 +42,6 @@ def test_run_pre_commit_hooks():
             capture_output=True,
             text=True,
         ))
-
-
-def test_run_doctests():
-    docs_folder = pathlib.Path(os.path.dirname(__file__)) / '..' / 'docs'
-    check_output(subprocess.run(['make', 'clean'], cwd=docs_folder, capture_output=True, text=True))
-    # Must build the html first to ensure that doctests in .. autosummary:: generated pages are included
-    check_output(subprocess.run(['make', 'html'], cwd=docs_folder, capture_output=True, text=True))
-    check_output(subprocess.run(['make', 'doctest'], cwd=docs_folder, capture_output=True, text=True))
 
 
 def test_docker_build_matrix():
