@@ -175,7 +175,7 @@ class CometMLLogger(LoggerDestination):
             self.experiment.end()
 
 
-def _convert_to_comet_image(image: Union[np.ndarray, torch.Tensor]):
+def _convert_to_comet_image(image: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
     if isinstance(image, torch.Tensor):
         image = image.data.cpu()
     # Error out for empty arrays or weird arrays of dimension 0.
@@ -191,7 +191,7 @@ def _convert_to_comet_image(image: Union[np.ndarray, torch.Tensor]):
                              list of {image.ndim}D images. Please specify either a 4D
                              image of a list of 3D images'''))
 
-    return image
+    return torch.Tensor(image)
 
 
 def _convert_to_comet_mask(mask: Union[np.ndarray, torch.Tensor]):

@@ -88,8 +88,8 @@ class Logger:
                 time of logging. Defaults to None. If not specified the specific
                 LoggerDestination implementation will choose a step (usually a running
                 counter).
-            masks (Dict[str, np.ndarray | torch.Tensor | Sequence[np.ndarray | torch.Tensor]], optional):
-                A dictionary mapping the mask name (e.g. predictions or ground truth) to a sequence of masks.
+            masks (Dict[str, np.ndarray | torch.Tensor | Sequence[np.ndarray | torch.Tensor]], optional): A dictionary
+                mapping the mask name (e.g. predictions or ground truth) to a sequence of masks.
             mask_class_labels (Dict[int, str], optional): Dictionary mapping label id to its name. Used for labelling
                 each color in the mask.
             use_table (bool): Whether to make a table of the images or not. (default: ``True``). Only for use

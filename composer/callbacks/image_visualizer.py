@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Monitor train and eval images."""
-from typing import Any, Callable, Tuple, Union
+from typing import Any, Callable, Sequence, Tuple, Union
 
 import torch
 
@@ -112,13 +112,14 @@ class ImageVisualizer(Callback):
         inputs = state.batch_get_item(key=self.input_key)
         # Verify inputs is a valid shape for conversion to an image
         if _check_for_image_format(inputs):
-            inputs = _make_input_images(inputs, self.num_images, self.channels_last)``
+            inputs = _make_input_images(inputs, self.num_images, self.channels_last)
             logger.log_images(inputs, name=data_name, use_table=True, channels_last=self.channels_last)
 
     def _log_segmented_inputs(self, state: State, logger: Logger, data_name: str):
         inputs = state.batch_get_item(key=self.input_key)
         targets = state.batch_get_item(key=self.target_key)
         outputs = state.outputs
+        assert isinstance(outputs, torch.Tensor)
 
         images, masks = _make_segmentation_images(inputs, targets, outputs, self.num_images, self.channels_last)
         # Only log to the wandb logger if it is available
@@ -160,9 +161,11 @@ def _make_input_images(inputs: torch.Tensor, num_images: int, channels_last: boo
 
 def _make_segmentation_images(inputs: torch.Tensor,
                               targets: torch.Tensor,
-                              outputs: torch.Tensor,
+                              outputs: Union[torch.Tensor, Sequence[torch.Tensor]],
                               num_images: int,
                               channels_last: bool = False):
+    if isinstance(outputs, Sequence):
+        outputs = torch.stack(list(outputs))
     # import wandb
     if min([inputs.shape[0], targets.shape[0], outputs.shape[0]]) < num_images:
         num_images = min([inputs.shape[0], targets.shape[0], outputs.shape[0]])
@@ -191,7 +194,6 @@ def _make_segmentation_images(inputs: torch.Tensor,
     targets[targets < 0] = num_classes
 
     return images, {'prediction': outputs, 'ground_truth': targets}
-
 
 
 def _check_for_image_format(data: torch.Tensor) -> bool:
