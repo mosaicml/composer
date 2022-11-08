@@ -8,8 +8,7 @@ from typing import Dict, Union
 
 import torch.cuda
 
-from composer.core import State
-from composer.core.callback import Callback
+from composer.core import Callback, State
 from composer.loggers import Logger
 
 log = logging.getLogger(__name__)

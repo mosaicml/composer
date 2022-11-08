@@ -1,14 +1,16 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import List, Type
+from typing import List, Sequence, Type
 from unittest.mock import Mock
 
 import pytest
 
-from composer import Algorithm, Engine, Event, Logger, State
-from composer.algorithms import FusedLayerNorm, SelectiveBackprop
+from composer import Algorithm, Engine, Event, Logger, State, Trainer
+from composer.algorithms import FusedLayerNorm, LowPrecisionLayerNorm, SelectiveBackprop
+from composer.algorithms.low_precision_layernorm.low_precision_layernorm import LowPrecisionLayerNorm
 from composer.core.passes import sort_to_back, sort_to_front
+from tests.common import SimpleModel
 
 from .test_engine import run_event
 
@@ -78,11 +80,11 @@ class TestLIFOPass:
 
 class TestAlgorithmOrderingPasses:
 
-    @pytest.mark.parametrize('algorithm_cls', [FusedLayerNorm])
+    @pytest.mark.parametrize('algorithm_cls', [FusedLayerNorm, LowPrecisionLayerNorm])
     def test_algorithm_last(self, algorithm_cls: Type[Algorithm], always_match_algorithms: List[Algorithm],
                             dummy_logger: Logger, dummy_state: State):
 
-        if algorithm_cls == FusedLayerNorm:
+        if algorithm_cls == FusedLayerNorm or LowPrecisionLayerNorm:
             pytest.importorskip('apex')
 
         algorithm = algorithm_cls()
@@ -107,8 +109,8 @@ class TestAlgorithmOrderingPasses:
         algorithm.apply = Mock(return_value='algo')
         algorithm.match = Mock(return_value=True)
 
-        algortihms = always_match_algorithms[0:2] + [algorithm] + always_match_algorithms[2:]
-        dummy_state._algorithms = algortihms
+        algorithms = always_match_algorithms[0:2] + [algorithm] + always_match_algorithms[2:]
+        dummy_state._algorithms = algorithms
 
         trace = run_event(Event.INIT, dummy_state, dummy_logger)
 
@@ -127,3 +129,37 @@ class TestSortHelpers:
     def test_sort_to_front(self):
         lst = [1, 'a', 'c', 2, 3.0]
         assert sort_to_front(lst, int) == [1, 2, 'a', 'c', 3.0]
+
+
+def get_default_passes():
+    state = State(model=SimpleModel(), rank_zero_seed=42, run_name='test_chungoose')
+    engine = Engine(state, Logger(state))
+    return engine.algorithm_passes
+
+
+def get_custom_pass():
+
+    def sort_by_name(algorithms: Sequence[Algorithm], event: Event) -> Sequence[Algorithm]:
+        return sorted(algorithms, key=lambda x: type(x).__name__)
+
+    return sort_by_name
+
+
+sort_by_name = get_custom_pass()  # Generate pass object so we can use same ref in tests
+
+
+class TestTrainerArg:
+
+    @pytest.mark.parametrize(
+        'algorithm_passes,expected_passes',
+        [
+            [None, get_default_passes()],
+            [sort_by_name, get_default_passes() + [sort_by_name]],
+            [[sort_by_name], get_default_passes() + [sort_by_name]],
+            [[sort_by_name, 0], [sort_by_name] + get_default_passes()],  # type: ignore
+            [(sort_by_name, 0), [sort_by_name] + get_default_passes()],  # type: ignore
+            [[(sort_by_name, 0)], [sort_by_name] + get_default_passes()],  # type: ignore
+        ])
+    def test_add_pass(self, algorithm_passes, expected_passes):
+        trainer = Trainer(model=SimpleModel(), algorithm_passes=algorithm_passes)
+        assert trainer.engine.algorithm_passes == expected_passes

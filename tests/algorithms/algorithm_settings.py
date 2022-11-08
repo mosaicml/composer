@@ -18,9 +18,9 @@ import composer.algorithms
 from composer import Algorithm
 from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
                                  Factorize, FusedLayerNorm, GatedLinearUnits, GhostBatchNorm, GradientClipping,
-                                 LabelSmoothing, LayerFreezing, MixUp, NoOpModel, ProgressiveResizing, RandAugment,
-                                 SelectiveBackprop, SeqLengthWarmup, SqueezeExcite, StochasticDepth,
-                                 WeightStandardization)
+                                 LabelSmoothing, LayerFreezing, LowPrecisionLayerNorm, MixUp, NoOpModel,
+                                 ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup, SqueezeExcite,
+                                 StochasticDepth, WeightStandardization)
 from composer.models import composer_resnet
 from composer.models.base import ComposerModel
 from tests import common
@@ -114,6 +114,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     },
     LabelSmoothing: simple_vision_settings,
     LayerFreezing: simple_vision_settings,
+    LowPrecisionLayerNorm: simple_bert_settings,
     MixUp: simple_vision_settings,
     ProgressiveResizing: simple_vision_settings,
     RandAugment: simple_vision_settings,

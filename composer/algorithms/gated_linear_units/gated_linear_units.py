@@ -14,7 +14,7 @@ import torch
 from composer.models.huggingface import HuggingFaceModel
 
 try:
-    from transformers import BertForMaskedLM, BertForSequenceClassification
+    from transformers import BertPreTrainedModel
     from transformers.models.bert.modeling_bert import BertIntermediate, BertOutput
     IS_TRANSFORMERS_INSTALLED = True
 except ImportError as e:
@@ -82,11 +82,12 @@ def apply_gated_linear_units(model: torch.nn.Module,
     if not IS_TRANSFORMERS_INSTALLED:
         raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers')
 
-    # ensure that the model is an instance of a BERT model, since our replacement policy is only defined for BERTs
-    if not isinstance(model, HuggingFaceModel) and not (hasattr(model, 'model') and
-                                                        (isinstance(model.model, BertForMaskedLM) or
-                                                         isinstance(model.model, BertForSequenceClassification))):
-        raise TypeError('Gated Linear Units only has a surgery policy defined for instances of BERT models.')
+    unwrapped_model = model.model if isinstance(model, HuggingFaceModel) else model
+
+    # ensure that the model is an instance of a Hugging Face BertPreTrainedModel class, since our replacement policy is only defined for BERTs
+    if not isinstance(unwrapped_model, BertPreTrainedModel):
+        raise TypeError(
+            'Gated Linear Units only has a surgery policy defined for subclasses of transformers.BertPreTrainedModel')
 
     if act_fn is None:
         intermediate_modules = {module for module in model.modules() if isinstance(module, BertIntermediate)}
@@ -99,17 +100,18 @@ def apply_gated_linear_units(model: torch.nn.Module,
 
         # get the activation functions used
         act_fns = {module.intermediate_act_fn for module in intermediate_modules}
-        if len(act_fns) == 0:
+        num_act_fns = len({type(act_fn) for act_fn in act_fns})
+        if num_act_fns == 0:
             raise ValueError('Tried to get the activation function from the model, but none were found. '
                              'Please specify `act_fn` manually to use Gated Linear Units.')
-        elif len(act_fns) > 1:
+        elif num_act_fns > 1:
             raise ValueError('Tried to get the activation function from the model, but multiple different '
                              'functions are used. This is currently unsupported with Gated Linear Units. '
                              'Please either use one activation function in BertIntermediate modules or '
                              'specify `act_fn` to manually override activation functions.')
 
-        # since our set is of 1, let's extract the only activation function remaining.
-        (act_fn,) = act_fns  #type: ignore will fail below if None
+        # since our set is of 1, let's extract the activation function
+        act_fn = next(iter(act_fns))  # type: ignore will fail below if None
 
         if act_fn is None:
             raise ValueError(

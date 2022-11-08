@@ -19,7 +19,7 @@ from torch import Tensor
 from torchmetrics.metric import Metric
 from torchvision.ops import box_convert
 
-from composer.utils.import_helpers import MissingConditionalImportError
+from composer.utils import MissingConditionalImportError
 
 __all__ = ['MAP']
 
@@ -147,6 +147,9 @@ class MAP(Metric):
     Raises:
         ValueError: If ``class_metrics`` is not a boolean.
     """
+
+    # Have default behavior for this complex metric
+    full_state_update = True
 
     def __init__(
             self,

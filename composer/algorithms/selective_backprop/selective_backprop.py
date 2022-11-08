@@ -12,8 +12,7 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 
-from composer.core import Algorithm, Event, State
-from composer.core.precision import get_precision_context
+from composer.core import Algorithm, Event, State, get_precision_context
 from composer.loggers import Logger
 from composer.models import ComposerModel
 

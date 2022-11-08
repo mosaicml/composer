@@ -6,8 +6,8 @@ from typing import Callable, Optional, Sequence, Tuple
 import torch
 
 from composer.core import Callback, State, TimeUnit
+from composer.devices import Device
 from composer.loggers import Logger
-from composer.trainer.devices.device import Device
 
 
 class MetricSetterCallback(Callback):

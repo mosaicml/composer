@@ -39,6 +39,16 @@ def _get_torchvision_version(pytorch_version: str):
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
+def _get_torchtext_version(pytorch_version: str):
+    if pytorch_version == '1.12.1':
+        return '0.13.1'
+    if pytorch_version == '1.11.0':
+        return '0.12.0'
+    if pytorch_version == '1.10.2':
+        return '0.11.2'
+    raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
+
+
 def _get_base_image(cuda_version: str):
     if not cuda_version:
         return 'ubuntu:20.04'
@@ -136,6 +146,8 @@ def _main():
                 stage,
             'TORCHVISION_VERSION':
                 _get_torchvision_version(pytorch_version),
+            'TORCHTEXT_VERSION':
+                _get_torchtext_version(pytorch_version),
             'TAGS':
                 _get_pytorch_tags(
                     python_version=python_version,
@@ -159,7 +171,7 @@ def _main():
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
-    composer_versions = ['', '==0.10.1', 'GIT_COMMIT']  # Only build images for the latest composer version
+    composer_versions = ['', '==0.11.0', 'GIT_COMMIT']  # Only build images for the latest composer version
     composer_python_versions = ['3.9']  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):
@@ -175,6 +187,7 @@ def _main():
             'PYTORCH_VERSION': pytorch_version,
             'TARGET': 'composer_stage',
             'TORCHVISION_VERSION': _get_torchvision_version(pytorch_version),
+            'TORCHTEXT_VERSION': _get_torchtext_version(pytorch_version),
             'COMPOSER_INSTALL_COMMAND': f'mosaicml[all]{composer_version}',
             'TAGS': _get_composer_tags(
                 composer_version=composer_version,
