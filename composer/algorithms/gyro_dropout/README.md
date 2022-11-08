@@ -28,7 +28,7 @@ def training_loop(model, train_loader):
         p = 0.5
         sigma = 256,
         tau = 16,
-        )
+    )
 
     opt = torch.optim.Adam(model.parameters())
     loss_fn = F.cross_entropy
@@ -52,7 +52,11 @@ trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   eval_dataloader=eval_dataloader,
                   max_duration='100ep',
-                  algorithms=[GyroDropout(196, 100, 0.5, 256, 16)])
+                  algorithms=[GyroDropout(iters_per_epoch=196,
+                                          max_epoch=100,
+                                          p=0.5,
+                                          sigma=256,
+                                          tau=16)])
 
 trainer.fit()
 ```
@@ -63,11 +67,11 @@ Gyro Dropout is implemented by performing model surgery, which looks for instanc
 
 ## Suggested Hyperparameters
 
-Gyro Dropout has two hyperparameters - $\sigma$, $\tau$. (iters_per_epoch and max_epoch is training-dependent)
+Gyro Dropout has two hyperparameters - sigma, tau. (iters_per_epoch and max_epoch is training-dependent)
 
-We recommend (256, 16) or (1024, 8) as hyperparameter set (sigma, tau)
+We recommend (256, 16) or (1024, 8) as hyperparameter set for (sigma, tau).
 
-But there may be another (sigma, tau) set that achieves higher accuracy for other models.
+But there might be better possible (sigma, tau) set that may achieve higher accuracy for other models.
 
 ## Technical Details
 GyroDropout achieves improved accuracy over conventional dropout by pre-selecting a fixed number of subnetworks and training with only those subnetworks. Because the selected subnetworks are trained more robustly (compared to the conventional dropout cases), their diversity increases and thus their ensemble achieves higher accuracy.
