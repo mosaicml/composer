@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Union
 import torch
 import torch.utils.data
 
-from composer.utils.string_enum import StringEnum
+from composer.utils import StringEnum
 
 __all__ = ['Batch', 'PyTorchScheduler', 'JSON', 'MemoryFormat', 'TrainerMode', 'BreakEpochException']
 

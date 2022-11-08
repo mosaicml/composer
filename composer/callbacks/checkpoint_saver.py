@@ -11,15 +11,11 @@ import tempfile
 import textwrap
 from typing import Callable, List, Optional, Union
 
-from composer.core import Event, State
-from composer.core.callback import Callback
-from composer.core.time import Time, TimeUnit
+from composer.core import Callback, Event, State, Time, TimeUnit
 from composer.loggers import Logger
-from composer.utils import checkpoint, dist, is_model_deepspeed, reproducibility
-from composer.utils.checkpoint import PartialFilePath
-from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
-                                         create_symlink_file, ensure_folder_has_no_conflicting_files,
-                                         format_name_with_dist)
+from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
+                            checkpoint, create_symlink_file, dist, ensure_folder_has_no_conflicting_files,
+                            format_name_with_dist, is_model_deepspeed, reproducibility)
 
 log = logging.getLogger(__name__)
 

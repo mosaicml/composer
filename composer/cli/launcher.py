@@ -21,7 +21,7 @@ import psutil
 import torch
 
 import composer
-from composer.utils.misc import get_free_tcp_port
+from composer.utils import get_free_tcp_port
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 

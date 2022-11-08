@@ -8,8 +8,6 @@ import textwrap
 import warnings
 from enum import Enum
 
-__all__ = ['StringEnum']
-
 
 class StringEnum(Enum):
     """Base class for Enums containing string values.

@@ -12,9 +12,9 @@ from typing import Any, Dict, Iterator, Optional
 
 from torch.utils.data import DataLoader
 
-from composer.core.data_spec import DataSpec
+from composer.core import DataSpec
 from composer.datasets.streaming import StreamingDataset
-from composer.utils.import_helpers import MissingConditionalImportError
+from composer.utils import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
 
