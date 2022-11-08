@@ -12,7 +12,6 @@ from torch.utils.data import DataLoader
 from composer.datasets.ade20k import StreamingADE20k
 from composer.datasets.c4 import StreamingC4
 from composer.datasets.cifar import StreamingCIFAR10
-from composer.datasets.coco import StreamingCOCO
 from composer.datasets.imagenet import StreamingImageNet1k
 from composer.datasets.streaming import StreamingDataset
 from composer.datasets.streaming.download import download_or_wait
@@ -55,15 +54,6 @@ def get_dataset(name: str,
                 'val': 50000,
             },
             'class': StreamingImageNet1k,
-            'kwargs': {},
-        },
-        'coco': {
-            'remote': 's3://mosaicml-internal-dataset-coco/mds/1/',
-            'num_samples': {
-                'train': 117266,
-                'val': 4952,
-            },
-            'class': StreamingCOCO,
             'kwargs': {},
         },
         'c4': {

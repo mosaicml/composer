@@ -9,7 +9,6 @@ from composer.datasets.brats import PytTrain, PytVal
 from composer.datasets.c4 import StreamingC4
 from composer.datasets.cifar import (StreamingCIFAR10, build_cifar10_dataloader, build_ffcv_cifar10_dataloader,
                                      build_synthetic_cifar10_dataloader)
-from composer.datasets.coco import COCODetection, StreamingCOCO
 from composer.datasets.imagenet import (StreamingImageNet1k, build_ffcv_imagenet_dataloader, build_imagenet_dataloader,
                                         build_streaming_imagenet1k_dataloader, build_synthetic_imagenet_dataloader)
 from composer.datasets.lm_dataset import build_lm_dataloader, build_synthetic_lm_dataloader
@@ -24,8 +23,6 @@ __all__ = [
     'PytVal',
     'StreamingC4',
     'StreamingCIFAR10',
-    'COCODetection',
-    'StreamingCOCO',
     'StreamingImageNet1k',
     'SyntheticBatchPairDataset',
     'SyntheticDataLabelType',
