@@ -40,8 +40,9 @@ class GyroDropoutLayer(torch.nn.Module):
                 else:
                     self.preselect_masks = (torch.rand(self.sigma, x.shape[1]) > self.p).float()
                 
-                self.iter_num = int(self.iters_per_epoch * self.max_epoch / self.sigma) * self.tau
                 # above simplified from: (iters_per_epoch*max_epoch*batch_size/sigma) / (batch_size/self.tau) 
+                self.iter_num = int(self.iters_per_epoch * self.max_epoch / self.sigma) * self.tau
+                
             if self.training_step % self.iter_num == 0:
                 pick_idx = np.random.choice(self.sigma, self.tau)
                 self.selected_masks = self.preselect_masks[pick_idx]
