@@ -1,0 +1,52 @@
+name: Code Quality
+on:
+  push:
+    branches:
+      - dev
+      - main
+      - release/**
+  pull_request:
+    branches:
+      - dev
+      - main
+      - release/**
+  workflow_call:
+  workflow_dispatch: {}
+defaults:
+  run:
+    working-directory: .
+jobs:
+  pre-commit:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        python_version:
+          - "3.7"
+          - "3.8"
+          - "3.9"
+        pip_deps:
+          - "[all]"
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python_version }}
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          # This path is specific to Ubuntu
+          path: ~/.cache/pip
+          # Look to see if there is a cache hit for the corresponding requirements file
+          key: ${{ runner.os }}-pip-${{ hashFiles('setup.py', 'requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            ${{ runner.os }}-
+      - name: Setup
+        run: |
+          set -ex
+          python -m pip install --upgrade pip wheel
+          python -m pip install -e .${{ matrix.pip_deps }}
+      - name: Linting
+        run: |
+          pre-commit run --all-files
