@@ -48,12 +48,8 @@ def test_simple_nlp():
     # Check that there is some train/eval accuracy
     assert trainer.state.train_metrics['Accuracy'].compute() != 0.0
     assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
-    print(trainer.state.train_metrics['Accuracy'].compute())
-    print(trainer.state.eval_metrics['eval']['Accuracy'].compute())
 
     predictions = trainer.predict(predict_dataloader)
-    print(predictions)
-    print(len(predictions))
 
     # Check that the output predictions are the expected shape
     num_predict_batches_expected = ((size - 1) // batch_size) + 1
