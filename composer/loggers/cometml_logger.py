@@ -10,11 +10,13 @@ from typing import Any, Dict, Optional, Sequence, Union
 
 import numpy as np
 import torch
+from torch import nn
 
 from composer.core.state import State
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import MissingConditionalImportError, dist
+from torchvision.utils import draw_segmentation_masks
 
 __all__ = ['CometMLLogger']
 
@@ -109,7 +111,7 @@ class CometMLLogger(LoggerDestination):
     def log_images(
         self,
         images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
-        name: str = 'Images',
+        name: str = 'Image',
         channels_last: bool = False,
         step: Optional[int] = None,
         masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
@@ -117,18 +119,50 @@ class CometMLLogger(LoggerDestination):
         use_table: bool = True,
     ):
 
-        del use_table  # Unused.
+        del use_table, mask_class_labels  # Unused (only for wandb)
         if self._enabled:
-            if masks is not None or mask_class_labels is not None:
-                raise NotImplementedError('Comet does not support logging masks yet!')
+            image_channels = 'last' if channels_last else 'first'
+            # Convert to singleton sequences if a single image or mask is specified.
             if not isinstance(images, Sequence) and images.ndim <= 3:
                 images = [images]
+            for mask_name, mask_tensor in masks.items():
+                if not isinstance(mask_tensor, Sequence) and mask_tensor.ndim == 2:
+                    masks[mask_name] = [mask_tensor]
 
+            # For pyright.
             assert self.experiment is not None
-            image_channels = 'last' if channels_last else 'first'
-            for image in images:
-                comet_image = _convert_to_comet_image(image)
-                self.experiment.log_image(comet_image, name=name, image_channels=image_channels, step=step)
+
+            if masks is not None:
+                mask_names = list(masks.keys())
+                for image, *mask_set in zip(images, *masks.values()):
+                    # Log input image
+                    comet_image = _convert_to_comet_image(image)
+                    self.experiment.log_image(comet_image, name='Input ' + name, image_channels=image_channels, step=step)
+                    
+                    # Convert 2D index mask to one-hot boolean mask.
+                    mask_set = [_convert_to_comet_mask(mask) for mask in mask_set]
+
+                    # Log input image with mask overlay and mask by itself for each type of mask.
+                    for mask_name, mask in zip(mask_names, mask_set):
+                        if channels_last:
+                            # permute to channels_first to be compatible with draw_segmentation_masks.
+                            comet_image = image.permute(2, 0, 1)
+                        # Log input image with mask superimposed.
+                        im_with_mask_overlay = draw_segmentation_masks(comet_image, mask)
+                        self.experiment.log_image(im_with_mask_overlay,
+                                                  name=f'Input {name} with {mask_name} mask overlaid',
+                                                  image_channels='first',
+                                                  step=step)
+                        # Log mask only.
+                        mask_only = draw_segmentation_masks(torch.zero_like(comet_image), mask)
+                        self.experiment.log_image(mask_only,
+                                                  name=f'{mask_name} mask',
+                                                  step=step)
+            else:
+                for image in images:
+                    comet_image = _convert_to_comet_image(image)
+                    self.experiment.log_image(comet_image, name=name, image_channels=image_channels, step=step)
+
 
     def post_close(self):
         if self._enabled:
@@ -137,7 +171,8 @@ class CometMLLogger(LoggerDestination):
 
 
 def _convert_to_comet_image(image: Union[np.ndarray, torch.Tensor]):
-
+    if isinstance(image, torch.Tensor):
+        image = image.data.cpu()
     # Error out for empty arrays or weird arrays of dimension 0.
     if np.any(np.equal(image.shape, 0)):
         raise ValueError(f'Got an image (shape {image.shape}) with at least one dimension being 0! ')
@@ -152,3 +187,16 @@ def _convert_to_comet_image(image: Union[np.ndarray, torch.Tensor]):
                              image of a list of 3D images'''))
 
     return image
+
+def _convert_to_comet_mask(mask: Union[np.ndarray, torch.Tensor]):
+        if isinstance(masks, np.ndarray):
+            masks = torch.from_numpy(masks)
+        mask = mask.squeeze()
+        if masks.ndim != 2:
+            raise ValueError(
+                textwrap.dedent(f'''Each input mask must be 2 dimensions, but instead got
+                                {masks.ndim} dims at shape: {masks.shape}. Please specify 
+                                a sequence of 2D masks or 3D batch of 2D masks .'''))
+        
+        num_classes = int(torch.max(mask)) + 1
+        return nn.functional.one_hot(masks, num_classes).permute(2,0,1).bool()
