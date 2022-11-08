@@ -459,7 +459,7 @@ spec:
         image: ${docTestImage}
         imagePullPolicy: Always
         command: ["sleep"]
-        args: [${pDocTestsTimeout}]
+        args: [${pDocTestTimeout}]
         volumeMounts:
           - mountPath: /dev/shm
             name: dshm
