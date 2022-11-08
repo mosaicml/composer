@@ -3,7 +3,7 @@
 
 """Action states for the :class:`Profiler` that define whether or not events are being recorded to the trace file."""
 
-from composer.utils.string_enum import StringEnum
+from composer.utils import StringEnum
 
 __all__ = ['ProfilerAction']
 

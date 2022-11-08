@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torchvision.datasets import VisionDataset
 
-from composer.core.types import MemoryFormat
+from composer.core import MemoryFormat
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.streaming import StreamingDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
@@ -206,7 +206,7 @@ def build_synthetic_cifar10_dataloader(
         shuffle (bool): Shuffle the dataset. Default: ``True``.
         num_unique_samples (int): number of unique samples in synthetic dataset. Default: ``100``.
         device (str): device with which to load the dataset. Default: ``cpu``.
-        memory_format (MemoryFormat): memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
+        memory_format (:class:`composer.core.MemoryFormat`): memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
         **dataloader_kwargs (Any): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
     dataset = SyntheticBatchPairDataset(

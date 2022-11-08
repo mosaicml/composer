@@ -17,4 +17,4 @@ rm -rf ${BUILD_DIR}
 mkdir -p ${BUILD_DIR}
 
 # Run lint and doctests through pytest
-pytest $(dirname $0)/test_lint_doctests.py --junitxml ${BUILD_DIR}/build${BUILD_NUMBER}_lint_doctests.junit.xml
+pytest $(dirname $0)/test_docs.py --junitxml ${BUILD_DIR}/build${BUILD_NUMBER}_doctests.junit.xml

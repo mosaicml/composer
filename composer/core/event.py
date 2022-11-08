@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Training Loop Events."""
-from composer.utils.string_enum import StringEnum
+from composer.utils import StringEnum
 
 __all__ = ['Event']
 
