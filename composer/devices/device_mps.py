@@ -12,7 +12,7 @@ import torch.cuda.amp
 import torch.utils.data
 from packaging import version
 
-from composer.trainer.devices.device import Device
+from composer.devices.device import Device
 
 __all__ = ['DeviceMPS']
 

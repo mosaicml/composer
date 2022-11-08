@@ -11,8 +11,7 @@ from typing import Any, Dict, List, Optional
 import torch
 from torch.optim.swa_utils import SWALR, AveragedModel
 
-from composer.core import Algorithm, Event, State, Time, TimeUnit
-from composer.core.types import PyTorchScheduler
+from composer.core import Algorithm, Event, PyTorchScheduler, State, Time, TimeUnit
 from composer.loggers import Logger
 
 log = logging.getLogger(__name__)

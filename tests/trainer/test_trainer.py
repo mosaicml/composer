@@ -20,20 +20,16 @@ from composer import Callback, Evaluator, Trainer
 from composer.algorithms import CutOut, LabelSmoothing
 from composer.algorithms.gradient_clipping.gradient_clipping import GradientClipping
 from composer.callbacks import LRMonitor
-from composer.core.event import Event
-from composer.core.precision import Precision
-from composer.core.state import State
-from composer.core.time import Time, TimeUnit
+from composer.core import Event, Precision, State, Time, TimeUnit
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.imagenet import build_ffcv_imagenet_dataloader
+from composer.devices import Device
 from composer.loggers import InMemoryLogger, Logger, RemoteUploaderDownloader
 from composer.loss import soft_cross_entropy
-from composer.models.base import ComposerModel
-from composer.optim.scheduler import ExponentialScheduler
-from composer.trainer.devices import Device
+from composer.models import ComposerModel
+from composer.optim import ExponentialScheduler
 from composer.trainer.trainer import _generate_run_name
-from composer.utils import dist, is_model_deepspeed, is_model_fsdp, reproducibility
-from composer.utils.iter_helpers import map_collection
+from composer.utils import dist, is_model_deepspeed, is_model_fsdp, map_collection, reproducibility
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
 from tests.common.events import EventCounterCallback

@@ -37,11 +37,11 @@ pytestGpuImageTagsToTest = [
 ]
 devInstallTestImage = 'mosaicml/pytorch:latest_cpu' // the image to use for the dev test installs
 
-// Lint settings
-lintImage = 'mosaicml/pytorch_vision:latest_cpu'
-lintCpuLimit = '2'
-lintMemLimit = '7Gi'
-pLintTimeout = '1800' // timeout to run lint + doctests, in seconds
+// Doctest settings
+docTestImage = 'mosaicml/pytorch_vision:latest_cpu'
+docTestCpuLimit = '2'
+docTestMemLimit = '7Gi'
+pDocTestTimeout = '1800' // timeout to run doctests, in seconds
 
 // Conda settings
 dependenciesChanged = false // Whether meta.yaml or setup.py have changed, (if so, rebuild conda)
@@ -160,20 +160,20 @@ void trackBuild(Map buildArgs) {
     }
 }
 
-void runLint(String pDockerImage) {
+void runDocTests(String pDockerImage) {
     trackBuild(
         job: jenkinsShellJobName,
         parameters: [
             string(name: 'P_CLOUD', value: pCloud),
             string(name: 'P_GIT_REPO', value: gitUrl),
             string(name: 'P_GIT_COMMIT', value: gitCommit),
-            string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: lintMemLimit),
+            string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: docTestMemLimit),
             booleanParam(name: 'P_USE_TMP_RAMDISK', value: true),
             string(name: 'P_DOCKER_IMAGE', value: pDockerImage),
-            string(name: 'P_TIMEOUT', value: pLintTimeout),
-            string(name: 'P_CPU_LIMIT', value: lintCpuLimit),
-            string(name: 'P_MEM_LIMIT', value: lintMemLimit), // must include the ephemeral storage limit
-            string(name: 'P_COMMAND', value: './.ci/lint_doctests.sh'),
+            string(name: 'P_TIMEOUT', value: pDocTestTimeout),
+            string(name: 'P_CPU_LIMIT', value: docTestCpuLimit),
+            string(name: 'P_MEM_LIMIT', value: docTestMemLimit), // must include the ephemeral storage limit
+            string(name: 'P_COMMAND', value: './.ci/run_doctests.sh'),
             string(name: 'P_ARTIFACTS_GLOB', value: artifactsGlob),
             string(name: 'P_JUNIT_GLOB', value: junitGlob),
             string(name: 'P_COVERAGE_GLOB', value: coverageGlob),
@@ -187,7 +187,7 @@ void scheduleJob(jobs, String image, buildArgs, originalTags) {
     // originalTags: The original tags
 
     String markers = 'not daily'
-    Boolean isLintImage = false
+    Boolean isDocTestImage = false
     Boolean isVisionImage = false
     Boolean isDevTestInstallImage = false
     Boolean isGpu = false
@@ -203,7 +203,7 @@ void scheduleJob(jobs, String image, buildArgs, originalTags) {
         }
     }
     originalTags.each { tagName ->
-        isLintImage = isLintImage || tagName == lintImage
+        isDocTestImage = isDocTestImage || tagName == docTestImage
         isDevTestInstallImage = isDevTestInstallImage || tagName == devInstallTestImage
     }
     String extraDeps = 'all'
@@ -230,10 +230,10 @@ void scheduleJob(jobs, String image, buildArgs, originalTags) {
             'Pytest - extraDeps=dev': { -> runPytest(image, markers, 'dev', isGpu) },
         ]
     }
-    if (isLintImage) {
-        // and run lint and a dev install on this image
+    if (isDocTestImage) {
+        // and run doc tests and a dev install on this image
         jobs << [
-            'Lint': { -> runLint(image) },
+            'DocTests': { -> runDocTests(image) },
         ]
     }
 }
@@ -456,22 +456,22 @@ spec:
         name: dshm
     containers:
       - name: pod
-        image: ${lintImage}
+        image: ${docTestImage}
         imagePullPolicy: Always
         command: ["sleep"]
-        args: [${pLintTimeout}]
+        args: [${pDocTestTimeout}]
         volumeMounts:
           - mountPath: /dev/shm
             name: dshm
         resources:
             requests:
-                cpu: ${lintCpuLimit}
-                ephemeral-storage: ${lintMemLimit}
-                memory: ${lintMemLimit}
+                cpu: ${docTestCpuLimit}
+                ephemeral-storage: ${docTestMemLimit}
+                memory: ${docTestMemLimit}
             limits:
-                cpu: ${lintCpuLimit}
-                ephemeral-storage: ${lintMemLimit}
-                memory: ${lintMemLimit}
+                cpu: ${docTestCpuLimit}
+                ephemeral-storage: ${docTestMemLimit}
+                memory: ${docTestMemLimit}
 """
             def podArgs = [
                 cloud: pCloud,

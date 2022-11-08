@@ -11,8 +11,7 @@ from PIL import Image
 from composer.core import Callback, State, Time, TimeUnit
 from composer.loggers import InMemoryLogger, Logger, WandBLogger
 from composer.loss.utils import infer_target_type
-from composer.utils import ensure_tuple
-from composer.utils.import_helpers import MissingConditionalImportError
+from composer.utils import MissingConditionalImportError, ensure_tuple
 
 __all__ = ['ImageVisualizer']
 

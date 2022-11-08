@@ -13,7 +13,7 @@ import torch
 from torch import Tensor
 from torchmetrics import Metric
 
-from composer.core.types import Batch
+from composer.core import Batch
 from composer.loggers import Logger
 
 __all__ = ['ComposerModel']
