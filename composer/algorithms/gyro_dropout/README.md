@@ -63,7 +63,7 @@ Gyro Dropout is implemented by performing model surgery, which looks for instanc
 
 ## Suggested Hyperparameters
 
-Gyro Dropout has two hyperparameters - $sigma$, $tau$. (iters_per_epoch and max_epoch is training-dependent)
+Gyro Dropout has two hyperparameters - $\sigma$, $\tau$. (iters_per_epoch and max_epoch is training-dependent)
 
 We recommend (256, 16) or (1024, 8) as hyperparameter set (sigma, tau)
 
