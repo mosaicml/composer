@@ -3,11 +3,12 @@
 import imghdr
 import os
 import zipfile
+from typing import Dict
 from collections import defaultdict
 from json import JSONDecoder
 from pathlib import Path
 from typing import Sequence
-
+import numpy as np
 import pytest
 import torch
 from torch.utils.data import DataLoader
@@ -19,7 +20,7 @@ from tests.common import RandomClassificationDataset, SimpleModel
 
 @pytest.fixture
 def comet_offline_directory(tmp_path):
-    return str(tmp_path / Path('.my_cometml_runs'))
+    return str(tmp_path / Path('my_cometml_runs'))
 
 
 @pytest.fixture
@@ -76,16 +77,38 @@ def test_comet_ml_log_image_saves_images(images: torch.Tensor, channels_last: bo
     assert actual_num_images == expected_num_images
 
 
-@pytest.mark.parametrize(
-    'images,channels_last',
-    [
-        (torch.rand(32, 0), False),  # Has zero in dimension.
-        (torch.rand(4, 4, 8, 32, 32), False),  # > 4 dim.
-        ([torch.rand(4, 32, 32, 3)], True),
-    ])  # sequence > 3 dim.
-def test_comet_ml_log_image_errors_out(comet_logger, images, channels_last):
-    with pytest.raises(ValueError):
-        comet_logger.log_images(images, channels_last=channels_last)
+@pytest.mark.parametrize('images,masks',
+    [(torch.randint(0, 256, (32, 32, 3)), {'pred': torch.randint(0, 10, (32, 32))}),
+     (torch.rand(4, 32, 32, 3), {'pred': torch.randint(0, 10, (4, 32, 32))}),
+     (torch.rand(4, 32, 32, 3), {'pred': 4*[torch.randint(0, 10, (32, 32))]}),
+     (torch.rand(4, 32, 32, 3), {'pred': torch.randint(0, 10, (4, 32, 32)), 'pred2': torch.randint(0, 10, (4, 32, 32))})])
+def test_comet_ml_log_image_saves_images_with_masks(images: torch.Tensor, masks: Dict[str, torch.Tensor], comet_logger: CometMLLogger,
+                                         comet_offline_directory: str):
+    assert isinstance(comet_offline_directory, str)
+    # Count expected images and generate numpy arrays from torch tensors.
+    num_masks = len(masks.keys())
+    num_images = images.shape[0] if images.ndim == 4 else 1
+    expected_num_images = num_images * (2 * num_masks + 1)
+
+    # Log images from torch tensors and numpy arrays.
+    comet_logger.log_images(images, masks=masks, channels_last=True)
+
+
+    comet_logger.post_close()
+
+    # Extract all files saved to comet offline directory.
+    assert comet_logger.experiment is not None
+    comet_exp_dump_filepath = str(Path(comet_offline_directory) / Path(comet_logger.experiment.id).with_suffix('.zip'))
+    zf = zipfile.ZipFile(comet_exp_dump_filepath)
+    zf.extractall(comet_offline_directory)
+
+    # Count the number of files that are images.
+    actual_num_images = 0
+    for filename in Path(comet_offline_directory).iterdir():
+        file_path = str(Path(comet_offline_directory) / Path(filename))
+        if imghdr.what(file_path) == 'png':
+            actual_num_images += 1
+    assert actual_num_images == expected_num_images
 
 
 def test_comet_ml_logging_train_loop(monkeypatch, tmp_path):

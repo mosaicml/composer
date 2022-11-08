@@ -150,13 +150,13 @@ class CometMLLogger(LoggerDestination):
                             # permute to channels_first to be compatible with draw_segmentation_masks.
                             comet_image = image.permute(2, 0, 1)
                         # Log input image with mask superimposed.
-                        im_with_mask_overlay = draw_segmentation_masks(comet_image, mask, alpha=0.6)
+                        im_with_mask_overlay = draw_segmentation_masks(comet_image.to(torch.uint8), mask, alpha=0.6)
                         self.experiment.log_image(im_with_mask_overlay,
                                                   name=f'{name}_{index} + {mask_name} mask overlaid',
                                                   image_channels='first',
                                                   step=step)
                         # Log mask only.
-                        mask_only = draw_segmentation_masks(torch.zeros_like(comet_image), mask)
+                        mask_only = draw_segmentation_masks(torch.zeros_like(comet_image.to(torch.uint8)), mask)
                         self.experiment.log_image(mask_only,
                                                   name=f'{mask_name}_{index} mask',
                                                   step=step,
