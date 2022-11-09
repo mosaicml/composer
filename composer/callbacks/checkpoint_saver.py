@@ -281,7 +281,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         filename: Union[str, pathlib.Path] = 'ep{epoch}-ba{batch}-rank{rank}.pt',
         remote_file_name: Optional[Union[str,
                                          pathlib.Path]] = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}.pt',
-        latest_filename: Optional[Union[str, pathlib.Path, None]] = 'latest-rank{rank}.pt',
+        latest_filename: Optional[Union[str, pathlib.Path]] = 'latest-rank{rank}.pt',
         latest_remote_file_name: Optional[Union[str, pathlib.Path]] = '{run_name}/checkpoints/latest-rank{rank}.pt',
         save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = '1ep',
         *,
