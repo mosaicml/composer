@@ -133,7 +133,7 @@ class WandBLogger(LoggerDestination):
         step: Optional[int] = None,
         masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
         mask_class_labels: Optional[Dict[int, str]] = None,
-        use_table: bool = True,
+        use_table: bool = False,
     ):
         if self._enabled:
             import wandb
