@@ -156,9 +156,9 @@ def test_checkpoint_saver_folder_filename_path(folder: Union[str, pathlib.Path],
       '{run_name}/checkpoints/latest-rank{rank}.pt'),
      (pathlib.Path('{run_name}/my_checkpoints/ep{epoch}-ba{batch}-rank{rank}.pt'), pathlib.Path('latest-rank{rank}.pt'),
       pathlib.Path('{run_name}/checkpoints/latest-rank{rank}.pt'))])
-def test_checkpoint_filenames(remote_file_name: Union[str, pathlib.Path,
-                                                      None], latest_filename: Union[str, pathlib.Path, None],
-                              latest_remote_file_name: Union[str, pathlib.Path, None]):
+def test_checkpoint_filenames(remote_file_name: Optional[Union[str, pathlib.Path]],
+                              latest_filename: Optional[Union[str, pathlib.Path]],
+                              latest_remote_file_name: Optional[Union[str, pathlib.Path]]):
     checkpoint_saver = CheckpointSaver(remote_file_name=remote_file_name,
                                        latest_filename=latest_filename,
                                        latest_remote_file_name=latest_remote_file_name)
@@ -173,9 +173,9 @@ def test_checkpoint_filenames(remote_file_name: Union[str, pathlib.Path,
 
 
 @pytest.mark.parametrize('remote_file_name,latest_filename,latest_remote_file_name', [(None, None, None)])
-def test_checkpoint_filenames_none(remote_file_name: Union[str, pathlib.Path,
-                                                           None], latest_filename: Union[str, pathlib.Path, None],
-                                   latest_remote_file_name: Union[str, pathlib.Path, None]):
+def test_checkpoint_filenames_none(remote_file_name: Optional[Union[str, pathlib.Path]],
+                                   latest_filename: Optional[Union[str, pathlib.Path]],
+                                   latest_remote_file_name: Optional[Union[str, pathlib.Path]]):
     checkpoint_saver = CheckpointSaver(remote_file_name=remote_file_name,
                                        latest_filename=latest_filename,
                                        latest_remote_file_name=latest_remote_file_name)
