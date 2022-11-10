@@ -17,16 +17,19 @@ defaults:
     working-directory: .
 jobs:
   code-quality:
-    runs-on: ubuntu-20.04
     timeout-minutes: 10
     strategy:
       matrix:
+        runner_image:
+          - "ubuntu-20.04"
+          - "macos-11"
         python_version:
           - "3.7"
           - "3.8"
           - "3.9"
         pip_deps:
           - "[all]"
+    runs-on: ${{ matrix.runner_image }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
