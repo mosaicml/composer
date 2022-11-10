@@ -34,7 +34,6 @@ class GyroDropoutLayer(torch.nn.Module):
         
         if self.training:
             if self.training_step == 0:
-
                 is_cuda_tensor = x.is_cuda
 
                 if is_cuda_tensor:
