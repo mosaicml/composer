@@ -7,16 +7,18 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import Any, Dict, List, Optional, TextIO, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, TextIO, Union
 
 import tqdm.auto
 import yaml
 
-from composer.core.state import State
-from composer.core.time import Timestamp, TimeUnit
+from composer.core.time import TimeUnit
 from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist, is_notebook
+
+if TYPE_CHECKING:
+    from composer.core import State, Timestamp
 
 __all__ = ['ProgressBarLogger']
 

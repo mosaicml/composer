@@ -11,8 +11,7 @@ from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.data import DataLoader
 
 from composer import Trainer
-from composer.core import Callback, State, TimeUnit
-from composer.core.types import PyTorchScheduler
+from composer.core import Callback, PyTorchScheduler, State, TimeUnit
 from composer.loggers.logger import Logger
 from composer.optim import MultiStepScheduler
 from composer.trainer._scale_schedule import scale_pytorch_scheduler

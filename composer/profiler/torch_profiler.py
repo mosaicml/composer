@@ -8,18 +8,19 @@ from __future__ import annotations
 import json
 import os
 import textwrap
-from typing import Optional, OrderedDict
+from typing import TYPE_CHECKING, Optional, OrderedDict
 
 import torch.profiler
 from torch.profiler.profiler import ProfilerAction as TorchProfilerAction
 
 from composer.core.callback import Callback
-from composer.core.state import State
 from composer.loggers import Logger
 from composer.profiler.profiler_action import ProfilerAction
-from composer.utils import dist
-from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
-                                         ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time)
+from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, dist,
+                            ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time)
+
+if TYPE_CHECKING:
+    from composer.core import State
 
 __all__ = ['TorchProfiler']
 

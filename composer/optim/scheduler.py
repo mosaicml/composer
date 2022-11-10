@@ -20,8 +20,7 @@ from typing import TYPE_CHECKING, List, Union
 
 from torch.optim.lr_scheduler import LambdaLR
 
-from composer.core import State, Time, TimeUnit
-from composer.core.types import PyTorchScheduler
+from composer.core import PyTorchScheduler, State, Time, TimeUnit
 
 if TYPE_CHECKING:
     from typing import Protocol

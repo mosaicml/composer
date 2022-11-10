@@ -14,11 +14,10 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
 import numpy as np
 import torch
 
-from composer.utils import ensure_tuple
-from composer.utils.file_helpers import format_name_with_dist
+from composer.utils import ensure_tuple, format_name_with_dist
 
 if TYPE_CHECKING:
-    from composer.core.state import State
+    from composer.core import State
     from composer.loggers.logger_destination import LoggerDestination
 
 __all__ = ['LoggerDestination', 'Logger', 'format_log_data_value']
