@@ -45,7 +45,7 @@ import torch.utils.data
 from composer.utils.device import get_device
 
 if TYPE_CHECKING:
-    from composer.devices import Device
+    from composer.trainer.devices import Device
 
 TObj = TypeVar('TObj')
 
