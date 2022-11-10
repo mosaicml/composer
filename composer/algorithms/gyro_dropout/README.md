@@ -52,9 +52,7 @@ trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   eval_dataloader=eval_dataloader,
                   max_duration='100ep',
-                  algorithms=[GyroDropout(iters_per_epoch=196,
-                                          max_epoch=100,
-                                          p=0.5,
+                  algorithms=[GyroDropout(p=0.5,
                                           sigma=256,
                                           tau=16)])
 
@@ -69,7 +67,7 @@ Gyro Dropout is implemented by performing model surgery, which looks for instanc
 
 Gyro Dropout has two hyperparameters - sigma, tau. (iters_per_epoch and max_epoch is training-dependent)
 
-We recommend (256, 16) or (1024, 8) as hyperparameter set for (sigma, tau).
+We recommend (256, 16) in AlexNet, LeNet or (1024, 8) in ResNet-18, BERT as hyperparameter set for (sigma, tau).
 
 But there might be better possible (sigma, tau) set that may achieve higher accuracy for other models.
 

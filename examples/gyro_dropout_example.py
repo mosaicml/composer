@@ -3,7 +3,6 @@
 
 """Example for training with an algorithm on a custom model."""
 
-import os
 import torch
 import torch.nn as nn
 import torch.utils.data
@@ -131,7 +130,7 @@ trainer = Trainer(model=model,
                   eval_dataloader=eval_dataloader,
                   max_duration='100ep',
                   optimizers=optimizer,
-                  algorithms=[GyroDropout(iters_per_epoch=196, max_epoch=100)]
+                  algorithms=[GyroDropout()]
                 )
 
 trainer.fit()
