@@ -6,9 +6,8 @@ import zipfile
 from collections import defaultdict
 from json import JSONDecoder
 from pathlib import Path
-from typing import Dict, Sequence
+from typing import Sequence
 
-import numpy as np
 import pytest
 import torch
 from torch.utils.data import DataLoader
@@ -25,8 +24,7 @@ def comet_offline_directory(tmp_path):
 
 @pytest.fixture
 def comet_logger(monkeypatch, comet_offline_directory):
-    pytest.importorskip('comet_ml', reason='comet_ml is optional')
-    import comet_ml
+    comet_ml = pytest.importorskip('comet_ml', reason='comet_ml is optional')
 
     monkeypatch.setattr(comet_ml, 'Experiment', comet_ml.OfflineExperiment)
     from composer.loggers import CometMLLogger
@@ -87,8 +85,8 @@ def test_comet_ml_log_image_saves_images(images: torch.Tensor, channels_last: bo
     'pred': torch.randint(0, 10, (4, 32, 32)),
     'pred2': torch.randint(0, 10, (4, 32, 32))
 })])
-def test_comet_ml_log_image_saves_images_with_masks(images: torch.Tensor, masks: Dict[str, torch.Tensor],
-                                                    comet_logger: CometMLLogger, comet_offline_directory: str):
+def test_comet_ml_log_image_saves_images_with_masks(images: torch.Tensor, masks, comet_logger: CometMLLogger,
+                                                    comet_offline_directory: str):
     assert isinstance(comet_offline_directory, str)
     # Count expected images and generate numpy arrays from torch tensors.
     num_masks = len(masks.keys())
@@ -116,8 +114,7 @@ def test_comet_ml_log_image_saves_images_with_masks(images: torch.Tensor, masks:
 
 
 def test_comet_ml_logging_train_loop(monkeypatch, tmp_path):
-    pytest.importorskip('comet_ml', reason='comet_ml is optional')
-    import comet_ml
+    comet_ml = pytest.importorskip('comet_ml', reason='comet_ml is optional')
 
     monkeypatch.setattr(comet_ml, 'Experiment', comet_ml.OfflineExperiment)
     from composer.loggers import CometMLLogger

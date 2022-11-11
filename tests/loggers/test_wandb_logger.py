@@ -10,7 +10,7 @@ import pickle
 import uuid
 from pathlib import Path
 from typing import Sequence, Type
-
+import time
 import pytest
 import torch
 from torch.utils.data import DataLoader
@@ -25,18 +25,26 @@ from composer.trainer import Trainer
 from composer.utils import dist, retry
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cbs_and_marks
 from tests.common import RandomClassificationDataset, SimpleModel
+from tests.common.datasets import RandomImageDataset
+from tests.common.models import SimpleConvModel
+import shutil
 
 
 @pytest.fixture
 def test_wandb_logger(tmp_path, dummy_state):
     pytest.importorskip('wandb', reason='wandb is optional')
     os.environ['WANDB_DIR'] = str(tmp_path)
+    os.environ['WANDB_CACHE_DIR'] = str(Path(tmp_path) / Path('wandb_cache'))
     os.environ['WANDB_MODE'] = 'offline'
     dummy_state.run_name = 'wand-test-log-image'
     logger = Logger(dummy_state, [])
     wandb_logger = WandBLogger()
     wandb_logger.init(dummy_state, logger)
     return wandb_logger
+
+def teardown_function(function):
+    if 'WANDB_CACHE_DIR' in os.environ and os.path.exists(os.environ['WANDB_CACHE_DIR']):
+        shutil.rmtree(os.environ['WANDB_CACHE_DIR'])
 
 
 @pytest.mark.parametrize('images,channels_last', [(torch.rand(32, 32), False), (torch.rand(5, 3, 32, 32), False),
@@ -105,6 +113,76 @@ def test_wandb_log_image_with_masks(tmp_path: pathlib.Path, images, masks, test_
     msks = [filename for filename in os.listdir(mask_dir) if imghdr.what(mask_dir + '/' + filename) == 'png']
     actual_num_masks = len(msks)
     assert actual_num_masks == expected_num_masks
+
+
+@pytest.mark.parametrize('images,masks', [(torch.randint(0, 256, (32, 32, 3)), {
+    'pred': torch.randint(0, 10, (32, 32))
+}), (torch.rand(2, 8, 8, 3), {
+    'pred': torch.randint(0, 10, (2, 8, 8))
+}), (torch.rand(2, 8, 8, 3), {
+    'pred': torch.randint(0, 10, (2, 8, 8)),
+    'pred2': torch.randint(0, 10, (2, 8, 8))
+})])
+def test_wandb_log_image_with_masks_and_table(tmp_path: pathlib.Path, images, masks, test_wandb_logger):
+    wandb = pytest.importorskip('wandb', reason='wandb is optional')
+    
+    num_masks = len(masks.keys())
+    expected_num_images = 1 if images.ndim < 4 else images.shape[0]
+    expected_num_masks = num_masks * expected_num_images
+    expected_num_masks_and_images = expected_num_images + expected_num_masks
+
+    test_wandb_logger.log_images(images=images, masks=masks, channels_last=True, use_table=True)
+    test_wandb_logger.post_close()
+    time.sleep(5)
+    cache_dir = wandb.env.get_cache_dir()
+    all_files_in_cache = []
+    for subdir, _, files in os.walk(cache_dir):
+        files_in_subdir = [os.path.join(subdir, f) for f in files]
+        all_files_in_cache.extend(files_in_subdir)
+    imgs = [filepath for filepath in all_files_in_cache if imghdr.what(filepath) == 'png']
+    actual_num_images_and_masks = len(imgs)
+    assert expected_num_masks_and_images == actual_num_images_and_masks
+    
+
+def test_wandb_and_image_visualizer(tmp_path, test_wandb_logger):
+    wandb = pytest.importorskip('wandb', reason='wandb is optional')
+
+
+    dataset_size = 40
+    batch_size = 4
+
+    trainer = Trainer(model=SimpleConvModel(),
+                      loggers=test_wandb_logger,
+                      train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+                      eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+                      max_duration='1ep')
+
+    trainer.fit()
+
+    wandb_run_dir = Path(wandb.run.dir)
+    run_file = wandb_run_dir.parent / Path(f'run-{wandb.run.id}.wandb')
+
+    # delete trainer to force WandBLogger to clean up in post_close
+    del trainer
+
+    # Note, it is not clear how to correctly load this file, so we are just loading it as text
+    # and searching the text for expected strings
+    with open(run_file, encoding='latin-1') as _wandb_file:
+        all_run_text = _wandb_file.read()
+
+    train_metrics_accuracy_count = all_run_text.count('metrics/train/Accuracy')
+    eval_metrics_accuracy_count = all_run_text.count('metrics/eval/Accuracy')
+    eval_metrics_cross_entropy_count = all_run_text.count('metrics/eval/CrossEntropy')
+    train_loss_count = all_run_text.count('loss/train/total')
+
+    expected_number_train_loss_count = (dataset_size / batch_size) + 1  # wandb includes it in the file one extra time
+    expected_number_train_metrics_count = (dataset_size /
+                                           batch_size) + 2  # wandb includes it in the file two extra times
+    expected_number_eval_metrics_count = 2  # wandb includes it in the file twice
+    assert train_metrics_accuracy_count == expected_number_train_metrics_count
+    assert train_loss_count == expected_number_train_loss_count
+    assert eval_metrics_accuracy_count == expected_number_eval_metrics_count
+    assert eval_metrics_cross_entropy_count == expected_number_eval_metrics_count
 
 
 @pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
