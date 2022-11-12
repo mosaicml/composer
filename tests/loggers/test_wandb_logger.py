@@ -7,10 +7,11 @@ import json
 import os
 import pathlib
 import pickle
+import shutil
 import uuid
 from pathlib import Path
 from typing import Sequence, Type
-import time
+
 import pytest
 import torch
 from torch.utils.data import DataLoader
@@ -27,7 +28,6 @@ from tests.callbacks.callback_settings import get_cb_kwargs, get_cbs_and_marks
 from tests.common import RandomClassificationDataset, SimpleModel
 from tests.common.datasets import RandomImageDataset
 from tests.common.models import SimpleConvModel
-import shutil
 
 
 @pytest.fixture
@@ -41,6 +41,7 @@ def test_wandb_logger(tmp_path, dummy_state):
     wandb_logger = WandBLogger()
     wandb_logger.init(dummy_state, logger)
     return wandb_logger
+
 
 def teardown_function(function):
     if 'WANDB_CACHE_DIR' in os.environ and os.path.exists(os.environ['WANDB_CACHE_DIR']):
@@ -115,17 +116,12 @@ def test_wandb_log_image_with_masks(tmp_path: pathlib.Path, images, masks, test_
     assert actual_num_masks == expected_num_masks
 
 
-@pytest.mark.parametrize('images,masks', [(torch.randint(0, 256, (32, 32, 3)), {
-    'pred': torch.randint(0, 10, (32, 32))
-}), (torch.rand(2, 8, 8, 3), {
-    'pred': torch.randint(0, 10, (2, 8, 8))
-}), (torch.rand(2, 8, 8, 3), {
-    'pred': torch.randint(0, 10, (2, 8, 8)),
-    'pred2': torch.randint(0, 10, (2, 8, 8))
+@pytest.mark.parametrize('images,masks', [(torch.randint(0, 256, (4, 32, 32, 3)), {
+    'pred': torch.randint(0, 10, (4, 32, 32))
 })])
 def test_wandb_log_image_with_masks_and_table(tmp_path: pathlib.Path, images, masks, test_wandb_logger):
     wandb = pytest.importorskip('wandb', reason='wandb is optional')
-    
+
     num_masks = len(masks.keys())
     expected_num_images = 1 if images.ndim < 4 else images.shape[0]
     expected_num_masks = num_masks * expected_num_images
@@ -133,7 +129,7 @@ def test_wandb_log_image_with_masks_and_table(tmp_path: pathlib.Path, images, ma
 
     test_wandb_logger.log_images(images=images, masks=masks, channels_last=True, use_table=True)
     test_wandb_logger.post_close()
-    time.sleep(5)
+
     cache_dir = wandb.env.get_cache_dir()
     all_files_in_cache = []
     for subdir, _, files in os.walk(cache_dir):
@@ -142,11 +138,10 @@ def test_wandb_log_image_with_masks_and_table(tmp_path: pathlib.Path, images, ma
     imgs = [filepath for filepath in all_files_in_cache if imghdr.what(filepath) == 'png']
     actual_num_images_and_masks = len(imgs)
     assert expected_num_masks_and_images == actual_num_images_and_masks
-    
+
 
 def test_wandb_and_image_visualizer(tmp_path, test_wandb_logger):
     wandb = pytest.importorskip('wandb', reason='wandb is optional')
-
 
     dataset_size = 40
     batch_size = 4

@@ -79,6 +79,34 @@ class SimpleConvModel(ComposerClassifier):
         self.conv2 = conv2
 
 
+class SimpleSegmentationModel(ComposerClassifier):
+    """Small convolutional classifer.
+
+    Args:
+        num_channels (int): number of input channels (default: 3)
+        num_classes (int): number of classes (default: 2)
+    """
+
+    def __init__(self, num_channels: int = 3, num_classes: int = 2) -> None:
+
+        self.num_classes = num_classes
+        self.num_channels = num_channels
+
+        conv_args = {'kernel_size': (3, 3), 'padding': 'same', 'stride': 1}
+        conv1 = torch.nn.Conv2d(in_channels=num_channels, out_channels=8, **conv_args)
+        conv2 = torch.nn.Conv2d(in_channels=8, out_channels=num_classes, **conv_args)
+
+        net = torch.nn.Sequential(
+            conv1,
+            conv2,
+        )
+        super().__init__(module=net)
+
+        # bind these to class for access during surgery tests
+        self.conv1 = conv1
+        self.conv2 = conv2
+
+
 class ConvModel(ComposerClassifier):
     """Convolutional network featuring strided convs, a batchnorm, max pooling, and average pooling."""
 

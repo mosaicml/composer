@@ -91,7 +91,9 @@ def test_comet_ml_log_image_saves_images_with_masks(images: torch.Tensor, masks,
     # Count expected images and generate numpy arrays from torch tensors.
     num_masks = len(masks.keys())
     num_images = images.shape[0] if images.ndim == 4 else 1
-    expected_num_images = num_images * (2 * num_masks + 1)
+    num_additional_images_per_mask = 2  # Mask overlaid on image + mask by itself.
+    expected_num_masks = num_images * num_additional_images_per_mask * num_masks
+    expected_num_masks_and_images = num_images + expected_num_masks
 
     # Log images from torch tensors and numpy arrays.
     comet_logger.log_images(images, masks=masks, channels_last=True)
@@ -110,7 +112,7 @@ def test_comet_ml_log_image_saves_images_with_masks(images: torch.Tensor, masks,
         file_path = str(Path(comet_offline_directory) / Path(filename))
         if imghdr.what(file_path) == 'png':
             actual_num_images += 1
-    assert actual_num_images == expected_num_images
+    assert actual_num_images == expected_num_masks_and_images
 
 
 def test_comet_ml_logging_train_loop(monkeypatch, tmp_path):
