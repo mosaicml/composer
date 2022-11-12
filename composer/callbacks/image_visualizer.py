@@ -152,10 +152,7 @@ def _make_input_images(inputs: torch.Tensor, num_images: int, channels_last: boo
     #import wandb
     if inputs.shape[0] < num_images:
         num_images = inputs.shape[0]
-    if channels_last:
-        images = inputs[0:num_images].data.cpu().numpy()
-    else:
-        images = inputs[0:num_images].data.cpu().permute(0, 2, 3, 1).numpy()
+    images = inputs[0:num_images].data.cpu().numpy()
     return images
 
 
@@ -169,10 +166,9 @@ def _make_segmentation_images(inputs: torch.Tensor,
     # import wandb
     if min([inputs.shape[0], targets.shape[0], outputs.shape[0]]) < num_images:
         num_images = min([inputs.shape[0], targets.shape[0], outputs.shape[0]])
-    if channels_last:
-        images = inputs[0:num_images].data.cpu().numpy()
-    else:
-        images = inputs[0:num_images].data.cpu().permute(0, 2, 3, 1).numpy()
+
+    images = inputs[0:num_images].data.cpu().numpy()
+
     targets = targets[0:num_images]
     outputs = outputs[0:num_images]
     # Ensure the targets are in the expected format
