@@ -19,7 +19,7 @@ from torch.optim.optimizer import required  # type: ignore
 
 log = logging.getLogger(__name__)
 
-__all__ = ['DecoupledSGDW', 'DecoupledAdamW']
+__all__ = ['DecoupledSGDW', 'DecoupledAdamW', 'ThresholdAdamW']
 
 
 class DecoupledSGDW(SGD):
@@ -326,3 +326,155 @@ class DecoupledAdamW(AdamW):
                        eps=eps)
 
         return loss
+
+
+class ThresholdAdamW(AdamW):
+    def __init__(self,
+                params: Union[Iterable[torch.Tensor], Iterable[dict]],
+                lr: float = 1e-3,
+                betas: Tuple[float, float] = (0.9, 0.95),
+                eps: float = 1e-8,
+                weight_decay: float = 1e-5,
+                threshold: float = 1.0,
+                warmup: int = 1):
+        if weight_decay >= 1e-3:
+            log.warning(
+                f'You are using a high value of `weight_decay={weight_decay}` for the `NormalizedAdamW` optimizer. Are you sure you want to do this? '
+                f'Your model\'s weights will be multiplied by {1.0 - weight_decay} on every step!')
+        super().__init__(params=params, lr=lr, betas=betas, eps=eps, weight_decay=weight_decay)
+        for group in self.param_groups:
+            group['initial_lr'] = group['lr']
+        self.threshold = threshold
+        self.warmup = max(warmup, 1)
+
+    
+    @staticmethod
+    def threshold_adamw(params: List[torch.Tensor], grads: List[torch.Tensor], exp_avgs: List[torch.Tensor],
+              exp_avg_sqs: List[torch.Tensor], state_steps: List[int], *,
+              beta1: float, beta2: float, lr: float, initial_lr: float, weight_decay: float,
+              eps: float, threshold: float, warmup: int) -> None:
+        r"""Functional API that performs AdamW algorithm computation with decoupled weight decay.
+
+        Args:
+            params (list): List of parameters to update.
+            grads (list): List of parameter gradients.
+            exp_avgs (list): List of average gradients.
+            exp_avg_sqs (list): List of average squared gradients.
+            max_exp_avg_sqs (list): List of max average squared gradients for amsgrad updates.
+            state_steps (list): List of steps taken for all parameters.
+            amsgrad (bool): Enables amsgrad variant of Adam.
+            beta1 (float): Coefficient for computing the moving average of gradient values.
+            beta2 (float): Coefficient for computing the moving average of squared gradient values.
+            lr (float): Learning rate.
+            initial_lr (float): Initial learning rate.
+            weight_decay (float): Factor for decoupled weight decay
+            eps (float): Term added to the denominator to improve numerical stability.
+        """
+
+        for i, param in enumerate(params):
+            grad = grads[i]
+            exp_avg = exp_avgs[i]
+            exp_avg_sq = exp_avg_sqs[i]
+            step = state_steps[i]
+          
+            # Perform stepweight decay
+            if weight_decay != 0:
+                decay_factor = (lr / initial_lr) if initial_lr else 1.0
+                param.mul_(1 - decay_factor * weight_decay)
+
+            grad_sq = torch.mul(grad, grad)
+            
+            gradient_norm = torch.linalg.vector_norm(grad)
+            exp_avg_norm = torch.linalg.vector_norm(exp_avg)
+
+
+            if  gradient_norm > (beta1 * threshold /  (1-beta1)) * exp_avg_norm and step > warmup:
+                print(f"""Step {step}, param {i}: |g|={gradient_norm}, |m|={exp_avg_norm},
+                    cos(g,m)={torch.nn.functional.cosine_similarity(grad.flatten(), exp_avg_norm.flatten(), dim=0)}
+                    clipping to {(beta1 * threshold /  (1-beta1)) * exp_avg_norm}""")
+                gradient_scaling =  (beta1 * threshold /  (1-beta1)) * exp_avg_norm / gradient_norm
+            else:
+                gradient_scaling = 1
+
+            exp_avg.mul_(beta1).add_(grad, alpha=(1 - beta1)*gradient_scaling)
+            exp_avg_sq.mul_(beta2).add_(grad_sq, alpha=(1 - beta2))
+        
+
+            bias_correction1 = 1 - beta1**step
+            bias_correction2 = 1 - beta2**step
+            denom = (exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(eps)
+            step_size = lr / bias_correction1
+            param.addcdiv_(exp_avg, denom, value=-step_size)
+          
+
+    @torch.no_grad()
+    def step(self, closure=None):
+        """Performs a single optimization step.
+
+        Args:
+            closure (callable, optional): A closure that reevaluates the model
+                and returns the loss.
+        """
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+
+        for group in self.param_groups:
+            params_with_grad = []
+            grads = []
+            exp_avgs = []
+            exp_avg_sqs = []
+            state_steps = []
+            beta1, beta2 = group['betas']
+            eps = group['eps']
+            lr = group['lr']
+            initial_lr = group['initial_lr']
+            weight_decay = group['weight_decay']
+            threshold = self.threshold
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                params_with_grad.append(p)
+                if p.grad.is_sparse:
+                    raise RuntimeError('AdamW does not support sparse gradients')
+                grads.append(p.grad)
+
+                state = self.state[p]
+
+                # State initialization
+                if len(state) == 0:
+                    state['step'] = 0
+                    # Exponential moving average of gradient values
+                    state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                    # Exponential moving average of squared gradient values
+                    state['exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                   
+                    
+
+                exp_avgs.append(state['exp_avg'])
+                exp_avg_sqs.append(state['exp_avg_sq'])
+                
+
+                # update the steps for each param group update
+                state['step'] += 1
+                # record the step after step update
+                state_steps.append(state['step'])
+
+            self.threshold_adamw(params_with_grad,
+                       grads,
+                       exp_avgs,
+                       exp_avg_sqs,
+                       state_steps,
+                       beta1=beta1,
+                       beta2=beta2,
+                       lr=lr,
+                       initial_lr=initial_lr,
+                       weight_decay=weight_decay,
+                       eps=eps,
+                       threshold=threshold,
+                       warmup=self.warmup)
+
+        return loss
+
