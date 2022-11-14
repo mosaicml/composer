@@ -178,6 +178,8 @@ class CometMLLogger(LoggerDestination):
 def _convert_to_comet_image(image: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
     if isinstance(image, torch.Tensor):
         image = image.data.cpu()
+    elif isinstance(image, np.ndarray):
+        image = torch.from_numpy(image)
     # Error out for empty arrays or weird arrays of dimension 0.
     if np.any(np.equal(image.shape, 0)):
         raise ValueError(f'Got an image (shape {image.shape}) with at least one dimension being 0! ')
@@ -191,7 +193,7 @@ def _convert_to_comet_image(image: Union[np.ndarray, torch.Tensor]) -> torch.Ten
                              list of {image.ndim}D images. Please specify either a 4D
                              image of a list of 3D images'''))
 
-    return torch.Tensor(image)
+    return image
 
 
 def _convert_to_comet_mask(mask: Union[np.ndarray, torch.Tensor]):

@@ -75,7 +75,7 @@ def test_comet_ml_log_image_saves_images(images: torch.Tensor, channels_last: bo
     assert actual_num_images == expected_num_images
 
 
-@pytest.mark.parametrize('images,masks', [(torch.randint(0, 256, (32, 32, 3)), {
+@pytest.mark.parametrize('images,masks', [(torch.rand(32, 32, 3), {
     'pred': torch.randint(0, 10, (32, 32))
 }), (torch.rand(4, 32, 32, 3), {
     'pred': torch.randint(0, 10, (4, 32, 32))
