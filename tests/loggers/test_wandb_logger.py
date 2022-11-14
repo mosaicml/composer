@@ -11,7 +11,7 @@ import shutil
 import uuid
 from pathlib import Path
 from typing import Sequence, Type
-
+import time
 import pytest
 import torch
 from torch.utils.data import DataLoader
@@ -130,6 +130,7 @@ def test_wandb_log_image_with_masks_and_table(tmp_path: pathlib.Path, images, ma
     test_wandb_logger.log_images(images=images, masks=masks, channels_last=True, use_table=True)
     test_wandb_logger.post_close()
 
+    time.sleep(10)
     cache_dir = wandb.env.get_cache_dir()
     all_files_in_cache = []
     for subdir, _, files in os.walk(cache_dir):

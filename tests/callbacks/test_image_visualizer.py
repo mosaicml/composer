@@ -130,7 +130,7 @@ def test_image_visualizer_with_comet(comet_offline_directory, comet_logger):
     assert actual_num_images == expected_number_train_images + expected_number_eval_images
 
 
-def test_image_visualizer_segmentation_with_wandb(tmp_path, test_wandb_logger, monkeypatch):
+def test_image_visualizer_segmentation_with_wandb(test_wandb_logger, monkeypatch):
     pytest.importorskip('wandb', reason='wandb is optional')
 
     image_interval = 2
