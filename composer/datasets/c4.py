@@ -222,7 +222,7 @@ def build_streamingc4_dataloader(
                               download_retry=max_retries,
                               download_timeout=timeout,
                               batch_size=batch_size)
-            else :
+    else:
         raise ValueError(f'Invalid streaming version: {version}')
 
     # Get collate_fn
