@@ -93,20 +93,20 @@ class StreamingC4Hparams(DatasetHparams):
                                   batch_size=batch_size)
         elif self.version == 2:
             try:
-                from streaming.text import C4
+                from streaming.text import StreamingC4
             except ImportError as e:
                 raise MissingConditionalImportError(extra_deps_group='streaming',
                                                     conda_package='mosaicml-streaming') from e
-            dataset = C4(tokenizer_name=self.tokenizer_name,
-                         max_seq_len=self.max_seq_len,
-                         group_method=self.group_method,
-                         local=self.local,
-                         remote=self.remote,
-                         split=self.split,
-                         shuffle=self.shuffle,
-                         retry=self.max_retries,
-                         timeout=self.timeout,
-                         batch_size=batch_size)
+            dataset = StreamingC4(tokenizer_name=self.tokenizer_name,
+                                  max_seq_len=self.max_seq_len,
+                                  group_method=self.group_method,
+                                  local=self.local,
+                                  remote=self.remote,
+                                  split=self.split,
+                                  shuffle=self.shuffle,
+                                  download_retry=self.max_retries,
+                                  download_timeout=self.timeout,
+                                  batch_size=batch_size)
         else:
             raise ValueError(f'Invalid streaming version: {self.version}')
 

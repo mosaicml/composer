@@ -153,7 +153,7 @@ class StreamingImageNet1kHparams(DatasetHparams):
                                           batch_size=batch_size)
         elif self.version == 2:
             try:
-                from streaming.vision import ImageNet
+                from streaming.vision import StreamingImageNet
             except ImportError as e:
                 raise MissingConditionalImportError(extra_deps_group='streaming',
                                                     conda_package='mosaicml-streaming') from e
@@ -174,12 +174,12 @@ class StreamingImageNet1kHparams(DatasetHparams):
                 transform.append(transforms.CenterCrop(self.crop_size))
             transform.append(lambda image: image.convert('RGB'))
             transform = transforms.Compose(transform)
-            dataset = ImageNet(local=self.local,
-                               remote=self.remote,
-                               split=self.split,
-                               shuffle=self.shuffle,
-                               transform=transform,
-                               batch_size=batch_size)
+            dataset = StreamingImageNet(local=self.local,
+                                        remote=self.remote,
+                                        split=self.split,
+                                        shuffle=self.shuffle,
+                                        transform=transform,
+                                        batch_size=batch_size)
         else:
             raise ValueError(f'Invalid streaming version: {self.version}')
         collate_fn = pil_image_collate

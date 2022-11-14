@@ -47,16 +47,16 @@ class StreamingEnWikiHparams(DatasetHparams):
 
         # Get StreamingEnWiki dataset
         try:
-            from streaming.text import EnWiki
+            from streaming.text import StreamingEnWiki
         except ImportError as e:
             raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
-        dataset = EnWiki(local=self.local,
-                         remote=self.remote,
-                         split=self.split,
-                         shuffle=self.shuffle,
-                         retry=self.max_retries,
-                         timeout=self.timeout,
-                         batch_size=batch_size)
+        dataset = StreamingEnWiki(local=self.local,
+                                  remote=self.remote,
+                                  split=self.split,
+                                  shuffle=self.shuffle,
+                                  download_retry=self.max_retries,
+                                  download_timeout=self.timeout,
+                                  batch_size=batch_size)
 
         return DataSpec(
             dataloader=dataloader_hparams.initialize_object(

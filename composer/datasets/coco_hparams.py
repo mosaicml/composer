@@ -82,7 +82,7 @@ class StreamingCOCOHparams(DatasetHparams):
                                     batch_size=batch_size)
         elif self.version == 2:
             try:
-                from streaming.vision import COCO
+                from streaming.vision import StreamingCOCO
             except ImportError as e:
                 raise MissingConditionalImportError(extra_deps_group='streaming',
                                                     conda_package='mosaicml-streaming') from e
@@ -93,12 +93,12 @@ class StreamingCOCOHparams(DatasetHparams):
                 transform = SSDTransformer(dboxes, (input_size, input_size), val=False, num_cropping_iterations=1)
             else:
                 transform = SSDTransformer(dboxes, (input_size, input_size), val=True)
-            dataset = COCO(local=self.local,
-                           remote=self.remote,
-                           split=self.split,
-                           shuffle=self.shuffle,
-                           transform=transform,
-                           batch_size=batch_size)
+            dataset = StreamingCOCO(local=self.local,
+                                    remote=self.remote,
+                                    split=self.split,
+                                    shuffle=self.shuffle,
+                                    transform=transform,
+                                    batch_size=batch_size)
         else:
             raise ValueError(f'Invalid streaming version: {self.version}')
         return DataSpec(dataloader=dataloader_hparams.initialize_object(

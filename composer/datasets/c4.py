@@ -209,20 +209,20 @@ def build_streamingc4_dataloader(
 
     elif version == 2:
         try:
-            from streaming.text import C4
+            from streaming.text import StreamingC4
         except ImportError as e:
             raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
-        dataset = C4(tokenizer_name=tokenizer_name,
-                     max_seq_len=max_seq_len,
-                     group_method=group_method,
-                     local=local,
-                     remote=remote,
-                     split=split,
-                     shuffle=shuffle,
-                     retry=max_retries,
-                     timeout=timeout,
-                     batch_size=batch_size)
-    else:
+        dataset = StreamingC4(tokenizer_name=tokenizer_name,
+                              max_seq_len=max_seq_len,
+                              group_method=group_method,
+                              local=local,
+                              remote=remote,
+                              split=split,
+                              shuffle=shuffle,
+                              download_retry=max_retries,
+                              download_timeout=timeout,
+                              batch_size=batch_size)
+            else :
         raise ValueError(f'Invalid streaming version: {version}')
 
     # Get collate_fn

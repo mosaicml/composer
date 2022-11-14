@@ -210,7 +210,7 @@ class StreamingCIFAR10Hparams(DatasetHparams):
                                        batch_size=batch_size)
         elif self.version == 2:
             try:
-                from streaming.vision import CIFAR10
+                from streaming.vision import StreamingCIFAR10
             except ImportError as e:
                 raise MissingConditionalImportError(extra_deps_group='streaming',
                                                     conda_package='mosaicml-streaming') from e
@@ -226,12 +226,12 @@ class StreamingCIFAR10Hparams(DatasetHparams):
                     transforms.ToTensor(),
                     transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD),
                 ])
-            dataset = CIFAR10(local=self.local,
-                              remote=self.remote,
-                              split=self.split,
-                              shuffle=self.shuffle,
-                              transform=transform,
-                              batch_size=batch_size)
+            dataset = StreamingCIFAR10(local=self.local,
+                                       remote=self.remote,
+                                       split=self.split,
+                                       shuffle=self.shuffle,
+                                       transform=transform,
+                                       batch_size=batch_size)
         else:
             raise ValueError(f'Invalid streaming version: {self.version}')
 

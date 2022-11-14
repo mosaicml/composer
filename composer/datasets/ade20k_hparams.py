@@ -146,13 +146,13 @@ class StreamingADE20kHparams(DatasetHparams):
                                       batch_size=batch_size)
         elif self.version == 2:
             try:
-                from streaming.vision import ADE20K
+                from streaming.vision import StreamingADE20K
             except ImportError as e:
                 raise MissingConditionalImportError(extra_deps_group='streaming',
                                                     conda_package='mosaicml-streaming') from e
             # Define data transformations based on data split
             if self.split == 'train':
-                both_transforms = torch.nn.Sequential(
+                joint_transform = torch.nn.Sequential(
                     RandomResizePair(min_scale=self.min_resize_scale,
                                      max_scale=self.max_resize_scale,
                                      base_size=(self.base_size, self.base_size)),
@@ -173,20 +173,20 @@ class StreamingADE20kHparams(DatasetHparams):
 
                 target_transforms = PadToSize(size=(self.final_size, self.final_size), fill=0)
             else:
-                both_transforms = None
+                joint_transform = None
                 image_transforms = transforms.Resize(size=(self.final_size, self.final_size),
                                                      interpolation=TF.InterpolationMode.BILINEAR)
                 target_transforms = transforms.Resize(size=(self.final_size, self.final_size),
                                                       interpolation=TF.InterpolationMode.NEAREST)
 
-            dataset = ADE20K(local=self.local,
-                             remote=self.remote,
-                             split=self.split,
-                             shuffle=self.shuffle,
-                             both_transforms=both_transforms,
-                             transform=image_transforms,
-                             target_transform=target_transforms,
-                             batch_size=batch_size)
+            dataset = StreamingADE20K(local=self.local,
+                                      remote=self.remote,
+                                      split=self.split,
+                                      shuffle=self.shuffle,
+                                      joint_transform=joint_transform,
+                                      transform=image_transforms,
+                                      target_transform=target_transforms,
+                                      batch_size=batch_size)
         else:
             raise ValueError(f'Invalid streaming version: {self.version}')
         collate_fn = pil_image_collate
