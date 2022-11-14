@@ -79,6 +79,37 @@ class SimpleConvModel(ComposerClassifier):
         self.conv2 = conv2
 
 
+class Mean(torch.nn.Module):
+
+    def forward(self, x):
+        return torch.mean(x, dim=1)
+
+
+class SimpleTransformerClassifier(ComposerClassifier):
+    """Transformer model for testing"""
+
+    def __init__(self, vocab_size: int = 100, num_classes: int = 2):
+        embedding = torch.nn.Embedding(vocab_size, 16)
+        transformer = torch.nn.TransformerEncoder(torch.nn.TransformerEncoderLayer(d_model=16,
+                                                                                   nhead=2,
+                                                                                   dim_feedforward=16,
+                                                                                   dropout=0.3),
+                                                  num_layers=2,
+                                                  norm=torch.nn.LayerNorm(16))
+        pooler = Mean()
+        dropout = torch.nn.Dropout(0.3)
+        classifier = torch.nn.Linear(16, num_classes)
+
+        net = torch.nn.Sequential(embedding, transformer, pooler, dropout, classifier)
+
+        super().__init__(module=net)
+
+        self.embedding = embedding
+        self.transformer = transformer
+        self.pooler = pooler
+        self.classifier = classifier
+
+
 class ConvModel(ComposerClassifier):
     """Convolutional network featuring strided convs, a batchnorm, max pooling, and average pooling."""
 
