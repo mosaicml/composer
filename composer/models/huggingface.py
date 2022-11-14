@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from torchmetrics import Metric
 
 from composer.models.base import ComposerModel
-from composer.utils.import_helpers import MissingConditionalImportError
 
 if TYPE_CHECKING:
     import transformers
@@ -50,12 +49,6 @@ class HuggingFaceModel(ComposerModel):
                                            transformers.PreTrainedTokenizerFast]] = None,
                  use_logits: Optional[bool] = False,
                  metrics: Optional[List[Metric]] = None) -> None:
-        try:
-            import transformers
-            del transformers  # unused
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
-
         super().__init__()
         self.model = model
         self.config = model.config
