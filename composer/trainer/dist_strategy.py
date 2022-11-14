@@ -7,6 +7,7 @@ import logging
 from contextlib import contextmanager, nullcontext
 from typing import Any, Callable, ContextManager, Dict, Optional, Sequence, Union, cast
 
+import datetime
 import torch
 import torch.distributed as torch_dist
 from packaging import version
@@ -148,7 +149,7 @@ def rank_sync_wrapper(
     """
     
     def rank_sync_wrapper_hook(hook_state, bucket: torch_dist.GradBucket) -> torch.futures.Future[torch.Tensor]:
-        print('enter sync: ', bucket.index())
+        print('enter sync: ', bucket.index(), "gradients length is: ", len(bucket.gradients()), "parameters length is: ", len(bucket.parameters()))
         try:
             # Only put barrier in front of first bucket
             if bucket.index() == 0:
@@ -195,16 +196,17 @@ def fsdp_sync_wrapper(
     continue. Otherwise, two ranks would enter different barriers, resulting in deadlock.
     """
     
-    def fsdp_sync_wrapper_hook(hook_state, bucket: torch_dist.GradBucket) -> torch.futures.Future[torch.Tensor]:
-        # print('enter sync, with bucket size: ', bucket.size())
-        print ("type of bucket is: ", type(bucket))
+    # def fsdp_sync_wrapper_hook(hook_state, bucket: torch_dist.GradBucket) -> torch.futures.Future[torch.Tensor]:
+    def fsdp_sync_wrapper_hook(hook_state, input_flattened: torch.Tensor, output: torch.Tensor = None) -> torch.futures.Future[torch.Tensor]:
+        print ("type flattented_input is: ", type(input_flattened), "output is: ", type(output))
         try:
             if hook_state['hook_error']:
                 raise RuntimeError('Timed out')
             # Only put barrier in front of first bucket
             # if bucket.index() == 0:
             print('Enter barrier')
-            print ('hook state is: ', hook_state['group'])
+            # print ('hook state is: ', hook_state['group'])
+            print ("hook state is: ", hook_state)
             dist.barrier(group=hook_state['group'])
             print('Exit barrier')
             # Raise error because barrier in first bucket failed to go to no-op
@@ -230,7 +232,10 @@ def fsdp_sync_wrapper(
                 raise
         print ("exiting sync")
 
-        return hook(hook_state["comm_hook_state"], bucket)
+        if output is not None:
+            return hook(hook_state["comm_hook_state"], input_flattened, output)
+        else:
+            return hook(hook_state["comm_hook_state"], input_flattened)
 
     return fsdp_sync_wrapper_hook
 
