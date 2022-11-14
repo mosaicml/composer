@@ -4,7 +4,9 @@
 """Contains commonly used models that are shared across the test suite."""
 
 import torch
+from torchmetrics import MetricCollection
 
+from composer.metrics import CrossEntropy, MIoU
 from composer.models import ComposerClassifier
 
 
@@ -88,7 +90,6 @@ class SimpleSegmentationModel(ComposerClassifier):
     """
 
     def __init__(self, num_channels: int = 3, num_classes: int = 2) -> None:
-
         self.num_classes = num_classes
         self.num_channels = num_channels
 
@@ -100,7 +101,10 @@ class SimpleSegmentationModel(ComposerClassifier):
             conv1,
             conv2,
         )
-        super().__init__(module=net)
+        train_metrics = MetricCollection([CrossEntropy(), MIoU(num_classes)])
+        val_metrics = MetricCollection([CrossEntropy(), MIoU(num_classes)])
+
+        super().__init__(module=net, train_metrics=train_metrics, val_metrics=val_metrics)
 
         # bind these to class for access during surgery tests
         self.conv1 = conv1

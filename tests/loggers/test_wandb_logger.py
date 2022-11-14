@@ -11,7 +11,7 @@ import shutil
 import uuid
 from pathlib import Path
 from typing import Sequence, Type
-import time
+
 import pytest
 import torch
 from torch.utils.data import DataLoader
@@ -52,7 +52,7 @@ def teardown_function(function):
                                                   (torch.rand(3, 32, 32), False), (torch.rand(8, 32, 32, 3), True),
                                                   ([torch.rand(32, 32, 3)], True),
                                                   ([torch.rand(32, 32, 3), torch.rand(32, 32, 3)], True)])
-def test_wandb_log_image(tmp_path: pathlib.Path, images, channels_last, test_wandb_logger):
+def test_wandb_log_image(images, channels_last, test_wandb_logger):
     pytest.importorskip('wandb', reason='wandb is optional')
     if isinstance(images, Sequence):
         expected_num_images = len(images)
@@ -93,7 +93,7 @@ def test_wandb_ml_log_image_errors_out(test_wandb_logger, images, channels_last)
     'pred': torch.randint(0, 10, (4, 32, 32)),
     'pred2': torch.randint(0, 10, (4, 32, 32))
 })])
-def test_wandb_log_image_with_masks(tmp_path: pathlib.Path, images, masks, test_wandb_logger):
+def test_wandb_log_image_with_masks(images, masks, test_wandb_logger):
     pytest.importorskip('wandb', reason='wandb is optional')
 
     num_masks = len(masks.keys())
@@ -116,29 +116,29 @@ def test_wandb_log_image_with_masks(tmp_path: pathlib.Path, images, masks, test_
     assert actual_num_masks == expected_num_masks
 
 
-@pytest.mark.parametrize('images,masks', [(torch.randint(0, 256, (4, 32, 32, 3)), {
-    'pred': torch.randint(0, 10, (4, 32, 32))
+@pytest.mark.parametrize('images,masks', [(torch.randint(0, 256, (32, 32, 3)), {
+    'pred': torch.randint(0, 10, (32, 32))
 })])
-def test_wandb_log_image_with_masks_and_table(tmp_path: pathlib.Path, images, masks, test_wandb_logger):
+def test_wandb_log_image_with_masks_and_table(monkeypatch, images, masks, test_wandb_logger):
     wandb = pytest.importorskip('wandb', reason='wandb is optional')
 
-    num_masks = len(masks.keys())
     expected_num_images = 1 if images.ndim < 4 else images.shape[0]
-    expected_num_masks = num_masks * expected_num_images
-    expected_num_masks_and_images = expected_num_images + expected_num_masks
 
+    assert wandb.run is not None
+    wandb_run_dir = Path(wandb.run.dir)
     test_wandb_logger.log_images(images=images, masks=masks, channels_last=True, use_table=True)
     test_wandb_logger.post_close()
 
-    time.sleep(10)
-    cache_dir = wandb.env.get_cache_dir()
-    all_files_in_cache = []
-    for subdir, _, files in os.walk(cache_dir):
-        files_in_subdir = [os.path.join(subdir, f) for f in files]
-        all_files_in_cache.extend(files_in_subdir)
-    imgs = [filepath for filepath in all_files_in_cache if imghdr.what(filepath) == 'png']
-    actual_num_images_and_masks = len(imgs)
-    assert expected_num_masks_and_images == actual_num_images_and_masks
+    wandb_media_dir = wandb_run_dir.parent / Path('files') / Path('media') / Path('table')
+    image_table_files = wandb_media_dir.glob('./*.json')
+
+    image_count = 0
+    for image_table_file in image_table_files:
+        table_columns = json.load(open(image_table_file.absolute()))['data']
+        num_images = sum([1 for column in table_columns if column[0] == 'Image'])
+        image_count += num_images
+
+    assert image_count == expected_num_images
 
 
 def test_wandb_and_image_visualizer(tmp_path, test_wandb_logger):

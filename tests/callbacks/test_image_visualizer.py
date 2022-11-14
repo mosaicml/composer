@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import imghdr
+import json
 import os
 import zipfile
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 from torch.utils.data import DataLoader
@@ -130,21 +130,20 @@ def test_image_visualizer_with_comet(comet_offline_directory, comet_logger):
     assert actual_num_images == expected_number_train_images + expected_number_eval_images
 
 
-def test_image_visualizer_segmentation_with_wandb(test_wandb_logger, monkeypatch):
-    pytest.importorskip('wandb', reason='wandb is optional')
+def test_image_visualizer_segmentation_with_wandb(test_wandb_logger):
+
+    wandb = pytest.importorskip('wandb', reason='wandb is optional')
 
     image_interval = 2
     image_visualizer = ImageVisualizer(interval=f'{image_interval}ba', mode='segmentation')
 
     dataset_size = 40
-    batch_size = 2
-    max_duration = 4
+    batch_size = 4
+    max_duration = 8
     eval_interval = 4
     num_classes = 2
     num_channels = 3
 
-    log_image_mock = MagicMock()
-    monkeypatch.setattr(test_wandb_logger, 'log_images', log_image_mock)
     trainer = Trainer(model=SimpleSegmentationModel(num_channels=num_channels, num_classes=num_classes),
                       callbacks=image_visualizer,
                       loggers=test_wandb_logger,
@@ -159,14 +158,29 @@ def test_image_visualizer_segmentation_with_wandb(test_wandb_logger, monkeypatch
 
     trainer.fit()
 
+    assert wandb.run is not None
+    wandb_run_dir = Path(wandb.run.dir)
+
     # delete trainer to force WandBLogger to clean up in post_close
     del trainer
 
-    # Test is flaky if we check cache dir for image files, so we count the log calls instead.
-    expected_num_log_image_calls_train = int(max_duration / image_interval)
-    expected_num_log_image_calls_eval = int(max_duration / eval_interval)
+    wandb_media_dir = wandb_run_dir.parent / Path('files') / Path('media') / Path('table') / Path('Images')
+    image_table_files = wandb_media_dir.glob('./*.json')
 
-    assert log_image_mock.call_count == expected_num_log_image_calls_train + expected_num_log_image_calls_eval
+    train_image_count, eval_image_count = 0, 0
+    for image_table_file in image_table_files:
+        table_columns = json.load(open(image_table_file.absolute()))['data']
+        num_images = sum([1 for column in table_columns if column[0] == 'Image'])
+        if str(image_table_file.name).startswith('Train'):
+            train_image_count += num_images
+        elif str(image_table_file.name).startswith('Eval'):
+            eval_image_count += num_images
+
+    expected_number_train_images = (max_duration / image_interval) * batch_size
+    expected_number_eval_images = (max_duration / eval_interval) * batch_size
+
+    assert train_image_count == expected_number_train_images
+    assert eval_image_count == expected_number_eval_images
 
 
 def test_image_visualizer_segmentation_with_comet(comet_offline_directory, comet_logger):
