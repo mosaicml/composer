@@ -8,7 +8,6 @@
 
 import os
 import pathlib
-import shutil
 import subprocess
 import textwrap
 
@@ -30,17 +29,6 @@ def check_output(proc: subprocess.CompletedProcess):
         ----End stderr------""")
 
     raise RuntimeError(error_msg)
-
-
-def test_run_pre_commit_hooks():
-    composer_root = os.path.join(os.path.dirname(__file__), '..')
-    check_output(
-        subprocess.run(
-            ['pre-commit', 'run', '--all-files', '--show-diff-on-failure'],
-            cwd=composer_root,
-            capture_output=True,
-            text=True,
-        ))
 
 
 def test_run_doctests():
