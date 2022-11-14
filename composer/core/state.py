@@ -23,6 +23,7 @@ from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit
+from composer.models import HuggingFaceModel
 from composer.utils import batch_get, batch_set, dist, ensure_tuple, is_model_deepspeed
 
 if TYPE_CHECKING:
@@ -344,17 +345,8 @@ class State(Serializable):
         # For example, even though the optimizers are stored on the state
         # as the "_optimizers" attribute, here we specify just "optimizers"
         self.serialized_attributes = [
-            'model',
-            'optimizers',
-            'schedulers',
-            'algorithms',
-            'callbacks',
-            'scaler',
-            'timestamp',
-            'rank_zero_seed',
-            'train_metrics',
-            'eval_metrics',
-            'run_name',
+            'model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timestamp', 'rank_zero_seed',
+            'train_metrics', 'eval_metrics', 'run_name', 'integrations'
         ]
 
         self.train_metrics: Dict[str, Metric] = {}
@@ -508,10 +500,20 @@ class State(Serializable):
                 return True
         return False
 
+    def get_integrations_state_dict(self) -> Dict[str, Any]:
+        integrations = {}
+        if isinstance(self.model, HuggingFaceModel):
+            integrations['huggingface'] = self.model.get_metadata()
+        return integrations
+
     def state_dict(self) -> Dict[str, Any]:
         state_dict = {}
 
         for attribute_name in self.serialized_attributes:
+            if attribute_name == 'integrations':
+                serialized_value = self.get_integrations_state_dict()
+                continue
+
             attribute_value = getattr(self, attribute_name)
             if attribute_name == 'model':
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel

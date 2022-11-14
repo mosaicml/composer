@@ -5,7 +5,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import tempfile
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from torchmetrics import Metric
@@ -57,6 +60,7 @@ class HuggingFaceModel(ComposerModel):
         super().__init__()
         self.model = model
         self.config = model.config
+        self.tokenizer = tokenizer
 
         # the set of inputs that a model expects inferred from the model type or
         # tokenizer if provided
@@ -139,3 +143,32 @@ class HuggingFaceModel(ComposerModel):
         """
 
         return self.model_inputs
+
+    def get_metadata(self):
+        model_output = {}
+        tokenizer_output = {}
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_dir = Path(tmp_dir)
+            model_dir = tmp_dir / 'model'
+            tokenizer_dir = tmp_dir / 'tokenizer'
+            self.model.save_pretrained(model_dir)
+            if self.tokenizer is not None:
+                self.tokenizer.save_pretrained(tokenizer_dir)
+
+            with open(model_dir / 'config.json') as _config_file:
+                model_output['config'] = json.load(_config_file)
+
+            if self.tokenizer is not None:
+                for tokenizer_file_name in tokenizer_dir.iterdir():
+                    tokenizer_file_path = tokenizer_dir / tokenizer_file_name
+                    with open(tokenizer_file_path) as _tokenizer_file:
+                        tokenizer_file_extension = tokenizer_file_path.suffix
+                        if tokenizer_file_extension == '.txt':
+                            tokenizer_file_content = _tokenizer_file.read().split('\n')
+                        elif tokenizer_file_extension == '.json':
+                            tokenizer_file_content = json.load(_tokenizer_file)
+                        else:
+                            raise ValueError(
+                                f'Unexpected file ending {tokenizer_file_name} in output of tokenizer.save_pretrained.')
+                    tokenizer_output[tokenizer_file_path.stem] = tokenizer_file_content
+        return {'model': model_output, 'tokenizer': tokenizer_output}
