@@ -121,6 +121,7 @@ class RandomSegmentationDataset(VisionDataset):
         else:
             return x, y
 
+
 class RandomTextClassificationDataset(torch.utils.data.Dataset):
     """ Text classification dataset with values (just input token ids) drawn uniformly
     Args:
