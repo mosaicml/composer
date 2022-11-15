@@ -237,7 +237,7 @@ def build_streaming_cifar10_dataloader(
     batch_size: int,
     remote: str,
     *,
-    version: int = 1,
+    version: int = 2,
     local: str = '/tmp/mds-cache/mds-cifar10',
     split: str = 'train',
     drop_last: bool = True,
