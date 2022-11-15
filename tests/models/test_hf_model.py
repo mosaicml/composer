@@ -1,5 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
+from pathlib import Path
 
 import pytest
 import torch
@@ -11,16 +12,16 @@ from composer.utils import dist
 from tests.common.datasets import RandomTextClassificationDataset
 
 
-def test_hf_model_forward():
-    pytest.importorskip('transformers')
-    import transformers
+@pytest.mark.parametrize('num_classes', [2, 3])
+def test_hf_model_forward(num_classes: int):
+    transformers = pytest.importorskip('transformers')
     from transformers.modeling_outputs import SequenceClassifierOutput
 
     from composer.models import HuggingFaceModel
 
     # dummy sequence batch with 2 labels, 32 sequence length, and 30522 (bert) vocab size).
     input_ids = torch.randint(low=0, high=30522, size=(2, 32))
-    labels = torch.randint(low=0, high=1, size=(2,))
+    labels = torch.randint(low=0, high=num_classes, size=(2,))
     token_type_ids = torch.zeros(size=(2, 32), dtype=torch.int64)
     attention_mask = torch.randint(low=0, high=1, size=(2, 32))
     batch = {
@@ -31,22 +32,22 @@ def test_hf_model_forward():
     }
 
     # non pretrained model to avoid a slow test that downloads the weights.
-    config = transformers.AutoConfig.from_pretrained('bert-base-uncased', num_labels=2)
+    config = transformers.AutoConfig.from_pretrained('bert-base-uncased', num_labels=num_classes)
     hf_model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
     model = HuggingFaceModel(hf_model)
 
     out = model(batch)
     assert isinstance(out, SequenceClassifierOutput)
-    assert out.logits.shape == (2, 2)
+    assert out.logits.shape == (2, num_classes)
 
 
-def test_hf_train_eval_predict():
-    pytest.importorskip('transformers')
-    import transformers
+@pytest.mark.parametrize('num_classes', [2, 3])
+def test_hf_train_eval_predict(num_classes: int):
+    transformers = pytest.importorskip('transformers')
 
     from composer.models import HuggingFaceModel
 
-    config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny', num_labels=2)
+    config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny', num_labels=num_classes)
     hf_model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
 
     metrics = Accuracy()
@@ -54,7 +55,7 @@ def test_hf_train_eval_predict():
 
     vocab_size = 30522  # Match bert vocab size
     sequence_length = 32
-    num_classes = 2
+    num_classes = num_classes
     size = 16
     batch_size = 8
 
@@ -97,4 +98,52 @@ def test_hf_train_eval_predict():
     # Check that the output predictions are the expected shape
     num_predict_batches_expected = ((size - 1) // batch_size) + 1
     assert len(predictions) == num_predict_batches_expected
-    assert predictions[0]['logits'].shape == (batch_size, 2)
+    assert predictions[0]['logits'].shape == (batch_size, num_classes)
+
+
+@pytest.mark.parametrize('pass_in_tokenizer', [True, False])
+@pytest.mark.parametrize('num_classes', [2, 3])
+def test_hf_state_dict_info(tmp_path: str, pass_in_tokenizer: bool, num_classes: int):
+    pytest.importorskip('transformers')
+    import transformers
+
+    from composer.models import HuggingFaceModel
+
+    config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny', num_labels=num_classes)
+    tokenizer = transformers.AutoTokenizer.from_pretrained('prajjwal1/bert-tiny') if pass_in_tokenizer else None
+    hf_model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
+
+    metrics = Accuracy()
+    model = HuggingFaceModel(hf_model, tokenizer=tokenizer, metrics=[metrics], use_logits=True)
+
+    vocab_size = 30522  # Match bert vocab size
+    sequence_length = 32
+    size = 16
+    batch_size = 8
+
+    train_dataset = RandomTextClassificationDataset(size=size,
+                                                    vocab_size=vocab_size,
+                                                    sequence_length=sequence_length,
+                                                    num_classes=num_classes,
+                                                    use_keys=True)
+
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=dist.get_sampler(train_dataset))
+
+    trainer = Trainer(model=model,
+                      train_dataloader=train_dataloader,
+                      max_duration='1ep',
+                      save_folder=str(tmp_path),
+                      save_interval='1ep',
+                      save_filename='hf-checkpoint.pt')
+
+    trainer.fit()
+
+    loaded_checkpoint = torch.load(Path(tmp_path) / 'hf-checkpoint.pt')
+    hf_state = loaded_checkpoint['state']['integrations']['huggingface']
+    hf_model_state = hf_state['model']
+    hf_tokenizer_state = hf_state['tokenizer']
+
+    assert hf_model_state['config']['class'] == 'transformers.models.bert.modeling_bert.BertForSequenceClassification'
+    print(hf_model_state)
+    print(hf_tokenizer_state.keys())
+    asdf

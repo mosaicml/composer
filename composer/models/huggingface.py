@@ -130,7 +130,13 @@ class HuggingFaceModel(ComposerModel):
                 self.tokenizer.save_pretrained(tokenizer_dir)
 
             with open(model_dir / 'config.json') as _config_file:
-                model_output['config'] = json.load(_config_file)
+                model_config = json.load(_config_file)
+
+            model_output['config'] = {
+                'file_extension': '.json',
+                'content': model_config,
+                'class': f'{self.model.__class__.__module__}.{self.model.__class__.__name__}'
+            }
 
             if self.tokenizer is not None:
                 for tokenizer_file_name in tokenizer_dir.iterdir():
@@ -144,5 +150,8 @@ class HuggingFaceModel(ComposerModel):
                         else:
                             raise ValueError(
                                 f'Unexpected file ending {tokenizer_file_name} in output of tokenizer.save_pretrained.')
-                    tokenizer_output[tokenizer_file_path.stem] = tokenizer_file_content
+                    tokenizer_output[tokenizer_file_path.stem] = {
+                        'file_extension': tokenizer_file_extension,
+                        'content': tokenizer_file_content
+                    }
         return {'model': model_output, 'tokenizer': tokenizer_output}
