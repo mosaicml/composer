@@ -122,7 +122,6 @@ class ImageVisualizer(Callback):
         assert isinstance(outputs, torch.Tensor)
 
         images, masks = _make_segmentation_images(inputs, targets, outputs, self.num_images, self.channels_last)
-        # Only log to the wandb logger if it is available
         logger.log_images(images, masks=masks, name=data_name, channels_last=self.channels_last, use_table=True)
 
     def before_forward(self, state: State, logger: Logger):
@@ -148,7 +147,7 @@ class ImageVisualizer(Callback):
             self._log_segmented_inputs(state, logger, 'Images/Eval')
 
 
-def _make_input_images(inputs: torch.Tensor, num_images: int, channels_last: bool = False):
+def _make_input_images(inputs: torch.Tensor, num_images: int):
     if inputs.shape[0] < num_images:
         num_images = inputs.shape[0]
     images = inputs[0:num_images].data.cpu().numpy()
