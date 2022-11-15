@@ -18,16 +18,20 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torchvision.datasets import VisionDataset
 
-from composer.core import MemoryFormat
+from composer.core import DataSpec, MemoryFormat
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.streaming import StreamingDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.utils import dist
+from composer.datasets.utils import pil_image_collate
+from composer.utils import MissingConditionalImportError, dist, warn_streaming_dataset_deprecation
 
 __all__ = [
-    'build_cifar10_dataloader', 'build_ffcv_cifar10_dataloader', 'build_synthetic_cifar10_dataloader',
-    'StreamingCIFAR10'
+    'build_cifar10_dataloader', 'build_ffcv_cifar10_dataloader', 'build_streaming_cifar10_dataloader',
+    'build_synthetic_cifar10_dataloader', 'StreamingCIFAR10'
 ]
+
+CIFAR10_CHANNEL_MEAN = 0.4914, 0.4822, 0.4465
+CIFAR10_CHANNEL_STD = 0.247, 0.243, 0.261
 
 
 def build_cifar10_dataloader(
@@ -38,7 +42,7 @@ def build_cifar10_dataloader(
     drop_last: bool = True,
     shuffle: bool = True,
     **dataloader_kwargs: Any,
-) -> DataLoader:
+) -> DataSpec:
     """Builds a CIFAR-10 dataloader with default transforms.
 
     Args:
@@ -52,19 +56,17 @@ def build_cifar10_dataloader(
         shuffle (bool): Shuffle the dataset. Default: ``True``.
         **dataloader_kwargs (Any): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
-    cifar10_mean = 0.4914, 0.4822, 0.4465
-    cifar10_std = 0.247, 0.243, 0.261
     if is_train:
         transform = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            transforms.Normalize(cifar10_mean, cifar10_std),
+            transforms.Normalize(CIFAR10_CHANNEL_MEAN, CIFAR10_CHANNEL_STD),
         ])
     else:
         transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize(cifar10_mean, cifar10_std),
+            transforms.Normalize(CIFAR10_CHANNEL_MEAN, CIFAR10_CHANNEL_STD),
         ])
 
     with dist.run_local_rank_zero_first():
@@ -77,13 +79,14 @@ def build_cifar10_dataloader(
 
     sampler = dist.get_sampler(dataset, drop_last=drop_last, shuffle=shuffle)
 
-    return DataLoader(
-        dataset,
-        batch_size=batch_size,
-        sampler=sampler,
-        drop_last=drop_last,
-        **dataloader_kwargs,
-    )
+    return DataSpec(
+        DataLoader(
+            dataset,
+            batch_size=batch_size,
+            sampler=sampler,
+            drop_last=drop_last,
+            **dataloader_kwargs,
+        ),)
 
 
 def build_ffcv_cifar10_dataloader(
@@ -97,7 +100,7 @@ def build_ffcv_cifar10_dataloader(
     ffcv_dest: str = 'cifar_train.ffcv',
     ffcv_write_dataset: Union[str, bool] = False,
     datadir: Union[str, None] = None,
-):
+) -> DataSpec:
     """Builds an FFCV CIFAR10 dataloader.
 
     Args:
@@ -171,19 +174,20 @@ def build_ffcv_cifar10_dataloader(
 
     ordering = ffcv.loader.OrderOption.RANDOM if is_train else ffcv.loader.OrderOption.SEQUENTIAL
 
-    return ffcv.Loader(
-        dataset_filepath,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        order=ordering,
-        distributed=False,
-        pipelines={
-            'image': image_pipeline,
-            'label': label_pipeline,
-        },
-        batches_ahead=prefetch_factor,
-        drop_last=drop_last,
-    )
+    return DataSpec(
+        ffcv.Loader(
+            dataset_filepath,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            order=ordering,
+            distributed=False,
+            pipelines={
+                'image': image_pipeline,
+                'label': label_pipeline,
+            },
+            batches_ahead=prefetch_factor,
+            drop_last=drop_last,
+        ),)
 
 
 def build_synthetic_cifar10_dataloader(
@@ -195,7 +199,7 @@ def build_synthetic_cifar10_dataloader(
     device: str = 'cpu',
     memory_format: MemoryFormat = MemoryFormat.CONTIGUOUS_FORMAT,
     **dataloader_kwargs: Any,
-) -> DataLoader:
+) -> DataSpec:
     """Builds a synthetic CIFAR-10 dataset for debugging or profiling.
 
     Args:
@@ -219,13 +223,82 @@ def build_synthetic_cifar10_dataloader(
     )
     sampler = dist.get_sampler(dataset, drop_last=drop_last, shuffle=shuffle)
 
-    return DataLoader(
-        dataset,
+    return DataSpec(
+        DataLoader(
+            dataset,
+            batch_size=batch_size,
+            sampler=sampler,
+            drop_last=drop_last,
+            **dataloader_kwargs,
+        ),)
+
+
+def build_streaming_cifar10_dataloader(
+    batch_size: int,
+    remote: str,
+    *,
+    version: int = 2,
+    local: str = '/tmp/mds-cache/mds-cifar10',
+    split: str = 'train',
+    drop_last: bool = True,
+    shuffle: bool = True,
+    **dataloader_kwargs,
+) -> DataSpec:
+    """Builds a streaming CIFAR10 dataset
+
+    Args:
+        batch_size (int): Batch size per device.
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+        version (int, optional): Which version of streaming to use. Default: ``2``.
+        local (str, optional): Local filesystem directory where dataset is cached during operation.
+            Defaults to ``'/tmp/mds-cache/mds-imagenet1k/```.
+        split (str): Which split of the dataset to use. Either ['train', 'val']. Default:
+            ``'train```.
+        drop_last (bool, optional): whether to drop last samples. Default: ``True``.
+        shuffle (bool, optional): whether to shuffle dataset. Defaults to ``True``.
+        **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
+    """
+
+    if version == 1:
+        warn_streaming_dataset_deprecation(old_version=version, new_version=2)
+        dataset = StreamingCIFAR10(remote=remote, local=local, split=split, shuffle=shuffle, batch_size=batch_size)
+    elif version == 2:
+        try:
+            from streaming.vision import CIFAR10
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
+        transform = []
+        if split == 'train':
+            transform = transforms.Compose([
+                transforms.RandomCrop(32, padding=4),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(CIFAR10_CHANNEL_MEAN, CIFAR10_CHANNEL_STD),
+            ])
+        else:
+            transform = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(CIFAR10_CHANNEL_MEAN, CIFAR10_CHANNEL_STD),
+            ])
+        dataset = CIFAR10(local=local,
+                          remote=remote,
+                          split=split,
+                          shuffle=shuffle,
+                          transform=transform,
+                          batch_size=batch_size)
+    else:
+        raise ValueError(f'Invalid streaming version: {version}')
+
+    dataloader = DataLoader(
+        dataset=dataset,
         batch_size=batch_size,
-        sampler=sampler,
+        collate_fn=pil_image_collate,
+        sampler=None,
         drop_last=drop_last,
         **dataloader_kwargs,
     )
+
+    return DataSpec(dataloader=dataloader)
 
 
 class StreamingCIFAR10(StreamingDataset, VisionDataset):
