@@ -332,7 +332,7 @@ def _main():
 
     callbacks = [speed_monitor, lr_monitor, checkpoint_saver]
     if args.image_viz:
-        callbacks.append(ImageVisualizer())
+        callbacks.append(ImageVisualizer(mode='segmentation'))
     # Create the Trainer!
     logging.info('Building Trainer')
     device = 'gpu' if torch.cuda.is_available() else 'cpu'
