@@ -350,11 +350,10 @@ def _convert_to_wandb_image(image: Union[np.ndarray, torch.Tensor], channels_las
                             -dimensional images because you either specified a
                             {image.ndim + 1}D image or a list of {image.ndim}D images.
                             Please specify either a 4D image of a list of 3D images'''))
-
+    assert isinstance(image, np.ndarray)
     if not channels_last:
-        assert isinstance(image, np.ndarray)
         image = image.transpose(1, 2, 0)
-    return np.asarray(image)
+    return image
 
 
 def _convert_to_wandb_mask(mask: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
