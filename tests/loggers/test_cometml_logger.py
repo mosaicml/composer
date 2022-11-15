@@ -75,19 +75,32 @@ def test_comet_ml_log_image_saves_images(images: torch.Tensor, channels_last: bo
     assert actual_num_images == expected_num_images
 
 
-@pytest.mark.parametrize('images,masks,channels_last', 
-[
-    (torch.rand(32, 32, 3), {'pred': torch.randint(0, 10, (32, 32))}, True), 
-    (torch.rand(4, 32, 32, 3), {'pred': torch.randint(0, 10, (4, 32, 32))}, True),
-    (torch.rand(4, 32, 32, 3), {'pred': 4 * [torch.randint(0, 10, (32, 32))]}, True),
-    (torch.rand(4, 32, 32, 3), {'pred': torch.randint(0, 10, (4, 32, 32)), 'pred2': torch.randint(0, 10, (4, 32, 32))}, True),
-    (torch.rand(3, 32, 32), {'pred': torch.randint(0, 10, (32, 32))}, False), 
-    (torch.rand(4, 3, 32, 32), {'pred': torch.randint(0, 10, (4, 32, 32))}, False),
-    (torch.rand(4, 3, 32, 32), {'pred': 4 * [torch.randint(0, 10, (32, 32))]}, False),
-    (torch.rand(4, 3, 32, 32), {'pred': torch.randint(0, 10, (4, 32, 32)), 'pred2': torch.randint(0, 10, (4, 32, 32))}, False)
-])
-def test_comet_ml_log_image_saves_images_with_masks(images: torch.Tensor, masks, comet_logger: CometMLLogger, channels_last: bool,
-                                                    comet_offline_directory: str):
+@pytest.mark.parametrize('images,masks,channels_last', [(torch.rand(32, 32, 3), {
+    'pred': torch.randint(0, 10, (32, 32))
+}, True), (torch.rand(4, 32, 32, 3), {
+    'pred': torch.randint(0, 10, (4, 32, 32))
+}, True), (torch.rand(4, 32, 32, 3), {
+    'pred': 4 * [torch.randint(0, 10, (32, 32))]
+}, True),
+                                                        (torch.rand(4, 32, 32, 3), {
+                                                            'pred': torch.randint(0, 10, (4, 32, 32)),
+                                                            'pred2': torch.randint(0, 10, (4, 32, 32))
+                                                        }, True),
+                                                        (torch.rand(3, 32, 32), {
+                                                            'pred': torch.randint(0, 10, (32, 32))
+                                                        }, False),
+                                                        (torch.rand(4, 3, 32, 32), {
+                                                            'pred': torch.randint(0, 10, (4, 32, 32))
+                                                        }, False),
+                                                        (torch.rand(4, 3, 32, 32), {
+                                                            'pred': 4 * [torch.randint(0, 10, (32, 32))]
+                                                        }, False),
+                                                        (torch.rand(4, 3, 32, 32), {
+                                                            'pred': torch.randint(0, 10, (4, 32, 32)),
+                                                            'pred2': torch.randint(0, 10, (4, 32, 32))
+                                                        }, False)])
+def test_comet_ml_log_image_saves_images_with_masks(images: torch.Tensor, masks, comet_logger: CometMLLogger,
+                                                    channels_last: bool, comet_offline_directory: str):
     assert isinstance(comet_offline_directory, str)
     # Count expected images and generate numpy arrays from torch tensors.
     num_masks = len(masks.keys())
