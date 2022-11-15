@@ -1,7 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Callable, Union
+import contextlib
+from typing import Callable, Optional, Union
 
 import pytest
 from torch.utils.data import DataLoader
@@ -301,3 +302,34 @@ def test_eval_params_evaluator():
     assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == trainer.state.timestamp.batch
     assert event_counter_callback.event_to_num_calls[
         Event.EVAL_BATCH_START] == eval_subset_num_batches * trainer.state.timestamp.batch
+
+
+class InfiniteDataloader(DataLoader):
+    """Infinite dataloader that never raises StopIteration."""
+
+    def __iter__(self):
+        while True:
+            for batch in super().__iter__():
+                yield batch
+
+    def __len__(self) -> Optional[int]:
+        return None
+
+
+@pytest.mark.parametrize('eval_subset_num_batches', [None, 1])
+def test_infinite_eval_dataloader(eval_subset_num_batches):
+    """Test the `eval_subset_num_batches` is required with infinite dataloader."""
+    # Construct the trainer
+    train_dataset = RandomClassificationDataset()
+    train_dataloader = DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset))
+    eval_dataset = RandomClassificationDataset()
+    eval_dataloader = InfiniteDataloader(eval_dataset, sampler=dist.get_sampler(eval_dataset))
+
+    with contextlib.nullcontext() if eval_subset_num_batches is not None else pytest.raises(ValueError):
+        Trainer(
+            model=SimpleModel(),
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
+            max_duration='1ep',
+            eval_subset_num_batches=eval_subset_num_batches,
+        )
