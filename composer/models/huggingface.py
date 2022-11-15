@@ -6,12 +6,12 @@
 from __future__ import annotations
 
 import logging
+from collections import UserDict
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from torchmetrics import Metric
 
 from composer.models.base import ComposerModel
-from composer.utils.import_helpers import MissingConditionalImportError
 
 if TYPE_CHECKING:
     import transformers
@@ -27,7 +27,7 @@ class HuggingFaceModel(ComposerModel):
 
     Args:
         model (transformers.PreTrainedModel): A 🤗 Transformers model.
-        tokenizer (transformers.PreTrainedTokenizer): Tokenizer used to prepare the dataset and validate model inputs during training. Default ``None``.
+        tokenizer (transformers.PreTrainedTokenizer, optional): The tokenizer used to prepare the dataset. Default ``None``.
         use_logits (bool, optional): If True, the model's output logits will be used to calculate validation metrics. Else, metrics will be inferred from the HuggingFaceModel directly. Default: ``False``
         metrics (list[Metric], optional): list of torchmetrics to apply to the output of `validate`. Default: ``None``.
     .. warning:: This wrapper is designed to work with 🤗 datasets that define a `labels` column.
@@ -49,32 +49,16 @@ class HuggingFaceModel(ComposerModel):
                                            transformers.PreTrainedTokenizerFast]] = None,
                  use_logits: Optional[bool] = False,
                  metrics: Optional[List[Metric]] = None) -> None:
-        try:
-            import transformers
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
-
         super().__init__()
         self.model = model
         self.config = model.config
+        self.tokenizer = tokenizer
 
-        # the set of inputs that a model expects inferred from the model type or
-        # tokenizer if provided
-        if tokenizer is None:
-            if isinstance(self.model.base_model, transformers.GPT2Model):
-                self.model_inputs = {'input_ids', 'attention_mask'}
-            elif isinstance(self.model.base_model, transformers.BertModel):
-                self.model_inputs = {'input_ids', 'attention_mask', 'token_type_ids'}
-        else:
-            assert tokenizer.model_input_names is not None, 'the tokenizer should have a model input name'
-            self.model_inputs = set(tokenizer.model_input_names)
-
-            if self.config.vocab_size != len(tokenizer):
-                # set model's word embedding matrix and final lm_head to vocab size according to tokenizer
-                log.warning(
-                    f'The number of tokens in the tokenizer and the number of tokens in the model are different.'
-                    f' Resizing the model tokenizer to {len(tokenizer)} from {self.config.vocab_size}.')
-                self.model.resize_token_embeddings(len(tokenizer))
+        if tokenizer is not None and self.config.vocab_size != len(tokenizer):
+            # set model's word embedding matrix and final lm_head to vocab size according to tokenizer
+            log.warning(f'The number of tokens in the tokenizer and the number of tokens in the model are different.'
+                        f' Resizing the model tokenizer to {len(tokenizer)} from {self.config.vocab_size}.')
+            self.model.resize_token_embeddings(len(tokenizer))
 
         self.use_logits = use_logits
 
@@ -88,11 +72,13 @@ class HuggingFaceModel(ComposerModel):
         self.labels = None  # set in eval_forward() if exists
 
     def forward(self, batch):
-        for key in self.model_inputs:
-            if key not in batch.keys():
-                raise ValueError(f'Batch missing key: {key}')
-
-        output = self.model(**batch)  # type: ignore (thirdparty)
+        if isinstance(batch, dict) or isinstance(batch, UserDict):
+            # Further input validation is left to the huggingface forward call
+            output = self.model(**batch)  # type: ignore (thirdparty)
+        else:
+            raise ValueError(
+                'Unexpected batch type. Expected a dictionary with keys corresponding to the inputs to the forward function of the Huggingface model'
+            )
         return output
 
     def loss(self, outputs, batch):
@@ -128,14 +114,3 @@ class HuggingFaceModel(ComposerModel):
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
         metric.update(outputs, self.labels)
-
-    def get_model_inputs(self):
-        """Returns a set of inputs that the model expects in the forward pass.
-        If an algorithm wants to interact with the model inputs (for instance,
-        popping the labels for a custom loss fn, or adding attention head masks
-        for head pruning, it must access self.set_model_inputs().
-        Returns:
-            model_inputs: The set of keys that are expected in the Mapping used to compute the forward pass.
-        """
-
-        return self.model_inputs
