@@ -85,22 +85,33 @@ def test_wandb_ml_log_image_errors_out(test_wandb_logger, images, channels_last)
         test_wandb_logger.log_images(images, channels_last=channels_last)
 
 
-@pytest.mark.parametrize('images,masks', [(torch.randint(0, 256, (32, 32, 3)), {
+@pytest.mark.parametrize('images,masks,channels_last', [(torch.randint(0, 256, (32, 32, 3)), {
     'pred': torch.randint(0, 10, (32, 32))
-}), (torch.rand(4, 32, 32, 3), {
+}, True), (torch.rand(4, 32, 32, 3), {
     'pred': torch.randint(0, 10, (4, 32, 32))
-}), (torch.rand(4, 32, 32, 3), {
-    'pred': torch.randint(0, 10, (4, 32, 32)),
-    'pred2': torch.randint(0, 10, (4, 32, 32))
-})])
-def test_wandb_log_image_with_masks(images, masks, test_wandb_logger):
+}, True),
+                                                        (torch.rand(4, 32, 32, 3), {
+                                                            'pred': torch.randint(0, 10, (4, 32, 32)),
+                                                            'pred2': torch.randint(0, 10, (4, 32, 32))
+                                                        }, True),
+                                                        (torch.randint(0, 256, (3, 32, 32)), {
+                                                            'pred': torch.randint(0, 10, (32, 32))
+                                                        }, False),
+                                                        (torch.rand(4, 3, 32, 32), {
+                                                            'pred': torch.randint(0, 10, (4, 32, 32))
+                                                        }, False),
+                                                        (torch.rand(4, 3, 32, 32), {
+                                                            'pred': torch.randint(0, 10, (4, 32, 32)),
+                                                            'pred2': torch.randint(0, 10, (4, 32, 32))
+                                                        }, False)])
+def test_wandb_log_image_with_masks(images, masks, test_wandb_logger, channels_last):
     pytest.importorskip('wandb', reason='wandb is optional')
 
     num_masks = len(masks.keys())
     expected_num_images = 1 if images.ndim < 4 else images.shape[0]
     expected_num_masks = num_masks * expected_num_images
 
-    test_wandb_logger.log_images(images=images, masks=masks, channels_last=True)
+    test_wandb_logger.log_images(images=images, masks=masks, channels_last=channels_last)
     test_wandb_logger.post_close()
     img_dir = str(Path(test_wandb_logger.run_dir) / Path('media/images'))
     imgs = [
