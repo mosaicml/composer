@@ -155,8 +155,8 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         if len(optimizers_tuple) != 1:
             raise NotImplementedError(f'Only one optimizer is supported; found {len(optimizers_tuple)} optimizers')
 
-    #     # clearing optimizer param groups and state
-    #     # that will be recreated at the end of prepare_fsdp_module
+        # clearing optimizer param groups and state
+        # that will be recreated at the end of prepare_fsdp_module
         optim = optimizers_tuple[0]
         optim.param_groups.clear()
         optim.state.clear()
