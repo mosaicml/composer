@@ -142,11 +142,15 @@ def _set_evaluator_interval_and_subset_num_batches(
         if evaluator.eval_interval is None:
             evaluator.eval_interval = eval_interval
         eval_dataloader = evaluator.dataloader.dataloader
-        if isinstance(eval_dataloader,
-                      collections.abc.Sized) and len(eval_dataloader) is None and evaluator.subset_num_batches is None:
-            raise ValueError('eval_subset_num_batches must be set when using an infinite sized '
-                             'eval_dataloader where length is `None`. Otherwise, evaluation will '
-                             'run forever and never terminate.')
+        if isinstance(eval_dataloader, collections.abc.Sized) and evaluator.subset_num_batches is None:
+            try:
+                dataloader_len = len(eval_dataloader)
+            except TypeError:
+                dataloader_len = None
+            if dataloader_len == None:
+                raise ValueError('eval_subset_num_batches must be set when using an infinite sized '
+                                 'eval_dataloader where length is `None`. Otherwise, evaluation will '
+                                 'run forever and never terminate.')
 
 
 def _is_auto_grad_accum(grad_accum: Union[int, str], device: Device):
