@@ -161,7 +161,7 @@ The following rules apply to public APIs:
     ```python
     from typing import Optional, Union
 
-    from composer.trainer.devices import Device
+    from composer.devices import Device
 
     class Trainer:
         def __init__(

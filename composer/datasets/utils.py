@@ -13,7 +13,7 @@ from PIL import Image
 from torchvision import transforms
 from torchvision.datasets import VisionDataset
 
-from composer.core.types import Batch
+from composer.core import Batch
 
 __all__ = [
     'add_vision_dataset_transform',

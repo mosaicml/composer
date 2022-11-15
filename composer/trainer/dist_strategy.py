@@ -15,8 +15,7 @@ from torchmetrics import Metric, MetricCollection
 from composer.core import Precision
 from composer.core.state import State
 from composer.trainer.activation_checkpointing import apply_activation_checkpointing_wrapper, checkpoint_wrapper
-from composer.utils import dist, ensure_tuple
-from composer.utils.string_enum import StringEnum
+from composer.utils import StringEnum, dist, ensure_tuple
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module']
 

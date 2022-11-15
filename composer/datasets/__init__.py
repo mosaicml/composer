@@ -8,7 +8,7 @@ from composer.datasets.ade20k import (ADE20k, StreamingADE20k, build_ade20k_data
 from composer.datasets.brats import PytTrain, PytVal
 from composer.datasets.c4 import StreamingC4
 from composer.datasets.cifar import (StreamingCIFAR10, build_cifar10_dataloader, build_ffcv_cifar10_dataloader,
-                                     build_synthetic_cifar10_dataloader)
+                                     build_streaming_cifar10_dataloader, build_synthetic_cifar10_dataloader)
 from composer.datasets.coco import COCODetection, StreamingCOCO
 from composer.datasets.imagenet import (StreamingImageNet1k, build_ffcv_imagenet_dataloader, build_imagenet_dataloader,
                                         build_streaming_imagenet1k_dataloader, build_synthetic_imagenet_dataloader)
@@ -34,6 +34,7 @@ __all__ = [
     'build_ade20k_dataloader',
     'build_streaming_ade20k_dataloader',
     'build_cifar10_dataloader',
+    'build_streaming_cifar10_dataloader',
     'build_ffcv_cifar10_dataloader',
     'build_synthetic_ade20k_dataloader',
     'build_synthetic_cifar10_dataloader',

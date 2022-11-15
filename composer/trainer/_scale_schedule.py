@@ -5,7 +5,7 @@ from collections import Counter
 
 from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, MultiStepLR, StepLR
 
-from composer.core.types import PyTorchScheduler
+from composer.core import PyTorchScheduler
 
 
 def scale_pytorch_scheduler(scheduler: PyTorchScheduler, ssr: float):

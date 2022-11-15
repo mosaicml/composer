@@ -17,8 +17,7 @@ from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision.datasets import VisionDataset
 
-from composer.core import DataSpec
-from composer.core.types import Batch
+from composer.core import Batch, DataSpec
 from composer.datasets.streaming import StreamingDataset
 from composer.models.ssd.utils import DefaultBoxes, SSDTransformer
 from composer.utils import dist
