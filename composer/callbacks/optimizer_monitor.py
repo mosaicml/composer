@@ -6,10 +6,10 @@
 from composer.core import Callback, State
 from composer.loggers import Logger
 
-__all__ = ['GradMonitor']
+__all__ = ['OptimizerMonitor']
 
 
-class GradMonitor(Callback):
+class OptimizerMonitor(Callback):
     """Computes and logs the L2 norm of gradients on the :attr:`.Event.AFTER_TRAIN_BATCH` event.
 
     L2 norms are calculated after the reduction of gradients across GPUs. This function iterates over the parameters of
@@ -28,7 +28,7 @@ class GradMonitor(Callback):
             ...     eval_dataloader=eval_dataloader,
             ...     optimizers=optimizer,
             ...     max_duration="1ep",
-            ...     callbacks=[GradMonitor()],
+            ...     callbacks=[OptimizerMonitor()],
             ... )
 
     The L2 norms are logged by the :class:`.Logger` to the following keys as described below.
@@ -38,6 +38,18 @@ class GradMonitor(Callback):
     +===================================+=============================================================+
     |                                   | L2 norm of the gradients of all parameters in the model     |
     | ``grad_l2_norm/step``             | on the :attr:`.Event.AFTER_TRAIN_BATCH` event.              |
+    |                                   |                                                             |
+    +-----------------------------------+-------------------------------------------------------------+
+    |                                   | Layer-wise L2 norms if ``log_layer_grad_norms``             |
+    | ``layer_grad_l2_norm/LAYER_NAME`` | is ``True``. Default: ``False``.                            |
+    |                                   |                                                             |
+    +-----------------------------------+-------------------------------------------------------------+
+    |                                          | Layer-wise L2 norms of ``log_layer_grad_norms``      |
+    | ``layer_grad_moment_l2_norm/LAYER_NAME`` | is ``True``. Default: ``False``.                     |
+    |                                          |                                                      |
+    +-----------------------------------+-------------------------------------------------------------+
+    |                                   | Layer-wise L2 norms if ``log_layer_grad_norms``             |
+    | ``layer_grad_l2_norm/LAYER_NAME`` | is ``True``. Default: ``False``.                            |
     |                                   |                                                             |
     +-----------------------------------+-------------------------------------------------------------+
     |                                   | Layer-wise L2 norms if ``log_layer_grad_norms``             |
