@@ -16,7 +16,7 @@ from torchvision.transforms.functional import InterpolationMode
 
 from composer import DataSpec, Time, Trainer
 from composer.algorithms import EMA, SAM, ChannelsLast, MixUp
-from composer.callbacks import CheckpointSaver, LRMonitor, SpeedMonitor, ImageVisualizer
+from composer.callbacks import CheckpointSaver, ImageVisualizer, LRMonitor, SpeedMonitor
 from composer.datasets.ade20k import (ADE20k, PadToSize, PhotometricDistoration, RandomCropPair, RandomHFlipPair,
                                       RandomResizePair)
 from composer.datasets.utils import NormalizationFn, pil_image_collate
