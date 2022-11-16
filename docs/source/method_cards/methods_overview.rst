@@ -141,6 +141,15 @@
    Progressively freezes layers during training.
 
    ---
+   .. link-button:: low_precision_layernorm.html
+      :text: LowPrecisionLayerNorm
+      :classes: card-title
+
+   :badge:`NLP,badge-primary` :badge:`CV,badge-success`
+   ++++++++++++++
+   Forces LayerNorm to run in lower precision.
+
+   ---
    .. link-button:: mixup.html
       :text: MixUp
       :classes: card-title

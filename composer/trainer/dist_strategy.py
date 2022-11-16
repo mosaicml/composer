@@ -15,8 +15,7 @@ from torchmetrics import Metric, MetricCollection
 from composer.core import Precision
 from composer.core.state import State
 from composer.trainer.activation_checkpointing import apply_activation_checkpointing_wrapper, checkpoint_wrapper
-from composer.utils import dist, ensure_tuple
-from composer.utils.string_enum import StringEnum
+from composer.utils import StringEnum, dist, ensure_tuple
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module']
 
@@ -151,6 +150,17 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
                                         ShardingStrategy)
 
+    if optimizers:
+        optimizers_tuple = ensure_tuple(optimizers)
+        if len(optimizers_tuple) != 1:
+            raise NotImplementedError(f'Only one optimizer is supported; found {len(optimizers_tuple)} optimizers')
+
+        # clearing optimizer param groups and state
+        # that will be recreated at the end of prepare_fsdp_module
+        optim = optimizers_tuple[0]
+        optim.param_groups.clear()
+        optim.state.clear()
+
     sharding_map = {
         'NO_SHARD': ShardingStrategy.NO_SHARD,
         'SHARD_GRAD_OP': ShardingStrategy.SHARD_GRAD_OP,
@@ -281,8 +291,6 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     # Rebuild optimizer now that parameters are sharded
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
-        if len(optimizers_tuple) != 1:
-            raise NotImplementedError(f'Only one optimizer is supported; found {len(optimizers_tuple)} optimizers')
         optim = optimizers_tuple[0]
-        optim.param_groups = []
+        optim.param_groups.clear()
         optim.add_param_group({'params': list(model.parameters())})

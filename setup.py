@@ -78,7 +78,7 @@ install_requires = [
     'torchmetrics>=0.7.0,<0.10.0',
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.10.0',  # torchvision has strict pytorch requirements
-    'torch>=1.10,<2',
+    'torch>=1.10,<1.13',
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<1.23.0',
     'psutil>=5.8.0,<6',
@@ -113,7 +113,7 @@ extra_deps['dev'] = [
     # https://myst-parser.readthedocs.io/en/latest/sphinx/use.html?highlight=parser#include-markdown-files-into-an-rst-file
     'docutils==0.17.1',
     'sphinx_markdown_tables==0.0.17',
-    'sphinx-argparse==0.3.2',
+    'sphinx-argparse==0.4.0',
     'sphinxcontrib.katex==0.9.0',
     'sphinxext.opengraph==0.6.3',
     'sphinxemoji==0.2.0',
@@ -125,13 +125,13 @@ extra_deps['dev'] = [
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.16.1',
     'traitlets==5.5.0',
-    'nbsphinx==0.8.9',
+    'nbsphinx==0.8.10',
     'pandoc==2.2',
     'pypandoc==1.10',
     'GitPython==3.1.28',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
-    'cryptography==38.0.1',
+    'cryptography==38.0.3',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
 ]

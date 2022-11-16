@@ -1,16 +1,91 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
+import imghdr
 import os
 import zipfile
 from collections import defaultdict
 from json import JSONDecoder
 from pathlib import Path
+from typing import Sequence
 
 import pytest
+import torch
 from torch.utils.data import DataLoader
 
+from composer.loggers import CometMLLogger
 from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel
+
+
+@pytest.fixture
+def comet_offline_directory(tmp_path):
+    return str(tmp_path / Path('.my_cometml_runs'))
+
+
+@pytest.fixture
+def comet_logger(monkeypatch, comet_offline_directory):
+    pytest.importorskip('comet_ml', reason='comet_ml is optional')
+    import comet_ml
+
+    monkeypatch.setattr(comet_ml, 'Experiment', comet_ml.OfflineExperiment)
+    from composer.loggers import CometMLLogger
+
+    # Set offline directory.
+    os.environ['COMET_OFFLINE_DIRECTORY'] = comet_offline_directory
+
+    comet_logger = CometMLLogger()
+    return comet_logger
+
+
+@pytest.mark.parametrize('images,channels_last', [(torch.rand(32), False), (torch.rand(32, 32), False),
+                                                  (torch.rand(32, 32, 3), True), (torch.rand(3, 32, 32), False),
+                                                  (torch.rand(8, 32, 32, 3), True), ([torch.rand(32, 32, 3)], True),
+                                                  ([torch.rand(32, 32, 3), torch.rand(32, 32, 3)], True)])
+def test_comet_ml_log_image_saves_images(images: torch.Tensor, channels_last: bool, comet_logger: CometMLLogger,
+                                         comet_offline_directory: str):
+    assert isinstance(comet_offline_directory, str)
+    # Count expected images and generate numpy arrays from torch tensors.
+    if isinstance(images, Sequence):
+        expected_num_images = len(images)
+        np_images = [image.numpy() for image in images]
+
+    else:
+        expected_num_images = 1 if images.ndim < 4 else images.shape[0]
+        np_images = images.numpy()
+
+    # Log images from torch tensors and numpy arrays.
+    comet_logger.log_images(images, channels_last=channels_last)
+    comet_logger.log_images(np_images, channels_last=channels_last)
+
+    comet_logger.post_close()
+
+    expected_num_images *= 2  # One set of torch tensors, one set of numpy arrays
+
+    # Extract all files saved to comet offline directory.
+    assert comet_logger.experiment is not None
+    comet_exp_dump_filepath = str(Path(comet_offline_directory) / Path(comet_logger.experiment.id).with_suffix('.zip'))
+    zf = zipfile.ZipFile(comet_exp_dump_filepath)
+    zf.extractall(comet_offline_directory)
+
+    # Count the number of files that are images.
+    actual_num_images = 0
+    for filename in Path(comet_offline_directory).iterdir():
+        file_path = str(Path(comet_offline_directory) / Path(filename))
+        if imghdr.what(file_path) == 'png':
+            actual_num_images += 1
+    assert actual_num_images == expected_num_images
+
+
+@pytest.mark.parametrize(
+    'images,channels_last',
+    [
+        (torch.rand(32, 0), False),  # Has zero in dimension.
+        (torch.rand(4, 4, 8, 32, 32), False),  # > 4 dim.
+        ([torch.rand(4, 32, 32, 3)], True),
+    ])  # sequence > 3 dim.
+def test_comet_ml_log_image_errors_out(comet_logger, images, channels_last):
+    with pytest.raises(ValueError):
+        comet_logger.log_images(images, channels_last=channels_last)
 
 
 def test_comet_ml_logging_train_loop(monkeypatch, tmp_path):
