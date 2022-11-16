@@ -10,7 +10,7 @@ __all__ = ['OptimizerMonitor']
 
 
 class OptimizerMonitor(Callback):
-    """Computes and logs the L2 norm of gradients on the :attr:`.Event.AFTER_TRAIN_BATCH` event.
+    """Computes and logs the L2 norm of gradients on the :attr:`.Event.AFTER_BATCH_END` event.
 
     L2 norms are calculated after the reduction of gradients across GPUs. This function iterates over the parameters of
     the model and may cause a reduction in throughput while training large models. In order to ensure the
@@ -62,12 +62,15 @@ class OptimizerMonitor(Callback):
             Default: ``False``.
     """
 
-    def __init__(self, log_layer_grad_norms: bool = False):
+    def __init__(self, log_layer_grad_norms: bool = False, log_optimizer_metrics: bool = False):
         self.log_layer_grad_norms = log_layer_grad_norms
+        self.log_optimizer_metrics = log_optimizer_metrics
 
-    def after_train_batch(self, state: State, logger: Logger):
+    def batch_end(self, state: State, logger: Logger):
         norm = 0.0
         layer_norms = {}
+        optimizer_metrics = {}
+
         for name, p in state.model.named_parameters():
             if p.grad is not None and p.requires_grad:
                 param_grad_norm = p.grad.detach().data.norm(2).item()  # type: ignore
@@ -76,8 +79,14 @@ class OptimizerMonitor(Callback):
 
                 param_grad_norm = param_grad_norm**2
                 norm += param_grad_norm
+                metric_reporter = getattr(state.optimizers[0], "report_per_parameter_metrics", None)
+                if callable(metric_reporter) and self.log_optimizer_metrics:
+                    optimizer_metrics = metric_reporter(p, name, optimizer_metrics)
 
         norm = norm**0.5
         logger.log_metrics({'grad_l2_norm/step': norm})
         if self.log_layer_grad_norms:
             logger.log_metrics(layer_norms)
+
+        if self.log_optimizer_metrics:
+            logger.log_metrics(optimizer_metrics)
