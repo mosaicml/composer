@@ -150,6 +150,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
                                         ShardingStrategy)
     from torch.distributed.fsdp.flatten_params_wrapper import FlattenParamsWrapper
+    print('Trying to prepare FSDP module')
 
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
