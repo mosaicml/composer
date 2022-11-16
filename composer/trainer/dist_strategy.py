@@ -275,9 +275,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                 def _check_fn(module: torch.nn.Module) -> bool:
                     if isinstance(module, (FullyShardedDataParallel, FlattenParamsWrapper)):
                         return False
-                    # print ("trying to apply check function to: ", module)
                     if hasattr(module, '_activation_checkpointing'):
-                        # print ("has attr: _activation_checkpointing and function is: ", module._activation_checkpointing)
                         return bool(module._activation_checkpointing)
                     if hasattr(obj, 'activation_checkpointing_fn') and isinstance(obj.activation_checkpointing_fn,
                                                                                   Callable):
