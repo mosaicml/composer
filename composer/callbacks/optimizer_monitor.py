@@ -12,7 +12,11 @@ __all__ = ['OptimizerMonitor']
 
 
 class OptimizerMonitor(Callback):
+<<<<<<< HEAD
     """Computes and logs the L2 norm of gradients as well as any optimizer-specific metrics implemented in the optimizer's `report_per_parameter_metrics` method.
+=======
+    """Computes and logs the L2 norm of gradients on the :attr:`.Event.AFTER_BATCH_END` event.
+>>>>>>> 3bb6ebc1 (add optimizer monitor)
 
     L2 norms are calculated after the reduction of gradients across GPUs. This function iterates over the parameters of
     the model and may cause a reduction in throughput while training large models. In order to ensure the
@@ -82,12 +86,21 @@ class OptimizerMonitor(Callback):
     +-----------------------------------------------+-----------------------------------------------------+
     """
 
+<<<<<<< HEAD
     def __init__(self, log_optimizer_metrics: bool = True):
+=======
+    def __init__(self, log_layer_grad_norms: bool = False, log_optimizer_metrics: bool = False):
+        self.log_layer_grad_norms = log_layer_grad_norms
+>>>>>>> 3bb6ebc1 (add optimizer monitor)
         self.log_optimizer_metrics = log_optimizer_metrics
 
     def batch_end(self, state: State, logger: Logger):
         norm = 0.0
+<<<<<<< HEAD
         default_metrics = {}
+=======
+        layer_norms = {}
+>>>>>>> 3bb6ebc1 (add optimizer monitor)
         optimizer_metrics = {}
 
         for name, p in state.model.named_parameters():
@@ -95,6 +108,7 @@ class OptimizerMonitor(Callback):
                 param_grad_norm = torch.linalg.vector_norm(p.grad)
                 default_metrics[f'l2_norm/grad/{name}'] = param_grad_norm
 
+<<<<<<< HEAD
                 norm += param_grad_norm**2
                 metric_reporter = getattr(state.optimizers[0], 'report_per_parameter_metrics', None)
                 if callable(metric_reporter) and self.log_optimizer_metrics:
@@ -103,5 +117,18 @@ class OptimizerMonitor(Callback):
         default_metrics['l2_norm/grad/global'] = norm**0.5
 
         logger.log_metrics(default_metrics)
+=======
+                param_grad_norm = param_grad_norm**2
+                norm += param_grad_norm
+                metric_reporter = getattr(state.optimizers[0], "report_per_parameter_metrics", None)
+                if callable(metric_reporter) and self.log_optimizer_metrics:
+                    optimizer_metrics = metric_reporter(p, name, optimizer_metrics)
+
+        norm = norm**0.5
+        logger.log_metrics({'grad_l2_norm/step': norm})
+        if self.log_layer_grad_norms:
+            logger.log_metrics(layer_norms)
+
+>>>>>>> 3bb6ebc1 (add optimizer monitor)
         if self.log_optimizer_metrics:
             logger.log_metrics(optimizer_metrics)
