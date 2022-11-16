@@ -162,6 +162,17 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         optim.param_groups.clear()
         optim.state.clear()
 
+    if optimizers:
+        optimizers_tuple = ensure_tuple(optimizers)
+        if len(optimizers_tuple) != 1:
+            raise NotImplementedError(f'Only one optimizer is supported; found {len(optimizers_tuple)} optimizers')
+
+        # clearing optimizer param groups and state
+        # that will be recreated at the end of prepare_fsdp_module
+        optim = optimizers_tuple[0]
+        optim.param_groups.clear()
+        optim.state.clear()
+
     sharding_map = {
         'NO_SHARD': ShardingStrategy.NO_SHARD,
         'SHARD_GRAD_OP': ShardingStrategy.SHARD_GRAD_OP,
