@@ -125,7 +125,7 @@ class HuggingFaceModel(ComposerModel):
             tmp_dir = Path(tmp_dir)
             model_dir = tmp_dir / 'model'
             tokenizer_dir = tmp_dir / 'tokenizer'
-            self.model.save_pretrained(model_dir)
+            self.model.config.save_pretrained(model_dir)
             if self.tokenizer is not None:
                 self.tokenizer.save_pretrained(tokenizer_dir)
 
