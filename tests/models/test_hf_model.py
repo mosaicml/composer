@@ -144,6 +144,20 @@ def test_hf_state_dict_info(tmp_path: str, pass_in_tokenizer: bool, num_classes:
     hf_tokenizer_state = hf_state['tokenizer']
 
     assert hf_model_state['config']['class'] == 'transformers.models.bert.modeling_bert.BertForSequenceClassification'
-    print(hf_model_state)
-    print(hf_tokenizer_state.keys())
-    asdf
+
+    loaded_config_dict = hf_model_state['config']['content']
+    # JSON keys need to be converted back to ints, huggingface does not auto convert them along this code path
+    if 'id2label' in loaded_config_dict:
+        loaded_config_dict['id2label'] = {int(k): v for k, v in loaded_config_dict['id2label'].items()}
+
+    loaded_config = transformers.AutoConfig.from_pretrained(loaded_config_dict['_name_or_path'], **loaded_config_dict)
+    new_model_from_loaded_config = transformers.AutoModelForSequenceClassification.from_config(loaded_config)
+
+    expected_model_config_dict = hf_model.config.to_dict()
+    new_model_config_dict = new_model_from_loaded_config.config.to_dict()
+    assert expected_model_config_dict == new_model_config_dict
+
+    if pass_in_tokenizer:
+        assert False
+    else:
+        assert hf_tokenizer_state == {}
