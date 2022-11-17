@@ -150,6 +150,17 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
                                         ShardingStrategy)
 
+    if optimizers:
+        optimizers_tuple = ensure_tuple(optimizers)
+        if len(optimizers_tuple) != 1:
+            raise NotImplementedError(f'Only one optimizer is supported; found {len(optimizers_tuple)} optimizers')
+
+        # clearing optimizer param groups and state
+        # that will be recreated at the end of prepare_fsdp_module
+        optim = optimizers_tuple[0]
+        optim.param_groups.clear()
+        optim.state.clear()
+
     sharding_map = {
         'NO_SHARD': ShardingStrategy.NO_SHARD,
         'SHARD_GRAD_OP': ShardingStrategy.SHARD_GRAD_OP,
@@ -280,8 +291,6 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     # Rebuild optimizer now that parameters are sharded
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
-        if len(optimizers_tuple) != 1:
-            raise NotImplementedError(f'Only one optimizer is supported; found {len(optimizers_tuple)} optimizers')
         optim = optimizers_tuple[0]
-        optim.param_groups = []
+        optim.param_groups.clear()
         optim.add_param_group({'params': list(model.parameters())})
