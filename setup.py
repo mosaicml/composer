@@ -137,7 +137,7 @@ extra_deps['dev'] = [
 ]
 
 extra_deps['deepspeed'] = [
-    'deepspeed==0.6.0',
+    'deepspeed==0.7.0',
 ]
 
 extra_deps['wandb'] = [
