@@ -338,15 +338,12 @@ def test_infinite_eval_dataloader(eval_subset_num_batches):
 class BreakBatchAlgorithm(Algorithm):
 
     def __init__(self):
-        print('callback init')
         super().__init__()
 
     def match(self, event, state):
-        print('callback match')
         return event == Event.EVAL_BEFORE_FORWARD
 
     def apply(self, event, state, logger):
-        print('helloooooooooo')
         del event, logger  # unused
         state.batch = None
 
