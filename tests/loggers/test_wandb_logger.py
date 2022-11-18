@@ -7,7 +7,6 @@ import json
 import os
 import pathlib
 import pickle
-import shutil
 import uuid
 from pathlib import Path
 from typing import Sequence, Type
@@ -124,7 +123,7 @@ def test_wandb_log_image_with_masks(images, masks, test_wandb_logger, channels_l
 @pytest.mark.parametrize('images,masks', [(torch.randint(0, 256, (32, 32, 3)), {
     'pred': torch.randint(0, 10, (32, 32))
 })])
-def test_wandb_log_image_with_masks_and_table(monkeypatch, images, masks, test_wandb_logger):
+def test_wandb_log_image_with_masks_and_table(images, masks, test_wandb_logger):
     wandb = pytest.importorskip('wandb', reason='wandb is optional')
 
     expected_num_images = 1 if images.ndim < 4 else images.shape[0]
@@ -146,7 +145,7 @@ def test_wandb_log_image_with_masks_and_table(monkeypatch, images, masks, test_w
     assert image_count == expected_num_images
 
 
-def test_wandb_log_metrics(tmp_path, test_wandb_logger):
+def test_wandb_log_metrics(test_wandb_logger):
     wandb = pytest.importorskip('wandb', reason='wandb is optional')
 
     dataset_size = 40

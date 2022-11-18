@@ -49,7 +49,7 @@ def comet_logger(monkeypatch, comet_offline_directory):
     return comet_logger
 
 
-def test_image_visualizer_with_wandb(tmp_path, test_wandb_logger):
+def test_image_visualizer_with_wandb(test_wandb_logger):
     wandb = pytest.importorskip('wandb', reason='wandb is optional')
 
     image_interval = 2
@@ -69,7 +69,7 @@ def test_image_visualizer_with_wandb(tmp_path, test_wandb_logger):
                       max_duration=f'{max_duration}ba')
 
     trainer.fit()
-    
+
     assert wandb.run is not None
     wandb_run_dir = Path(wandb.run.dir)
 
