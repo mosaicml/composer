@@ -1,5 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
+import json
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -158,6 +160,16 @@ def test_hf_state_dict_info(tmp_path: str, pass_in_tokenizer: bool, num_classes:
     assert expected_model_config_dict == new_model_config_dict
 
     if pass_in_tokenizer:
+        with tempfile.TemporaryDirectory() as _tmp_dir:
+            for filename, saved_content in hf_tokenizer_state.items():
+                with open(Path(_tmp_dir) / f'{filename}{saved_content["file_extension"]}', 'w') as _tmp_file:
+                    if saved_content['file_extension'] == '.json':
+                        json.dump(saved_content['content'], _tmp_file)
+                    elif saved_content['file_extension'] == '.txt':
+                        for line in saved_content['content']:
+                            _tmp_file.write(line)
+                            _tmp_file.write('\n')
+            loaded_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir)
         assert False
     else:
         assert hf_tokenizer_state == {}
