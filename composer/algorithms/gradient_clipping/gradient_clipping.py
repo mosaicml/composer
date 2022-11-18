@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Iterable, Optional, Union
+from typing import Generator, Iterable, Optional, Union
 
 import torch
 
@@ -18,8 +18,8 @@ log = logging.getLogger(__name__)
 __all__ = ['GradientClipping', 'apply_gradient_clipping']
 
 
-def apply_gradient_clipping(parameters: Union[torch.Tensor, Iterable[torch.Tensor]], clipping_type: str,
-                            clipping_threshold: float):
+def apply_gradient_clipping(parameters: Union[torch.Tensor, Iterable[torch.Tensor]], fsdp_modules: Generator,
+                            clipping_type: str, clipping_threshold: float, fsdp_enabled: bool):
     """Clips all gradients in model based on specified clipping_type.
 
     Args:
@@ -35,7 +35,20 @@ def apply_gradient_clipping(parameters: Union[torch.Tensor, Iterable[torch.Tenso
             to (for 'value'), what values to clip the gradient norms to (for 'norm'), and
             threshold by which if grad_norm / weight_norm is greater than this threshold then
             scale gradients by this threshold * (weight_norm / grad_norm) (for 'adaptive').
+        fsdp_enabled (bool): Bool of if the model is a FSDP model or not.
     """
+    if fsdp_enabled:
+        from torch.distributed.fsdp import FullyShardedDataParallel
+        assert clipping_type == 'norm'
+        for module in fsdp_modules:
+            # print ("module is: ", module)
+            if isinstance(module, FullyShardedDataParallel):
+                module.clip_grad_norm_(max_norm=clipping_threshold)
+                # We can only call on the parent instance, so we find the first instance of a FSDP
+                # module then wrap that?
+                # print ("wrapped the last instance")
+                break
+        return
     if clipping_type == 'adaptive':
         _apply_agc(parameters, clipping_threshold=clipping_threshold)
     elif clipping_type == 'norm':
@@ -133,8 +146,10 @@ class GradientClipping(Algorithm):
 
         if event == Event.AFTER_TRAIN_BATCH and not state.deepspeed_enabled:
             apply_gradient_clipping(parameters=state.model.parameters(),
+                                    fsdp_modules=state.model.modules(),
                                     clipping_type=self.clipping_type,
-                                    clipping_threshold=self.clipping_threshold)
+                                    clipping_threshold=self.clipping_threshold,
+                                    fsdp_enabled=state.fsdp_enabled)
 
 
 def _get_clipped_gradient_coeff(weights: torch.Tensor, grad: torch.Tensor, clipping_threshold: float = 0.01):
