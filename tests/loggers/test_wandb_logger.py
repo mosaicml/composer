@@ -152,7 +152,7 @@ def test_wandb_log_image_with_masks_and_table(monkeypatch, images, masks, test_w
     assert image_count == expected_num_images
 
 
-def test_wandb_and_image_visualizer(tmp_path, test_wandb_logger):
+def test_wandb_log_metrics(tmp_path, test_wandb_logger):
     wandb = pytest.importorskip('wandb', reason='wandb is optional')
 
     dataset_size = 40
