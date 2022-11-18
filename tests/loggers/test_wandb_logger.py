@@ -43,11 +43,6 @@ def test_wandb_logger(tmp_path, dummy_state):
     return wandb_logger
 
 
-def teardown_function(function):
-    if 'WANDB_CACHE_DIR' in os.environ and os.path.exists(os.environ['WANDB_CACHE_DIR']):
-        shutil.rmtree(os.environ['WANDB_CACHE_DIR'])
-
-
 @pytest.mark.parametrize('images,channels_last', [(torch.rand(32, 32), False), (torch.rand(5, 3, 32, 32), False),
                                                   (torch.rand(3, 32, 32), False), (torch.rand(8, 32, 32, 3), True),
                                                   ([torch.rand(32, 32, 3)], True),

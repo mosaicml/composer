@@ -70,23 +70,40 @@ def test_image_visualizer_with_wandb(tmp_path, test_wandb_logger):
                       max_duration=f'{max_duration}ba')
 
     trainer.fit()
+    
+    assert wandb.run is not None
+    wandb_run_dir = Path(wandb.run.dir)
 
     # delete trainer to force WandBLogger to clean up in post_close
     del trainer
 
-    expected_number_train_images = (batch_size * max_duration) / image_interval
+    wandb_media_dir = wandb_run_dir.parent / Path('files') / Path('media') / Path('table') / Path('Images')
+    image_table_files = wandb_media_dir.glob('./*.json')
+
+    train_image_count, eval_image_count = 0, 0
+    for image_table_file in image_table_files:
+        table_columns = json.load(open(image_table_file.absolute()))['data']
+        num_images = sum([1 for column in table_columns if column[0] == 'Image'])
+        if str(image_table_file.name).startswith('Train'):
+            train_image_count += num_images
+        elif str(image_table_file.name).startswith('Eval'):
+            eval_image_count += num_images
+
+    expected_number_train_images = (max_duration / image_interval) * batch_size
     expected_number_eval_images = (max_duration / eval_interval) * batch_size
 
+    assert train_image_count == expected_number_train_images
+    assert eval_image_count == expected_number_eval_images
     # WandB Images are stored in cache when a WandB table is used.
-    cache_dir = wandb.env.get_cache_dir()
-    all_files_in_cache = []
-    for subdir, _, files in os.walk(cache_dir):
-        files_in_subdir = [os.path.join(subdir, f) for f in files]
-        all_files_in_cache.extend(files_in_subdir)
-    imgs = [filepath for filepath in all_files_in_cache if imghdr.what(filepath) == 'png']
-    actual_num_images = len(imgs)
+    # cache_dir = wandb.env.get_cache_dir()
+    # all_files_in_cache = []
+    # for subdir, _, files in os.walk(cache_dir):
+    #     files_in_subdir = [os.path.join(subdir, f) for f in files]
+    #     all_files_in_cache.extend(files_in_subdir)
+    # imgs = [filepath for filepath in all_files_in_cache if imghdr.what(filepath) == 'png']
+    # actual_num_images = len(imgs)
 
-    assert actual_num_images == expected_number_eval_images + expected_number_train_images
+    #assert actual_num_images == expected_number_eval_images + expected_number_train_images
 
 
 def test_image_visualizer_with_comet(comet_offline_directory, comet_logger):
