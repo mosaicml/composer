@@ -34,7 +34,6 @@ from tests.common.models import SimpleConvModel
 def test_wandb_logger(tmp_path, dummy_state):
     pytest.importorskip('wandb', reason='wandb is optional')
     os.environ['WANDB_DIR'] = str(tmp_path)
-    os.environ['WANDB_CACHE_DIR'] = str(Path(tmp_path) / Path('wandb_cache'))
     os.environ['WANDB_MODE'] = 'offline'
     dummy_state.run_name = 'wand-test-log-image'
     logger = Logger(dummy_state, [])

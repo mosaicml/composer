@@ -22,7 +22,6 @@ from tests.common.models import SimpleConvModel, SimpleSegmentationModel
 def test_wandb_logger(tmp_path, dummy_state):
     pytest.importorskip('wandb', reason='wandb is optional')
     os.environ['WANDB_DIR'] = str(tmp_path)
-    os.environ['WANDB_CACHE_DIR'] = str(Path(tmp_path) / Path('wandb_cache'))
     os.environ['WANDB_MODE'] = 'offline'
     dummy_state.run_name = 'wand-test-log-image'
     logger = Logger(dummy_state, [])
@@ -94,16 +93,6 @@ def test_image_visualizer_with_wandb(tmp_path, test_wandb_logger):
 
     assert train_image_count == expected_number_train_images
     assert eval_image_count == expected_number_eval_images
-    # WandB Images are stored in cache when a WandB table is used.
-    # cache_dir = wandb.env.get_cache_dir()
-    # all_files_in_cache = []
-    # for subdir, _, files in os.walk(cache_dir):
-    #     files_in_subdir = [os.path.join(subdir, f) for f in files]
-    #     all_files_in_cache.extend(files_in_subdir)
-    # imgs = [filepath for filepath in all_files_in_cache if imghdr.what(filepath) == 'png']
-    # actual_num_images = len(imgs)
-
-    #assert actual_num_images == expected_number_eval_images + expected_number_train_images
 
 
 def test_image_visualizer_with_comet(comet_offline_directory, comet_logger):
