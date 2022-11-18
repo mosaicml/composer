@@ -9,6 +9,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
+import composer
 from composer.core import Batch, Precision, State
 from composer.loggers import Logger
 from tests.common import SimpleModel, assert_state_equivalent
@@ -124,3 +125,14 @@ def test_state_batch_set_item(batch, key, val):
 
     state.batch_set_item(key=key, value=val)
     assert state.batch_get_item(key) == val
+
+
+def test_composer_version_in_state_dict(tmp_path):
+    state = get_dummy_state()
+    save_path = pathlib.Path(tmp_path) / 'state_dict.pt'
+    with open(save_path, 'wb') as _tmp_file:
+        torch.save(state.state_dict(), _tmp_file)
+
+    loaded_state_dict = torch.load(save_path)
+
+    assert loaded_state_dict['metadata']['composer_version'] == composer.__version__
