@@ -41,12 +41,10 @@ def apply_gradient_clipping(parameters: Union[torch.Tensor, Iterable[torch.Tenso
         from torch.distributed.fsdp import FullyShardedDataParallel
         assert clipping_type == 'norm'
         for module in fsdp_modules:
-            # print ("module is: ", module)
             if isinstance(module, FullyShardedDataParallel):
                 module.clip_grad_norm_(max_norm=clipping_threshold)
                 # We can only call on the parent instance, so we find the first instance of a FSDP
                 # module then wrap that?
-                # print ("wrapped the last instance")
                 break
         return
     if clipping_type == 'adaptive':

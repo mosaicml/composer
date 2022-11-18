@@ -149,7 +149,6 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.12.0.')
     from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
                                         ShardingStrategy)
-    print('using grad accum version')
 
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
