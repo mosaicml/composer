@@ -508,6 +508,19 @@ class State(Serializable):
                 return True
         return False
 
+    def _get_state_metadata(self):
+        """Gets a dictionary of metadata to store in the state dict.
+
+        This metadata is used for checking compatibility between the current environment/setup
+        and the environment/setup that was used for the checkpoint that is being loaded in
+        """
+        import composer
+
+        metadata_dict = {}
+        metadata_dict['composer_version'] = composer.__version__
+
+        return metadata_dict
+
     def state_dict(self) -> Dict[str, Any]:
         state_dict = {}
 
@@ -544,6 +557,8 @@ class State(Serializable):
                 serialized_value = attribute_value
 
             state_dict[attribute_name] = serialized_value
+
+        state_dict['metadata'] = self._get_state_metadata()
 
         return state_dict
 
@@ -727,6 +742,10 @@ class State(Serializable):
         for attribute_name, serialized_value in state.items():
             # Skip removed attributes as well as algorithms and model, which was already loaded
             if attribute_name not in self.serialized_attributes or attribute_name == 'model':
+                continue
+
+            # Skip metadata, which is not an attribute on State
+            if attribute_name == 'metadata':
                 continue
 
             # Restructure algorithms serialized_value from list to dict
