@@ -2522,7 +2522,7 @@ class Trainer:
                     # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
                     found_cuda_oom = 0
                     try:
-                        for eval_microbatch in data_spec.split_batch(self.state.batch, self.state.eval_batch_split):
+                        for self.state.batch in data_spec.split_batch(self.state.batch, self.state.eval_batch_split):
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
                             with get_precision_context(self.state.precision):
                                 if hasattr(self._original_model, 'validate'):  # backwards compatibility check
@@ -2530,9 +2530,9 @@ class Trainer:
                                         'Using validate() is no longer supported and will be removed in a future version. Please use eval_forward() instead.'
                                     )
                                     assert isinstance(self._original_model.validate, Callable)
-                                    self.state.outputs, target = self._original_model.validate(eval_microbatch)
+                                    self.state.outputs, target = self._original_model.validate(self.state.batch)
                                 else:
-                                    self.state.outputs = self._original_model.eval_forward(eval_microbatch)
+                                    self.state.outputs = self._original_model.eval_forward(self.state.batch)
                                     target = None
 
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)
@@ -2552,7 +2552,7 @@ class Trainer:
                                 else:
                                     for _, metric in metrics.items():
                                         self._original_model.update_metric(
-                                            eval_microbatch,
+                                            self.state.batch,
                                             outputs,
                                             metric,
                                         )
