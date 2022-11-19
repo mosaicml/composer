@@ -508,7 +508,7 @@ class State(Serializable):
                 return True
         return False
 
-    def get_integrations_state_dict(self) -> Dict[str, Any]:
+    def _get_integrations_state_dict(self) -> Dict[str, Any]:
         from composer.models import HuggingFaceModel
         integrations = {}
         if isinstance(self.model, HuggingFaceModel):
@@ -552,7 +552,7 @@ class State(Serializable):
 
             state_dict[attribute_name] = serialized_value
 
-        state_dict['integrations'] = self.get_integrations_state_dict()
+        state_dict['integrations'] = self._get_integrations_state_dict()
 
         return state_dict
 
