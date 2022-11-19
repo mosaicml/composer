@@ -107,8 +107,7 @@ def test_hf_train_eval_predict(num_classes: int):
 @pytest.mark.parametrize('modify_tokenizer', [True, False])
 @pytest.mark.parametrize('num_classes', [2, 3])
 def test_hf_state_dict_info(tmp_path: str, pass_in_tokenizer: bool, modify_tokenizer: bool, num_classes: int):
-    pytest.importorskip('transformers')
-    import transformers
+    transformers = pytest.importorskip('transformers')
 
     from composer.models import HuggingFaceModel
 
