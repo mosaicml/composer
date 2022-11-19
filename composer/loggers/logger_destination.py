@@ -80,11 +80,16 @@ class LoggerDestination(Callback, ABC):
         del traces
         pass
 
-    def log_images(self,
-                   images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
-                   name: str = 'Images',
-                   channels_last: bool = False,
-                   step: Optional[int] = None):
+    def log_images(
+        self,
+        images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
+        name: str = 'Images',
+        channels_last: bool = False,
+        step: Optional[int] = None,
+        masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
+        mask_class_labels: Optional[Dict[int, str]] = None,
+        use_table: bool = True,
+    ):
         """Log images. Logs any tensors or arrays as images.
 
         Args:
@@ -97,8 +102,14 @@ class LoggerDestination(Callback, ABC):
                 time of logging. Defaults to None. If not specified the specific
                 LoggerDestination implementation will choose a step (usually a running
                 counter).
+            masks (Dict[str, np.ndarray | torch.Tensor | Sequence[np.ndarray | torch.Tensor]], optional): A dictionary
+                mapping the mask name (e.g. predictions or ground truth) to a sequence of masks.
+            mask_class_labels (Dict[int, str], optional): Dictionary mapping label id to its name. Used for labelling
+                each color in the mask.
+            use_table (bool): Whether to make a table of the images or not. (default: ``True``). Only for use
+                with WandB.
         """
-        del images, name, channels_last, step, masks, segmentation_class_labels
+        del images, name, channels_last, step, masks, mask_class_labels, use_table
         pass
 
     def upload_file(

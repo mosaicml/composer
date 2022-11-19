@@ -597,9 +597,19 @@ class State(Serializable):
         for algo_name, serialized_value in state_dict['algorithms']:
             # Check if required algorithm
             if hasattr(algorithms, algo_name) and getattr(algorithms, algo_name).required_on_load():
-                algo = eval(f"algorithms.{serialized_value['repr']}")
                 # Check that algorithm is not explicitly excluded by user
-                if exclude_algorithms is None or type(algo).__qualname__ not in exclude_algorithms:
+                if exclude_algorithms is None or algo_name not in exclude_algorithms:
+                    try:
+                        algo = eval(f"algorithms.{serialized_value['repr']}")
+                    except:
+                        warnings.warn(
+                            textwrap.dedent(
+                                f"required_on_load algorithm {serialized_value['repr']} was enabled when training the "
+                                f'loaded checkpoint. Attempted to check its presence but recreating the algorithm '
+                                "failed. This may be due to a change in the algorithm's API. If this required_on_load "
+                                'algorithm is not properly specified, it may lead to unexpected behavior, including '
+                                'failing to load weights for some layers.'))
+                        continue
                     # Raise warning if we are unable to safely autoapply
                     if type(algo) in current_algos and not serialized_value['repr'] in current_algos[type(algo)]:
                         warnings.warn(
