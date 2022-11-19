@@ -363,7 +363,6 @@ class State(Serializable):
         self.eval_metric_values: Dict[str, float] = {}
         self.total_loss_dict: Dict[str, float] = {}
 
-
     @property
     def current_metrics(self):
         warnings.warn(
