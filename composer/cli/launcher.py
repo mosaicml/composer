@@ -21,7 +21,7 @@ import psutil
 import torch
 
 import composer
-from composer.utils.misc import get_free_tcp_port
+from composer.utils import get_free_tcp_port
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
@@ -289,8 +289,8 @@ def _launch_processes(
                 MASTER_ADDR=master_addr,
                 MASTER_PORT=str(master_port),
                 PYTHONUNBUFFERED='1',
+                NCCL_ASYNC_ERROR_HANDLING='1',
         ):
-
             # Populate the distributed variables in all launcher args
             for arg in training_script_args:
                 cmd.append(os.path.expandvars(os.path.expanduser(arg)))

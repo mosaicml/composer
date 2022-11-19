@@ -101,6 +101,17 @@ def sort_fused_layernorm_last(algorithms: Sequence[Algorithm], event: Event) -> 
     return sort_to_back(algorithms, cls=FusedLayerNorm)
 
 
+def sort_low_precision_layernorm_last(algorithms: Sequence[Algorithm],
+                                      event: Event) -> Sequence[Algorithm]:  #noqa: D403
+    """LowPrecisionLayerNorm should run after other algorithms that add LayerNorms (e.g. GatedLinearUnits).
+
+    This ensures that all LayerNorms are converted to the intended precision.
+
+    """
+    from composer.algorithms import LowPrecisionLayerNorm
+    return sort_to_back(algorithms, cls=LowPrecisionLayerNorm)
+
+
 def set_filo_order(algorithms: Sequence[Algorithm], event: Event) -> Sequence[Algorithm]:
     """Establish a FILO order of algorithms ``before_`` and ``after_`` events.
 

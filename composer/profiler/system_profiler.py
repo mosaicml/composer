@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING, Dict, cast
 
 import psutil
 
-from composer.core.callback import Callback
+from composer.core import Callback
 
 if TYPE_CHECKING:
-    from composer.core.state import State
-    from composer.loggers.logger import Logger
+    from composer.core import State
+    from composer.loggers import Logger
     from composer.profiler import Profiler
 
 __all__ = ['SystemProfiler']

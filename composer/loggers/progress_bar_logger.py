@@ -7,16 +7,18 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import Any, Dict, List, Optional, TextIO, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, TextIO, Union
 
 import tqdm.auto
 import yaml
 
-from composer.core.state import State
-from composer.core.time import Timestamp, TimeUnit
+from composer.core.time import TimeUnit
 from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist, is_notebook
+
+if TYPE_CHECKING:
+    from composer.core import State, Timestamp
 
 __all__ = ['ProgressBarLogger']
 
@@ -261,7 +263,7 @@ class ProgressBarLogger(LoggerDestination):
             n = state.timestamp.epoch.value
             if self.train_pbar is None and not is_train:
                 # epochwise eval results refer to model from previous epoch (n-1)
-                n -= 1
+                n = n - 1 if n > 0 else 0
             if self.train_pbar is None:
                 desc += f'Epoch {n:3}'
             else:

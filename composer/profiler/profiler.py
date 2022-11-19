@@ -7,16 +7,17 @@ from __future__ import annotations
 
 import logging
 import pathlib
-from typing import Callable, Dict, List, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Sequence, Tuple, Union
 
-from composer.core.callback import Callback
-from composer.core.state import State
 from composer.profiler.marker import Marker
 from composer.profiler.profiler_action import ProfilerAction
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
 from composer.profiler.trace_handler import TraceHandler
-from composer.utils.iter_helpers import ensure_tuple
+from composer.utils import ensure_tuple
+
+if TYPE_CHECKING:
+    from composer.core import Callback, State
 
 __all__ = ['Profiler']
 

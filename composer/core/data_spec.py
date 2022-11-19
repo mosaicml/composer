@@ -12,8 +12,7 @@ import torch
 import torch.utils.data
 from torch.utils.data.distributed import DistributedSampler
 
-from composer.utils import dist
-from composer.utils.iter_helpers import ensure_tuple
+from composer.utils import dist, ensure_tuple
 
 if TYPE_CHECKING:
     from composer.core.types import Batch

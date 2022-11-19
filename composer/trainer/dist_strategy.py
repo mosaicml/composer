@@ -15,8 +15,7 @@ from torchmetrics import Metric, MetricCollection
 from composer.core import Precision
 from composer.core.state import State
 from composer.trainer.activation_checkpointing import apply_activation_checkpointing_wrapper, checkpoint_wrapper
-from composer.utils import dist, ensure_tuple
-from composer.utils.string_enum import StringEnum
+from composer.utils import StringEnum, dist, ensure_tuple
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module']
 
@@ -150,6 +149,18 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.12.0.')
     from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
                                         ShardingStrategy)
+    from torch.distributed.fsdp.flatten_params_wrapper import FlattenParamsWrapper
+
+    if optimizers:
+        optimizers_tuple = ensure_tuple(optimizers)
+        if len(optimizers_tuple) != 1:
+            raise NotImplementedError(f'Only one optimizer is supported; found {len(optimizers_tuple)} optimizers')
+
+        # clearing optimizer param groups and state
+        # that will be recreated at the end of prepare_fsdp_module
+        optim = optimizers_tuple[0]
+        optim.param_groups.clear()
+        optim.state.clear()
 
     sharding_map = {
         'NO_SHARD': ShardingStrategy.NO_SHARD,
@@ -251,6 +262,8 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                 # If module has attribute `module._activation_checkpointing = ...`, always respect it
                 # Otherwise checkpoint if root object `obj.activation_checkpointing_fn(module)` is true
                 def _check_fn(module: torch.nn.Module) -> bool:
+                    if isinstance(module, (FullyShardedDataParallel, FlattenParamsWrapper)):
+                        return False
                     if hasattr(module, '_activation_checkpointing'):
                         return bool(module._activation_checkpointing)
                     if hasattr(obj, 'activation_checkpointing_fn') and isinstance(obj.activation_checkpointing_fn,
@@ -281,8 +294,6 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     # Rebuild optimizer now that parameters are sharded
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
-        if len(optimizers_tuple) != 1:
-            raise NotImplementedError(f'Only one optimizer is supported; found {len(optimizers_tuple)} optimizers')
         optim = optimizers_tuple[0]
-        optim.param_groups = []
+        optim.param_groups.clear()
         optim.add_param_group({'params': list(model.parameters())})
