@@ -77,6 +77,13 @@ class NoOpModel(Algorithm):
         # No arguments
         pass
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}()'
+
+    @staticmethod
+    def required_on_load() -> bool:
+        return True
+
     def match(self, event: Event, state: State) -> bool:
         return event == Event.INIT
 
