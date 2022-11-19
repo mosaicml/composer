@@ -127,7 +127,7 @@ def make_synthetic_dataloader(dataset_config: dict):
     pytest.importorskip('transformers')
     return build_synthetic_lm_dataloader(
         synthetic_num_unique_samples=100,
-        batch_size=dataset_config['num_samples'],
+        global_batch_size=dataset_config['num_samples'],
         tokenizer_name=dataset_config['tokenizer_family'],
         use_masked_lm=dataset_config['use_masked_lm'],
         max_seq_length=dataset_config['chars_per_sample'],

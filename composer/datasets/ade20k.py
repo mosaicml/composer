@@ -81,7 +81,7 @@ def build_ade20k_transformations(split,
 
 
 def build_ade20k_dataloader(
-    batch_size: int,
+    global_batch_size: int,
     datadir: str,
     *,
     split: str = 'train',
@@ -97,8 +97,8 @@ def build_ade20k_dataloader(
     """Builds an ADE20k dataloader.
 
     Args:
+        global_batch_size (int): Global batch size.
         datadir (str): Path to location of dataset.
-        batch_size (int): Batch size per device.
         split (str): The dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
         drop_last (bool): Whether to drop last samples. Default: ``True``.
         shuffle (bool): Whether to shuffle the dataset. Default: ``True``.
@@ -110,6 +110,10 @@ def build_ade20k_dataloader(
             Default: ``true``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     both_transforms, image_transforms, target_transforms = build_ade20k_transformations(
         split=split,
         base_size=base_size,
@@ -140,7 +144,7 @@ def build_ade20k_dataloader(
 
 
 def build_streaming_ade20k_dataloader(
-    batch_size: int,
+    global_batch_size: int,
     remote: str,
     *,
     version: int = 2,
@@ -158,7 +162,7 @@ def build_streaming_ade20k_dataloader(
     """Build an ADE20k streaming dataset.
 
     Args:
-        batch_size (int): Batch size per device.
+        global_batch_size (int): Global batch size.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
         version (int): Which version of streaming to use. Default: ``2``.
         local (str): Local filesystem directory where dataset is cached during operation.
@@ -172,6 +176,10 @@ def build_streaming_ade20k_dataloader(
             Default: ``true``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     if version == 1:
         warn_streaming_dataset_deprecation(old_version=version, new_version=2)
         dataset = StreamingADE20k(remote=remote,
@@ -223,7 +231,7 @@ def build_streaming_ade20k_dataloader(
 
 
 def build_synthetic_ade20k_dataloader(
-    batch_size: int,
+    global_batch_size: int,
     *,
     split: str = 'train',
     drop_last: bool = True,
@@ -237,7 +245,7 @@ def build_synthetic_ade20k_dataloader(
     """Builds a synthetic ADE20k dataloader.
 
     Args:
-        batch_size (int): Batch size per device.
+        batch_size (int): Global batch size.
         split (str): The dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
         drop_last (bool): Whether to drop last samples. Default: ``True``.
         shuffle (bool): Whether to shuffle the dataset. Default: ``True``.
@@ -247,6 +255,10 @@ def build_synthetic_ade20k_dataloader(
         memory_format (:class:`composer.core.MemoryFormat`): Memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     if split == 'train':
         total_dataset_size = 20_206
     elif split == 'val':
