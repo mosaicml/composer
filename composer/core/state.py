@@ -23,7 +23,7 @@ from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit
-from composer.utils import batch_get, batch_set, dist, ensure_tuple, is_model_deepspeed
+from composer.utils import batch_get, batch_set, dist, ensure_tuple, get_composer_env_dict, is_model_deepspeed
 
 if TYPE_CHECKING:
     import deepspeed
@@ -514,10 +514,8 @@ class State(Serializable):
         This metadata is used for checking compatibility between the current environment/setup
         and the environment/setup that was used for the checkpoint that is being loaded in
         """
-        import composer
-
         metadata_dict = {}
-        metadata_dict['composer_version'] = composer.__version__
+        metadata_dict['composer_env_info'] = get_composer_env_dict()
 
         return metadata_dict
 
