@@ -1,18 +1,20 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
 import sys
-from typing import Any, Dict, TextIO, Union
+from typing import Any, Dict, TextIO, Union, TYPE_CHECKING
 
 import yaml
 
-from composer.core import State
+
 from composer.core.time import Time, TimeUnit
 from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 
-
+if TYPE_CHECKING:
+    from composer.core import State 
 class ConsoleLogger(LoggerDestination):
     """Log metrics to the console.
 

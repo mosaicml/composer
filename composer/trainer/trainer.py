@@ -1031,7 +1031,7 @@ class Trainer:
                                     f'{ConsoleLogger.__name__} was already created.')))
         else:
             if log_to_console:
-                loggers.append(ConsoleLogger(stream=console_stream, log_traces=False))
+                loggers.append(ConsoleLogger(stream=console_stream, log_interval=console_log_interval, log_traces=False))
 
         if save_folder is not None:
             remote_ud = _maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
