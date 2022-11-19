@@ -9,14 +9,14 @@ from pathlib import Path
 
 import pytest
 from torch.utils.data import DataLoader
-
+from composer.core import Time, TimeUnit
 from composer.callbacks import ImageVisualizer
-from composer.loggers import WandBLogger
+from composer.loggers import WandBLogger, InMemoryLogger
 from composer.loggers.logger import Logger
 from composer.trainer import Trainer
 from tests.common.datasets import RandomImageDataset, RandomSegmentationDataset
 from tests.common.models import SimpleConvModel, SimpleSegmentationModel
-
+import math
 
 @pytest.fixture
 def test_wandb_logger(tmp_path, dummy_state):
@@ -48,28 +48,60 @@ def comet_logger(monkeypatch, comet_offline_directory):
     comet_logger = CometMLLogger()
     return comet_logger
 
+# @pytest.mark.parametrize('interval', ['9ba', '90ba', '2ep', '3ep', '7ep'])
+# def test_image_visualizer(interval: str):
+#     pytest.importorskip('wandb', reason='wandb is optional')
+#     # Construct the callback
+#     image_visualizer = ImageVisualizer(interval=interval)
+#     in_memory_logger = InMemoryLogger()  # track the logged images in the in_memory_logger
 
-def test_image_visualizer_with_wandb(test_wandb_logger):
+#     num_train_epochs = 9
+
+#     # Construct the trainer and train
+#     trainer = Trainer(
+#         model=SimpleConvModel(),
+#         callbacks=image_visualizer,
+#         loggers=in_memory_logger,
+#         train_dataloader=DataLoader(RandomImageDataset()),
+#         eval_dataloader=DataLoader(RandomImageDataset()),
+#         max_duration=f'{num_train_epochs}ep',
+#     )
+
+#     trainer.fit()
+#     num_train_steps = int(trainer.state.timestamp.batch)
+#     num_train_tables = len(in_memory_logger.data['Images/Train'])
+#     num_eval_tables = len(in_memory_logger.data['Images/Eval'])
+
+#     expected_train_tables = (((num_train_steps - 1) // image_visualizer.interval.value) +
+#                              1) if image_visualizer.interval.unit == TimeUnit.BATCH else ((
+#                                  (num_train_epochs - 1) // image_visualizer.interval.value) + 1)
+
+#     assert isinstance(image_visualizer.interval, Time)
+#     assert num_train_tables == expected_train_tables
+#     assert num_eval_tables == num_train_epochs
+
+
+@pytest.mark.parametrize('interval', ['9ba', '90ba', '2ep', '3ep', '7ep'])
+def test_image_visualizer_with_wandb(test_wandb_logger, interval):
     wandb = pytest.importorskip('wandb', reason='wandb is optional')
 
-    image_interval = 2
-    image_visualizer = ImageVisualizer(interval=f'{image_interval}ba')
+    image_visualizer = ImageVisualizer(interval=interval)
 
     dataset_size = 40
     batch_size = 4
-    max_duration = 6
-    eval_interval = 6
+    images_per_table = batch_size if batch_size < image_visualizer.num_images else image_visualizer.num_images
+    max_duration = 9
 
     trainer = Trainer(model=SimpleConvModel(),
                       callbacks=image_visualizer,
                       loggers=test_wandb_logger,
                       train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
                       eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-                      eval_interval=f'{eval_interval}ba',
-                      max_duration=f'{max_duration}ba')
+                      max_duration=f'{max_duration}ep')
 
     trainer.fit()
 
+    num_train_steps = int(trainer.state.timestamp.batch)
     assert wandb.run is not None
     wandb_run_dir = Path(wandb.run.dir)
 
@@ -88,9 +120,16 @@ def test_image_visualizer_with_wandb(test_wandb_logger):
         elif str(image_table_file.name).startswith('Eval'):
             eval_image_count += num_images
 
-    expected_number_train_images = (max_duration / image_interval) * batch_size
-    expected_number_eval_images = (max_duration / eval_interval) * batch_size
+    num_train_epochs = max_duration
+    expected_number_train_tables = (math.ceil(num_train_steps / image_visualizer.interval.value)
+                                    if image_visualizer.interval.unit == TimeUnit.BATCH else 
+                                    math.ceil(num_train_epochs / image_visualizer.interval.value))
+    
+    expected_number_eval_tables = max_duration
+    expected_number_train_images = expected_number_train_tables * images_per_table
+    expected_number_eval_images = expected_number_eval_tables * images_per_table
 
+ 
     assert train_image_count == expected_number_train_images
     assert eval_image_count == expected_number_eval_images
 
