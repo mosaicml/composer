@@ -344,8 +344,17 @@ class State(Serializable):
         # For example, even though the optimizers are stored on the state
         # as the "_optimizers" attribute, here we specify just "optimizers"
         self.serialized_attributes = [
-            'model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timestamp', 'rank_zero_seed',
-            'train_metrics', 'eval_metrics', 'run_name'
+            'model',
+            'optimizers',
+            'schedulers',
+            'algorithms',
+            'callbacks',
+            'scaler',
+            'timestamp',
+            'rank_zero_seed',
+            'train_metrics',
+            'eval_metrics',
+            'run_name',
         ]
 
         self.train_metrics: Dict[str, Metric] = {}
