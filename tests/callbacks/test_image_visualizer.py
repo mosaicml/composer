@@ -3,20 +3,22 @@
 
 import imghdr
 import json
+import math
 import os
 import zipfile
 from pathlib import Path
 
 import pytest
 from torch.utils.data import DataLoader
-from composer.core import Time, TimeUnit
+
 from composer.callbacks import ImageVisualizer
-from composer.loggers import WandBLogger, InMemoryLogger
+from composer.core import TimeUnit
+from composer.loggers import WandBLogger
 from composer.loggers.logger import Logger
 from composer.trainer import Trainer
 from tests.common.datasets import RandomImageDataset, RandomSegmentationDataset
 from tests.common.models import SimpleConvModel, SimpleSegmentationModel
-import math
+
 
 @pytest.fixture
 def test_wandb_logger(tmp_path, dummy_state):
@@ -47,6 +49,7 @@ def comet_logger(monkeypatch, comet_offline_directory):
 
     comet_logger = CometMLLogger()
     return comet_logger
+
 
 # @pytest.mark.parametrize('interval', ['9ba', '90ba', '2ep', '3ep', '7ep'])
 # def test_image_visualizer(interval: str):
@@ -121,15 +124,15 @@ def test_image_visualizer_with_wandb(test_wandb_logger, interval):
             eval_image_count += num_images
 
     num_train_epochs = max_duration
-    expected_number_train_tables = (math.ceil(num_train_steps / image_visualizer.interval.value)
-                                    if image_visualizer.interval.unit == TimeUnit.BATCH else 
-                                    math.ceil(num_train_epochs / image_visualizer.interval.value))
-    
+    expected_number_train_tables = (math.ceil(num_train_steps /
+                                              image_visualizer.interval.value) if image_visualizer.interval.unit
+                                    == TimeUnit.BATCH else math.ceil(num_train_epochs /
+                                                                     image_visualizer.interval.value))
+
     expected_number_eval_tables = max_duration
     expected_number_train_images = expected_number_train_tables * images_per_table
     expected_number_eval_images = expected_number_eval_tables * images_per_table
 
- 
     assert train_image_count == expected_number_train_images
     assert eval_image_count == expected_number_eval_images
 
