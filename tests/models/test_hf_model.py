@@ -170,6 +170,18 @@ def test_hf_state_dict_info(tmp_path: str, pass_in_tokenizer: bool, num_classes:
                             _tmp_file.write(line)
                             _tmp_file.write('\n')
             loaded_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir)
+            # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
+            loaded_tokenizer.name_or_path = hf_tokenizer_state['tokenizer_config']['content']['name_or_path']
+            loaded_tokenizer.init_kwargs['name_or_path'] = hf_tokenizer_state['tokenizer_config']['content']['name_or_path']
+        
+        loaded_tokenizer_dict = loaded_tokenizer.__dict__
+        expected_tokenizer_dict = tokenizer.__dict__
+        # we remove the actual _tokenizer object to check separately because it is an object
+        loaded_tokenizer_object = loaded_tokenizer_dict.pop('_tokenizer')
+        expected_tokenizer_object = expected_tokenizer_dict.pop('_tokenizer')
+
+        assert loaded_tokenizer.__dict__ == tokenizer.__dict__
+        assert loaded_tokenizer.vocab == tokenizer.vocab
         assert False
     else:
         assert hf_tokenizer_state == {}
