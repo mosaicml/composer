@@ -345,7 +345,7 @@ class State(Serializable):
         # as the "_optimizers" attribute, here we specify just "optimizers"
         self.serialized_attributes = [
             'model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timestamp', 'rank_zero_seed',
-            'train_metrics', 'eval_metrics', 'run_name', 'integrations'
+            'train_metrics', 'eval_metrics', 'run_name'
         ]
 
         self.train_metrics: Dict[str, Metric] = {}
@@ -510,45 +510,40 @@ class State(Serializable):
         state_dict = {}
 
         for attribute_name in self.serialized_attributes:
-            if attribute_name == 'integrations':
-                serialized_value = self.get_integrations_state_dict()
-            else:
-                attribute_value = getattr(self, attribute_name)
-                if attribute_name == 'model':
-                    # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
-                    # If it is DDP wrapped, do not save the `module.` prefix, as that is an implmentation detail
-                    with get_fsdp_rank0_cpu_save_context(
-                            attribute_value) if self.fsdp_enabled else contextlib.nullcontext():
-                        model_state = attribute_value.state_dict()
+            attribute_value = getattr(self, attribute_name)
+            if attribute_name == 'model':
+                # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
+                # If it is DDP wrapped, do not save the `module.` prefix, as that is an implmentation detail
+                with get_fsdp_rank0_cpu_save_context(
+                        attribute_value) if self.fsdp_enabled else contextlib.nullcontext():
+                    model_state = attribute_value.state_dict()
 
-                    if self.is_model_ddp:
-                        torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state, 'module.')
-                    serialized_value = model_state
-                elif attribute_name == 'optimizers':
-                    if self.fsdp_enabled:
-                        serialized_value = {}
-                        for obj in ensure_tuple(attribute_value):
-                            serialized_value = {
-                                type(obj).__qualname__:
-                                    get_fsdp_full_optim_state_dict(model=self.model, optim=obj, rank0_only=True)
-                            }
-                    else:
+                if self.is_model_ddp:
+                    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state, 'module.')
+                serialized_value = model_state
+            elif attribute_name == 'optimizers':
+                if self.fsdp_enabled:
+                    serialized_value = {}
+                    for obj in ensure_tuple(attribute_value):
                         serialized_value = {
-                            type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)
+                            type(obj).__qualname__:
+                                get_fsdp_full_optim_state_dict(model=self.model, optim=obj, rank0_only=True)
                         }
-                elif attribute_name == 'algorithms':
-                    # Store as list to preserve order in which algorithms were applied
-                    serialized_value = [
-                        (type(obj).__qualname__, obj.state_dict()) for obj in ensure_tuple(attribute_value)
-                    ]
-                elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
+                else:
                     serialized_value = {
                         type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)
                     }
-                else:
-                    serialized_value = attribute_value
+            elif attribute_name == 'algorithms':
+                # Store as list to preserve order in which algorithms were applied
+                serialized_value = [(type(obj).__qualname__, obj.state_dict()) for obj in ensure_tuple(attribute_value)]
+            elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
+                serialized_value = {type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)}
+            else:
+                serialized_value = attribute_value
 
             state_dict[attribute_name] = serialized_value
+
+        state_dict['integrations'] = self.get_integrations_state_dict()
 
         return state_dict
 
@@ -732,6 +727,10 @@ class State(Serializable):
         for attribute_name, serialized_value in state.items():
             # Skip removed attributes as well as algorithms and model, which was already loaded
             if attribute_name not in self.serialized_attributes or attribute_name == 'model':
+                continue
+
+            # Integrations are extra information about other libraries (e.g. huggingface) and not attributes to be loaded here
+            if attribute_name == 'integrations':
                 continue
 
             # Restructure algorithms serialized_value from list to dict
