@@ -104,16 +104,27 @@ def test_hf_train_eval_predict(num_classes: int):
 
 
 @pytest.mark.parametrize('pass_in_tokenizer', [True, False])
+@pytest.mark.parametrize('modify_tokenizer', [True, False])
 @pytest.mark.parametrize('num_classes', [2, 3])
-def test_hf_state_dict_info(tmp_path: str, pass_in_tokenizer: bool, num_classes: int):
+def test_hf_state_dict_info(tmp_path: str, pass_in_tokenizer: bool, modify_tokenizer: bool, num_classes: int):
     pytest.importorskip('transformers')
     import transformers
 
     from composer.models import HuggingFaceModel
 
+    if not pass_in_tokenizer and modify_tokenizer:
+        pytest.skip("Invalid parametrization. Cannot modify the tokenizer if it doesn't exist.")
+
     config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny', num_labels=num_classes)
     tokenizer = transformers.AutoTokenizer.from_pretrained('prajjwal1/bert-tiny') if pass_in_tokenizer else None
     hf_model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
+
+    if modify_tokenizer:
+        assert tokenizer is not None  # pyright
+        tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
+        tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
+        tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
+        hf_model.resize_token_embeddings(len(tokenizer))
 
     metrics = Accuracy()
     model = HuggingFaceModel(hf_model, tokenizer=tokenizer, metrics=[metrics], use_logits=True)
@@ -160,6 +171,7 @@ def test_hf_state_dict_info(tmp_path: str, pass_in_tokenizer: bool, num_classes:
     assert expected_model_config_dict == new_model_config_dict
 
     if pass_in_tokenizer:
+        assert tokenizer is not None  # pyright
         with tempfile.TemporaryDirectory() as _tmp_dir:
             for filename, saved_content in hf_tokenizer_state.items():
                 with open(Path(_tmp_dir) / f'{filename}{saved_content["file_extension"]}', 'w') as _tmp_file:
@@ -172,16 +184,25 @@ def test_hf_state_dict_info(tmp_path: str, pass_in_tokenizer: bool, num_classes:
             loaded_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir)
             # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
             loaded_tokenizer.name_or_path = hf_tokenizer_state['tokenizer_config']['content']['name_or_path']
-            loaded_tokenizer.init_kwargs['name_or_path'] = hf_tokenizer_state['tokenizer_config']['content']['name_or_path']
-        
-        loaded_tokenizer_dict = loaded_tokenizer.__dict__
-        expected_tokenizer_dict = tokenizer.__dict__
-        # we remove the actual _tokenizer object to check separately because it is an object
-        loaded_tokenizer_object = loaded_tokenizer_dict.pop('_tokenizer')
-        expected_tokenizer_object = expected_tokenizer_dict.pop('_tokenizer')
+            loaded_tokenizer.init_kwargs['name_or_path'] = hf_tokenizer_state['tokenizer_config']['content'][
+                'name_or_path']
 
-        assert loaded_tokenizer.__dict__ == tokenizer.__dict__
+        # for an unknown reason this key is missing when loading the saved tokenizer, but present with a value of None
+        # for the original tokenizer
+        loaded_tokenizer.init_kwargs['tokenizer_file'] = loaded_tokenizer.init_kwargs.get('tokenizer_file', None)
+
+        # below is a best effort attempt to compare two tokenizers for equivalence
         assert loaded_tokenizer.vocab == tokenizer.vocab
-        assert False
+        assert type(loaded_tokenizer) == type(tokenizer)
+
+        expected_tokenizer_output = tokenizer('This is some text that should get tokenizer !? @ totallyarealtoken')
+        actual_tokenizer_output = loaded_tokenizer('This is some text that should get tokenizer !? @ totallyarealtoken')
+        assert expected_tokenizer_output == actual_tokenizer_output
+
+        # we remove the actual _tokenizer object because it is an instantiated object and so does not pass equality
+        # the tokenizers are not usable below these pops
+        loaded_tokenizer.__dict__.pop('_tokenizer')
+        tokenizer.__dict__.pop('_tokenizer')
+        assert loaded_tokenizer.__dict__ == tokenizer.__dict__
     else:
         assert hf_tokenizer_state == {}
