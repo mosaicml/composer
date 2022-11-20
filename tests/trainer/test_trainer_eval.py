@@ -8,7 +8,7 @@ import pytest
 from torch.utils.data import DataLoader
 from torchmetrics import Accuracy
 
-from composer.core import Event
+from composer.core import Algorithm, Event
 from composer.core.evaluator import Evaluator, evaluate_periodically
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
@@ -333,3 +333,32 @@ def test_infinite_eval_dataloader(eval_subset_num_batches):
             max_duration='1ep',
             eval_subset_num_batches=eval_subset_num_batches,
         )
+
+
+class BreakBatchAlgorithm(Algorithm):
+
+    def __init__(self):
+        super().__init__()
+
+    def match(self, event, state):
+        return event == Event.EVAL_BEFORE_FORWARD
+
+    def apply(self, event, state, logger):
+        del event, logger  # unused
+        state.batch = None
+
+
+@pytest.mark.parametrize('add_algorithm', [True, False])
+def test_eval_batch_can_be_modified(add_algorithm: bool):
+    train_dataset = RandomClassificationDataset(size=8)
+    train_dataloader = DataLoader(train_dataset, batch_size=4, sampler=dist.get_sampler(train_dataset))
+    eval_dataset = RandomClassificationDataset(size=8)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=4, sampler=dist.get_sampler(eval_dataset))
+
+    with contextlib.nullcontext() if not add_algorithm else pytest.raises(TypeError):
+        trainer = Trainer(model=SimpleModel(),
+                          train_dataloader=train_dataloader,
+                          eval_dataloader=eval_dataloader,
+                          max_duration='1ep',
+                          algorithms=[BreakBatchAlgorithm()] if add_algorithm else [])
+        trainer.eval()
