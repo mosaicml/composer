@@ -575,6 +575,9 @@ class TestCheckpointResumption:
             ],  # test save batch after complete epoch
         ],
     )
+    @pytest.mark.filterwarnings(
+        'UserWarning: torch.distributed.distributed_c10d._get_global_rank is deprecated please use torch.distributed.distributed_c10d.get_global_rank instead'
+    )
     def test_resumption(
         self,
         device: str,

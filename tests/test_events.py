@@ -71,6 +71,9 @@ class TestEventCalls:
                      ]),
     ])
     @pytest.mark.parametrize('save_interval', ['1ep', '1ba'])
+    @pytest.mark.filterwarnings(
+        'UserWarning: torch.distributed.distributed_c10d._get_global_rank is deprecated please use torch.distributed.distributed_c10d.get_global_rank instead'
+    )
     def test_event_calls(self, world_size, device, deepspeed_zero_stage, use_fsdp, save_interval):
         save_interval = Time.from_timestring(save_interval)
 

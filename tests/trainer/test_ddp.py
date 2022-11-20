@@ -99,6 +99,9 @@ class CheckBatch0(Callback):
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
+@pytest.mark.filterwarnings(
+    'UserWarning: torch.distributed.distributed_c10d._get_global_rank is deprecated please use torch.distributed.distributed_c10d.get_global_rank instead'
+)
 def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path: pathlib.Path) -> None:
     """test strategy for ddp: 1) Train a dummy model on two gps, for two epochs, using the tracked dataset. 2) The
     tracked dataset should record two -- and only two -- accesses for each sample -- one for each epoch If each sample
