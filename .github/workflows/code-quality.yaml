@@ -17,7 +17,7 @@ defaults:
     working-directory: .
 jobs:
   code-quality:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     timeout-minutes: 10
     strategy:
       matrix:
