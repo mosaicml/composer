@@ -81,25 +81,31 @@ class CheckBatch0(Callback):
             )
 
 
-@pytest.mark.parametrize('device,deepspeed,fsdp', [
-    pytest.param('cpu', False, False, id='cpu'),
-    pytest.param('gpu', False, False, id='gpu', marks=pytest.mark.gpu),
-    pytest.param('gpu', True, False, id='deepspeed', marks=pytest.mark.gpu),
-    pytest.param('gpu',
-                 False,
-                 True,
-                 id='fsdp',
-                 marks=[
-                     pytest.mark.gpu,
-                     pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                                        reason='requires PyTorch 1.13 or higher')
-                 ]),
-])
+@pytest.mark.parametrize(
+    'device,deepspeed,fsdp',
+    [
+        pytest.param('cpu', False, False, id='cpu'),
+        pytest.param('gpu', False, False, id='gpu', marks=pytest.mark.gpu),
+        # TODO: Remove filterwarnings after DeepSpeed removes deprecated code
+        pytest.param('gpu',
+                     True,
+                     False,
+                     id='deepspeed',
+                     marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore:UserWarning')]),
+        pytest.param('gpu',
+                     False,
+                     True,
+                     id='fsdp',
+                     marks=[
+                         pytest.mark.gpu,
+                         pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                                            reason='requires PyTorch 1.13 or higher')
+                     ]),
+    ])
 @pytest.mark.parametrize('world_size', [
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
-@pytest.mark.filterwarnings('ignore:deepspeed.comm.torch')
 def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path: pathlib.Path) -> None:
     """test strategy for ddp: 1) Train a dummy model on two gps, for two epochs, using the tracked dataset. 2) The
     tracked dataset should record two -- and only two -- accesses for each sample -- one for each epoch If each sample

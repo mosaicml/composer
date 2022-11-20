@@ -57,21 +57,27 @@ class TestEventCalls:
         pytest.param(1),
         pytest.param(2, marks=pytest.mark.world_size(2)),
     ])
-    @pytest.mark.parametrize('device,deepspeed_zero_stage,use_fsdp', [
-        pytest.param('cpu', None, False, id='cpu-ddp'),
-        pytest.param('gpu', True, False, id='gpu-ddp', marks=pytest.mark.gpu),
-        pytest.param('gpu',
-                     None,
-                     True,
-                     id='gpu-fsdp',
-                     marks=[
-                         pytest.mark.gpu,
-                         pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                                            reason='requires PyTorch 1.13 or higher')
-                     ]),
-    ])
+    @pytest.mark.parametrize(
+        'device,deepspeed_zero_stage,use_fsdp',
+        [
+            pytest.param('cpu', None, False, id='cpu-ddp'),
+            # TODO: Remove filterwarnings after DeepSpeed removes deprecated code
+            pytest.param('gpu',
+                         True,
+                         False,
+                         id='gpu-ddp',
+                         marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore:UserWarning')]),
+            pytest.param('gpu',
+                         None,
+                         True,
+                         id='gpu-fsdp',
+                         marks=[
+                             pytest.mark.gpu,
+                             pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                                                reason='requires PyTorch 1.13 or higher')
+                         ]),
+        ])
     @pytest.mark.parametrize('save_interval', ['1ep', '1ba'])
-    @pytest.mark.filterwarnings('ignore:deepspeed.comm.torch')
     def test_event_calls(self, world_size, device, deepspeed_zero_stage, use_fsdp, save_interval):
         save_interval = Time.from_timestring(save_interval)
 
