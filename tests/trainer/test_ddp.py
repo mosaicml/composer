@@ -91,8 +91,8 @@ class CheckBatch0(Callback):
                  id='fsdp',
                  marks=[
                      pytest.mark.gpu,
-                     pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.12.0'),
-                                        reason='requires PyTorch 1.12 or higher')
+                     pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                                        reason='requires PyTorch 1.13 or higher')
                  ]),
 ])
 @pytest.mark.parametrize('world_size', [

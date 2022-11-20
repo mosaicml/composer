@@ -14,7 +14,6 @@ from torchmetrics import Metric, MetricCollection
 
 from composer.core import Precision
 from composer.core.state import State
-from composer.trainer.activation_checkpointing import apply_activation_checkpointing_wrapper, checkpoint_wrapper
 from composer.utils import StringEnum, dist, ensure_tuple
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module']
@@ -145,8 +144,10 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         fsdp_config (Dict[str, Any]): The FSDP config. TODO: fill in configuration documentation
         precision: (Precision): The precision being used by the Trainer, used to fill in defaults for FSDP `mixed_precision` settings.
     """
-    if version.parse(torch.__version__) < version.parse('1.12.0'):
-        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.12.0.')
+    if version.parse(torch.__version__) < version.parse('1.13.0'):
+        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
+    from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (apply_activation_checkpointing,
+                                                                             checkpoint_wrapper)
     from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
                                         ShardingStrategy)
     from torch.distributed.fsdp.flatten_params_wrapper import FlattenParamsWrapper
@@ -271,7 +272,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                         return obj.activation_checkpointing_fn(module)
                     return False
 
-                apply_activation_checkpointing_wrapper(
+                apply_activation_checkpointing(
                     fsdp_obj,
                     checkpoint_wrapper_fn=second_wrap_fn,  # type: ignore
                     check_fn=_check_fn,  # type: ignore

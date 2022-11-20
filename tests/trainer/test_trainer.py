@@ -409,8 +409,8 @@ class TestTrainerInitOrFit:
         trainer.fit()
 
     @pytest.mark.gpu
-    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.12.0'),
-                        reason='requires PyTorch 1.12 or higher')
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                        reason='requires PyTorch 1.13 or higher')
     @pytest.mark.parametrize('precision', list(Precision))
     def test_fsdp(
         self,
