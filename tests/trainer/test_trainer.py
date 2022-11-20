@@ -388,6 +388,7 @@ class TestTrainerInitOrFit:
 
     @pytest.mark.gpu
     @pytest.mark.parametrize('precision', list(Precision))
+    @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_deepspeed(
         self,
         model: ComposerModel,
@@ -412,6 +413,7 @@ class TestTrainerInitOrFit:
     @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                         reason='requires PyTorch 1.13 or higher')
     @pytest.mark.parametrize('precision', list(Precision))
+    @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_fsdp(
         self,
         model: ComposerModel,

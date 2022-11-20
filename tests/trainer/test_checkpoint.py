@@ -718,9 +718,30 @@ class TestCheckpointResumption:
 @pytest.mark.parametrize('device,deepspeed_enabled,zero_stage', [
     pytest.param('cpu', False, None, id='cpu-ddp'),
     pytest.param('gpu', False, None, id='gpu-ddp', marks=pytest.mark.gpu),
-    pytest.param('gpu', True, 0, id='deepspeed-zero0', marks=pytest.mark.gpu),
-    pytest.param('gpu', True, 1, id='deepspeed-zero1', marks=pytest.mark.gpu),
-    pytest.param('gpu', True, 2, id='deepspeed-zero2', marks=pytest.mark.gpu),
+    pytest.param('gpu',
+                 True,
+                 0,
+                 id='deepspeed-zero0',
+                 marks=[
+                     pytest.mark.gpu,
+                     pytest.mark.filterwarnings('ignore::UserWarning'),
+                 ]),
+    pytest.param('gpu',
+                 True,
+                 1,
+                 id='deepspeed-zero1',
+                 marks=[
+                     pytest.mark.gpu,
+                     pytest.mark.filterwarnings('ignore::UserWarning'),
+                 ]),
+    pytest.param('gpu',
+                 True,
+                 2,
+                 id='deepspeed-zero2',
+                 marks=[
+                     pytest.mark.gpu,
+                     pytest.mark.filterwarnings('ignore::UserWarning'),
+                 ]),
 ])
 def test_rotate_checkpoints(
     world_size,
