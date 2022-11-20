@@ -561,15 +561,15 @@ class TestCheckpointResumption:
             pytest.param('gpu',
                          0,
                          id='deepspeed-zero0',
-                         marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore:UserWarning')]),
+                         marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore::UserWarning')]),
             pytest.param('gpu',
                          1,
                          id='deepspeed-zero1',
-                         marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore:UserWarning')]),
+                         marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore::UserWarning')]),
             pytest.param('gpu',
                          2,
                          id='deepspeed-zero2',
-                         marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore:UserWarning')]),
+                         marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore::UserWarning')]),
         ])
     @pytest.mark.parametrize(
         'seed,save_interval,save_filename,resume_file,final_checkpoint',

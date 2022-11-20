@@ -91,7 +91,7 @@ class CheckBatch0(Callback):
                      True,
                      False,
                      id='deepspeed',
-                     marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore:UserWarning')]),
+                     marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore::UserWarning')]),
         pytest.param('gpu',
                      False,
                      True,

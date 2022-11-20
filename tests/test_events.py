@@ -66,7 +66,7 @@ class TestEventCalls:
                          True,
                          False,
                          id='gpu-ddp',
-                         marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore:UserWarning')]),
+                         marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore::UserWarning')]),
             pytest.param('gpu',
                          None,
                          True,
