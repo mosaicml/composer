@@ -23,7 +23,7 @@ from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit
-from composer.utils import batch_get, batch_set, dist, ensure_tuple, is_model_deepspeed
+from composer.utils import batch_get, batch_set, dist, ensure_tuple, get_composer_env_dict, is_model_deepspeed
 
 if TYPE_CHECKING:
     import deepspeed
@@ -515,6 +515,17 @@ class State(Serializable):
             integrations['huggingface'] = self.model.get_metadata()
         return integrations
 
+    def _get_state_metadata(self):
+        """Gets a dictionary of metadata to store in the state dict.
+
+        This metadata is used for checking compatibility between the current environment/setup
+        and the environment/setup that was used for the checkpoint that is being loaded in
+        """
+        metadata_dict = {}
+        metadata_dict['composer_env_info'] = get_composer_env_dict()
+
+        return metadata_dict
+
     def state_dict(self) -> Dict[str, Any]:
         state_dict = {}
 
@@ -553,6 +564,7 @@ class State(Serializable):
             state_dict[attribute_name] = serialized_value
 
         state_dict['integrations'] = self._get_integrations_state_dict()
+        state_dict['metadata'] = self._get_state_metadata()
 
         return state_dict
 
@@ -750,6 +762,10 @@ class State(Serializable):
 
             # Integrations are extra information about other libraries (e.g. huggingface) and not attributes to be loaded here
             if attribute_name == 'integrations':
+                continue
+
+            # Skip metadata, which is not an attribute on State
+            if attribute_name == 'metadata':
                 continue
 
             # Restructure algorithms serialized_value from list to dict
