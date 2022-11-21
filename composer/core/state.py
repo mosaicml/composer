@@ -201,6 +201,7 @@ class State(Serializable):
             before the dataloader is evaluated. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
             ``0``.
         grad_accum (int): The number of gradient accumulation steps per batch.
+        train_device_microbatch_size (int): The size of each train microbatch per device.
         loss (torch.Tensor | Sequence[torch.Tensor]): The most recently computed loss.
         model (torch.nn.Module): The training model.
 
