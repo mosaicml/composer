@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import math
+
 import pytest
 import torch
 from packaging import version
@@ -107,7 +109,12 @@ class TestEventCalls:
 
         assert state.dataloader_len is not None
         total_steps = num_epochs * int(state.dataloader_len)
-        total_microbatches = total_steps * state.grad_accum
+        if state.using_device_microbatch_size:
+            batch_size = state.train_dataloader.batch_size  # type: ignore to access batch_size
+            total_microbatches = total_steps * math.ceil(batch_size / state.train_device_microbatch_size)
+        else:
+            assert state.grad_accum is not None
+            total_microbatches = total_steps * state.grad_accum
 
         if eval_interval.unit == TimeUnit.BATCH:
             total_evals = total_steps // int(eval_interval)

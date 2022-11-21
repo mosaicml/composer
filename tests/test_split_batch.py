@@ -6,7 +6,7 @@ from typing import Dict, List, Mapping, Tuple, Union
 import pytest
 import torch
 
-from composer.core.data_spec import _default_split_batch, _split_list
+from composer.core.data_spec import _num_microbatches_split_batch, _split_list
 
 
 def dummy_tensor_batch(batch_size=12) -> torch.Tensor:
@@ -93,12 +93,12 @@ def dummy_batches(batch_size=12):
 
 @pytest.mark.parametrize('batch', dummy_batches(12))
 def test_split_without_error(batch):
-    _default_split_batch(batch, num_microbatches=3)
+    _num_microbatches_split_batch(batch, num_microbatches=3)
 
 
 @pytest.mark.parametrize('batch', [dummy_tuple_batch(12)])
 def test_split_tuple(batch):
-    microbatches = _default_split_batch(batch, num_microbatches=3)
+    microbatches = _num_microbatches_split_batch(batch, num_microbatches=3)
     # should be 3 microbatches of size 4 tensors pairs
     # should split into [(x, y), (x, y), (x, y)]
     assert len(microbatches[0]) == 2
@@ -106,7 +106,7 @@ def test_split_tuple(batch):
 
 @pytest.mark.parametrize('batch', [dummy_tuple_batch_long(12)])
 def test_split_tuple_long(batch):
-    microbatches = _default_split_batch(batch, num_microbatches=3)
+    microbatches = _num_microbatches_split_batch(batch, num_microbatches=3)
     assert len(microbatches[0]) == 4
 
 
@@ -118,13 +118,13 @@ def test_split_maskrcnn(batch):
 
 @pytest.mark.parametrize('batch', dummy_batches(12))
 def test_num_micro_batches(batch):
-    microbatch = _default_split_batch(batch, num_microbatches=3)
+    microbatch = _num_microbatches_split_batch(batch, num_microbatches=3)
     assert len(microbatch) == 3
 
 
 @pytest.mark.parametrize('batch', dummy_batches(5))
 def test_odd_batch_sizes(batch):
-    microbatch = _default_split_batch(batch, num_microbatches=3)
+    microbatch = _num_microbatches_split_batch(batch, num_microbatches=3)
     # should split into [len(2), len(2), len(2)]
     last_microbatch = microbatch[-1]
     assert len(microbatch) == 3
@@ -140,4 +140,4 @@ def test_odd_batch_sizes(batch):
 @pytest.mark.parametrize('batch', dummy_batches(1))
 def test_batch_size_less_than_num_microbatches(batch):
     with pytest.raises(ValueError):
-        _default_split_batch(batch, num_microbatches=3)
+        _num_microbatches_split_batch(batch, num_microbatches=3)
