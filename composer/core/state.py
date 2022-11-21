@@ -509,13 +509,18 @@ class State(Serializable):
         return False
 
     def _get_integrations_state_dict(self) -> Dict[str, Any]:
+        """Gets a dictionary of information about integrations to store in the state dict.
+
+        This metadata is used for loading things from state dict that need to be done outside
+        of the normal Composer load path (e.g. HuggingFace model/tokenizer).
+        """
         from composer.models import HuggingFaceModel
         integrations = {}
         if isinstance(self.model, HuggingFaceModel):
             integrations['huggingface'] = self.model.get_metadata()
         return integrations
 
-    def _get_state_metadata(self):
+    def _get_state_metadata(self) -> Dict[str, Any]:
         """Gets a dictionary of metadata to store in the state dict.
 
         This metadata is used for checking compatibility between the current environment/setup
