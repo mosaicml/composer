@@ -1018,11 +1018,8 @@ class Trainer:
             using_device_microbatch_size = True
             if grad_accum != 1:
                 raise ValueError(
-                    'Cannot use both train_device_microbatch_size and grad_accum. grad_accum is deprecated so it is recommended to use train_device_microbatch_size.'
-                )
-            warnings.warn(
-                f'train_device_microbatch_size ({train_device_microbatch_size}) is set, so grad_accum is being ignored.'
-            )
+                    'Cannot use both train_device_microbatch_size and grad_accum. grad_accum is deprecated '
+                    'so it is recommended to use train_device_microbatch_size.')
             grad_accum = None
             auto_microbatching = _is_auto_microbatching(train_device_microbatch_size, device=self._device)
             if auto_microbatching and profiler:
@@ -1035,7 +1032,8 @@ class Trainer:
             train_device_microbatch_size = _get_initial_train_device_microbatch_size(train_device_microbatch_size, None)
         elif grad_accum:
             using_device_microbatch_size = False
-            warnings.warn(f'grad_accum is deprecated. Please use train_device_microbatch_size instead.')
+            warnings.warn(
+                f'grad_accum set to {grad_accum} but is deprecated. Please use train_device_microbatch_size instead.')
             auto_microbatching = _is_auto_grad_accum(grad_accum, device=self._device)
             if auto_microbatching and profiler:
                 raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
