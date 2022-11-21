@@ -32,7 +32,7 @@ log = logging.getLogger(__name__)
 __all__ = [
     'get_file', 'ensure_folder_is_empty', 'ensure_folder_has_no_conflicting_files', 'format_name_with_dist',
     'format_name_with_dist_and_time', 'is_tar', 'create_symlink_file', 'maybe_create_object_store_from_uri',
-    'maybe_create_remote_uploader_downloader_from_uri'
+    'maybe_create_remote_uploader_downloader_from_uri', 'parse_uri'
 ]
 
 
@@ -305,7 +305,16 @@ Args:
 """
 
 
-def _parse_uri(uri: str) -> Tuple[str, str, str]:
+def parse_uri(uri: str) -> Tuple[str, str, str]:
+    """Uses :meth:`~urllib.parse.urlparse` to parse the provided URI.
+
+    Args:
+        uri (str): The provided URI string
+
+    Returns:
+        Tuple[str, str, str]: A tuple containing the backend (e.g. s3), bucket name, and path.
+                              Backend and bucket name will be empty string if the input is a local path
+    """
     parse_result = urlparse(uri)
     backend, bucket_name, path = parse_result.scheme, parse_result.netloc, parse_result.path
     if backend == '' and bucket_name == '':
@@ -326,7 +335,7 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     Returns:
         Optional[ObjectStore]: Returns an ObjectStore if the URI is of a supported format, otherwise None
     """
-    backend, bucket_name, _ = _parse_uri(uri)
+    backend, bucket_name, _ = parse_uri(uri)
     if backend == '':
         return None
     if backend == 's3':
@@ -354,7 +363,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
         Optional[RemoteUploaderDownloader]: Returns a RemoteUploaderDownloader if the URI is of a supported format, otherwise None
     """
     existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
-    backend, bucket_name, _ = _parse_uri(uri)
+    backend, bucket_name, _ = parse_uri(uri)
     if backend == '':
         return None
     for existing_remote_ud in existing_remote_uds:
