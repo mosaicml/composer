@@ -11,14 +11,17 @@ import pathlib
 import re
 import tempfile
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+import warnings
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from urllib.parse import urlparse
 
 import requests
 import tqdm
 
+from composer.loggers import RemoteUploaderDownloader
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
-from composer.utils.object_store import ObjectStore
+from composer.utils.object_store import ObjectStore, S3ObjectStore
 
 if TYPE_CHECKING:
     from composer.core import Timestamp
@@ -27,13 +30,9 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 __all__ = [
-    'get_file',
-    'ensure_folder_is_empty',
-    'ensure_folder_has_no_conflicting_files',
-    'format_name_with_dist',
-    'format_name_with_dist_and_time',
-    'is_tar',
-    'create_symlink_file',
+    'get_file', 'ensure_folder_is_empty', 'ensure_folder_has_no_conflicting_files', 'format_name_with_dist',
+    'format_name_with_dist_and_time', 'is_tar', 'create_symlink_file', 'maybe_create_object_store_from_uri',
+    'maybe_create_remote_uploader_downloader_from_uri'
 ]
 
 
@@ -42,7 +41,7 @@ def _get_dist_config(strict: bool = True) -> Dict[str, Any]:
 
     If ``strict=True``, will error if a setting is not available (e.g. the
     environment variable is not set). Otherwise, will only return settings
-    that are availalbe.
+    that are available.
     """
     settings = {
         'rank': dist.get_global_rank,
@@ -304,6 +303,76 @@ Args:
     timestamp (Timestamp): The timestamp.
     extra_format_kwargs (object): Any additional :meth:`~str.format` kwargs.
 """
+
+
+def _parse_uri(uri: str) -> Tuple[str, str, str]:
+    parse_result = urlparse(uri)
+    backend, bucket_name, path = parse_result.scheme, parse_result.netloc, parse_result.path
+    if backend == '' and bucket_name == '':
+        return backend, bucket_name, path
+    else:
+        return backend, bucket_name, path.lstrip('/')
+
+
+def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
+    """Automatically creates an ObjectStore from supported URI formats.
+
+    Args:
+        uri (str): The path to (maybe) create an ObjectStore from
+
+    Raises:
+        NotImplementedError: Raises when the URI format is not supported.
+
+    Returns:
+        Optional[ObjectStore]: Returns an ObjectStore if the URI is of a supported format, otherwise None
+    """
+    backend, bucket_name, _ = _parse_uri(uri)
+    if backend == '':
+        return None
+    if backend == 's3':
+        return S3ObjectStore(bucket=bucket_name)
+    elif backend == 'wandb':
+        raise NotImplementedError(f'There is no implementation for WandB load_object_store via URI. Please use '
+                                  'WandBLogger')
+    else:
+        raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
+                                  's3 or one of the supported object stores')
+
+
+def maybe_create_remote_uploader_downloader_from_uri(
+        uri: str, loggers: List[LoggerDestination]) -> Optional[RemoteUploaderDownloader]:
+    """Automatically creates a RemoteUploaderDownloader from supported URI formats.
+
+    Args:
+        uri (str):The path to (maybe) create a RemoteUploaderDownloader from
+        loggers (List[LoggerDestination]): List of the existing LoggerDestinations so as to not create a duplicate
+
+    Raises:
+        NotImplementedError: Raises when the URI format is not supported.
+
+    Returns:
+        Optional[RemoteUploaderDownloader]: Returns a RemoteUploaderDownloader if the URI is of a supported format, otherwise None
+    """
+    existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
+    backend, bucket_name, _ = _parse_uri(uri)
+    if backend == '':
+        return None
+    for existing_remote_ud in existing_remote_uds:
+        if ((existing_remote_ud.remote_backend_name == backend) and
+            (existing_remote_ud.remote_bucket_name == bucket_name)):
+            warnings.warn(
+                f'There already exists a RemoteUploaderDownloader object to handle the uri: {uri} you specified')
+            return None
+    if backend == 's3':
+        return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}')
+
+    elif backend == 'wandb':
+        raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '
+                                  'WandBLogger with log_artifacts set to True')
+
+    else:
+        raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
+                                  's3 or one of the supported RemoteUploaderDownloader object stores')
 
 
 def get_file(
