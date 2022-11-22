@@ -21,7 +21,7 @@ import tqdm
 from composer.loggers import RemoteUploaderDownloader
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
-from composer.utils.object_store import ObjectStore, S3ObjectStore
+from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
     from composer.core import Timestamp
@@ -335,6 +335,7 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     Returns:
         Optional[ObjectStore]: Returns an ObjectStore if the URI is of a supported format, otherwise None
     """
+    from composer.utils.object_store import S3ObjectStore
     backend, bucket_name, _ = parse_uri(uri)
     if backend == '':
         return None
