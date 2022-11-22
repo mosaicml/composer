@@ -43,7 +43,7 @@ class ConsoleLogger(LoggerDestination):
             log_interval = Time.from_timestring(log_interval)
 
         if log_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH):
-            raise ValueError('The `console_log_interval` must have units of EPOCH or BATCH.')
+            raise ValueError('The `console_log_interval` argument must have units of EPOCH or BATCH.')
 
         self.log_interval = log_interval
         # set the stream
