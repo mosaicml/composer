@@ -1745,8 +1745,8 @@ class Trainer:
                                  "recommended to run a mini-run with `train_device_microbatch_size='auto'` to identify "
                                  'the optimal train_device_microbatch_size value and then manually specify that in a '
                                  'second run with profiler.')
-            self.state.grad_accum = _get_initial_train_device_microbatch_size(train_device_microbatch_size,
-                                                                              self.state.train_dataloader)
+            self.state.train_device_microbatch_size = _get_initial_train_device_microbatch_size(
+                train_device_microbatch_size, self.state.train_dataloader)
         if grad_accum is not None:
             self.state.auto_microbatching = _is_auto_grad_accum(grad_accum, device=self._device)
             if self.state.auto_microbatching and self.state.profiler:
