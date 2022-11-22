@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Logs metrics to the console and without a progress bar."""
+
 from __future__ import annotations
 
 import sys
