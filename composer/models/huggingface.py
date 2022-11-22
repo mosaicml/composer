@@ -8,16 +8,21 @@ from __future__ import annotations
 import json
 import logging
 import tempfile
+import textwrap
 from collections import UserDict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 
+import torch
 from torchmetrics import Metric
 
 from composer.models.base import ComposerModel
+from composer.utils import get_file
+from composer.utils.import_helpers import MissingConditionalImportError, import_object
 
 if TYPE_CHECKING:
     import transformers
+    from transformers.models.auto.auto_factory import _BaseAutoModelClass
 
 log = logging.getLogger(__name__)
 
@@ -52,6 +57,14 @@ class HuggingFaceModel(ComposerModel):
                                            transformers.PreTrainedTokenizerFast]] = None,
                  use_logits: Optional[bool] = False,
                  metrics: Optional[List[Metric]] = None) -> None:
+        try:
+            import transformers
+            del transformers  # unused
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='transformers',
+                                                conda_package='transformers',
+                                                conda_channel='conda-forge') from e
+
         super().__init__()
         self.model = model
         self.config = model.config
@@ -73,6 +86,104 @@ class HuggingFaceModel(ComposerModel):
             self.val_metrics = {metric.__class__.__name__: metric for metric in metrics}
 
         self.labels = None  # set in eval_forward() if exists
+
+    @staticmethod
+    def hf_from_composer_checkpoint(
+        checkpoint_path: str,
+        model_instantiation_class: Optional[Union[Type[transformers.PreTrainedModel],
+                                                  Type['_BaseAutoModelClass']]] = None,
+        model_init_kwargs: Optional[dict] = None,
+        local_checkpoint_save_location: Optional[Union[Path, str]] = None
+    ) -> Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]:
+        """Loads a HuggingFace model (and tokenizer if present) from a composer checkpoint. Currently is only supported
+           if the model class to load is from the transformers module.
+
+        Args:
+            checkpoint_path (str): Path to the composer checkpoint, can be a local path, http(s):// url, or s3:// uri
+            model_instantiation_class (Union[Type[:class:`transformers.PreTrainedModel`], Type[:class:`transformers.AutoModel`]]), optional):
+                Class to use to create the huggingface model. Defaults to the model class used to save the config. If this argument is
+                of type :class:`transformers.AutoModel, the `from_config` method will be used, while if it is of type :class:`transformers.PreTrainedModel`,
+                the constructor will be called.
+            model_init_kwargs: Dict[str, Any]: Extra arguments to pass in for the model creation (e.g. ``num_labels`` for creating a sequence classification model)
+            local_checkpoint_save_location (Optional[Union[Path, str]], optional): If specified, where to save the checkpoint file to locally.
+                                                                                   If the input ``checkpoint_path`` is already a local path, this will be a symlink.
+                                                                                   Defaults to None, which will use a temporary file.
+
+        Raises:
+            ValueError: If the ``model_instantiation_class``, or the model class saved in the checkpoint is not from the ``transformers`` module
+
+        Returns:
+            Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]: The loaded huggingface model and (if present) tokenizer
+        """
+        # default local path to a tempfile if path is not provided
+        if local_checkpoint_save_location is None:
+            tmp_dir = tempfile.TemporaryDirectory()
+            local_checkpoint_save_location = Path(tmp_dir.name) / 'local-composer-checkpoint.pt'
+
+        if model_init_kwargs is None:
+            model_init_kwargs = {}
+
+        # download the checkpoint file
+        get_file(checkpoint_path, str(local_checkpoint_save_location))
+
+        # load the state dict in
+        loaded_state_dict = torch.load(local_checkpoint_save_location)
+
+        hf_state = loaded_state_dict['state']['integrations']['huggingface']
+        hf_model_state = hf_state['model']
+        hf_tokenizer_state = hf_state['tokenizer']
+
+        hf_config_dict = hf_model_state['config']['content']
+        # Update the config with any extra args needed
+        hf_config_dict.update(model_init_kwargs)
+        # JSON keys need to be converted back to ints, huggingface does not auto convert them along this code path
+        if 'id2label' in hf_config_dict:
+            hf_config_dict['id2label'] = {int(k): v for k, v in hf_config_dict['id2label'].items()}
+
+        loaded_config = transformers.AutoConfig.from_pretrained(hf_config_dict['_name_or_path'], **hf_config_dict)
+        if model_instantiation_class is not None:
+            # If the instantiation class is explicitly provided, use it
+            # The AutoModel* classes have `from_config`, while the PreTrainedModel classes do not
+            if issubclass(model_instantiation_class, transformers.models.auto.auto_factory._BaseAutoModelClass):
+                hf_model = model_instantiation_class.from_config(loaded_config)  # type: ignore
+            else:
+                hf_model = model_instantiation_class(loaded_config)
+        else:
+            # If the instantiation class is not explicitly provided, attempt to import the saved class and use it
+            try:
+                saved_class = import_object(hf_model_state['config']['content'])
+            except (ModuleNotFoundError, AttributeError):
+                raise ValueError(
+                    textwrap.dedent(
+                        f'The saved class {hf_model_state["config"]["class"]} could not be imported. '
+                        'Please either pass in the class to use explicitly via the model_instantiation_class '
+                        f'parameter, or make sure that {hf_model_state["config"]["class"]} is discoverable '
+                        'on the python path.'))
+            hf_model = saved_class(loaded_config)
+
+        hf_tokenizer = None
+        if hf_tokenizer_state != {}:
+            with tempfile.TemporaryDirectory() as _tmp_dir:
+                for filename, saved_content in hf_tokenizer_state.items():
+                    with open(Path(_tmp_dir) / f'{filename}{saved_content["file_extension"]}', 'w') as _tmp_file:
+                        if saved_content['file_extension'] == '.json':
+                            json.dump(saved_content['content'], _tmp_file)
+                        elif saved_content['file_extension'] == '.txt':
+                            for line in saved_content['content']:
+                                _tmp_file.write(line)
+                                _tmp_file.write('\n')
+                hf_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir)
+
+                # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
+                hf_tokenizer.name_or_path = hf_tokenizer_state['tokenizer_config']['content']['name_or_path']
+                hf_tokenizer.init_kwargs['name_or_path'] = hf_tokenizer_state['tokenizer_config']['content'][
+                    'name_or_path']
+
+                # for an unknown reason this key is missing when loading the saved tokenizer, but present with a value of None
+                # for the original tokenizer, so we default it to None
+                hf_tokenizer.init_kwargs['tokenizer_file'] = hf_tokenizer.init_kwargs.get('tokenizer_file', None)
+
+        return hf_model, hf_tokenizer
 
     def forward(self, batch):
         if isinstance(batch, dict) or isinstance(batch, UserDict):
