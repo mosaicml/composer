@@ -18,14 +18,13 @@ from urllib.parse import urlparse
 import requests
 import tqdm
 
-from composer.loggers import RemoteUploaderDownloader
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
 from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
     from composer.core import Timestamp
-    from composer.loggers import LoggerDestination
+    from composer.loggers import LoggerDestination, RemoteUploaderDownloader
 
 log = logging.getLogger(__name__)
 
@@ -350,7 +349,7 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
 
 
 def maybe_create_remote_uploader_downloader_from_uri(
-        uri: str, loggers: List[LoggerDestination]) -> Optional[RemoteUploaderDownloader]:
+        uri: str, loggers: List[LoggerDestination]) -> Optional['RemoteUploaderDownloader']:
     """Automatically creates a RemoteUploaderDownloader from supported URI formats.
 
     Args:
@@ -363,6 +362,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
     Returns:
         Optional[RemoteUploaderDownloader]: Returns a RemoteUploaderDownloader if the URI is of a supported format, otherwise None
     """
+    from composer.loggers import RemoteUploaderDownloader
     existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
     backend, bucket_name, _ = parse_uri(uri)
     if backend == '':
