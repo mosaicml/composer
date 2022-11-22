@@ -913,7 +913,7 @@ class TestTrainerEquivalence():
 
         self.assert_models_equal(trainer.state.model, self.reference_model)
 
-    def test_grad_accum(self, config, precision, *args):
+    def test_microbatch_size(self, config, precision, *args):
         # grad accum requires non-zero tolerance
         # Precision.AMP requires a even higher tolerance.
         threshold = {
@@ -922,7 +922,7 @@ class TestTrainerEquivalence():
         }
 
         config.update({
-            'grad_accum': 2,
+            'train_device_microbatch_size': 2,
         })
 
         trainer = Trainer(**config)
