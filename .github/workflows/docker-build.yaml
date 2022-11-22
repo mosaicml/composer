@@ -1,0 +1,47 @@
+name: Build Production Docker Images
+on:
+  push:
+    branches:
+      - dev
+      - main
+      - release/**
+  pull_request:
+    branches:
+      - dev
+      - main
+      - release/**
+  workflow_call:
+  workflow_dispatch: {}
+defaults:
+  run:
+    working-directory: .
+jobs:
+  build-image-matrix:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 2
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v3
+      - id: set-matrix
+        run: |
+          set -ex
+          env
+          BUILD_MATRIX=$(cat docker/build_matrix.yaml)
+          echo $BUILD_MATRIX
+          echo "matrix=$BUILD_MATRIX" >> $GITHUB_OUTPUT
+  build-images:
+    needs: build-image-matrix
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix: ${{ fromJSON(needs.build-image-matrix.outputs.matrix) }}
+    steps:
+      - run: |
+          echo ${{ matrix.BASE_IMAGE }}
+          echo ${{ matrix.CUDA_VERSION }}
+          echo ${{ matrix.PYTHON_VERSION }}
+          echo ${{ matrix.PYTORCH_VERSION }}
+          echo ${{ matrix.TAGS }}
+          echo ${{ matrix.TARGET }}
+          echo ${{ matrix.TORCHTEXT_VERSION }}
+          echo ${{ matrix.TORCHVISION_VERSION }}
