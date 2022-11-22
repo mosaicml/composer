@@ -18,7 +18,6 @@ from urllib.parse import urlparse
 import requests
 import tqdm
 
-from composer.loggers import RemoteUploaderDownloader
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
 from composer.utils.object_store import ObjectStore
