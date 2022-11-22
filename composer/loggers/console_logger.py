@@ -25,8 +25,6 @@ class ConsoleLogger(LoggerDestination):
         This logger is automatically instantiated by the trainer via the ``log_to_console``,
         and ``console_stream`` options. This logger does not need to be created manually.
 
-    Example console output::
-
     Args:
         log_interval (int | str | Time): How frequently to log to console. (default: ``'1ep'``)
         stream (str | TextIO, optional): The console stream to use. If a string, it can either be ``'stdout'`` or
