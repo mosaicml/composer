@@ -113,7 +113,7 @@ class ProgressBarLogger(LoggerDestination):
 
     .. note::
 
-        This logger is automatically instainatied by the trainer via the ``progress_bar``, ``log_to_console``,
+        This logger is automatically instantiated by the trainer via the ``progress_bar``,
         and ``console_stream`` options. This logger does not need to be created manually.
 
     `TQDM <https://github.com/tqdm/tqdm>`_ is used to display progress bars.
@@ -127,11 +127,6 @@ class ProgressBarLogger(LoggerDestination):
         Epoch 1 (val): 100%|██████████| 20/20 [00:00<00:00, 100.96it/s, accuracy/val=0.0995]
 
     Args:
-        progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
-        log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
-
-            The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is
-            ``False``.
         stream (str | TextIO, optional): The console stream to use. If a string, it can either be ``'stdout'`` or
             ``'stderr'``. (default: :attr:`sys.stderr`)
     """
