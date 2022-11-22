@@ -305,7 +305,7 @@ Args:
 
 
 def parse_uri(uri: str) -> Tuple[str, str, str]:
-    """Uses :meth:`~urllib.parse.urlparse` to parse the provided URI.
+    """Uses :py:func:`urllib.parse.urlparse` to parse the provided URI.
 
     Args:
         uri (str): The provided URI string
@@ -323,16 +323,16 @@ def parse_uri(uri: str) -> Tuple[str, str, str]:
 
 
 def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
-    """Automatically creates an ObjectStore from supported URI formats.
+    """Automatically creates an :class:`composer.utils.ObjectStore` from supported URI formats.
 
     Args:
-        uri (str): The path to (maybe) create an ObjectStore from
+        uri (str): The path to (maybe) create an :class:`composer.utils.ObjectStore` from
 
     Raises:
         NotImplementedError: Raises when the URI format is not supported.
 
     Returns:
-        Optional[ObjectStore]: Returns an ObjectStore if the URI is of a supported format, otherwise None
+        Optional[ObjectStore]: Returns an :class:`composer.utils.ObjectStore` if the URI is of a supported format, otherwise None
     """
     from composer.utils.object_store import S3ObjectStore
     backend, bucket_name, _ = parse_uri(uri)
@@ -350,17 +350,17 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
 
 def maybe_create_remote_uploader_downloader_from_uri(
         uri: str, loggers: List[LoggerDestination]) -> Optional['RemoteUploaderDownloader']:
-    """Automatically creates a RemoteUploaderDownloader from supported URI formats.
+    """Automatically creates a :class:`composer.loggers.RemoteUploaderDownloader` from supported URI formats.
 
     Args:
-        uri (str):The path to (maybe) create a RemoteUploaderDownloader from
-        loggers (List[LoggerDestination]): List of the existing LoggerDestinations so as to not create a duplicate
+        uri (str):The path to (maybe) create a :class:`composer.loggers.RemoteUploaderDownloader` from
+        loggers (List[:class:`composer.loggers.LoggerDestination`]): List of the existing :class:`composer.loggers.LoggerDestination` s so as to not create a duplicate
 
     Raises:
         NotImplementedError: Raises when the URI format is not supported.
 
     Returns:
-        Optional[RemoteUploaderDownloader]: Returns a RemoteUploaderDownloader if the URI is of a supported format, otherwise None
+        Optional[RemoteUploaderDownloader]: Returns a :class:`composer.loggers.RemoteUploaderDownloader` if the URI is of a supported format, otherwise None
     """
     from composer.loggers import RemoteUploaderDownloader
     existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
@@ -403,7 +403,7 @@ def get_file(
             *   If ``object_store`` is not specified but the ``path`` begins with ``http://`` or ``https://``,
                 the object at this URL will be downloaded.
 
-            *   If ``object_store`` is not specified, but the ``path`` begins with ``s3://``, an :class:`~composer.utils.object_store.S3ObjectStore`
+            *   If ``object_store`` is not specified, but the ``path`` begins with ``s3://``, an :class:`composer.utils.S3ObjectStore`
                 will be created and used.
 
             *   Otherwise, ``path`` is presumed to be a local filepath.
