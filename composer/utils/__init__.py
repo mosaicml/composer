@@ -6,7 +6,8 @@ import warnings
 
 from composer.utils.batch_helpers import batch_get, batch_set
 from composer.utils.checkpoint import PartialFilePath, load_checkpoint, save_checkpoint
-from composer.utils.collect_env import configure_excepthook, disable_env_report, enable_env_report, print_env
+from composer.utils.collect_env import (configure_excepthook, disable_env_report, enable_env_report,
+                                        get_composer_env_dict, print_env)
 from composer.utils.device import get_device, is_tpu_installed
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
                                          create_symlink_file, ensure_folder_has_no_conflicting_files,
@@ -76,6 +77,7 @@ __all__ = [
     'disable_env_report',
     'enable_env_report',
     'print_env',
+    'get_composer_env_dict',
     'retry',
     'model_eval_mode',
     'get_device',
