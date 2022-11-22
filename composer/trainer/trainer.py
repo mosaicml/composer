@@ -18,7 +18,6 @@ import warnings
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
-from urllib.parse import urlparse
 
 import coolname
 import torch
@@ -45,9 +44,11 @@ from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _par
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
-from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, S3ObjectStore, Transform,
-                            checkpoint, dist, ensure_tuple, export_with_logger, format_name_with_dist, get_device,
-                            get_file, is_tpu_installed, map_collection, model_eval_mode, reproducibility)
+from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, Transform, checkpoint, dist,
+                            ensure_tuple, export_with_logger, format_name_with_dist, get_device, get_file,
+                            is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
+                            maybe_create_remote_uploader_downloader_from_uri, model_eval_mode, parse_uri,
+                            reproducibility)
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -284,53 +285,6 @@ def _generate_run_name() -> str:
     dist.broadcast_object_list(run_name_list)
     generated_run_name = run_name_list[0]
     return generated_run_name
-
-
-def _maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
-    backend, bucket_name, _ = _parse_uri(uri)
-    if backend == '':
-        return None
-    if backend == 's3':
-        return S3ObjectStore(bucket=bucket_name)
-    elif backend == 'wandb':
-        raise NotImplementedError(f'There is no implementation for WandB load_object_store via URI. Please use '
-                                  'WandBLogger')
-    else:
-        raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
-                                  's3 or one of the supported object stores')
-
-
-def _maybe_create_remote_uploader_downloader_from_uri(
-        uri: str, loggers: List[LoggerDestination]) -> Optional[RemoteUploaderDownloader]:
-    existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
-    backend, bucket_name, _ = _parse_uri(uri)
-    if backend == '':
-        return None
-    for existing_remote_ud in existing_remote_uds:
-        if ((existing_remote_ud.remote_backend_name == backend) and
-            (existing_remote_ud.remote_bucket_name == bucket_name)):
-            warnings.warn(
-                f'There already exists a RemoteUploaderDownloader object to handle the uri: {uri} you specified')
-            return None
-    if backend == 's3':
-        return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}')
-
-    elif backend == 'wandb':
-        raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '
-                                  'WandBLogger with log_artifacts set to True')
-
-    else:
-        raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
-                                  's3 or one of the supported RemoteUploaderDownloader object stores')
-
-
-def _parse_uri(uri: str) -> Tuple[str, str, str]:
-    parse_result = urlparse(uri)
-    backend, bucket_name, path = parse_result.scheme, parse_result.netloc, parse_result.path
-    if backend == '' and bucket_name == '':
-        return backend, bucket_name, path
-    else:
-        return backend, bucket_name, path.lstrip('/')
 
 
 class Trainer:
@@ -1039,7 +993,7 @@ class Trainer:
                     ConsoleLogger(stream=console_stream, log_interval=console_log_interval, log_traces=log_traces))
 
         if save_folder is not None:
-            remote_ud = _maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
+            remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
             if remote_ud is not None:
                 loggers.append(remote_ud)
 
@@ -1064,7 +1018,7 @@ class Trainer:
         self._checkpoint_saver = None
         latest_remote_file_name = None
         if save_folder is not None:
-            _, _, parsed_save_folder = _parse_uri(save_folder)
+            _, _, parsed_save_folder = parse_uri(save_folder)
 
             # If user passes a URI with s3:// and a bucket_name, but no other
             # path then we assume they just want their checkpoints saved directly in their
@@ -1287,12 +1241,12 @@ class Trainer:
         # Actually load the checkpoint from potentially updated arguments
         if load_path is not None:
             if load_object_store is None:
-                load_object_store = _maybe_create_object_store_from_uri(load_path)
+                load_object_store = maybe_create_object_store_from_uri(load_path)
             if isinstance(load_object_store, WandBLogger):
                 import wandb
                 if wandb.run is None:
                     load_object_store.init(self.state, self.logger)
-            _, _, parsed_load_path = _parse_uri(load_path)
+            _, _, parsed_load_path = parse_uri(load_path)
             self._rng_state = checkpoint.load_checkpoint(
                 state=self.state,
                 logger=self.logger,
