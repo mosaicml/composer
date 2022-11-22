@@ -165,9 +165,9 @@ extra_deps['timm'] = [
     'timm>=0.5.4,<0.6',
 ]
 
-extra_deps['coco'] = [
-    'pycocotools>=2.0.4,<3',
-]
+# extra_deps['coco'] = [
+#     'pycocotools>=2.0.4,<3',
+# ]
 
 extra_deps['nlp'] = [
     'transformers>=4.11,<5',

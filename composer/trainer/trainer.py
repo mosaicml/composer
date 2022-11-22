@@ -540,7 +540,7 @@ class Trainer:
             :attr:`.TimeUnit.BATCH` or :attr:`.TimeUnit.EPOCH`.
 
             Set to ``0`` to disable metrics logging to console.
-
+        log_traces (bool): Whether to log traces or not. (default: ``False``)
         load_path (str, optional):  The path format string to an existing checkpoint file.
 
             It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
@@ -831,6 +831,7 @@ class Trainer:
         log_to_console: bool = False,
         console_stream: Union[str, TextIO] = 'stderr',
         console_log_interval: Union[int, str, Time] = 1,
+        log_traces: bool = False,
 
         # Load Checkpoint
         load_path: Optional[str] = None,
@@ -1021,7 +1022,7 @@ class Trainer:
                      f'{ProgressBarLogger.__name__} was already created.')))
         else:
             if progress_bar:
-                loggers.append(ProgressBarLogger(stream=console_stream,))
+                loggers.append(ProgressBarLogger(stream=console_stream, log_traces=log_traces))
 
         # Console Logging
         if any(isinstance(x, ConsoleLogger) for x in loggers):
@@ -1032,8 +1033,8 @@ class Trainer:
                                     f'{ConsoleLogger.__name__} was already created.')))
         else:
             if log_to_console:
-                loggers.append(ConsoleLogger(stream=console_stream, log_interval=console_log_interval,
-                                             log_traces=False))
+                loggers.append(
+                    ConsoleLogger(stream=console_stream, log_interval=console_log_interval, log_traces=log_traces))
 
         if save_folder is not None:
             remote_ud = _maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
