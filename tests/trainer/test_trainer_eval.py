@@ -1,13 +1,14 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Callable, Union
+import contextlib
+from typing import Callable, Optional, Union
 
 import pytest
 from torch.utils.data import DataLoader
 from torchmetrics import Accuracy
 
-from composer.core import Event
+from composer.core import Algorithm, Event
 from composer.core.evaluator import Evaluator, evaluate_periodically
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
@@ -301,3 +302,63 @@ def test_eval_params_evaluator():
     assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == trainer.state.timestamp.batch
     assert event_counter_callback.event_to_num_calls[
         Event.EVAL_BATCH_START] == eval_subset_num_batches * trainer.state.timestamp.batch
+
+
+class InfiniteDataloader(DataLoader):
+    """Infinite dataloader that never raises StopIteration."""
+
+    def __iter__(self):
+        while True:
+            for batch in super().__iter__():
+                yield batch
+
+    def __len__(self) -> Optional[int]:
+        return None
+
+
+@pytest.mark.parametrize('eval_subset_num_batches', [None, 1])
+def test_infinite_eval_dataloader(eval_subset_num_batches):
+    """Test the `eval_subset_num_batches` is required with infinite dataloader."""
+    # Construct the trainer
+    train_dataset = RandomClassificationDataset()
+    train_dataloader = DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset))
+    eval_dataset = RandomClassificationDataset()
+    eval_dataloader = InfiniteDataloader(eval_dataset, sampler=dist.get_sampler(eval_dataset))
+
+    with contextlib.nullcontext() if eval_subset_num_batches is not None else pytest.raises(ValueError):
+        Trainer(
+            model=SimpleModel(),
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
+            max_duration='1ep',
+            eval_subset_num_batches=eval_subset_num_batches,
+        )
+
+
+class BreakBatchAlgorithm(Algorithm):
+
+    def __init__(self):
+        super().__init__()
+
+    def match(self, event, state):
+        return event == Event.EVAL_BEFORE_FORWARD
+
+    def apply(self, event, state, logger):
+        del event, logger  # unused
+        state.batch = None
+
+
+@pytest.mark.parametrize('add_algorithm', [True, False])
+def test_eval_batch_can_be_modified(add_algorithm: bool):
+    train_dataset = RandomClassificationDataset(size=8)
+    train_dataloader = DataLoader(train_dataset, batch_size=4, sampler=dist.get_sampler(train_dataset))
+    eval_dataset = RandomClassificationDataset(size=8)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=4, sampler=dist.get_sampler(eval_dataset))
+
+    with contextlib.nullcontext() if not add_algorithm else pytest.raises(TypeError):
+        trainer = Trainer(model=SimpleModel(),
+                          train_dataloader=train_dataloader,
+                          eval_dataloader=eval_dataloader,
+                          max_duration='1ep',
+                          algorithms=[BreakBatchAlgorithm()] if add_algorithm else [])
+        trainer.eval()

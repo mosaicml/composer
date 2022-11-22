@@ -1,0 +1,42 @@
+name: Code Quality Checks
+on:
+  push:
+    branches:
+      - dev
+      - main
+      - release/**
+  pull_request:
+    branches:
+      - dev
+      - main
+      - release/**
+  workflow_call:
+  workflow_dispatch: {}
+defaults:
+  run:
+    working-directory: .
+jobs:
+  code-quality:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        python_version:
+          - "3.7"
+          - "3.8"
+          - "3.9"
+        pip_deps:
+          - "[all]"
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python_version }}
+      - name: Setup
+        run: |
+          set -ex
+          python -m pip install --upgrade pip wheel
+          python -m pip install -e .${{ matrix.pip_deps }}
+      - name: Run checks
+        run: |
+          pre-commit run --all-files

@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import collections.abc
 import contextlib
 import datetime
 import itertools
@@ -140,6 +141,16 @@ def _set_evaluator_interval_and_subset_num_batches(
             evaluator.subset_num_batches = subset_num_batches
         if evaluator.eval_interval is None:
             evaluator.eval_interval = eval_interval
+        eval_dataloader = evaluator.dataloader.dataloader
+        if isinstance(eval_dataloader, collections.abc.Sized) and evaluator.subset_num_batches is None:
+            try:
+                dataloader_len = len(eval_dataloader)
+            except TypeError:
+                dataloader_len = None
+            if dataloader_len == None:
+                raise ValueError('eval_subset_num_batches must be set when using an infinite sized '
+                                 'eval_dataloader where length is `None`. Otherwise, evaluation will '
+                                 'run forever and never terminate.')
 
 
 def _is_auto_grad_accum(grad_accum: Union[int, str], device: Device):
@@ -603,7 +614,7 @@ class Trainer:
             Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``True``)
         load_ignore_keys (List[str] | (Dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
             which, when provided, will be ignored from the state_dict before a checkpoint is loaded. Each path is a list
-            of strings specifying the keys to index into ``state_dict`` joined together with `/` as a seperator (as PyTorch
+            of strings specifying the keys to index into ``state_dict`` joined together with `/` as a separator (as PyTorch
             uses `.` in parameter names). If a prefix is provided, all children are also ignored (see Example 2).
             See :mod:`composer.core.state` for the structure of state_dict.
 
@@ -2511,7 +2522,7 @@ class Trainer:
                     # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
                     found_cuda_oom = 0
                     try:
-                        for eval_microbatch in data_spec.split_batch(self.state.batch, self.state.eval_batch_split):
+                        for self.state.batch in data_spec.split_batch(self.state.batch, self.state.eval_batch_split):
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
                             with get_precision_context(self.state.precision):
                                 if hasattr(self._original_model, 'validate'):  # backwards compatibility check
@@ -2519,9 +2530,9 @@ class Trainer:
                                         'Using validate() is no longer supported and will be removed in a future version. Please use eval_forward() instead.'
                                     )
                                     assert isinstance(self._original_model.validate, Callable)
-                                    self.state.outputs, target = self._original_model.validate(eval_microbatch)
+                                    self.state.outputs, target = self._original_model.validate(self.state.batch)
                                 else:
-                                    self.state.outputs = self._original_model.eval_forward(eval_microbatch)
+                                    self.state.outputs = self._original_model.eval_forward(self.state.batch)
                                     target = None
 
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)
@@ -2541,7 +2552,7 @@ class Trainer:
                                 else:
                                     for _, metric in metrics.items():
                                         self._original_model.update_metric(
-                                            eval_microbatch,
+                                            self.state.batch,
                                             outputs,
                                             metric,
                                         )
