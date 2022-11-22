@@ -56,7 +56,7 @@ def test_console_logger_interval(console_logger_test_stream, console_logger_test
     actual_num_log_lines = sum([1 if bool(reg_exp.search(line)) else 0 for line in lines])
 
     assert model.train_metrics is not None
-    num_metrics = len(model.train_metrics.keys()) if isinstance(model.train_metrics, MetricCollection) else 1
+    num_metrics = len(list(model.train_metrics.keys())) if isinstance(model.train_metrics, MetricCollection) else 1
     num_losses = 1
     num_metrics_and_losses_per_logging_event = num_metrics + num_losses
 
@@ -107,7 +107,7 @@ def test_console_logger_interval_with_eval(console_logger_test_stream, console_l
     actual_num_eval_log_lines = sum([1 if bool(eval_reg_exp.search(line)) else 0 for line in lines])
 
     assert model.val_metrics is not None
-    num_eval_metrics = len(model.val_metrics.keys()) if isinstance(model.val_metrics, MetricCollection) else 1
+    num_eval_metrics = len(list(model.val_metrics.keys())) if isinstance(model.val_metrics, MetricCollection) else 1
     num_eval_losses = 0
     num_eval_metrics_and_losses_per_logging_event = num_eval_metrics + num_eval_losses
 

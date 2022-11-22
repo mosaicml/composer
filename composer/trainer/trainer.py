@@ -1010,8 +1010,10 @@ class Trainer:
         loggers = list(ensure_tuple(loggers))
 
         if progress_bar and log_to_console:
-            warnings.warn('Setting both `progress_bar` and `log_to_console` both to True is not recommended and will'
-                          'lead to duplicate logs. Please set one of them to False for a better logging experience.')
+            warnings.warn(
+                'Setting both `progress_bar` and `log_to_console` both to True is not recommended and will'
+                'lead to duplicate logs and weird formatting issues. Please set one of them to False for a better logging experience.'
+            )
 
         if any(isinstance(x, ProgressBarLogger) for x in loggers):
             warnings.warn(
