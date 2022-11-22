@@ -403,6 +403,9 @@ def get_file(
             *   If ``object_store`` is not specified but the ``path`` begins with ``http://`` or ``https://``,
                 the object at this URL will be downloaded.
 
+            *   If ``object_store`` is not specified, but the ``path`` begins with ``s3://``, an :class:`~composer.utils.object_store.S3ObjectStore`
+                will be created and used.
+
             *   Otherwise, ``path`` is presumed to be a local filepath.
 
         destination (str): The destination filepath.
@@ -426,6 +429,10 @@ def get_file(
     Raises:
         FileNotFoundError: If the ``path`` does not exist.
     """
+    if object_store is None and not (path.lower().startswith('http://') or path.lower().startswith('https://')):
+        object_store = maybe_create_object_store_from_uri(path)
+        _, _, path = parse_uri(path)
+
     if path.endswith('.symlink'):
         with tempfile.TemporaryDirectory() as tmpdir:
             symlink_file_name = os.path.join(tmpdir, 'file.symlink')
