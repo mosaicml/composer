@@ -351,13 +351,13 @@ class TestTrainerInitOrFit:
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
-    def test_grad_accum(
+    def test_microbatch_size(
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
         max_duration: Time[int],
     ):
-        grad_accum = 2
+        train_device_microbatch_size = 1
 
         # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
         copied_model = copy.deepcopy(model)
@@ -368,7 +368,7 @@ class TestTrainerInitOrFit:
             model=model,
             max_duration=max_duration,
             train_dataloader=train_dataloader,
-            grad_accum=grad_accum,
+            train_device_microbatch_size=train_device_microbatch_size,
             callbacks=[init_event_counter_callback],
         )
         init_trainer.fit()
@@ -381,7 +381,7 @@ class TestTrainerInitOrFit:
             train_dataloader=train_dataloader,
             callbacks=[fit_event_counter_callback],
         )
-        fit_trainer.fit(grad_accum=grad_accum)
+        fit_trainer.fit(train_device_microbatch_size=train_device_microbatch_size)
 
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)

@@ -260,12 +260,13 @@ class TestCheckpointLoading:
 
         train_dataset = RandomImageDataset()
         eval_dataset = RandomImageDataset()
+        train_batch_size = 8
 
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
                 dataset=train_dataset,
-                batch_size=8,
+                batch_size=train_batch_size,
                 sampler=dist.get_sampler(train_dataset),
             ),
             eval_dataloader=DataLoader(
@@ -273,7 +274,7 @@ class TestCheckpointLoading:
                 batch_size=16,
                 sampler=dist.get_sampler(eval_dataset),
             ),
-            grad_accum=2,
+            train_device_microbatch_size=train_batch_size // 2,
             precision='fp32',
             train_subset_num_batches=5,
             save_interval='1ep',
@@ -525,12 +526,13 @@ class TestCheckpointResumption:
 
         train_dataset = RandomImageDataset()
         eval_dataset = RandomImageDataset()
+        train_batch_size = 8
 
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
                 dataset=train_dataset,
-                batch_size=8,
+                batch_size=train_batch_size,
                 sampler=dist.get_sampler(train_dataset),
             ),
             eval_dataloader=DataLoader(
@@ -538,7 +540,7 @@ class TestCheckpointResumption:
                 batch_size=16,
                 sampler=dist.get_sampler(eval_dataset),
             ),
-            grad_accum=2,
+            train_device_microbatch_size=train_batch_size // 2,
             precision='fp32',
             train_subset_num_batches=5,
             max_duration='2ep',
