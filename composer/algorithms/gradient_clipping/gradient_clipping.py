@@ -6,20 +6,21 @@
 from __future__ import annotations
 
 import logging
-from typing import Iterable, Iterator, Optional, Union
+from typing import Iterable, Optional, Union
 
 import torch
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
+from composer.models import ComposerModel
 
 log = logging.getLogger(__name__)
 
 __all__ = ['GradientClipping', 'apply_gradient_clipping']
 
 
-def apply_gradient_clipping(parameters: Union[torch.Tensor, Iterable[torch.Tensor]], model_modules: Iterator,
-                            clipping_type: str, clipping_threshold: float, fsdp_enabled: bool):
+def apply_gradient_clipping(model: Union[ComposerModel, torch.nn.Module], clipping_type: str, clipping_threshold: float,
+                            fsdp_enabled: bool):
     """Clips all gradients in model based on specified clipping_type.
 
     Args:
@@ -39,14 +40,16 @@ def apply_gradient_clipping(parameters: Union[torch.Tensor, Iterable[torch.Tenso
     """
     if fsdp_enabled:
         from torch.distributed.fsdp import FullyShardedDataParallel
-        assert clipping_type == 'norm'
-        for module in model_modules:
+        for module in model.modules():
             if isinstance(module, FullyShardedDataParallel):
                 # We can only call grad clip on the parent instance, so we iterate through all
                 # modules and try grad clipping and FSDP will throw an exception if we
                 # clip any gradients that aren't a parent module
                 try:
-                    module.clip_grad_norm_(max_norm=clipping_threshold)
+                    if clipping_type == 'norm':
+                        module.clip_grad_norm_(max_norm=clipping_threshold)
+                    elif clipping_type == 'value':
+                        module.clip_grad_norm_(max_norm=clipping_threshold, norm_type=float('inf'))
                 except AssertionError as e:
                     # Error message from PyTorch:
                     # AssertionError: clip_grad_norm should only be called on the root (parent) instance
@@ -55,6 +58,7 @@ def apply_gradient_clipping(parameters: Union[torch.Tensor, Iterable[torch.Tenso
                     else:
                         raise
         return
+    parameters = model.parameters()
     if clipping_type == 'adaptive':
         _apply_agc(parameters, clipping_threshold=clipping_threshold)
     elif clipping_type == 'norm':
@@ -151,8 +155,7 @@ class GradientClipping(Algorithm):
                     f"Deepspeed only supports gradient clipping of type 'norm' not of type '{self.clipping_type}'")
 
         if event == Event.AFTER_TRAIN_BATCH and not state.deepspeed_enabled:
-            apply_gradient_clipping(parameters=state.model.parameters(),
-                                    model_modules=state.model.modules(),
+            apply_gradient_clipping(model=state.model,
                                     clipping_type=self.clipping_type,
                                     clipping_threshold=self.clipping_threshold,
                                     fsdp_enabled=state.fsdp_enabled)
