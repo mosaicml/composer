@@ -828,7 +828,7 @@ class Trainer:
         loggers: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
         run_name: Optional[str] = None,
         progress_bar: bool = True,
-        log_to_console: Optional[bool] = None,
+        log_to_console: bool = False,
         console_stream: Union[str, TextIO] = 'stderr',
         console_log_interval: Union[int, str, Time] = 1,
 
@@ -1007,20 +1007,21 @@ class Trainer:
 
         # Console Logging
         loggers = list(ensure_tuple(loggers))
+
+        if progress_bar and log_to_console:
+            warnings.warn('Setting both `progress_bar` and `log_to_console` both to True is not recommended and will'
+                          'lead to duplicate logs. Please set one of them to False for a better logging experience.')
+
         if any(isinstance(x, ProgressBarLogger) for x in loggers):
             warnings.warn(
                 DeprecationWarning(
                     (f'Specifying the {ProgressBarLogger.__name__} via `loggers` is deprecated. Instead, '
-                     'please specify `progress_bar`, `log_to_console`, and `stream` arguments when '
+                     'please specify `progress_bar` and `stream` arguments when '
                      'constructing the trainer. If specified, these arguments will be ignored, as the '
                      f'{ProgressBarLogger.__name__} was already created.')))
         else:
-            loggers.append(
-                ProgressBarLogger(
-                    progress_bar=progress_bar,
-                    log_to_console=log_to_console,
-                    stream=console_stream,
-                ))
+            if progress_bar:
+                loggers.append(ProgressBarLogger(stream=console_stream,))
 
         # Console Logging
         if any(isinstance(x, ConsoleLogger) for x in loggers):
@@ -1031,7 +1032,8 @@ class Trainer:
                                     f'{ConsoleLogger.__name__} was already created.')))
         else:
             if log_to_console:
-                loggers.append(ConsoleLogger(stream=console_stream, log_interval=console_log_interval, log_traces=False))
+                loggers.append(ConsoleLogger(stream=console_stream, log_interval=console_log_interval,
+                                             log_traces=False))
 
         if save_folder is not None:
             remote_ud = _maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)

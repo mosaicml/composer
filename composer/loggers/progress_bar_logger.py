@@ -138,22 +138,15 @@ class ProgressBarLogger(LoggerDestination):
 
     def __init__(
         self,
-        progress_bar: bool = True,
-        log_to_console: Optional[bool] = None,
         stream: Union[str, TextIO] = sys.stderr,
     ) -> None:
 
-        self._show_pbar = progress_bar
         # The dummy pbar is to fix issues when streaming progress bars over k8s, where the progress bar in position 0
         # doesn't update until it is finished.
         # Need to have a dummy progress bar in position 0, so the "real" progress bars in position 1 doesn't jump around
         self.dummy_pbar: Optional[_ProgressBar] = None
         self.train_pbar: Optional[_ProgressBar] = None
         self.eval_pbar: Optional[_ProgressBar] = None
-
-        self.should_log_to_console = log_to_console
-        if self.should_log_to_console is None:
-            self.should_log_to_console = not progress_bar
 
         # set the stream
         if isinstance(stream, str):
@@ -171,34 +164,24 @@ class ProgressBarLogger(LoggerDestination):
 
     @property
     def show_pbar(self) -> bool:
-        return self._show_pbar and dist.get_local_rank() == 0
-
-    def log_traces(self, traces: Dict[str, Any]):
-        if self.should_log_to_console:
-            for trace_name, trace in traces.items():
-                trace_str = format_log_data_value(trace)
-                self._log_to_console(f'[trace]: {trace_name}:' + trace_str + '\n')
+        return dist.get_local_rank() == 0
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         # Lazy logging of hyperparameters.
         self.hparams.update(hyperparameters)
 
     def _log_hparams_to_console(self):
-        if self.should_log_to_console or self._show_pbar:
-            if dist.get_local_rank() == 0:
-                self._log_to_console('*' * 30)
-                self._log_to_console('Config:')
-                self._log_to_console(yaml.dump(self.hparams))
-                self._log_to_console('*' * 30)
+        if dist.get_local_rank() == 0:
+            self._log_to_console('*' * 30)
+            self._log_to_console('Config:')
+            self._log_to_console(yaml.dump(self.hparams))
+            self._log_to_console('*' * 30)
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
         for metric_name, metric_value in metrics.items():
             # Only log metrics and losses to pbar.
             if 'metric' in metric_name or 'loss' in metric_name:
-                if self._show_pbar:
-                    self.log_to_pbar(data={metric_name: metric_value})
-                if self.should_log_to_console:
-                    self.log_to_console(data={metric_name: metric_value})
+                self.log_to_pbar(data={metric_name: metric_value})
 
     def log_to_pbar(self, data: Dict[str, Any]):
         # log to progress bar
@@ -206,30 +189,6 @@ class ProgressBarLogger(LoggerDestination):
         if current_pbar:
             # Logging outside an epoch
             current_pbar.log_data(data)
-
-    def log_to_console(self, data: Dict[str, Any]) -> None:
-        assert self.state is not None
-        # log to console
-        for data_name, data in data.items():
-            data_str = format_log_data_value(data)
-            if self.state.max_duration is None:
-                training_progress = ''
-            elif self.state.max_duration.unit == TimeUnit.EPOCH:
-                if self.state.dataloader_len is None:
-                    curr_progress = f'[batch={int(self.state.timestamp.batch_in_epoch)}]'
-                else:
-                    total = int(self.state.dataloader_len)
-                    curr_progress = f'[batch={int(self.state.timestamp.batch_in_epoch)}/{total}]'
-
-                training_progress = f'[epoch={int(self.state.timestamp.epoch)}]{curr_progress}'
-            else:
-                unit = self.state.max_duration.unit
-                curr_duration = int(self.state.timestamp.get(unit))
-                total = self.state.max_duration.value
-                training_progress = f'[{unit.name.lower()}={curr_duration}/{total}]'
-
-            log_str = f'{training_progress}: {data_name}: {data_str}'
-            self._log_to_console(log_str)
 
     def _log_to_console(self, log_str: str):
         """Logs to the console, avoiding interleaving with a progress bar."""
