@@ -180,11 +180,11 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         reduce_dtype = get_torch_dtype(mixed_precision.get('reduce_dtype', 'float32'))
         buffer_dtype = get_torch_dtype(mixed_precision.get('buffer_dtype', 'float32'))
     elif mixed_precision == 'FULL':
-        param_dtype = torch.float32
+        param_dtype = get_torch_dtype(precision)
         reduce_dtype = torch.float32
         buffer_dtype = torch.float32
     elif mixed_precision == 'DEFAULT':
-        param_dtype = torch.float32
+        param_dtype = get_torch_dtype(precision)
         reduce_dtype = get_torch_dtype(precision)
         buffer_dtype = torch.float32
     elif mixed_precision == 'PURE':
@@ -194,10 +194,13 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     else:
         raise ValueError(f'Unable to interpret mixed_precision={mixed_precision}')
 
+    print ('param types are: ', param_dtype, reduce_dtype, buffer_dtype)
+
     mixed_precision = MixedPrecision(
         param_dtype=param_dtype,
         reduce_dtype=reduce_dtype,
         buffer_dtype=buffer_dtype,
+        keep_low_precision_grads=False,
     )
 
     backward_prefetch_map = {
