@@ -61,7 +61,7 @@ trainer.fit()
 
 ### Implementation Details
 
-Gyro Dropout is implemented by performing model surgery, which looks for instances of `torch.nn.Dropout`. This should be applicable to any model that utilizes a `torch.nn.Dropout`.
+Gyro Dropout is implemented by performing model surgery, which looks for instances of `torch.nn.Dropout`. This should be applicable to any model that utilizes `torch.nn.Dropout`.
 
 ## Suggested Hyperparameters
 
