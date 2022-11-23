@@ -115,6 +115,8 @@ class HuggingFaceModel(ComposerModel):
         Returns:
             Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]: The loaded huggingface model and (if present) tokenizer
         """
+        import transformers
+
         # default local path to a tempfile if path is not provided
         if local_checkpoint_save_location is None:
             tmp_dir = tempfile.TemporaryDirectory()
@@ -151,7 +153,7 @@ class HuggingFaceModel(ComposerModel):
         else:
             # If the instantiation class is not explicitly provided, attempt to import the saved class and use it
             try:
-                saved_class = import_object(hf_model_state['config']['content'])
+                saved_class = import_object(':'.join(hf_model_state['config']['class'].rsplit('.', maxsplit=1)))
             except (ModuleNotFoundError, AttributeError):
                 raise ValueError(
                     textwrap.dedent(
