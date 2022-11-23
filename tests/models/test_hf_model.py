@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 import contextlib
 import json
+import os
 import tempfile
 from pathlib import Path
+from typing import Optional
 
 import pytest
 import torch
@@ -228,16 +230,15 @@ def test_hf_state_dict_info(tmp_path: str, pass_in_tokenizer: bool, modify_token
 # @pytest.mark.parametrize('model_class', [None, 'autoseq', 'bertseq', 'customseq', 'gpt'])
 @pytest.mark.parametrize('modify_tokenizer', [False, True])
 # @pytest.mark.parametrize('checkpoint_load_folder', ['checkpoints', 's3://checkpoints'])
-# @pytest.mark.parametrize('local_save_name', [None, 'local-checkpoint.pt'])
+@pytest.mark.parametrize('local_save_filename', [None, 'local-checkpoint.pt'])
 def test_hf_loading_from_checkpoint(
-    tmp_path: Path,
-    # num_classes: int,
-    pass_in_tokenizer: bool,
-    # model_class: Optional[str],
-    modify_tokenizer: bool,
-    # checkpoint_load_path: str,
-    # local_save_filename: Optional[str]
-):
+        tmp_path: Path,
+        # num_classes: int,
+        pass_in_tokenizer: bool,
+        # model_class: Optional[str],
+        modify_tokenizer: bool,
+        # checkpoint_load_path: str,
+        local_save_filename: Optional[str]):
     transformers = pytest.importorskip('transformers')
     # raise a warning if tokenizer not provided
 
@@ -297,8 +298,17 @@ def test_hf_loading_from_checkpoint(
 
     trainer.fit()
 
+    local_save_checkpoint_path = None
+    if local_save_filename is not None:
+        local_save_checkpoint_path = str(tmp_path / 'hf-checkpoint-local.pt')
     hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
-        str(tmp_path / 'hf-checkpoint.pt'))
+        checkpoint_path=str(tmp_path / 'hf-checkpoint.pt'), local_checkpoint_save_location=local_save_checkpoint_path)
+
+    if local_save_checkpoint_path is not None:
+        assert os.path.exists(local_save_checkpoint_path)
+
+        # the save location should be a symlink if the load path was already a local path
+        assert os.path.islink(local_save_checkpoint_path)
 
     check_hf_model_equivalence(hf_loaded_model, hf_model)
     if pass_in_tokenizer:
