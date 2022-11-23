@@ -119,7 +119,7 @@ def test_console_logger_interval_with_eval(console_logger_test_stream, console_l
         batches_per_logging_event = batches_per_epoch * eval_interval
         expected_num_eval_logging_events, remainder = divmod(max_duration, batches_per_logging_event)
 
-    # An eval logging event always happens at fit_end, so if one would would not normally fall at
+    # An eval logging event always happens at fit_end, so if one would not normally fall at
     # last batch or epoch, then add an extra event to the expected.
     if remainder:
         expected_num_eval_logging_events += 1

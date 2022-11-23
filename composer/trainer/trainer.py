@@ -784,7 +784,7 @@ class Trainer:
         progress_bar: bool = True,
         log_to_console: bool = False,
         console_stream: Union[str, TextIO] = 'stderr',
-        console_log_interval: Union[int, str, Time] = 1,
+        console_log_interval: Union[int, str, Time] = '1ep',
         log_traces: bool = False,
 
         # Load Checkpoint
@@ -973,7 +973,7 @@ class Trainer:
             warnings.warn(
                 DeprecationWarning(
                     (f'Specifying the {ProgressBarLogger.__name__} via `loggers` is deprecated. Instead, '
-                     'please specify `progress_bar` and `stream` arguments when '
+                     'please specify `progress_bar`, `console_stream` and `log_traces` arguments when '
                      'constructing the trainer. If specified, these arguments will be ignored, as the '
                      f'{ProgressBarLogger.__name__} was already created.')))
         else:
@@ -983,10 +983,11 @@ class Trainer:
         # Console Logging
         if any(isinstance(x, ConsoleLogger) for x in loggers):
             warnings.warn(
-                DeprecationWarning((f'Specifying the {ConsoleLogger.__name__} via `loggers` is deprecated. Instead, '
-                                    'please specify `log_to_console`, and `stream` arguments when '
-                                    'constructing the trainer. If specified, these arguments will be ignored, as the '
-                                    f'{ConsoleLogger.__name__} was already created.')))
+                DeprecationWarning((
+                    f'Specifying the {ConsoleLogger.__name__} via `loggers` is deprecated. Instead, '
+                    'please specify `log_to_console`, `console_stream`, `console_log_interval`, and `log_traces` arguments when '
+                    'constructing the trainer. If specified, these arguments will be ignored, as the '
+                    f'{ConsoleLogger.__name__} was already created.')))
         else:
             if log_to_console:
                 loggers.append(
