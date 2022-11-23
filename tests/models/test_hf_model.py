@@ -1,5 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
+import contextlib
 import json
 import tempfile
 from pathlib import Path
@@ -223,9 +224,9 @@ def test_hf_state_dict_info(tmp_path: str, pass_in_tokenizer: bool, modify_token
 
 
 # @pytest.mark.parametrize('num_classes', [2, 3])
-@pytest.mark.parametrize('pass_in_tokenizer', [True])
+@pytest.mark.parametrize('pass_in_tokenizer', [True, False])
 # @pytest.mark.parametrize('model_class', [None, 'autoseq', 'bertseq', 'customseq', 'gpt'])
-@pytest.mark.parametrize('modify_tokenizer', [False])
+@pytest.mark.parametrize('modify_tokenizer', [False, True])
 # @pytest.mark.parametrize('checkpoint_load_folder', ['checkpoints', 's3://checkpoints'])
 # @pytest.mark.parametrize('local_save_name', [None, 'local-checkpoint.pt'])
 def test_hf_loading_from_checkpoint(
@@ -260,10 +261,14 @@ def test_hf_loading_from_checkpoint(
         LanguageCrossEntropy(ignore_index=-100, vocab_size=hf_model.config.vocab_size),
         MaskedAccuracy(ignore_index=-100)
     ]
-    model = HuggingFaceModel(hf_model,
-                             tokenizer=tokenizer if pass_in_tokenizer else None,
-                             metrics=metrics,
-                             use_logits=True)
+
+    warning_context = contextlib.nullcontext() if pass_in_tokenizer else pytest.warns(UserWarning)
+
+    with warning_context:
+        model = HuggingFaceModel(hf_model,
+                                 tokenizer=tokenizer if pass_in_tokenizer else None,
+                                 metrics=metrics,
+                                 use_logits=True)
 
     vocab_size = 30522  # Match bert vocab size
     sequence_length = 32
@@ -296,5 +301,5 @@ def test_hf_loading_from_checkpoint(
         str(tmp_path / 'hf-checkpoint.pt'))
 
     check_hf_model_equivalence(hf_loaded_model, hf_model)
-    check_hf_tokenizer_equivalence(hf_loaded_tokenizer, tokenizer)
-    assert False
+    if pass_in_tokenizer:
+        check_hf_tokenizer_equivalence(hf_loaded_tokenizer, tokenizer)
