@@ -67,7 +67,7 @@ Gyro Dropout is implemented by performing model surgery, which looks for instanc
 
 Gyro Dropout has two hyperparameters - sigma, tau. (iters_per_epoch and max_epoch is training-dependent)
 
-We recommend (256, 16) in AlexNet, LeNet or (1024, 8) in ResNet-18, BERT as hyperparameter set for (sigma, tau).
+For the hyperparameters (sigma, tau), we recommend (256, 16) in AlexNet, LeNet or (1024, 8) in ResNet-18, BERT.
 
 But there might be better possible (sigma, tau) set that may achieve higher accuracy for other models.
 
