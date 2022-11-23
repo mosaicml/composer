@@ -68,5 +68,5 @@ __all__ = [
     'apply_squeeze_excite',
     'apply_stochastic_depth',
     'apply_weight_standardization',
-    'apply_gyro_dropout,
+    'apply_gyro_dropout',
 ]
