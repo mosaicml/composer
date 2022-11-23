@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 
 class GyroDropoutLayer(torch.nn.Module):
-    def __init__(self, iters_per_epoch: int, max_epoch: int, p:float, sigma:int, tau:int):
+    def __init__(self, iters_per_epoch: int, max_epoch: int, p: float, sigma: int, tau: int):
         super(GyroDropoutLayer, self).__init__()    
 
         self.sigma = sigma
