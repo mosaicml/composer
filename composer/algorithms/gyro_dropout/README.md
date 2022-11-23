@@ -72,7 +72,7 @@ We recommend (256, 16) in AlexNet, LeNet or (1024, 8) in ResNet-18, BERT as hype
 But there might be better possible (sigma, tau) set that may achieve higher accuracy for other models.
 
 ## Technical Details
-GyroDropout achieves improved accuracy over conventional dropout by pre-selecting a fixed number of subnetworks and training with only those subnetworks. Because the selected subnetworks are trained more robustly (compared to the conventional dropout cases), their diversity increases and thus their ensemble achieves higher accuracy.
+GyroDropout achieves improved accuracy over conventional dropout by pre-selecting a fixed number of subnetworks and training with only those subnetworks. Because the selected subnetworks are trained more robustly (compared to the conventional dropout), their diversity increases and thus their ensemble achieves higher accuracy.
 
 ## Attribution
 [*Gyro Dropout: Maximizing Ensemble Effect in Neural Network Training*](https://proceedings.mlsys.org/paper/2022/hash/be83ab3ecd0db773eb2dc1b0a17836a1-Abstract.html) by Junyeol Lee, Hyeongju Kim, Hyungjun Oh, Jaemin Kim, Hongseok Jeung, Yung-Kyun Noh, Jiwon Seo.
