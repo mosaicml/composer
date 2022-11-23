@@ -9,6 +9,7 @@ import json
 import logging
 import tempfile
 import textwrap
+import warnings
 from collections import UserDict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
@@ -69,6 +70,10 @@ class HuggingFaceModel(ComposerModel):
         self.model = model
         self.config = model.config
         self.tokenizer = tokenizer
+
+        if self.tokenizer is None:
+            warnings.warn(
+                'The tokenizer was not provided. This means the tokenizer config will not be saved in the checkpoint.')
 
         if tokenizer is not None and self.config.vocab_size != len(tokenizer):
             # set model's word embedding matrix and final lm_head to vocab size according to tokenizer
