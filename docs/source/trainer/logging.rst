@@ -4,6 +4,24 @@
 By default, the trainer enables :class:`.ProgressBarLogger`, which logs
 information to a ``tqdm`` progress bar.
 
+
+If you don't want to use a progress bar, but you still
+want metrics logged to the console, you can set the ``log_to_console``, ``console_log_interval``, and ``console_stream``
+arguments in :class:`.Trainer`, like the following code, which will log metrics to the console every 100 batches:
+
+.. testcode::
+    from composer import Trainer
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        log_to_console=True,
+        progress_bar=False,
+        console_log_interval='100ba'
+    )
+
+
 To attach other loggers, use the ``loggers`` argument. For example, the
 below logs the results to `Weights and
 Biases <https://www.wandb.com/>`__, and `CometML <https://www.comet.com/?utm_source=mosaicml&utm_medium=partner&utm_campaign=mosaicml_comet_integration>`__,
