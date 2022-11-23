@@ -69,7 +69,6 @@ Gyro Dropout has two hyperparameters - sigma, tau. (iters_per_epoch and max_epoc
 
 For the hyperparameters (sigma, tau), we recommend (256, 16) in AlexNet, LeNet or (1024, 8) in ResNet-18, BERT.
 
-But there might be better possible (sigma, tau) set that may achieve higher accuracy for other models.
 
 ## Technical Details
 GyroDropout achieves improved accuracy over conventional dropout by pre-selecting a fixed number of subnetworks and training with only those subnetworks. Because the selected subnetworks are trained more robustly (compared to the conventional dropout), their diversity increases and thus their ensemble achieves higher accuracy.
