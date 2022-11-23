@@ -117,6 +117,10 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     # the tokenizers are not usable below these pops
     tokenizer1.__dict__.pop('_tokenizer')
     tokenizer2.__dict__.pop('_tokenizer')
+
+    # extra key that is not important
+    tokenizer1.__dict__.pop('deprecation_warnings')
+    tokenizer2.__dict__.pop('deprecation_warnings')
     assert tokenizer1.__dict__ == tokenizer2.__dict__
 
 
@@ -225,7 +229,7 @@ def test_hf_state_dict_info(tmp_path: str, pass_in_tokenizer: bool, modify_token
 # @pytest.mark.parametrize('checkpoint_load_folder', ['checkpoints', 's3://checkpoints'])
 # @pytest.mark.parametrize('local_save_name', [None, 'local-checkpoint.pt'])
 def test_hf_loading_from_checkpoint(
-    tmp_path: str,
+    tmp_path: Path,
     # num_classes: int,
     pass_in_tokenizer: bool,
     # model_class: Optional[str],
@@ -287,4 +291,10 @@ def test_hf_loading_from_checkpoint(
                       progress_bar=True)
 
     trainer.fit()
+
+    hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
+        str(tmp_path / 'hf-checkpoint.pt'))
+
+    check_hf_model_equivalence(hf_loaded_model, hf_model)
+    check_hf_tokenizer_equivalence(hf_loaded_tokenizer, tokenizer)
     assert False
