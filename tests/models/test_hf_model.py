@@ -9,9 +9,10 @@ import torch
 from torch.utils.data import DataLoader
 from torchmetrics.classification import Accuracy
 
+from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.trainer import Trainer
 from composer.utils import dist
-from tests.common.datasets import RandomTextClassificationDataset
+from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
 
 
 @pytest.mark.parametrize('num_classes', [2, 3])
@@ -103,6 +104,30 @@ def test_hf_train_eval_predict(num_classes: int):
     assert predictions[0]['logits'].shape == (batch_size, num_classes)
 
 
+def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
+    # below is a best effort attempt to compare two tokenizers for equivalence
+    assert tokenizer1.vocab == tokenizer2.vocab
+    assert type(tokenizer1) == type(tokenizer2)
+
+    expected_tokenizer_output = tokenizer2('This is some text that should get tokenizer !? @ totallyarealtoken')
+    actual_tokenizer_output = tokenizer1('This is some text that should get tokenizer !? @ totallyarealtoken')
+    assert expected_tokenizer_output == actual_tokenizer_output
+
+    # we remove the actual _tokenizer object because it is an instantiated object and so does not pass equality
+    # the tokenizers are not usable below these pops
+    tokenizer1.__dict__.pop('_tokenizer')
+    tokenizer2.__dict__.pop('_tokenizer')
+    assert tokenizer1.__dict__ == tokenizer2.__dict__
+
+
+def check_hf_model_equivalence(model1, model2):
+    expected_model_config_dict = model1.config.to_dict()
+    new_model_config_dict = model2.config.to_dict()
+    assert expected_model_config_dict == new_model_config_dict
+    assert sum(p.numel() for p in model1.parameters()) == sum(p.numel() for p in model2.parameters())
+    assert all(type(module1) == type(module2) for module1, module2 in zip(model1.modules(), model2.modules()))
+
+
 @pytest.mark.parametrize('pass_in_tokenizer', [True, False])
 @pytest.mark.parametrize('modify_tokenizer', [True, False])
 @pytest.mark.parametrize('num_classes', [2, 3])
@@ -165,9 +190,7 @@ def test_hf_state_dict_info(tmp_path: str, pass_in_tokenizer: bool, modify_token
     loaded_config = transformers.AutoConfig.from_pretrained(loaded_config_dict['_name_or_path'], **loaded_config_dict)
     new_model_from_loaded_config = transformers.AutoModelForSequenceClassification.from_config(loaded_config)
 
-    expected_model_config_dict = hf_model.config.to_dict()
-    new_model_config_dict = new_model_from_loaded_config.config.to_dict()
-    assert expected_model_config_dict == new_model_config_dict
+    check_hf_model_equivalence(new_model_from_loaded_config, hf_model)
 
     if pass_in_tokenizer:
         assert tokenizer is not None  # pyright
@@ -190,18 +213,78 @@ def test_hf_state_dict_info(tmp_path: str, pass_in_tokenizer: bool, modify_token
         # for the original tokenizer
         loaded_tokenizer.init_kwargs['tokenizer_file'] = loaded_tokenizer.init_kwargs.get('tokenizer_file', None)
 
-        # below is a best effort attempt to compare two tokenizers for equivalence
-        assert loaded_tokenizer.vocab == tokenizer.vocab
-        assert type(loaded_tokenizer) == type(tokenizer)
-
-        expected_tokenizer_output = tokenizer('This is some text that should get tokenizer !? @ totallyarealtoken')
-        actual_tokenizer_output = loaded_tokenizer('This is some text that should get tokenizer !? @ totallyarealtoken')
-        assert expected_tokenizer_output == actual_tokenizer_output
-
-        # we remove the actual _tokenizer object because it is an instantiated object and so does not pass equality
-        # the tokenizers are not usable below these pops
-        loaded_tokenizer.__dict__.pop('_tokenizer')
-        tokenizer.__dict__.pop('_tokenizer')
-        assert loaded_tokenizer.__dict__ == tokenizer.__dict__
+        check_hf_tokenizer_equivalence(loaded_tokenizer, tokenizer)
     else:
         assert hf_tokenizer_state == {}
+
+
+# @pytest.mark.parametrize('num_classes', [2, 3])
+@pytest.mark.parametrize('pass_in_tokenizer', [True])
+# @pytest.mark.parametrize('model_class', [None, 'autoseq', 'bertseq', 'customseq', 'gpt'])
+@pytest.mark.parametrize('modify_tokenizer', [False])
+# @pytest.mark.parametrize('checkpoint_load_folder', ['checkpoints', 's3://checkpoints'])
+# @pytest.mark.parametrize('local_save_name', [None, 'local-checkpoint.pt'])
+def test_hf_loading_from_checkpoint(
+    tmp_path: str,
+    # num_classes: int,
+    pass_in_tokenizer: bool,
+    # model_class: Optional[str],
+    modify_tokenizer: bool,
+    # checkpoint_load_path: str,
+    # local_save_filename: Optional[str]
+):
+    transformers = pytest.importorskip('transformers')
+    # raise a warning if tokenizer not provided
+
+    from composer.models import HuggingFaceModel
+
+    if not pass_in_tokenizer and modify_tokenizer:
+        pytest.skip("Invalid parametrization. Cannot modify the tokenizer if it doesn't exist.")
+
+    config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny')
+    tokenizer = transformers.AutoTokenizer.from_pretrained('prajjwal1/bert-tiny')
+    hf_model = transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
+
+    if modify_tokenizer:
+        assert tokenizer is not None  # pyright
+        tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
+        tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
+        tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
+        hf_model.resize_token_embeddings(len(tokenizer))
+
+    metrics = [
+        LanguageCrossEntropy(ignore_index=-100, vocab_size=hf_model.config.vocab_size),
+        MaskedAccuracy(ignore_index=-100)
+    ]
+    model = HuggingFaceModel(hf_model,
+                             tokenizer=tokenizer if pass_in_tokenizer else None,
+                             metrics=metrics,
+                             use_logits=True)
+
+    vocab_size = 30522  # Match bert vocab size
+    sequence_length = 32
+    size = 16
+    batch_size = 8
+
+    train_dataset = RandomTextLMDataset(size=size,
+                                        vocab_size=vocab_size,
+                                        sequence_length=sequence_length,
+                                        use_keys=True)
+
+    collator = transformers.DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm_probability=0.15)
+
+    train_dataloader = DataLoader(train_dataset,
+                                  batch_size=batch_size,
+                                  collate_fn=collator,
+                                  sampler=dist.get_sampler(train_dataset))
+
+    trainer = Trainer(model=model,
+                      train_dataloader=train_dataloader,
+                      max_duration='1ep',
+                      save_folder=str(tmp_path),
+                      save_interval='1ep',
+                      save_filename='hf-checkpoint.pt',
+                      progress_bar=True)
+
+    trainer.fit()
+    assert False
