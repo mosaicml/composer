@@ -6,6 +6,8 @@ import os
 import tempfile
 from pathlib import Path
 from typing import Optional
+from unittest.mock import patch
+from urllib.parse import urlparse
 
 import pytest
 import torch
@@ -16,6 +18,7 @@ from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.trainer import Trainer
 from composer.utils import dist
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
+from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 
 
 @pytest.mark.parametrize('num_classes', [2, 3])
@@ -225,27 +228,130 @@ def test_hf_state_dict_info(tmp_path: str, pass_in_tokenizer: bool, modify_token
         assert hf_tokenizer_state == {}
 
 
-# @pytest.mark.parametrize('num_classes', [2, 3])
-@pytest.mark.parametrize('pass_in_tokenizer', [True, False])
-# @pytest.mark.parametrize('model_class', [None, 'autoseq', 'bertseq', 'customseq', 'gpt'])
-@pytest.mark.parametrize('modify_tokenizer', [False, True])
-# @pytest.mark.parametrize('checkpoint_load_folder', ['checkpoints', 's3://checkpoints'])
-@pytest.mark.parametrize('local_save_filename', [None, 'local-checkpoint.pt'])
-def test_hf_loading_from_checkpoint(
-        tmp_path: Path,
-        # num_classes: int,
-        pass_in_tokenizer: bool,
-        # model_class: Optional[str],
-        modify_tokenizer: bool,
-        # checkpoint_load_path: str,
-        local_save_filename: Optional[str]):
+@pytest.fixture()
+def tiny_bert_model():
     transformers = pytest.importorskip('transformers')
-    # raise a warning if tokenizer not provided
+
+    config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny')
+    hf_model = transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
+    return hf_model
+
+
+@pytest.fixture()
+def tiny_bert_tokenizer():
+    transformers = pytest.importorskip('transformers')
+
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('prajjwal1/bert-tiny')
+    return hf_tokenizer
+
+
+def get_lm_trainer(hf_model, hf_tokenizer, save_folder):
+    transformers = pytest.importorskip('transformers')
+    from composer.models import HuggingFaceModel
+
+    metrics = [
+        LanguageCrossEntropy(ignore_index=-100, vocab_size=hf_model.config.vocab_size),
+        MaskedAccuracy(ignore_index=-100)
+    ]
+
+    model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, metrics=metrics, use_logits=True)
+
+    vocab_size = 30522  # Match bert vocab size
+    sequence_length = 32
+    size = 16
+    batch_size = 8
+
+    train_dataset = RandomTextLMDataset(size=size,
+                                        vocab_size=vocab_size,
+                                        sequence_length=sequence_length,
+                                        use_keys=True)
+
+    collator = transformers.DataCollatorForLanguageModeling(tokenizer=hf_tokenizer, mlm_probability=0.15)
+
+    train_dataloader = DataLoader(train_dataset,
+                                  batch_size=batch_size,
+                                  collate_fn=collator,
+                                  sampler=dist.get_sampler(train_dataset))
+
+    trainer = Trainer(model=model,
+                      train_dataloader=train_dataloader,
+                      max_duration='1ep',
+                      save_folder=save_folder,
+                      save_interval='1ep',
+                      save_filename='hf-checkpoint.pt',
+                      progress_bar=True)
+    return trainer
+
+
+@pytest.mark.parametrize('checkpoint_upload_path', [None, 's3://checkpoints-bucket/remote-checkpoint.pt'])
+@pytest.mark.parametrize('local_save_filename', [None, 'local-checkpoint.pt'])
+def test_hf_loading_load_save_paths(checkpoint_upload_path: Optional[str], local_save_filename: str, tmp_path: Path,
+                                    tiny_bert_model, tiny_bert_tokenizer):
+    pytest.importorskip('transformers')
+    from composer.models import HuggingFaceModel
+
+    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
+    trainer.fit()
+
+    # Just upload the checkpoint to a dummy object store outside of composer to make mocking easier
+    if checkpoint_upload_path is not None:
+        parsed_uri = urlparse(checkpoint_upload_path)
+        object_store = DummyObjectStore(Path(parsed_uri.netloc))
+        object_store.upload_object(parsed_uri.path, str(tmp_path / 'hf-checkpoint.pt'))
+
+    checkpoint_load_path = str(tmp_path /
+                               'hf-checkpoint.pt') if checkpoint_upload_path is None else checkpoint_upload_path
+
+    local_save_checkpoint_path = None
+    if local_save_filename is not None:
+        local_save_checkpoint_path = str(tmp_path / 'hf-checkpoint-local.pt')
+
+    with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
+        hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
+            checkpoint_path=checkpoint_load_path, local_checkpoint_save_location=local_save_checkpoint_path)
+
+    check_hf_model_equivalence(hf_loaded_model, tiny_bert_model)
+    check_hf_tokenizer_equivalence(hf_loaded_tokenizer, tiny_bert_tokenizer)
+
+    if local_save_checkpoint_path is not None:
+        assert os.path.exists(local_save_checkpoint_path)
+
+        if checkpoint_upload_path is None:
+            # the save location should be a symlink if the load path was already a local path
+            assert os.path.islink(local_save_checkpoint_path)
+        else:
+            # just check that we ended up with an actual file, not a symlink
+            assert os.path.getsize(local_save_checkpoint_path) > 1000
+
+
+@pytest.mark.parametrize('num_classes', [None, 2, 3])
+@pytest.mark.parametrize('pass_in_tokenizer', [True, False])
+@pytest.mark.parametrize('model_class_name', ['default', 'autoseq', 'bertseq'])
+@pytest.mark.parametrize('modify_tokenizer', [False, True])
+def test_hf_loading_from_checkpoint(tmp_path: Path, num_classes: Optional[int], pass_in_tokenizer: bool,
+                                    model_class_name: str, modify_tokenizer: bool, object_store_save_path: str,
+                                    local_save_filename: Optional[str]):
+    transformers = pytest.importorskip('transformers')
 
     from composer.models import HuggingFaceModel
 
+    if num_classes is not None and model_class not in {'autoseq', 'bertseq', 'customseq'}:
+        pytest.skip('Invalid parametrization. num_classes is only for loading sequence classification models')
+
     if not pass_in_tokenizer and modify_tokenizer:
         pytest.skip("Invalid parametrization. Cannot modify the tokenizer if it doesn't exist.")
+
+    model_class_name_to_class = {
+        'autoseq': transformers.AutoModelForSequenceClassification,
+        'bertseq': transformers.BertForSequenceClassification,
+        'default': None
+        # 'customseq':
+        # 'gpt': transformers.GPTModel
+    }
+    model_class = model_class_name_to_class[model_class_name]
+    extra_model_args = {}
+    if num_classes is not None:
+        extra_model_args['num_labels'] = num_classes
 
     config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny')
     tokenizer = transformers.AutoTokenizer.from_pretrained('prajjwal1/bert-tiny')
@@ -298,17 +404,32 @@ def test_hf_loading_from_checkpoint(
 
     trainer.fit()
 
+    # Just upload the checkpoint to a dummy object store outside of composer to make mocking easier
+    if object_store_save_path is not None:
+        parsed_uri = urlparse(object_store_save_path)
+        object_store = DummyObjectStore(Path(parsed_uri.netloc))
+        object_store.upload_object(parsed_uri.path, str(tmp_path / 'hf-checkpoint.pt'))
+
     local_save_checkpoint_path = None
     if local_save_filename is not None:
         local_save_checkpoint_path = str(tmp_path / 'hf-checkpoint-local.pt')
-    hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
-        checkpoint_path=str(tmp_path / 'hf-checkpoint.pt'), local_checkpoint_save_location=local_save_checkpoint_path)
+
+    checkpoint_load_path = str(tmp_path /
+                               'hf-checkpoint.pt') if object_store_save_path is None else object_store_save_path
+
+    with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
+        hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
+            checkpoint_path=checkpoint_load_path, local_checkpoint_save_location=local_save_checkpoint_path)
 
     if local_save_checkpoint_path is not None:
         assert os.path.exists(local_save_checkpoint_path)
 
-        # the save location should be a symlink if the load path was already a local path
-        assert os.path.islink(local_save_checkpoint_path)
+        if object_store_save_path is None:
+            # the save location should be a symlink if the load path was already a local path
+            assert os.path.islink(local_save_checkpoint_path)
+        else:
+            # just check that we ended up with an actual file, not a symlink
+            assert os.path.getsize(local_save_checkpoint_path) > 1000
 
     check_hf_model_equivalence(hf_loaded_model, hf_model)
     if pass_in_tokenizer:
