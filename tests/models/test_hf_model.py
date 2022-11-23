@@ -246,7 +246,7 @@ def tiny_bert_tokenizer():
     return hf_tokenizer
 
 
-def get_lm_trainer(hf_model, hf_tokenizer, save_folder):
+def get_lm_trainer(hf_model, hf_tokenizer, save_folder, load_path: Optional[str] = None):
     transformers = pytest.importorskip('transformers')
     from composer.models import HuggingFaceModel
 
@@ -280,7 +280,8 @@ def get_lm_trainer(hf_model, hf_tokenizer, save_folder):
                       save_folder=save_folder,
                       save_interval='1ep',
                       save_filename='hf-checkpoint.pt',
-                      progress_bar=True)
+                      progress_bar=True,
+                      load_path=load_path)
     return trainer
 
 
@@ -421,3 +422,23 @@ def test_hf_loading_model_classes(model_class_name: str, num_classes: Optional[i
 
         check_hf_model_equivalence(hf_loaded_model, expected_model)
         check_hf_tokenizer_equivalence(hf_loaded_tokenizer, tiny_bert_tokenizer)
+
+
+def test_hf_loading_full_model_equivalence(tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
+    pytest.importorskip('transformers')
+    from composer.models import HuggingFaceModel
+
+    trainer1 = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
+    trainer1.fit()
+
+    hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
+        checkpoint_path=str(tmp_path / 'hf-checkpoint.pt'))
+
+    trainer2 = get_lm_trainer(hf_loaded_model,
+                              hf_loaded_tokenizer,
+                              str(tmp_path),
+                              load_path=str(tmp_path / 'hf-checkpoint.pt'))
+
+    # loading from the last checkpoint gets you the same model
+    for p1, p2 in zip(trainer1.state.model.parameters(), trainer2.state.model.parameters()):
+        torch.testing.assert_close(p1, p2)
