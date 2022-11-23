@@ -9,7 +9,7 @@ Gyro Dropout replaces implementations of `torch.nn.Dropout`. The Gyro Dropout pr
 
 Gyro dropout is a variant of dropout that improves the efficiency of training neural networks
 Instead of randomly dropping out neurons in every training iteration, gyro dropout pre-selects and trains a fixed
-number of subnetwork. 'Sigma' is the number of total pre-selected subnetworks and 'Tau' is the number of concurrently scheduled subnetworks in an iteration
+number of subnetworks. 'Sigma' is the number of total pre-selected subnetworks and 'Tau' is the number of concurrently scheduled subnetworks in an iteration.
 
 ## How to Use
 
