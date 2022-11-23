@@ -35,7 +35,8 @@ from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException,
                            Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
                            ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context)
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
-from composer.loggers import Logger, LoggerDestination, ProgressBarLogger, RemoteUploaderDownloader, WandBLogger
+from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, ProgressBarLogger, RemoteUploaderDownloader,
+                              WandBLogger)
 from composer.models import ComposerModel
 from composer.optim import ComposerScheduler, DecoupledSGDW, compile_composer_scheduler
 from composer.profiler import Profiler
@@ -483,6 +484,17 @@ class Trainer:
 
         console_stream (TextIO | str, optional): The stream to write to. If a string, it can either be
             ``'stdout'`` or ``'stderr'``. (default: :attr:`sys.stderr`)
+        console_log_interval (int | str | Time, optional): Specifies how frequently to log metrics to console.
+            An integer, which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time`
+            object, or a callable. (default: ``1``)
+            Defaults to ``1`` (log metrics every epoch).
+
+            If an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the metrics will be logged
+            with this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of
+            :attr:`.TimeUnit.BATCH` or :attr:`.TimeUnit.EPOCH`.
+
+            Set to ``0`` to disable metrics logging to console.
+        log_traces (bool): Whether to log traces or not. (default: ``False``)
         load_path (str, optional):  The path format string to an existing checkpoint file.
 
             It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
@@ -770,8 +782,10 @@ class Trainer:
         loggers: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
         run_name: Optional[str] = None,
         progress_bar: bool = True,
-        log_to_console: Optional[bool] = None,
+        log_to_console: bool = False,
         console_stream: Union[str, TextIO] = 'stderr',
+        console_log_interval: Union[int, str, Time] = '1ep',
+        log_traces: bool = False,
 
         # Load Checkpoint
         load_path: Optional[str] = None,
@@ -948,20 +962,36 @@ class Trainer:
 
         # Console Logging
         loggers = list(ensure_tuple(loggers))
+
+        if progress_bar and log_to_console:
+            warnings.warn(
+                'Setting both `progress_bar` and `log_to_console` both to True is not recommended and will'
+                'lead to duplicate logs and weird formatting issues. Please set one of them to False for a better logging experience.'
+            )
+
         if any(isinstance(x, ProgressBarLogger) for x in loggers):
             warnings.warn(
                 DeprecationWarning(
                     (f'Specifying the {ProgressBarLogger.__name__} via `loggers` is deprecated. Instead, '
-                     'please specify `progress_bar`, `log_to_console`, and `stream` arguments when '
+                     'please specify `progress_bar`, `console_stream` and `log_traces` arguments when '
                      'constructing the trainer. If specified, these arguments will be ignored, as the '
                      f'{ProgressBarLogger.__name__} was already created.')))
         else:
-            loggers.append(
-                ProgressBarLogger(
-                    progress_bar=progress_bar,
-                    log_to_console=log_to_console,
-                    stream=console_stream,
-                ))
+            if progress_bar:
+                loggers.append(ProgressBarLogger(stream=console_stream, log_traces=log_traces))
+
+        # Console Logging
+        if any(isinstance(x, ConsoleLogger) for x in loggers):
+            warnings.warn(
+                DeprecationWarning((
+                    f'Specifying the {ConsoleLogger.__name__} via `loggers` is deprecated. Instead, '
+                    'please specify `log_to_console`, `console_stream`, `console_log_interval`, and `log_traces` arguments when '
+                    'constructing the trainer. If specified, these arguments will be ignored, as the '
+                    f'{ConsoleLogger.__name__} was already created.')))
+        else:
+            if log_to_console:
+                loggers.append(
+                    ConsoleLogger(stream=console_stream, log_interval=console_log_interval, log_traces=log_traces))
 
         if save_folder is not None:
             remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
@@ -1645,10 +1675,12 @@ class Trainer:
             assert isinstance(metric, Metric)
             if dataloader_label == 'train':
                 self.state.train_metrics[metric_name] = metric
+                self.state.train_metric_values[metric_name] = computed_metrics[metric_name]
             else:
                 if dataloader_label not in self.state.eval_metrics:
                     self.state.eval_metrics[dataloader_label] = {}
                 self.state.eval_metrics[dataloader_label][metric_name] = metric
+                self.state.eval_metric_values[metric_name] = computed_metrics[metric_name]
 
     def _spin_dataloaders(self):
         """Spin the dataloaders to restore sampler state.
@@ -1768,6 +1800,7 @@ class Trainer:
                         total_loss_dict = {
                             k: loss.cpu().item() / dist.get_world_size() for k, loss in total_loss_dict.items()
                         }
+                        self.state.total_loss_dict = total_loss_dict
                         self.logger.log_metrics(total_loss_dict)
 
                     # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
