@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 import contextlib
+import copy
 import json
 import os
 import tempfile
@@ -283,6 +284,20 @@ def get_lm_trainer(hf_model, hf_tokenizer, save_folder):
     return trainer
 
 
+@pytest.mark.parametrize('pass_in_tokenizer', [True, False])
+def test_hf_no_tokenizer_warning(pass_in_tokenizer: bool, tiny_bert_model, tiny_bert_tokenizer):
+    pytest.importorskip('transformers')
+    from composer.models import HuggingFaceModel
+
+    warning_context = contextlib.nullcontext() if pass_in_tokenizer else pytest.warns(UserWarning)
+
+    with warning_context:
+        _ = HuggingFaceModel(tiny_bert_model,
+                             tokenizer=tiny_bert_tokenizer if pass_in_tokenizer else None,
+                             metrics=[],
+                             use_logits=True)
+
+
 @pytest.mark.parametrize('checkpoint_upload_path', [None, 's3://checkpoints-bucket/remote-checkpoint.pt'])
 @pytest.mark.parametrize('local_save_filename', [None, 'local-checkpoint.pt'])
 def test_hf_loading_load_save_paths(checkpoint_upload_path: Optional[str], local_save_filename: str, tmp_path: Path,
@@ -324,113 +339,85 @@ def test_hf_loading_load_save_paths(checkpoint_upload_path: Optional[str], local
             assert os.path.getsize(local_save_checkpoint_path) > 1000
 
 
-@pytest.mark.parametrize('num_classes', [None, 2, 3])
-@pytest.mark.parametrize('pass_in_tokenizer', [True, False])
-@pytest.mark.parametrize('model_class_name', ['default', 'autoseq', 'bertseq'])
 @pytest.mark.parametrize('modify_tokenizer', [False, True])
-def test_hf_loading_from_checkpoint(tmp_path: Path, num_classes: Optional[int], pass_in_tokenizer: bool,
-                                    model_class_name: str, modify_tokenizer: bool, object_store_save_path: str,
-                                    local_save_filename: Optional[str]):
+def test_hf_loading_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
+    pytest.importorskip('transformers')
+    from composer.models import HuggingFaceModel
+
+    if modify_tokenizer:
+        assert tiny_bert_tokenizer is not None  # pyright
+        tiny_bert_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
+        tiny_bert_tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
+        tiny_bert_tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
+        tiny_bert_model.resize_token_embeddings(len(tiny_bert_tokenizer))
+
+    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
+    trainer.fit()
+
+    hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
+        checkpoint_path=str(tmp_path / 'hf-checkpoint.pt'))
+
+    check_hf_model_equivalence(hf_loaded_model, tiny_bert_model)
+    check_hf_tokenizer_equivalence(hf_loaded_tokenizer, tiny_bert_tokenizer)
+
+
+@pytest.mark.parametrize('num_classes', [None, 2, 3])
+@pytest.mark.parametrize('model_class_name', ['default', 'autoseq', 'bertseq', 'customseq', 'gpt'])
+def test_hf_loading_model_classes(model_class_name: str, num_classes: Optional[int], tmp_path: Path, tiny_bert_model,
+                                  tiny_bert_tokenizer):
     transformers = pytest.importorskip('transformers')
 
     from composer.models import HuggingFaceModel
 
-    if num_classes is not None and model_class not in {'autoseq', 'bertseq', 'customseq'}:
-        pytest.skip('Invalid parametrization. num_classes is only for loading sequence classification models')
+    if num_classes is not None and model_class_name not in {'autoseq', 'bertseq', 'customseq'}:
+        pytest.skip('Invalid parametrization. num_classes is only for loading sequence classification models.')
 
-    if not pass_in_tokenizer and modify_tokenizer:
-        pytest.skip("Invalid parametrization. Cannot modify the tokenizer if it doesn't exist.")
+    if num_classes is None and model_class_name in {'autoseq', 'bertseq', 'customseq'}:
+        pytest.skip('Invalid parametrization. num_classes cannot be None for loading sequence classification models.')
+
+    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
+    trainer.fit()
+
+    class CustomSequenceClassification(transformers.BertForSequenceClassification):
+
+        def __init__(self, config):
+            super().__init__(config)
+            self.custom_attribute = 'mosaicml'
 
     model_class_name_to_class = {
         'autoseq': transformers.AutoModelForSequenceClassification,
         'bertseq': transformers.BertForSequenceClassification,
-        'default': None
-        # 'customseq':
-        # 'gpt': transformers.GPTModel
+        'default': None,
+        'customseq': CustomSequenceClassification,
+        'gpt': transformers.GPT2Model
     }
+
     model_class = model_class_name_to_class[model_class_name]
     extra_model_args = {}
     if num_classes is not None:
         extra_model_args['num_labels'] = num_classes
 
-    config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny')
-    tokenizer = transformers.AutoTokenizer.from_pretrained('prajjwal1/bert-tiny')
-    hf_model = transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
-
-    if modify_tokenizer:
-        assert tokenizer is not None  # pyright
-        tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
-        tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
-        tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
-        hf_model.resize_token_embeddings(len(tokenizer))
-
-    metrics = [
-        LanguageCrossEntropy(ignore_index=-100, vocab_size=hf_model.config.vocab_size),
-        MaskedAccuracy(ignore_index=-100)
-    ]
-
-    warning_context = contextlib.nullcontext() if pass_in_tokenizer else pytest.warns(UserWarning)
-
-    with warning_context:
-        model = HuggingFaceModel(hf_model,
-                                 tokenizer=tokenizer if pass_in_tokenizer else None,
-                                 metrics=metrics,
-                                 use_logits=True)
-
-    vocab_size = 30522  # Match bert vocab size
-    sequence_length = 32
-    size = 16
-    batch_size = 8
-
-    train_dataset = RandomTextLMDataset(size=size,
-                                        vocab_size=vocab_size,
-                                        sequence_length=sequence_length,
-                                        use_keys=True)
-
-    collator = transformers.DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm_probability=0.15)
-
-    train_dataloader = DataLoader(train_dataset,
-                                  batch_size=batch_size,
-                                  collate_fn=collator,
-                                  sampler=dist.get_sampler(train_dataset))
-
-    trainer = Trainer(model=model,
-                      train_dataloader=train_dataloader,
-                      max_duration='1ep',
-                      save_folder=str(tmp_path),
-                      save_interval='1ep',
-                      save_filename='hf-checkpoint.pt',
-                      progress_bar=True)
-
-    trainer.fit()
-
-    # Just upload the checkpoint to a dummy object store outside of composer to make mocking easier
-    if object_store_save_path is not None:
-        parsed_uri = urlparse(object_store_save_path)
-        object_store = DummyObjectStore(Path(parsed_uri.netloc))
-        object_store.upload_object(parsed_uri.path, str(tmp_path / 'hf-checkpoint.pt'))
-
-    local_save_checkpoint_path = None
-    if local_save_filename is not None:
-        local_save_checkpoint_path = str(tmp_path / 'hf-checkpoint-local.pt')
-
-    checkpoint_load_path = str(tmp_path /
-                               'hf-checkpoint.pt') if object_store_save_path is None else object_store_save_path
-
-    with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
+    # The compatibility of the model chosen and the model saved are up to huggingface code, but we test
+    # here that at least one incompatible combination of BertConfig and GPT2Model errors out
+    error_context = contextlib.nullcontext() if model_class_name != 'gpt' else pytest.raises(AttributeError)
+    with error_context:
         hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
-            checkpoint_path=checkpoint_load_path, local_checkpoint_save_location=local_save_checkpoint_path)
+            checkpoint_path=str(tmp_path / 'hf-checkpoint.pt'),
+            model_instantiation_class=model_class,
+            model_init_kwargs=extra_model_args)
 
-    if local_save_checkpoint_path is not None:
-        assert os.path.exists(local_save_checkpoint_path)
+        expected_model = tiny_bert_model
+        if model_class_name == 'autoseq':
+            config = copy.deepcopy(tiny_bert_model.config)
+            config.update(extra_model_args)
+            expected_model = model_class.from_config(config)
+        elif model_class_name in {'bertseq', 'customseq'}:
+            config = copy.deepcopy(tiny_bert_model.config)
+            config.update(extra_model_args)
+            expected_model = model_class(config)
 
-        if object_store_save_path is None:
-            # the save location should be a symlink if the load path was already a local path
-            assert os.path.islink(local_save_checkpoint_path)
-        else:
-            # just check that we ended up with an actual file, not a symlink
-            assert os.path.getsize(local_save_checkpoint_path) > 1000
+        if model_class_name == 'customseq':
+            assert hf_loaded_model.custom_attribute == expected_model.custom_attribute
 
-    check_hf_model_equivalence(hf_loaded_model, hf_model)
-    if pass_in_tokenizer:
-        check_hf_tokenizer_equivalence(hf_loaded_tokenizer, tokenizer)
+        check_hf_model_equivalence(hf_loaded_model, expected_model)
+        check_hf_tokenizer_equivalence(hf_loaded_tokenizer, tiny_bert_tokenizer)
