@@ -37,6 +37,8 @@ class HuggingFaceModel(ComposerModel):
     Args:
         model (transformers.PreTrainedModel): A 🤗 Transformers model.
         tokenizer (transformers.PreTrainedTokenizer, optional): The tokenizer used to prepare the dataset. Default ``None``.
+                                                                Note: If the tokenizer is provided, its config will be saved in the composer checkpoint, and it can be reloaded
+                                                                using ``HuggingFaceModel.hf_from_composer_checkpoint``. If the tokenizer is not provided here, it will not be saved in the composer checkpoint.
         use_logits (bool, optional): If True, the model's output logits will be used to calculate validation metrics. Else, metrics will be inferred from the HuggingFaceModel directly. Default: ``False``
         metrics (list[Metric], optional): list of torchmetrics to apply to the output of `validate`. Default: ``None``.
     .. warning:: This wrapper is designed to work with 🤗 datasets that define a `labels` column.
@@ -49,7 +51,8 @@ class HuggingFaceModel(ComposerModel):
         from composer.models import HuggingFaceModel
 
         hf_model = transformers.AutoModelForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=2)
-        model = HuggingFaceModel(hf_model)
+        hf_tokenizer = transformers.AutoTokenizer.from_pretrained('bert-base-uncased')
+        model = HuggingFaceModel(hf_model, hf_tokenizer)
     """
 
     def __init__(self,
@@ -100,8 +103,48 @@ class HuggingFaceModel(ComposerModel):
         model_init_kwargs: Optional[dict] = None,
         local_checkpoint_save_location: Optional[Union[Path, str]] = None
     ) -> Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]:
-        """Loads a HuggingFace model (and tokenizer if present) from a composer checkpoint. Currently is only supported
-           if the model class to load is from the transformers module.
+        """Loads a HuggingFace model (and tokenizer if present) from a composer checkpoint.
+
+        .. testsetup:: composer.models.huggingface.HuggingFaceModel.hf_from_composer_checkpoint
+
+            import transformers
+            from composer.models import HuggingFaceModel
+            from composer.trainer import Trainer
+            from tests.common.datasets import RandomTextClassificationDataset
+
+            hf_model = transformers.AutoModelForSequenceClassification.from_pretrained('prajjwal1/bert-tiny', num_labels=2)
+            hf_tokenizer = transformers.AutoTokenizer.from_pretrained('prajjwal1/bert-tiny')
+            model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, metrics=[], use_logits=True)
+
+            vocab_size = 30522  # Match bert vocab size
+            sequence_length = 32
+            size = 16
+            batch_size = 8
+
+            train_dataset = RandomTextClassificationDataset(size=size,
+                                                            vocab_size=vocab_size,
+                                                            sequence_length=sequence_length,
+                                                            num_classes=2,
+                                                            use_keys=True)
+
+            train_dataloader = DataLoader(train_dataset, batch_size=batch_size)
+
+            trainer = Trainer(model=model,
+                                train_dataloader=train_dataloader,
+                                max_duration='1ep',
+                                save_folder='./',
+                                save_interval='1ep',
+                                save_filename='hf-checkpoint.pt')
+
+            trainer.fit()
+            trainer.close()
+
+
+        .. testcode:: composer.models.huggingface.HuggingFaceModel.hf_from_composer_checkpoint
+
+            hf_model, hf_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint('hf-checkpoint.pt')
+            composer_model = HuggingFaceModel(hf_model, hf_tokenizer)
+            trainer = Trainer(..., model=composer_model)
 
         Args:
             checkpoint_path (str): Path to the composer checkpoint, can be a local path, http(s):// url, or s3:// uri
