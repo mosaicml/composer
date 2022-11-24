@@ -85,6 +85,7 @@ if sys.path[0] != _repo_root:
     sys.path.insert(0, _repo_root)
 
 from tests.common import SimpleModel
+from tests.common.datasets import RandomClassificationDataset
 
 # Disable wandb
 os.environ['WANDB_MODE'] = 'disabled'
