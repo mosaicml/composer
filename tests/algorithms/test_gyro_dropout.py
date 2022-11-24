@@ -1,61 +1,58 @@
-# Copyright 2022 MosaicML Composer authors
+# Copyright 2022  Gihyun Park, Junyeol Lee, and Jiwon Seo
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Tuple
-
 import pytest
-from torch.nn import LayerNorm
+import torch
 
-from composer.algorithms.fused_layernorm import FusedLayerNorm, apply_fused_layernorm
-from composer.core.event import Event
-from composer.loggers import Logger
-from tests.common import device
-from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker
+from composer.algorithms.gyro_dropout import GyroDropout, apply_gyro_dropout
+from composer.models import ComposerClassifier
 
 
-@pytest.fixture()
-def synthetic_bert_state():
-    synthetic_config = make_dataset_configs(model_family=['bert'])[0]
-    return synthetic_hf_state_maker(synthetic_config)
+class DropoutLayer(ComposerClassifier):
+    def __init__(self) -> None:
+        dropout = torch.nn.Dropout(0.5)
+        net = torch.nn.Sequential(dropout)
+        super().__init__(module=net)
+
+        self.dropout = dropout
 
 
-def assert_is_fln_instance(model):
-    pytest.importorskip('apex')
-    pytest.importorskip('transformers')
-    from apex.normalization.fused_layer_norm import FusedLayerNorm as APEXFusedLayerNorm
-    from transformers import BertForMaskedLM, BertForSequenceClassification
-
-    assert isinstance(model, BertForMaskedLM) or isinstance(model, BertForSequenceClassification)
-    # ensure that within the entire model, no PyTorch LayerNorm exists, and at least one APEX FLN does.
-    assert model.modules is not None, 'model has .modules method'
-    for module_class in model.modules():
-        assert not isinstance(
-            module_class, LayerNorm), 'A torch.nn.LayerNorm should not be found in the model after surgery is applied.'
-
-    assert any(isinstance(module_class, APEXFusedLayerNorm) for module_class in model.modules()
-              ), 'apex.normalization.fused_layer_norm is not found in the post-surgery model.'
+@pytest.fixture
+def gyro_dropout_layer() -> ComposerClassifier:
+    model = DropoutLayer()
+    apply_gyro_dropout(model=model, iters_per_epoch=196, max_epoch=100, p=0.5, sigma=256, tau=16)
+    return model
 
 
-@device('gpu')
-def test_fused_layernorm_functional(synthetic_bert_state: Tuple, device: str):
-    state, _, _ = synthetic_bert_state
-    apply_fused_layernorm(state.model, state.optimizers)
-    assert_is_fln_instance(state.model.model)
+def test_gyro_dropout_masking(gyro_dropout_layer: torch.nn.Module):
+    batch_size = 256
+    output_feature = 512
+    x = torch.randn(batch_size, output_feature)
+
+    model = gyro_dropout_layer
+    y = model((x, None))
+    
+    mask = model.dropout.dropout_mask
+    p = model.dropout.p
+    for i in range(batch_size):
+        for j in range(output_feature):
+            assert x[i][j]*mask[i][j]*(1/(1-p)) == y[i][j]
 
 
-@device('gpu')
-def test_fused_layernorm_algorithm(synthetic_bert_state: Tuple, empty_logger: Logger, device: str):
-    pytest.importorskip('transformers')
-    from transformers import BertForMaskedLM, BertForSequenceClassification
+def test_gyro_dropout_mask_pattern(gyro_dropout_layer: torch.nn.Module):
+    batch_size = 256
+    output_feature = 512
+    x = torch.randn(batch_size, output_feature)
 
-    state, _, _ = synthetic_bert_state
-    fused_layernorm = FusedLayerNorm()
-    if device == 'gpu':
-        state.model = state.model.cuda()  # move the model to gpu
-
-    # state.model wrapped in HuggingFaceModel wrapped
-    assert isinstance(state.model.model, BertForMaskedLM) or isinstance(state.model.model,
-                                                                        BertForSequenceClassification)
-    fused_layernorm.apply(Event.INIT, state, empty_logger)
-
-    assert_is_fln_instance(state.model.model)
+    model = gyro_dropout_layer
+    y = model((x, None))
+    
+    mask = model.dropout.dropout_mask
+    tau = model.dropout.tau
+    pivot = 0
+    for i in range(output_feature):
+        for j in range(batch_size):
+            if j % tau == 0:
+                pivot = mask[j][i]
+            else:
+                assert pivot == mask[j][i]
