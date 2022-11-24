@@ -104,9 +104,7 @@ class HuggingFaceModel(ComposerModel):
     ) -> Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]:
         """Loads a HuggingFace model (and tokenizer if present) from a composer checkpoint.
 
-        Example:
-
-        .. testsetup::hf_from_composer_checkpoint
+        .. testsetup::
 
             import torch
 
@@ -129,13 +127,15 @@ class HuggingFaceModel(ComposerModel):
             trainer.fit()
             trainer.close()
 
-        .. testcode::hf_from_composer_checkpoint
+        Example:
+
+        .. testcode::
 
             hf_model, hf_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint('hf-checkpoint.pt')
             composer_model = HuggingFaceModel(hf_model, hf_tokenizer)
             trainer = Trainer(model=composer_model,
                               train_dataloader=train_dataloader,
-                              save_filename='hf-checkpoint.pt',
+                              save_filename='hf-checkpoint-2.pt',
                               max_duration='1ep',
                               save_folder='./')
 
