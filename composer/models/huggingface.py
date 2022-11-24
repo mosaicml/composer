@@ -105,46 +105,40 @@ class HuggingFaceModel(ComposerModel):
     ) -> Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]:
         """Loads a HuggingFace model (and tokenizer if present) from a composer checkpoint.
 
-        .. testsetup:: composer.models.huggingface.HuggingFaceModel.hf_from_composer_checkpoint
+        Example:
+
+        .. testsetup::hf_from_composer_checkpoint
+
+            import torch
+
+            dataset = RandomTextClassificationDataset(size=16, use_keys=True)
+            train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=8)
+            eval_dataloader = torch.utils.data.DataLoader(dataset, batch_size=8)
 
             import transformers
             from composer.models import HuggingFaceModel
             from composer.trainer import Trainer
-            from tests.common.datasets import RandomTextClassificationDataset
 
             hf_model = transformers.AutoModelForSequenceClassification.from_pretrained('prajjwal1/bert-tiny', num_labels=2)
             hf_tokenizer = transformers.AutoTokenizer.from_pretrained('prajjwal1/bert-tiny')
-            model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, metrics=[], use_logits=True)
-
-            vocab_size = 30522  # Match bert vocab size
-            sequence_length = 32
-            size = 16
-            batch_size = 8
-
-            train_dataset = RandomTextClassificationDataset(size=size,
-                                                            vocab_size=vocab_size,
-                                                            sequence_length=sequence_length,
-                                                            num_classes=2,
-                                                            use_keys=True)
-
-            train_dataloader = DataLoader(train_dataset, batch_size=batch_size)
-
-            trainer = Trainer(model=model,
-                                train_dataloader=train_dataloader,
-                                max_duration='1ep',
-                                save_folder='./',
-                                save_interval='1ep',
-                                save_filename='hf-checkpoint.pt')
-
+            composer_model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, metrics=[], use_logits=True)
+            trainer = Trainer(model=composer_model,
+                              train_dataloader=train_dataloader,
+                              save_filename='hf-checkpoint.pt',
+                              max_duration='1ep',
+                              save_folder='./')
             trainer.fit()
             trainer.close()
 
-
-        .. testcode:: composer.models.huggingface.HuggingFaceModel.hf_from_composer_checkpoint
+        .. testcode::hf_from_composer_checkpoint
 
             hf_model, hf_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint('hf-checkpoint.pt')
             composer_model = HuggingFaceModel(hf_model, hf_tokenizer)
-            trainer = Trainer(..., model=composer_model)
+            trainer = Trainer(model=composer_model,
+                              train_dataloader=train_dataloader,
+                              save_filename='hf-checkpoint.pt',
+                              max_duration='1ep',
+                              save_folder='./')
 
         Args:
             checkpoint_path (str): Path to the composer checkpoint, can be a local path, http(s):// url, or s3:// uri
