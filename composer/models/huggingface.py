@@ -37,7 +37,7 @@ class HuggingFaceModel(ComposerModel):
         model (transformers.PreTrainedModel): A 🤗 Transformers model.
         tokenizer (transformers.PreTrainedTokenizer, optional): The tokenizer used to prepare the dataset. Default ``None``.
                                                                 Note: If the tokenizer is provided, its config will be saved in the composer checkpoint, and it can be reloaded
-                                                                using ``HuggingFaceModel.hf_from_composer_checkpoint``. If the tokenizer is not provided here, it will not be saved in the composer checkpoint.
+                                                                using :meth:`HuggingFaceModel.hf_from_composer_checkpoint`. If the tokenizer is not provided here, it will not be saved in the composer checkpoint.
         use_logits (bool, optional): If True, the model's output logits will be used to calculate validation metrics. Else, metrics will be inferred from the HuggingFaceModel directly. Default: ``False``
         metrics (list[Metric], optional): list of torchmetrics to apply to the output of `validate`. Default: ``None``.
     .. warning:: This wrapper is designed to work with 🤗 datasets that define a `labels` column.
@@ -140,21 +140,21 @@ class HuggingFaceModel(ComposerModel):
                               save_folder='./')
 
         Args:
-            checkpoint_path (str): Path to the composer checkpoint, can be a local path, http(s):// url, or s3:// uri
+            checkpoint_path (str): Path to the composer checkpoint, can be a local path, ``http(s)://`` url, or ``s3://`` uri
             model_instantiation_class (Union[Type[:class:`transformers.PreTrainedModel`], Type[:class:`transformers.AutoModel`]]), optional):
-                Class to use to create the huggingface model. Defaults to the model class used to save the config. If this argument is
-                of type :class:`transformers.AutoModel, the `from_config` method will be used, while if it is of type :class:`transformers.PreTrainedModel`,
-                the constructor will be called.
+                Class to use to create the HuggingFace model. Defaults to the model class used in the original checkpoint. If this argument is
+                a HuggingFace auto class (e.g. :class:`transformers.AutoModel` or :class:`transformers.AutoModelForSequenceClassification`), the ``from_config`` method will be used,
+                while if it is of type :class:`transformers.PreTrainedModel`, the constructor will be called.
             model_init_kwargs: Dict[str, Any]: Extra arguments to pass in for the model creation (e.g. ``num_labels`` for creating a sequence classification model)
             local_checkpoint_save_location (Optional[Union[Path, str]], optional): If specified, where to save the checkpoint file to locally.
                                                                                    If the input ``checkpoint_path`` is already a local path, this will be a symlink.
                                                                                    Defaults to None, which will use a temporary file.
 
         Raises:
-            ValueError: If the ``model_instantiation_class``, or the model class saved in the checkpoint is not from the ``transformers`` module
+            ValueError: If the ``model_instantiation_class``, or the model class saved in the checkpoint, is not from the ``transformers`` module
 
         Returns:
-            Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]: The loaded huggingface model and (if present) tokenizer
+            Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]: The loaded HuggingFace model and (if present) tokenizer
         """
         import transformers
 
