@@ -286,17 +286,23 @@ def get_lm_trainer(hf_model, hf_tokenizer, save_folder, load_path: Optional[str]
 
 
 @pytest.mark.parametrize('pass_in_tokenizer', [True, False])
-def test_hf_no_tokenizer_warning(pass_in_tokenizer: bool, tiny_bert_model, tiny_bert_tokenizer):
+def test_hf_no_tokenizer_warning(caplog, pass_in_tokenizer: bool, tiny_bert_model, tiny_bert_tokenizer):
     pytest.importorskip('transformers')
+    import logging
+
     from composer.models import HuggingFaceModel
 
-    warning_context = contextlib.nullcontext() if pass_in_tokenizer else pytest.warns(UserWarning)
-
-    with warning_context:
+    with caplog.at_level(logging.WARNING, logger='composer'):
         _ = HuggingFaceModel(tiny_bert_model,
                              tokenizer=tiny_bert_tokenizer if pass_in_tokenizer else None,
                              metrics=[],
                              use_logits=True)
+
+    if pass_in_tokenizer:
+        assert len(caplog.messages) == 0
+    else:
+        assert caplog.messages[
+            0] == 'The tokenizer was not provided. This means the tokenizer config will not be saved in the checkpoint.'
 
 
 @pytest.mark.parametrize('checkpoint_upload_path', [None, 's3://checkpoints-bucket/remote-checkpoint.pt'])
