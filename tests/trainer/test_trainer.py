@@ -922,7 +922,7 @@ class TestTrainerEquivalence():
         }
 
         config.update({
-            'train_device_microbatch_size': 2,
+            'train_device_microbatch_size': 1,
         })
 
         trainer = Trainer(**config)
