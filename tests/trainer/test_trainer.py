@@ -351,7 +351,7 @@ class TestTrainerInitOrFit:
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
-    def test_microbatch_size(
+    def test_microbatch(
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
@@ -362,7 +362,7 @@ class TestTrainerInitOrFit:
         # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
         copied_model = copy.deepcopy(model)
 
-        # Train once with the grad_accum param on Trainer.__init__()
+        # Train once with the train_device_microbatch_size param on Trainer.__init__()
         init_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
         init_trainer = Trainer(
             model=model,
@@ -373,7 +373,7 @@ class TestTrainerInitOrFit:
         )
         init_trainer.fit()
 
-        # Train again with the grad_accum param specified on Trainer.fit()
+        # Train again with the train_device_microbatch_size param specified on Trainer.fit()
         fit_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
         fit_trainer = Trainer(
             model=copied_model,
@@ -1022,14 +1022,16 @@ class AssertDataAugmented(Callback):
     The original batch is passed through the model and we assert that the outputs are not the same. This is to be used
     in conjunction with an algorithm that augments the data during AFTER_DATALOADER event.
 
-    Assumes gradient accumulation 1.
+    Assumes only one microbatch is used.
     """
 
     def __init__(self, dataset):
         self.dataset = dataset
 
     def after_forward(self, state, logger):
-        if state.grad_accum != 1:
+        if state.using_device_microbatch_size and state.train_device_microbatch_size != state.train_dataloader.batch_size:  # type: ignore
+            raise ValueError('This check assumes train_device_microbatch_size == batch_size')
+        elif not state.using_device_microbatch_size and state.grad_accum != 1:
             raise ValueError(f'This check assumes grad_accum of 1, got {state.grad_accum}')
         batch_idx = state.timestamp.batch_in_epoch.value
         batch_size = len(state.batch[0])

@@ -1720,10 +1720,10 @@ class Trainer:
 
             self.state.evaluators = evaluators
 
-        # Grad Accum
+        # Microbatching
         if grad_accum is not None and train_device_microbatch_size is not None:
             raise ValueError('Cannot specify both `grad_accum` and `train_device_microbatch_size`.')
-        if train_device_microbatch_size is not None:
+        elif train_device_microbatch_size is not None:
             self.state.auto_microbatching = _is_auto_microbatching(train_device_microbatch_size, device=self._device)
             if self.state.auto_microbatching and self.state.profiler:
                 raise ValueError("`train_device_microbatch_size='auto'` is not compatible with the profiler. It is "
@@ -1732,13 +1732,15 @@ class Trainer:
                                  'second run with profiler.')
             self.state.train_device_microbatch_size = _get_initial_train_device_microbatch_size(
                 train_device_microbatch_size, self.state.train_dataloader)
-        if grad_accum is not None:
+            self.state.using_device_microbatch_size = True
+        elif grad_accum is not None:
             self.state.auto_microbatching = _is_auto_grad_accum(grad_accum, device=self._device)
             if self.state.auto_microbatching and self.state.profiler:
                 raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
                                  "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
                                  'then manually specify that in a second run with profiler.')
             self.state.grad_accum = _get_initial_grad_accum(grad_accum)
+            self.state.using_device_microbatch_size = False
 
         # Precision
         if precision is not None and Precision(precision) != self.state.precision:
