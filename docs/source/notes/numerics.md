@@ -1,18 +1,17 @@
 # 🔢 Numerics
 
-Composer supports several single and half-precision number formats including IEEE single-precision `fp32`, IEEE half-precision
-`fp16`, Google’s truncated `bf16` format, and mixed precision training `amp`.  The following formats are supported per
-accelerator:
+Composer supports several single and half-precision number formats including IEEE single-precision `fp32`, mixed precision
+training with IEEE half-precision `amp_fp16`, and mixed precision training with Google's truncated bf16 format `amp_bf16`.
+The following formats are supported per accelerator:
 
-| Format         | CPU | GPU - A100 | GPU - V100 | GPU - T4 |
-| -------------- | --- |----------- | ---------- | -------- |
-| bf16           | ➖   | ✅         | ➖         | ➖        |
-| fp16           | ➖   | ✅         | ✅         | ✅        |
-| fp32 (default) | ✅   | ✅         | ✅         | ✅        |
-| amp            | ➖   | ✅         | ✅         | ✅        |
+| Format                 | CPU | GPU - A100 | GPU - V100 | GPU - T4 |
+| -----------------------| --- |----------- | ---------- | -------- |
+| amp_fp16 (GPU default) | ➖   | ✅         | ✅         | ✅        |
+| amp_bf16               | ➖   | ✅         | ➖         | ➖        |
+| fp32 (CPU default)     | ✅   | ✅         | ✅         | ✅        |
 
 When using the {class}`~.Trainer`, the number format can be selected by specifying the `precision` argument during
-initialization. In the example below, we are training on a `gpu` device using [Automatic Mixed Precision](amp) (`amp`):
+initialization. In the example below, we are training on a `gpu` device using [Automatic Mixed Precision](amp) (`amp_fp16`):
 
 <!--pytest.mark.gpu-->
 <!--
@@ -36,12 +35,12 @@ trainer = Trainer(
     eval_dataloader=eval_dataloader,
     max_duration='160ep',
     device='gpu',
-    precision='amp'
+    precision='amp_fp16'
 )
 ```
 
 ```{note}
-If the `precision` argument is not specified, the `Trainer` defaults to using `fp32`.
+If the `precision` argument is not specified, the `Trainer` defaults to using `amp_fp16` on GPU and `fp32` on CPU.
 ```
 
 ## Precision
@@ -68,7 +67,7 @@ The reduced representable range and increased rounding error of these formats ca
 
 The result can be reduced model accuracy or training divergence.
 
-The solution is to perform mixed precision training, where both single (`fp32`) and half-precision (`fp16`) formats are utilized strategically to avoid the issues above. Composer supports Automatic Mixed Precision (AMP) training using PyTorch’s {mod}`torch.cuda.amp` package. The Composer {class}`~.Trainer` performs all the heavy lifting and tensor conversions automatically; the user simply has to set `precision='amp'` when initializing the {class}`~.Trainer`.
+The solution is to perform mixed precision training, where both single (`fp32`) and half-precision (`fp16`) formats are utilized strategically to avoid the issues above. Composer supports Automatic Mixed Precision (AMP) training using PyTorch’s {mod}`torch.cuda.amp` package. The Composer {class}`~.Trainer` performs all the heavy lifting and tensor conversions automatically; the user simply has to set `precision='amp_fp16'` when initializing the {class}`~.Trainer`.
 
 Mixed precision training is usually performed as follows:
 
@@ -79,10 +78,6 @@ These are performed in single-precision (e.g., BatchNorm).
 4. Convert the model back to half-precision.
 
 The procedure above mitigates the issues with overflow and imprecise weight updates.
-
-```{warning}
-AMP should not be used with DeepSpeed.  Please see [Deepspeed](distributed_training) for additional details.
-```
 
 ### Gradient Scaling
 
