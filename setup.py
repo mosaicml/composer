@@ -134,6 +134,7 @@ extra_deps['dev'] = [
     'cryptography==38.0.4',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
+    "lm-eval @ git+https://github.com/bmosaicml/lm-evaluation-harness-composergpt-integration.git@master"
 ]
 
 extra_deps['deepspeed'] = [
