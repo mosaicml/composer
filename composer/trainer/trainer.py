@@ -1034,8 +1034,9 @@ class Trainer:
             using_device_microbatch_size = False
             if grad_accum != 1:
                 warnings.warn(
-                    f'grad_accum set to {grad_accum} but is deprecated. Please use train_device_microbatch_size instead.'
-                )
+                    DeprecationWarning(
+                        f'grad_accum set to {grad_accum} but is deprecated and will be removed in 0.13. Please use train_device_microbatch_size instead.'
+                    ))
             auto_microbatching = _is_auto_grad_accum(grad_accum, device=self._device)
             if auto_microbatching and profiler:
                 raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
@@ -2025,8 +2026,9 @@ class Trainer:
                 get_precision_context(self.state.precision):
             if hasattr(self._original_model, 'validate'):  # backwards compatibility check
                 warnings.warn(
-                    'Using validate() is no longer supported and will be removed in a future version. Please use eval_forward() instead.'
-                )
+                    DeprecationWarning(
+                        'Using validate() is deprecated and will be removed in a future version. Please use eval_forward() instead.'
+                    ))
                 assert isinstance(self._original_model.validate, Callable)
                 eval_outputs, target = self._original_model.validate(device_batch)
 
@@ -2662,8 +2664,9 @@ class Trainer:
                             with get_precision_context(self.state.precision):
                                 if hasattr(self._original_model, 'validate'):  # backwards compatibility check
                                     warnings.warn(
-                                        'Using validate() is no longer supported and will be removed in a future version. Please use eval_forward() instead.'
-                                    )
+                                        DeprecationWarning(
+                                            'Using validate() is deprecated and will be removed in a future version. Please use eval_forward() instead.'
+                                        ))
                                     assert isinstance(self._original_model.validate, Callable)
                                     self.state.outputs, target = self._original_model.validate(self.state.batch)
                                 else:
