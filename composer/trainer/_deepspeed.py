@@ -44,13 +44,15 @@ def _add_batch_config(config: Dict[str, Any], state: State):
             if ds_train_batch_size != train_batch_size:
                 raise ValueError(f'Provided DeepSpeed configuration specifies batch size={ds_train_batch_size}, '
                                  f'but the Mosaic trainer has been configured with batch size={train_batch_size}.')
+        else:
+            config['train_batch_size'] = train_batch_size
 
         if 'gradient_accumulation_steps' in config:
             ds_grad_accum = config['gradient_accumulation_steps']
             if ds_grad_accum != state.grad_accum:
                 raise ValueError((f'Provided DeepSpeed configuration specifies grad accum={ds_grad_accum}, '
                                   f'but the Mosaic trainer has been configured with grad accum={grad_accum}.'))
-
+        else:
             config['gradient_accumulation_steps'] = state.grad_accum
 
         if 'train_micro_batch_size_per_gpu' in config:
@@ -59,9 +61,8 @@ def _add_batch_config(config: Dict[str, Any], state: State):
                 raise ValueError('Provided DeepSpeed configuration specifies per-GPU microbatch size='
                                  f'{ds_per_gpu_microbatch_size}, but the Mosaic trainer has been '
                                  f'configured with per-GPU microbatch size={state.train_device_microbatch_size}.')
-
-            config['train_batch_size'] = train_batch_size
-        config['train_micro_batch_size_per_gpu'] = state.train_device_microbatch_size
+        else:
+            config['train_micro_batch_size_per_gpu'] = state.train_device_microbatch_size
     else:
         assert state.grad_accum is not None
         if batch_size % state.grad_accum != 0:
@@ -79,6 +80,8 @@ def _add_batch_config(config: Dict[str, Any], state: State):
             if ds_train_batch_size != train_batch_size:
                 raise ValueError(f'Provided DeepSpeed configuration specifies batch size={ds_train_batch_size}, '
                                  f'but the Mosaic trainer has been configured with batch size={train_batch_size}.')
+        else:
+            config['train_batch_size'] = train_batch_size
 
         if 'train_micro_batch_size_per_gpu' in config:
             ds_per_gpu_microbatch_size = config['train_micro_batch_size_per_gpu']
@@ -86,8 +89,7 @@ def _add_batch_config(config: Dict[str, Any], state: State):
                 raise ValueError('Provided DeepSpeed configuration specifies per-GPU microbatch size='
                                  f'{ds_per_gpu_microbatch_size}, but the Mosaic trainer has been '
                                  f'configured with per-GPU microbatch size={per_gpu_microbatch_size}.')
-
-            config['train_batch_size'] = train_batch_size
+        else:
             config['train_micro_batch_size_per_gpu'] = per_gpu_microbatch_size
 
         if 'gradient_accumulation_steps' in config:
@@ -95,8 +97,8 @@ def _add_batch_config(config: Dict[str, Any], state: State):
             if ds_grad_accum != state.grad_accum:
                 raise ValueError((f'Provided DeepSpeed configuration specifies grad accum={ds_grad_accum}, '
                                   f'but the Mosaic trainer has been configured with grad accum={state.grad_accum}.'))
-
-        config['gradient_accumulation_steps'] = state.grad_accum
+        else:
+            config['gradient_accumulation_steps'] = state.grad_accum
 
 
 def _ensure_no_optim_in_config(config: Dict[str, Any]):
