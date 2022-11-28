@@ -152,6 +152,9 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                                         ShardingStrategy)
     from torch.distributed.fsdp.flatten_params_wrapper import FlattenParamsWrapper
 
+    if precision == "fp32":
+        raise ValueError(f"FSDP in PyTorch 1.13 doesn't support 'fp32.' Please consider using 'amp' or 'bf16' for precision.")
+
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
         if len(optimizers_tuple) != 1:
