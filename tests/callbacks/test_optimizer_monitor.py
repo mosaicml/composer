@@ -6,10 +6,11 @@ from torch.utils.data import DataLoader
 
 from composer.callbacks import OptimizerMonitor
 from composer.loggers import InMemoryLogger
+from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
 from tests.common.datasets import RandomClassificationDataset
 from tests.common.models import SimpleModel
-from composer.optim import DecoupledAdamW
+
 
 @pytest.mark.parametrize('log_layers', [True, False])
 @pytest.mark.parametrize('log_optimizer_metrics', [True, False])
@@ -35,14 +36,14 @@ def test_optimizer_monitor(log_layers: bool, log_optimizer_metrics: bool):
     layer_norm_calls = [len(calls) for (k, calls) in in_memory_logger.data.items() if 'layer_grad_l2_norm' in k]
 
     if log_layers and log_optimizer_metrics:
-        assert "layer_grad_l2_norm/module.2.weight" in in_memory_logger.data.keys()
-        assert "layer_moment_l2_norm/module.2.weight" in in_memory_logger.data.keys()
-        assert "layer_moment_grad_norm_ratio/module.2.weight" in in_memory_logger.data.keys()
-        assert "layer_moment_grad_cosine/module.2.weight" in in_memory_logger.data.keys()
-        assert "layer_second_moment_l2_norm/module.2.weight" in in_memory_logger.data.keys()
-        assert "layer_step_norm/module.2.weight" in in_memory_logger.data.keys()
-        assert "layer_step_grad_cosine/module.2.weight" in in_memory_logger.data.keys()
-        assert "layer_step_param_norm_ratio/module.2.weight" in in_memory_logger.data.keys()
+        assert 'layer_grad_l2_norm/module.2.weight' in in_memory_logger.data.keys()
+        assert 'layer_moment_l2_norm/module.2.weight' in in_memory_logger.data.keys()
+        assert 'layer_moment_grad_norm_ratio/module.2.weight' in in_memory_logger.data.keys()
+        assert 'layer_moment_grad_cosine/module.2.weight' in in_memory_logger.data.keys()
+        assert 'layer_second_moment_l2_norm/module.2.weight' in in_memory_logger.data.keys()
+        assert 'layer_step_norm/module.2.weight' in in_memory_logger.data.keys()
+        assert 'layer_step_grad_cosine/module.2.weight' in in_memory_logger.data.keys()
+        assert 'layer_step_param_norm_ratio/module.2.weight' in in_memory_logger.data.keys()
 
     # expected to log gradient norm once per step (total batch)
     assert grad_norm_calls == num_train_steps

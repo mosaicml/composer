@@ -10,7 +10,7 @@ __all__ = ['OptimizerMonitor']
 
 
 class OptimizerMonitor(Callback):
-    """Computes and logs the L2 norm of gradients on the :attr:`.Event.AFTER_BATCH_END` event.
+    """Computes and logs the L2 norm of gradients as well as any optimizer-specific metrics implemented in the optimizer's `report_per_parameter_metrics` method.
 
     L2 norms are calculated after the reduction of gradients across GPUs. This function iterates over the parameters of
     the model and may cause a reduction in throughput while training large models. In order to ensure the
@@ -31,34 +31,58 @@ class OptimizerMonitor(Callback):
             ...     callbacks=[OptimizerMonitor()],
             ... )
 
-    The L2 norms are logged by the :class:`.Logger` to the following keys as described below.
+    The metrics are logged by the :class:`.Logger` to the following keys as described below. `grad_l2_norm` and `layer_grad_l2_norm` are
+    logged in addition to metrics logged by the optimizer's `report_per_parameter_metrics` method. For convenience we have listed
+    the metrics logged by DecoupledAdamW below.
 
-    +-----------------------------------+-------------------------------------------------------------+
-    | Key                               | Logged data                                                 |
-    +===================================+=============================================================+
-    |                                   | L2 norm of the gradients of all parameters in the model     |
-    | ``grad_l2_norm/step``             | on the :attr:`.Event.AFTER_TRAIN_BATCH` event.              |
-    |                                   |                                                             |
-    +-----------------------------------+-------------------------------------------------------------+
-    |                                   | Layer-wise L2 norms if ``log_layer_grad_norms``             |
-    | ``layer_grad_l2_norm/LAYER_NAME`` | is ``True``. Default: ``False``.                            |
-    |                                   |                                                             |
-    +-----------------------------------+-------------------------------------------------------------+
-    |                                          | Layer-wise L2 norms of ``log_layer_grad_norms``      |
-    | ``layer_grad_moment_l2_norm/LAYER_NAME`` | is ``True``. Default: ``False``.                     |
-    |                                          |                                                      |
-    +-----------------------------------+-------------------------------------------------------------+
-    |                                   | Layer-wise L2 norms if ``log_layer_grad_norms``             |
-    | ``layer_grad_l2_norm/LAYER_NAME`` | is ``True``. Default: ``False``.                            |
-    |                                   |                                                             |
-    +-----------------------------------+-------------------------------------------------------------+
-    |                                   | Layer-wise L2 norms if ``log_layer_grad_norms``             |
-    | ``layer_grad_l2_norm/LAYER_NAME`` | is ``True``. Default: ``False``.                            |
-    |                                   |                                                             |
-    +-----------------------------------+-------------------------------------------------------------+
+    +-----------------------------------------------+-----------------------------------------------------+
+    | Key                                           | Logged data                                         |
+    +===============================================+=====================================================+
+    |                                               | L2 norm of the gradients of all parameters in       |
+    | ``grad_l2_norm/step``                         | the model on the :attr:`.Event.AFTER_TRAIN_BATCH`   |
+    |                                               | event.                                              |
+    +-----------------------------------------------+-----------------------------------------------------+
+    |                                               | Layer-wise L2 norms of ``log_layer_grad_norms``     |
+    | ``layer_grad_l2_norm/LAYER_NAME``             | is ``True``. Default: ``False``.                    |
+    |                                               |                                                     |
+    +-----------------------------------------------+-----------------------------------------------------+
+    |                                               | Layer-wise L2 norms of Adam first moment after      |
+    | ``layer_moment_l2_norm/LAYER_NAME``           |  calling optimizer step.                            |
+    |                                               |                                                     |
+    +-----------------------------------------------+-----------------------------------------------------+
+    |                                               | Layer-wise ratio of the gradient norm to the        |
+    | ``layer_moment_grad_norm_ratio/LAYER_NAME``   | moment norm after calling optimizer step.           |
+    |                                               |                                                     |
+    +-----------------------------------------------+-----------------------------------------------------+
+    |                                               | Layer-wise cosine angle between gradient and moment |
+    | ``layer_moment_grad_cosine/LAYER_NAME``       | after calling optimizer step.                       |
+    |                                               |                                                     |
+    +-----------------------------------------------+-----------------------------------------------------+
+    |                                               | Layer-wise L2 norms of parameter weights            |
+    | ``layer_param_norm/LAYER_NAME``               |                                                     |
+    |                                               |                                                     |
+    +-----------------------------------------------+-----------------------------------------------------+
+    |                                               | Layer-wise L2 norms of Adam second moment           |
+    | ``layer_second_moment_l2_norm/LAYER_NAME``    | is ``True``. Default: ``False``.                    |
+    |                                               |                                                     |
+    +-----------------------------------------------+-----------------------------------------------------+
+    |                                               | Layer-wise L2 norms of the step                     |
+    | ``layer_step_norm/LAYER_NAME``                |                                                     |
+    |                                               |                                                     |
+    +-----------------------------------------------+-----------------------------------------------------+
+    |                                               | Layer-wise cosine between the gradient and the step |
+    | ``layer_step_grad_cosine/LAYER_NAME``         |                                                     |
+    |                                               |                                                     |
+    +-----------------------------------------------+-----------------------------------------------------+
+    |                                               | Layer-wise ratio between step size and parameter    |
+    | ``layer_step_param_norm_ratio/LAYER_NAME``    | norm                                                |
+    |                                               |                                                     |
+    +-----------------------------------------------+-----------------------------------------------------+
 
     Args:
         log_layer_grad_norms (bool, optional): Whether to log the L2 normalization of each layer.
+            Default: ``False``.
+        log_layer_grad_norms (bool, optional): Whether to log optimizer-specific metrics.
             Default: ``False``.
     """
 
@@ -79,7 +103,7 @@ class OptimizerMonitor(Callback):
 
                 param_grad_norm = param_grad_norm**2
                 norm += param_grad_norm
-                metric_reporter = getattr(state.optimizers[0], "report_per_parameter_metrics", None)
+                metric_reporter = getattr(state.optimizers[0], 'report_per_parameter_metrics', None)
                 if callable(metric_reporter) and self.log_optimizer_metrics:
                     optimizer_metrics = metric_reporter(p, name, optimizer_metrics)
 
