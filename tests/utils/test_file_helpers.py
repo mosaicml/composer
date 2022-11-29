@@ -4,6 +4,7 @@
 import datetime
 import os
 import pathlib
+from unittest.mock import patch
 
 import pytest
 import pytest_httpserver
@@ -13,9 +14,10 @@ from composer.utils.file_helpers import (ensure_folder_has_no_conflicting_files,
                                          format_name_with_dist, format_name_with_dist_and_time, get_file, is_tar)
 from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
 from tests.common.markers import world_size
+from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 
 
-@pytest.mark.xfail(reason='Occassionally hits the timeout. Should refactor to use a local webserver.')
+@pytest.mark.xfail(reason='Occasionally hits the timeout. Should refactor to use a local webserver.')
 def test_get_file_uri(tmp_path: pathlib.Path, httpserver: pytest_httpserver.HTTPServer):
     httpserver.expect_request('/hi').respond_with_data('hi')
     get_file(
@@ -27,7 +29,7 @@ def test_get_file_uri(tmp_path: pathlib.Path, httpserver: pytest_httpserver.HTTP
         assert f.readline().startswith('<!')
 
 
-@pytest.mark.xfail(reason='Occassionally hits the timeout. Should refactor to use a local webserver.')
+@pytest.mark.xfail(reason='Occasionally hits the timeout. Should refactor to use a local webserver.')
 def test_get_file_uri_not_found(tmp_path: pathlib.Path, httpserver: pytest_httpserver.HTTPServer):
     with pytest.raises(FileNotFoundError):
         get_file(
@@ -58,6 +60,20 @@ def test_get_file_object_store(tmp_path: pathlib.Path, monkeypatch: pytest.Monke
     )
     with open(str(tmp_path / 'example'), 'rb') as f:
         assert f.read() == b'checkpoint1'
+
+
+def test_get_file_auto_object_store(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
+    with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
+        object_store = DummyObjectStore(pathlib.Path('my-test-bucket'))
+        with open(str(tmp_path / 'test-file.txt'), 'w') as _txt_file:
+            _txt_file.write('testing')
+        object_store.upload_object('test-file.txt', str(tmp_path / 'test-file.txt'))
+        get_file(f's3://my-test-bucket/test-file.txt', str(tmp_path / 'loaded-test-file.txt'))
+
+    with open(str(tmp_path / 'loaded-test-file.txt')) as _txt_file:
+        loaded_content = _txt_file.read()
+
+    assert loaded_content.startswith('testing')
 
 
 def test_get_file_object_store_with_symlink(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):

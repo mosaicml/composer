@@ -13,6 +13,7 @@ define a custom logger and use it when training.
 """
 
 from composer.loggers.cometml_logger import CometMLLogger
+from composer.loggers.console_logger import ConsoleLogger
 from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger import Logger
@@ -33,4 +34,5 @@ __all__ = [
     'RemoteUploaderDownloader',
     'TensorboardLogger',
     'CometMLLogger',
+    'ConsoleLogger',
 ]
