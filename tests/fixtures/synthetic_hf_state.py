@@ -5,9 +5,10 @@ from typing import Any, Dict, Tuple
 
 import pytest
 
-from composer.core.state import State
+from composer.core import State
 from composer.datasets.lm_dataset import build_synthetic_lm_dataloader
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
+from composer.devices import DeviceCPU, DeviceGPU
 from composer.models import create_bert_mlm, create_gpt2
 from tests.datasets import test_synthetic_lm_data
 
@@ -161,14 +162,20 @@ def make_synthetic_gpt2_dataloader():
     return make_synthetic_dataloader(config)
 
 
-def synthetic_hf_state_maker(config) -> Tuple:
+def synthetic_hf_state_maker(request) -> Tuple:
     """An example state using synthetic HF transformer function which could used for testing purposes."""
-    model = make_synthetic_model(config)
-    dataloader = make_synthetic_dataloader(config)
+    model = make_synthetic_model(request.config)
+    dataloader = make_synthetic_dataloader(request.config)
+    device = None
+    for item in request.session.items:
+        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
+        break
+    assert device != None
     state = State(
         model=model,
         rank_zero_seed=0,
         run_name='run_name',
+        device=device,
         dataloader=dataloader,
         dataloader_label='train',
         max_duration='1ep',
@@ -178,7 +185,6 @@ def synthetic_hf_state_maker(config) -> Tuple:
 
 
 @pytest.fixture(params=make_dataset_configs())
-def synthetic_hf_state(request):
+def synthetic_hf_state(request: pytest.FixtureRequest):
     pytest.importorskip('transformers')
-    config = request.param
-    return synthetic_hf_state_maker(config)
+    return synthetic_hf_state_maker(request)
