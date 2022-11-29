@@ -281,13 +281,19 @@ def _get_precision_context(precision: Precision, deepspeed_enabled: bool):
 
 def _get_backwards_compatible_precision(precision: str):
     if precision == 'fp16':
-        warnings.warn(DeprecationWarning('fp16 is deprecated as the naming is unclear. Use amp_fp16 instead.'))
+        warnings.warn(
+            DeprecationWarning(
+                "'fp16' is deprecated as the naming is unclear and will be removed in 0.13. Use 'amp_fp16' instead."))
         return Precision.AMP_FP16
     if precision == 'amp':
-        warnings.warn(DeprecationWarning('amp is deprecated as the naming is unclear. Use amp_fp16 instead.'))
+        warnings.warn(
+            DeprecationWarning(
+                "'amp' is deprecated as the naming is unclear and will be removed in 0.13. Use 'amp_fp16' instead."))
         return Precision.AMP_FP16
     if precision == 'bf16':
-        warnings.warn(DeprecationWarning('bf16 is deprecated as the naming is unclear. Use amp_bf16 instead.'))
+        warnings.warn(
+            DeprecationWarning(
+                "'bf16' is deprecated as the naming is unclear and will be removed in 0.13. Use 'amp_bf16' instead."))
         return Precision.AMP_BF16
     return precision
 
