@@ -124,8 +124,10 @@ class TestEventCalls:
 
         expected_num_calls = {
             Event.INIT: 1,
+            Event.AFTER_LOAD: 1,
             Event.EPOCH_START: num_epochs,
             Event.BATCH_START: total_steps,
+            Event.BEFORE_DATALOADER: total_steps + num_epochs,  # extra call per epoch when dataloader is exhausted
             Event.AFTER_DATALOADER: total_steps,
             Event.BEFORE_FORWARD: total_microbatches,
             Event.AFTER_FORWARD: total_microbatches,

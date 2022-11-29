@@ -18,7 +18,6 @@ import warnings
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
-from urllib.parse import urlparse
 
 import coolname
 import torch
@@ -36,7 +35,8 @@ from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException,
                            Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
                            ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context)
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
-from composer.loggers import Logger, LoggerDestination, ProgressBarLogger, RemoteUploaderDownloader, WandBLogger
+from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, ProgressBarLogger, RemoteUploaderDownloader,
+                              WandBLogger)
 from composer.models import ComposerModel
 from composer.optim import ComposerScheduler, DecoupledSGDW, compile_composer_scheduler
 from composer.profiler import Profiler
@@ -44,9 +44,11 @@ from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _par
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
-from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, S3ObjectStore, Transform,
-                            checkpoint, dist, ensure_tuple, export_with_logger, format_name_with_dist, get_device,
-                            get_file, is_tpu_installed, map_collection, model_eval_mode, reproducibility)
+from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, Transform, checkpoint, dist,
+                            ensure_tuple, export_with_logger, format_name_with_dist, get_device, get_file,
+                            is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
+                            maybe_create_remote_uploader_downloader_from_uri, model_eval_mode, parse_uri,
+                            reproducibility)
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -285,53 +287,6 @@ def _generate_run_name() -> str:
     return generated_run_name
 
 
-def _maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
-    backend, bucket_name, _ = _parse_uri(uri)
-    if backend == '':
-        return None
-    if backend == 's3':
-        return S3ObjectStore(bucket=bucket_name)
-    elif backend == 'wandb':
-        raise NotImplementedError(f'There is no implementation for WandB load_object_store via URI. Please use '
-                                  'WandBLogger')
-    else:
-        raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
-                                  's3 or one of the supported object stores')
-
-
-def _maybe_create_remote_uploader_downloader_from_uri(
-        uri: str, loggers: List[LoggerDestination]) -> Optional[RemoteUploaderDownloader]:
-    existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
-    backend, bucket_name, _ = _parse_uri(uri)
-    if backend == '':
-        return None
-    for existing_remote_ud in existing_remote_uds:
-        if ((existing_remote_ud.remote_backend_name == backend) and
-            (existing_remote_ud.remote_bucket_name == bucket_name)):
-            warnings.warn(
-                f'There already exists a RemoteUploaderDownloader object to handle the uri: {uri} you specified')
-            return None
-    if backend == 's3':
-        return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}')
-
-    elif backend == 'wandb':
-        raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '
-                                  'WandBLogger with log_artifacts set to True')
-
-    else:
-        raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
-                                  's3 or one of the supported RemoteUploaderDownloader object stores')
-
-
-def _parse_uri(uri: str) -> Tuple[str, str, str]:
-    parse_result = urlparse(uri)
-    backend, bucket_name, path = parse_result.scheme, parse_result.netloc, parse_result.path
-    if backend == '' and bucket_name == '':
-        return backend, bucket_name, path
-    else:
-        return backend, bucket_name, path.lstrip('/')
-
-
 class Trainer:
     """Train models with Composer algorithms.
 
@@ -529,6 +484,17 @@ class Trainer:
 
         console_stream (TextIO | str, optional): The stream to write to. If a string, it can either be
             ``'stdout'`` or ``'stderr'``. (default: :attr:`sys.stderr`)
+        console_log_interval (int | str | Time, optional): Specifies how frequently to log metrics to console.
+            An integer, which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time`
+            object, or a callable. (default: ``1``)
+            Defaults to ``1`` (log metrics every epoch).
+
+            If an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the metrics will be logged
+            with this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of
+            :attr:`.TimeUnit.BATCH` or :attr:`.TimeUnit.EPOCH`.
+
+            Set to ``0`` to disable metrics logging to console.
+        log_traces (bool): Whether to log traces or not. (default: ``False``)
         load_path (str, optional):  The path format string to an existing checkpoint file.
 
             It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
@@ -816,8 +782,10 @@ class Trainer:
         loggers: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
         run_name: Optional[str] = None,
         progress_bar: bool = True,
-        log_to_console: Optional[bool] = None,
+        log_to_console: bool = False,
         console_stream: Union[str, TextIO] = 'stderr',
+        console_log_interval: Union[int, str, Time] = '1ep',
+        log_traces: bool = False,
 
         # Load Checkpoint
         load_path: Optional[str] = None,
@@ -994,23 +962,39 @@ class Trainer:
 
         # Console Logging
         loggers = list(ensure_tuple(loggers))
+
+        if progress_bar and log_to_console:
+            warnings.warn(
+                'Setting both `progress_bar` and `log_to_console` both to True is not recommended and will'
+                'lead to duplicate logs and weird formatting issues. Please set one of them to False for a better logging experience.'
+            )
+
         if any(isinstance(x, ProgressBarLogger) for x in loggers):
             warnings.warn(
                 DeprecationWarning(
                     (f'Specifying the {ProgressBarLogger.__name__} via `loggers` is deprecated. Instead, '
-                     'please specify `progress_bar`, `log_to_console`, and `stream` arguments when '
+                     'please specify `progress_bar`, `console_stream` and `log_traces` arguments when '
                      'constructing the trainer. If specified, these arguments will be ignored, as the '
                      f'{ProgressBarLogger.__name__} was already created.')))
         else:
-            loggers.append(
-                ProgressBarLogger(
-                    progress_bar=progress_bar,
-                    log_to_console=log_to_console,
-                    stream=console_stream,
-                ))
+            if progress_bar:
+                loggers.append(ProgressBarLogger(stream=console_stream, log_traces=log_traces))
+
+        # Console Logging
+        if any(isinstance(x, ConsoleLogger) for x in loggers):
+            warnings.warn(
+                DeprecationWarning((
+                    f'Specifying the {ConsoleLogger.__name__} via `loggers` is deprecated. Instead, '
+                    'please specify `log_to_console`, `console_stream`, `console_log_interval`, and `log_traces` arguments when '
+                    'constructing the trainer. If specified, these arguments will be ignored, as the '
+                    f'{ConsoleLogger.__name__} was already created.')))
+        else:
+            if log_to_console:
+                loggers.append(
+                    ConsoleLogger(stream=console_stream, log_interval=console_log_interval, log_traces=log_traces))
 
         if save_folder is not None:
-            remote_ud = _maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
+            remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
             if remote_ud is not None:
                 loggers.append(remote_ud)
 
@@ -1035,7 +1019,7 @@ class Trainer:
         self._checkpoint_saver = None
         latest_remote_file_name = None
         if save_folder is not None:
-            _, _, parsed_save_folder = _parse_uri(save_folder)
+            _, _, parsed_save_folder = parse_uri(save_folder)
 
             # If user passes a URI with s3:// and a bucket_name, but no other
             # path then we assume they just want their checkpoints saved directly in their
@@ -1258,12 +1242,12 @@ class Trainer:
         # Actually load the checkpoint from potentially updated arguments
         if load_path is not None:
             if load_object_store is None:
-                load_object_store = _maybe_create_object_store_from_uri(load_path)
+                load_object_store = maybe_create_object_store_from_uri(load_path)
             if isinstance(load_object_store, WandBLogger):
                 import wandb
                 if wandb.run is None:
                     load_object_store.init(self.state, self.logger)
-            _, _, parsed_load_path = _parse_uri(load_path)
+            _, _, parsed_load_path = parse_uri(load_path)
             self._rng_state = checkpoint.load_checkpoint(
                 state=self.state,
                 logger=self.logger,
@@ -1691,10 +1675,12 @@ class Trainer:
             assert isinstance(metric, Metric)
             if dataloader_label == 'train':
                 self.state.train_metrics[metric_name] = metric
+                self.state.train_metric_values[metric_name] = computed_metrics[metric_name]
             else:
                 if dataloader_label not in self.state.eval_metrics:
                     self.state.eval_metrics[dataloader_label] = {}
                 self.state.eval_metrics[dataloader_label][metric_name] = metric
+                self.state.eval_metric_values[metric_name] = computed_metrics[metric_name]
 
     def _spin_dataloaders(self):
         """Spin the dataloaders to restore sampler state.
@@ -1814,6 +1800,7 @@ class Trainer:
                         total_loss_dict = {
                             k: loss.cpu().item() / dist.get_world_size() for k, loss in total_loss_dict.items()
                         }
+                        self.state.total_loss_dict = total_loss_dict
                         self.logger.log_metrics(total_loss_dict)
 
                     # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
@@ -2522,7 +2509,7 @@ class Trainer:
                     # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
                     found_cuda_oom = 0
                     try:
-                        for eval_microbatch in data_spec.split_batch(self.state.batch, self.state.eval_batch_split):
+                        for self.state.batch in data_spec.split_batch(self.state.batch, self.state.eval_batch_split):
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
                             with get_precision_context(self.state.precision):
                                 if hasattr(self._original_model, 'validate'):  # backwards compatibility check
@@ -2530,9 +2517,9 @@ class Trainer:
                                         'Using validate() is no longer supported and will be removed in a future version. Please use eval_forward() instead.'
                                     )
                                     assert isinstance(self._original_model.validate, Callable)
-                                    self.state.outputs, target = self._original_model.validate(eval_microbatch)
+                                    self.state.outputs, target = self._original_model.validate(self.state.batch)
                                 else:
-                                    self.state.outputs = self._original_model.eval_forward(eval_microbatch)
+                                    self.state.outputs = self._original_model.eval_forward(self.state.batch)
                                     target = None
 
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)
@@ -2552,7 +2539,7 @@ class Trainer:
                                 else:
                                     for _, metric in metrics.items():
                                         self._original_model.update_metric(
-                                            eval_microbatch,
+                                            self.state.batch,
                                             outputs,
                                             metric,
                                         )
