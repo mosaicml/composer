@@ -36,6 +36,7 @@ import composer.utils
 import composer.utils.checkpoint
 import composer.utils.file_helpers
 from composer import Trainer
+from composer.devices import DeviceCPU
 from composer.core import Algorithm as Algorithm
 from composer.core import Callback as Callback
 from composer.core import DataSpec as DataSpec
@@ -147,6 +148,7 @@ state = State(
     rank_zero_seed=0,
     model=model,
     run_name='run_name',
+    device=DeviceCPU(),
     optimizers=optimizer,
     grad_accum=1,
     dataloader=train_dataloader,
