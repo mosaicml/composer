@@ -388,6 +388,7 @@ class TestTrainerInitOrFit:
 
     @pytest.mark.gpu
     @pytest.mark.parametrize('precision', list(Precision))
+    @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_deepspeed(
         self,
         model: ComposerModel,
@@ -409,9 +410,10 @@ class TestTrainerInitOrFit:
         trainer.fit()
 
     @pytest.mark.gpu
-    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.12.0'),
-                        reason='requires PyTorch 1.12 or higher')
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                        reason='requires PyTorch 1.13 or higher')
     @pytest.mark.parametrize('precision', list(Precision))
+    @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_fsdp(
         self,
         model: ComposerModel,
@@ -419,12 +421,14 @@ class TestTrainerInitOrFit:
         max_duration: Time[int],
         train_dataloader: DataLoader,
     ):
+        if precision == Precision.FP32:  # FSDP FULL_SHARD doesn't support FP32
+            return
 
         fsdp_config = {
             'sharding_strategy': 'FULL_SHARD',
             'min_params': 1e8,
             'cpu_offload': False,
-            'mixed_precision': 'DEFAULT',
+            'mixed_precision': 'PURE',
             'backward_prefetch': 'BACKWARD_PRE',
             'activation_checkpointing': False,
             'activation_cpu_offload': False,
