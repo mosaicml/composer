@@ -141,12 +141,6 @@ def _convert_fp32_tensor_to_fp16(tensor: torch.Tensor):
     return tensor
 
 
-def _convert_fp32_tensor_to_bf16(tensor: torch.Tensor):
-    if tensor.dtype == torch.float32:
-        return tensor.to(torch.bfloat16)
-    return tensor
-
-
 def _fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Batch:
     """Ensures that a batch is properly formatted for DeepSpeed precisions, if active.
 
@@ -164,6 +158,4 @@ def _fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Ba
     """
     if precision == Precision.AMP_FP16:
         return map_collection(batch, _convert_fp32_tensor_to_fp16)  # type: ignore
-    elif precision == Precision.AMP_BF16:
-        return map_collection(batch, _convert_fp32_tensor_to_bf16)  # type: ignore
     return batch

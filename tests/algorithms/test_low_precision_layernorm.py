@@ -43,7 +43,7 @@ def assert_is_lpln_instance(model):
 @device('gpu')
 def test_low_precision_layernorm_functional(synthetic_bert_state: Tuple, device: str):
     state, _, _ = synthetic_bert_state
-    state._precision = Precision('amp')
+    state._precision = Precision('amp_fp16')
     apply_low_precision_layernorm(state.model, state.optimizers, state._precision)
     assert_is_lpln_instance(state.model.model)
 
@@ -54,7 +54,7 @@ def test_low_precision_layernorm_algorithm(synthetic_bert_state: Tuple, empty_lo
     from transformers import BertForMaskedLM, BertForSequenceClassification
 
     state, _, _ = synthetic_bert_state
-    state._precision = Precision('amp')
+    state._precision = Precision('amp_fp16')
     low_precision_layernorm = LowPrecisionLayerNorm()
     if device == 'gpu':
         state.model = state.model.cuda()  # move the model to gpu
