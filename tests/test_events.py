@@ -24,7 +24,7 @@ class TestEventCalls:
     eval_subset_num_batches = 5
     train_subset_num_batches = 5
 
-    def get_trainer(self, **kwargs):
+    def get_trainer(self, precision='fp32', **kwargs):
         model = SimpleModel()
         optimizer = torch.optim.Adam(model.parameters())
 
@@ -44,7 +44,7 @@ class TestEventCalls:
                 sampler=dist.get_sampler(eval_dataset),
             ),
             grad_accum=2,
-            precision='fp32',
+            precision=precision,
             train_subset_num_batches=self.train_subset_num_batches,
             eval_subset_num_batches=self.eval_subset_num_batches,
             max_duration='2ep',
@@ -58,18 +58,20 @@ class TestEventCalls:
         pytest.param(2, marks=pytest.mark.world_size(2)),
     ])
     @pytest.mark.parametrize(
-        'device,deepspeed_zero_stage,use_fsdp',
+        'device,deepspeed_zero_stage,use_fsdp,precision',
         [
-            pytest.param('cpu', None, False, id='cpu-ddp'),
+            pytest.param('cpu', None, False, 'fp32', id='cpu-ddp'),
             # TODO: Remove filterwarnings after DeepSpeed/Pytorch remove deprecated code
             pytest.param('gpu',
                          True,
                          False,
+                         'fp32',
                          id='gpu-ddp',
                          marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore::UserWarning')]),
             pytest.param('gpu',
                          None,
                          True,
+                         'amp',
                          id='gpu-fsdp',
                          marks=[
                              pytest.mark.gpu,
@@ -79,7 +81,7 @@ class TestEventCalls:
                          ]),
         ])
     @pytest.mark.parametrize('save_interval', ['1ep', '1ba'])
-    def test_event_calls(self, world_size, device, deepspeed_zero_stage, use_fsdp, save_interval):
+    def test_event_calls(self, world_size, device, deepspeed_zero_stage, use_fsdp, precision, save_interval):
         save_interval = Time.from_timestring(save_interval)
 
         deepspeed_config = None
@@ -92,7 +94,7 @@ class TestEventCalls:
                 'sharding_strategy': 'FULL_SHARD',
                 'min_params': 1e8,
                 'cpu_offload': False,
-                'mixed_precision': 'DEFAULT',
+                'mixed_precision': 'PURE',
                 'backward_prefetch': 'BACKWARD_PRE',
                 'activation_checkpointing': False,
                 'activation_ocpu_offload': False,
@@ -100,6 +102,7 @@ class TestEventCalls:
             }
 
         trainer = self.get_trainer(
+            precision=precision,
             device=device,
             deepspeed_config=deepspeed_config,
             fsdp_config=fsdp_config,

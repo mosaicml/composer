@@ -16,7 +16,7 @@ from composer.core import Precision
 from composer.core.state import State
 from composer.utils import StringEnum, dist, ensure_tuple
 
-__all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module']
+__all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module']
 
 log = logging.getLogger(__name__)
 
@@ -141,7 +141,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     Args:
         model (torch.nn.Module): The model to wrap.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer for `model`, assumed to have a single param group := model.parameters().
-        fsdp_config (Dict[str, Any]): The FSDP config. TODO: fill in configuration documentation
+        fsdp_config (Dict[str, Any]): The FSDP config.
         precision: (Precision): The precision being used by the Trainer, used to fill in defaults for FSDP `mixed_precision` settings.
     """
     if version.parse(torch.__version__) < version.parse('1.13.0'):
@@ -173,9 +173,8 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
 
     if precision == 'fp32' and sharding_map_key != 'NO_SHARD':
         raise ValueError(
-            f'FSDP in PyTorch 1.13 does not support precision ``{precision}`` with sharding_strategy ``{sharding_map_key}.`` '
-            f'Please consider using ``amp`` or ``bf16`` for precision for with sharding strategy ``{sharding_map_key}.``'
-        )
+            f'FSDP in PyTorch 1.13 does not support precision `{precision}` with sharding_strategy `{sharding_map_key}.` '
+            f'Consider using `amp` or `bf16` for precision for with sharding strategy `{sharding_map_key}.`')
 
     cpu_offload = CPUOffload(offload_params=True) if fsdp_config.get('cpu_offload', False) else None
     if cpu_offload is not None:
@@ -205,11 +204,12 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     else:
         raise ValueError(f'Unable to interpret mixed_precision={mixed_precision}')
 
-    if precision in ['amp', 'bf16'] and sharding_map_key != 'NO_SHARD' and param_dtype == torch.float32:
+    if sharding_map_key != 'NO_SHARD' and (precision == 'amp' and param_dtype != torch.float16 or
+                                           precision == Precision.BF16 and param_dtype != torch.bfloat16):
         raise ValueError(
-            f'FSDP in PyTorch 1.13 does not support precision ``{precision}`` with sharding strategy ``{sharding_strategy}`` '
-            f'and param_dtype ``{param_dtype}.`` param_dtype needs to match the precision data type ``{precision}.`` '
-            'Please adjust the MixedPrecision parameter accordingly.')
+            f'FSDP in PyTorch 1.13 does not support precision `{precision}` with sharding strategy `{sharding_strategy}` '
+            f'and param_dtype `{param_dtype}.` param_dtype needs to match the precision data type `{precision}.` '
+            "Please adjust the MixedPrecision parameter, for example `mixed_precision='PURE'`.")
 
     mixed_precision = MixedPrecision(
         param_dtype=param_dtype,

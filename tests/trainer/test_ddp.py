@@ -183,7 +183,7 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
             'sharding_strategy': 'FULL_SHARD',
             'min_params': 1e8,
             'cpu_offload': False,
-            'mixed_precision': 'DEFAULT',
+            'mixed_precision': 'PURE',
             'backward_prefetch': 'BACKWARD_PRE',
             'activation_checkpointing': False,
             'activation_cpu_offload': False,
