@@ -279,6 +279,19 @@ def _get_precision_context(precision: Precision, deepspeed_enabled: bool):
     return get_precision_context(precision)
 
 
+def _get_backwards_compatible_precision(precision: str):
+    if precision == 'fp16':
+        warnings.warn(DeprecationWarning('fp16 is deprecated as the naming is unclear. Use amp_fp16 instead.'))
+        return Precision.AMP_FP16
+    if precision == 'amp':
+        warnings.warn(DeprecationWarning('amp is deprecated as the naming is unclear. Use amp_fp16 instead.'))
+        return Precision.AMP_FP16
+    if precision == 'bf16':
+        warnings.warn(DeprecationWarning('bf16 is deprecated as the naming is unclear. Use amp_bf16 instead.'))
+        return Precision.AMP_BF16
+    return precision
+
+
 def _generate_run_name() -> str:
     # change coolname randomness for different names with same seed
     coolname.replace_random(random.Random(os.urandom(128)))
@@ -863,6 +876,7 @@ class Trainer:
         if precision is None:
             precision = Precision.AMP_FP16 if isinstance(self._device, DeviceGPU) else Precision.FP32
         if isinstance(precision, str):
+            precision = _get_backwards_compatible_precision(precision)
             precision = Precision(precision)
         _validate_precision(precision, self._device)
 
@@ -1623,12 +1637,15 @@ class Trainer:
             self.state.grad_accum = _get_initial_grad_accum(grad_accum)
 
         # Precision
-        if precision is not None and Precision(precision) != self.state.precision:
-            if self.deepspeed_enabled:
-                raise ValueError('Changing the precision when using DeepSpeed is not supported')
-            precision = Precision(precision)
-            _validate_precision(precision, self._device)
-            self.state.precision = precision
+        if precision is not None:
+            if isinstance(precision, str):
+                precision = _get_backwards_compatible_precision(precision)
+            if Precision(precision) != self.state.precision:
+                if self.deepspeed_enabled:
+                    raise ValueError('Changing the precision when using DeepSpeed is not supported')
+                precision = Precision(precision)
+                _validate_precision(precision, self._device)
+                self.state.precision = precision
 
             # update scaler since precision was provided
             self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
