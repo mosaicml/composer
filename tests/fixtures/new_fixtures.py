@@ -11,8 +11,8 @@ import torch
 from torch.utils.data import DataLoader
 
 from composer.core import State
+from composer.devices import DeviceCPU, DeviceGPU
 from composer.loggers import Logger
-from composer.trainer.devices import DeviceCPU, DeviceGPU
 from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
 

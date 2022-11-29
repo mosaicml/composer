@@ -9,15 +9,17 @@ Useful for collecting and plotting data inside notebooks.
 from __future__ import annotations
 
 import copy
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from torch import Tensor
 
-from composer.core.state import State
-from composer.core.time import Time, Timestamp
+from composer.core.time import Time
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
+
+if TYPE_CHECKING:
+    from composer.core import State, Timestamp
 
 __all__ = ['InMemoryLogger']
 

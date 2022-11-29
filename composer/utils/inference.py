@@ -27,8 +27,8 @@ from composer.utils.object_store import ObjectStore
 from composer.utils.string_enum import StringEnum
 
 if TYPE_CHECKING:
+    from composer.devices import Device
     from composer.loggers import Logger
-    from composer.trainer.devices import Device
 
 log = logging.getLogger(__name__)
 

@@ -11,11 +11,9 @@ from typing import Any, Optional, Sequence, Union
 
 import torch.nn as nn
 
-from composer.core import State
-from composer.core.callback import Callback
+from composer.core import Callback, State
 from composer.loggers import Logger
-from composer.utils.inference import ExportFormat, Transform, export_with_logger
-from composer.utils.object_store import ObjectStore
+from composer.utils import ExportFormat, ObjectStore, Transform, export_with_logger
 
 log = logging.getLogger(__name__)
 

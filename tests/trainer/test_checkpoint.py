@@ -19,8 +19,9 @@ import torch.distributed
 from pytest import MonkeyPatch
 from torch.utils.data import DataLoader
 
-from composer.core.callback import Callback
-from composer.core.time import Time, TimeUnit
+from composer.algorithms import NoOpModel
+from composer.callbacks import CheckpointSaver
+from composer.core import Callback, Time, TimeUnit
 from composer.loggers import RemoteUploaderDownloader, remote_uploader_downloader
 from composer.optim import ExponentialScheduler
 from composer.trainer import trainer
@@ -137,6 +138,51 @@ def test_ignore_params(remove_field_paths: List[List[str]], filter_params: List[
 
     glob_filter(filter_params)(new_dict)
     assert base_dict == new_dict
+
+
+@pytest.mark.parametrize('folder,filename',
+                         [('{run_name}/my_checkpoints', 'ep{epoch}-rank{rank}.pt'),
+                          (pathlib.Path('{run_name}/my_checkpoints'), pathlib.Path('ep{epoch}-rank{rank}.pt'))])
+def test_checkpoint_saver_folder_filename_path(folder: Union[str, pathlib.Path], filename: Union[str, pathlib.Path]):
+    checkpoint_saver = CheckpointSaver(folder=folder, filename=filename)
+
+    assert checkpoint_saver.folder == str(folder)
+    assert checkpoint_saver.filename.filename == str(filename)
+
+
+@pytest.mark.parametrize(
+    'remote_file_name,latest_filename,latest_remote_file_name',
+    [('{run_name}/my_checkpoints/ep{epoch}-ba{batch}-rank{rank}.pt', 'latest-rank{rank}.pt',
+      '{run_name}/checkpoints/latest-rank{rank}.pt'),
+     (pathlib.Path('{run_name}/my_checkpoints/ep{epoch}-ba{batch}-rank{rank}.pt'), pathlib.Path('latest-rank{rank}.pt'),
+      pathlib.Path('{run_name}/checkpoints/latest-rank{rank}.pt'))])
+def test_checkpoint_filenames(remote_file_name: Optional[Union[str, pathlib.Path]],
+                              latest_filename: Optional[Union[str, pathlib.Path]],
+                              latest_remote_file_name: Optional[Union[str, pathlib.Path]]):
+    checkpoint_saver = CheckpointSaver(remote_file_name=remote_file_name,
+                                       latest_filename=latest_filename,
+                                       latest_remote_file_name=latest_remote_file_name)
+
+    assert checkpoint_saver.remote_file_name is not None
+    assert checkpoint_saver.latest_filename is not None
+    assert checkpoint_saver.latest_remote_file_name is not None
+
+    assert checkpoint_saver.remote_file_name.filename == str(remote_file_name)
+    assert checkpoint_saver.latest_filename.filename == str(latest_filename)
+    assert checkpoint_saver.latest_remote_file_name.filename == str(latest_remote_file_name)
+
+
+@pytest.mark.parametrize('remote_file_name,latest_filename,latest_remote_file_name', [(None, None, None)])
+def test_checkpoint_filenames_none(remote_file_name: Optional[Union[str, pathlib.Path]],
+                                   latest_filename: Optional[Union[str, pathlib.Path]],
+                                   latest_remote_file_name: Optional[Union[str, pathlib.Path]]):
+    checkpoint_saver = CheckpointSaver(remote_file_name=remote_file_name,
+                                       latest_filename=latest_filename,
+                                       latest_remote_file_name=latest_remote_file_name)
+
+    assert checkpoint_saver.remote_file_name == None
+    assert checkpoint_saver.latest_filename == None
+    assert checkpoint_saver.latest_remote_file_name == None
 
 
 class TestCheckpointSaving:
@@ -444,6 +490,31 @@ class TestCheckpointLoading:
             device=device,
         )
         trainer_3.fit(duration='1ba')
+
+    def test_autoload_algorithm_old_checkpoint(self):
+        trainer_1 = self.get_trainer(
+            save_folder='first',
+            algorithms=[NoOpModel()],
+        )
+        trainer_1.fit()
+        trainer_1.close()
+
+        trainer_2 = self.get_trainer(
+            load_path=os.path.join('first', 'ep1.pt'),
+            algorithms=[NoOpModel()],
+        )
+        trainer_2.fit(duration='1ba')
+
+        # Monkeypatch algorithm to have different signature
+        old_init, old_repr = NoOpModel.__init__, NoOpModel.__repr__
+        NoOpModel.__init__ = lambda self, x: None  # type: ignore
+        NoOpModel.__repr__ = lambda self: 'NoOpModel(3)'
+        with pytest.warns(UserWarning, match='required_on_load algorithm.*'), pytest.raises(
+                ValueError, match='loaded state dict contains a parameter group.*'):
+            trainer_3 = self.get_trainer(load_path=os.path.join('first', 'ep1.pt'),)
+            trainer_3.fit(duration='1ba')
+        # Restore algorithm
+        NoOpModel.__init__, NoOpModel.__repr__ = old_init, old_repr
 
 
 class TestCheckpointResumption:

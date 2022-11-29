@@ -13,26 +13,26 @@ from unittest.mock import patch
 
 import pytest
 
-from composer.core.event import Event
-from composer.core.state import State
-from composer.loggers import Logger
-from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
+from composer.core import Event, State
+from composer.loggers import Logger, RemoteUploaderDownloader
 from composer.utils.object_store.object_store import ObjectStore
 
 
 class DummyObjectStore(ObjectStore):
     """Dummy ObjectStore implementation that is backed by a local directory."""
 
-    def __init__(self, dir: pathlib.Path, always_fail: bool = False, **kwargs: Dict[str, Any]) -> None:
-        self.dir = str(dir)
+    def __init__(self, dir: Optional[pathlib.Path] = None, always_fail: bool = False, **kwargs: Dict[str, Any]) -> None:
+        self.dir = str(dir) if dir is not None else kwargs['bucket']
         self.always_fail = always_fail
+        assert isinstance(self.dir, str)
         os.makedirs(self.dir, exist_ok=True)
 
     def get_uri(self, object_name: str) -> str:
         return 'local://' + object_name
 
     def _get_abs_path(self, object_name: str):
-        return self.dir + '/' + object_name
+        assert isinstance(self.dir, str)
+        return os.path.abspath(self.dir + '/' + object_name)
 
     def upload_object(
         self,

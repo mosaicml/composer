@@ -17,14 +17,16 @@ import time
 import uuid
 import warnings
 from multiprocessing.context import SpawnProcess
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 from urllib.parse import urlparse
 
-from composer.core.state import State
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, S3ObjectStore, SFTPObjectStore,
                             dist, format_name_with_dist, get_file, retry)
+
+if TYPE_CHECKING:
+    from composer.core import State
 
 log = logging.getLogger(__name__)
 
@@ -81,6 +83,28 @@ class RemoteUploaderDownloader(LoggerDestination):
                     'secret': '*********',
                     'region': 'ap-northeast-1',
                 },
+            },
+        )
+
+        # Construct the trainer using this logger
+        trainer = Trainer(
+            ...,
+            loggers=[remote_uploader_downloader],
+        )
+
+    or
+
+    .. testcode:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__
+        from composer.loggers import RemoteUploaderDownloader
+        from composer.trainer import Trainer
+
+        remote_uploader_downloader = RemoteUploaderDownloader(
+            bucket_uri="libcloud://my-gcs-bucket",
+            backend_kwargs={
+                "provider": "google_storage",
+                "container": "my-gcs-bucket",
+                "key_environ": "MY_HMAC_ACCESS_ID", # Name of env variable for HMAC access id.
+                "secret_environ": "MY_HMAC_SECRET", # Name of env variable for HMAC secret.
             },
         )
 

@@ -3,7 +3,6 @@
 
 """Train models with flexible insertion of algorithms."""
 
-from composer.trainer import devices as devices
 from composer.trainer.trainer import Trainer
 
 __all__ = ['Trainer']

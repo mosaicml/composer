@@ -11,13 +11,10 @@ from typing import Dict, Mapping, Optional
 import torch
 import torch.utils.data
 
-from composer.core import Algorithm, Event, State
-from composer.core.precision import get_precision_context
-from composer.core.time import TimeUnit
-from composer.core.types import Batch
+from composer.core import Algorithm, Batch, Event, State, TimeUnit, get_precision_context
+from composer.devices import DeviceGPU
 from composer.loggers import Logger
 from composer.models import HuggingFaceModel
-from composer.trainer.devices import DeviceGPU
 from composer.utils import dist, ensure_tuple
 
 log = logging.getLogger(__name__)
