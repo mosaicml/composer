@@ -14,10 +14,11 @@ import torch
 from torch import Tensor
 from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import Accuracy
-from composer.utils import extract_hparams
+
 from composer.loss import soft_cross_entropy
 from composer.metrics import CrossEntropy
 from composer.models import ComposerModel
+from composer.utils import extract_hparams
 
 __all__ = ['ComposerClassifier']
 

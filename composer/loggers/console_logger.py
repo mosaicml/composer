@@ -40,7 +40,7 @@ class ConsoleLogger(LoggerDestination):
                  log_traces: bool = False) -> None:
 
         self.local_hparams = extract_hparams(locals())
-        
+
         if isinstance(log_interval, int):
             log_interval = Time(log_interval, TimeUnit.EPOCH)
         if isinstance(log_interval, str):

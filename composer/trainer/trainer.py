@@ -45,10 +45,10 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
 from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, Transform, checkpoint, dist,
-                            ensure_tuple, export_with_logger, format_name_with_dist, get_device, get_file,
-                            is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
+                            ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist, get_device,
+                            get_file, is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
                             maybe_create_remote_uploader_downloader_from_uri, model_eval_mode, parse_uri,
-                            reproducibility, extract_hparams)
+                            reproducibility)
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -1060,7 +1060,6 @@ class Trainer:
 
         # Run Event.INIT
         self.engine.run_event(Event.INIT)
-
 
         # Log hparams.
         self.hparams = extract_hparams(locals())
