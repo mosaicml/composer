@@ -121,7 +121,7 @@ class HuggingFaceModel(ComposerModel):
             composer_model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, metrics=[], use_logits=True)
             trainer = Trainer(model=composer_model,
                               train_dataloader=train_dataloader,
-                              save_filename='hf-checkpoint.pt',
+                              save_filename='composer-hf-checkpoint.pt',
                               max_duration='1ep',
                               save_folder='./')
             trainer.fit()
@@ -131,11 +131,11 @@ class HuggingFaceModel(ComposerModel):
 
         .. testcode::
 
-            hf_model, hf_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint('hf-checkpoint.pt')
+            hf_model, hf_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint('composer-hf-checkpoint.pt')
             composer_model = HuggingFaceModel(hf_model, hf_tokenizer)
             trainer = Trainer(model=composer_model,
                               train_dataloader=train_dataloader,
-                              save_filename='hf-checkpoint-2.pt',
+                              save_filename='composer-hf-checkpoint-2.pt',
                               max_duration='1ep',
                               save_folder='./')
 
