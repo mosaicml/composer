@@ -17,10 +17,10 @@ import composer
 import composer.algorithms
 from composer import Algorithm
 from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
-                                 Factorize, FusedLayerNorm, GatedLinearUnits, GhostBatchNorm, GradientClipping,
-                                 LabelSmoothing, LayerFreezing, LowPrecisionLayerNorm, MixUp, NoOpModel,
-                                 ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup, SqueezeExcite,
-                                 StochasticDepth, WeightStandardization)
+                                 Factorize, GatedLinearUnits, GhostBatchNorm, GradientClipping, LabelSmoothing,
+                                 LayerFreezing, LowPrecisionLayerNorm, MixUp, NoOpModel, ProgressiveResizing,
+                                 RandAugment, SelectiveBackprop, SeqLengthWarmup, SqueezeExcite, StochasticDepth,
+                                 WeightStandardization)
 from composer.models import composer_resnet
 from composer.models.base import ComposerModel
 from tests import common
@@ -98,7 +98,6 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
         },
     },
     Factorize: simple_resnet_settings,
-    FusedLayerNorm: simple_bert_settings,
     GatedLinearUnits: simple_bert_settings,
     GhostBatchNorm: {
         'model': (composer_resnet, {
@@ -229,10 +228,6 @@ def get_algs_with_marks():
             # TODO(Landen): Fix
             marks.append(
                 pytest.mark.filterwarnings(r'ignore:Some targets have less than 1 total probability:UserWarning'))
-
-        if alg_cls == FusedLayerNorm:
-            # FusedLayerNorm requires a GPU in order for the class to exist
-            marks.append(pytest.mark.gpu)
 
         if settings is None:
             marks.append(pytest.mark.xfail(reason=f'Algorithm {alg_cls.__name__} is missing settings.'))

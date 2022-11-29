@@ -117,7 +117,6 @@ atexit.register(_set_atexit_ran)
 def _get_default_passes():
     return [
         passes.sort_selective_backprop_first,
-        passes.sort_fused_layernorm_last,
         passes.sort_low_precision_layernorm_last,
         passes.set_filo_order,
         passes.warn_if_multiple_loss_interpolation,

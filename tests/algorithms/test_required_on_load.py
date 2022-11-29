@@ -23,7 +23,7 @@ def initialize_algorithm(algo_cls: Type):
         return algo_cls(max_sequence_length=1)
     elif algo_cls == algorithms.StochasticDepth:
         return algo_cls(target_layer_name='ResNetBottleneck')
-    elif algo_cls == algorithms.FusedLayerNorm or algorithms.LowPrecisionLayerNorm:
+    elif algo_cls == algorithms.LowPrecisionLayerNorm:
         pytest.importorskip('apex')
         return algo_cls()
     elif algo_cls == algorithms.GatedLinearUnits:

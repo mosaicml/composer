@@ -161,7 +161,6 @@ def test_gpu_huggingface_export_for_inference_onnx():
     import onnxruntime as ort
     import transformers
 
-    from composer.functional import apply_fused_layernorm
     from composer.models import HuggingFaceModel
 
     # HuggingFace Bert Model
@@ -201,7 +200,6 @@ def test_gpu_huggingface_export_for_inference_onnx():
 
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
     apply_gated_linear_units(model, optimizer)
-    apply_fused_layernorm(model, optimizer)
 
     model.eval()
     orig_out = model(sample_input)
