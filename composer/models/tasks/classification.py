@@ -14,7 +14,7 @@ import torch
 from torch import Tensor
 from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import Accuracy
-
+from composer.utils import extract_hparams
 from composer.loss import soft_cross_entropy
 from composer.metrics import CrossEntropy
 from composer.models import ComposerModel
@@ -76,6 +76,7 @@ class ComposerClassifier(ComposerModel):
 
         if hasattr(self.module, 'num_classes'):
             self.num_classes = getattr(self.module, 'num_classes')
+        self.local_hparams = extract_hparams(locals())
 
     def loss(self, outputs: Tensor, batch: Tuple[Any, Tensor], *args, **kwargs) -> Tensor:
         _, targets = batch

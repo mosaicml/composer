@@ -13,7 +13,7 @@ import yaml
 from composer.core.time import Time, TimeUnit
 from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import dist
+from composer.utils import dist, extract_hparams
 
 if TYPE_CHECKING:
     from composer.core import State
@@ -39,6 +39,8 @@ class ConsoleLogger(LoggerDestination):
                  stream: Union[str, TextIO] = sys.stderr,
                  log_traces: bool = False) -> None:
 
+        self.local_hparams = extract_hparams(locals())
+        
         if isinstance(log_interval, int):
             log_interval = Time(log_interval, TimeUnit.EPOCH)
         if isinstance(log_interval, str):
@@ -59,8 +61,8 @@ class ConsoleLogger(LoggerDestination):
 
         self.should_log_traces = log_traces
         self.stream = stream
-        self.hparams: Dict[str, Any] = {}
-        self.hparams_already_logged_to_console: bool = False
+        self.logged_hparams: Dict[str, Any] = {}
+        self.logged_hparams_already_logged_to_console: bool = False
 
     def log_traces(self, traces: Dict[str, Any]):
         if self.should_log_traces:
@@ -70,13 +72,13 @@ class ConsoleLogger(LoggerDestination):
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         # Lazy logging of hyperparameters.
-        self.hparams.update(hyperparameters)
+        self.logged_hparams.update(hyperparameters)
 
     def _log_hparams_to_console(self):
         if dist.get_local_rank() == 0:
             self._log_to_console('*' * 30)
             self._log_to_console('Config:')
-            self._log_to_console(yaml.dump(self.hparams))
+            self._log_to_console(yaml.dump(self.logged_hparams))
             self._log_to_console('*' * 30)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
@@ -102,18 +104,18 @@ class ConsoleLogger(LoggerDestination):
         self.log_to_console(state.eval_metric_values, prefix='Eval ', state=state)
 
     def fit_start(self, state: State, logger: Logger) -> None:
-        if not self.hparams_already_logged_to_console:
-            self.hparams_already_logged_to_console = True
+        if not self.logged_hparams_already_logged_to_console:
+            self.logged_hparams_already_logged_to_console = True
             self._log_hparams_to_console()
 
     def predict_start(self, state: State, logger: Logger) -> None:
-        if not self.hparams_already_logged_to_console:
-            self.hparams_already_logged_to_console = True
+        if not self.logged_hparams_already_logged_to_console:
+            self.logged_hparams_already_logged_to_console = True
             self._log_hparams_to_console()
 
     def eval_start(self, state: State, logger: Logger) -> None:
-        if not self.hparams_already_logged_to_console:
-            self.hparams_already_logged_to_console = True
+        if not self.logged_hparams_already_logged_to_console:
+            self.logged_hparams_already_logged_to_console = True
             self._log_hparams_to_console()
 
     def _get_progress_string(self, state: State):

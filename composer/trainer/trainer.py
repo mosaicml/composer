@@ -48,7 +48,7 @@ from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectS
                             ensure_tuple, export_with_logger, format_name_with_dist, get_device, get_file,
                             is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
                             maybe_create_remote_uploader_downloader_from_uri, model_eval_mode, parse_uri,
-                            reproducibility)
+                            reproducibility, extract_hparams)
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -1060,6 +1060,11 @@ class Trainer:
 
         # Run Event.INIT
         self.engine.run_event(Event.INIT)
+
+
+        # Log hparams.
+        self.hparams = extract_hparams(locals())
+        self.logger.log_hyperparameters(self.hparams)
 
         # Log gpus and nodes.
         device_name = self._device.__class__.__name__.lstrip('Device').lower()

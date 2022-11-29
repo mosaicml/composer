@@ -1,15 +1,16 @@
 from typing import Sequence, Mapping
+import torch
+import inspect
 
 __all__ = ['extract_hparams', 'convert_nested_dict_to_flat_dict', 'convert_flat_dict_to_nested_dict']
 
-def _parse_dict_for_hparams(name, dic):
+def _parse_dict_for_hparams(dic):
     '''Grabs hyperparamters from each element in dictionary and optionally names dictionary'''
     hparams_to_add = {}
     for k, v in dic.items():
-            hparams_to_add[k] = _grab_hparams(v)
-    # Wrap dictionary in parent dictionary and add name
-    if name is not None:
-        hparams_to_add = {name: hparams_to_add}
+        if k.startswith('_') or isinstance(v, torch.Tensor) or callable(v) or k == 'defaults' or v is None:
+            continue
+        hparams_to_add[k] = _grab_hparams(v)
     return hparams_to_add
     
 
@@ -18,25 +19,41 @@ def _grab_hparams(obj):
     
     # If the object has already grabbed its hyperparameters (its a Composer object)
     # then parse hparams attribute (which is a dict) and name those sub-hyperparameters
-    if hasattr(obj, 'hparams'):
+    if hasattr(obj, 'local_hparams'):
         obj_name = obj.__class__.__name__
-        hparams_to_add = _parse_dict_for_hparams(name=obj_name, dic=obj.hparams)
+        parsed_hparams = _parse_dict_for_hparams(dic=obj.local_hparams)
+        hparams_to_add = {obj_name: parsed_hparams}
         
     # If object has a __dict__ atrribute then parse all its members as hparams udner the name obj.__class__.__name__
     elif hasattr(obj, '__dict__'):
         obj_name = obj.__class__.__name__
-        hparams_to_add = _parse_dict_for_hparams(name=obj.__class__.__name__, dic=vars(obj))
+        parsed_hparams = _parse_dict_for_hparams(dic=vars(obj))
+        sig = inspect.signature(obj.__class__.__init__)
+        defaults = {k: v.default for k,v in sig.parameters.items() if k != 'self'}
+        parsed_hparams = {k:v for k,v in parsed_hparams.items() if not (k in defaults and defaults[k] == v)}
+        hparams_to_add = {obj.__class__.__name__: parsed_hparams}
         
     # If object is a dict or mapping object then parse all elements with no parent name.
     elif isinstance(obj, Mapping):
-        hparams_to_add = _parse_dict_for_hparams(name=None, dic=obj)
+        hparams_to_add = _parse_dict_for_hparams(dic=obj)
         
     # If object is sequence then loop through a parse each element in sequence
     elif isinstance(obj, Sequence) and not isinstance(obj, str):
         hparams_to_add = {}
+        hparams_to_add_seq = []
         for sub_obj in obj:
-            sub_obj_dic = _grab_hparams(sub_obj)
-            hparams_to_add.update(sub_obj_dic)
+            parsed_sub_obj = _grab_hparams(sub_obj)
+            if isinstance(parsed_sub_obj, dict):
+                hparams_to_add.update(parsed_sub_obj)
+            else:
+                hparams_to_add_seq.append(parsed_sub_obj)
+        if hparams_to_add_seq:
+            if not hparams_to_add:
+                hparams_to_add = hparams_to_add_seq
+            else:
+                hparams_to_add['seq'] = hparams_to_add_seq
+
+
             
     # Otherwise the object is a primitive type like int, str, etc.
     else:
