@@ -20,7 +20,7 @@ from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, Channel
                                  Factorize, FusedLayerNorm, GatedLinearUnits, GhostBatchNorm, GradientClipping,
                                  LabelSmoothing, LayerFreezing, LowPrecisionLayerNorm, MixUp, NoOpModel,
                                  ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup, SqueezeExcite,
-                                 StochasticDepth, WeightStandardization)
+                                 StochasticDepth, WeightStandardization, GyroDropout)
 from composer.models import composer_resnet
 from composer.models.base import ComposerModel
 from tests import common
@@ -150,6 +150,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
         }
     },
     WeightStandardization: simple_vision_settings,
+    GyroDropout: None, #Dropout settings needed
 }
 
 
