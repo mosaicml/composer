@@ -164,8 +164,8 @@ def make_synthetic_gpt2_dataloader():
 
 def synthetic_hf_state_maker(request) -> Tuple:
     """An example state using synthetic HF transformer function which could used for testing purposes."""
-    model = make_synthetic_model(request.config)
-    dataloader = make_synthetic_dataloader(request.config)
+    model = make_synthetic_model(request.param)
+    dataloader = make_synthetic_dataloader(request.param)
     device = None
     for item in request.session.items:
         device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
