@@ -171,7 +171,7 @@ class RandomTextClassificationDataset(torch.utils.data.Dataset):
 
 
 class RandomTextLMDataset(torch.utils.data.Dataset):
-    """ Text classification dataset with values (just input token ids) drawn uniformly
+    """ Text LM dataset with values (just input token ids) drawn uniformly
     Args:
         vocab_size (int): vocab size to use (default: 10)
         size (int): number of samples (default: 100)
