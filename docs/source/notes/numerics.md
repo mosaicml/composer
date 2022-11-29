@@ -1,6 +1,6 @@
 # 🔢 Numerics
 
-Composer supports several single and half-precision number formats including IEEE single-precision `fp32`, mixed precision
+Composer supports several single and half-precision number formats including IEEE single-precision `fp32`, [mixed precision](https://pytorch.org/docs/stable/amp.html)
 training with IEEE half-precision `amp_fp16`, and mixed precision training with Google's truncated bf16 format `amp_bf16`.
 The following formats are supported per accelerator:
 
