@@ -151,7 +151,7 @@ class HuggingFaceModel(ComposerModel):
                                                                                    Defaults to None, which will use a temporary file.
 
         Raises:
-            ValueError: If the ``model_instantiation_class``, or the model class saved in the checkpoint, is not from the ``transformers`` module
+            ValueError: If the ``model_instantiation_class``, or the model class saved in the checkpoint, is not able to be imported
 
         Returns:
             Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]: The loaded HuggingFace model and (if present) tokenizer
