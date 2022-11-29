@@ -511,7 +511,19 @@ class State(Serializable):
                 return True
         return False
 
-    def _get_state_metadata(self):
+    def _get_integrations_state_dict(self) -> Dict[str, Any]:
+        """Gets a dictionary of information about integrations to store in the state dict.
+
+        This metadata is used for loading things from state dict that need to be done outside
+        of the normal Composer load path (e.g. HuggingFace model/tokenizer).
+        """
+        from composer.models import HuggingFaceModel
+        integrations = {}
+        if isinstance(self.model, HuggingFaceModel):
+            integrations['huggingface'] = self.model.get_metadata()
+        return integrations
+
+    def _get_state_metadata(self) -> Dict[str, Any]:
         """Gets a dictionary of metadata to store in the state dict.
 
         This metadata is used for checking compatibility between the current environment/setup
@@ -559,6 +571,7 @@ class State(Serializable):
 
             state_dict[attribute_name] = serialized_value
 
+        state_dict['integrations'] = self._get_integrations_state_dict()
         state_dict['metadata'] = self._get_state_metadata()
 
         return state_dict
@@ -753,6 +766,10 @@ class State(Serializable):
         for attribute_name, serialized_value in state.items():
             # Skip removed attributes as well as algorithms and model, which was already loaded
             if attribute_name not in self.serialized_attributes or attribute_name == 'model':
+                continue
+
+            # Integrations are extra information about other libraries (e.g. huggingface) and not attributes to be loaded here
+            if attribute_name == 'integrations':
                 continue
 
             # Skip metadata, which is not an attribute on State
