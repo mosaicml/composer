@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 __all__ = ['DataSpec', 'ensure_data_spec']
 
 
-def _split_list(l, num_microbatches: int):
+def _num_microbatches_split_list(l, num_microbatches: int):
     if len(l) < num_microbatches:
         raise ValueError(
             textwrap.dedent(f"""\
@@ -30,7 +30,7 @@ def _split_list(l, num_microbatches: int):
     return [l[i::num_microbatches] for i in range(num_microbatches)]
 
 
-def _split_tensor(t, num_microbatches: int):
+def _num_microbatches_split_tensor(t, num_microbatches: int):
     if len(t) < num_microbatches:
         raise ValueError(
             textwrap.dedent(f"""\
@@ -39,13 +39,13 @@ def _split_tensor(t, num_microbatches: int):
     return t.chunk(num_microbatches)
 
 
-def _split_mapping(m, num_microbatches: int):
+def _num_microbatches_split_mapping(m, num_microbatches: int):
     chunked = {}
     for k, v in m.items():
         if isinstance(v, torch.Tensor):
-            chunked[k] = _split_tensor(v, num_microbatches)
+            chunked[k] = _num_microbatches_split_tensor(v, num_microbatches)
         if isinstance(v, (List, Tuple)):
-            chunked[k] = _split_list(v, num_microbatches)
+            chunked[k] = _num_microbatches_split_list(v, num_microbatches)
     num_chunks = len(list(chunked.values())[0])
     return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
@@ -65,18 +65,18 @@ def _num_microbatches_split_batch(batch: Any, num_microbatches: int) -> Sequence
         return [batch]
 
     if isinstance(batch, torch.Tensor):  # check for a single stack of tensors
-        return _split_tensor(batch, num_microbatches)
+        return _num_microbatches_split_tensor(batch, num_microbatches)
 
     if isinstance(batch, Mapping):  # check for dictionary (hf style)
-        return _split_mapping(batch, num_microbatches)
+        return _num_microbatches_split_mapping(batch, num_microbatches)
 
     if isinstance(batch, (Tuple, List)):  # check for batch on 2nd dimension
         result = []
         for item in batch:
             if isinstance(item, torch.Tensor):
-                result.append(_split_tensor(item, num_microbatches))
+                result.append(_num_microbatches_split_tensor(item, num_microbatches))
             elif isinstance(item, (List, Tuple)):
-                result.append(_split_list(item, num_microbatches))
+                result.append(_num_microbatches_split_list(item, num_microbatches))
             else:
                 raise ValueError(f'Unsupported batch type: {type(item)}.')
         return list(zip(*result))
@@ -86,6 +86,37 @@ def _num_microbatches_split_batch(batch: Any, num_microbatches: int) -> Sequence
             The default `split_fn` is unable to split the output of this dataloader. To enable microbatching,
              please and specify a `DataSpec` with `split_batch` for your dataset and use `train_device_microbatch_size`."""
                        ))
+
+
+def _split_list(l, microbatch_size: int):
+    if len(l) < microbatch_size:
+        raise ValueError(
+            textwrap.dedent(f"""\
+        Cannot split list of length {len(l)} into batches of size {microbatch_size}.
+        Make sure `train_device_microbatch_size` is less than or equal to `train_batch_size // world_size`."""))
+    num_microbatches = math.ceil(len(l) / microbatch_size)
+    return [l[i::num_microbatches] for i in range(num_microbatches)]
+
+
+def _split_tensor(t, microbatch_size: int):
+    if len(t) < microbatch_size:
+        raise ValueError(
+            textwrap.dedent(f"""\
+        Cannot split tensor of length {len(t)} into batches of size {microbatch_size}.
+        Make sure `train_device_microbatch_size` is less than or equal to `train_batch_size // world_size`."""))
+    num_microbatches = math.ceil(len(t) / microbatch_size)
+    return t.chunk(num_microbatches)
+
+
+def _split_mapping(m, microbatch_size: int):
+    chunked = {}
+    for k, v in m.items():
+        if isinstance(v, torch.Tensor):
+            chunked[k] = _split_tensor(v, microbatch_size)
+        if isinstance(v, (List, Tuple)):
+            chunked[k] = _split_list(v, microbatch_size)
+    num_chunks = len(list(chunked.values())[0])
+    return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
 
 def _default_split_batch(batch: Any, microbatch_size: int) -> Sequence:
@@ -98,22 +129,19 @@ def _default_split_batch(batch: Any, microbatch_size: int) -> Sequence:
         microbatch_size (int): Size of microbatches to batch into.
     """
     if isinstance(batch, torch.Tensor):  # check for a single stack of tensors
-        return _split_tensor(batch, math.ceil(len(batch) / microbatch_size))
-
-    if isinstance(batch, Mapping):  # check for dictionary (hf style)
-        return _split_mapping(batch, math.ceil(len(batch) / microbatch_size))
-
-    if isinstance(batch, (Tuple, List)):  # check for batch on 2nd dimension
+        return _split_tensor(batch, microbatch_size)
+    elif isinstance(batch, Mapping):  # check for dictionary (hf style)
+        return _split_mapping(batch, microbatch_size)
+    elif isinstance(batch, (Tuple, List)):  # check for batch on 2nd dimension
         result = []
         for item in batch:
             if isinstance(item, torch.Tensor):
-                result.append(_split_tensor(item, math.ceil(len(item) / microbatch_size)))
+                result.append(_split_tensor(item, microbatch_size))
             elif isinstance(item, (List, Tuple)):
-                result.append(_split_list(item, math.ceil(len(item) / microbatch_size)))
+                result.append(_split_list(item, microbatch_size))
             else:
                 raise ValueError(f'Unsupported batch type: {type(item)}.')
         return list(zip(*result))
-
     raise NotImplementedError(
         textwrap.dedent("""\
             The default `split_fn` is unable to split the output of this dataloader. To enable microbatching,
