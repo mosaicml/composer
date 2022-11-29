@@ -152,9 +152,6 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                                         ShardingStrategy)
     from torch.distributed.fsdp.flatten_params_wrapper import FlattenParamsWrapper
 
-    if precision == "fp32":
-        raise ValueError(f"FSDP in PyTorch 1.13 doesn't support 'fp32.' Please consider using 'amp' or 'bf16' for precision.")
-
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
         if len(optimizers_tuple) != 1:
@@ -171,31 +168,48 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         'SHARD_GRAD_OP': ShardingStrategy.SHARD_GRAD_OP,
         'FULL_SHARD': ShardingStrategy.FULL_SHARD,
     }
-    sharding_strategy = sharding_map[fsdp_config.get('sharding_strategy', 'FULL_SHARD').upper()]
+    sharding_map_key = fsdp_config.get('sharding_strategy', 'FULL_SHARD').upper()
+    sharding_strategy = sharding_map[sharding_map_key]
+
+    if precision == 'fp32' and sharding_map_key != 'NO_SHARD':
+        raise ValueError(
+            f'FSDP in PyTorch 1.13 does not support precision ``{precision}`` with sharding_strategy ``{sharding_map_key}.`` '
+            f'Please consider using ``amp`` or ``bf16`` for precision for with sharding strategy ``{sharding_map_key}.``'
+        )
 
     cpu_offload = CPUOffload(offload_params=True) if fsdp_config.get('cpu_offload', False) else None
     if cpu_offload is not None:
         raise ValueError('FSDP CPU Offload not supported yet.')
 
-    mixed_precision = fsdp_config.get('mixed_precision', 'DEFAULT').upper()
+    mixed_precision = fsdp_config.get('mixed_precision', 'DEFAULT')
     if isinstance(mixed_precision, dict):
         param_dtype = get_torch_dtype(mixed_precision.get('param_dtype', 'float32'))
         reduce_dtype = get_torch_dtype(mixed_precision.get('reduce_dtype', 'float32'))
         buffer_dtype = get_torch_dtype(mixed_precision.get('buffer_dtype', 'float32'))
-    elif mixed_precision == 'FULL':
-        param_dtype = get_torch_dtype(precision)
-        reduce_dtype = torch.float32
-        buffer_dtype = torch.float32
-    elif mixed_precision == 'DEFAULT':
-        param_dtype = get_torch_dtype(precision)
-        reduce_dtype = get_torch_dtype(precision)
-        buffer_dtype = torch.float32
-    elif mixed_precision == 'PURE':
-        param_dtype = get_torch_dtype(precision)
-        reduce_dtype = get_torch_dtype(precision)
-        buffer_dtype = get_torch_dtype(precision)
+    elif isinstance(mixed_precision, str):
+        mixed_precision = mixed_precision.upper()
+        if mixed_precision == 'FULL':
+            param_dtype = torch.float32
+            reduce_dtype = torch.float32
+            buffer_dtype = torch.float32
+        elif mixed_precision == 'DEFAULT':
+            param_dtype = torch.float32
+            reduce_dtype = get_torch_dtype(precision)
+            buffer_dtype = torch.float32
+        elif mixed_precision == 'PURE':
+            param_dtype = get_torch_dtype(precision)
+            reduce_dtype = get_torch_dtype(precision)
+            buffer_dtype = get_torch_dtype(precision)
+        else:
+            raise ValueError(f'Unable to interpret mixed_precision={mixed_precision}')
     else:
         raise ValueError(f'Unable to interpret mixed_precision={mixed_precision}')
+
+    if precision in ['amp', 'bf16'] and sharding_map_key != 'NO_SHARD' and param_dtype == torch.float32:
+        raise ValueError(
+            f'FSDP in PyTorch 1.13 does not support precision ``{precision}`` with sharding strategy ``{sharding_strategy}`` '
+            f'and param_dtype ``{param_dtype}.`` param_dtype needs to match the precision data type ``{precision}.`` '
+            'Please adjust the MixedPrecision parameter accordingly.')
 
     mixed_precision = MixedPrecision(
         param_dtype=param_dtype,
