@@ -36,7 +36,6 @@ import composer.utils
 import composer.utils.checkpoint
 import composer.utils.file_helpers
 from composer import Trainer
-from composer.devices import DeviceCPU
 from composer.core import Algorithm as Algorithm
 from composer.core import Callback as Callback
 from composer.core import DataSpec as DataSpec
@@ -49,6 +48,7 @@ from composer.core import Timestamp as Timestamp
 from composer.core import TimeUnit as TimeUnit
 from composer.core import types as types
 from composer.datasets.synthetic import SyntheticBatchPairDataset
+from composer.devices import DeviceCPU
 from composer.loggers import InMemoryLogger as InMemoryLogger
 from composer.loggers import Logger as Logger
 from composer.loggers import RemoteUploaderDownloader
