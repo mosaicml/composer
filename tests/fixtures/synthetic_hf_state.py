@@ -185,6 +185,6 @@ def synthetic_hf_state_maker(request) -> Tuple:
 
 
 @pytest.fixture(params=make_dataset_configs())
-def synthetic_hf_state(request: pytest.FixtureRequest):
+def synthetic_hf_state(request):
     pytest.importorskip('transformers')
     return synthetic_hf_state_maker(request)
