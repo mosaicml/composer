@@ -51,7 +51,7 @@ import psutil
 
 from composer.utils.misc import is_notebook
 
-__all__ = ['configure_excepthook', 'disable_env_report', 'enable_env_report', 'print_env']
+__all__ = ['configure_excepthook', 'disable_env_report', 'enable_env_report', 'print_env', 'get_composer_env_dict']
 
 # Check if PyTorch is installed
 try:
@@ -283,9 +283,9 @@ CUDA Device Count: {cuda_device_count}
 """.strip()
 
 
-# Get Composer environment info
-def get_composer_env() -> str:
-    """Query Composer pertinent system information."""
+# Get composer environment info as a dictionary
+def get_composer_env_dict() -> dict:
+    """Query Composer pertinent system information as a dict."""
     mutable_dict = ComposerEnv(
         composer_version=get_composer_version(),
         composer_commit_hash=get_composer_commit_hash(),
@@ -296,7 +296,13 @@ def get_composer_env() -> str:
         local_world_size=get_local_world_size(),
         cuda_device_count=get_cuda_device_count(),
     )._asdict()
+    return mutable_dict
 
+
+# Get Composer environment info
+def get_composer_env() -> str:
+    """Query Composer pertinent system information."""
+    mutable_dict = get_composer_env_dict()
     return _COMPOSER_ENV_INFO_FORMAT.format(**mutable_dict)
 
 
