@@ -19,6 +19,7 @@ from composer.utils.object_store import (LibcloudObjectStore, ObjectStore, Objec
                                          SFTPObjectStore)
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
+from composer.utils.auto_log_hparams import extract_hparams, convert_flat_dict_to_nested_dict, convert_nested_dict_to_flat_dict
 
 
 def warn_yahp_deprecation() -> None:
@@ -75,4 +76,7 @@ __all__ = [
     'model_eval_mode',
     'get_device',
     'is_tpu_installed',
+    'extract_hparams',
+    'convert_nested_dict_to_flat_dict',
+    'convert_flat_dict_to_nested_dict',
 ]
