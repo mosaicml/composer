@@ -23,7 +23,7 @@ from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit
-from composer.utils import batch_get, batch_set, dist, ensure_tuple, is_model_deepspeed
+from composer.utils import batch_get, batch_set, dist, ensure_tuple, get_composer_env_dict, is_model_deepspeed
 
 if TYPE_CHECKING:
     import deepspeed
@@ -359,6 +359,9 @@ class State(Serializable):
 
         self.train_metrics: Dict[str, Metric] = {}
         self.eval_metrics: Dict[str, Dict[str, Metric]] = {}
+        self.train_metric_values: Dict[str, float] = {}
+        self.eval_metric_values: Dict[str, float] = {}
+        self.total_loss_dict: Dict[str, float] = {}
 
     @property
     def current_metrics(self):
@@ -508,6 +511,17 @@ class State(Serializable):
                 return True
         return False
 
+    def _get_state_metadata(self):
+        """Gets a dictionary of metadata to store in the state dict.
+
+        This metadata is used for checking compatibility between the current environment/setup
+        and the environment/setup that was used for the checkpoint that is being loaded in
+        """
+        metadata_dict = {}
+        metadata_dict['composer_env_info'] = get_composer_env_dict()
+
+        return metadata_dict
+
     def state_dict(self) -> Dict[str, Any]:
         state_dict = {}
 
@@ -544,6 +558,8 @@ class State(Serializable):
                 serialized_value = attribute_value
 
             state_dict[attribute_name] = serialized_value
+
+        state_dict['metadata'] = self._get_state_metadata()
 
         return state_dict
 
@@ -584,9 +600,19 @@ class State(Serializable):
         for algo_name, serialized_value in state_dict['algorithms']:
             # Check if required algorithm
             if hasattr(algorithms, algo_name) and getattr(algorithms, algo_name).required_on_load():
-                algo = eval(f"algorithms.{serialized_value['repr']}")
                 # Check that algorithm is not explicitly excluded by user
-                if exclude_algorithms is None or type(algo).__qualname__ not in exclude_algorithms:
+                if exclude_algorithms is None or algo_name not in exclude_algorithms:
+                    try:
+                        algo = eval(f"algorithms.{serialized_value['repr']}")
+                    except:
+                        warnings.warn(
+                            textwrap.dedent(
+                                f"required_on_load algorithm {serialized_value['repr']} was enabled when training the "
+                                f'loaded checkpoint. Attempted to check its presence but recreating the algorithm '
+                                "failed. This may be due to a change in the algorithm's API. If this required_on_load "
+                                'algorithm is not properly specified, it may lead to unexpected behavior, including '
+                                'failing to load weights for some layers.'))
+                        continue
                     # Raise warning if we are unable to safely autoapply
                     if type(algo) in current_algos and not serialized_value['repr'] in current_algos[type(algo)]:
                         warnings.warn(
@@ -727,6 +753,10 @@ class State(Serializable):
         for attribute_name, serialized_value in state.items():
             # Skip removed attributes as well as algorithms and model, which was already loaded
             if attribute_name not in self.serialized_attributes or attribute_name == 'model':
+                continue
+
+            # Skip metadata, which is not an attribute on State
+            if attribute_name == 'metadata':
                 continue
 
             # Restructure algorithms serialized_value from list to dict
