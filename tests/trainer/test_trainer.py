@@ -421,6 +421,8 @@ class TestTrainerInitOrFit:
         max_duration: Time[int],
         train_dataloader: DataLoader,
     ):
+        if precision == Precision.FP32:  # FSDP FULL_SHARD doesn't support FP32
+            return
 
         fsdp_config = {
             'sharding_strategy': 'FULL_SHARD',
@@ -437,7 +439,7 @@ class TestTrainerInitOrFit:
         # with precision FP16.
         ctx = contextlib.nullcontext()
         should_error = False
-        if precision == Precision.FP16 or precision == Precision.FP32:
+        if precision == Precision.FP16:
             ctx = pytest.raises(ValueError, match='FP16 precision is only supported when training with DeepSpeed.')
             should_error = True
 
