@@ -40,7 +40,7 @@ IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
 
 def build_imagenet_dataloader(
     datadir: str,
-    batch_size: int,
+    global_batch_size: int,
     is_train: bool = True,
     drop_last: bool = True,
     shuffle: bool = True,
@@ -52,7 +52,7 @@ def build_imagenet_dataloader(
 
     Args:
         datadir (str): path to location of dataset.
-        batch_size (int): Batch size per device.
+        global_batch_size (int): Global batch size.
         is_train (bool): Whether to load the training data or validation data. Default:
             ``True``.
         drop_last (bool): whether to drop last samples. Default: ``True``.
@@ -61,6 +61,10 @@ def build_imagenet_dataloader(
         crop size (int): The crop size to use. Default: ``224``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     if is_train:
         # include fixed-size resize before RandomResizedCrop in training only
         # if requested (by specifying a size > 0)
@@ -102,7 +106,7 @@ def build_imagenet_dataloader(
 
 
 def build_synthetic_imagenet_dataloader(
-    batch_size: int,
+    global_batch_size: int,
     num_unique_samples: int = 100,
     device: str = 'cpu',
     memory_format: MemoryFormat = MemoryFormat.CONTIGUOUS_FORMAT,
@@ -115,7 +119,7 @@ def build_synthetic_imagenet_dataloader(
     """Builds a synthetic ImageNet dataloader.
 
     Args:
-        batch_size (int): Batch size per device.
+        global_batch_size (int): Global batch size.
         num_unique_samples (int): number of unique samples in synthetic dataset. Default: ``100``.
         device (str): device with which to load the dataset. Default: ``cpu``.
         memory_format (:class:`composer.core.MemoryFormat`): memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
@@ -126,6 +130,10 @@ def build_synthetic_imagenet_dataloader(
         shuffle (bool): whether to shuffle the dataset. Default: ``True``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     total_dataset_size = 1_281_167 if is_train else 50_000
     dataset = SyntheticBatchPairDataset(
         total_dataset_size=total_dataset_size,
@@ -178,7 +186,7 @@ def write_ffcv_imagenet(
 
 def build_ffcv_imagenet_dataloader(
     datadir: str,
-    batch_size: int,
+    global_batch_size: int,
     is_train: bool = True,
     resize_size: int = -1,
     crop_size: int = 224,
@@ -191,7 +199,7 @@ def build_ffcv_imagenet_dataloader(
 
     Args:
         datadir (str): path to location of dataset.
-        batch_size (int): Batch size per device.
+        global_batch_size (int): Global batch size.
         is_train (bool): Whether to load the training data or validation data. Default:
             ``True``.
         resize_size (int, optional): The resize size to use. Use ``-1`` to not resize. Default: ``-1``.
@@ -208,7 +216,10 @@ def build_ffcv_imagenet_dataloader(
     except ImportError:
         raise ImportError('Composer was installed without ffcv support.'
                           'To use ffcv with Composer, please install ffcv.')
-
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     device = torch.device(f'cuda:{dist.get_local_rank()}')
     label_pipeline: List[Operation] = [
         IntDecoder(),
@@ -263,7 +274,7 @@ def build_ffcv_imagenet_dataloader(
 
 
 def build_streaming_imagenet1k_dataloader(
-    batch_size: int,
+    global_batch_size: int,
     remote: str,
     *,
     version: int = 2,
@@ -278,7 +289,7 @@ def build_streaming_imagenet1k_dataloader(
     """Builds an imagenet1k streaming dataset
 
     Args:
-        batch_size (int): Batch size per device.
+        global_batch_size (int): Global batch size.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
         version (int, optional): Which version of streaming to use. Default: ``2``.
         local (str, optional): Local filesystem directory where dataset is cached during operation.
@@ -291,7 +302,10 @@ def build_streaming_imagenet1k_dataloader(
         crop size (int): The crop size to use. Default: ``224``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
-
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     if version == 1:
         warn_streaming_dataset_deprecation(old_version=version, new_version=2)
         dataset = StreamingImageNet1k(remote=remote,
