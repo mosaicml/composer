@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 
 from composer.core import DataSpec
 from composer.datasets.streaming import StreamingDataset
-from composer.utils import MissingConditionalImportError
+from composer.utils import MissingConditionalImportError, dist
 
 log = logging.getLogger(__name__)
 
@@ -149,7 +149,7 @@ class StreamingC4(StreamingDataset):
 
 
 def build_streamingc4_dataloader(
-    batch_size: int,
+    global_batch_size: int,
     remote: str = 's3://mosaicml-internal-dataset-c4/mds/2/',
     local: str = '/tmp/mds-cache/mds-c4/',
     split: str = 'train',
@@ -168,7 +168,7 @@ def build_streamingc4_dataloader(
     """Builds a :class:`.DataSpec` for the StreamingC4 (Colossal Cleaned Common Crawl) dataset.
 
     Args:
-        batch_size (int): Batch size per device.
+        global_batch_size (int): Global batch size.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
             Default: ``'s3://mosaicml-internal-dataset-c4/mds/2/'``
         local (str): Local filesystem directory where dataset is cached during operation.
@@ -194,7 +194,10 @@ def build_streamingc4_dataloader(
         import transformers
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
-
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     if version == 1:
         dataset = StreamingC4(remote=remote,
                               local=local,
