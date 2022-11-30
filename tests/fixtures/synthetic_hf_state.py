@@ -162,15 +162,9 @@ def make_synthetic_gpt2_dataloader():
     return make_synthetic_dataloader(config)
 
 
-def synthetic_hf_state_maker(config, session) -> Tuple:
-    """An example state using synthetic HF transformer function which could used for testing purposes."""
+def synthetic_hf_state_maker_with_device(config, device) -> Tuple:
     model = make_synthetic_model(config)
     dataloader = make_synthetic_dataloader(config)
-    device = None
-    for item in session.items:
-        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
-        break
-    assert device != None
     state = State(
         model=model,
         rank_zero_seed=0,
@@ -184,9 +178,17 @@ def synthetic_hf_state_maker(config, session) -> Tuple:
     return state, model, dataloader
 
 
+def synthetic_hf_state_maker(config, session) -> Tuple:
+    """An example state using synthetic HF transformer function which could used for testing purposes."""
+    device = None
+    for item in session.items:
+        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
+        break
+    assert device != None
+    return synthetic_hf_state_maker_with_device(config, device)
+
+
 @pytest.fixture(params=make_dataset_configs())
 def synthetic_hf_state(request):
     pytest.importorskip('transformers')
-    config = request.param
-    session = request.session
-    return synthetic_hf_state_maker(config, session)
+    return synthetic_hf_state_maker(request.param, request.session)
