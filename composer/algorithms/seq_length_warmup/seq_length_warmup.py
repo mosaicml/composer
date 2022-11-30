@@ -12,7 +12,6 @@ import torch
 import torch.utils.data
 
 from composer.core import Algorithm, Batch, Event, State, TimeUnit, get_precision_context
-from composer.devices import DeviceGPU
 from composer.loggers import Logger
 from composer.models import HuggingFaceModel
 from composer.utils import dist, ensure_tuple
@@ -314,9 +313,8 @@ class SeqLengthWarmup(Algorithm):
                     raise
 
             if state.auto_microbatching:
-                devicegpu = DeviceGPU()
                 # Propagate across all ranks if any rank hit CUDA OOM
-                found_cuda_oom = devicegpu.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                found_cuda_oom = state.device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
                 dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
                 if found_cuda_oom.item() == 1:
                     if state.using_device_microbatch_size:

@@ -11,9 +11,9 @@ from composer.loggers import Logger
 from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker
 
 
-def make_synthetic_state(family):
+def make_synthetic_state(family, session):
     synthetic_config = make_dataset_configs(model_family=[family])[0]
-    return synthetic_hf_state_maker(synthetic_config)
+    return synthetic_hf_state_maker(synthetic_config, session)
 
 
 def check_batch_truncation(before, after, length, preserve_end_of_sequence=False):
@@ -83,8 +83,8 @@ class TestSeqLengthWarmup:
 
     @pytest.mark.parametrize('curr_seq_length', [8, 64])
     def test_functional(self, synthetic_state_family: str, curr_seq_length: int, truncate: bool,
-                        preserve_end_of_sequence: bool):
-        state, _, dataloader = make_synthetic_state(synthetic_state_family)
+                        preserve_end_of_sequence: bool, request: pytest.FixtureRequest):
+        state, _, dataloader = make_synthetic_state(synthetic_state_family, request.session)
         batch_before = next(iter(dataloader))
         batch_after = set_batch_sequence_length(deepcopy(batch_before), curr_seq_length, truncate,
                                                 preserve_end_of_sequence)
@@ -93,8 +93,8 @@ class TestSeqLengthWarmup:
         check_forward_backward(state.model, batch_after)
 
     def test_algorithm(self, synthetic_state_family: str, empty_logger: Logger, truncate: bool,
-                       preserve_end_of_sequence: bool):
-        state, _, dataloader = make_synthetic_state(synthetic_state_family)
+                       preserve_end_of_sequence: bool, request: pytest.FixtureRequest):
+        state, _, dataloader = make_synthetic_state(synthetic_state_family, request.session)
 
         # Synthetic dataset has a size of 2 batches per epoch (max duration = 1ep)
         seq_length_warmup = SeqLengthWarmup(duration=0.5,

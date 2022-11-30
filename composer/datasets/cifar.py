@@ -36,7 +36,7 @@ CIFAR10_CHANNEL_STD = 0.247, 0.243, 0.261
 
 def build_cifar10_dataloader(
     datadir: str,
-    batch_size: int,
+    global_batch_size: int,
     is_train: bool = True,
     download: bool = True,
     drop_last: bool = True,
@@ -47,7 +47,7 @@ def build_cifar10_dataloader(
 
     Args:
         datadir (str): Path to the data directory
-        batch_size (int): Batch size per device
+        global_batch_size (int): Global batch size
         is_train (bool): Whether to load the training data or validation data. Default:
             ``True``.
         download (bool, optional): Whether to download the dataset, if needed. Default:
@@ -56,6 +56,10 @@ def build_cifar10_dataloader(
         shuffle (bool): Shuffle the dataset. Default: ``True``.
         **dataloader_kwargs (Any): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     if is_train:
         transform = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
@@ -90,7 +94,7 @@ def build_cifar10_dataloader(
 
 
 def build_ffcv_cifar10_dataloader(
-    batch_size: int,
+    global_batch_size: int,
     is_train: bool = True,
     download: bool = True,
     drop_last: bool = True,
@@ -104,7 +108,7 @@ def build_ffcv_cifar10_dataloader(
     """Builds an FFCV CIFAR10 dataloader.
 
     Args:
-        batch_size (int): Batch size per device.
+        global_batch_size (int): Global batch size.
         is_train (bool): Whether to load the training data or validation data. Default:
             ``True``.
         download (bool, optional): Whether to download the dataset, if needed. Default:
@@ -128,7 +132,10 @@ def build_ffcv_cifar10_dataloader(
             textwrap.dedent("""\
             Composer was installed without ffcv support.
             To use ffcv with Composer, please install ffcv in your environment."""))
-
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     dataset_filepath = os.path.join(ffcv_dir, ffcv_dest)
     # always create if ffcv_write_dataset is true
     if ffcv_write_dataset:
@@ -191,7 +198,7 @@ def build_ffcv_cifar10_dataloader(
 
 
 def build_synthetic_cifar10_dataloader(
-    batch_size: int,
+    global_batch_size: int,
     is_train: bool = True,
     drop_last: bool = True,
     shuffle: bool = True,
@@ -203,7 +210,7 @@ def build_synthetic_cifar10_dataloader(
     """Builds a synthetic CIFAR-10 dataset for debugging or profiling.
 
     Args:
-        batch_size (int): Batch size per device
+        global_batch_size (int): Global batch size
         is_train (bool): Whether to load the training data or validation data. Default:
             ``True``.
         drop_last (bool): Drop remainder samples. Default: ``True``.
@@ -213,6 +220,10 @@ def build_synthetic_cifar10_dataloader(
         memory_format (:class:`composer.core.MemoryFormat`): memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
         **dataloader_kwargs (Any): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     dataset = SyntheticBatchPairDataset(
         total_dataset_size=50_000 if is_train else 10_000,
         data_shape=[3, 32, 32],
@@ -234,7 +245,7 @@ def build_synthetic_cifar10_dataloader(
 
 
 def build_streaming_cifar10_dataloader(
-    batch_size: int,
+    global_batch_size: int,
     remote: str,
     *,
     version: int = 2,
@@ -247,7 +258,7 @@ def build_streaming_cifar10_dataloader(
     """Builds a streaming CIFAR10 dataset
 
     Args:
-        batch_size (int): Batch size per device.
+        global_batch_size (int): Global batch size.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
         version (int, optional): Which version of streaming to use. Default: ``2``.
         local (str, optional): Local filesystem directory where dataset is cached during operation.
@@ -258,7 +269,10 @@ def build_streaming_cifar10_dataloader(
         shuffle (bool, optional): whether to shuffle dataset. Defaults to ``True``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
-
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     if version == 1:
         warn_streaming_dataset_deprecation(old_version=version, new_version=2)
         dataset = StreamingCIFAR10(remote=remote, local=local, split=split, shuffle=shuffle, batch_size=batch_size)

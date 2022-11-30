@@ -114,25 +114,24 @@ def _ensure_no_optim_in_config(config: Dict[str, Any]):
 def _add_precision_config(config: Dict[str, Any], state: State):
     precision = state.precision
 
+    # Verify DeepSpeed config is consistent with state.precision if set. DeepSpeed precision config
+    # has many different ways to specify approximately the same thing. See https://www.deepspeed.ai/docs/config-json/.
     ds_precision = None
     if 'fp16' in config and 'enabled' in config['fp16'] and config['fp16']['enabled']:
-        ds_precision = Precision.FP16
-    if 'bf16' in config and 'enabled' in config['bf16'] and config['bf16']['enabled']:
-        raise ValueError(('DeepSpeed is configured to use BFLOAT16, but this is unsupported by the '
-                          'Mosaic trainer.'))
-    if 'amp' in config and 'enabled' in config['amp'] and config['amp']['enabled']:
-        raise ValueError(('DeepSpeed is configured to use Apex AMP, but this is unsupported by the '
-                          'Mosaic trainer.'))
-
+        ds_precision = Precision.AMP_FP16
+    elif 'bf16' in config and 'enabled' in config['bf16'] and config['bf16']['enabled']:
+        ds_precision = Precision.AMP_BF16
+    elif 'amp' in config and 'enabled' in config['amp'] and config['amp']['enabled']:
+        ds_precision = Precision.AMP_FP16
     if ds_precision is not None and ds_precision != precision:
         raise ValueError((f'Provided DeepSpeed configuration specifies precision={ds_precision}, '
                           f'but the Mosaic trainer has been configured with precision={precision}.'))
 
-    if precision == Precision.FP16:
-        if 'fp16' not in config:
-            config['fp16'] = cast(Dict[str, Any], {'enabled': True})
-        fp16_config = config['fp16']
-        assert isinstance(fp16_config, dict)
+    # Set DeepSpeed config based on state.precision if not set
+    if precision == Precision.AMP_FP16 and 'fp16' not in config:
+        config['fp16'] = cast(Dict[str, Any], {'enabled': True})
+    elif precision == Precision.AMP_BF16 and 'bf16' not in config:
+        config['bf16'] = cast(Dict[str, Any], {'enabled': True})
 
 
 def _parse_deepspeed_config(
@@ -182,8 +181,14 @@ def _convert_fp32_tensor_to_fp16(tensor: torch.Tensor):
     return tensor
 
 
+def _convert_fp32_tensor_to_bf16(tensor: torch.Tensor):
+    if tensor.dtype == torch.float32:
+        return tensor.to(torch.bfloat16)
+    return tensor
+
+
 def _fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Batch:
-    """Ensures that a batch is properly formatted for DeepSpeed FP16, if active.
+    """Ensures that a batch is properly formatted for DeepSpeed precisions, if active.
 
     .. note:: Just because the precision is set to FP16 doesn't mean the entire batch can
               be FP16 too. For example, integer tensors are common in inputs and outputs of
@@ -197,7 +202,8 @@ def _fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Ba
     Returns:
         Batch: The batch with it's precision adjusted to the specified precision.
     """
-    if precision != Precision.FP16:
-        return batch
-
-    return map_collection(batch, _convert_fp32_tensor_to_fp16)  # type: ignore
+    if precision == Precision.AMP_FP16:
+        return map_collection(batch, _convert_fp32_tensor_to_fp16)  # type: ignore
+    elif precision == Precision.AMP_BF16:
+        return map_collection(batch, _convert_fp32_tensor_to_bf16)  # type: ignore
+    return batch

@@ -474,9 +474,6 @@ class TestTrainerInitOrFit:
         # with precision FP16.
         ctx = contextlib.nullcontext()
         should_error = False
-        if precision == Precision.FP16:
-            ctx = pytest.raises(ValueError, match='FP16 precision is only supported when training with DeepSpeed.')
-            should_error = True
 
         with ctx:
             trainer = Trainer(
@@ -549,9 +546,6 @@ class TestTrainerInitOrFit:
         ctx = contextlib.nullcontext()
         if device == 'cpu' and precision != Precision.FP32:
             ctx = pytest.raises(ValueError, match='not supported for CPU training.')
-            should_error = True
-        elif precision == Precision.FP16:
-            ctx = pytest.raises(ValueError, match='FP16 precision is only supported when training with DeepSpeed.')
             should_error = True
 
         with ctx:
@@ -971,10 +965,10 @@ class TestTrainerEquivalence():
 
     def test_grad_accum_size(self, config, precision, *args):
         # grad accum requires non-zero tolerance
-        # Precision.AMP requires a even higher tolerance.
+        # Precision.AMP_FP16 requires a even higher tolerance.
         threshold = {
-            'atol': 1e-04 if precision == Precision.AMP else 1e-05,
-            'rtol': 1e-02 if precision == Precision.AMP else 1e-04,
+            'atol': 1e-04 if precision == Precision.AMP_FP16 else 1e-05,
+            'rtol': 1e-02 if precision == Precision.AMP_FP16 else 1e-04,
         }
 
         config.update({
@@ -1161,7 +1155,7 @@ class TestFFCVDataloaders:
         datadir = os.path.join(self.tmp_path, self.train_file if is_train else self.val_file)
         return build_ffcv_imagenet_dataloader(
             datadir=str(datadir),
-            batch_size=4,
+            global_batch_size=4,
             is_train=is_train,
             num_workers=0,
         )
