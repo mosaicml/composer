@@ -189,6 +189,7 @@ class RandomTextLMDataset(torch.utils.data.Dataset):
         self.size = size
         self.x = None
         self.y = None
+        self.attention_mask = None
 
         super().__init__()
 
