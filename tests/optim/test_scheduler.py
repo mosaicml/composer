@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 
 from composer.core import State, Time
 from composer.core.time import TimeUnit
+from composer.devices import DeviceCPU, DeviceGPU
 from composer.optim.scheduler import (ComposerScheduler, ConstantWithWarmupScheduler, CosineAnnealingScheduler,
                                       CosineAnnealingWarmRestartsScheduler, CosineAnnealingWithWarmupScheduler,
                                       ExponentialScheduler, LinearScheduler, LinearWithWarmupScheduler,
@@ -23,10 +24,16 @@ STEPS_PER_EPOCH = 1000
 
 
 @pytest.fixture
-def dummy_schedulers_state(rank_zero_seed: int):
+def dummy_schedulers_state(rank_zero_seed: int, request: pytest.FixtureRequest):
+    device = None
+    for item in request.session.items:
+        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
+        break
+    assert device != None
     state = State(
         model=SimpleModel(),
         run_name='run_name',
+        device=device,
         rank_zero_seed=rank_zero_seed,
         max_duration=MAX_DURATION,
     )

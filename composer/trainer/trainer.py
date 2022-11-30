@@ -870,7 +870,7 @@ class Trainer:
         algorithms = list(ensure_tuple(algorithms))
 
         # Device
-        self._device = get_device(device)
+        device = get_device(device)
 
         # Determine whether DeepSpeed and FSDP are enabled
         self.deepspeed_config = deepspeed_config
@@ -880,24 +880,24 @@ class Trainer:
 
         # Precision
         if precision is None:
-            precision = Precision.AMP_FP16 if isinstance(self._device, DeviceGPU) else Precision.FP32
+            precision = Precision.AMP_FP16 if isinstance(device, DeviceGPU) else Precision.FP32
         if isinstance(precision, str):
             precision = _get_backwards_compatible_precision(precision)
             precision = Precision(precision)
-        _validate_precision(precision, self._device)
+        _validate_precision(precision, device)
 
         # Distributed
         if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
-            dist.initialize_dist(self._device, dist_timeout)
+            dist.initialize_dist(device, dist_timeout)
 
         # Handle FSDP sharding
         if self.fsdp_config is not None:
             prepare_fsdp_module(model, optimizers, self.fsdp_config, precision)
 
         # Reproducibility
-        rank_zero_seed, seed = _distribute_and_get_random_seed(seed, self._device)
+        rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)
         # If hparams is used to create the Trainer this function is called twice
         # which is okay because all runs with the hparams codepath will do this
         reproducibility.seed_all(seed)
@@ -919,18 +919,18 @@ class Trainer:
 
         if not (self.deepspeed_enabled or self.fsdp_enabled):
             # check if model is already on tpu
-            if isinstance(self._device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
+            if isinstance(device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
                 raise ValueError(
                     'Use model.to(xm.xla_device()) to set the model to the TPU before providing to the trainer.')
             else:
-                model = self._device.module_to_device(model)
+                model = device.module_to_device(model)
                 # Move any remaining optimizer parameters onto the device
                 # It is possible that optimizer initialize created some internal tensors on CPU
                 # that need to be moved onto GPU.
-            optimizers = map_collection(optimizers, self._device.optimizer_to_device)
+            optimizers = map_collection(optimizers, device.optimizer_to_device)
 
         # Grad Accum
-        auto_grad_accum = _is_auto_grad_accum(grad_accum, device=self._device)
+        auto_grad_accum = _is_auto_grad_accum(grad_accum, device=device)
         if auto_grad_accum and profiler:
             raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
                              "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
@@ -965,6 +965,7 @@ class Trainer:
             rank_zero_seed=rank_zero_seed,
             algorithms=algorithms,
             model=model,
+            device=device,
             callbacks=callbacks,
             grad_accum=grad_accum,
             auto_grad_accum=auto_grad_accum,
@@ -1083,7 +1084,7 @@ class Trainer:
         self.engine.run_event(Event.INIT)
 
         # Log gpus and nodes.
-        device_name = self._device.__class__.__name__.lstrip('Device').lower()
+        device_name = self.state.device.__class__.__name__.lstrip('Device').lower()
         self.logger.log_hyperparameters({
             'num_nodes': int(dist.get_world_size() / dist.get_local_world_size()),
             f'num_{device_name}s_per_node': dist.get_local_world_size(),
@@ -1134,7 +1135,7 @@ class Trainer:
         if self._train_data_spec is not None:
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label,
                                       train_subset_num_batches)
-            if isinstance(self._device, DeviceTPU):
+            if isinstance(self.state.device, DeviceTPU):
                 self.state.train_dataloader = pl.MpDeviceLoader(self.state.dataloader, xm.xla_device())
             else:
                 self.state.train_dataloader = self.state.dataloader
@@ -1400,7 +1401,7 @@ class Trainer:
                                               load_progress_bar)
             dist.barrier()
             # At this point the rank 0 filepath should exist on all ranks
-            latest_checkpoint_exists_on_all_ranks = self._device.tensor_to_device(
+            latest_checkpoint_exists_on_all_ranks = self.state.device.tensor_to_device(
                 torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
             dist.all_reduce(latest_checkpoint_exists_on_all_ranks, reduce_operation='MIN')
 
@@ -1635,7 +1636,7 @@ class Trainer:
 
         # Grad Accum
         if grad_accum is not None:
-            self.state.auto_grad_accum = _is_auto_grad_accum(grad_accum, device=self._device)
+            self.state.auto_grad_accum = _is_auto_grad_accum(grad_accum, device=self.state.device)
             if self.state.auto_grad_accum and self.state.profiler:
                 raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
                                  "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
@@ -1650,7 +1651,7 @@ class Trainer:
                 if self.deepspeed_enabled:
                     raise ValueError('Changing the precision when using DeepSpeed is not supported')
                 precision = Precision(precision)
-                _validate_precision(precision, self._device)
+                _validate_precision(precision, self.state.device)
                 self.state.precision = precision
 
             # update scaler since precision was provided
@@ -1672,7 +1673,7 @@ class Trainer:
             # Safety check to ensure the metric and data are on the same device. Normally not
             # needed because the metric is automatically on the same device as the model.
             # See https://torchmetrics.readthedocs.io/en/latest/pages/overview.html for details.
-            metrics[name] = self._device.module_to_device(metric)
+            metrics[name] = self.state.device.module_to_device(metric)
             metric.set_dtype(torch.float32)  # type: ignore
 
         return metrics
@@ -1743,9 +1744,10 @@ class Trainer:
         """
         # Samples and tokens should be summed
         # Batch time should be the value from rank 0
-        sample_token_tensor = self._device.tensor_to_device(torch.tensor([num_samples, num_tokens], dtype=torch.int))
+        sample_token_tensor = self.state.device.tensor_to_device(
+            torch.tensor([num_samples, num_tokens], dtype=torch.int))
         dist.all_reduce(sample_token_tensor, reduce_operation='SUM')
-        batch_time_tensor = self._device.tensor_to_device(
+        batch_time_tensor = self.state.device.tensor_to_device(
             torch.tensor([batch_time.total_seconds()], dtype=torch.float32))
         dist.broadcast(batch_time_tensor, src=0)
         batch_time = datetime.timedelta(seconds=batch_time_tensor[0].cpu().item())
@@ -1797,7 +1799,7 @@ class Trainer:
                             self._rng_state = None
                         continue
 
-                    self.state.batch = self._device.batch_to_device(self.state.batch)
+                    self.state.batch = self.state.device.batch_to_device(self.state.batch)
                     self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
                     rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
                     rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
@@ -1969,7 +1971,7 @@ class Trainer:
                 for _, metric in self.state.train_metrics.items():
                     metric.reset()
 
-            total_loss_dict = {'loss/train/total': self._device.tensor_to_device(torch.zeros(size=(1,)))}
+            total_loss_dict = {'loss/train/total': self.state.device.tensor_to_device(torch.zeros(size=(1,)))}
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             try:
                 assert self.state.scaler is not None
@@ -1990,7 +1992,7 @@ class Trainer:
                             if use_grad_scaling:
                                 self.state.scaler.step(optimizer)
                             else:
-                                if isinstance(self._device, DeviceTPU):
+                                if isinstance(self.state.device, DeviceTPU):
                                     xm.optimizer_step(optimizer, barrier=True)
                                 else:
                                     optimizer.step()
@@ -2003,7 +2005,7 @@ class Trainer:
 
             if self.state.auto_grad_accum:
                 # Propagate across all ranks if any rank hit CUDA OOM
-                found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                found_cuda_oom = self.state.device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
                 dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
                 if found_cuda_oom.item() == 1:
                     device_batch_size = self._train_data_spec.get_num_samples_in_batch(device_batch)
@@ -2061,7 +2063,7 @@ class Trainer:
                 for k, microbatch_loss in microbatch_loss_dict.items():
                     loss_key = f'loss/train/{k}'
                     if loss_key not in total_loss_dict:
-                        total_loss_dict[loss_key] = self._device.tensor_to_device(torch.zeros(size=(1,)))
+                        total_loss_dict[loss_key] = self.state.device.tensor_to_device(torch.zeros(size=(1,)))
                     total_loss_dict[loss_key] += microbatch_loss
 
             # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
@@ -2124,7 +2126,7 @@ class Trainer:
                 microbatch_loss_dict = self.state.loss.copy()
             # If total loss key is not present, sum individual losses
             else:
-                microbatch_loss = self._device.tensor_to_device(torch.zeros(size=(1,)))
+                microbatch_loss = self.state.device.tensor_to_device(torch.zeros(size=(1,)))
                 for loss in ensure_tuple(self.state.loss):
                     microbatch_loss.add_(loss.mean())
 
@@ -2262,7 +2264,7 @@ class Trainer:
 
             for self.state.batch in self._iter_dataloader(TrainerMode.PREDICT):
                 # Move the batch onto the device
-                self.state.batch = self._device.batch_to_device(self.state.batch)
+                self.state.batch = self.state.device.batch_to_device(self.state.batch)
 
                 # Perform any device transforms
                 if data_spec.device_transforms is not None:
@@ -2513,7 +2515,7 @@ class Trainer:
                 dataloader.sampler.set_epoch(int(self.state.timestamp.batch))
 
             for self.state.batch in self._iter_dataloader(TrainerMode.EVAL):
-                self.state.batch = self._device.batch_to_device(self.state.batch)
+                self.state.batch = self.state.device.batch_to_device(self.state.batch)
                 if data_spec.device_transforms is not None:
                     self.state.batch = data_spec.device_transforms(self.state.batch)
 
@@ -2550,7 +2552,7 @@ class Trainer:
 
                             # Run in same precision context to avoid NaNs
                             with _get_precision_context(self.state.precision, self.deepspeed_enabled):
-                                if isinstance(self._device, DeviceMPS):
+                                if isinstance(self.state.device, DeviceMPS):
                                     # torchmetrics math has numerical errors on M1 devices
                                     # running the compute on CPU instead
                                     outputs = self.state.outputs.cpu()
@@ -2576,8 +2578,8 @@ class Trainer:
                             raise
                     if self.state.auto_grad_accum:
                         # Propagate across all ranks if any rank hit CUDA OOM
-                        found_cuda_oom = self._device.tensor_to_device(torch.tensor([found_cuda_oom],
-                                                                                    dtype=torch.uint8))
+                        found_cuda_oom = self.state.device.tensor_to_device(
+                            torch.tensor([found_cuda_oom], dtype=torch.uint8))
                         dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
                         if found_cuda_oom.item() == 1:
                             device_batch_size = data_spec.get_num_samples_in_batch(device_batch)
@@ -2687,7 +2689,7 @@ class Trainer:
         if self.deepspeed_enabled:
             return False
 
-        if isinstance(self._device, DeviceTPU):
+        if isinstance(self.state.device, DeviceTPU):
             return False
 
         if self.state.precision != Precision.AMP_FP16:

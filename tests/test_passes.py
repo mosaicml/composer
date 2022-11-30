@@ -10,6 +10,7 @@ from composer import Algorithm, Engine, Event, Logger, State, Trainer
 from composer.algorithms import FusedLayerNorm, LowPrecisionLayerNorm, SelectiveBackprop
 from composer.algorithms.low_precision_layernorm.low_precision_layernorm import LowPrecisionLayerNorm
 from composer.core.passes import sort_to_back, sort_to_front
+from composer.devices import DeviceCPU
 from tests.common import SimpleModel
 
 from .test_engine import run_event
@@ -132,7 +133,7 @@ class TestSortHelpers:
 
 
 def get_default_passes():
-    state = State(model=SimpleModel(), rank_zero_seed=42, run_name='test_chungoose')
+    state = State(model=SimpleModel(), device=DeviceCPU(), rank_zero_seed=42, run_name='test_chungoose')
     engine = Engine(state, Logger(state))
     return engine.algorithm_passes
 
