@@ -157,7 +157,12 @@ class HuggingFaceModel(ComposerModel):
         Returns:
             Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]: The loaded HuggingFace model and (if present) tokenizer
         """
-        import transformers
+        try:
+            import transformers
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='transformers',
+                                                conda_package='transformers',
+                                                conda_channel='conda-forge') from e
 
         # default local path to a tempfile if path is not provided
         if local_checkpoint_save_location is None:
