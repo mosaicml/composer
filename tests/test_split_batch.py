@@ -6,7 +6,7 @@ from typing import Dict, List, Mapping, Tuple, Union
 import pytest
 import torch
 
-from composer.core.data_spec import _default_split_batch, _split_list
+from composer.core.data_spec import _default_split_batch, _num_microbatches_split_batch, _split_list
 
 
 def dummy_tensor_batch(batch_size=12) -> torch.Tensor:
@@ -27,14 +27,6 @@ def dummy_tuple_batch_long(batch_size=12) -> List[torch.Tensor]:
     image_3 = torch.randn(size=(batch_size, 3, 32, 32))
     target = torch.randint(size=(batch_size,), high=10)
     return [image_1, image_2, image_3, target]
-
-
-def dummy_tuple_list_batch(batch_size=12) -> List[Union[List, torch.Tensor]]:
-    image_1 = torch.randn(size=(batch_size, 3, 32, 32))
-    image_2 = torch.randn(size=(batch_size, 3, 32, 32))
-    image_3 = torch.randn(size=(batch_size, 3, 32, 32))
-    target = torch.randint(size=(batch_size,), high=10)
-    return [[image_1, image_2, image_3], target]
 
 
 def dummy_dict_batch(batch_size=12) -> Dict[str, torch.Tensor]:
@@ -85,7 +77,6 @@ def dummy_batches(batch_size=12):
         dummy_tensor_batch(batch_size=batch_size),
         dummy_tuple_batch(batch_size=batch_size),
         dummy_tuple_batch_long(batch_size=batch_size),
-        dummy_tuple_list_batch(batch_size=batch_size),
         dummy_dict_batch(batch_size=batch_size),
         dummy_dict_batch_with_metadata(batch_size=batch_size)
     ]
@@ -93,12 +84,13 @@ def dummy_batches(batch_size=12):
 
 @pytest.mark.parametrize('batch', dummy_batches(12))
 def test_split_without_error(batch):
-    _default_split_batch(batch, num_microbatches=3)
+    microbatches = _default_split_batch(batch, microbatch_size=3)
+    assert len(microbatches) == 4
 
 
 @pytest.mark.parametrize('batch', [dummy_tuple_batch(12)])
 def test_split_tuple(batch):
-    microbatches = _default_split_batch(batch, num_microbatches=3)
+    microbatches = _default_split_batch(batch, microbatch_size=4)
     # should be 3 microbatches of size 4 tensors pairs
     # should split into [(x, y), (x, y), (x, y)]
     assert len(microbatches[0]) == 2
@@ -106,25 +98,63 @@ def test_split_tuple(batch):
 
 @pytest.mark.parametrize('batch', [dummy_tuple_batch_long(12)])
 def test_split_tuple_long(batch):
-    microbatches = _default_split_batch(batch, num_microbatches=3)
+    microbatches = _default_split_batch(batch, microbatch_size=4)
     assert len(microbatches[0]) == 4
-
-
-@pytest.mark.parametrize('batch', [dummy_maskrcnn_batch(12)])
-def test_split_maskrcnn(batch):
-    microbatches = _split_list(batch, num_microbatches=3)
-    assert len(microbatches) == 3
-
-
-@pytest.mark.parametrize('batch', dummy_batches(12))
-def test_num_micro_batches(batch):
-    microbatch = _default_split_batch(batch, num_microbatches=3)
-    assert len(microbatch) == 3
 
 
 @pytest.mark.parametrize('batch', dummy_batches(5))
 def test_odd_batch_sizes(batch):
-    microbatch = _default_split_batch(batch, num_microbatches=3)
+    microbatches = _default_split_batch(batch, microbatch_size=2)
+    # should split into [len(2), len(2), len(1)]
+    assert len(microbatches) == 3
+    last_microbatch = microbatches[-1]
+    if isinstance(last_microbatch, Mapping):
+        assert len(last_microbatch['image']) == 1
+        assert len(last_microbatch['target']) == 1
+    if isinstance(last_microbatch, tuple):
+        assert len(last_microbatch[0]) == 1
+    if isinstance(last_microbatch, list):
+        assert len(last_microbatch) == 1
+
+
+@pytest.mark.parametrize('batch', dummy_batches(1))
+def test_microbatch_size_greater_than_batch_size(batch):
+    with pytest.raises(ValueError):
+        _default_split_batch(batch, microbatch_size=3)
+
+
+@pytest.mark.parametrize('batch', [dummy_maskrcnn_batch(12)])
+def test_microbatch_size_split_maskrcnn(batch):
+    microbatches = _split_list(batch, microbatch_size=4)
+    assert len(microbatches) == 3
+
+
+## Older tests for deprecated codepath. To be removed in 0.13
+
+
+@pytest.mark.parametrize('batch', dummy_batches(12))
+def test_num_microbatches_split_without_error(batch):
+    microbatches = _num_microbatches_split_batch(batch, num_microbatches=3)
+    assert len(microbatches) == 3
+
+
+@pytest.mark.parametrize('batch', [dummy_tuple_batch(12)])
+def test_num_microbatches_split_tuple(batch):
+    microbatches = _num_microbatches_split_batch(batch, num_microbatches=3)
+    # should be 3 microbatches of size 4 tensors pairs
+    # should split into [(x, y), (x, y), (x, y)]
+    assert len(microbatches[0]) == 2
+
+
+@pytest.mark.parametrize('batch', [dummy_tuple_batch_long(12)])
+def test_num_microbatches_split_tuple_long(batch):
+    microbatches = _num_microbatches_split_batch(batch, num_microbatches=3)
+    assert len(microbatches[0]) == 4
+
+
+@pytest.mark.parametrize('batch', dummy_batches(5))
+def test_num_microbatches_odd_batch_sizes(batch):
+    microbatch = _num_microbatches_split_batch(batch, num_microbatches=3)
     # should split into [len(2), len(2), len(2)]
     last_microbatch = microbatch[-1]
     assert len(microbatch) == 3
@@ -138,6 +168,6 @@ def test_odd_batch_sizes(batch):
 
 
 @pytest.mark.parametrize('batch', dummy_batches(1))
-def test_batch_size_less_than_num_microbatches(batch):
+def test_num_microbatches_batch_size_less_than_num_microbatches(batch):
     with pytest.raises(ValueError):
-        _default_split_batch(batch, num_microbatches=3)
+        _num_microbatches_split_batch(batch, num_microbatches=3)
