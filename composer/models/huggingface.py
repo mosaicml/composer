@@ -98,8 +98,8 @@ class HuggingFaceModel(ComposerModel):
     @staticmethod
     def hf_from_composer_checkpoint(
         checkpoint_path: str,
-        model_instantiation_class: Optional[Union[Type[transformers.PreTrainedModel],
-                                                  Type['_BaseAutoModelClass']]] = None,
+        model_instantiation_class: Optional[Union[Type[transformers.PreTrainedModel], Type['_BaseAutoModelClass'],
+                                                  str]] = None,
         model_config_kwargs: Optional[dict] = None,
         local_checkpoint_save_location: Optional[Union[Path, str]] = None
     ) -> Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]:
@@ -142,10 +142,11 @@ class HuggingFaceModel(ComposerModel):
 
         Args:
             checkpoint_path (str): Path to the composer checkpoint, can be a local path, ``http(s)://`` url, or ``s3://`` uri
-            model_instantiation_class (Union[Type[:class:`transformers.PreTrainedModel`], Type[:class:`transformers.AutoModel`]]), optional):
+            model_instantiation_class (Union[Type[:class:`transformers.PreTrainedModel`], Type[:class:`transformers.AutoModel`], str]), optional):
                 Class to use to create the HuggingFace model. Defaults to the model class used in the original checkpoint. If this argument is
                 a HuggingFace auto class (e.g. :class:`transformers.AutoModel` or :class:`transformers.AutoModelForSequenceClassification`), the ``from_config`` method will be used,
-                while if it is of type :class:`transformers.PreTrainedModel`, the constructor will be called.
+                while if it is of type :class:`transformers.PreTrainedModel`, the constructor will be called. This argument can also be a string,
+                which will attempt to be imported as the class to use.
             model_config_kwargs: Dict[str, Any]: Extra arguments to pass in for the model config creation (e.g. ``num_labels`` for creating a sequence classification model)
             local_checkpoint_save_location (Optional[Union[Path, str]], optional): If specified, where to save the checkpoint file to locally.
                                                                                    If the input ``checkpoint_path`` is already a local path, this will be a symlink.
@@ -192,11 +193,27 @@ class HuggingFaceModel(ComposerModel):
         loaded_config = transformers.AutoConfig.from_pretrained(hf_config_dict['_name_or_path'], **hf_config_dict)
         if model_instantiation_class is not None:
             # If the instantiation class is explicitly provided, use it
+            # If a string is provided, attempt to import the class it refers to
+            if isinstance(model_instantiation_class, str):
+                try:
+                    model_instantiation_class = import_object(':'.join(model_instantiation_class.rsplit('.',
+                                                                                                        maxsplit=1)))
+                except (ModuleNotFoundError, AttributeError):
+                    raise ValueError(
+                        textwrap.dedent(
+                            f'The provided model_instantiation_class string {model_instantiation_class} could not be imported. '
+                            f'Please make sure {model_instantiation_class} is discoverable on the python path, or pass the class '
+                            'in directly.'))
+
+            assert model_instantiation_class is not None  # pyright
             # The AutoModel* classes have `from_config`, while the PreTrainedModel classes do not
-            if issubclass(model_instantiation_class, transformers.models.auto.auto_factory._BaseAutoModelClass):
+            # pyright can't tell this isn't a string at this point
+            if issubclass(
+                    model_instantiation_class,  # type: ignore
+                    transformers.models.auto.auto_factory._BaseAutoModelClass):
                 hf_model = model_instantiation_class.from_config(loaded_config)  # type: ignore
             else:
-                hf_model = model_instantiation_class(loaded_config)
+                hf_model = model_instantiation_class(loaded_config)  # type: ignore
         else:
             # If the instantiation class is not explicitly provided, attempt to import the saved class and use it
             try:
