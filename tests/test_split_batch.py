@@ -105,7 +105,7 @@ def test_split_tuple_long(batch):
 @pytest.mark.parametrize('batch', dummy_batches(5))
 def test_odd_batch_sizes(batch):
     microbatches = _default_split_batch(batch, microbatch_size=2)
-    # should split into [len(2), len(2), len(2)]
+    # should split into [len(2), len(2), len(1)]
     assert len(microbatches) == 3
     last_microbatch = microbatches[-1]
     if isinstance(last_microbatch, Mapping):
@@ -118,7 +118,7 @@ def test_odd_batch_sizes(batch):
 
 
 @pytest.mark.parametrize('batch', dummy_batches(1))
-def test_batch_size_less_than_num_microbatches(batch):
+def test_microbatch_size_greater_than_batch_size(batch):
     with pytest.raises(ValueError):
         _default_split_batch(batch, microbatch_size=3)
 

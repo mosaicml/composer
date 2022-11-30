@@ -759,7 +759,7 @@ class Trainer:
                 If the batch size of the dataloader is not divisible by ``grad_accum``,
                 then the last section will be of size ``batch_size mod grad_accum``.
         train_device_microbatch_size (Union[int, str), optional): The number of samples to process on each device per
-            microbatch. during training. Gradients are summed over the microbatches per device. If set to ``auto``,
+            microbatch during training. Gradients are summed over the microbatches per device. If set to ``auto``,
             dynamically decreases train_device_microbatch_size if microbatch is too large for GPU. (default: ``None``)
 
             .. note:: This is implemented by taking the batch yielded by the ``train_dataloader`` and splitting
@@ -982,7 +982,7 @@ class Trainer:
         # Microbatching
         # To support backwards compatability, we currently support both train_device_microbatch_size
         # and grad_accum. If both are specified with grad_accum=1, we will use train_device_microbatch_size.
-        if train_device_microbatch_size:
+        if train_device_microbatch_size is not None:
             using_device_microbatch_size = True
             if grad_accum != 1:
                 raise ValueError(
@@ -995,10 +995,10 @@ class Trainer:
                                  "recommended to run a mini-run with `train_device_microbatch_size='auto'` to identify "
                                  'the optimal train_device_microbatch_size value and then manually specify that in a '
                                  'second run with profiler.')
-            # If auto_microbatching is True, the microbatch size will be determined at when
-            # dataloader is specified.
+            # If auto_microbatching is True, the microbatch size will be determined when dataloader
+            # is specified.
             train_device_microbatch_size = _get_initial_train_device_microbatch_size(train_device_microbatch_size, None)
-        elif grad_accum:
+        elif grad_accum is not None:
             using_device_microbatch_size = False
             if grad_accum != 1:
                 warnings.warn(
