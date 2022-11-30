@@ -99,6 +99,7 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     # extra key that is not important
     tokenizer1.__dict__.pop('deprecation_warnings')
     tokenizer2.__dict__.pop('deprecation_warnings')
+<<<<<<< HEAD
 
     # tokenizer.init_kwargs['model_max_length'] is unset when the tokenizer does not specify it, but is set
     # to a very large number when you save and reload, so here we just check that its the same if it is present in
@@ -109,6 +110,8 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
         assert model_max_length_1 == model_max_length_2
     tokenizer1.__dict__['init_kwargs'].pop('model_max_length', None)
     tokenizer2.__dict__['init_kwargs'].pop('model_max_length', None)
+=======
+>>>>>>> 6eaf0bc0 (Autoload HuggingFace model/tokenizer (#1754))
     assert tokenizer1.__dict__ == tokenizer2.__dict__
 
 
@@ -211,6 +214,26 @@ def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_toke
         assert hf_tokenizer_state == {}
 
 
+<<<<<<< HEAD
+=======
+@pytest.fixture()
+def tiny_bert_model():
+    transformers = pytest.importorskip('transformers')
+
+    config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny')
+    hf_model = transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
+    return hf_model
+
+
+@pytest.fixture()
+def tiny_bert_tokenizer():
+    transformers = pytest.importorskip('transformers')
+
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('prajjwal1/bert-tiny')
+    return hf_tokenizer
+
+
+>>>>>>> 6eaf0bc0 (Autoload HuggingFace model/tokenizer (#1754))
 def get_lm_trainer(hf_model, hf_tokenizer, save_folder, load_path: Optional[str] = None):
     transformers = pytest.importorskip('transformers')
     from composer.models import HuggingFaceModel
@@ -222,10 +245,17 @@ def get_lm_trainer(hf_model, hf_tokenizer, save_folder, load_path: Optional[str]
 
     model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, metrics=metrics, use_logits=True)
 
+<<<<<<< HEAD
     vocab_size = hf_model.config.vocab_size
     sequence_length = 4
     size = 4
     batch_size = 4
+=======
+    vocab_size = 30522  # Match bert vocab size
+    sequence_length = 32
+    size = 16
+    batch_size = 8
+>>>>>>> 6eaf0bc0 (Autoload HuggingFace model/tokenizer (#1754))
 
     train_dataset = RandomTextLMDataset(size=size,
                                         vocab_size=vocab_size,
@@ -245,6 +275,10 @@ def get_lm_trainer(hf_model, hf_tokenizer, save_folder, load_path: Optional[str]
                       save_folder=save_folder,
                       save_interval='1ep',
                       save_filename='hf-checkpoint.pt',
+<<<<<<< HEAD
+=======
+                      progress_bar=True,
+>>>>>>> 6eaf0bc0 (Autoload HuggingFace model/tokenizer (#1754))
                       load_path=load_path)
     return trainer
 
@@ -277,7 +311,11 @@ def test_hf_loading_load_save_paths(checkpoint_upload_path: Optional[str], local
     from composer.models import HuggingFaceModel
 
     trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
+<<<<<<< HEAD
     trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
+=======
+    trainer.fit()
+>>>>>>> 6eaf0bc0 (Autoload HuggingFace model/tokenizer (#1754))
 
     # Just upload the checkpoint to a dummy object store outside of composer to make mocking easier
     if checkpoint_upload_path is not None:
@@ -323,7 +361,11 @@ def test_hf_loading_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny_bert_
         tiny_bert_model.resize_token_embeddings(len(tiny_bert_tokenizer))
 
     trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
+<<<<<<< HEAD
     trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
+=======
+    trainer.fit()
+>>>>>>> 6eaf0bc0 (Autoload HuggingFace model/tokenizer (#1754))
 
     hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
         checkpoint_path=str(tmp_path / 'hf-checkpoint.pt'))
@@ -348,7 +390,11 @@ def test_hf_loading_model_classes(model_class_name: str, num_classes: Optional[i
         pytest.skip('Invalid parametrization. num_classes cannot be None for loading sequence classification models.')
 
     trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
+<<<<<<< HEAD
     trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
+=======
+    trainer.fit()
+>>>>>>> 6eaf0bc0 (Autoload HuggingFace model/tokenizer (#1754))
 
     class CustomSequenceClassification(transformers.BertForSequenceClassification):
 
@@ -427,7 +473,11 @@ def test_hf_loading_errors(tiny_bert_model, tiny_bert_tokenizer, model_class_nam
     from composer.models import HuggingFaceModel
 
     trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
+<<<<<<< HEAD
     trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
+=======
+    trainer.fit()
+>>>>>>> 6eaf0bc0 (Autoload HuggingFace model/tokenizer (#1754))
 
     # The compatibility of the model chosen and the model saved are up to huggingface code, but we test
     # here that one incompatible combination of BertConfig and GPT2Model errors out
