@@ -84,6 +84,7 @@ def test_to_device(device, batch):
     new_batch = device_handler.batch_to_device(batch)
     _map_batch(new_batch, assert_device)
 
+
 @world_size(2)
 @device('gpu')
 def test_gpu_device_id(device, world_size):
