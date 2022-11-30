@@ -950,8 +950,8 @@ class TestTrainerEquivalence():
         # microbatching requires non-zero tolerance
         # Precision.AMP requires a even higher tolerance.
         threshold = {
-            'atol': 1e-04 if precision == Precision.AMP else 1e-05,
-            'rtol': 1e-02 if precision == Precision.AMP else 1e-04,
+            'atol': 1e-04 if precision == Precision.AMP_FP16 else 1e-05,
+            'rtol': 1e-02 if precision == Precision.AMP_FP16 else 1e-04,
         }
 
         config.update({

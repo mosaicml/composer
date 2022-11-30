@@ -1746,7 +1746,8 @@ class Trainer:
         if grad_accum is not None and train_device_microbatch_size is not None:
             raise ValueError('Cannot specify both `grad_accum` and `train_device_microbatch_size`.')
         elif train_device_microbatch_size is not None:
-            self.state.auto_microbatching = _is_auto_microbatching(train_device_microbatch_size, device=self.state.device)
+            self.state.auto_microbatching = _is_auto_microbatching(train_device_microbatch_size,
+                                                                   device=self.state.device)
             if self.state.auto_microbatching and self.state.profiler:
                 raise ValueError("`train_device_microbatch_size='auto'` is not compatible with the profiler. It is "
                                  "recommended to run a mini-run with `train_device_microbatch_size='auto'` to identify "
