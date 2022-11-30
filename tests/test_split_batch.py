@@ -124,7 +124,7 @@ def test_microbatch_size_greater_than_batch_size(batch):
 
 
 @pytest.mark.parametrize('batch', [dummy_maskrcnn_batch(12)])
-def test_num_microbatches_split_maskrcnn(batch):
+def test_microbatch_size_split_maskrcnn(batch):
     microbatches = _split_list(batch, microbatch_size=4)
     assert len(microbatches) == 3
 
