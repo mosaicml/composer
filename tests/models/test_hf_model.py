@@ -1,6 +1,5 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-import contextlib
 import copy
 import json
 import os
@@ -369,7 +368,7 @@ def test_hf_loading_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny_bert_
 
 
 @pytest.mark.parametrize('num_classes', [None, 2, 3])
-@pytest.mark.parametrize('model_class_name', ['default', 'autoseq', 'bertseq', 'customseq', 'gpt'])
+@pytest.mark.parametrize('model_class_name', ['default', 'autoseq', 'bertseq', 'customseq', 'bertseq_string'])
 def test_hf_loading_model_classes(model_class_name: str, num_classes: Optional[int], tmp_path: Path, tiny_bert_model,
                                   tiny_bert_tokenizer):
     transformers = pytest.importorskip('transformers')
@@ -396,7 +395,7 @@ def test_hf_loading_model_classes(model_class_name: str, num_classes: Optional[i
         'bertseq': transformers.BertForSequenceClassification,
         'default': None,
         'customseq': CustomSequenceClassification,
-        'gpt': transformers.GPT2Model
+        'bertseq_string': 'transformers.models.bert.modeling_bert.BertForSequenceClassification'
     }
 
     model_class = model_class_name_to_class[model_class_name]
@@ -404,30 +403,30 @@ def test_hf_loading_model_classes(model_class_name: str, num_classes: Optional[i
     if num_classes is not None:
         extra_model_args['num_labels'] = num_classes
 
-    # The compatibility of the model chosen and the model saved are up to huggingface code, but we test
-    # here that at least one incompatible combination of BertConfig and GPT2Model errors out
-    error_context = contextlib.nullcontext() if model_class_name != 'gpt' else pytest.raises(AttributeError)
-    with error_context:
-        hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
-            checkpoint_path=str(tmp_path / 'hf-checkpoint.pt'),
-            model_instantiation_class=model_class,
-            model_config_kwargs=extra_model_args)
+    hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
+        checkpoint_path=str(tmp_path / 'hf-checkpoint.pt'),
+        model_instantiation_class=model_class,
+        model_config_kwargs=extra_model_args)
 
-        expected_model = tiny_bert_model
-        if model_class_name == 'autoseq':
-            config = copy.deepcopy(tiny_bert_model.config)
-            config.update(extra_model_args)
-            expected_model = model_class.from_config(config)
-        elif model_class_name in {'bertseq', 'customseq'}:
-            config = copy.deepcopy(tiny_bert_model.config)
-            config.update(extra_model_args)
-            expected_model = model_class(config)
+    expected_model = tiny_bert_model
+    if model_class_name == 'autoseq':
+        config = copy.deepcopy(tiny_bert_model.config)
+        config.update(extra_model_args)
+        expected_model = model_class.from_config(config)
+    elif model_class_name in {'bertseq', 'customseq'}:
+        config = copy.deepcopy(tiny_bert_model.config)
+        config.update(extra_model_args)
+        expected_model = model_class(config)
+    elif model_class_name == 'bertseq_string':
+        config = copy.deepcopy(tiny_bert_model.config)
+        config.update(extra_model_args)
+        expected_model = transformers.BertForSequenceClassification(config)
 
-        if model_class_name == 'customseq':
-            assert hf_loaded_model.custom_attribute == expected_model.custom_attribute
+    if model_class_name == 'customseq':
+        assert hf_loaded_model.custom_attribute == expected_model.custom_attribute
 
-        check_hf_model_equivalence(hf_loaded_model, expected_model)
-        check_hf_tokenizer_equivalence(hf_loaded_tokenizer, tiny_bert_tokenizer)
+    check_hf_model_equivalence(hf_loaded_model, expected_model)
+    check_hf_tokenizer_equivalence(hf_loaded_tokenizer, tiny_bert_tokenizer)
 
 
 def test_hf_loading_full_model_equivalence(tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
@@ -448,3 +447,30 @@ def test_hf_loading_full_model_equivalence(tmp_path: Path, tiny_bert_model, tiny
     # loading from the last checkpoint gets you the same model
     for p1, p2 in zip(trainer1.state.model.parameters(), trainer2.state.model.parameters()):
         torch.testing.assert_close(p1, p2)
+
+
+# The compatibility of the model chosen and the model saved are up to huggingface code, but we test
+# here that at least one incompatible combination of BertConfig and GPT2Model errors out
+@pytest.mark.parametrize('model_class_name', ['gpt', 'not_a_module', 'not_a_class'])
+def test_hf_loading_errors(tiny_bert_model, tiny_bert_tokenizer, model_class_name, tmp_path):
+    transformers = pytest.importorskip('transformers')
+
+    from composer.models import HuggingFaceModel
+
+    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
+    trainer.fit()
+
+    model_class_name_to_class = {
+        'gpt': transformers.GPT2Model,
+        'not_a_module': 'not_a_module.BertForSequenceClassification',
+        'not_a_class': 'transformers.not_a_class'
+    }
+
+    error_contexts = {
+        'gpt': pytest.raises(AttributeError),
+        'not_a_module': pytest.raises(ValueError),
+        'not_a_class': pytest.raises(ValueError)
+    }
+    with error_contexts[model_class_name]:
+        _, _ = HuggingFaceModel.hf_from_composer_checkpoint(str(tmp_path / 'hf-checkpoint.pt'),
+                                                            model_class_name_to_class[model_class_name])
