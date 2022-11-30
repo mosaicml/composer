@@ -981,7 +981,7 @@ class Trainer:
 
         # Microbatching
         # To support backwards compatability, we currently support both train_device_microbatch_size
-        # and grad_accum. If both are specified, we will use train_device_microbatch_size.
+        # and grad_accum. If both are specified with grad_accum=1, we will use train_device_microbatch_size.
         if train_device_microbatch_size:
             using_device_microbatch_size = True
             if grad_accum != 1:
