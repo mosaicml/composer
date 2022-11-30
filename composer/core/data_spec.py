@@ -190,7 +190,7 @@ class DataSpec:
             the batch is not modified.
 
         split_batch ((Batch, int) -> Sequence[Batch], optional): Function called by the :class:`.Trainer` to
-            split a batch (the first parameter) into microbatches of a given size (the second parameter). If 
+            split a batch (the first parameter) into microbatches of a given size (the second parameter). If
             the ``dataloader`` yields batches not of type :class:`torch.Tensor`, Mapping, Tuple, or List, then
             this function must be specified.
 
