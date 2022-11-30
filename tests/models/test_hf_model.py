@@ -368,7 +368,8 @@ def test_hf_loading_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny_bert_
 
 
 @pytest.mark.parametrize('num_classes', [None, 2, 3])
-@pytest.mark.parametrize('model_class_name', ['default', 'autoseq', 'bertseq', 'customseq', 'bertseq_string'])
+@pytest.mark.parametrize('model_class_name',
+                         ['default', 'autoseq', 'bertseq', 'customseq', 'bertseq_string', 'autoseq_string'])
 def test_hf_loading_model_classes(model_class_name: str, num_classes: Optional[int], tmp_path: Path, tiny_bert_model,
                                   tiny_bert_tokenizer):
     transformers = pytest.importorskip('transformers')
@@ -395,7 +396,8 @@ def test_hf_loading_model_classes(model_class_name: str, num_classes: Optional[i
         'bertseq': transformers.BertForSequenceClassification,
         'default': None,
         'customseq': CustomSequenceClassification,
-        'bertseq_string': 'transformers.models.bert.modeling_bert.BertForSequenceClassification'
+        'bertseq_string': 'transformers.models.bert.modeling_bert.BertForSequenceClassification',
+        'autoseq_string': 'transformers.AutoModelForSequenceClassification'
     }
 
     model_class = model_class_name_to_class[model_class_name]
@@ -421,6 +423,10 @@ def test_hf_loading_model_classes(model_class_name: str, num_classes: Optional[i
         config = copy.deepcopy(tiny_bert_model.config)
         config.update(extra_model_args)
         expected_model = transformers.BertForSequenceClassification(config)
+    elif model_class_name == 'autoseq_string':
+        config = copy.deepcopy(tiny_bert_model.config)
+        config.update(extra_model_args)
+        expected_model = transformers.AutoModelForSequenceClassification.from_config(config)
 
     if model_class_name == 'customseq':
         assert hf_loaded_model.custom_attribute == expected_model.custom_attribute
