@@ -8,7 +8,7 @@ import torch
 
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.devices.device import _map_batch
-from tests.common import device
+from tests.common import device, world_size
 
 
 def dummy_tensor_batch() -> torch.Tensor:
@@ -85,6 +85,7 @@ def test_to_device(device, batch):
     _map_batch(new_batch, assert_device)
 
 @world_size(2)
-def test_gpu_device_id():
+@device('gpu')
+def test_gpu_device_id(device, world_size):
     device_gpu = DeviceGPU(device_id=0)
-    assert torch.cuda.current_device() == 0
+    assert device_gpu._device.index == 0
