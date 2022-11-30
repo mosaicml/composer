@@ -66,7 +66,7 @@ def predict_and_measure_memory(precision) -> int:
 
 
 @pytest.mark.gpu
-@pytest.mark.parametrize('precision', [Precision.AMP, Precision.BF16])
+@pytest.mark.parametrize('precision', [Precision.AMP_FP16, Precision.AMP_BF16])
 def test_train_precision_memory(precision: Precision):
     memory_fp32 = fit_and_measure_memory(Precision.FP32)
     memory_half = fit_and_measure_memory(precision)
@@ -74,7 +74,7 @@ def test_train_precision_memory(precision: Precision):
 
 
 @pytest.mark.gpu
-@pytest.mark.parametrize('precision', [Precision.AMP, Precision.BF16])
+@pytest.mark.parametrize('precision', [Precision.AMP_FP16, Precision.AMP_BF16])
 def test_eval_precision_memory(precision: Precision):
     memory_fp32 = eval_and_measure_memory(Precision.FP32)
     memory_half = eval_and_measure_memory(precision)
@@ -82,7 +82,7 @@ def test_eval_precision_memory(precision: Precision):
 
 
 @pytest.mark.gpu
-@pytest.mark.parametrize('precision', [Precision.AMP, Precision.BF16])
+@pytest.mark.parametrize('precision', [Precision.AMP_FP16, Precision.AMP_BF16])
 def test_predict_precision_memory(precision: Precision):
     memory_fp32 = predict_and_measure_memory(Precision.FP32)
     memory_half = predict_and_measure_memory(precision)

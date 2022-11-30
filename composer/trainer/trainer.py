@@ -109,11 +109,9 @@ def _filter_metrics(metrics: Dict[str, Metric], metric_names: Optional[List[str]
         return filtered_metrics
 
 
-def _validate_precision(precision: Precision, device: Device, deepspeed_enabled: bool):
+def _validate_precision(precision: Precision, device: Device):
     if isinstance(device, DeviceCPU) and precision != Precision.FP32:
         raise ValueError(f'{precision} is not supported for CPU training.')
-    if not deepspeed_enabled and precision == Precision.FP16:
-        raise ValueError('FP16 precision is only supported when training with DeepSpeed.')
 
 
 def _compile_schedulers(
@@ -273,6 +271,31 @@ def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrateg
     else:
         ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
     return ddp_sync_strategy
+
+
+def _get_precision_context(precision: Precision, deepspeed_enabled: bool):
+    if deepspeed_enabled:
+        return contextlib.nullcontext()
+    return get_precision_context(precision)
+
+
+def _get_backwards_compatible_precision(precision: str):
+    if precision == 'fp16':
+        warnings.warn(
+            DeprecationWarning(
+                "'fp16' is deprecated as the naming is unclear and will be removed in 0.13. Use 'amp_fp16' instead."))
+        return Precision.AMP_FP16
+    if precision == 'amp':
+        warnings.warn(
+            DeprecationWarning(
+                "'amp' is deprecated as the naming is unclear and will be removed in 0.13. Use 'amp_fp16' instead."))
+        return Precision.AMP_FP16
+    if precision == 'bf16':
+        warnings.warn(
+            DeprecationWarning(
+                "'bf16' is deprecated as the naming is unclear and will be removed in 0.13. Use 'amp_bf16' instead."))
+        return Precision.AMP_BF16
+    return precision
 
 
 def _generate_run_name() -> str:
@@ -681,12 +704,9 @@ class Trainer:
             ``'tpu'``, or ``'mps'``. (default: ``None``)
 
             The default behavior sets the device to ``'gpu'`` if CUDA is available, and otherwise ``'cpu'``.
-        precision (Precision | str, optional): Numerical precision to use for training. One of ``fp32``, ``fp16``
-            or ``amp`` (recommended). (default: ``Precision.FP32`` if training on CPU; ``Precision.AMP`` if training
-            on GPU)
-
-            .. note::
-                ``fp16`` only works if ``deepspeed_config`` is also provided.
+        precision (Precision | str, optional): Numerical precision to use for training. One of ``fp32``, ``amp_bf16``
+            or ``amp_fp16`` (recommended). (default: ``Precision.FP32`` if training on CPU; ``Precision.AMP_FP16`` if
+            training on GPU)
         grad_accum (Union[int, str], optional): The number of microbatches to split a per-device batch into. Gradients
             are summed over the microbatches per device. If set to ``auto``, dynamically increases grad_accum
             if microbatch is too large for GPU. (default: ``1``)
@@ -860,10 +880,11 @@ class Trainer:
 
         # Precision
         if precision is None:
-            precision = Precision.AMP if isinstance(device, DeviceGPU) else Precision.FP32
+            precision = Precision.AMP_FP16 if isinstance(device, DeviceGPU) else Precision.FP32
         if isinstance(precision, str):
+            precision = _get_backwards_compatible_precision(precision)
             precision = Precision(precision)
-        _validate_precision(precision, device, self.deepspeed_enabled)
+        _validate_precision(precision, device)
 
         # Distributed
         if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
@@ -1623,12 +1644,15 @@ class Trainer:
             self.state.grad_accum = _get_initial_grad_accum(grad_accum)
 
         # Precision
-        if precision is not None and Precision(precision) != self.state.precision:
-            if self.deepspeed_enabled:
-                raise ValueError('Changing the precision when using DeepSpeed is not supported')
-            precision = Precision(precision)
-            _validate_precision(precision, self.state.device, self.deepspeed_enabled)
-            self.state.precision = precision
+        if precision is not None:
+            if isinstance(precision, str):
+                precision = _get_backwards_compatible_precision(precision)
+            if Precision(precision) != self.state.precision:
+                if self.deepspeed_enabled:
+                    raise ValueError('Changing the precision when using DeepSpeed is not supported')
+                precision = Precision(precision)
+                _validate_precision(precision, self.state.device)
+                self.state.precision = precision
 
             # update scaler since precision was provided
             self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
@@ -1893,7 +1917,7 @@ class Trainer:
 
         with torch.no_grad(),\
                 model_eval_mode(self.state.model),\
-                get_precision_context(self.state.precision):
+                _get_precision_context(self.state.precision, self.deepspeed_enabled):
             if hasattr(self._original_model, 'validate'):  # backwards compatibility check
                 warnings.warn(
                     'Using validate() is no longer supported and will be removed in a future version. Please use eval_forward() instead.'
@@ -2078,7 +2102,7 @@ class Trainer:
             # forward pass
             self.engine.run_event(Event.BEFORE_FORWARD)
 
-            with get_precision_context(self.state.precision):
+            with _get_precision_context(self.state.precision, self.deepspeed_enabled):
                 self.state.outputs = self.state.model(self.state.batch)
 
             self.engine.run_event(Event.AFTER_FORWARD)
@@ -2086,7 +2110,7 @@ class Trainer:
             # loss
             self.engine.run_event(Event.BEFORE_LOSS)
 
-            with get_precision_context(self.state.precision):
+            with _get_precision_context(self.state.precision, self.deepspeed_enabled):
                 self.state.loss = self._original_model.loss(self.state.outputs, self.state.batch)
 
             assert self.state.loss is not None
@@ -2257,7 +2281,7 @@ class Trainer:
                 self.engine.run_event(Event.PREDICT_BATCH_START)
 
                 self.engine.run_event(Event.PREDICT_BEFORE_FORWARD)
-                with get_precision_context(self.state.precision):
+                with _get_precision_context(self.state.precision, self.deepspeed_enabled):
                     self.state.outputs = self.state.model(self.state.batch)
                 self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
 
@@ -2513,7 +2537,7 @@ class Trainer:
                     try:
                         for self.state.batch in data_spec.split_batch(self.state.batch, self.state.eval_batch_split):
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-                            with get_precision_context(self.state.precision):
+                            with _get_precision_context(self.state.precision, self.deepspeed_enabled):
                                 if hasattr(self._original_model, 'validate'):  # backwards compatibility check
                                     warnings.warn(
                                         'Using validate() is no longer supported and will be removed in a future version. Please use eval_forward() instead.'
@@ -2527,7 +2551,7 @@ class Trainer:
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
                             # Run in same precision context to avoid NaNs
-                            with get_precision_context(self.state.precision):
+                            with _get_precision_context(self.state.precision, self.deepspeed_enabled):
                                 if isinstance(self.state.device, DeviceMPS):
                                     # torchmetrics math has numerical errors on M1 devices
                                     # running the compute on CPU instead
@@ -2615,7 +2639,7 @@ class Trainer:
             return False
 
         precision = Precision(precision)
-        use_grad_scaling = precision == Precision.AMP
+        use_grad_scaling = precision == Precision.AMP_FP16
 
         if use_grad_scaling and (scaler is None or not scaler.is_enabled()):
             raise RuntimeError(f'Attempting to use grad scaling with {precision}, but scaler is not enabled.'
@@ -2668,7 +2692,7 @@ class Trainer:
         if isinstance(self.state.device, DeviceTPU):
             return False
 
-        if self.state.precision != Precision.AMP:
+        if self.state.precision != Precision.AMP_FP16:
             return True
 
         if self.state.optimizers is None:
