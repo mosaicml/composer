@@ -455,8 +455,6 @@ def test_hf_loading_full_model_equivalence(tmp_path: Path, tiny_bert_model, tiny
         torch.testing.assert_close(p1, p2)
 
 
-# The compatibility of the model chosen and the model saved are up to huggingface code, but we test
-# here that at least one incompatible combination of BertConfig and GPT2Model errors out
 @pytest.mark.parametrize('model_class_name', ['gpt', 'not_a_module', 'not_a_class'])
 def test_hf_loading_errors(tiny_bert_model, tiny_bert_tokenizer, model_class_name, tmp_path):
     transformers = pytest.importorskip('transformers')
@@ -466,6 +464,8 @@ def test_hf_loading_errors(tiny_bert_model, tiny_bert_tokenizer, model_class_nam
     trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
     trainer.fit()
 
+    # The compatibility of the model chosen and the model saved are up to huggingface code, but we test
+    # here that one incompatible combination of BertConfig and GPT2Model errors out
     model_class_name_to_class = {
         'gpt': transformers.GPT2Model,
         'not_a_module': 'not_a_module.BertForSequenceClassification',
