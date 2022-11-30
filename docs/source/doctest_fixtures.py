@@ -48,6 +48,7 @@ from composer.core import Timestamp as Timestamp
 from composer.core import TimeUnit as TimeUnit
 from composer.core import types as types
 from composer.datasets.synthetic import SyntheticBatchPairDataset
+from composer.devices import DeviceCPU
 from composer.loggers import InMemoryLogger as InMemoryLogger
 from composer.loggers import Logger as Logger
 from composer.loggers import RemoteUploaderDownloader
@@ -147,6 +148,7 @@ state = State(
     rank_zero_seed=0,
     model=model,
     run_name='run_name',
+    device=DeviceCPU(),
     optimizers=optimizer,
     grad_accum=1,
     dataloader=train_dataloader,

@@ -4,20 +4,27 @@
 from copy import deepcopy
 from unittest.mock import Mock
 
+import pytest
 import torch
 
 from composer.algorithms import LayerFreezing
 from composer.core import Event, Precision, State, Timestamp
+from composer.devices import DeviceCPU, DeviceGPU
 from composer.loggers import Logger
 from tests.common import SimpleConvModel
 
 
-def _generate_state(epoch: int, max_epochs: int):
+def _generate_state(request: pytest.FixtureRequest, epoch: int, max_epochs: int):
     """Generates a state and fast forwards the timestamp by epochs."""
     model = SimpleConvModel()
-
+    device = None
+    for item in request.session.items:
+        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
+        break
+    assert device != None
     state = State(model=model,
                   rank_zero_seed=0,
+                  device=device,
                   run_name='run_name',
                   optimizers=torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.99),
                   precision=Precision.FP32,
@@ -43,8 +50,8 @@ def _assert_param_groups_equal(expected_groups, actual_groups):
             assert (actual_groups[i]['params'][j] == expected_params).all()
 
 
-def test_freeze_layers_no_freeze(empty_logger: Logger):
-    state = _generate_state(epoch=10, max_epochs=100)
+def test_freeze_layers_no_freeze(empty_logger: Logger, request: pytest.FixtureRequest):
+    state = _generate_state(request, epoch=10, max_epochs=100)
 
     first_optimizer = state.optimizers[0]
     expected_param_groups = deepcopy(first_optimizer.param_groups)
@@ -56,8 +63,8 @@ def test_freeze_layers_no_freeze(empty_logger: Logger):
     _assert_param_groups_equal(expected_param_groups, updated_param_groups)
 
 
-def test_freeze_layers_with_freeze(empty_logger: Logger):
-    state = _generate_state(epoch=80, max_epochs=100)
+def test_freeze_layers_with_freeze(empty_logger: Logger, request: pytest.FixtureRequest):
+    state = _generate_state(request, epoch=80, max_epochs=100)
 
     first_optimizer = state.optimizers[0]
     expected_param_groups = deepcopy(first_optimizer.param_groups)

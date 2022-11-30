@@ -23,6 +23,7 @@ from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit
+from composer.devices import Device
 from composer.utils import batch_get, batch_set, dist, ensure_tuple, get_composer_env_dict, is_model_deepspeed
 
 if TYPE_CHECKING:
@@ -112,6 +113,7 @@ class State(Serializable):
         rank_zero_seed (int): The seed used on the rank zero process. It is assumed that each rank's seed is
             ``rank_zero_seed + dist.get_global_rank()``.
         run_name (str): The name for this training run.
+        device (Device): The device used by this process. The trainer moves the model and loaded data to this device.
         grad_accum (int, optional): The number of gradient accumulation steps to use. With this argument, micro batch
             size for each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
         eval_batch_split (int, optional): The mirror of grad_accum for eval. With this argument, micro batch
@@ -143,6 +145,8 @@ class State(Serializable):
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
             microbatch between :attr:`.Event.BATCH_START` and :attr:`.Event.BATCH_END`.
+        device (Device): The device used by this process. The trainer moves the model and loaded data to this device. This
+            can be used in callbacks and algorithms to move data onto the correct device.
         train_metrics (Dict[str, Metric]): The current train metrics, organized by metric name. ``train_metrics`` will be deep-copied to
             ensure that each evaluator updates only its ``train_metrics``.
 
@@ -263,6 +267,9 @@ class State(Serializable):
         # run_name
         run_name: str,
 
+        # device
+        device: Device,
+
         # stopping conditions
         max_duration: Optional[Union[str, Time[int]]] = None,
 
@@ -294,12 +301,13 @@ class State(Serializable):
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
         callbacks: Optional[Union[Callback, Sequence[Callback]]] = None,
 
-        # deepspeed.
+        # deepspeed
         deepspeed_config: Optional[Dict[str, Any]] = None,
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
         self.run_name = run_name
+        self.device = device
         self.grad_accum = grad_accum
         self.eval_batch_split = eval_batch_split
         self.auto_grad_accum = auto_grad_accum
