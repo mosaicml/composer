@@ -704,8 +704,8 @@ class Trainer:
             ``'tpu'``, or ``'mps'``. (default: ``None``)
 
             The default behavior sets the device to ``'gpu'`` if CUDA is available, and otherwise ``'cpu'``.
-        precision (Precision | str, optional): Numerical precision to use for training. One of ``fp32``, ``amp_fp16``
-            or ``amp_bf16`` (recommended). (default: ``Precision.FP32`` if training on CPU; ``Precision.AMP_FP16`` if
+        precision (Precision | str, optional): Numerical precision to use for training. One of ``fp32``, ``amp_bf16``
+            or ``amp_fp16`` (recommended). (default: ``Precision.FP32`` if training on CPU; ``Precision.AMP_FP16`` if
             training on GPU)
         grad_accum (Union[int, str], optional): The number of microbatches to split a per-device batch into. Gradients
             are summed over the microbatches per device. If set to ``auto``, dynamically increases grad_accum
