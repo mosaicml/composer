@@ -75,7 +75,8 @@ def _ensure_no_optim_in_config(config: Dict[str, Any]):
 def _add_precision_config(config: Dict[str, Any], state: State):
     precision = state.precision
 
-    # Verify DeepSpeed config is consistent with state.precision if set
+    # Verify DeepSpeed config is consistent with state.precision if set. DeepSpeed precision config
+    # has many different ways to specify approximately the same thing. See https://www.deepspeed.ai/docs/config-json/.
     ds_precision = None
     if 'fp16' in config and 'enabled' in config['fp16'] and config['fp16']['enabled']:
         ds_precision = Precision.AMP_FP16
