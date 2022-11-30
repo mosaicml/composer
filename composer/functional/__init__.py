@@ -28,6 +28,7 @@ from composer.algorithms.fused_layernorm import apply_fused_layernorm
 from composer.algorithms.gated_linear_units import apply_gated_linear_units
 from composer.algorithms.ghost_batchnorm import apply_ghost_batchnorm
 from composer.algorithms.gradient_clipping import apply_gradient_clipping
+from composer.algorithms.gyro_dropout import apply_gyro_dropout
 from composer.algorithms.label_smoothing import smooth_labels
 from composer.algorithms.layer_freezing import freeze_layers
 from composer.algorithms.low_precision_layernorm import apply_low_precision_layernorm
@@ -39,7 +40,6 @@ from composer.algorithms.seq_length_warmup import set_batch_sequence_length
 from composer.algorithms.squeeze_excite import apply_squeeze_excite
 from composer.algorithms.stochastic_depth import apply_stochastic_depth
 from composer.algorithms.weight_standardization import apply_weight_standardization
-from composer.algorithms.gyro_dropout import apply_gyro_dropout
 
 # All must be manually defined so sphinx automodule will work properly
 __all__ = [

@@ -50,6 +50,7 @@ from composer.algorithms.fused_layernorm import FusedLayerNorm
 from composer.algorithms.gated_linear_units import GatedLinearUnits
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm
 from composer.algorithms.gradient_clipping import GradientClipping
+from composer.algorithms.gyro_dropout import GyroDropout
 from composer.algorithms.label_smoothing import LabelSmoothing
 from composer.algorithms.layer_freezing import LayerFreezing
 from composer.algorithms.low_precision_layernorm import LowPrecisionLayerNorm
@@ -64,7 +65,6 @@ from composer.algorithms.squeeze_excite import SqueezeExcite, SqueezeExcite2d, S
 from composer.algorithms.stochastic_depth import StochasticDepth
 from composer.algorithms.swa import SWA
 from composer.algorithms.weight_standardization import WeightStandardization
-from composer.algorithms.gyro_dropout import GyroDropout
 
 __all__ = [
     'Alibi',

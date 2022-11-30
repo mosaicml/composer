@@ -9,6 +9,7 @@ from composer.models import ComposerClassifier
 
 
 class DropoutLayer(ComposerClassifier):
+
     def __init__(self) -> None:
         dropout = torch.nn.Dropout(0.5)
         net = torch.nn.Sequential(dropout)
@@ -31,12 +32,12 @@ def test_gyro_dropout_masking(gyro_dropout_layer: torch.nn.Module):
 
     model = gyro_dropout_layer
     y = model((x, None))
-    
+
     mask = model.dropout.dropout_mask
     p = model.dropout.p
     for i in range(batch_size):
         for j in range(output_feature):
-            assert x[i][j]*mask[i][j]*(1/(1-p)) == y[i][j]
+            assert x[i][j] * mask[i][j] * (1 / (1 - p)) == y[i][j]
 
 
 def test_gyro_dropout_mask_pattern(gyro_dropout_layer: torch.nn.Module):
@@ -46,7 +47,7 @@ def test_gyro_dropout_mask_pattern(gyro_dropout_layer: torch.nn.Module):
 
     model = gyro_dropout_layer
     y = model((x, None))
-    
+
     mask = model.dropout.dropout_mask
     tau = model.dropout.tau
     pivot = 0

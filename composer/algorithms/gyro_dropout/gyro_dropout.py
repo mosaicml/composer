@@ -4,8 +4,8 @@ import logging
 import warnings
 from typing import Dict, Optional, Type
 
-import torch
 import numpy as np
+import torch
 
 from composer.algorithms.warnings import NoEffectWarning
 from composer.core import Algorithm, Event, State
@@ -16,8 +16,9 @@ log = logging.getLogger(__name__)
 
 
 class GyroDropoutLayer(torch.nn.Module):
+
     def __init__(self, iters_per_epoch: int, max_epoch: int, p: float, sigma: int, tau: int):
-        super(GyroDropoutLayer, self).__init__()    
+        super(GyroDropoutLayer, self).__init__()
 
         self.sigma = sigma
         self.tau = tau
@@ -31,7 +32,7 @@ class GyroDropoutLayer(torch.nn.Module):
         self.iters_per_epoch = iters_per_epoch
 
     def forward(self, x):
-        
+
         if self.training:
             if self.training_step == 0:
                 is_cuda_tensor = x.is_cuda
@@ -40,34 +41,31 @@ class GyroDropoutLayer(torch.nn.Module):
                     self.preselect_masks = (torch.rand(self.sigma, x.shape[1]) > self.p).float().to("cuda")
                 else:
                     self.preselect_masks = (torch.rand(self.sigma, x.shape[1]) > self.p).float()
-                
-                # Below simplified from: (iters_per_epoch*max_epoch*batch_size/sigma) / (batch_size/self.tau) 
+
+                # Below simplified from: (iters_per_epoch*max_epoch*batch_size/sigma) / (batch_size/self.tau)
                 self.iter_num = int(self.iters_per_epoch * self.max_epoch / self.sigma) * self.tau
-                
+
             if self.training_step % self.iter_num == 0:
                 pick_idx = np.random.choice(self.sigma, self.tau)
                 self.selected_masks = self.preselect_masks[pick_idx]
 
             self.dropout_mask = torch.repeat_interleave(self.selected_masks, x.shape[0] // self.tau, dim=0)
 
-            self.training_step += 1          
+            self.training_step += 1
 
             return x * self.dropout_mask * (1 / (1 - self.p))
         else:
             return x
 
 
-def from_Dropout(p: float, sigma: int, tau: int, num_iterations: int, epoch:int, layer: torch.nn.Module, module_index: int):
+def from_Dropout(p: float, sigma: int, tau: int, num_iterations: int, epoch: int, layer: torch.nn.Module,
+                 module_index: int):
     """Defines a replacement policy from a `torch.nn.Dropout` to a 'GyroDropout`"""
 
     return GyroDropoutLayer(p, sigma, tau, num_iterations, epoch)
 
 
-def apply_gyro_dropout(model: torch.nn.Module, 
-                       iters_per_epoch: int,
-                       max_epoch: int,
-                       p: float,
-                       sigma: int, 
+def apply_gyro_dropout(model: torch.nn.Module, iters_per_epoch: int, max_epoch: int, p: float, sigma: int,
                        tau: int) -> None:
     """Replaces all instances of `torch.nn.Dropout` with a `GyroDropout`.
 
@@ -76,7 +74,9 @@ def apply_gyro_dropout(model: torch.nn.Module,
 
     # prepare the replacement policy and perform replacement
     from functools import partial
-    policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {torch.nn.Dropout: partial(from_Dropout, iters_per_epoch, max_epoch, p, sigma, tau)}
+    policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
+        torch.nn.Dropout: partial(from_Dropout, iters_per_epoch, max_epoch, p, sigma, tau)
+    }
     replaced_instances = module_surgery.replace_module_classes(module=model, policies=policy)
     if len(replaced_instances) == 0:
         warnings.warn(
@@ -114,11 +114,11 @@ class GyroDropout(Algorithm):
            )
     """
 
-    def __init__(self, p: float=0.5, sigma: int=256, tau: int=16):
-        self.p = p 
+    def __init__(self, p: float = 0.5, sigma: int = 256, tau: int = 16):
+        self.p = p
         self.sigma = sigma
         self.tau = tau
-        
+
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
 
@@ -126,17 +126,18 @@ class GyroDropout(Algorithm):
     def required_on_load() -> bool:
         return True
 
-    def match(self, event: Event, state: State) -> bool: 
+    def match(self, event: Event, state: State) -> bool:
         del state
         return event == Event.FIT_START
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        del event, logger          
-        
-        apply_gyro_dropout(model=state.model,
-                           iters_per_epoch=int(state.dataloader_len),
-                           max_epoch=int(state.max_duration),
-                           p=self.p,
-                           sigma=self.sigma,
-                           tau=self.tau,
+        del event, logger
+
+        apply_gyro_dropout(
+            model=state.model,
+            iters_per_epoch=int(state.dataloader_len),
+            max_epoch=int(state.max_duration),
+            p=self.p,
+            sigma=self.sigma,
+            tau=self.tau,
         )

@@ -18,9 +18,9 @@ import composer.algorithms
 from composer import Algorithm
 from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
                                  Factorize, FusedLayerNorm, GatedLinearUnits, GhostBatchNorm, GradientClipping,
-                                 LabelSmoothing, LayerFreezing, LowPrecisionLayerNorm, MixUp, NoOpModel,
+                                 GyroDropout, LabelSmoothing, LayerFreezing, LowPrecisionLayerNorm, MixUp, NoOpModel,
                                  ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup, SqueezeExcite,
-                                 StochasticDepth, WeightStandardization, GyroDropout)
+                                 StochasticDepth, WeightStandardization)
 from composer.models import composer_resnet
 from composer.models.base import ComposerModel
 from tests import common

@@ -4,7 +4,7 @@
 """Replaces all instances of `torch.nn.Dropout` with a `GyroDropout`.
 
 By masking Dropout layer, this usually improves accuracy.
-""" 
+"""
 
 from composer.algorithms.gyro_dropout.gyro_dropout import GyroDropout, apply_gyro_dropout
 
