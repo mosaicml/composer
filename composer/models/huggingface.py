@@ -100,7 +100,7 @@ class HuggingFaceModel(ComposerModel):
         checkpoint_path: str,
         model_instantiation_class: Optional[Union[Type[transformers.PreTrainedModel],
                                                   Type['_BaseAutoModelClass']]] = None,
-        model_init_kwargs: Optional[dict] = None,
+        model_config_kwargs: Optional[dict] = None,
         local_checkpoint_save_location: Optional[Union[Path, str]] = None
     ) -> Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]:
         """Loads a HuggingFace model (and tokenizer if present) from a composer checkpoint.
@@ -146,7 +146,7 @@ class HuggingFaceModel(ComposerModel):
                 Class to use to create the HuggingFace model. Defaults to the model class used in the original checkpoint. If this argument is
                 a HuggingFace auto class (e.g. :class:`transformers.AutoModel` or :class:`transformers.AutoModelForSequenceClassification`), the ``from_config`` method will be used,
                 while if it is of type :class:`transformers.PreTrainedModel`, the constructor will be called.
-            model_init_kwargs: Dict[str, Any]: Extra arguments to pass in for the model creation (e.g. ``num_labels`` for creating a sequence classification model)
+            model_config_kwargs: Dict[str, Any]: Extra arguments to pass in for the model config creation (e.g. ``num_labels`` for creating a sequence classification model)
             local_checkpoint_save_location (Optional[Union[Path, str]], optional): If specified, where to save the checkpoint file to locally.
                                                                                    If the input ``checkpoint_path`` is already a local path, this will be a symlink.
                                                                                    Defaults to None, which will use a temporary file.
@@ -169,8 +169,8 @@ class HuggingFaceModel(ComposerModel):
             tmp_dir = tempfile.TemporaryDirectory()
             local_checkpoint_save_location = Path(tmp_dir.name) / 'local-composer-checkpoint.pt'
 
-        if model_init_kwargs is None:
-            model_init_kwargs = {}
+        if model_config_kwargs is None:
+            model_config_kwargs = {}
 
         # download the checkpoint file
         get_file(checkpoint_path, str(local_checkpoint_save_location))
@@ -184,7 +184,7 @@ class HuggingFaceModel(ComposerModel):
 
         hf_config_dict = hf_model_state['config']['content']
         # Update the config with any extra args needed
-        hf_config_dict.update(model_init_kwargs)
+        hf_config_dict.update(model_config_kwargs)
         # JSON keys need to be converted back to ints, huggingface does not auto convert them along this code path
         if 'id2label' in hf_config_dict:
             hf_config_dict['id2label'] = {int(k): v for k, v in hf_config_dict['id2label'].items()}

@@ -411,7 +411,7 @@ def test_hf_loading_model_classes(model_class_name: str, num_classes: Optional[i
         hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
             checkpoint_path=str(tmp_path / 'hf-checkpoint.pt'),
             model_instantiation_class=model_class,
-            model_init_kwargs=extra_model_args)
+            model_config_kwargs=extra_model_args)
 
         expected_model = tiny_bert_model
         if model_class_name == 'autoseq':
