@@ -36,8 +36,9 @@ class HuggingFaceModel(ComposerModel):
     Args:
         model (transformers.PreTrainedModel): A 🤗 Transformers model.
         tokenizer (transformers.PreTrainedTokenizer, optional): The tokenizer used to prepare the dataset. Default ``None``.
-                                                                Note: If the tokenizer is provided, its config will be saved in the composer checkpoint, and it can be reloaded
-                                                                using :meth:`HuggingFaceModel.hf_from_composer_checkpoint`. If the tokenizer is not provided here, it will not be saved in the composer checkpoint.
+
+            .. note:: If the tokenizer is provided, its config will be saved in the composer checkpoint, and it can be reloaded
+                using :meth:`HuggingFaceModel.hf_from_composer_checkpoint`. If the tokenizer is not provided here, it will not be saved in the composer checkpoint.
         use_logits (bool, optional): If True, the model's output logits will be used to calculate validation metrics. Else, metrics will be inferred from the HuggingFaceModel directly. Default: ``False``
         metrics (list[Metric], optional): list of torchmetrics to apply to the output of `validate`. Default: ``None``.
     .. warning:: This wrapper is designed to work with 🤗 datasets that define a `labels` column.
