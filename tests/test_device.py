@@ -83,3 +83,8 @@ def test_to_device(device, batch):
 
     new_batch = device_handler.batch_to_device(batch)
     _map_batch(new_batch, assert_device)
+
+@world_size(2)
+def test_gpu_device_id():
+    device_gpu = DeviceGPU(device_id=0)
+    assert torch.cuda.current_device() == 0
