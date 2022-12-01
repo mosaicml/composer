@@ -20,7 +20,7 @@ class OptimizerMonitor(Callback):
         .. doctest::
 
             >>> from composer import Trainer
-            >>> from composer.callbacks import GradMonitor
+            >>> from composer.callbacks import OptimizerMonitor
             >>> # constructing trainer object with this callback
             >>> trainer = Trainer(
             ...     model=model,
