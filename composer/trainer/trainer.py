@@ -29,7 +29,6 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
-from composer.algorithms import GradientClipping
 from composer.callbacks import CheckpointSaver, GradMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException, Callback, DataSpec, Engine, Evaluator,
                            Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
@@ -715,6 +714,9 @@ class Trainer:
                 it into ``grad_accum`` sections. Each section is of size ``train_dataloader // grad_accum``.
                 If the batch size of the dataloader is not divisible by ``grad_accum``,
                 then the last section will be of size ``batch_size mod grad_accum``.
+
+            .. deprecated:: 0.12
+               Deprecated. Please use train_device_microbatch_size.
         seed (int, optional): The seed used in randomization. If ``None``, then a random seed
             will be created. (default: ``None``)
 
@@ -739,11 +741,6 @@ class Trainer:
         ddp_sync_strategy (str | DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
             Leave unset to let the trainer auto-configure this. See :class:`.DDPSyncStrategy`
             for more details.
-        grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to ``-1`` for no gradient
-            clipping. (default: ``-1``).
-
-            .. deprecated:: 0.8
-               Deprecated. Please use composer.algorithms.GradientClipping.
         profiler (Profiler, optional): The profiler, if profiling should be enabled. (default: ``None``)
 
             .. seealso::
@@ -845,9 +842,6 @@ class Trainer:
         dist_timeout: float = 1800.0,
         ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
 
-        # Grad Clip Norm
-        grad_clip_norm: float = -1.0,
-
         # Profiling
         profiler: Optional[Profiler] = None,
 
@@ -937,21 +931,6 @@ class Trainer:
                              'then manually specify that in a second run with profiler.')
         grad_accum = _get_initial_grad_accum(grad_accum)
         eval_batch_split = 1
-
-        # Grad Clip Norm
-        if grad_clip_norm > 0:
-
-            warnings.warn(
-                DeprecationWarning((f"Using the 'grad_clip_norm' field in Trainer is deprecated. Please use"
-                                    'the GradientClipping Algorithm in composer.algorithms.gradient_clipping.')))
-
-            if any(isinstance(alg, GradientClipping) for alg in algorithms):
-                warnings.warn(
-                    UserWarning(
-                        f'The GradientClipping algorithm is already specified. Ignoring grad_clip_norm={grad_clip_norm}'
-                    ))
-            else:
-                algorithms.append(GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm))
 
         # Run Name
         if run_name is None:
