@@ -130,7 +130,7 @@
    :badge:`CV,badge-primary`
    ++++++++++++++
    Clips all gradients in model based on specified clipping_type
-   
+
    ---
    .. link-button:: label_smoothing.html
       :text: LabelSmoothing

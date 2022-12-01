@@ -75,4 +75,5 @@ GyroDropout achieves improved accuracy over conventional dropout by pre-selectin
 
 ## Attribution
 [*Gyro Dropout: Maximizing Ensemble Effect in Neural Network Training*](https://proceedings.mlsys.org/paper/2022/hash/be83ab3ecd0db773eb2dc1b0a17836a1-Abstract.html) by Junyeol Lee, Hyeongju Kim, Hyungjun Oh, Jaemin Kim, Hongseok Jeung, Yung-Kyun Noh, Jiwon Seo.
+
 *The Composer implementation of this method and the accompanying documentation were produced by Junyeol Lee and Gihyun Park at BDSL in Hanyang Univ.*

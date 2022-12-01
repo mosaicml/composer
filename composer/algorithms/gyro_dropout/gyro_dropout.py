@@ -1,5 +1,8 @@
-# Copyright 2022  Gihyun Park, Junyeol Lee, and Jiwon Seo
+# Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
+
+# Written by Gihyun Park, Junyeol Lee, and Jiwon Seo
+
 import logging
 import warnings
 from typing import Dict, Optional, Type
@@ -20,25 +23,24 @@ class GyroDropoutLayer(torch.nn.Module):
     def __init__(self, iters_per_epoch: int, max_epoch: int, p: float, sigma: int, tau: int):
         super(GyroDropoutLayer, self).__init__()
 
+        self.iters_per_epoch = iters_per_epoch
+        self.max_epoch = max_epoch
+        self.p = p
         self.sigma = sigma
         self.tau = tau
-        self.p = p
-        self.preselect_masks = None
-        self.dropout_mask = None
-        self.selected_masks = None
+        self.preselect_masks = torch.empty(0, 0)
+        self.dropout_mask = torch.empty(0, 0)
+        self.selected_masks = torch.empty(0, 0)
         self.training_step = 0
         self.iter_num = 0
-        self.max_epoch = max_epoch
-        self.iters_per_epoch = iters_per_epoch
 
     def forward(self, x):
-
         if self.training:
             if self.training_step == 0:
                 is_cuda_tensor = x.is_cuda
 
                 if is_cuda_tensor:
-                    self.preselect_masks = (torch.rand(self.sigma, x.shape[1]) > self.p).float().to("cuda")
+                    self.preselect_masks = (torch.rand(self.sigma, x.shape[1]) > self.p).float().to('cuda')
                 else:
                     self.preselect_masks = (torch.rand(self.sigma, x.shape[1]) > self.p).float()
 
@@ -58,11 +60,11 @@ class GyroDropoutLayer(torch.nn.Module):
             return x
 
 
-def from_Dropout(p: float, sigma: int, tau: int, num_iterations: int, epoch: int, layer: torch.nn.Module,
+def from_Dropout(iters_per_epoch: int, epoch: int, p: float, sigma: int, tau: int, layer: torch.nn.Module,
                  module_index: int):
     """Defines a replacement policy from a `torch.nn.Dropout` to a 'GyroDropout`"""
 
-    return GyroDropoutLayer(p, sigma, tau, num_iterations, epoch)
+    return GyroDropoutLayer(iters_per_epoch, epoch, p, sigma, tau)
 
 
 def apply_gyro_dropout(model: torch.nn.Module, iters_per_epoch: int, max_epoch: int, p: float, sigma: int,
@@ -97,9 +99,9 @@ class GyroDropout(Algorithm):
             Default: ``256``.
         tau (int, optional): the number of concurrently scheduled subnetworks in an iteration
             Default: ``16``.
-            
+
     Example:
-           
+
         .. testcode::
 
            from composer.algorithms import GyroDropout
@@ -133,10 +135,13 @@ class GyroDropout(Algorithm):
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         del event, logger
 
+        assert state.dataloader_len is not None
+        assert state.max_duration is not None
+
         apply_gyro_dropout(
             model=state.model,
-            iters_per_epoch=int(state.dataloader_len),
-            max_epoch=int(state.max_duration),
+            iters_per_epoch=state.dataloader_len.value,
+            max_epoch=state.max_duration.value,
             p=self.p,
             sigma=self.sigma,
             tau=self.tau,

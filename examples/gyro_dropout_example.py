@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+# Written by Gihyun Park, Junyeol Lee, and Jiwon Seo
+
 """Example for training with an algorithm on a custom model."""
 
 import torch
@@ -98,17 +100,13 @@ eval_dataloader = torch.utils.data.DataLoader(
     batch_size=256,
 )
 
-model = VGG13Model(num_hidden=64, num_classes=10).to("cuda")
+model = VGG13Model(num_hidden=64, num_classes=10).to('cuda')
 
 optimizer = composer.optim.DecoupledSGDW(
     model.parameters(),
     lr=0.05,
     momentum=0.9,
     weight_decay=0.0005,
-)
-scheduler = composer.optim.MultiStepScheduler(
-    milestones='40ep',
-    gamma=0.1,
 )
 
 # Initialize Trainer with custom model, custom train and eval datasets, and algorithms to train with
