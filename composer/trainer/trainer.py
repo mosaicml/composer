@@ -2125,7 +2125,7 @@ class Trainer:
                         _adjust_grad_accum(self.state, device_batch_size)
                     # Skip return and rerun after handling oom
                     continue
-            # Log grad_accum and return loss if we've completed without OOMing.
+            # Log microbatch and return loss if we've completed without OOMing.
             if self.state.using_device_microbatch_size:
                 assert self.state.train_device_microbatch_size is not None
                 self.logger.log_metrics(

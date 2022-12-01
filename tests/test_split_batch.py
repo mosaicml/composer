@@ -117,10 +117,12 @@ def test_odd_batch_sizes(batch):
         assert len(last_microbatch) == 1
 
 
-@pytest.mark.parametrize('batch', dummy_batches(1))
+@pytest.mark.parametrize('batch', dummy_batches(2))
 def test_microbatch_size_greater_than_batch_size(batch):
-    with pytest.raises(ValueError):
-        _default_split_batch(batch, microbatch_size=3)
+    with pytest.warns(UserWarning):
+        microbatches = _default_split_batch(batch, microbatch_size=3)
+        assert len(microbatches) == 1
+        assert len(microbatches[0]) == 2
 
 
 @pytest.mark.parametrize('batch', [dummy_maskrcnn_batch(12)])
