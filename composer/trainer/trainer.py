@@ -447,10 +447,10 @@ class Trainer:
             should be a :class:`torch.utils.data.DataLoader`.
 
             .. note:: The ``train_dataloader`` should yield per-rank batches. Each per-rank batch
-                will then be further divided based on the ``grad_accum`` parameter. For example, if the
+                will then be further divided based on the ``train_device_microbatch_size`` parameter. For example, if the
                 desired optimization batch size is ``2048`` and training is happening across 8 GPUs, then each
-                ``train_dataloader`` should yield a batch of size ``2048 / 8 = 256``. If ``grad_accum = 2``,
-                then the per-rank batch will be divided into microbatches of size ``256 / 2 = 128``.
+                ``train_dataloader`` should yield a batch of size ``2048 / 8 = 256``. If ``train_device_microbatch_size = 128``,
+                then the per-rank batch will be divided into ``256 / 128 = 2`` microbatches of size ``128``.
 
             If ``train_dataloader`` is not specified when constructing the trainer, it must be specified when invoking
             :meth:`.Trainer.fit`.
@@ -779,7 +779,7 @@ class Trainer:
                 then the last section will be of size ``batch_size mod grad_accum``.
 
             .. deprecated:: 0.12
-               Deprecated. Please use train_device_microbatch_size.
+               Please use train_device_microbatch_size.
         train_device_microbatch_size (Union[int, str), optional): The number of samples to process on each device per
             microbatch during training. Gradients are summed over the microbatches per device. If set to ``auto``,
             dynamically decreases train_device_microbatch_size if microbatch is too large for GPU. (default: ``None``)
