@@ -122,7 +122,6 @@ def test_microbatch_size_greater_than_batch_size(batch):
     with pytest.warns(UserWarning):
         microbatches = _default_split_batch(batch, microbatch_size=3)
         assert len(microbatches) == 1
-        assert len(microbatches[0]) == 2
 
 
 @pytest.mark.parametrize('batch', [dummy_maskrcnn_batch(12)])
