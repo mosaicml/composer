@@ -7,6 +7,7 @@ from __future__ import annotations
 import collections.abc
 import math
 import textwrap
+import warnings
 from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
 import torch
@@ -90,20 +91,18 @@ def _num_microbatches_split_batch(batch: Any, num_microbatches: int) -> Sequence
 
 def _split_list(l, microbatch_size: int):
     if len(l) < microbatch_size:
-        raise ValueError(
-            textwrap.dedent(f"""\
-        Cannot split list of length {len(l)} into batches of size {microbatch_size}.
-        Make sure `train_device_microbatch_size` is less than or equal to `train_batch_size // world_size`."""))
+        warnings.warn(f'Cannot split list of length {len(l)} into batches of size {microbatch_size}. '
+                      'As it is smaller, no splitting will be done.')
+        microbatch_size = len(l)
     num_microbatches = math.ceil(len(l) / microbatch_size)
     return [l[i::num_microbatches] for i in range(num_microbatches)]
 
 
 def _split_tensor(t, microbatch_size: int):
     if len(t) < microbatch_size:
-        raise ValueError(
-            textwrap.dedent(f"""\
-        Cannot split tensor of length {len(t)} into batches of size {microbatch_size}.
-        Make sure `train_device_microbatch_size` is less than or equal to `train_batch_size // world_size`."""))
+        warnings.warn(f'Cannot split tensor of length {len(t)} into batches of size {microbatch_size}. '
+                      'As it is smaller, no splitting will be done.')
+        microbatch_size = len(t)
     num_microbatches = math.ceil(len(t) / microbatch_size)
     return t.chunk(num_microbatches)
 
