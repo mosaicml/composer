@@ -445,6 +445,8 @@ class Engine():
             # Do not attempt to shutdown again, since close() already ran via __atexit__ or was already invoked
             return
         self.close()
+        atexit.unregister(_set_atexit_ran)
+        atexit.unregister(self._close)
 
     def _debug_log(self, event: Event, msg: str):
         """Helper to include timestamp and event info in log messages."""
