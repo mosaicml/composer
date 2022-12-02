@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import math
+
 import pytest
 import torch
 from packaging import version
@@ -30,12 +32,13 @@ class TestEventCalls:
 
         train_dataset = RandomClassificationDataset()
         eval_dataset = RandomClassificationDataset()
+        train_batch_size = 4
 
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
                 dataset=train_dataset,
-                batch_size=4,
+                batch_size=train_batch_size,
                 sampler=dist.get_sampler(train_dataset),
             ),
             eval_dataloader=DataLoader(
@@ -43,7 +46,7 @@ class TestEventCalls:
                 batch_size=8,
                 sampler=dist.get_sampler(eval_dataset),
             ),
-            grad_accum=2,
+            train_device_microbatch_size=train_batch_size // 2,
             precision=precision,
             train_subset_num_batches=self.train_subset_num_batches,
             eval_subset_num_batches=self.eval_subset_num_batches,
@@ -118,7 +121,12 @@ class TestEventCalls:
 
         assert state.dataloader_len is not None
         total_steps = num_epochs * int(state.dataloader_len)
-        total_microbatches = total_steps * state.grad_accum
+        if state.using_device_microbatch_size:
+            batch_size = state.train_dataloader.batch_size  # type: ignore to access batch_size
+            total_microbatches = total_steps * math.ceil(batch_size / state.train_device_microbatch_size)
+        else:
+            assert state.grad_accum is not None
+            total_microbatches = total_steps * state.grad_accum
 
         if eval_interval.unit == TimeUnit.BATCH:
             total_evals = total_steps // int(eval_interval)
