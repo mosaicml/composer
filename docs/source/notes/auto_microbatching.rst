@@ -1,5 +1,5 @@
 |:recycle:| Automatic Microbatching
-===========================
+===================================
 
 Gradient accumulation is a technique that reduces the memory usage of a model. With gradient accumulation, the batch size is split into smaller microbatches, which are then sent through the network one at a time. The gradients from each microbatch
 are then accumulated prior to a weight update. In our trainer, this behavior can be set with:

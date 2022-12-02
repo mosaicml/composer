@@ -66,7 +66,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    examples/migrate_from_ptl.ipynb
    examples/early_stopping.ipynb
    examples/streaming_dataloader_facesynthetics.ipynb
-   examples/auto_grad_accum.ipynb
+   examples/auto_microbatching.ipynb
    examples/checkpoint_autoresume.ipynb
    examples/training_without_local_storage.ipynb
    examples/exporting_for_inference.ipynb
@@ -107,7 +107,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    notes/distributed_training.rst
    notes/early_stopping.rst
    notes/numerics.md
-   notes/auto_grad_accum.rst
+   notes/auto_microbatching.rst
    notes/resumption.rst
    notes/tensorboard_logger.md
    notes/run_name.md
