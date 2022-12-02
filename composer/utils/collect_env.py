@@ -123,7 +123,7 @@ def get_composer_version() -> str:
     return str(composer.__version__)
 
 
-@functools.lru_cache(maxsize=None)
+@functools.lru_cache(maxsize=1)
 def get_host_processor_name() -> str:
     """Query the host processor name."""
     cpu_info = cpuinfo.get_cpu_info()
