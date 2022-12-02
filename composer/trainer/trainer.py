@@ -2434,9 +2434,9 @@ class Trainer:
         return outputs
 
     def eval(
-            self,
-            eval_dataloader: Optional[Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
-            subset_num_batches: int = -1,
+        self,
+        eval_dataloader: Optional[Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
+        subset_num_batches: int = -1,
     ):
         """Run evaluation loop.
 
