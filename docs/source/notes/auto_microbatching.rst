@@ -13,12 +13,12 @@ are then accumulated prior to a weight update. In our trainer, this behavior can
         device_train_microbatch_size=1024,
     )
 
-The setting ``device_train_microbatch_size=1024`` means that the batch is split into smaller microbatches of size up to 1024, If the batch size was 2048, this would effectively half the total peak memory usage of the model. This technique is common in training language models whose memory footprint can exceed GPU memory, or in high resolution computer vision models.
+The setting ``device_train_microbatch_size=1024`` means that the batch is split into smaller microbatches of size up to 1024. If the batch size was 2048, this would effectively half the total peak memory usage of the model. This technique is common in training language models whose memory footprint can exceed GPU memory, or in high resolution computer vision models.
 
 Tedious to Tune
 ---------------
 
-While a useful technique, it's tedious to constantly try different device microbatch sizes to get your model to fit, and more so to adjust whenever move to a different GPU such as in a colab notebook or change how many GPUs to train across. Too low of a microbatch size, and each microbatch size is too small for efficient GPU computing. Too high, and your model may throw a CUDA Out of Memory (OOM) error. Finding that magical combination of device microbatch size, batch size, number of devices, etc. in these settings can be frustrating.
+While a useful technique, it's tedious to constantly try different device microbatch sizes to get your model to fit, and more so to adjust when switching between different GPU types or different numbers of GPUs. Too low of a microbatch size, and each microbatch size is too small for efficient GPU computing. Too high, and your model may throw a CUDA Out of Memory (OOM) error. Finding that magical combination of device microbatch size, batch size, number of devices, etc. can be frustrating.
 
 Even more concerningly, some of our speed-up methods increase the memory consumption throughout training, risking frustrating OOMs deep into training.
 
@@ -37,7 +37,7 @@ To solve these challenges, Composer now supports automatic microbatching, which 
     )
 
 
-With this setting, we will now catch most CUDA OOM exceptions during training, half the device microbatch size, and attempt to retrain the batch that had failed. The trainer will start with ``device_train_microbatch_size=device_batch_size``, and half the setting until the memory can fit. If it reaches ``device_train_microbatch_size=1``, meaning that each microbatch only has 1 example, then the trainer will error out.
+With this setting, we will now catch most CUDA OOM exceptions during training, half the device microbatch size, and attempt to retrain the batch that had failed. The trainer will start with ``device_train_microbatch_size=train_dataloader.batch_size``, and half the setting until the memory can fit. If it reaches ``device_train_microbatch_size=1``, meaning that each microbatch only has 1 example, then the trainer will error out.
 
 By setting this single parameter, most OOM errors are a thing of the past, and you can now change batch sizes, different GPUs, and scale to larger (or smaller) distributed training setups, without needing to worry about fitting the batch sizes into memory!
 
@@ -47,7 +47,7 @@ By setting this single parameter, most OOM errors are a thing of the past, and y
 
 This functionality takes advantage of a unique design within our Trainer -- we ask the dataloader to return the complete batch size (also called the optimization batch size), and we handle slicing that batch into microbatches and feeding it to the model. Since we control the slicing, we can dynamically change the microbatch sizes during training.
 
-As a bonus feature, we also support automatic microbatching for evaluation when using the ``device_eval_microbatch_size='auto'`` setting, so the eval batch size doesn't need to be tuned either when changing GPUs or batch sizes.
+As a bonus feature, we also support automatic microbatching for evaluation when using the ``device_train_microbatch_size='auto'`` setting, so the eval batch size doesn't need to be tuned either when changing GPUs or batch sizes.
 
 .. note::
 
