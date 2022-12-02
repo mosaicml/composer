@@ -127,6 +127,16 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     # extra key that is not important
     tokenizer1.__dict__.pop('deprecation_warnings')
     tokenizer2.__dict__.pop('deprecation_warnings')
+
+    # tokenizer.init_kwargs['model_max_length'] is unset when the tokenizer does not specify it, but is set
+    # to a very large number when you save and reload, so here we just check that its the same if it is present in
+    # both tokenizers. There is a separate tokenizer.model_max_length that will still get checked for equivalence
+    model_max_length_1 = tokenizer1.init_kwargs.get('model_max_length', None)
+    model_max_length_2 = tokenizer2.init_kwargs.get('model_max_length', None)
+    if model_max_length_1 is not None and model_max_length_2 is not None:
+        assert model_max_length_1 == model_max_length_2
+    tokenizer1.__dict__['init_kwargs'].pop('model_max_length', None)
+    tokenizer2.__dict__['init_kwargs'].pop('model_max_length', None)
     assert tokenizer1.__dict__ == tokenizer2.__dict__
 
 
