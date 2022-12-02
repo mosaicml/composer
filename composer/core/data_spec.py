@@ -84,7 +84,7 @@ def _num_microbatches_split_batch(batch: Any, num_microbatches: int) -> Sequence
     raise NotImplementedError(
         textwrap.dedent("""\
             The default `split_fn` is unable to split the output of this dataloader. To enable microbatching,
-             please and specify a `DataSpec` with `split_batch` for your dataset and use `train_device_microbatch_size`."""
+             please and specify a `DataSpec` with `split_batch` for your dataset and use `device_train_microbatch_size`."""
                        ))
 
 
@@ -93,7 +93,7 @@ def _split_list(l, microbatch_size: int):
         raise ValueError(
             textwrap.dedent(f"""\
         Cannot split list of length {len(l)} into batches of size {microbatch_size}.
-        Make sure `train_device_microbatch_size` is less than or equal to `train_batch_size // world_size`."""))
+        Make sure `device_train_microbatch_size` is less than or equal to `train_batch_size // world_size`."""))
     num_microbatches = math.ceil(len(l) / microbatch_size)
     return [l[i::num_microbatches] for i in range(num_microbatches)]
 
@@ -103,7 +103,7 @@ def _split_tensor(t, microbatch_size: int):
         raise ValueError(
             textwrap.dedent(f"""\
         Cannot split tensor of length {len(t)} into batches of size {microbatch_size}.
-        Make sure `train_device_microbatch_size` is less than or equal to `train_batch_size // world_size`."""))
+        Make sure `device_train_microbatch_size` is less than or equal to `train_batch_size // world_size`."""))
     num_microbatches = math.ceil(len(t) / microbatch_size)
     return t.chunk(num_microbatches)
 

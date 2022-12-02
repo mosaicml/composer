@@ -46,7 +46,7 @@ class TestEventCalls:
                 batch_size=8,
                 sampler=dist.get_sampler(eval_dataset),
             ),
-            train_device_microbatch_size=train_batch_size // 2,
+            device_train_microbatch_size=train_batch_size // 2,
             precision=precision,
             train_subset_num_batches=self.train_subset_num_batches,
             eval_subset_num_batches=self.eval_subset_num_batches,
@@ -123,7 +123,7 @@ class TestEventCalls:
         total_steps = num_epochs * int(state.dataloader_len)
         if state.using_device_microbatch_size:
             batch_size = state.train_dataloader.batch_size  # type: ignore to access batch_size
-            total_microbatches = total_steps * math.ceil(batch_size / state.train_device_microbatch_size)
+            total_microbatches = total_steps * math.ceil(batch_size / state.device_train_microbatch_size)
         else:
             assert state.grad_accum is not None
             total_microbatches = total_steps * state.grad_accum
