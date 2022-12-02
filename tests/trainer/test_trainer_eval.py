@@ -50,22 +50,6 @@ def test_eval_call():
     assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
 
 
-def test_eval_deprecation_error():
-    # Construct the trainer
-    trainer = Trainer(model=SimpleModel(),)
-
-    with pytest.raises(ValueError):
-        dataset = RandomClassificationDataset()
-        trainer.eval(
-            dataloader=DataLoader(
-                dataset=dataset,
-                sampler=dist.get_sampler(dataset),
-            ),
-            dataloader_label='test',
-            metrics=Accuracy(),
-        )
-
-
 def test_eval_type_error():
     # Construct the trainer
     trainer = Trainer(model=SimpleModel(),)
