@@ -2023,7 +2023,7 @@ class Trainer:
             if hasattr(self._original_model, 'validate'):  # backwards compatibility check
                 warnings.warn(
                     DeprecationWarning(
-                        'Using validate() is deprecated and will be removed in a future version. Please use eval_forward() instead.'
+                        'Using validate() is deprecated and will be removed in 0.13. Please use eval_forward() instead.'
                     ))
                 assert isinstance(self._original_model.validate, Callable)
                 eval_outputs, target = self._original_model.validate(device_batch)
@@ -2125,7 +2125,7 @@ class Trainer:
                         _adjust_grad_accum(self.state, device_batch_size)
                     # Skip return and rerun after handling oom
                     continue
-            # Log grad_accum and return loss if we've completed without OOMing.
+            # Log microbatch and return loss if we've completed without OOMing.
             if self.state.using_device_microbatch_size:
                 assert self.state.device_train_microbatch_size is not None
                 self.logger.log_metrics(
@@ -2434,10 +2434,9 @@ class Trainer:
         return outputs
 
     def eval(
-            self,
-            eval_dataloader: Optional[Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
-            subset_num_batches: int = -1,
-            **kwargs,  # catch deprecated arguments
+        self,
+        eval_dataloader: Optional[Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
+        subset_num_batches: int = -1,
     ):
         """Run evaluation loop.
 
@@ -2522,14 +2521,6 @@ class Trainer:
                 dataloader. Can also be provided in the trainer init()as ``eval_subset_num_batches``.
 
         """
-        if any([k in kwargs for k in ['dataloader', 'dataloader_label', 'metrics', 'log_level']]):
-            raise ValueError('eval() API has changed, please migrate to the new API, or'
-                             'for backwards compatibility, call _eval_loop() instead'
-                             'with the same arguments.')
-        if kwargs:
-            arg = next(iter(kwargs.keys()))
-            raise TypeError(f'eval() got an unexpected keyword argument \'{arg}\'')
-
         if eval_dataloader is not None:
 
             eval_metrics = deepcopy(self._original_model.get_metrics(is_train=False))
@@ -2661,7 +2652,7 @@ class Trainer:
                                 if hasattr(self._original_model, 'validate'):  # backwards compatibility check
                                     warnings.warn(
                                         DeprecationWarning(
-                                            'Using validate() is deprecated and will be removed in a future version. Please use eval_forward() instead.'
+                                            'Using validate() is deprecated and will be removed in 0.13. Please use eval_forward() instead.'
                                         ))
                                     assert isinstance(self._original_model.validate, Callable)
                                     self.state.outputs, target = self._original_model.validate(self.state.batch)
