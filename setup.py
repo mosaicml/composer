@@ -189,6 +189,10 @@ extra_deps['libcloud'] = [
     'apache-libcloud>=3.3.1,<4',
 ]
 
+extra_deps['oci'] = [
+    'oci>=oci-2.88.2',
+]
+
 extra_deps['onnx'] = [
     'onnx>=1.12.0,<2',
     'onnxruntime>=1.12.1,<2',
