@@ -39,7 +39,7 @@ def comet_logger(monkeypatch, comet_offline_directory):
 def test_comet_ml_log_image_saves_images(comet_logger: CometMLLogger, comet_offline_directory: str):
     assert isinstance(comet_offline_directory, str)
 
-    # We group all the image size variants into one test because calling comet_experiment.end() slow
+    # We group all the image size variants into one test because calling comet_experiment.end() is slow
     image_variants = [
         (torch.rand(4), False),  # 1D image
         (torch.rand(4, 4), False),  # 2D image
@@ -86,7 +86,7 @@ def test_comet_ml_log_image_saves_images(comet_logger: CometMLLogger, comet_offl
 def test_comet_ml_log_image_saves_images_with_masks(comet_logger: CometMLLogger, comet_offline_directory: str):
     assert isinstance(comet_offline_directory, str)
 
-    # We group all the image size variants into one test because calling comet_experiment.end() slow
+    # We group all the image size variants into one test because calling comet_experiment.end() is slow
     image_variants = [
         # channels last
         # single image, single mask
