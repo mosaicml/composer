@@ -85,7 +85,7 @@ def _num_microbatches_split_batch(batch: Any, num_microbatches: int) -> Sequence
     raise NotImplementedError(
         textwrap.dedent("""\
             The default `split_fn` is unable to split the output of this dataloader. To enable microbatching,
-             please and specify a `DataSpec` with `split_batch` for your dataset and use `train_device_microbatch_size`."""
+             please and specify a `DataSpec` with `split_batch` for your dataset and use `device_train_microbatch_size`."""
                        ))
 
 
