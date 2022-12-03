@@ -278,7 +278,7 @@ class SeqLengthWarmup(Algorithm):
             device_batch_size = v.shape[0]
 
         # In-line to avoid circular dependency
-        from composer.trainer.trainer import _adjust_grad_accum, _adjust_train_device_microbatch_size, _is_cuda_oom
+        from composer.trainer.trainer import _adjust_device_train_microbatch_size, _adjust_grad_accum, _is_cuda_oom
 
         # This loop tries to do a forward/backward pass using the current microbatch size.
         # If it hits an OOM error, it doubles `state.grad_accum` and tries again until
@@ -318,7 +318,7 @@ class SeqLengthWarmup(Algorithm):
                 dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
                 if found_cuda_oom.item() == 1:
                     if state.using_device_microbatch_size:
-                        _adjust_train_device_microbatch_size(state)
+                        _adjust_device_train_microbatch_size(state)
                     else:
                         _adjust_grad_accum(state, device_batch_size)
                     # Skip return and rerun after handling oom
