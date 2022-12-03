@@ -40,6 +40,7 @@ To disable automatic environment report generation, use the :func:`disable_env_r
 function.  Report generation can be re-enabled by using the :func:`enable_env_report` function.
 """
 
+import functools
 import json
 import sys
 import time
@@ -122,6 +123,7 @@ def get_composer_version() -> str:
     return str(composer.__version__)
 
 
+@functools.lru_cache(maxsize=1)
 def get_host_processor_name() -> str:
     """Query the host processor name."""
     cpu_info = cpuinfo.get_cpu_info()
