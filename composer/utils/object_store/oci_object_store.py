@@ -46,6 +46,7 @@ class OCIObjectStore(ObjectStore):
         self.client = oci.object_storage.ObjectStorageClient(config=config,
                                                              retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
         self.namespace = self.client.get_namespace().data
+        self.upload_manager = oci.object_storage.UploadManager(self.client)
 
     def get_uri(self, object_name: str) -> str:
         return f'oci://{self.bucket}/{object_name}'
@@ -66,8 +67,11 @@ class OCIObjectStore(ObjectStore):
         callback: Optional[Callable[[int, int], None]] = None,
     ):
         del callback
-        with open(filename, 'rb') as f:
-            self.client.put_object(self.namespace, bucket_name=self.bucket, object_name=object_name, put_object_body=f)
+
+        self.upload_manager.upload_file(namespace_name=self.namespace,
+                                        bucket_name=self.bucket,
+                                        object_name=object_name,
+                                        file_path=filename)
 
     def download_object(
         self,
