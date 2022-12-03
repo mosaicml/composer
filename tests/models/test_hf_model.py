@@ -22,7 +22,7 @@ from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 
 
 @pytest.mark.parametrize('num_classes', [2, 3])
-def test_hf_model_forward(num_classes: int):
+def test_hf_model_forward(tiny_bert_model, num_classes: int):
     transformers = pytest.importorskip('transformers')
     from transformers.modeling_outputs import SequenceClassifierOutput
 
@@ -41,7 +41,7 @@ def test_hf_model_forward(num_classes: int):
     }
 
     # non pretrained model to avoid a slow test that downloads the weights.
-    config = transformers.AutoConfig.from_pretrained('bert-base-uncased', num_labels=num_classes)
+    config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny', num_labels=num_classes)
     hf_model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
     model = HuggingFaceModel(hf_model)
 
