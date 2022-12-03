@@ -159,3 +159,30 @@ def s3_bucket(request: pytest.FixtureRequest):
         return 'my-bucket'
     else:
         return _get_option(request.config, 's3_bucket')
+
+
+# WARNING: These fixtures should be copied if used in a test, as they are session scope to avoid
+# multiple calls to the HuggingFace hub
+@pytest.fixture(scope='session')
+def tiny_bert_model():
+    transformers = pytest.importorskip('transformers')
+
+    config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny')
+    hf_model = transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
+    return hf_model
+
+
+@pytest.fixture(scope='session')
+def tiny_bert_tokenizer():
+    transformers = pytest.importorskip('transformers')
+
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('prajjwal1/bert-tiny')
+    return hf_tokenizer
+
+
+@pytest.fixture(scope='session')
+def tiny_bert_config():
+    transformers = pytest.importorskip('transformers')
+
+    hf_config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny')
+    return hf_config

@@ -21,33 +21,6 @@ from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMD
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 
 
-# WARNING: These fixtures should be copied if used in a test, as they are session scope to avoid
-# multiple calls to the HuggingFace hub
-@pytest.fixture(scope='session')
-def tiny_bert_model():
-    transformers = pytest.importorskip('transformers')
-
-    config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny')
-    hf_model = transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
-    return hf_model
-
-
-@pytest.fixture(scope='session')
-def tiny_bert_tokenizer():
-    transformers = pytest.importorskip('transformers')
-
-    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('prajjwal1/bert-tiny')
-    return hf_tokenizer
-
-
-@pytest.fixture(scope='session')
-def tiny_bert_config():
-    transformers = pytest.importorskip('transformers')
-
-    hf_config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny')
-    return hf_config
-
-
 @pytest.mark.parametrize('num_classes', [2, 3])
 def test_hf_model_forward(num_classes: int, tiny_bert_config):
     transformers = pytest.importorskip('transformers')

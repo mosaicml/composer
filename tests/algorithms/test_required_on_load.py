@@ -13,7 +13,7 @@ import torch
 from composer import Trainer, algorithms
 from composer.callbacks import CheckpointSaver
 from composer.core import Algorithm, Time, TimeUnit  # type: ignore imports used in `eval(representation)`
-from composer.models import ComposerClassifier, ComposerModel, composer_resnet, create_bert_classification
+from composer.models import ComposerClassifier, ComposerModel, composer_resnet
 from tests.common import ConvModel
 
 
@@ -76,7 +76,7 @@ def compare_models(model_1: torch.nn.Module, model_2: torch.nn.Module, is_equal:
 
 @pytest.mark.filterwarnings('ignore:No instances of')
 @pytest.mark.parametrize('algo_name', algorithms.__all__)
-def test_idempotent(algo_name: str):
+def test_idempotent(algo_name: str, tiny_bert_config):
     algo_cls = getattr(algorithms, algo_name)
     if issubclass(algo_cls, Algorithm) and algo_cls.required_on_load():
         algorithm = initialize_algorithm(algo_cls)
@@ -85,15 +85,18 @@ def test_idempotent(algo_name: str):
         if algo_name == 'StochasticDepth':
             original_model = composer_resnet(model_name='resnet50')
         elif algo_name in ['Alibi', 'GatedLinearUnits']:
-            pytest.importorskip('transformers')
-            original_model = create_bert_classification()
+            transformers = pytest.importorskip('transformers')
+            from composer.models import HuggingFaceModel
+            config = copy.deepcopy(tiny_bert_config)
+            hf_model = transformers.AutoModelForSequenceClassification.from_config(config)
+            original_model = HuggingFaceModel(hf_model, use_logits=True)
         else:
             original_model = ConvModel()
         applied_once_model = Trainer(
             model=copy.deepcopy(original_model),
             algorithms=algorithm,
         ).state.model
-        assert isinstance(applied_once_model, ComposerModel)  # Assert type for pyright deepcopyg
+        assert isinstance(applied_once_model, ComposerModel)  # Assert type for pyright deepcopy
         applied_twice_model = Trainer(
             model=copy.deepcopy(applied_once_model),
             algorithms=algorithm,
@@ -109,7 +112,8 @@ def test_idempotent(algo_name: str):
     [False, True, False],
     [False, False, True],
 ])
-def test_autoload(algo_name: str, load_weights_only: bool, already_added: bool, exclude: bool, tmp_path: pathlib.Path):
+def test_autoload(algo_name: str, load_weights_only: bool, already_added: bool, exclude: bool, tmp_path: pathlib.Path,
+                  tiny_bert_config):
     algo_cls = getattr(algorithms, algo_name)
     if issubclass(algo_cls, Algorithm) and algo_cls.required_on_load():
         algorithm = initialize_algorithm(algo_cls)
@@ -118,8 +122,11 @@ def test_autoload(algo_name: str, load_weights_only: bool, already_added: bool, 
         if algo_name == 'StochasticDepth':
             original_model = composer_resnet(model_name='resnet50')
         elif algo_name in ['Alibi', 'GatedLinearUnits']:
-            pytest.importorskip('transformers')
-            original_model = create_bert_classification()
+            transformers = pytest.importorskip('transformers')
+            from composer.models import HuggingFaceModel
+            config = copy.deepcopy(tiny_bert_config)
+            hf_model = transformers.AutoModelForSequenceClassification.from_config(config)
+            original_model = HuggingFaceModel(hf_model, use_logits=True)
         else:
             original_model = ConvModel()
 
