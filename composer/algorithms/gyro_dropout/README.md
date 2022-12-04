@@ -42,6 +42,55 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
+<!--pytest.mark.gpu-->
+<!--
+```python
+import torch
+
+from torch.utils.data import DataLoader
+from tests.common import RandomClassificationDataset
+from composer.models import ComposerClassifier
+
+class SimpleModelWithDropout(ComposerClassifier):
+    """Small classification model.
+
+    Args:
+        num_features (int): number of input features (default: 1)
+        num_classes (int): number of classes (default: 2)
+    """
+
+    def __init__(self, num_features: int = 1, num_classes: int = 2) -> None:
+
+        self.num_features = num_features
+        self.num_classes = num_classes
+
+        fc1 = torch.nn.Linear(num_features, 5)
+        fc2 = torch.nn.Linear(5, num_classes)
+        dropout = torch.nn.Dropout(0.5)
+
+        net = torch.nn.Sequential(
+            torch.nn.AdaptiveAvgPool2d(1),
+            torch.nn.Flatten(),
+            fc1,
+            torch.nn.ReLU(),
+            fc2,
+            dropout,
+            torch.nn.Softmax(dim=-1),
+        )
+        super().__init__(module=net)
+
+        self.fc1 = fc1
+        self.fc2 = fc2
+
+
+
+model = SimpleModelWithDropout()
+train_dataloader = DataLoader(RandomClassificationDataset())
+eval_dataloader = DataLoader(RandomClassificationDataset())
+```
+-->
+<!--pytest-codeblocks:cont-->
+
 ```python
 from composer.trainer import Trainer
 from composer.algorithms import GyroDropout
