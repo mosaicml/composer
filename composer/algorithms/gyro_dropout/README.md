@@ -25,7 +25,7 @@ def training_loop(model, train_loader):
         model,
         iters_per_epoch = 196,
         max_epoch = 100,
-        p = 0.5
+        p = 0.5,
         sigma = 256,
         tau = 16,
     )
