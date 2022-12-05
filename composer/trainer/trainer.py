@@ -187,9 +187,16 @@ def _get_initial_grad_accum(grad_accum: Union[int, str]):
         raise ValueError("grad_accum must be an int or ``'auto'``")
 
 
-def _get_initial_device_train_microbatch_size(device_train_microbatch_size: Union[int, str],
-                                              train_dataloader: Optional[Iterable]):
-    if device_train_microbatch_size == 'auto':
+def _get_initial_device_train_microbatch_size(device_train_microbatch_size: Optional[Union[int, str]],
+                                              auto_microbatching: bool,
+                                              train_dataloader: Optional[Iterable]) -> Optional[int]:
+    """Sets initial value of device_train_microbatch_size.
+
+    If auto_microbatching, sets initial `device_train_microbatch_size` to per rank batch size. If
+    `train_dataloader` is not set yet, returns None and this function will be called again when
+    `train_dataloader` is set, such as when `fit()` is called.
+    """
+    if auto_microbatching:
         # Return None, this function will be called again when `train_dataloader` is set
         if train_dataloader is None:
             return None
@@ -1012,7 +1019,8 @@ class Trainer:
                                  'second run with profiler.')
             # If auto_microbatching is True, the microbatch size will be determined when dataloader
             # is specified.
-            device_train_microbatch_size = _get_initial_device_train_microbatch_size(device_train_microbatch_size, None)
+            device_train_microbatch_size = _get_initial_device_train_microbatch_size(
+                device_train_microbatch_size, auto_microbatching, None)
         elif grad_accum is not None:
             using_device_microbatch_size = False
             if grad_accum != 1:
@@ -1222,9 +1230,8 @@ class Trainer:
             else:
                 self.state.train_dataloader = self.state.dataloader
             if self.state.using_device_microbatch_size:
-                assert self.state.device_train_microbatch_size is not None
                 self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
-                    self.state.device_train_microbatch_size, self.state.train_dataloader)
+                    self.state.device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
 
         # Max Duration
         if max_duration is not None:
@@ -1734,7 +1741,7 @@ class Trainer:
                                  'the optimal device_train_microbatch_size value and then manually specify that in a '
                                  'second run with profiler.')
             self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
-                device_train_microbatch_size, self.state.train_dataloader)
+                device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
             self.state.using_device_microbatch_size = True
         elif grad_accum is not None:
             self.state.auto_microbatching = _is_auto_grad_accum(grad_accum, device=self.state.device)
