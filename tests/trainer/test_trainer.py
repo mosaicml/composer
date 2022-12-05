@@ -350,14 +350,14 @@ class TestTrainerInitOrFit:
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
+    @pytest.mark.parametrize('device_train_microbatch_size', [1, 'auto'])
     def test_microbatch(
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
         max_duration: Time[int],
+        device_train_microbatch_size: Union[int, str],
     ):
-        device_train_microbatch_size = 1
-
         # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
         copied_model = copy.deepcopy(model)
 
