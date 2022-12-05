@@ -350,14 +350,14 @@ class TestTrainerInitOrFit:
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
-    @pytest.mark.parametrize('device_train_microbatch_size', [1, 'auto'])
     def test_microbatch(
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
         max_duration: Time[int],
-        device_train_microbatch_size: Union[int, str],
     ):
+        device_train_microbatch_size = 1
+
         # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
         copied_model = copy.deepcopy(model)
 
@@ -384,6 +384,44 @@ class TestTrainerInitOrFit:
 
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
+
+    @pytest.mark.gpu
+    @pytest.mark.filterwarnings(
+        "ignore:Setting `device_train_microbatch_size='auto'` is an experimental feature which may cause uncaught Cuda Out of Memory errors. In this case, please manually set device_train_microbatch_size explicitly to an integer instead."
+    )
+    def test_auto_microbatch(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time[int],
+    ):
+        # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
+        copied_model = copy.deepcopy(model)
+
+        # Train once with the device_train_microbatch_size=1
+        baseline_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
+        baseline_trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            device_train_microbatch_size=1,
+            callbacks=[baseline_event_counter_callback],
+        )
+        baseline_trainer.fit()
+
+        # Train again with the device_train_microbatch_size='auto'
+        auto_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
+        auto_trainer = Trainer(
+            model=copied_model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            callbacks=[auto_event_counter_callback],
+            device_train_microbatch_size='auto',
+        )
+        auto_trainer.fit()
+
+        # Assert that the states are equivalent
+        assert_state_equivalent(baseline_trainer.state, auto_trainer.state)
 
     def test_grad_accum(
         self,

@@ -156,7 +156,7 @@ def _is_auto_grad_accum(grad_accum: Union[int, str], device: Device):
     if grad_accum == 'auto':
         warnings.warn(("Setting `grad_accum='auto'` is an experimental feature which may cause "
                        'uncaught Cuda Out of Memory errors. In this case, please manually '
-                       'set grad_accum explicitly to an integer instead. '))
+                       'set grad_accum explicitly to an integer instead.'))
         if not isinstance(device, DeviceGPU):
             raise ValueError('Can only use adaptive grad_accum on GPU. Please set grad_accum >= 1')
         return True
@@ -168,7 +168,7 @@ def _is_auto_microbatching(device_train_microbatch_size: Union[int, str], device
     if device_train_microbatch_size == 'auto':
         warnings.warn(("Setting `device_train_microbatch_size='auto'` is an experimental feature which may cause "
                        'uncaught Cuda Out of Memory errors. In this case, please manually '
-                       'set device_train_microbatch_size explicitly to an integer instead. '))
+                       'set device_train_microbatch_size explicitly to an integer instead.'))
         if not isinstance(device, DeviceGPU):
             raise ValueError(
                 'Can only use adaptive device_train_microbatch_size on GPU. Please set device_train_microbatch_size >= 1.'
