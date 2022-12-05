@@ -15,7 +15,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from composer.core import State
-from composer.devices import DeviceCPU
+from composer.devices import DeviceCPU, DeviceGPU
 from composer.functional import apply_gated_linear_units
 from composer.loggers import InMemoryLogger, Logger
 from composer.loggers.logger_destination import LoggerDestination
@@ -299,7 +299,7 @@ def test_export_for_inference_onnx(model_cls, sample_input, device):
     ],
 )
 @pytest.mark.world_size(2)
-def test_export_for_inference_onnx_ddp(model_cls, sample_input):
+def test_export_for_inference_onnx_ddp(model_cls, sample_input, request: pytest.FixtureRequest):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
     import onnx
@@ -307,12 +307,17 @@ def test_export_for_inference_onnx_ddp(model_cls, sample_input):
     import onnxruntime as ort
 
     model = model_cls()
-
     optimizer = torch.optim.SGD(model.parameters(), 0.1)
+    device = None
+    for item in request.session.items:
+        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
+        break
+    assert device != None
 
     state = State(
         model=model,
         rank_zero_seed=0,
+        device=device,
         run_name='run_name',
         optimizers=optimizer,
         grad_accum=2,
@@ -363,14 +368,19 @@ def test_export_for_inference_onnx_ddp(model_cls, sample_input):
     ],
 )
 @pytest.mark.world_size(2)
-def test_export_for_inference_torchscript_ddp(model_cls, sample_input):
+def test_export_for_inference_torchscript_ddp(model_cls, sample_input, request: pytest.FixtureRequest):
     model = model_cls()
-
     optimizer = torch.optim.SGD(model.parameters(), 0.1)
+    device = None
+    for item in request.session.items:
+        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
+        break
+    assert device != None
 
     state = State(
         model=model,
         rank_zero_seed=0,
+        device=device,
         run_name='run_name',
         optimizers=optimizer,
         grad_accum=2,
