@@ -409,9 +409,7 @@ class TestTrainerInitOrFit:
             device_train_microbatch_size='auto',
             callbacks=[baseline_event_counter_callback],
         )
-        baseline_trainer.fit(
-            train_dataloader=train_dataloader if not dataloader_in_init else None,
-        )
+        baseline_trainer.fit(train_dataloader=train_dataloader if not dataloader_in_init else None)
 
         # Train again with the device_train_microbatch_size='auto'
         auto_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
