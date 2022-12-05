@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 
 import composer
 from composer.core import Batch, Precision, State
+from composer.devices import DeviceCPU, DeviceGPU
 from composer.loggers import Logger
 from tests.common import SimpleModel, assert_state_equivalent
 from tests.common.datasets import RandomClassificationDataset
@@ -20,15 +21,21 @@ def random_tensor(size=(4, 10)):
     return torch.rand(*size)
 
 
-def get_dummy_state():
+def get_dummy_state(request: pytest.FixtureRequest):
     model = SimpleModel()
     optimizers = torch.optim.Adadelta(model.parameters())
+    device = None
+    for item in request.session.items:
+        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
+        break
+    assert device != None
     state = State(
         model=model,
+        device=device,
         run_name=f'{random.randint(0, 100)}',
         grad_accum=random.randint(0, 100),
         rank_zero_seed=random.randint(0, 100),
-        precision=Precision.AMP,
+        precision=Precision.AMP_FP16,
         max_duration=f'{random.randint(0, 100)}ep',
         optimizers=optimizers,
     )
@@ -58,9 +65,9 @@ def train_one_step(state: State, batch: Batch) -> None:
     state.timestamp = state.timestamp.to_next_batch(len(batch))
 
 
-def test_state_serialize(tmp_path: pathlib.Path, empty_logger: Logger):
-    state1 = get_dummy_state()
-    state2 = get_dummy_state()
+def test_state_serialize(tmp_path: pathlib.Path, empty_logger: Logger, request: pytest.FixtureRequest):
+    state1 = get_dummy_state(request)
+    state2 = get_dummy_state(request)
 
     dataloader = DataLoader(
         dataset=RandomClassificationDataset(),
@@ -104,8 +111,8 @@ def test_state_serialize(tmp_path: pathlib.Path, empty_logger: Logger):
     (({'a': 1, 'b': 7}, {'c': 5}), lambda x: x[1]['c'], 5),
 ])
 # yapf: enable
-def test_state_batch_get_item(batch, key, val):
-    state = get_dummy_state()
+def test_state_batch_get_item(batch, key, val, request: pytest.FixtureRequest):
+    state = get_dummy_state(request)
     state.batch = batch
 
     assert state.batch_get_item(key) == val
@@ -119,16 +126,16 @@ def test_state_batch_get_item(batch, key, val):
     ({'a': 1, 'b': 2}, 'b', 9),
 ])
 # yapf: enable
-def test_state_batch_set_item(batch, key, val):
-    state = get_dummy_state()
+def test_state_batch_set_item(batch, key, val, request: pytest.FixtureRequest):
+    state = get_dummy_state(request)
     state.batch = batch
 
     state.batch_set_item(key=key, value=val)
     assert state.batch_get_item(key) == val
 
 
-def test_composer_env_info_in_state_dict(tmp_path):
-    state = get_dummy_state()
+def test_composer_env_info_in_state_dict(tmp_path, request: pytest.FixtureRequest):
+    state = get_dummy_state(request)
     save_path = pathlib.Path(tmp_path) / 'state_dict.pt'
     with open(save_path, 'wb') as _tmp_file:
         torch.save(state.state_dict(), _tmp_file)
