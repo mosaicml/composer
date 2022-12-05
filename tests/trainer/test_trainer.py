@@ -863,8 +863,8 @@ class TestTrainerEquivalence():
     def config(self, device: Device, precision: Precision, world_size: int, rank_zero_seed: int):
         """Returns the reference config."""
 
-        train_dataset = RandomClassificationDataset(size=10)
-        eval_dataset = RandomClassificationDataset(size=10)
+        train_dataset = RandomClassificationDataset(size=16)
+        eval_dataset = RandomClassificationDataset(size=16)
 
         return {
             'model':
