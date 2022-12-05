@@ -52,12 +52,6 @@ from tests.common import RandomClassificationDataset
 from composer.models import ComposerClassifier
 
 class SimpleModelWithDropout(ComposerClassifier):
-    """Small classification model.
-
-    Args:
-        num_features (int): number of input features (default: 1)
-        num_classes (int): number of classes (default: 2)
-    """
 
     def __init__(self, num_features: int = 1, num_classes: int = 2) -> None:
 
@@ -90,10 +84,10 @@ eval_dataloader = DataLoader(RandomClassificationDataset())
 ```
 -->
 <!--pytest-codeblocks:cont-->
-
 ```python
-from composer.trainer import Trainer
+
 from composer.algorithms import GyroDropout
+from composer.trainer import Trainer
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
