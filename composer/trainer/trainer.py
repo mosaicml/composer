@@ -1649,6 +1649,9 @@ class Trainer:
             self._train_data_spec = ensure_data_spec(train_dataloader)
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label)
             self.state.train_dataloader = self.state.dataloader
+            if self.state.using_device_microbatch_size:
+                self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
+                    self.state.device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
         if self._train_data_spec is None:
             _raise_missing_argument_exception('train_dataloader')
         if train_subset_num_batches is not None:
