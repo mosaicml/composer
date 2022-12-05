@@ -585,7 +585,7 @@ class Trainer:
             It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
             for a checkpoint in a cloud bucket. If a URI is specified, ``load_object_store`` does not need to be set.
 
-            When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, checkpoints are shareded by rank.
+            When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, checkpoints are sharded by rank.
             Instead of hard-coding the rank in the ``path``, use the following format variables:
 
             +------------------------+-------------------------------------------------------+
