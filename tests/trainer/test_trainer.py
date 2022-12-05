@@ -401,31 +401,31 @@ class TestTrainerInitOrFit:
         copied_model = copy.deepcopy(model)
 
         # Train once with the device_train_microbatch_size=1
-        baseline_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
-        baseline_trainer = Trainer(
+        init_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
+        init_trainer = Trainer(
             model=model,
             max_duration=max_duration,
             train_dataloader=train_dataloader if dataloader_in_init else None,
             device_train_microbatch_size='auto',
-            callbacks=[baseline_event_counter_callback],
+            callbacks=[init_event_counter_callback],
         )
-        baseline_trainer.fit(train_dataloader=train_dataloader if not dataloader_in_init else None)
+        init_trainer.fit(train_dataloader=train_dataloader if not dataloader_in_init else None)
 
         # Train again with the device_train_microbatch_size='auto'
-        auto_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
-        auto_trainer = Trainer(
+        fit_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
+        fit_trainer = Trainer(
             model=copied_model,
             max_duration=max_duration,
             train_dataloader=train_dataloader if dataloader_in_init else None,
-            callbacks=[auto_event_counter_callback],
+            callbacks=[fit_event_counter_callback],
         )
-        auto_trainer.fit(
+        fit_trainer.fit(
             train_dataloader=train_dataloader if not dataloader_in_init else None,
             device_train_microbatch_size='auto',
         )
 
         # Assert that the states are equivalent
-        assert_state_equivalent(baseline_trainer.state, auto_trainer.state)
+        assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
     def test_grad_accum(
         self,
