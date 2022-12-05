@@ -260,7 +260,7 @@ class TestCheckpointLoading:
 
         train_dataset = RandomImageDataset()
         eval_dataset = RandomImageDataset()
-        train_batch_size = 8
+        train_batch_size = 2
 
         return Trainer(
             model=model,
@@ -271,14 +271,15 @@ class TestCheckpointLoading:
             ),
             eval_dataloader=DataLoader(
                 dataset=eval_dataset,
-                batch_size=16,
+                batch_size=4,
                 sampler=dist.get_sampler(eval_dataset),
             ),
             device_train_microbatch_size=train_batch_size // 2,
             precision='fp32',
             train_subset_num_batches=5,
+            eval_subset_num_batches=1,
             save_interval='1ep',
-            eval_interval='1ba',
+            eval_interval='1ep',
             save_filename='ep{epoch}.pt',
             max_duration='2ep',
             optimizers=optimizer,
