@@ -404,7 +404,7 @@ class TestTrainerInitOrFit:
             model=model,
             max_duration=max_duration,
             train_dataloader=train_dataloader,
-            device_train_microbatch_size=1,
+            device_train_microbatch_size=2,
             callbacks=[baseline_event_counter_callback],
         )
         baseline_trainer.fit()
