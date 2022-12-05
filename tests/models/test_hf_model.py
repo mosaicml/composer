@@ -40,9 +40,9 @@ def test_hf_model_forward(num_classes: int, tiny_bert_config):
         'attention_mask': attention_mask,
     }
 
-    config = copy.deepcopy(tiny_bert_config)
-    config.num_labels = num_classes
-    hf_model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
+    tiny_bert_config.num_labels = num_classes
+    hf_model = transformers.AutoModelForSequenceClassification.from_config(
+        tiny_bert_config)  # type: ignore (thirdparty)
     model = HuggingFaceModel(hf_model)
 
     out = model(batch)
@@ -56,9 +56,9 @@ def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
 
     from composer.models import HuggingFaceModel
 
-    config = copy.deepcopy(tiny_bert_config)
-    config.num_labels = num_classes
-    hf_model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
+    tiny_bert_config.num_labels = num_classes
+    hf_model = transformers.AutoModelForSequenceClassification.from_config(
+        tiny_bert_config)  # type: ignore (thirdparty)
 
     metrics = Accuracy()
     model = HuggingFaceModel(hf_model, metrics=[metrics], use_logits=True)
@@ -161,11 +161,10 @@ def test_hf_state_dict_info(tmp_path: str, pass_in_tokenizer: bool, modify_token
     if not pass_in_tokenizer and modify_tokenizer:
         pytest.skip("Invalid parametrization. Cannot modify the tokenizer if it doesn't exist.")
 
-    tiny_bert_tokenizer = copy.deepcopy(tiny_bert_tokenizer)
-    config = copy.deepcopy(tiny_bert_config)
-    config.num_labels = num_classes
+    tiny_bert_config.num_labels = num_classes
     tokenizer = tiny_bert_tokenizer if pass_in_tokenizer else None
-    hf_model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
+    hf_model = transformers.AutoModelForSequenceClassification.from_config(
+        tiny_bert_config)  # type: ignore (thirdparty)
 
     if modify_tokenizer:
         assert tokenizer is not None  # pyright
@@ -288,9 +287,6 @@ def test_hf_no_tokenizer_warning(caplog, pass_in_tokenizer: bool, tiny_bert_mode
 
     from composer.models import HuggingFaceModel
 
-    tiny_bert_model = copy.deepcopy(tiny_bert_model)
-    tiny_bert_tokenizer = copy.deepcopy(tiny_bert_tokenizer)
-
     with caplog.at_level(logging.WARNING, logger='composer'):
         _ = HuggingFaceModel(tiny_bert_model,
                              tokenizer=tiny_bert_tokenizer if pass_in_tokenizer else None,
@@ -310,9 +306,6 @@ def test_hf_loading_load_save_paths(checkpoint_upload_path: Optional[str], local
                                     tiny_bert_model, tiny_bert_tokenizer):
     pytest.importorskip('transformers')
     from composer.models import HuggingFaceModel
-
-    tiny_bert_model = copy.deepcopy(tiny_bert_model)
-    tiny_bert_tokenizer = copy.deepcopy(tiny_bert_tokenizer)
 
     trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
     trainer.fit()
@@ -353,9 +346,6 @@ def test_hf_loading_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny_bert_
     pytest.importorskip('transformers')
     from composer.models import HuggingFaceModel
 
-    tiny_bert_model = copy.deepcopy(tiny_bert_model)
-    tiny_bert_tokenizer = copy.deepcopy(tiny_bert_tokenizer)
-
     if modify_tokenizer:
         assert tiny_bert_tokenizer is not None  # pyright
         tiny_bert_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
@@ -381,9 +371,6 @@ def test_hf_loading_model_classes(model_class_name: str, num_classes: Optional[i
     transformers = pytest.importorskip('transformers')
 
     from composer.models import HuggingFaceModel
-
-    tiny_bert_model = copy.deepcopy(tiny_bert_model)
-    tiny_bert_tokenizer = copy.deepcopy(tiny_bert_tokenizer)
 
     if num_classes is not None and model_class_name not in {'autoseq', 'bertseq', 'customseq'}:
         pytest.skip('Invalid parametrization. num_classes is only for loading sequence classification models.')
@@ -448,9 +435,6 @@ def test_hf_loading_full_model_equivalence(tmp_path: Path, tiny_bert_model, tiny
     pytest.importorskip('transformers')
     from composer.models import HuggingFaceModel
 
-    tiny_bert_model = copy.deepcopy(tiny_bert_model)
-    tiny_bert_tokenizer = copy.deepcopy(tiny_bert_tokenizer)
-
     trainer1 = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
     trainer1.fit()
 
@@ -472,9 +456,6 @@ def test_hf_loading_errors(tiny_bert_model, tiny_bert_tokenizer, model_class_nam
     transformers = pytest.importorskip('transformers')
 
     from composer.models import HuggingFaceModel
-
-    tiny_bert_model = copy.deepcopy(tiny_bert_model)
-    tiny_bert_tokenizer = copy.deepcopy(tiny_bert_tokenizer)
 
     trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
     trainer.fit()

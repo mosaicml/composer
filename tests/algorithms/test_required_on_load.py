@@ -87,8 +87,7 @@ def test_idempotent(algo_name: str, tiny_bert_config):
         elif algo_name in ['Alibi', 'GatedLinearUnits']:
             transformers = pytest.importorskip('transformers')
             from composer.models import HuggingFaceModel
-            config = copy.deepcopy(tiny_bert_config)
-            hf_model = transformers.AutoModelForSequenceClassification.from_config(config)
+            hf_model = transformers.AutoModelForSequenceClassification.from_config(tiny_bert_config)
             original_model = HuggingFaceModel(hf_model, use_logits=True)
         else:
             original_model = ConvModel()
@@ -124,8 +123,7 @@ def test_autoload(algo_name: str, load_weights_only: bool, already_added: bool, 
         elif algo_name in ['Alibi', 'GatedLinearUnits']:
             transformers = pytest.importorskip('transformers')
             from composer.models import HuggingFaceModel
-            config = copy.deepcopy(tiny_bert_config)
-            hf_model = transformers.AutoModelForSequenceClassification.from_config(config)
+            hf_model = transformers.AutoModelForSequenceClassification.from_config(tiny_bert_config)
             original_model = HuggingFaceModel(hf_model, use_logits=True)
         else:
             original_model = ConvModel()
