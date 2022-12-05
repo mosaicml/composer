@@ -1018,7 +1018,7 @@ class Trainer:
                                  'the optimal device_train_microbatch_size value and then manually specify that in a '
                                  'second run with profiler.')
             # If auto_microbatching is True, the microbatch size will be determined when dataloader
-            # is specified.
+            # is specified. train_dataloader is parsed after `Event.INIT` or in fit()
             device_train_microbatch_size = _get_initial_device_train_microbatch_size(
                 device_train_microbatch_size, auto_microbatching, None)
         elif grad_accum is not None:
