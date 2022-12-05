@@ -36,6 +36,9 @@ class GyroDropoutLayer(torch.nn.Module):
 
     def forward(self, x):
         if self.training:
+            # import sys
+            # print(f"interm shape : {x.shape}\n", file=sys.stderr)
+
             if self.training_step == 0:
                 is_cuda_tensor = x.is_cuda
 
@@ -54,6 +57,8 @@ class GyroDropoutLayer(torch.nn.Module):
             self.dropout_mask = torch.repeat_interleave(self.selected_masks, x.shape[0] // self.tau, dim=0)
 
             self.training_step += 1
+
+            # print(f"mask shape : {self.dropout_mask.shape}\n", file=sys.stderr)
 
             return x * self.dropout_mask * (1 / (1 - self.p))
         else:

@@ -46,41 +46,72 @@ def training_loop(model, train_loader):
 <!--
 ```python
 import torch
+from torch.utils.data import Dataset, DataLoader
+from torchmetrics import Metric, MetricCollection
 
-from torch.utils.data import DataLoader
-from tests.common import RandomClassificationDataset
 from composer.models import ComposerClassifier
+
+from typing import Any, Callable, Dict, Optional, Tuple, Union
+
+
+class SimpleDataset(Dataset):
+
+    def __init__(self, size: int = 256, batch_size: int = 256, feature_size: int = 1, num_classes: int = 2):
+        self.size = size
+        self.batch_size = batch_size
+        self.x = torch.randn(size*batch_size, feature_size)
+        self.y = torch.randint(0, num_classes, size=(size*batch_size,), dtype=torch.long)
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index: int):
+        return self.x[index*self.batch_size:(index+1)*self.batch_size], self.y[index*self.batch_size:(index+1)*self.batch_size]
+
 
 class SimpleModelWithDropout(ComposerClassifier):
 
-    def __init__(self, num_features: int = 1, num_classes: int = 2) -> None:
-
-        self.num_features = num_features
-        self.num_classes = num_classes
-
-        fc1 = torch.nn.Linear(num_features, 5)
-        fc2 = torch.nn.Linear(5, num_classes)
+    def __init__(self, num_features: int = 64, num_classes: int = 10) -> None:
+        fc1 = torch.nn.Linear(num_features, 512)
+        fc2 = torch.nn.Linear(512, num_classes)
         dropout = torch.nn.Dropout(0.5)
 
         net = torch.nn.Sequential(
-            torch.nn.AdaptiveAvgPool2d(1),
             torch.nn.Flatten(),
             fc1,
             torch.nn.ReLU(),
-            fc2,
             dropout,
+            fc2,
             torch.nn.Softmax(dim=-1),
         )
+
         super().__init__(module=net)
 
         self.fc1 = fc1
         self.fc2 = fc2
 
+    def loss(self, outputs: torch.Tensor, batch: Tuple[Any, torch.Tensor], *args, **kwargs) -> torch.Tensor:
+        _, targets = batch
+        targets = targets.squeeze(dim=0)
+        # import sys
+        # print(f"output shape: {outputs.shape}\n", file=sys.stderr)
+        # print(f"target shape: {targets.shape}\n", file=sys.stderr)
+        return self._loss_fn(outputs, targets, *args, **kwargs)
+
+    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
+        _, targets = batch
+        metric.update(outputs.squeeze(dim=0), targets.squeeze(dim=0))
+
+    def forward(self, batch: Tuple[torch.Tensor, Any]) -> torch.Tensor:
+        inputs, _ = batch
+        inputs = inputs.squeeze(dim=0)
+        outputs = self.module(inputs)
+        return outputs
 
 
 model = SimpleModelWithDropout()
-train_dataloader = DataLoader(RandomClassificationDataset())
-eval_dataloader = DataLoader(RandomClassificationDataset())
+train_dataloader = DataLoader(SimpleDataset(batch_size=256, feature_size=64, num_classes=10))
+eval_dataloader = DataLoader(SimpleDataset(batch_size=256, feature_size=64, num_classes=10))
 ```
 -->
 <!--pytest-codeblocks:cont-->
@@ -92,7 +123,7 @@ from composer.trainer import Trainer
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   eval_dataloader=eval_dataloader,
-                  max_duration='100ep',
+                  max_duration='1ep',
                   algorithms=[GyroDropout(p=0.5,
                                           sigma=256,
                                           tau=16)])
