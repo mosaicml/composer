@@ -162,10 +162,10 @@ def s3_bucket(request: pytest.FixtureRequest):
         return _get_option(request.config, 's3_bucket')
 
 
-# Note: These session scoped fixtures should be not be used directly in tests, but the non session scoped fixtures
-# below should be used instead. This is because the session scoped fixtures contain return the same object to every
-# tests that requests it, so tests would have side effects on each other when they modify them. Instead, the non session
-# scoped fixtures below perform a deepcopy before returning the fixture
+# Note: These session scoped fixtures should not be used directly in tests, but the non session scoped fixtures
+# below should be used instead. This is because the session scoped fixtures return the same object to every
+# test that requests it, so tests would have side effects on each other. Instead, the non session
+# scoped fixtures below perform a deepcopy before returning the fixture.
 @pytest.fixture(scope='session')
 def _session_tiny_bert_model():  # type: ignore
     transformers = pytest.importorskip('transformers')
