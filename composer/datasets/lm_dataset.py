@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 def build_lm_dataloader(
     datadir: List[str],
     tokenizer_name: str,
-    batch_size: int,
+    global_batch_size: int,
     *,
     split: str = 'train',
     shuffle: bool = True,
@@ -35,7 +35,7 @@ def build_lm_dataloader(
         tokenizer_name (str): The name of the HuggingFace tokenizer to
             preprocess text with. See `HuggingFace documentation
             <https://huggingface.co/models>`_.
-        batch_size (int): Batch size per device.
+        global_batch_size (int): Global batch size.
         split (str): the dataset split to use either 'train', 'val', or 'test'. Default: ``'train```. Default: ``'train'``.
         shuffle (bool): whether to shuffle the dataset. Default: ``True``.
         drop_last (bool): whether to drop last samples. Default: ``True``.
@@ -49,7 +49,10 @@ def build_lm_dataloader(
             ``1.0``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
-
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     try:
         import transformers
     except ImportError as e:
@@ -125,7 +128,7 @@ def build_lm_dataloader(
 def build_synthetic_lm_dataloader(
     synthetic_num_unique_samples: int,
     tokenizer_name: str,
-    batch_size: int,
+    global_batch_size: int,
     *,
     split: str = 'train',
     shuffle: bool = True,
@@ -144,7 +147,7 @@ def build_synthetic_lm_dataloader(
         tokenizer_name (str): The name of the HuggingFace tokenizer to
             preprocess text with. See `HuggingFace documentation
             <https://huggingface.co/models>`_.
-        batch_size (int): Batch size per device.
+        global_batch_size (int)
         split (str): the dataset split to use either 'train', 'val', or 'test'. Default:
         ``'train```. Default: ``'train'``.
         shuffle (bool): whether to shuffle the dataset. Default: ``True``.
@@ -173,6 +176,11 @@ def build_synthetic_lm_dataloader(
         raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='datasets') from e
 
     assert tokenizer_name is not None
+
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
 
     column_names = ['text']
 

@@ -12,7 +12,6 @@ import torch
 import torch.utils.data
 
 from composer.core import Algorithm, Batch, Event, State, TimeUnit, get_precision_context
-from composer.devices import DeviceGPU
 from composer.loggers import Logger
 from composer.models import HuggingFaceModel
 from composer.utils import dist, ensure_tuple
@@ -279,7 +278,7 @@ class SeqLengthWarmup(Algorithm):
             device_batch_size = v.shape[0]
 
         # In-line to avoid circular dependency
-        from composer.trainer.trainer import _adjust_grad_accum, _is_cuda_oom
+        from composer.trainer.trainer import _adjust_device_train_microbatch_size, _adjust_grad_accum, _is_cuda_oom
 
         # This loop tries to do a forward/backward pass using the current microbatch size.
         # If it hits an OOM error, it doubles `state.grad_accum` and tries again until
@@ -307,19 +306,21 @@ class SeqLengthWarmup(Algorithm):
 
             # This error/state.grad_accum handling mimics the logic in trainer._train_batch().
             except RuntimeError as e:
-                if state.auto_grad_accum and _is_cuda_oom(e):
+                if state.auto_microbatching and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     found_cuda_oom = 1
                 else:
                     raise
 
-            if state.auto_grad_accum:
-                devicegpu = DeviceGPU()
+            if state.auto_microbatching:
                 # Propagate across all ranks if any rank hit CUDA OOM
-                found_cuda_oom = devicegpu.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                found_cuda_oom = state.device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
                 dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
                 if found_cuda_oom.item() == 1:
-                    _adjust_grad_accum(state, device_batch_size)
+                    if state.using_device_microbatch_size:
+                        _adjust_device_train_microbatch_size(state)
+                    else:
+                        _adjust_grad_accum(state, device_batch_size)
                     # Skip return and rerun after handling oom
                     continue
             # Activate and return if we've completed without OOMing.

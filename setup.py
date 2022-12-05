@@ -77,8 +77,8 @@ install_requires = [
     'tqdm>=4.62.3,<5',
     'torchmetrics>=0.7.0,<0.10.0',
     'torch_optimizer>=0.3.0,<0.4',
-    'torchvision>=0.10.0',  # torchvision has strict pytorch requirements
-    'torch>=1.10,<1.13',
+    'torchvision>=0.11.0,<0.15',
+    'torch>=1.10.0,<1.14',
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<1.23.0',
     'psutil>=5.8.0,<6',
@@ -124,7 +124,7 @@ extra_deps['dev'] = [
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.16.1',
-    'traitlets==5.5.0',
+    'traitlets==5.6.0',
     'nbsphinx==0.8.10',
     'pandoc==2.3',
     'pypandoc==1.10',
@@ -137,7 +137,7 @@ extra_deps['dev'] = [
 ]
 
 extra_deps['deepspeed'] = [
-    'deepspeed==0.5.10',  # TODO should this be >=0.5.10,<0.6
+    'deepspeed==0.7.6',
 ]
 
 extra_deps['wandb'] = [
