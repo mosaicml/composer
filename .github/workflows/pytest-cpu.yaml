@@ -1,0 +1,18 @@
+name: Pytest-CPU
+on:
+  pull_request: {}
+  workflow_dispatch: {}
+jobs:
+  pytest:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.10
+      - name: Run Tests
+        id: tests
+        run: |
+          set -ex
+          python3 -m pytest
