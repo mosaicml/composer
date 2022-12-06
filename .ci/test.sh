@@ -39,7 +39,7 @@ function cleanup()
 
 trap cleanup EXIT
 
-COMMON_ARGS="-v -m '$MARKERS' --s3_bucket '$S3_BUCKET' --sftp_uri '$SFTP_URI'"
+COMMON_ARGS="-v --durations=20 -m '$MARKERS' --s3_bucket '$S3_BUCKET' --sftp_uri '$SFTP_URI'"
 
 # Set the run directory to build/output, which will be caputred by Jenkins
 # Run pytest with coverage, and store the junit output
