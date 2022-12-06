@@ -26,7 +26,7 @@ def test_optimizer_monitor(log_layers: bool, log_optimizer_metrics: bool):
         loggers=in_memory_logger,
         train_dataloader=DataLoader(RandomClassificationDataset()),
         optimizers=DecoupledAdamW(model.parameters()),
-        max_duration='2ep',
+        max_duration='1ep',
     )
     trainer.fit()
     num_train_steps = int(trainer.state.timestamp.batch)

@@ -107,8 +107,7 @@ class OptimizerMonitor(Callback):
                 if callable(metric_reporter) and self.log_optimizer_metrics:
                     optimizer_metrics = metric_reporter(p, name, optimizer_metrics)
 
-        norm = norm**0.5
-        logger.log_metrics({'grad_l2_norm/step': norm})
+        logger.log_metrics({'grad_l2_norm/step': norm**0.5})
         if self.log_layer_grad_norms:
             logger.log_metrics(layer_norms)
 
