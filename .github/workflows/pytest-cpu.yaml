@@ -6,6 +6,7 @@ jobs:
   pytest:
     timeout-minutes: 30
     runs-on: ubuntu-latest
+    container: mosaicml/composer:latest
     strategy:
       matrix:
         python_version:
