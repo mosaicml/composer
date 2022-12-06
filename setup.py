@@ -124,7 +124,7 @@ extra_deps['dev'] = [
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.16.1',
-    'traitlets==5.5.0',
+    'traitlets==5.6.0',
     'nbsphinx==0.8.10',
     'pandoc==2.3',
     'pypandoc==1.10',
@@ -137,7 +137,7 @@ extra_deps['dev'] = [
 ]
 
 extra_deps['deepspeed'] = [
-    'deepspeed==0.7.5',
+    'deepspeed==0.7.6',
 ]
 
 extra_deps['wandb'] = [
