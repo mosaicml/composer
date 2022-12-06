@@ -244,7 +244,6 @@ def build_streaming_cifar10_dataloader(
     global_batch_size: int,
     remote: str,
     *,
-    version: int = 2,
     local: str = '/tmp/mds-cache/mds-cifar10',
     split: str = 'train',
     drop_last: bool = True,
@@ -256,7 +255,6 @@ def build_streaming_cifar10_dataloader(
     Args:
         global_batch_size (int): Global batch size.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-        version (int, optional): Which version of streaming to use. Default: ``2``.
         local (str, optional): Local filesystem directory where dataset is cached during operation.
             Defaults to ``'/tmp/mds-cache/mds-imagenet1k/```.
         split (str): Which split of the dataset to use. Either ['train', 'val']. Default:

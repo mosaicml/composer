@@ -145,7 +145,6 @@ def build_streaming_ade20k_dataloader(
     global_batch_size: int,
     remote: str,
     *,
-    version: int = 2,
     local: str = '/tmp/mds-cache/mds-ade20k/',
     split: str = 'train',
     drop_last: bool = True,
@@ -162,7 +161,6 @@ def build_streaming_ade20k_dataloader(
     Args:
         global_batch_size (int): Global batch size.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-        version (int): Which version of streaming to use. Default: ``2``.
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-ade20k/```.
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
