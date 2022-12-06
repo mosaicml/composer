@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from composer.utils import OCIObjectStore
+from composer.loggers import RemoteUploaderDownloader
 
 
 @pytest.fixture
@@ -80,3 +81,7 @@ class TestOCIObjectStore:
         monkeypatch.setattr(self.oci_os.client, 'list_objects', mock_list_objects_fn)
 
         assert self.oci_os.get_object_size(mock_object_name) == mock_object_size
+
+
+def test_checkpointing_with_oci_object_store(self, setup_oci_mocks, monkeypatch, tmp_path):
+    pass
