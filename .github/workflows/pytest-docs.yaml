@@ -8,10 +8,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python_version:
-          - "3.8"
-          - "3.9"
-          - "3.10"
+        include:
+          - python_version: "3.8"
+            container:  mosaicml/pytorch:1.11.0_cpu-python3.8-ubuntu20.04
+          - python_version: "3.9"
+            container:  mosaicml/pytorch:1.12.1_cpu-python3.9-ubuntu20.04 
+          - python_version: "3.9"
+            container:  mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
+          - python_version: "3.10"
+            container:  mosaicml/pytorch:1.13.0_cpu-python3.10-ubuntu20.04
+    container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
