@@ -10,7 +10,7 @@ from composer.datasets.c4 import build_streaming_c4_dataloader
 from composer.datasets.cifar import (build_cifar10_dataloader, build_ffcv_cifar10_dataloader,
                                      build_streaming_cifar10_dataloader, build_synthetic_cifar10_dataloader)
 from composer.datasets.coco import COCODetection, StreamingCOCO
-from composer.datasets.imagenet import (StreamingImageNet1k, build_ffcv_imagenet_dataloader, build_imagenet_dataloader,
+from composer.datasets.imagenet import (build_ffcv_imagenet_dataloader, build_imagenet_dataloader,
                                         build_streaming_imagenet1k_dataloader, build_synthetic_imagenet_dataloader)
 from composer.datasets.lm_dataset import build_lm_dataloader, build_synthetic_lm_dataloader
 from composer.datasets.mnist import build_mnist_dataloader, build_synthetic_mnist_dataloader
@@ -23,7 +23,6 @@ __all__ = [
     'PytVal',
     'COCODetection',
     'StreamingCOCO',
-    'StreamingImageNet1k',
     'SyntheticBatchPairDataset',
     'SyntheticDataLabelType',
     'SyntheticDataType',

@@ -10,7 +10,6 @@ import pytest_httpserver
 from torch.utils.data import DataLoader
 
 from composer.datasets.coco import StreamingCOCO
-from composer.datasets.imagenet import StreamingImageNet1k
 from composer.datasets.streaming import StreamingDataset
 from composer.datasets.streaming.download import download_or_wait
 from composer.datasets.utils import pil_image_collate
@@ -25,15 +24,6 @@ def get_dataset(name: str,
                 other_kwargs: Optional[Dict[str, Any]] = None) -> Tuple[int, StreamingDataset]:
     other_kwargs = {} if other_kwargs is None else other_kwargs
     dataset_map = {
-        'imagenet1k': {
-            'remote': 's3://mosaicml-internal-dataset-imagenet1k/mds/1/',
-            'num_samples': {
-                'train': 1281167,
-                'val': 50000,
-            },
-            'class': StreamingImageNet1k,
-            'kwargs': {},
-        },
         'coco': {
             'remote': 's3://mosaicml-internal-dataset-coco/mds/1/',
             'num_samples': {
