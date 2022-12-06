@@ -1,7 +1,12 @@
-import pytest
-from unittest.mock import MagicMock
-from composer.utils import OCIObjectStore 
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 from pathlib import Path
+from unittest.mock import MagicMock
+
+import pytest
+
+from composer.utils import OCIObjectStore
 
 
 @pytest.fixture
@@ -38,10 +43,9 @@ class TestOCIObjectStoreUnit:
 
         self.oci_os.upload_object(object_name=mock_object_name, filename=file_to_upload)
         mock_upload_file.assert_called_once_with(namespace_name=self.mock_namespace,
-                                                bucket_name=self.mock_bucket_name,
-                                                object_name=mock_object_name,
-                                                file_path=file_to_upload)
-
+                                                 bucket_name=self.mock_bucket_name,
+                                                 object_name=mock_object_name,
+                                                 file_path=file_to_upload)
 
     def test_download_object(self, monkeypatch, tmp_path):
         mock_object_name = 'my_object'
@@ -56,7 +60,7 @@ class TestOCIObjectStoreUnit:
         mock_get_object.assert_called_once_with(namespace_name=self.mock_namespace,
                                                 bucket_name=self.mock_bucket_name,
                                                 object_name=mock_object_name)
-        
+
         with open(file_to_download_to, 'rb') as f:
             actual_content = f.readline()
         assert actual_content == file_content
