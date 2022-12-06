@@ -22,35 +22,6 @@ from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 
 
 @pytest.mark.parametrize('num_classes', [2, 3])
-def test_hf_model_forward(num_classes: int, tiny_bert_config):
-    transformers = pytest.importorskip('transformers')
-    from transformers.modeling_outputs import SequenceClassifierOutput
-
-    from composer.models import HuggingFaceModel
-
-    # dummy sequence batch with 2 labels, 32 sequence length, and 30522 (bert) vocab size).
-    input_ids = torch.randint(low=0, high=30522, size=(2, 32))
-    labels = torch.randint(low=0, high=num_classes, size=(2,))
-    token_type_ids = torch.zeros(size=(2, 32), dtype=torch.int64)
-    attention_mask = torch.randint(low=0, high=1, size=(2, 32))
-    batch = {
-        'input_ids': input_ids,
-        'labels': labels,
-        'token_type_ids': token_type_ids,
-        'attention_mask': attention_mask,
-    }
-
-    tiny_bert_config.num_labels = num_classes
-    hf_model = transformers.AutoModelForSequenceClassification.from_config(
-        tiny_bert_config)  # type: ignore (thirdparty)
-    model = HuggingFaceModel(hf_model)
-
-    out = model(batch)
-    assert isinstance(out, SequenceClassifierOutput)
-    assert out.logits.shape == (2, num_classes)
-
-
-@pytest.mark.parametrize('num_classes', [2, 3])
 def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
     transformers = pytest.importorskip('transformers')
 
@@ -64,7 +35,7 @@ def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
     model = HuggingFaceModel(hf_model, metrics=[metrics], use_logits=True)
 
     vocab_size = 30522  # Match bert vocab size
-    sequence_length = 32
+    sequence_length = 4
     num_classes = num_classes
     size = 16
     batch_size = 8
@@ -87,7 +58,7 @@ def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=dist.get_sampler(train_dataset))
     eval_dataloader = DataLoader(eval_dataset, batch_size=batch_size, sampler=dist.get_sampler(eval_dataset))
-    predict_dataloader = DataLoader(predict_dataset, batch_size=8)
+    predict_dataloader = DataLoader(predict_dataset, batch_size=batch_size)
 
     trainer = Trainer(
         model=model,
@@ -152,7 +123,7 @@ def check_hf_model_equivalence(model1, model2):
 @pytest.mark.parametrize('pass_in_tokenizer', [True, False])
 @pytest.mark.parametrize('modify_tokenizer', [True, False])
 @pytest.mark.parametrize('num_classes', [2, 3])
-def test_hf_state_dict_info(tmp_path: str, pass_in_tokenizer: bool, modify_tokenizer: bool, num_classes: int,
+def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_tokenizer: bool, num_classes: int,
                             tiny_bert_tokenizer, tiny_bert_config):
     transformers = pytest.importorskip('transformers')
 
@@ -195,8 +166,7 @@ def test_hf_state_dict_info(tmp_path: str, pass_in_tokenizer: bool, modify_token
                       save_folder=str(tmp_path),
                       save_interval='1ep',
                       save_filename='hf-checkpoint.pt')
-
-    trainer.fit()
+    trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
 
     loaded_checkpoint = torch.load(Path(tmp_path) / 'hf-checkpoint.pt')
     hf_state = loaded_checkpoint['state']['integrations']['huggingface']
@@ -252,10 +222,10 @@ def get_lm_trainer(hf_model, hf_tokenizer, save_folder, load_path: Optional[str]
 
     model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, metrics=metrics, use_logits=True)
 
-    vocab_size = 30522  # Match bert vocab size
-    sequence_length = 32
-    size = 16
-    batch_size = 8
+    vocab_size = hf_model.config.vocab_size
+    sequence_length = 4
+    size = 4
+    batch_size = 4
 
     train_dataset = RandomTextLMDataset(size=size,
                                         vocab_size=vocab_size,
@@ -275,7 +245,6 @@ def get_lm_trainer(hf_model, hf_tokenizer, save_folder, load_path: Optional[str]
                       save_folder=save_folder,
                       save_interval='1ep',
                       save_filename='hf-checkpoint.pt',
-                      progress_bar=True,
                       load_path=load_path)
     return trainer
 
@@ -308,7 +277,7 @@ def test_hf_loading_load_save_paths(checkpoint_upload_path: Optional[str], local
     from composer.models import HuggingFaceModel
 
     trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
-    trainer.fit()
+    trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
 
     # Just upload the checkpoint to a dummy object store outside of composer to make mocking easier
     if checkpoint_upload_path is not None:
@@ -354,7 +323,7 @@ def test_hf_loading_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny_bert_
         tiny_bert_model.resize_token_embeddings(len(tiny_bert_tokenizer))
 
     trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
-    trainer.fit()
+    trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
 
     hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
         checkpoint_path=str(tmp_path / 'hf-checkpoint.pt'))
@@ -379,7 +348,7 @@ def test_hf_loading_model_classes(model_class_name: str, num_classes: Optional[i
         pytest.skip('Invalid parametrization. num_classes cannot be None for loading sequence classification models.')
 
     trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
-    trainer.fit()
+    trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
 
     class CustomSequenceClassification(transformers.BertForSequenceClassification):
 
@@ -458,7 +427,7 @@ def test_hf_loading_errors(tiny_bert_model, tiny_bert_tokenizer, model_class_nam
     from composer.models import HuggingFaceModel
 
     trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
-    trainer.fit()
+    trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
 
     # The compatibility of the model chosen and the model saved are up to huggingface code, but we test
     # here that one incompatible combination of BertConfig and GPT2Model errors out
