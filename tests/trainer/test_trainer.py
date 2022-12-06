@@ -356,23 +356,23 @@ class TestTrainerInitOrFit:
         model: ComposerModel,
         max_duration: Time[int],
     ):
-        train_device_microbatch_size = 1
+        device_train_microbatch_size = 1
 
         # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
         copied_model = copy.deepcopy(model)
 
-        # Train once with the train_device_microbatch_size param on Trainer.__init__()
+        # Train once with the device_train_microbatch_size param on Trainer.__init__()
         init_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
         init_trainer = Trainer(
             model=model,
             max_duration=max_duration,
             train_dataloader=train_dataloader,
-            train_device_microbatch_size=train_device_microbatch_size,
+            device_train_microbatch_size=device_train_microbatch_size,
             callbacks=[init_event_counter_callback],
         )
         init_trainer.fit()
 
-        # Train again with the train_device_microbatch_size param specified on Trainer.fit()
+        # Train again with the device_train_microbatch_size param specified on Trainer.fit()
         fit_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
         fit_trainer = Trainer(
             model=copied_model,
@@ -380,7 +380,7 @@ class TestTrainerInitOrFit:
             train_dataloader=train_dataloader,
             callbacks=[fit_event_counter_callback],
         )
-        fit_trainer.fit(train_device_microbatch_size=train_device_microbatch_size)
+        fit_trainer.fit(device_train_microbatch_size=device_train_microbatch_size)
 
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
@@ -920,7 +920,7 @@ class TestTrainerEquivalence():
         }
 
         config.update({
-            'train_device_microbatch_size': 2,
+            'device_train_microbatch_size': 2,
         })
 
         trainer = Trainer(**config)
@@ -1044,8 +1044,8 @@ class AssertDataAugmented(Callback):
         self.dataset = dataset
 
     def after_forward(self, state, logger):
-        if state.using_device_microbatch_size and state.train_device_microbatch_size != state.train_dataloader.batch_size:  # type: ignore
-            raise ValueError('This check assumes train_device_microbatch_size == batch_size')
+        if state.using_device_microbatch_size and state.device_train_microbatch_size != state.train_dataloader.batch_size:  # type: ignore
+            raise ValueError('This check assumes device_train_microbatch_size == batch_size')
         elif not state.using_device_microbatch_size and state.grad_accum != 1:
             raise ValueError(f'This check assumes grad_accum of 1, got {state.grad_accum}')
         batch_idx = state.timestamp.batch_in_epoch.value

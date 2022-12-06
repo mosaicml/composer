@@ -105,6 +105,9 @@ class HuggingFaceModel(ComposerModel):
     ) -> Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]:
         """Loads a HuggingFace model (and tokenizer if present) from a composer checkpoint.
 
+        .. note:: This function does not load the weights from the checkpoint. It just loads the correctly configured
+            model and tokenizer classes.
+
         .. testsetup::
 
             import torch
