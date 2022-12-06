@@ -22,9 +22,9 @@ jobs:
     strategy:
       matrix:
         python_version:
-          - "3.7"
           - "3.8"
           - "3.9"
+          - "3.10"
         pip_deps:
           - "[all]"
     steps:

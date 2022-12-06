@@ -63,10 +63,11 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    examples/custom_speedup_methods.ipynb
    examples/ffcv_dataloaders.ipynb
    examples/huggingface_models.ipynb
+   examples/pretrain_finetune_huggingface.ipynb
    examples/migrate_from_ptl.ipynb
    examples/early_stopping.ipynb
    examples/streaming_dataloader_facesynthetics.ipynb
-   examples/auto_grad_accum.ipynb
+   examples/auto_microbatching.ipynb
    examples/checkpoint_autoresume.ipynb
    examples/training_without_local_storage.ipynb
    examples/exporting_for_inference.ipynb
@@ -107,7 +108,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    notes/distributed_training.rst
    notes/early_stopping.rst
    notes/numerics.md
-   notes/auto_grad_accum.rst
+   notes/auto_microbatching.rst
    notes/resumption.rst
    notes/tensorboard_logger.md
    notes/run_name.md
@@ -132,6 +133,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/gated_linear_units.md
    method_cards/ghost_batchnorm.md
    method_cards/gradient_clipping.md
+   method_cards/gyro_dropout.md
    method_cards/label_smoothing.md
    method_cards/layer_freezing.md
    method_cards/low_precision_layernorm.md

@@ -13,9 +13,9 @@ from composer.loggers import Logger
 from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker
 
 
-def make_synthetic_state(family):
+def make_synthetic_state(family, session):
     synthetic_config = make_dataset_configs(model_family=[family])[0]
-    return synthetic_hf_state_maker(synthetic_config)
+    return synthetic_hf_state_maker(synthetic_config, session)
 
 
 def _double_batch_sequence_length(batch):
@@ -114,8 +114,8 @@ def test_registry(caplog):
 @pytest.mark.parametrize('synthetic_state_family', ['bert', 'gpt2'])
 class TestAlibi:
 
-    def test_functional(self, synthetic_state_family: str, caplog):
-        state, _, dataloader = make_synthetic_state(synthetic_state_family)
+    def test_functional(self, synthetic_state_family: str, caplog, request: pytest.FixtureRequest):
+        state, _, dataloader = make_synthetic_state(synthetic_state_family, request.session)
         if synthetic_state_family == 'gpt2':
             max_sequence_length = state.model.config.n_positions
         elif synthetic_state_family == 'bert':
@@ -162,8 +162,8 @@ class TestAlibi:
 
     @pytest.mark.parametrize('train_sequence_length_scaling', [0.25, 1.0])
     def test_algorithm(self, synthetic_state_family: str, empty_logger: Logger, train_sequence_length_scaling: float,
-                       caplog):
-        state, _, dataloader = make_synthetic_state(synthetic_state_family)
+                       caplog, request: pytest.FixtureRequest):
+        state, _, dataloader = make_synthetic_state(synthetic_state_family, request.session)
 
         if synthetic_state_family == 'gpt2':
             max_sequence_length = state.model.config.n_positions

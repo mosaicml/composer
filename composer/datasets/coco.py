@@ -26,7 +26,7 @@ __all__ = ['COCODetection', 'StreamingCOCO', 'build_coco_detection_dataloader']
 
 
 def build_coco_detection_dataloader(
-    batch_size: int,
+    global_batch_size: int,
     datadir: str,
     *,
     split: str = 'train',
@@ -38,7 +38,7 @@ def build_coco_detection_dataloader(
     """Builds a COCO Detection dataloader with default transforms for SSD300.
 
     Args:
-        batch_size (int): Batch size per device.
+        global_batch_size (int): Global batch size.
         datadir (str): Path to the data directory
         split (str): the dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
         drop_last (bool): whether to drop last samples. Default: ``True``.
@@ -46,7 +46,10 @@ def build_coco_detection_dataloader(
         input_size (int): the size of the input image, keep this at `300` for SSD300. Default: ``300``.
         **dataloader_kwargs (Any): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
-
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     # default boxes set for SSD300
     default_boxes = DefaultBoxes(fig_size=input_size,
                                  feat_size=[38, 19, 10, 5, 3, 1],

@@ -18,7 +18,6 @@ from torch.utils.data import DataLoader
 
 from composer import Callback, Evaluator, Trainer
 from composer.algorithms import CutOut, LabelSmoothing
-from composer.algorithms.gradient_clipping.gradient_clipping import GradientClipping
 from composer.callbacks import LRMonitor
 from composer.core import Event, Precision, State, Time, TimeUnit
 from composer.datasets.ffcv_utils import write_ffcv_dataset
@@ -351,6 +350,83 @@ class TestTrainerInitOrFit:
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
+    def test_microbatch(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time[int],
+    ):
+        device_train_microbatch_size = 1
+
+        # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
+        copied_model = copy.deepcopy(model)
+
+        # Train once with the device_train_microbatch_size param on Trainer.__init__()
+        init_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
+        init_trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            device_train_microbatch_size=device_train_microbatch_size,
+            callbacks=[init_event_counter_callback],
+        )
+        init_trainer.fit()
+
+        # Train again with the device_train_microbatch_size param specified on Trainer.fit()
+        fit_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
+        fit_trainer = Trainer(
+            model=copied_model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            callbacks=[fit_event_counter_callback],
+        )
+        fit_trainer.fit(device_train_microbatch_size=device_train_microbatch_size)
+
+        # Assert that the states are equivalent
+        assert_state_equivalent(init_trainer.state, fit_trainer.state)
+
+    @pytest.mark.gpu
+    @pytest.mark.filterwarnings(
+        "ignore:Setting `device_train_microbatch_size='auto'` is an experimental feature which may cause uncaught Cuda Out of Memory errors. In this case, please manually set device_train_microbatch_size explicitly to an integer instead."
+    )
+    @pytest.mark.parametrize('dataloader_in_init', [True, False])
+    def test_auto_microbatch(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time[int],
+        dataloader_in_init: bool,
+    ):
+        # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
+        copied_model = copy.deepcopy(model)
+
+        # Train once with the device_train_microbatch_size=1
+        init_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
+        init_trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader if dataloader_in_init else None,
+            device_train_microbatch_size='auto',
+            callbacks=[init_event_counter_callback],
+        )
+        init_trainer.fit(train_dataloader=train_dataloader if not dataloader_in_init else None)
+
+        # Train again with the device_train_microbatch_size='auto'
+        fit_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
+        fit_trainer = Trainer(
+            model=copied_model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader if dataloader_in_init else None,
+            callbacks=[fit_event_counter_callback],
+        )
+        fit_trainer.fit(
+            train_dataloader=train_dataloader if not dataloader_in_init else None,
+            device_train_microbatch_size='auto',
+        )
+
+        # Assert that the states are equivalent
+        assert_state_equivalent(init_trainer.state, fit_trainer.state)
+
     def test_grad_accum(
         self,
         train_dataloader: DataLoader,
@@ -388,6 +464,7 @@ class TestTrainerInitOrFit:
 
     @pytest.mark.gpu
     @pytest.mark.parametrize('precision', list(Precision))
+    @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_deepspeed(
         self,
         model: ComposerModel,
@@ -409,9 +486,10 @@ class TestTrainerInitOrFit:
         trainer.fit()
 
     @pytest.mark.gpu
-    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.12.0'),
-                        reason='requires PyTorch 1.12 or higher')
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                        reason='requires PyTorch 1.13 or higher')
     @pytest.mark.parametrize('precision', list(Precision))
+    @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_fsdp(
         self,
         model: ComposerModel,
@@ -419,12 +497,14 @@ class TestTrainerInitOrFit:
         max_duration: Time[int],
         train_dataloader: DataLoader,
     ):
+        if precision == Precision.FP32:  # FSDP FULL_SHARD doesn't support FP32
+            return
 
         fsdp_config = {
             'sharding_strategy': 'FULL_SHARD',
             'min_params': 1e8,
             'cpu_offload': False,
-            'mixed_precision': 'DEFAULT',
+            'mixed_precision': 'PURE',
             'backward_prefetch': 'BACKWARD_PRE',
             'activation_checkpointing': False,
             'activation_cpu_offload': False,
@@ -435,9 +515,6 @@ class TestTrainerInitOrFit:
         # with precision FP16.
         ctx = contextlib.nullcontext()
         should_error = False
-        if precision == Precision.FP16:
-            ctx = pytest.raises(ValueError, match='FP16 precision is only supported when training with DeepSpeed.')
-            should_error = True
 
         with ctx:
             trainer = Trainer(
@@ -511,9 +588,6 @@ class TestTrainerInitOrFit:
         if device == 'cpu' and precision != Precision.FP32:
             ctx = pytest.raises(ValueError, match='not supported for CPU training.')
             should_error = True
-        elif precision == Precision.FP16:
-            ctx = pytest.raises(ValueError, match='FP16 precision is only supported when training with DeepSpeed.')
-            should_error = True
 
         with ctx:
             # Train once with the precision param on Trainer.__init__()
@@ -542,40 +616,6 @@ class TestTrainerInitOrFit:
         # Assert that the states are equivalent, if we did train
         if not should_error:
             assert_state_equivalent(init_trainer.state, fit_trainer.state)
-
-    @pytest.mark.parametrize('grad_clip_norm,context_manager', [(-1.0, contextlib.nullcontext),
-                                                                (1.0, pytest.deprecated_call)])
-    def test_grad_clip_norm(
-        self,
-        train_dataloader: DataLoader,
-        model: ComposerModel,
-        max_duration: Time[int],
-        grad_clip_norm: float,
-        context_manager,
-    ):
-        # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
-        copied_model = copy.deepcopy(model)
-        with context_manager():
-            # Train once with the grad_clip_norm param on Trainer.__init__()
-            init_trainer = Trainer(
-                model=model,
-                max_duration=max_duration,
-                train_dataloader=train_dataloader,
-                grad_clip_norm=grad_clip_norm,
-            )
-        init_trainer.fit()
-        algorithms = [] if grad_clip_norm <= 0 else [
-            GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm)
-        ]
-        # Train again with the grad_clip_norm specified using an algorithm
-        algo_trainer = Trainer(model=copied_model,
-                               max_duration=max_duration,
-                               train_dataloader=train_dataloader,
-                               algorithms=algorithms)
-        algo_trainer.fit()
-
-        # Assert that the states are equivalent
-        assert_state_equivalent(init_trainer.state, algo_trainer.state)
 
     def test_dataloader_active_iterator_error(self, model: ComposerModel):
         dataset = RandomClassificationDataset()
@@ -913,12 +953,29 @@ class TestTrainerEquivalence():
 
         self.assert_models_equal(trainer.state.model, self.reference_model)
 
-    def test_grad_accum(self, config, precision, *args):
-        # grad accum requires non-zero tolerance
+    def test_microbatch_size(self, config, precision, *args):
+        # microbatching requires non-zero tolerance
         # Precision.AMP requires a even higher tolerance.
         threshold = {
-            'atol': 1e-04 if precision == Precision.AMP else 1e-05,
-            'rtol': 1e-02 if precision == Precision.AMP else 1e-04,
+            'atol': 1e-04 if precision == Precision.AMP_FP16 else 1e-05,
+            'rtol': 1e-02 if precision == Precision.AMP_FP16 else 1e-04,
+        }
+
+        config.update({
+            'device_train_microbatch_size': 2,
+        })
+
+        trainer = Trainer(**config)
+        trainer.fit()
+
+        self.assert_models_equal(trainer.state.model, self.reference_model, threshold=threshold)
+
+    def test_grad_accum_size(self, config, precision, *args):
+        # grad accum requires non-zero tolerance
+        # Precision.AMP_FP16 requires a even higher tolerance.
+        threshold = {
+            'atol': 1e-04 if precision == Precision.AMP_FP16 else 1e-05,
+            'rtol': 1e-02 if precision == Precision.AMP_FP16 else 1e-04,
         }
 
         config.update({
@@ -1022,14 +1079,16 @@ class AssertDataAugmented(Callback):
     The original batch is passed through the model and we assert that the outputs are not the same. This is to be used
     in conjunction with an algorithm that augments the data during AFTER_DATALOADER event.
 
-    Assumes gradient accumulation 1.
+    Assumes only one microbatch is used.
     """
 
     def __init__(self, dataset):
         self.dataset = dataset
 
     def after_forward(self, state, logger):
-        if state.grad_accum != 1:
+        if state.using_device_microbatch_size and state.device_train_microbatch_size != state.train_dataloader.batch_size:  # type: ignore
+            raise ValueError('This check assumes device_train_microbatch_size == batch_size')
+        elif not state.using_device_microbatch_size and state.grad_accum != 1:
             raise ValueError(f'This check assumes grad_accum of 1, got {state.grad_accum}')
         batch_idx = state.timestamp.batch_in_epoch.value
         batch_size = len(state.batch[0])
@@ -1103,7 +1162,7 @@ class TestFFCVDataloaders:
         datadir = os.path.join(self.tmp_path, self.train_file if is_train else self.val_file)
         return build_ffcv_imagenet_dataloader(
             datadir=str(datadir),
-            batch_size=4,
+            global_batch_size=4,
             is_train=is_train,
             num_workers=0,
         )
