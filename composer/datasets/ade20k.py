@@ -23,7 +23,9 @@ from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
 from composer.utils import MissingConditionalImportError, dist
 
-__all__ = ['ADE20k']
+__all__ = [
+    'ADE20k', 'build_ade20k_dataloader', 'build_streaming_ade20k_dataloader', 'build_synthetic_ade20k_dataloader'
+]
 
 IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
 IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
