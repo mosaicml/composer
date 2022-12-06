@@ -51,7 +51,7 @@ def comet_logger(monkeypatch, comet_offline_directory):
     return comet_logger
 
 
-@pytest.mark.parametrize('interval', ['9ba', '90ba', '2ep', '3ep', '7ep'])
+@pytest.mark.parametrize('interval', ['9ba', '2ep', '7ep'])
 def test_image_visualizer_with_wandb(test_wandb_logger, interval):
     wandb = pytest.importorskip('wandb', reason='wandb is optional')
 
