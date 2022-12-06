@@ -9,7 +9,6 @@ import pytest
 import pytest_httpserver
 from torch.utils.data import DataLoader
 
-from composer.datasets.c4 import StreamingC4
 from composer.datasets.coco import StreamingCOCO
 from composer.datasets.imagenet import StreamingImageNet1k
 from composer.datasets.streaming import StreamingDataset
@@ -43,18 +42,6 @@ def get_dataset(name: str,
             },
             'class': StreamingCOCO,
             'kwargs': {},
-        },
-        'c4': {
-            'remote': 's3://mosaicml-internal-dataset-c4/mds/1/',
-            'num_samples': {
-                'train': 364868892,
-                'val': 364608,
-            },
-            'class': StreamingC4,
-            'kwargs': {
-                'tokenizer_name': 'bert-base-uncased',
-                'max_seq_len': 512
-            },
         },
         'test_streaming_upload': {
             'remote': 's3://streaming-upload-test-bucket/',
@@ -146,7 +133,6 @@ def test_streaming_remote_dataset(tmp_path: pathlib.Path, name: str, split: str)
 def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: str) -> None:
     # Transformers imports required for batch collating
     pytest.importorskip('transformers')
-    from transformers import DataCollatorForLanguageModeling
     from transformers.tokenization_utils_base import BatchEncoding
 
     # Data loading info
@@ -171,11 +157,6 @@ def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: s
     collate_fn = None
     if name in ['ade20k', 'imagenet1k']:
         collate_fn = pil_image_collate
-    elif name in ['c4']:
-        if isinstance(dataset, StreamingC4):
-            collate_fn = DataCollatorForLanguageModeling(tokenizer=dataset.tokenizer, mlm=True, mlm_probability=0.15)
-        else:
-            raise ValueError('Expected dataset to be instance of StreamingC4')
 
     # Build DataLoader
     loader_build_start = time.time()
