@@ -10,7 +10,6 @@ import pytest_httpserver
 from torch.utils.data import DataLoader
 
 from composer.datasets.c4 import StreamingC4
-from composer.datasets.cifar import StreamingCIFAR10
 from composer.datasets.coco import StreamingCOCO
 from composer.datasets.imagenet import StreamingImageNet1k
 from composer.datasets.streaming import StreamingDataset
@@ -56,15 +55,6 @@ def get_dataset(name: str,
                 'tokenizer_name': 'bert-base-uncased',
                 'max_seq_len': 512
             },
-        },
-        'cifar10': {
-            'remote': 's3://mosaicml-internal-dataset-cifar10/mds/1/',
-            'num_samples': {
-                'train': 50000,
-                'val': 10000,
-            },
-            'class': StreamingCIFAR10,
-            'kwargs': {},
         },
         'test_streaming_upload': {
             'remote': 's3://streaming-upload-test-bucket/',
