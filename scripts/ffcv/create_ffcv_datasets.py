@@ -161,17 +161,16 @@ def _main():
 
     args = _parse_args()
 
-    ds = None
     if args.datadir is not None:
         if args.dataset == 'cifar10':
-            ds = CIFAR10(root=args.datadir, train=(args.split == 'train'), download=args.download)
+            dataset = CIFAR10(root=args.datadir, train=(args.split == 'train'), download=args.download)
         elif args.dataset == 'imagenet1k':
-            ds = ImageFolder(os.path.join(args.datadir, args.split))
+            dataset = ImageFolder(os.path.join(args.datadir, args.split))
         else:
             raise ValueError(f'Unsupported dataset: {args.dataset}. Checkout the list of supported datasets with -h')
 
         if args.subset > 0:
-            ds = Subset(ds, range(args.subset))
+            dataset = Subset(dataset, range(args.subset))
     else:
         remote = os.path.join(args.remote, args.split)
         local = os.path.join(args.local, args.split)
@@ -201,14 +200,14 @@ def _main():
         # Iterate over the dataset and cache it, so it can be used for random access
         cache_streaming(dataset=dataset, num_workers=args.num_workers)
 
-        write_ffcv_dataset(dataset=dataset,
-                           write_path=args.write_path,
-                           max_resolution=args.max_resolution,
-                           num_workers=args.num_workers,
-                           write_mode=args.write_mode,
-                           compress_probability=args.compress_probability,
-                           jpeg_quality=args.jpeg_quality,
-                           chunk_size=args.chunk_size)
+    write_ffcv_dataset(dataset=dataset,
+                       write_path=args.write_path,
+                       max_resolution=args.max_resolution,
+                       num_workers=args.num_workers,
+                       write_mode=args.write_mode,
+                       compress_probability=args.compress_probability,
+                       jpeg_quality=args.jpeg_quality,
+                       chunk_size=args.chunk_size)
 
 
 if __name__ == '__main__':
