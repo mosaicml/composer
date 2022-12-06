@@ -333,7 +333,6 @@ stage('Build') {
         Boolean isComposerImage = buildArgs['TARGET'] == 'composer_stage'
         Boolean shouldPushToDestinations = isMergeCommit && gitBranch == baseBranch
         Boolean shouldBuildImage = didDockerChange  // Always build the image if the ./docker folder changed
-        Boolean usesCPU = false  // Skip CPU tests
 
         def originalTags = buildArgs['TAGS']
 
@@ -351,57 +350,59 @@ stage('Build') {
             String stagingTagName = "mosaicml/composer_staging:${gitCommitHash[0..6]}"
             if (!buildArgs['CUDA_VERSION']) {
                 stagingTagName += '_cpu'
-                usesCPU = true
             }
             buildArgs['COMPOSER_INSTALL_COMMAND'] = "mosaicml[all] @ git+https://github.com/mosaicml/composer.git@${gitCommitHash}"
             buildArgs['TAGS'] << stagingTagName
             shouldBuildImage = true  // always build the image if it's a composer image
         }
 
-        if (!usesCPU) {
-            if (shouldBuildImage) {
-                String stagingImageTag = generateStagingImageTag()
-                buildArgs['TAGS'] << stagingImageTag
-                String kanikoCommand = getKanikoCommand(buildArgs)
-                jobs << [ "${buildArgs}": { ->
-                    trackBuild(
-                        job: jenkinsShellJobName,
-                        parameters: [
-                            string(name: 'P_CLOUD', value: pCloud),
-                            string(name: 'P_GIT_REPO', value: gitUrl),
-                            string(name: 'P_GIT_COMMIT', value: gitCommit),
-                            string(name: 'P_DOCKER_IMAGE', value: kanikoDockerImage),
-                            string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: dockerBuildMemLimit),
-                            text(name: 'P_COMMAND', value: kanikoCommand),
-                            string(name: 'P_TIMEOUT', value: dockerBuildTimeout),
-                            string(name: 'POD_TIMEOUT', value: dockerBuildTimeout),
-                            string(name: 'P_CPU_LIMIT', value: dockerBuildCpuLimit),
-                            string(name: 'P_MEM_LIMIT', value: dockerBuildMemLimit),
-                            booleanParam(name: 'P_MOUNT_KANIKO_CREDENTIALS', value: true),
-                        ]
-                    )
-                    if (!isComposerImage) {
-                        // Only run tests on the 'mosaicml/pytorch' or 'mosaicml/pytorch_vision' images,
-                        // not 'mosaicml/composer'
-                        def subJobs = [:]
-                        scheduleJob(subJobs, stagingImageTag, buildArgs, originalTags)
-                        if (!isMergeCommit) {
-                            // Fail fast only on PR builds
-                            subJobs.failFast = true
-                        }
-                        parallel(subJobs)
+        if (shouldBuildImage) {
+            String stagingImageTag = generateStagingImageTag()
+            buildArgs['TAGS'] << stagingImageTag
+            String kanikoCommand = getKanikoCommand(buildArgs)
+            jobs << [ "${buildArgs}": { ->
+                trackBuild(
+                    job: jenkinsShellJobName,
+                    parameters: [
+                        string(name: 'P_CLOUD', value: pCloud),
+                        string(name: 'P_GIT_REPO', value: gitUrl),
+                        string(name: 'P_GIT_COMMIT', value: gitCommit),
+                        string(name: 'P_DOCKER_IMAGE', value: kanikoDockerImage),
+                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: dockerBuildMemLimit),
+                        text(name: 'P_COMMAND', value: kanikoCommand),
+                        string(name: 'P_TIMEOUT', value: dockerBuildTimeout),
+                        string(name: 'POD_TIMEOUT', value: dockerBuildTimeout),
+                        string(name: 'P_CPU_LIMIT', value: dockerBuildCpuLimit),
+                        string(name: 'P_MEM_LIMIT', value: dockerBuildMemLimit),
+                        booleanParam(name: 'P_MOUNT_KANIKO_CREDENTIALS', value: true),
+                    ]
+                )
+                if (!isComposerImage) {
+                    // Only run tests on the 'mosaicml/pytorch' or 'mosaicml/pytorch_vision' images,
+                    // not 'mosaicml/composer'
+                    def subJobs = [:]
+                    scheduleJob(subJobs, stagingImageTag, buildArgs, originalTags)
+                    if (!isMergeCommit) {
+                        // Fail fast only on PR builds
+                        subJobs.failFast = true
                     }
-                }]
-            }
-            else if (!isComposerImage) {
-                // If not rebuilding the docker image, and it's not a composer image, run GPU tests only on the "latest" image
-                // Only run tests on the 'mosaicml/pytorch' or 'mosaicml/pytorch_vision' images -- not 'mosaicml/composer'
-                originalTags.each { tag ->
-                    if (pytestGpuImageTagsToTest.contains(tag)) {
-                        shouldRunGpuTests = true
-                    }
+                    parallel(subJobs)
                 }
+            }]
+        }
+        else if (!isComposerImage) {
+            // If not rebuilding the docker image, and it's not a composer image, run GPU tests only on the "latest" image
+            // Only run tests on the 'mosaicml/pytorch' or 'mosaicml/pytorch_vision' images -- not 'mosaicml/composer'
+            Boolean isCpuImage = buildArgs['CUDA_VERSION'] == ''
+            Boolean shouldRunGpuTests = false
 
+            originalTags.each { tag ->
+                if (pytestGpuImageTagsToTest.contains(tag)) {
+                    shouldRunGpuTests = true
+                }
+            }
+
+            if (shouldRunGpuTests) {
                 String existingImageTag = originalTags[0]
                 scheduleJob(jobs, existingImageTag, buildArgs, originalTags)
             }
