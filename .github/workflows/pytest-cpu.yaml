@@ -17,6 +17,11 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python_version }}
+      - name: Setup
+        run: |
+          set -ex
+          python -m pip install --upgrade pip wheel
+          python -m pip install -e .[all]
       - name: Run Tests
         id: tests
         run: |
