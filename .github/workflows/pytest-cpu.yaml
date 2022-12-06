@@ -23,6 +23,10 @@ jobs:
       # - uses: actions/setup-python@v2
       #   with:
       #     python-version: ${{ matrix.python_version }}
+      - name: printenv
+        run: |
+          ls 
+          printenv
       - name: Setup
         run: |
           set -ex
@@ -32,4 +36,8 @@ jobs:
         id: tests
         run: |
           set -ex
+          export WANDB_ENTITY='mosaicml-public-integration-tests'
+          export WANDB_PROJECT="integration-tests-${BUILD_NUMBER}-$(date +%s)"
+          export S3_BUCKET='mosaicml-internal-integration-testing'
+          export SFTP_URI='sftp://mosaicml-integration-testing@s-c07c6cb0dd1441dbb.server.transfer.us-west-2.amazonaws.com/mosaicml-internal-integration-testing'
           python3 -m pytest
