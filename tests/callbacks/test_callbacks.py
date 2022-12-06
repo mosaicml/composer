@@ -124,7 +124,7 @@ class TestCallbackTrains:
             train_dataloader=DataLoader(RandomClassificationDataset(size=4), batch_size=batch_size),
             eval_dataloader=DataLoader(RandomClassificationDataset(size=4), batch_size=batch_size),
             max_duration=2,
-            train_device_microbatch_size=batch_size // grad_accum,
+            device_train_microbatch_size=batch_size // grad_accum,
             callbacks=callbacks,
             loggers=loggers,
             profiler=Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[]),
