@@ -20,9 +20,9 @@ jobs:
     container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-        with:
-          python-version: ${{ matrix.python_version }}
+      # - uses: actions/setup-python@v2
+      #   with:
+      #     python-version: ${{ matrix.python_version }}
       - name: Setup
         run: |
           set -ex
