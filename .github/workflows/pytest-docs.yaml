@@ -5,7 +5,7 @@ on:
 jobs:
   pytest:
     timeout-minutes: 30
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
@@ -20,9 +20,9 @@ jobs:
     container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-        with:
-          python-version: ${{ matrix.python_version }}
+      # - uses: actions/setup-python@v2
+      #   with:
+      #     python-version: ${{ matrix.python_version }}
       - name: Setup
         run: |
           set -ex
