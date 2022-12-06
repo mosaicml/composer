@@ -20,7 +20,7 @@ def setup_oci_mocks(monkeypatch):
     monkeypatch.setattr(oci.object_storage, 'UploadManager', mock_upload_manager)
 
 
-class TestOCIObjectStoreUnit:
+class TestOCIObjectStore:
 
     @classmethod
     def setup_class(cls):
