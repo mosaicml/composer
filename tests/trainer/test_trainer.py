@@ -385,6 +385,48 @@ class TestTrainerInitOrFit:
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
+    @pytest.mark.gpu
+    @pytest.mark.filterwarnings(
+        "ignore:Setting `device_train_microbatch_size='auto'` is an experimental feature which may cause uncaught Cuda Out of Memory errors. In this case, please manually set device_train_microbatch_size explicitly to an integer instead."
+    )
+    @pytest.mark.parametrize('dataloader_in_init', [True, False])
+    def test_auto_microbatch(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time[int],
+        dataloader_in_init: bool,
+    ):
+        # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
+        copied_model = copy.deepcopy(model)
+
+        # Train once with the device_train_microbatch_size=1
+        init_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
+        init_trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader if dataloader_in_init else None,
+            device_train_microbatch_size='auto',
+            callbacks=[init_event_counter_callback],
+        )
+        init_trainer.fit(train_dataloader=train_dataloader if not dataloader_in_init else None)
+
+        # Train again with the device_train_microbatch_size='auto'
+        fit_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
+        fit_trainer = Trainer(
+            model=copied_model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader if dataloader_in_init else None,
+            callbacks=[fit_event_counter_callback],
+        )
+        fit_trainer.fit(
+            train_dataloader=train_dataloader if not dataloader_in_init else None,
+            device_train_microbatch_size='auto',
+        )
+
+        # Assert that the states are equivalent
+        assert_state_equivalent(init_trainer.state, fit_trainer.state)
+
     def test_grad_accum(
         self,
         train_dataloader: DataLoader,
