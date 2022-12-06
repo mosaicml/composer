@@ -9,7 +9,6 @@ import pytest
 import pytest_httpserver
 from torch.utils.data import DataLoader
 
-from composer.datasets.coco import StreamingCOCO
 from composer.datasets.streaming import StreamingDataset
 from composer.datasets.streaming.download import download_or_wait
 from composer.datasets.utils import pil_image_collate
@@ -24,15 +23,6 @@ def get_dataset(name: str,
                 other_kwargs: Optional[Dict[str, Any]] = None) -> Tuple[int, StreamingDataset]:
     other_kwargs = {} if other_kwargs is None else other_kwargs
     dataset_map = {
-        'coco': {
-            'remote': 's3://mosaicml-internal-dataset-coco/mds/1/',
-            'num_samples': {
-                'train': 117266,
-                'val': 4952,
-            },
-            'class': StreamingCOCO,
-            'kwargs': {},
-        },
         'test_streaming_upload': {
             'remote': 's3://streaming-upload-test-bucket/',
             'num_samples': {
