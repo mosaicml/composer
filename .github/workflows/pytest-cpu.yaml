@@ -5,7 +5,7 @@ on:
 jobs:
   pytest:
     timeout-minutes: 30
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         include:

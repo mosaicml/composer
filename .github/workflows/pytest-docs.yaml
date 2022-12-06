@@ -5,7 +5,7 @@ on:
 jobs:
   pytest:
     timeout-minutes: 30
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         include:
@@ -26,7 +26,6 @@ jobs:
       - name: Setup
         run: |
           set -ex
-          ls
           python -m pip install --upgrade pip wheel
           python -m pip install -e .[all]
       - name: Run Tests
