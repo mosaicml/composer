@@ -9,7 +9,6 @@ import pytest
 import pytest_httpserver
 from torch.utils.data import DataLoader
 
-from composer.datasets.ade20k import StreamingADE20k
 from composer.datasets.c4 import StreamingC4
 from composer.datasets.cifar import StreamingCIFAR10
 from composer.datasets.coco import StreamingCOCO
@@ -28,26 +27,6 @@ def get_dataset(name: str,
                 other_kwargs: Optional[Dict[str, Any]] = None) -> Tuple[int, StreamingDataset]:
     other_kwargs = {} if other_kwargs is None else other_kwargs
     dataset_map = {
-        'ade20k': {
-            'remote': 's3://mosaicml-internal-dataset-ade20k/mds/1/',
-            'num_samples': {
-                'train': 20206,
-                'val': 2000,
-            },
-            'class': StreamingADE20k,
-            'kwargs': {},
-        },
-        'ade20k_sftp': {
-            'remote':
-                'sftp://mosaicml-test@s-d26bfe922c2141cca.server.transfer.us-west-2.amazonaws.com:22/mosaicml-internal-dataset-ade20k/mds/1',
-            'num_samples': {
-                'train': 20206,
-                'val': 2000,
-            },
-            'class':
-                StreamingADE20k,
-            'kwargs': {},
-        },
         'imagenet1k': {
             'remote': 's3://mosaicml-internal-dataset-imagenet1k/mds/1/',
             'num_samples': {

@@ -8,9 +8,8 @@ dataset.
 """
 
 import os
-from io import BytesIO
 from math import ceil
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -20,12 +19,11 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
 from composer.core import DataSpec, MemoryFormat
-from composer.datasets.streaming import StreamingDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
-from composer.utils import MissingConditionalImportError, dist, warn_streaming_dataset_deprecation
+from composer.utils import MissingConditionalImportError, dist
 
-__all__ = ['ADE20k', 'StreamingADE20k']
+__all__ = ['ADE20k']
 
 IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
 IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
@@ -157,7 +155,7 @@ def build_streaming_ade20k_dataloader(
     max_resize_scale: float = 2.0,
     final_size: int = 512,
     ignore_background: bool = True,
-    **dataloader_kwargs,
+    **dataloader_kwargs: Dict[str, Any],
 ):
     """Build an ADE20k streaming dataset.
 
@@ -180,43 +178,28 @@ def build_streaming_ade20k_dataloader(
         raise ValueError(
             f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
     batch_size = global_batch_size // dist.get_world_size()
-    if version == 1:
-        warn_streaming_dataset_deprecation(old_version=version, new_version=2)
-        dataset = StreamingADE20k(remote=remote,
-                                  local=local,
-                                  split=split,
-                                  shuffle=shuffle,
-                                  base_size=base_size,
-                                  min_resize_scale=min_resize_scale,
-                                  max_resize_scale=max_resize_scale,
-                                  final_size=final_size,
-                                  batch_size=batch_size)
-    elif version == 2:
 
-        try:
-            import streaming
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
+    try:
+        from streaming.vision import ADE20K
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
 
-        # Build the sets of transformations for ADE20k
-        both_transforms, image_transforms, target_transforms = build_ade20k_transformations(
-            split=split,
-            base_size=base_size,
-            min_resize_scale=min_resize_scale,
-            max_resize_scale=max_resize_scale,
-            final_size=final_size)
+    # Build the sets of transformations for ADE20k
+    both_transforms, image_transforms, target_transforms = build_ade20k_transformations(
+        split=split,
+        base_size=base_size,
+        min_resize_scale=min_resize_scale,
+        max_resize_scale=max_resize_scale,
+        final_size=final_size)
 
-        dataset = streaming.vision.ADE20K(remote=remote,
-                                          local=local,
-                                          split=split,
-                                          shuffle=shuffle,
-                                          both_transforms=both_transforms,
-                                          transform=image_transforms,
-                                          target_transform=target_transforms,
-                                          batch_size=batch_size)
-
-    else:
-        raise ValueError(f'Invalid streaming version: {version}')
+    dataset = ADE20K(remote=remote,
+                     local=local,
+                     split=split,
+                     shuffle=shuffle,
+                     both_transforms=both_transforms,
+                     transform=image_transforms,
+                     target_transform=target_transforms,
+                     batch_size=batch_size)
 
     dataloader = DataLoader(dataset=dataset,
                             batch_size=batch_size,
@@ -240,7 +223,7 @@ def build_synthetic_ade20k_dataloader(
     num_unique_samples: int = 100,
     device: str = 'cpu',
     memory_format: MemoryFormat = MemoryFormat.CONTIGUOUS_FORMAT,
-    **dataloader_kwargs,
+    **dataloader_kwargs: Dict[str, Any],
 ):
     """Builds a synthetic ADE20k dataloader.
 
@@ -532,85 +515,3 @@ class ADE20k(Dataset):
 
     def __len__(self):
         return len(self.image_files)
-
-
-class StreamingADE20k(StreamingDataset):
-    """
-    Implementation of the ADE20k dataset using StreamingDataset.
-
-    Args:
-        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-        local (str): Local filesystem directory where dataset is cached during operation.
-        split (str): The dataset split to use, either 'train' or 'val'.
-        shuffle (bool): Whether to shuffle the samples in this dataset.
-        base_size (int): initial size of the image and target before other augmentations. Default: ``512``.
-        min_resize_scale (float): the minimum value the samples can be rescaled. Default: ``0.5``.
-        max_resize_scale (float): the maximum value the samples can be rescaled. Default: ``2.0``.
-        final_size (int): the final size of the image and target. Default: ``512``.
-        batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default: ``None``.
-    """
-
-    def decode_uid(self, data: bytes) -> str:
-        return data.decode('utf-8')
-
-    def decode_image(self, data: bytes) -> Image.Image:
-        return Image.open(BytesIO(data))
-
-    def decode_annotation(self, data: bytes) -> Image.Image:
-        return Image.open(BytesIO(data))
-
-    def __init__(self,
-                 remote: str,
-                 local: str,
-                 split: str,
-                 shuffle: bool,
-                 base_size: int = 512,
-                 min_resize_scale: float = 0.5,
-                 max_resize_scale: float = 2.0,
-                 final_size: int = 512,
-                 batch_size: Optional[int] = None):
-
-        # Validation
-        if split not in ['train', 'val']:
-            raise ValueError(f"split='{split}' must be one of ['train', 'val'].")
-        if base_size <= 0:
-            raise ValueError('base_size must be positive.')
-        if min_resize_scale <= 0:
-            raise ValueError('min_resize_scale must be positive')
-        if max_resize_scale <= 0:
-            raise ValueError('max_resize_scale must be positive')
-        if max_resize_scale < min_resize_scale:
-            raise ValueError('max_resize_scale cannot be less than min_resize_scale')
-        if final_size <= 0:
-            raise ValueError('final_size must be positive')
-
-        # Build StreamingDataset
-        decoders = {
-            'image': self.decode_image,
-            'annotation': self.decode_annotation,
-        }
-        super().__init__(remote=os.path.join(remote, split),
-                         local=os.path.join(local, split),
-                         shuffle=shuffle,
-                         decoders=decoders,
-                         batch_size=batch_size)
-
-        # Define custom transforms
-        self.both_transform, self.image_transform, self.target_transform = build_ade20k_transformations(
-            split=split,
-            base_size=base_size,
-            min_resize_scale=min_resize_scale,
-            max_resize_scale=max_resize_scale,
-            final_size=final_size)
-
-    def __getitem__(self, idx: int) -> Tuple[Any, Any]:
-        obj = super().__getitem__(idx)
-        x = obj['image']
-        y = obj['annotation']
-        if self.both_transform:
-            x, y = self.both_transform((x, y))
-        if self.image_transform:
-            x = self.image_transform(x)
-        if self.target_transform:
-            y = self.target_transform(y)
-        return x, y
