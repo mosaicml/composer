@@ -1,0 +1,30 @@
+name: Pytest-DocTest
+on:
+  pull_request: {}
+  workflow_dispatch: {}
+jobs:
+  pytest:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python_version:
+          - "3.8"
+          - "3.9"
+          - "3.10"
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python_version }}
+      - name: Setup
+        run: |
+          set -ex
+          ls
+          python -m pip install --upgrade pip wheel
+          python -m pip install -e .[all]
+      - name: Run Tests
+        id: tests
+        run: |
+          set -ex
+          python3 -m pytest .ci/test_docs.py
