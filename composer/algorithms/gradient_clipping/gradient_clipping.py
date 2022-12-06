@@ -9,6 +9,7 @@ import logging
 from typing import Iterable, Optional, Union
 
 import torch
+from packaging import version
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
@@ -24,8 +25,7 @@ def apply_gradient_clipping(model: Union[ComposerModel, torch.nn.Module], clippi
     """Clips all gradients in model based on specified clipping_type.
 
     Args:
-        parameters (torch.Tensor or Iterable[torch.Tensor]): The parameters to of the
-            model for whose gradients we will clip
+        model (ComposerModel or torch.nn.Module): The model that we want to apply gradient clipping.
         clipping_type ('adaptive', 'norm', 'value'): String denoting which type of
             gradient clipping to do. The options are: 'norm', which clips the gradient norm
             and uses `torch.nn.utils.clip_grad_norm_`, 'value', which clips gradient at
@@ -39,6 +39,8 @@ def apply_gradient_clipping(model: Union[ComposerModel, torch.nn.Module], clippi
         fsdp_enabled (bool): Bool of if the model is a FSDP model or not.
     """
     if fsdp_enabled:
+        if version.parse(torch.__version__) < version.parse('1.13.0'):
+            raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
         from torch.distributed.fsdp import FullyShardedDataParallel
         for module in model.modules():
             if isinstance(module, FullyShardedDataParallel):
@@ -53,9 +55,8 @@ def apply_gradient_clipping(model: Union[ComposerModel, torch.nn.Module], clippi
                     else:
                         raise ValueError(f"clipping type must be 'norm' or 'value' with FSDP not {clipping_type}")
                 except AssertionError as e:
-                    # Error message from PyTorch:
-                    # AssertionError: clip_grad_norm should only be called on the root (parent) instance
-                    if 'clip_grad_norm' in str(e):
+                    # Catches the error message from PyTorch
+                    if 'AssertionError: clip_grad_norm should only be called on the root (parent) instance' == str(e):
                         continue
                     else:
                         raise
