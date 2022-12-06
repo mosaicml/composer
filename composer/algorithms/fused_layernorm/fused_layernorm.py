@@ -35,7 +35,7 @@ def check_if_apex_installed():
 def warn_fln_deprecation():
     warnings.warn(
         DeprecationWarning(
-            'Fused LayerNorm will be deprecated and removed in the future. Please use Low Precision LayerNorm instead.')
+            'Fused LayerNorm will be deprecated and removed in v0.13. Please use Low Precision LayerNorm instead.')
     )
 
 
