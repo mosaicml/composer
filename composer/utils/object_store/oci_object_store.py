@@ -86,7 +86,7 @@ class OCIObjectStore(ObjectStore):
         tmp_path = str(filename) + f'.{uuid.uuid4()}.tmp'
 
         response = self.client.get_object(
-            self.namespace,
+            namespace_name=self.namespace,
             bucket_name=self.bucket,
             object_name=object_name,
         )
