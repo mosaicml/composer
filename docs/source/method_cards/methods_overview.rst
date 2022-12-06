@@ -123,6 +123,15 @@
    Clips all gradients in model based on specified clipping_type
 
    ---
+   .. link-button:: gyro_dropout.html
+      :text: GyroDropout
+      :classes: card-title
+
+   :badge:`CV,badge-primary`
+   ++++++++++++++
+   Clips all gradients in model based on specified clipping_type
+
+   ---
    .. link-button:: label_smoothing.html
       :text: LabelSmoothing
       :classes: card-title
