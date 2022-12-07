@@ -8,19 +8,24 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
+        pytest_command: ['pytest']
         include:
           - python_version: '3.8'
             container: mosaicml/pytorch:1.11.0_cpu-python3.8-ubuntu20.04
-            markers: 'not daily and not vision and not gpu'
+            markers: 'not daily'
           - python_version: '3.9'
             container: mosaicml/pytorch:1.12.1_cpu-python3.9-ubuntu20.04
-            markers: 'not daily and not vision and not gpu'
+            markers: 'not daily'
           - python_version: '3.9'
             container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
-            markers: 'not daily and vision and not gpu'
+            markers: 'not daily and vision'
+          - python_version: '3.9'
+            container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
+            markers: 'not daily and doctest'
+            pytest_command: 'pytest tests/test_docs.py'
           - python_version: '3.10'
             container: mosaicml/pytorch:1.13.0_cpu-python3.10-ubuntu20.04
-            markers: 'not daily and not vision and not gpu'
+            markers: 'not daily'
     container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@v2
@@ -38,5 +43,6 @@ jobs:
           export S3_BUCKET='mosaicml-internal-integration-testing'
           export SFTP_URI='sftp://mosaicml-integration-testing@s-c07c6cb0dd1441dbb.server.transfer.us-west-2.amazonaws.com/mosaicml-internal-integration-testing'
           export COMMON_ARGS="-v --durations=20 -m '${{ matrix.markers }}' --s3_bucket '$S3_BUCKET' --sftp_uri '$SFTP_URI'"
-          make test EXTRA_ARGS="$COMMON_ARGS"
-          make test-dist WORLD_SIZE=2 EXTRA_ARGS="$COMMON_ARGS"
+
+          make test PYTEST='${{ matrix.pytest_command }}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
+          make test-dist PYTEST='${{ matrix.pytest_command }}' EXTRA_ARGS="$COMMON_ARGS" WORLD_SIZE=2
