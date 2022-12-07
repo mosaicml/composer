@@ -25,7 +25,10 @@ jobs:
       #     python-version: ${{ matrix.python_version }}
       - name: printenv
         run: |
-          ls 
+          ls ..
+          echo 'hi'
+          ls /
+          echo 'hi'
           printenv
       - name: Setup
         run: |
