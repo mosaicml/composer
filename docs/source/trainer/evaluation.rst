@@ -16,14 +16,14 @@ specified by the the :class:`.Trainer` parameter ``eval_interval``.
         eval_interval="1ep",  # Default is every epoch
     )
 
-The metrics should be provided by :meth:`.ComposerModel.metrics`.
+The metrics should be provided by :meth:`.ComposerModel.get_metrics`.
 For more information, see the "Metrics" section in :doc:`/composer_model`.
 
 To provide a deeper intuition, here's pseudocode for the evaluation logic that occurs every ``eval_interval``:
 
 .. code:: python
 
-    metrics = model.metrics(train=False)
+    metrics = model.get_metrics(train=False)
 
     for batch in eval_dataloader:
         outputs, targets = model.eval_forward(batch)
@@ -32,10 +32,10 @@ To provide a deeper intuition, here's pseudocode for the evaluation logic that o
     metrics.compute()
 
 - The trainer iterates over ``eval_dataloader`` and passes each batch to the model's :meth:`.ComposerModel.eval_forward` method.
-- Outputs of ``model.eval_forward`` are used to update ``metrics`` (a :class:`torchmetrics.Metric` or :class:`torchmetrics.MetricCollection` returned by :meth:`.ComposerModel.metrics <model.metrics(train=False)>`).
+- Outputs of ``model.eval_forward`` are used to update the metrics (a :class:`torchmetrics.Metric` returned by :meth:`.ComposerModel.get_metrics <model.get_metrics(train=False)>`).
 - Finally, metrics over the whole validation dataset are computed.
 
-Note that the tuple returned by :meth:`.ComposerModel.eval_forward` provide the positional arguments to ``metrics.update``.
+Note that the tuple returned by :meth:`.ComposerModel.eval_forward` provide the positional arguments to ``metric.update``.
 Please keep this in mind when using custom models and/or metrics.
 
 Multiple Datasets
@@ -76,4 +76,4 @@ can be specified as in the following example:
         ...
     )
 
-Note that `metric_names` must be a subset of the metrics provided by the model in :meth:`.ComposerModel.metrics`.
+Note that `metric_names` must be a subset of the metrics provided by the model in :meth:`.ComposerModel.get_metrics`.
