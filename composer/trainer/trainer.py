@@ -1833,22 +1833,24 @@ class Trainer:
         """
         # spin the evaluator dataloaders once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
-        log.debug('Spinning the dataloaders')
+        eval_state = self.state.dataset_resumption.get('eval', {})
         for evaluator in self.state.evaluators:
             dataloader = evaluator.dataloader.dataloader
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                 dataloader.sampler.set_epoch(0)
-            for _ in dataloader:
-                break
+            if evaluator.label not in eval_state:
+                for _ in dataloader:
+                    break
 
         # spin the train dataloader's sampler to get to the state of the desired epoch
         dataloader = self.state.dataloader
         assert dataloader is not None, 'train dataloader is set on state after FIT_START'
-        for epoch in range(int(self.state.timestamp.epoch)):
-            if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
-                dataloader.sampler.set_epoch(epoch)
-            for _ in dataloader:
-                break
+        if 'train' not in self.state.dataset_resumption:
+            for epoch in range(int(self.state.timestamp.epoch)):
+                if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
+                    dataloader.sampler.set_epoch(epoch)
+                for _ in dataloader:
+                    break
 
     def _accumulate_time_across_ranks(
         self,
