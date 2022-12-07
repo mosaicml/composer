@@ -158,8 +158,7 @@ class Evaluator:
         self.metric_names = []
         if (metric_names is not None) and (metrics is not None):
             raise ValueError('only one of ``metrics`` or ``metric_names`` should be specified.')
-
-        if metric_names is not None:
+        elif metric_names is not None:
             if not isinstance(metric_names, list):
                 raise ValueError(f'``metric_names`` should be a list of strings, not a {type(metric_names)}')
             self.metric_names = metric_names
