@@ -66,7 +66,7 @@ def test_export_for_inference_torchscript(model_cls, sample_input):
         )
 
 
-def test_huggingface_export_for_inference_onnx():
+def test_huggingface_export_for_inference_onnx(tiny_bert_config):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
     pytest.importorskip('transformers')
@@ -107,9 +107,11 @@ def test_huggingface_export_for_inference_onnx():
             1: 'seq_len'
         },
     }
-    # non pretrained model to avoid a slow test that downloads the weights.
-    config = transformers.AutoConfig.from_pretrained('bert-base-uncased', num_labels=2, hidden_act='gelu_new')
-    hf_model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
+
+    tiny_bert_config.num_labels = 2
+    tiny_bert_config.hidden_act = 'gelu_new'
+    hf_model = transformers.AutoModelForSequenceClassification.from_config(
+        tiny_bert_config)  # type: ignore (thirdparty)
 
     model = HuggingFaceModel(hf_model)
 

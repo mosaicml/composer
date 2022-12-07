@@ -156,7 +156,7 @@ trainer = Trainer(
     model=mnist_model(),
     train_dataloader=train_dataloader,
     eval_dataloader=eval_dataloader,
-    max_duration="2ep",
+    max_duration="1ep",
     algorithms=[
         ChannelsLast(),
         CutMix(alpha=1.0),

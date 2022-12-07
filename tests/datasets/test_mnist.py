@@ -7,7 +7,7 @@ from composer.datasets import build_mnist_dataloader, build_synthetic_mnist_data
 
 
 @pytest.mark.parametrize('is_train', [False, True])
-@pytest.mark.parametrize('synthetic', [False, True])
+@pytest.mark.parametrize('synthetic', [pytest.param(False, marks=pytest.mark.daily), True])
 def test_mnist_shape_length(is_train, synthetic):
     batch_size = 1
 

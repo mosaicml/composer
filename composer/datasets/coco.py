@@ -8,21 +8,17 @@ COCO is a large-scale object detection, segmentation, and captioning dataset. Pl
 """
 import json
 import os
-from io import BytesIO
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Callable, Dict, Optional, Sequence
 
-import numpy as np
 import torch
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
-from torchvision.datasets import VisionDataset
 
 from composer.core import Batch, DataSpec
-from composer.datasets.streaming import StreamingDataset
 from composer.models.ssd.utils import DefaultBoxes, SSDTransformer
-from composer.utils import dist
+from composer.utils import MissingConditionalImportError, dist
 
-__all__ = ['COCODetection', 'StreamingCOCO', 'build_coco_detection_dataloader']
+__all__ = ['COCODetection', 'build_coco_detection_dataloader', 'build_streaming_coco_dataloader']
 
 
 def build_coco_detection_dataloader(
@@ -33,7 +29,7 @@ def build_coco_detection_dataloader(
     drop_last: bool = True,
     shuffle: bool = True,
     input_size: int = 300,
-    **dataloader_kwargs,
+    **dataloader_kwargs: Dict[str, Any],
 ):
     """Builds a COCO Detection dataloader with default transforms for SSD300.
 
@@ -191,84 +187,59 @@ def split_coco_batch(batch: Batch, num_microbatches: int) -> Sequence[Batch]:  #
             ))  #type: ignore
 
 
-class StreamingCOCO(StreamingDataset, VisionDataset):
-    """
-    Implementation of the COCO dataset using StreamingDataset.
+def build_streaming_coco_dataloader(
+    global_batch_size: int,
+    remote: str,
+    *,
+    local: str = '/tmp/mds-cache/mds-coco',
+    split: str = 'train',
+    drop_last: bool = True,
+    shuffle: bool = True,
+    input_size: int = 300,
+    **dataloader_kwargs: Dict[str, Any],
+) -> DataSpec:
+    """Builds a COCO streaming dataset
 
     Args:
+        global_batch_size (int): Global batch size.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-        local (str): Local filesystem directory where dataset is cached during operation.
-        split (str): The dataset split to use, either 'train' or 'val'.
-        shuffle (bool): Whether to shuffle the samples in this dataset.
-        batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default: ``None``.
+        local (str, optional): Local filesystem directory where dataset is cached during operation.
+            Defaults to ``'/tmp/mds-cache/mds-coco/```.
+        split (str): Which split of the dataset to use. Either ['train', 'val']. Default:
+            ``'train```.
+        drop_last (bool, optional): whether to drop last samples. Default: ``True``.
+        shuffle (bool, optional): whether to shuffle dataset. Defaults to ``True``.
+        input_size (int): the size of the input image, keep this at `300` for SSD300. Default: ``300``.
+        **dataloader_kwargs (Any): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
 
-    def decode_img(self, data: bytes) -> Image.Image:
-        return Image.open(BytesIO(data)).convert('RGB')
+    # default boxes set for SSD300
+    default_boxes = DefaultBoxes(fig_size=input_size,
+                                 feat_size=[38, 19, 10, 5, 3, 1],
+                                 steps=[8, 16, 32, 64, 100, 300],
+                                 scales=[21, 45, 99, 153, 207, 261, 315],
+                                 aspect_ratios=[[2], [2, 3], [2, 3], [2, 3], [2], [2]],
+                                 scale_xy=0.1,
+                                 scale_wh=0.2)
 
-    def decode_img_id(self, data: bytes) -> np.int64:
-        return np.frombuffer(data, np.int64)[0]
+    if split == 'train':
+        transform = SSDTransformer(default_boxes, (input_size, input_size), val=False, num_cropping_iterations=1)
+    else:
+        transform = SSDTransformer(default_boxes, (input_size, input_size), val=True)
 
-    def decode_htot(self, data: bytes) -> np.int64:
-        return np.frombuffer(data, np.int64)[0]
+    try:
+        from streaming.vision import COCO
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
 
-    def decode_wtot(self, data: bytes) -> np.int64:
-        return np.frombuffer(data, np.int64)[0]
+    dataset = COCO(local=local, remote=remote, split=split, shuffle=shuffle, transform=transform, batch_size=batch_size)
 
-    def decode_bbox_sizes(self, data: bytes) -> torch.Tensor:
-        arr = np.frombuffer(data, np.float32)
-        arr = arr.reshape(-1, 4)
-        return torch.tensor(arr)
-
-    def decode_bbox_labels(self, data: bytes) -> torch.Tensor:
-        arr = np.frombuffer(data, np.int64)
-        return torch.tensor(arr)
-
-    def __init__(self, remote: str, local: str, split: str, shuffle: bool, batch_size: Optional[int] = None) -> None:
-
-        # Validation
-        if split not in ['train', 'val']:
-            raise ValueError(f"split='{split}' must be one of ['train', 'val'].")
-
-        # Build StreamingDataset
-        decoders = {
-            'img': self.decode_img,
-            'img_id': self.decode_img_id,
-            'htot': self.decode_htot,
-            'wtot': self.decode_wtot,
-            'bbox_sizes': self.decode_bbox_sizes,
-            'bbox_labels': self.decode_bbox_labels,
-        }
-        super().__init__(remote=os.path.join(remote, split),
-                         local=os.path.join(local, split),
-                         shuffle=shuffle,
-                         decoders=decoders,
-                         batch_size=batch_size)
-
-        # Define custom transforms
-        # default boxes set for SSD300
-        input_size = 300
-        default_boxes = DefaultBoxes(fig_size=input_size,
-                                     feat_size=[38, 19, 10, 5, 3, 1],
-                                     steps=[8, 16, 32, 64, 100, 300],
-                                     scales=[21, 45, 99, 153, 207, 261, 315],
-                                     aspect_ratios=[[2], [2, 3], [2, 3], [2, 3], [2], [2]],
-                                     scale_xy=0.1,
-                                     scale_wh=0.2)
-        if split == 'train':
-            transform = SSDTransformer(default_boxes, (input_size, input_size), val=False, num_cropping_iterations=1)
-        else:
-            transform = SSDTransformer(default_boxes, (input_size, input_size), val=True)
-        VisionDataset.__init__(self, root=local, transform=transform)
-
-    def __getitem__(self, idx: int) -> Any:
-        x = super().__getitem__(idx)
-        img = x['img']
-        img_id = x['img_id']
-        htot = x['htot']
-        wtot = x['wtot']
-        bbox_sizes = x['bbox_sizes']
-        bbox_labels = x['bbox_labels']
-        assert self.transform is not None, 'transform set in __init__'
-        img, (htot, wtot), bbox_sizes, bbox_labels = self.transform(img, (htot, wtot), bbox_sizes, bbox_labels)
-        return img, img_id, (htot, wtot), bbox_sizes, bbox_labels
+    return DataSpec(dataloader=DataLoader(dataset=dataset,
+                                          batch_size=batch_size,
+                                          drop_last=drop_last,
+                                          **dataloader_kwargs),
+                    split_batch=split_coco_batch)
