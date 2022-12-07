@@ -29,10 +29,6 @@ jobs:
           export PATH=/composer-python:$PATH
       - name: printenv
         run: |
-          ls ..
-          echo 'hi'
-          ls /
-          echo 'hi'
           printenv
       - name: Setup
         run: |
