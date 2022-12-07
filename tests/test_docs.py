@@ -7,7 +7,6 @@
 # which is posted directly on the PR
 
 import os
-import pathlib
 import subprocess
 import textwrap
 
