@@ -20,7 +20,7 @@ jobs:
             pytest_command: 'pytest'
           - python_version: '3.9'
             container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
-            markers: 'not daily and not gpu and and vision and not doctest'
+            markers: 'not daily and not gpu and vision and not doctest'
             pytest_command: 'pytest'
           - python_version: '3.9'
             container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
