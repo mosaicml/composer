@@ -24,7 +24,7 @@ import tempfile
 import textwrap
 import types
 import warnings
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Tuple, Type
 
 import sphinx.application
 import sphinx.ext.autodoc
