@@ -52,7 +52,7 @@ jobs:
           make test-dist PYTEST='${{ matrix.pytest_command }}' EXTRA_ARGS="$COMMON_ARGS" WORLD_SIZE=2
 
           python -m coverage combine
-      # - uses: actions/upload-artifact@v3
-      #   with:
-      #     name: ${{ gihub.sha }}.coverage
-      #     path: .coverage
+      - uses: actions/upload-artifact@v3
+        with:
+          name: coverage
+          path: .coverage
