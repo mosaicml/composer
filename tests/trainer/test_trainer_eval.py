@@ -338,3 +338,14 @@ def test_eval_batch_can_be_modified(add_algorithm: bool):
                           max_duration='1ep',
                           algorithms=[BreakBatchAlgorithm()] if add_algorithm else [])
         trainer.eval()
+
+
+@pytest.mark.parametrize('metric_names', ['Accuracy', ['Accuracy']])
+def test_evaluator_metric_names_string_errors(metric_names):
+    eval_dataset = RandomClassificationDataset(size=8)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=4, sampler=dist.get_sampler(eval_dataset))
+
+    context = contextlib.nullcontext() if isinstance(metric_names, list) else pytest.raises(
+        ValueError, match='should be a list of strings')
+    with context:
+        _ = Evaluator(label='evaluator', dataloader=eval_dataloader, metric_names=metric_names)

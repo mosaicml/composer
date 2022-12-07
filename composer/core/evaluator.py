@@ -156,17 +156,19 @@ class Evaluator:
         self.dataloader = ensure_data_spec(dataloader)
 
         self.metric_names = []
-        if metric_names or metrics:
-            if (metric_names and metrics):
-                raise ValueError('only one of ``metrics`` or ``metric_names`` should be specified.')
-            if metric_names:
-                self.metric_names = metric_names
-            elif metrics:
-                warnings.warn(DeprecationWarning('``metrics`` is deprecated and will be removed in a future release.'))
-                if isinstance(metrics, Metric):
-                    self.metric_names = [metrics.__class__.__name__]
-                else:
-                    self.metric_names = [str(k) for k, _ in metrics.items()]
+        if (metric_names is not None) and (metrics is not None):
+            raise ValueError('only one of ``metrics`` or ``metric_names`` should be specified.')
+
+        if metric_names is not None:
+            if not isinstance(metric_names, list):
+                raise ValueError(f'``metric_names`` should be a list of strings, not a {type(metric_names)}')
+            self.metric_names = metric_names
+        elif metrics is not None:
+            warnings.warn(DeprecationWarning('``metrics`` is deprecated and will be removed in a future release.'))
+            if isinstance(metrics, Metric):
+                self.metric_names = [metrics.__class__.__name__]
+            else:
+                self.metric_names = [str(k) for k, _ in metrics.items()]
 
         self.subset_num_batches = subset_num_batches
         self._eval_interval = None
