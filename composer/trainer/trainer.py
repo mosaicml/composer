@@ -495,6 +495,7 @@ class Trainer:
 
             Set to ``0`` to disable metrics logging to console.
         log_traces (bool): Whether to log traces or not. (default: ``False``)
+        auto_log_hparams (bool): Whether to automatically extract hyperparameters. (default: ``False``)
         load_path (str, optional):  The path format string to an existing checkpoint file.
 
             It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
@@ -786,6 +787,7 @@ class Trainer:
         console_stream: Union[str, TextIO] = 'stderr',
         console_log_interval: Union[int, str, Time] = '1ep',
         log_traces: bool = False,
+        auto_log_hparams: bool = False,
 
         # Load Checkpoint
         load_path: Optional[str] = None,
@@ -834,7 +836,7 @@ class Trainer:
         # Python logging
         python_log_level: Optional[str] = None,
     ):
-
+        self.auto_log_hparams = auto_log_hparams
         self.python_log_level = python_log_level
         if self.python_log_level is not None:
             logging.basicConfig(
@@ -1062,8 +1064,9 @@ class Trainer:
         self.engine.run_event(Event.INIT)
 
         # Log hparams.
-        self.hparams = extract_hparams(locals())
-        self.logger.log_hyperparameters(self.hparams)
+        if self.auto_log_hparams:
+            self.hparams = extract_hparams(locals())
+            self.logger.log_hyperparameters(self.hparams)
 
         # Log gpus and nodes.
         device_name = self._device.__class__.__name__.lstrip('Device').lower()
@@ -1736,8 +1739,6 @@ class Trainer:
         """Run training for the specified number of epochs and log results."""
         # print training start
         log.info('Using precision %s', self.state.precision)
-        self.logger.log_hyperparameters(
-            {'enabled_algorithms/' + algo.__class__.__name__: True for algo in self.state.algorithms})
 
         assert self.state.dataloader is not None, 'dataloader is set in __init__() or fit()'
         assert self._train_data_spec is not None, 'The train data spec is set in __init__() or fit()'

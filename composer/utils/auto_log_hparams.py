@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import inspect
-from typing import Mapping, Sequence
+from typing import Mapping, Sequence, Dict, Any
 
 import torch
 
 __all__ = ['extract_hparams', 'convert_nested_dict_to_flat_dict', 'convert_flat_dict_to_nested_dict']
 
 
-def _parse_dict_for_hparams(dic):
+def _parse_dict_for_hparams(dic: Dict) -> Dict:
     '''Grabs hyperparamters from each element in dictionary and optionally names dictionary'''
     hparams_to_add = {}
     for k, v in dic.items():
@@ -33,10 +33,10 @@ def _grab_hparams(obj):
     elif hasattr(obj, '__dict__'):
         obj_name = obj.__class__.__name__
         parsed_hparams = _parse_dict_for_hparams(dic=vars(obj))
-        sig = inspect.signature(obj.__class__.__init__)
-        defaults = {k: v.default for k, v in sig.parameters.items() if k != 'self'}
-        parsed_hparams = {k: v for k, v in parsed_hparams.items() if not (k in defaults and defaults[k] == v)}
-        hparams_to_add = {obj.__class__.__name__: parsed_hparams}
+        # sig = inspect.signature(obj.__class__.__init__)
+        # defaults = {k: v.default for k, v in sig.parameters.items() if k != 'self'}
+        # parsed_hparams = {k: v for k, v in parsed_hparams.items() if not (k in defaults and defaults[k] == v)}
+        hparams_to_add = {obj_name: parsed_hparams}
 
     # If object is a dict or mapping object then parse all elements with no parent name.
     elif isinstance(obj, Mapping):
@@ -61,13 +61,15 @@ def _grab_hparams(obj):
     # Otherwise the object is a primitive type like int, str, etc.
     else:
         if obj.__class__.__module__ == 'builtins':
+            if obj is None:
+                obj = 'None'
             hparams_to_add = obj
         else:
             hparams_to_add = {obj.__class__.__name__: obj}
     return hparams_to_add
 
 
-def extract_hparams(locals_dict):
+def extract_hparams(locals_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Takes in local symbol table and parses"""
     hparams = {}
     try:
@@ -82,7 +84,7 @@ def extract_hparams(locals_dict):
     return hparams
 
 
-def convert_nested_dict_to_flat_dict(prefix, my_dict):
+def convert_nested_dict_to_flat_dict(my_dict, prefix=None):
     prefix = prefix + '/' if prefix else ''
     d = {}
     for k, v in my_dict.items():
