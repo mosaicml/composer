@@ -122,7 +122,7 @@ class State(Serializable):
         auto_microbatching (bool, optional): Whether automatic microbatching is enabled.
         using_device_microbatch_size (bool, optional): Whether device_train_microbatch_size is set by the user.
         train_dataloader (Iterable, optional): Dataloader used for training
-        evaluators (Evalutor | Evaluators, optional): :class:`.Evaluator` used for evaluation.
+        evaluators (Evaluator | Evaluators, optional): :class:`.Evaluator` used for evaluation.
         dataloader (Iterable, optional): The active DataLoader.
         dataloader_len (int | Time[int], optional): The number of batches per dataloader iteration (e.g. epoch).
             The trainer will yield the first ``dataloader_len`` batches per iteration. If ``-1`` (the default),
