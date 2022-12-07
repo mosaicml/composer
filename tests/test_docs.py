@@ -54,7 +54,10 @@ def test_docker_build_matrix():
     # Run the script
     ci_folder = os.path.join(os.path.dirname(__file__), '..', '.ci')
     check_output(
-        subprocess.run(['python', os.path.join(ci_folder, 'generate_build_matrix.py')], cwd=docker_folder, capture_output=True, text=True))
+        subprocess.run(['python', os.path.join(ci_folder, 'generate_build_matrix.py')],
+                       cwd=docker_folder,
+                       capture_output=True,
+                       text=True))
 
     # Assert that the files did not change
 
