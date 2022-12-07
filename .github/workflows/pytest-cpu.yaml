@@ -35,5 +35,7 @@ jobs:
         run: |
           set -ex
           export PATH=/composer-python:$PATH
-          make test EXTRA_ARGS="--codeblocks -v --durations=20 -m '${{ matrix.markers }}'"
-          make test-dist WORLD_SIZE=2 EXTRA_ARGS="--codeblocks -v --durations=20 -m '${{ matrix.markers }}'"
+          export S3_BUCKET='mosaicml-internal-integration-testing'
+          export COMMON_ARGS="-v --durations=20 -m '${{ matrix.markers }}' --s3_bucket '$S3_BUCKET'"
+          make test EXTRA_ARGS='$COMMON_ARGS'
+          make test-dist WORLD_SIZE=2 EXTRA_ARGS='$COMMON_ARGS'
