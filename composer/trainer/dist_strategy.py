@@ -227,6 +227,9 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     min_params = int(float(fsdp_config.get('min_params', 1e9)))
     activation_checkpointing = fsdp_config.get('activation_checkpointing', False)
     activation_cpu_offload = fsdp_config.get('activation_cpu_offload', False)
+    sync_module_states = fsdp_config.get('sync_module_states', False)
+    forward_prefetch = fsdp_config.get('forward_prefetch', False)
+    limit_all_gathers = fsdp_config.get('limit_all_gathers', False)
 
     # We choose to not wrap the ComposerModel directly, but instead wrap any submodules like `ComposerModel.model`
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
@@ -269,6 +272,9 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                 backward_prefetch=backward_prefetch,
                 param_init_fn=_param_init_fn,
                 device_id=torch.cuda.current_device(),
+                sync_module_states=sync_module_states,
+                forward_prefetch=forward_prefetch,
+                limit_all_gathers=limit_all_gathers,
             )
 
             # Activation Checkpointing
@@ -309,6 +315,9 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         print(f'FSDP: Using min_params={min_params}')
         print(f'FSDP: Using activation_checkpointing={activation_checkpointing}')
         print(f'FSDP: Using activation_cpu_offload={activation_cpu_offload}')
+        print(f'FSDP: Using sync_module_states={sync_module_states}')
+        print(f'FSDP: Using forward_prefetch={forward_prefetch}')
+        print(f'FSDP: Using limit_all_gathers={limit_all_gathers}')
 
     # Rebuild optimizer now that parameters are sharded
     if optimizers:
