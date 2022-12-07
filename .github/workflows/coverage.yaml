@@ -1,0 +1,20 @@
+name: Coverage
+on:
+  pull_request: {}
+  workflow_dispatch: {}
+jobs:
+  coverage:
+    needs: [ pytest ]
+    timeout-minutes: 30
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+      - name: Generate coverage report
+        run: |
+          set -ex
+          ls
+          python -m coverage combine
+          python -m coverage report
