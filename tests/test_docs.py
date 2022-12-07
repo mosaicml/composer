@@ -45,10 +45,10 @@ def test_docker_build_matrix():
     docker_folder = os.path.join(os.path.dirname(__file__), '..', 'docker')
 
     # Capture the existing readme and build matrix contents
-    with open(os.path.join(docker_folder, 'README.md', 'r')) as f:
+    with open(os.path.join(docker_folder, 'README.md'), 'r') as f:
         existing_readme = f.read()
 
-    with open(os.path.join(docker_folder, 'build_matrix.yaml', 'r')) as f:
+    with open(os.path.join(docker_folder, 'build_matrix.yaml'), 'r') as f:
         existing_build_matrix = f.read()
 
     # Run the script
@@ -61,10 +61,10 @@ def test_docker_build_matrix():
 
     # Assert that the files did not change
 
-    with open(os.path.join(docker_folder, 'README.md', 'r')) as f:
+    with open(os.path.join(docker_folder, 'README.md'), 'r') as f:
         assert existing_readme == f.read()
 
-    with open(os.path.join(docker_folder, 'build_matrix.yaml', 'r')) as f:
+    with open(os.path.join(docker_folder, 'build_matrix.yaml'), 'r') as f:
         assert existing_build_matrix == f.read()
 
 
