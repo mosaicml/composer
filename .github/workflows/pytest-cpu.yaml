@@ -7,6 +7,7 @@ jobs:
     timeout-minutes: 30
     runs-on: ubuntu-20.04
     strategy:
+      fail-fast: false
       matrix:
         include:
           - python_version: '3.8'
