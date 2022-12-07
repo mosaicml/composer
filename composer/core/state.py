@@ -260,7 +260,6 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
 
         timestamp (Timestamp): The current training timestamp.
-        train_dataloader (Iterable): The training dataloader. (May be ``None`` if not training.)
     """
 
     def __init__(
