@@ -26,16 +26,16 @@ To provide a deeper intuition, here's pseudocode for the evaluation logic that o
     metrics = model.metrics(train=False)
 
     for batch in eval_dataloader:
-        outputs, targets = model.validate(batch)
+        outputs, targets = model.eval_forward(batch)
         metrics.update(outputs, targets)  # implements the torchmetrics interface
 
     metrics.compute()
 
-- The trainer iterates over ``eval_dataloader`` and passes each batch to the model's :meth:`.ComposerModel.validate` method.
-- Outputs of ``model.validate`` are used to update ``metrics`` (a :class:`torchmetrics.Metric` or :class:`torchmetrics.MetricCollection` returned by :meth:`.ComposerModel.metrics <model.metrics(train=False)>`).
+- The trainer iterates over ``eval_dataloader`` and passes each batch to the model's :meth:`.ComposerModel.eval_forward` method.
+- Outputs of ``model.eval_forward`` are used to update ``metrics`` (a :class:`torchmetrics.Metric` or :class:`torchmetrics.MetricCollection` returned by :meth:`.ComposerModel.metrics <model.metrics(train=False)>`).
 - Finally, metrics over the whole validation dataset are computed.
 
-Note that the tuple returned by :meth:`.ComposerModel.validate` provide the positional arguments to ``metrics.update``.
+Note that the tuple returned by :meth:`.ComposerModel.eval_forward` provide the positional arguments to ``metrics.update``.
 Please keep this in mind when using custom models and/or metrics.
 
 Multiple Datasets
