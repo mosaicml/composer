@@ -35,6 +35,5 @@ jobs:
         run: |
           set -ex
           export PATH=/composer-python:$PATH
-          # python -m pytest -v --durations=20 -m '${{ matrix.markers }}'
-          make test PYTEST='pytest' EXTRA_ARGS="--codeblocks -v --durations=20 -m '${{ matrix.markers }}'"
-          make test-dist PYTEST='pytest' WORLD_SIZE=2 EXTRA_ARGS="--codeblocks -v --durations=20 -m '${{ matrix.markers }}'"
+          make test EXTRA_ARGS="--codeblocks -v --durations=20 -m '${{ matrix.markers }}'"
+          make test-dist WORLD_SIZE=2 EXTRA_ARGS="--codeblocks -v --durations=20 -m '${{ matrix.markers }}'"
