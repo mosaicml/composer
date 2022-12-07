@@ -186,7 +186,7 @@ void scheduleJob(jobs, String image, buildArgs, originalTags) {
     // buildArgs: The build args matrix
     // originalTags: The original tags
 
-    String markers = 'not daily'
+    String markers = 'not daily and not doctest'
     Boolean isDocTestImage = false
     Boolean isVisionImage = false
     Boolean isDevTestInstallImage = false
