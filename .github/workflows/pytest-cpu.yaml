@@ -23,6 +23,10 @@ jobs:
       # - uses: actions/setup-python@v2
       #   with:
       #     python-version: ${{ matrix.python_version }}
+      - name: Setup python
+        run: |
+          set -ex
+          export PATH=/composer-python:$PATH
       - name: printenv
         run: |
           ls ..
