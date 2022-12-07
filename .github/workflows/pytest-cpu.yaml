@@ -27,8 +27,6 @@ jobs:
         run: |
           set -ex
           export PATH=/composer-python:$PATH
-      - name: printenv
-        run: |
           printenv
       - name: Setup
         run: |
