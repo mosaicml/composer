@@ -41,6 +41,9 @@ jobs:
           export PATH=/composer-python:$PATH
           export COMMON_ARGS="-v --durations=20 -m '${{ matrix.markers }}'"
 
+
+          ls
+          ls ..
           git diff
 
           make test PYTEST='${{ matrix.pytest_command }}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
