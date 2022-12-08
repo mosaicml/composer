@@ -55,8 +55,8 @@ jobs:
     timeout-minutes: 30
     runs-on: ubuntu-20.04
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+      # - name: Checkout
+      #   uses: actions/checkout@v2
       - name: Setup
         run: |
           set -ex
