@@ -22,4 +22,5 @@ jobs:
         id: tests
         run: |
           set -ex
+          git --version
           git diff
