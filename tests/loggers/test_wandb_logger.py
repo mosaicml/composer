@@ -34,34 +34,45 @@ def test_wandb_logger(tmp_path, dummy_state):
     pytest.importorskip('wandb', reason='wandb is optional')
     os.environ['WANDB_DIR'] = str(tmp_path)
     os.environ['WANDB_MODE'] = 'offline'
-    dummy_state.run_name = 'wand-test-log-image'
+    dummy_state.run_name = 'wandb-test-log-image'
     logger = Logger(dummy_state, [])
     wandb_logger = WandBLogger()
     wandb_logger.init(dummy_state, logger)
     return wandb_logger
 
 
-@pytest.mark.parametrize('images,channels_last', [(torch.rand(32, 32), False), (torch.rand(5, 3, 32, 32), False),
-                                                  (torch.rand(3, 32, 32), False), (torch.rand(8, 32, 32, 3), True),
-                                                  ([torch.rand(32, 32, 3)], True),
-                                                  ([torch.rand(32, 32, 3), torch.rand(32, 32, 3)], True)])
-def test_wandb_log_image(images, channels_last, test_wandb_logger):
+def test_wandb_log_image(test_wandb_logger):
     pytest.importorskip('wandb', reason='wandb is optional')
-    if isinstance(images, Sequence):
-        expected_num_images = len(images)
-        np_images = [image.numpy() for image in images]
 
-    else:
-        expected_num_images = 1 if images.ndim < 4 else images.shape[0]
-        np_images = images.numpy()
-    test_wandb_logger.log_images(images=images, channels_last=channels_last)
-    test_wandb_logger.log_images(images=np_images, channels_last=channels_last)
+    # We group all the image size variants into one test because calling wandb.init() is slow
+    image_variants = [
+        (torch.rand(4, 4), False),  # 2D image
+        (torch.rand(2, 3, 4, 4), False),  # multiple images, not channels last
+        (torch.rand(3, 4, 4), False),  # with channels, not channels last
+        ([torch.rand(4, 4, 3)], True),  # with channels, channels last
+        (torch.rand(2, 4, 4, 3), True),  # multiple images, channels last
+        ([torch.rand(4, 4, 3), torch.rand(4, 4, 3)], True)  # multiple images in list
+    ]
+
+    expected_num_images_total = 0
+    for (images, channels_last) in image_variants:
+        if isinstance(images, Sequence):
+            expected_num_images = len(images)
+            np_images = [image.numpy() for image in images]
+
+        else:
+            expected_num_images = 1 if images.ndim < 4 else images.shape[0]
+            np_images = images.numpy()
+        test_wandb_logger.log_images(images=images, channels_last=channels_last)
+        test_wandb_logger.log_images(images=np_images, channels_last=channels_last)
+        expected_num_images *= 2  # One set of torch tensors, one set of numpy arrays
+        expected_num_images_total += expected_num_images
+
     test_wandb_logger.post_close()
     img_dir = str(Path(test_wandb_logger.run_dir) / Path('media/images'))
-    expected_num_images *= 2  # One set of torch tensors, one set of numpy arrays
     imgs = [filename for filename in os.listdir(img_dir) if imghdr.what(img_dir + '/' + filename) == 'png']
     actual_num_images = len(imgs)
-    assert actual_num_images == expected_num_images
+    assert actual_num_images == expected_num_images_total
 
 
 @pytest.mark.parametrize(
@@ -78,33 +89,50 @@ def test_wandb_ml_log_image_errors_out(test_wandb_logger, images, channels_last)
         test_wandb_logger.log_images(images, channels_last=channels_last)
 
 
-@pytest.mark.parametrize('images,masks,channels_last', [(torch.randint(0, 256, (32, 32, 3)), {
-    'pred': torch.randint(0, 10, (32, 32))
-}, True), (torch.rand(4, 32, 32, 3), {
-    'pred': torch.randint(0, 10, (4, 32, 32))
-}, True),
-                                                        (torch.rand(4, 32, 32, 3), {
-                                                            'pred': torch.randint(0, 10, (4, 32, 32)),
-                                                            'pred2': torch.randint(0, 10, (4, 32, 32))
-                                                        }, True),
-                                                        (torch.randint(0, 256, (3, 32, 32)), {
-                                                            'pred': torch.randint(0, 10, (32, 32))
-                                                        }, False),
-                                                        (torch.rand(4, 3, 32, 32), {
-                                                            'pred': torch.randint(0, 10, (4, 32, 32))
-                                                        }, False),
-                                                        (torch.rand(4, 3, 32, 32), {
-                                                            'pred': torch.randint(0, 10, (4, 32, 32)),
-                                                            'pred2': torch.randint(0, 10, (4, 32, 32))
-                                                        }, False)])
-def test_wandb_log_image_with_masks(images, masks, test_wandb_logger, channels_last):
+def test_wandb_log_image_with_masks(test_wandb_logger):
     pytest.importorskip('wandb', reason='wandb is optional')
 
-    num_masks = len(masks.keys())
-    expected_num_images = 1 if images.ndim < 4 else images.shape[0]
-    expected_num_masks = num_masks * expected_num_images
+    # We group all the image size variants into one test because calling comet_experiment.end() is slow
+    image_variants = [
+        # single image, single mask, channels last
+        (torch.randint(0, 256, (4, 4, 3)), {
+            'pred': torch.randint(0, 10, (4, 4))
+        }, True),
+        # multiple images, single mask, channels last
+        (torch.rand(2, 4, 4, 3), {
+            'pred': torch.randint(0, 10, (2, 4, 4))
+        }, True),
+        # multiple images, multiple masks, channels last
+        (torch.rand(2, 4, 4, 3), {
+            'pred': torch.randint(0, 10, (2, 4, 4)),
+            'pred2': torch.randint(0, 10, (2, 4, 4))
+        }, True),
+        # single image, single mask, not channels last
+        (torch.randint(0, 256, (3, 4, 4)), {
+            'pred': torch.randint(0, 10, (4, 4))
+        }, False),
+        # multiple images, single mask, not channels last
+        (torch.rand(2, 3, 4, 4), {
+            'pred': torch.randint(0, 10, (2, 4, 4))
+        }, False),
+        # multiple images, multiple masks, not channels last
+        (torch.rand(2, 3, 4, 4), {
+            'pred': torch.randint(0, 10, (2, 4, 4)),
+            'pred2': torch.randint(0, 10, (2, 4, 4))
+        }, False)
+    ]
 
-    test_wandb_logger.log_images(images=images, masks=masks, channels_last=channels_last)
+    expected_num_masks_total = 0
+    expected_num_images_total = 0
+    for (images, masks, channels_last) in image_variants:
+        num_masks = len(masks.keys())
+        expected_num_images = 1 if images.ndim < 4 else images.shape[0]
+        expected_num_masks = num_masks * expected_num_images
+
+        test_wandb_logger.log_images(images=images, masks=masks, channels_last=channels_last)
+        expected_num_images_total += expected_num_images
+        expected_num_masks_total += expected_num_masks
+
     test_wandb_logger.post_close()
     img_dir = str(Path(test_wandb_logger.run_dir) / Path('media/images'))
     imgs = [
@@ -112,12 +140,12 @@ def test_wandb_log_image_with_masks(images, masks, test_wandb_logger, channels_l
         if not os.path.isdir(img_dir + '/' + filename) and imghdr.what(img_dir + '/' + filename) == 'png'
     ]
     actual_num_images = len(imgs)
-    assert actual_num_images == expected_num_images
+    assert actual_num_images == expected_num_images_total
 
     mask_dir = str(Path(test_wandb_logger.run_dir) / Path('media/images/mask'))
-    msks = [filename for filename in os.listdir(mask_dir) if imghdr.what(mask_dir + '/' + filename) == 'png']
-    actual_num_masks = len(msks)
-    assert actual_num_masks == expected_num_masks
+    masks = [filename for filename in os.listdir(mask_dir) if imghdr.what(mask_dir + '/' + filename) == 'png']
+    actual_num_masks = len(masks)
+    assert actual_num_masks == expected_num_masks_total
 
 
 @pytest.mark.parametrize('images,masks', [(torch.randint(0, 256, (32, 32, 3)), {

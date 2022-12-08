@@ -112,7 +112,6 @@ RUN apt-get update && \
         wget \
         sudo \
         build-essential \
-        git \
         software-properties-common \
         dirmngr \
         apt-utils \
@@ -126,6 +125,16 @@ RUN apt-get update && \
         tcl \
         libjpeg8-dev \
         less && \
+    apt-get autoclean && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+###############################
+# Install latest verison of git
+###############################
+RUN add-apt-repository ppa:git-core/ppa && \
+    apt-get install -y --no-install-recommends \
+        git && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
