@@ -23,7 +23,7 @@ jobs:
         run: |
           set -ex
           git --version
-          echo $PWD
-          echo $GIT_DIR
+          printenv
           git init
+          printenv
           git diff
