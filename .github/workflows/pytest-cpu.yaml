@@ -1,0 +1,25 @@
+name: Pytest-CPU
+on:
+  pull_request: {}
+  workflow_dispatch: {}
+jobs:
+  pytest:
+    timeout-minutes: 30
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
+            markers: 'not daily and not gpu and not vision and not remote and doctest'
+            pytest_command: 'coverage run -m pytest tests/test_docs.py'
+    container: ${{ matrix.container }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Run Tests
+        id: tests
+        run: |
+          set -ex
+          git diff
