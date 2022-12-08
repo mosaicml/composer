@@ -29,8 +29,6 @@ jobs:
     container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@v2
-        # with:
-        #   fetch-depth: 2
       - name: Setup
         run: |
           set -ex
@@ -44,13 +42,6 @@ jobs:
           export PATH=/composer-python:$PATH
           export COMMON_ARGS="-v --durations=20 -m '${{ matrix.markers }}'"
 
-          git config --global --add safe.directory /__w/composer/composer
-          ls -la
-          sleep 5
-          ls -la .git
-          sleep 5
-          git diff
-
           make test PYTEST='${{ matrix.pytest_command }}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
           make test-dist PYTEST='${{ matrix.pytest_command }}' EXTRA_ARGS="$COMMON_ARGS" WORLD_SIZE=2
 
@@ -59,18 +50,19 @@ jobs:
         with:
           name: coverage-${{ env.GITHUB_SHA }}
           path: .coverage
-  coverage2:
+  coverage:
     needs: [ pytest ]
     timeout-minutes: 30
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      # - name: Download artifacts
-      #   uses: actions/download-artifact@v3
-      # - name: Generate coverage report
-      #   run: |
-      #     set -ex
-      #     ls
-      #     python -m coverage combine
-      #     python -m coverage report
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+      - name: Generate coverage report
+        run: |
+          set -ex
+          ls
+          sleep 5
+          python -m coverage combine
+          python -m coverage report
