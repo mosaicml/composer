@@ -191,19 +191,14 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     elif isinstance(mixed_precision, str):
         mixed_precision = mixed_precision.upper()
         if mixed_precision == 'FULL':
-            param_dtype = torch.float32
-            reduce_dtype = torch.float32
-            buffer_dtype = torch.float32
+            pass
         elif mixed_precision == 'DEFAULT':
-            param_dtype = torch.float32
             reduce_dtype = get_torch_dtype(precision)
             buffer_dtype = torch.float32
         elif mixed_precision == 'PURE':
             param_dtype = get_torch_dtype(precision)
             reduce_dtype = get_torch_dtype(precision)
             buffer_dtype = get_torch_dtype(precision)
-        elif mixed_precision == 'NONE':
-            pass
         else:
             raise ValueError(f'Unable to interpret mixed_precision={mixed_precision}')
     else:
