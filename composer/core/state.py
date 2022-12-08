@@ -618,8 +618,9 @@ class State(Serializable):
 
         dataset = self._dataset_of(self.train_dataloader)
         if hasattr(dataset, 'state_dict'):
-            sample = int(self.timestamp.sample_in_epoch)
-            obj['train'] = dataset.state_dict(sample)  # pyright: ignore
+            num_samples = int(self.timestamp.sample_in_epoch)
+            from_beginning = True
+            obj['train'] = dataset.state_dict(num_samples, from_beginning)  # pyright: ignore
 
         for evaluator in self.evaluators:
             dataset = self._dataset_of(evaluator)
