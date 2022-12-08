@@ -21,6 +21,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchmetrics import Metric
 
 from composer.core.data_spec import DataSpec
+from composer.core.evaluator import Evaluator
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
@@ -34,7 +35,6 @@ if TYPE_CHECKING:
     import composer.core.types as types
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
-    from composer.core.evaluator import Evaluator
     from composer.core.passes import AlgorithmPass
     from composer.loggers import Logger
     from composer.profiler import Profiler
@@ -527,7 +527,6 @@ class State(Serializable):
         self._algorithms[:] = algorithms
 
     def _dataset_of(self, obj: Optional[Union[Iterable, Evaluator, DataSpec, DataLoader]]) -> Optional[Dataset]:
-        from composer.core.evaluator import Evaluator
         if obj is None:
             return None
         if isinstance(obj, Evaluator):
