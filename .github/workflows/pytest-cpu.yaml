@@ -69,5 +69,13 @@ jobs:
           set -ex
           ls
           sleep 5
+
+          # Flatten the coverage files
+          ls | while read x; do mv $x/.coverage .coverage.$x; done
+
+          sleep 5
+          ls
+          sleep 5
+
           python -m coverage combine
           python -m coverage report
