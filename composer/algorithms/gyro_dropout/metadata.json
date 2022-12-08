@@ -1,0 +1,15 @@
+{
+    "gyro_dropout": {
+        "name": "Gyro Dropout",
+        "class_name": "GyroDropout",
+        "functional": "apply_gyro_dropout",
+        "tldr": "Dropout layer by using Gyrodropout",
+        "attribution": "PyTorch",
+        "link": "",
+        "domains": [
+            "cv"
+        ],
+        "summary": "By masking Dropout layer, this usually improves accuracy.",
+        "use": "Neural Networks that uses dropout"
+    }
+}

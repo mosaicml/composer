@@ -124,7 +124,7 @@ class TestTrainerInitOrFit:
 
     @pytest.fixture
     def train_dataloader(self):
-        dataset = RandomClassificationDataset()
+        dataset = RandomClassificationDataset(size=10)
         return DataLoader(dataset=dataset, batch_size=2, sampler=dist.get_sampler(dataset))
 
     @pytest.fixture
@@ -385,6 +385,48 @@ class TestTrainerInitOrFit:
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
+    @pytest.mark.gpu
+    @pytest.mark.filterwarnings(
+        "ignore:Setting `device_train_microbatch_size='auto'` is an experimental feature which may cause uncaught Cuda Out of Memory errors. In this case, please manually set device_train_microbatch_size explicitly to an integer instead."
+    )
+    @pytest.mark.parametrize('dataloader_in_init', [True, False])
+    def test_auto_microbatch(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time[int],
+        dataloader_in_init: bool,
+    ):
+        # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
+        copied_model = copy.deepcopy(model)
+
+        # Train once with the device_train_microbatch_size=1
+        init_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
+        init_trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader if dataloader_in_init else None,
+            device_train_microbatch_size='auto',
+            callbacks=[init_event_counter_callback],
+        )
+        init_trainer.fit(train_dataloader=train_dataloader if not dataloader_in_init else None)
+
+        # Train again with the device_train_microbatch_size='auto'
+        fit_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
+        fit_trainer = Trainer(
+            model=copied_model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader if dataloader_in_init else None,
+            callbacks=[fit_event_counter_callback],
+        )
+        fit_trainer.fit(
+            train_dataloader=train_dataloader if not dataloader_in_init else None,
+            device_train_microbatch_size='auto',
+        )
+
+        # Assert that the states are equivalent
+        assert_state_equivalent(init_trainer.state, fit_trainer.state)
+
     def test_grad_accum(
         self,
         train_dataloader: DataLoader,
@@ -630,7 +672,7 @@ class TestTrainerInitOrFit:
         eval_interval: str,
     ):
         # Construct the trainer with a callback that sleeps during evaluation
-        sleep_duration = datetime.timedelta(seconds=0.5)
+        sleep_duration = datetime.timedelta(seconds=0.05)
         sleepy_callback = SleepyCallback(
             sleep_duration=sleep_duration,
             event=Event.EVAL_AFTER_FORWARD,
@@ -863,8 +905,8 @@ class TestTrainerEquivalence():
     def config(self, device: Device, precision: Precision, world_size: int, rank_zero_seed: int):
         """Returns the reference config."""
 
-        train_dataset = RandomClassificationDataset()
-        eval_dataset = RandomClassificationDataset()
+        train_dataset = RandomClassificationDataset(size=16)
+        eval_dataset = RandomClassificationDataset(size=16)
 
         return {
             'model':
