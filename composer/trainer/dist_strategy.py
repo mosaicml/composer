@@ -184,7 +184,6 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     param_dtype = None
     reduce_dtype = None
     buffer_dtype = None
-    keep_low_precision_grads = False
     if isinstance(mixed_precision, dict):
         param_dtype = mixed_precision.get('param_dtype', None)
         if param_dtype is not None:
