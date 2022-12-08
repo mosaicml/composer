@@ -5,10 +5,9 @@
 
 from __future__ import annotations
 
-
+import pathlib
 from typing import Any, Dict, Optional, Union
 
-import pathlib
 from composer.core.state import State
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
@@ -33,7 +32,7 @@ class MLFlowLogger(LoggerDestination):
         self,
         experiment_name: Optional[str] = None,
         run_name: Optional[str] = None,
-        tracking_uri : Optional[Union[str, pathlib.Path]] = None,
+        tracking_uri: Optional[Union[str, pathlib.Path]] = None,
         rank_zero_only: bool = True,
     ) -> None:
         try:
@@ -62,18 +61,21 @@ class MLFlowLogger(LoggerDestination):
         if not self._rank_zero_only:
             self.run_name += f'-rank{dist.get_global_rank()}'
 
+        if self.experiment_name is None:
+            self.experiment_name = 'my-mlflow-experiment'
+
         if self._enabled:
-            run_kwargs = {'run_name': self.run_name}
-            if self.experiment_name is not None:
-                experiment_id = mlflow.create_experiment(self.experiment_name)
-                run_kwargs.update({'experiment_id': experiment_id})
             if self.tracking_uri is not None:
                 mlflow.set_tracking_uri(self.tracking_uri)
-            mlflow.start_run(**run_kwargs)
+            mlflow.set_experiment(self.experiment_name)
+            mlflow.start_run()
+            mlflow.set_tag('mlflow.runName', self.run_name)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         import mlflow
         if self._enabled:
+            # Convert all metrics to floats to placate mlflow.
+            metrics = {k: float(v) for k, v in metrics.items()}
             mlflow.log_metrics(metrics=metrics, step=step)
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
@@ -81,8 +83,7 @@ class MLFlowLogger(LoggerDestination):
         if self._enabled:
             mlflow.log_params(params=hyperparameters)
 
-    def post_close(self):
+    def close(self):
         import mlflow
         if self._enabled:
             mlflow.end_run()
-

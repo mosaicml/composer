@@ -18,6 +18,7 @@ from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
+from composer.loggers.mlflow_logger import MLFlowLogger
 from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.loggers.tensorboard_logger import TensorboardLogger
@@ -25,14 +26,6 @@ from composer.loggers.wandb_logger import WandBLogger
 
 # All needs to be defined properly for sphinx autosummary
 __all__ = [
-    'Logger',
-    'LoggerDestination',
-    'FileLogger',
-    'InMemoryLogger',
-    'ProgressBarLogger',
-    'WandBLogger',
-    'RemoteUploaderDownloader',
-    'TensorboardLogger',
-    'CometMLLogger',
-    'ConsoleLogger',
+    'Logger', 'LoggerDestination', 'FileLogger', 'InMemoryLogger', 'ProgressBarLogger', 'WandBLogger',
+    'RemoteUploaderDownloader', 'TensorboardLogger', 'CometMLLogger', 'ConsoleLogger', 'MLFlowLogger'
 ]
