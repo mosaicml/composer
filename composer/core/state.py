@@ -393,15 +393,44 @@ class State(Serializable):
         """The train dataloader."""
         return self._train_dataloader
 
+    def _dataset_of(self, dataloader: Optional[Union[Evaluator, DataSpec, DataLoader, Iterable]]) -> Optional[Dataset]:
+        """Get the dataset contained by the given dataloader-like object.
+
+        Args:
+            dataloader (Evaluator | DataSpec | DataLoader | Iterable, optional): The dataloader, wrapped dataloader, or
+                generic python iterable to get the dataset of, if applicable.
+
+        Returns:
+            Dataset: Its dataset, if there is one.
+        """
+        from composer.core.evaluator import Evaluator
+
+        # If it's None, no dataset for you.
+        if dataloader is None:
+            return None
+
+        # An Evaluator is a dataloader wrapped with metrics. Unwrap its dataloader.
+        if isinstance(dataloader, Evaluator):
+            dataloader = dataloader.dataloader
+
+        # A DataSpec is a dataloader wrapped with an on-device transform. Unwrap its dataloader.
+        if isinstance(dataloader, DataSpec):
+            dataloader = dataloader.dataloader
+
+        # If what we now have is an actual DataLoader, return its dataset. If not, return None.
+        if isinstance(dataloader, DataLoader):
+            return dataloader.dataset
+        else:
+            return None
+
     @train_dataloader.setter
     def train_dataloader(self, train_dataloader: Optional[Union[Iterable, DataLoader]]):
         self._train_dataloader = train_dataloader
         # Load dataset state from checkpoint when train_dataloader is set
         if self.dataset_state:
-            if hasattr(self._train_dataloader, 'dataset'):
-                dataset = self._train_dataloader.dataset  # pyright: ignore
-                if hasattr(dataset, 'load_state_dict'):
-                    dataset.load_state_dict(self.dataset_state['train'])  # pyright: ignore
+            dataset = self._dataset_of(self._train_dataloader)
+            if hasattr(dataset, 'load_state_dict'):
+                dataset.load_state_dict(self.dataset_state['train'])  # pyright: ignore
                 self.dataset_resumption['train'] = True
             self.dataset_state['train'] = None
 
@@ -527,36 +556,6 @@ class State(Serializable):
     @algorithms.setter
     def algorithms(self, algorithms: Sequence[Algorithm]):
         self._algorithms[:] = algorithms
-
-    def _dataset_of(self, dataloader: Optional[Union[Evaluator, DataSpec, DataLoader, Iterable]]) -> Optional[Dataset]:
-        """Get the dataset contained by the given dataloader-like object.
-
-        Args:
-            dataloader (Evaluator | DataSpec | DataLoader | Iterable, optional): The dataloader, wrapped dataloader, or
-                generic python iterable to get the dataset of, if applicable.
-
-        Returns:
-            Dataset: Its dataset, if there is one.
-        """
-        from composer.core.evaluator import Evaluator
-
-        # If it's None, no dataset for you.
-        if dataloader is None:
-            return None
-
-        # An Evaluator is a dataloader wrapped with metrics. Unwrap its dataloader.
-        if isinstance(dataloader, Evaluator):
-            dataloader = dataloader.dataloader
-
-        # A DataSpec is a dataloader wrapped with an on-device transform. Unwrap its dataloader.
-        if isinstance(dataloader, DataSpec):
-            dataloader = dataloader.dataloader
-
-        # If what we now have is an actual DataLoader, return its dataset. If not, return None.
-        if isinstance(dataloader, DataLoader):
-            return dataloader.dataset
-        else:
-            return None
 
     @property
     def evaluators(self):
