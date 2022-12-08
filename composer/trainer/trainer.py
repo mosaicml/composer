@@ -1831,6 +1831,8 @@ class Trainer:
         Only one batch must be loaded to seed the sampler's generator. since only the first batch is being loaded, the
         dataloader may not be completely iterated through.
         """
+        log.debug('Spinning the dataloaders')
+
         # spin the evaluator dataloaders once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
         eval_state = self.state.dataset_resumption.get('eval', {})
