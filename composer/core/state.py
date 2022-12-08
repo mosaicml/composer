@@ -394,6 +394,7 @@ class State(Serializable):
     @train_dataloader.setter
     def train_dataloader(self, train_dataloader: Optional[Union[Iterable, DataLoader]]):
         self._train_dataloader = train_dataloader
+        # Load dataset state from checkpoint when train_dataloader is set
         if self.dataset_state:
             if hasattr(self._train_dataloader, 'dataset'):
                 dataset = self._train_dataloader.dataset  # pyright: ignore
