@@ -23,6 +23,7 @@ jobs:
         run: |
           set -ex
           git --version
+          git config --global --add safe.directory /__w/composer/composer
           echo $PWD
           ls -al
           printenv
