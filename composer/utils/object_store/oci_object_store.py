@@ -46,7 +46,7 @@ class OCIObjectStore(ObjectStore):
             config = oci.config.from_file(os.environ['OCI_CONFIG_FILE'])
         else:
             config = oci.config.from_file()
-            
+
         self.client = oci.object_storage.ObjectStorageClient(config=config,
                                                              retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
         self.namespace = self.client.get_namespace().data

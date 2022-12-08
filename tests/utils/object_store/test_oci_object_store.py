@@ -13,21 +13,19 @@ from composer.utils import OCIObjectStore
 def setup_oci_mocks(monkeypatch):
     oci = pytest.importorskip('oci')
     mock_config = MagicMock()
-    monkeypatch.setattr(oci.config, 'from_file', mock_config)
+    mock_from_file = MagicMock(return_value=mock_config)
+    monkeypatch.setattr(oci.config, 'from_file', mock_from_file)
     mock_object_storage_client = MagicMock()
     monkeypatch.setattr(oci.object_storage, 'ObjectStorageClient', mock_object_storage_client)
     mock_upload_manager = MagicMock()
     monkeypatch.setattr(oci.object_storage, 'UploadManager', mock_upload_manager)
 
 
-
-
 class TestOCIObjectStore:
 
- 
     @classmethod
     def setup_class(cls):
-        oci = pytest.importorskip('oci')
+        pytest.importorskip('oci')
         cls.mock_bucket_name = 'my_bucket'
         cls.mock_namespace = 'my_namespace'
 
@@ -35,7 +33,7 @@ class TestOCIObjectStore:
         cls.oci_os.namespace = cls.mock_namespace
 
     def test_upload_object(self, setup_oci_mocks, monkeypatch, tmp_path):
-        oci = pytest.importorskip('oci')
+        pytest.importorskip('oci')
         mock_object_name = 'my_object'
 
         # oci_os = OCIObjectStore(mock_bucket_name)
@@ -52,9 +50,8 @@ class TestOCIObjectStore:
                                                  object_name=mock_object_name,
                                                  file_path=file_to_upload)
 
-
     def test_download_object(self, monkeypatch, tmp_path):
-        oci = pytest.importorskip('oci')
+        pytest.importorskip('oci')
         mock_object_name = 'my_object'
         mock_response_object = MagicMock()
         file_content = bytes(range(4))
@@ -73,7 +70,7 @@ class TestOCIObjectStore:
         assert actual_content == file_content
 
     def test_get_object_size(self, monkeypatch):
-        oci = pytest.importorskip('oci')
+        pytest.importorskip('oci')
         mock_object_name = 'my_object'
         mock_object_size = 11
         mock_object_1, mock_object_2 = MagicMock(), MagicMock()
