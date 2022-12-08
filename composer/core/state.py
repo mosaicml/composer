@@ -603,16 +603,13 @@ class State(Serializable):
 
         dataset = self._dataset_of(self.train_dataloader)
         if hasattr(dataset, 'state_dict'):
-            obj['train'] = dataset.state_dict()  # pyright: ignore
+            obj['train'] = dataset.state_dict(self.timestamp.sample_in_epoch)  # pyright: ignore
 
         for evaluator in self.evaluators:
             dataset = self._dataset_of(evaluator)
             if hasattr(dataset, 'state_dict'):
-                state = dataset.state_dict()  # pyright: ignore
-                # Don't save eval progress because we do not checkpoint during eval.
-                if isinstance(state, dict):
-                    state['sample_in_epoch'] = 0
-                obj['eval'][evaluator.label] = state
+                # Don't save eval sample because we do not checkpoint during eval.
+                obj['eval'][evaluator.label] = dataset.state_dict(0)  # pyright: ignore
 
         return obj
 
