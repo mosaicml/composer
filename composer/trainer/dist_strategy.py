@@ -184,10 +184,18 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     param_dtype = None
     reduce_dtype = None
     buffer_dtype = None
+    keep_low_precision_grads = False
     if isinstance(mixed_precision, dict):
-        param_dtype = get_torch_dtype(mixed_precision.get('param_dtype', None))
-        reduce_dtype = get_torch_dtype(mixed_precision.get('reduce_dtype', None))
-        buffer_dtype = get_torch_dtype(mixed_precision.get('buffer_dtype', None))
+        param_dtype = mixed_precision.get('param_dtype', None)
+        if param_dtype is not None:
+            param_dtype = get_torch_dtype(param_dtype)
+        reduce_dtype = mixed_precision.get('reduce_dtype', None)
+        if reduce_dtype is not None:
+            reduce_dtype = get_torch_dtype(reduce_dtype)
+        buffer_dtype = mixed_precision.get('buffer_dtype', None)
+        if buffer_dtype is not None:
+            buffer_dtype = get_torch_dtype(buffer_dtype)
+        keep_low_precision_grads = mixed_precision.get('keep_low_precision_grads', False)
     elif isinstance(mixed_precision, str):
         mixed_precision = mixed_precision.upper()
         if mixed_precision == 'FULL':
@@ -204,11 +212,18 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     else:
         raise ValueError(f'Unable to interpret mixed_precision={mixed_precision}')
 
+    if sharding_map_key != 'NO_SHARD' and (precision == Precision.AMP_FP16 and param_dtype != torch.float16 or
+                                           precision == Precision.AMP_BF16 and param_dtype != torch.bfloat16):
+        raise ValueError(
+            f'FSDP in PyTorch 1.13 does not support precision `{precision}` with sharding strategy `{sharding_strategy}` '
+            f'and param_dtype `{param_dtype}.` Consider using one of the predefined mixed_precision strategies '
+            "(choose: `'FULL'`, `'DEFAULT'`, `'PURE'`)")
+
     mixed_precision = MixedPrecision(
         param_dtype=param_dtype,
         reduce_dtype=reduce_dtype,
         buffer_dtype=buffer_dtype,
-        keep_low_precision_grads=False,
+        keep_low_precision_grads=keep_low_precision_grads,
     )
 
     backward_prefetch_map = {
