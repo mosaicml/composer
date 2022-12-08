@@ -547,6 +547,7 @@ class State(Serializable):
     @evaluators.setter
     def evaluators(self, evaluators: Union[Evaluator, Sequence[Evaluator]]):
         self._evaluators[:] = list(ensure_tuple(evaluators))
+        # Load dataset state from checkpoint when evaluators are set
         if self.dataset_state:
             state = self.dataset_state['eval']
             for evaluator in self._evaluators:
