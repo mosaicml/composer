@@ -626,7 +626,7 @@ class State(Serializable):
             dataset = self._dataset_of(evaluator)
             if hasattr(dataset, 'state_dict'):
                 # Don't save eval sample because we do not checkpoint during eval.
-                obj['eval'][evaluator.label] = dataset.state_dict(0)  # pyright: ignore
+                obj['eval'][evaluator.label] = dataset.state_dict(0, True)  # pyright: ignore
 
         return obj
 
