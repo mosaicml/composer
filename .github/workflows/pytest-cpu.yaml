@@ -23,4 +23,5 @@ jobs:
         run: |
           set -ex
           git --version
+          git init
           git diff
