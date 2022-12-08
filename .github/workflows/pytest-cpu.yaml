@@ -55,8 +55,14 @@ jobs:
     timeout-minutes: 30
     runs-on: ubuntu-20.04
     steps:
-      # - name: Checkout
-      #   uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup
+        run: |
+          set -ex
+          export PATH=/composer-python:$PATH
+          python -m pip install --upgrade pip wheel
+          python -m pip install -e .[all]
       - name: Setup
         run: |
           set -ex
@@ -64,17 +70,17 @@ jobs:
           python -m pip install coverage
       - name: Download artifacts
         uses: actions/download-artifact@v3
+        with:
+          path: artifacts
       - name: Generate coverage report
         run: |
           set -ex
-          ls
-          sleep 5
 
           # Flatten the coverage files
-          ls | while read x; do mv $x/.coverage .coverage.$x; done
+          ls artifacts | while read x; do mv artifacts/$x/.coverage .coverage.$x; done
 
           sleep 5
-          ls
+          ls -la
           sleep 5
 
           python -m coverage combine
