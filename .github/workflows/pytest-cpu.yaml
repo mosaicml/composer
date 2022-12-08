@@ -9,23 +9,23 @@ jobs:
     strategy:
       matrix:
         include:
-          # - container: mosaicml/pytorch:1.11.0_cpu-python3.8-ubuntu20.04
-          #   markers: 'not daily and not gpu and not vision and not remote and not doctest'
-          #   pytest_command: 'coverage run -m pytest'
-          # - container: mosaicml/pytorch:1.12.1_cpu-python3.9-ubuntu20.04
-          #   markers: 'not daily and not gpu and not vision and not remote and not doctest'
-          #   pytest_command: 'coverage run -m pytest'
+          - container: mosaicml/pytorch:1.11.0_cpu-python3.8-ubuntu20.04
+            markers: 'not daily and not gpu and not vision and not remote and not doctest'
+            pytest_command: 'coverage run -m pytest'
+          - container: mosaicml/pytorch:1.12.1_cpu-python3.9-ubuntu20.04
+            markers: 'not daily and not gpu and not vision and not remote and not doctest'
+            pytest_command: 'coverage run -m pytest'
           - name: vision
             container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
             markers: 'not daily and not gpu and vision and not remote and not doctest'
             pytest_command: 'coverage run -m pytest'
-          # - name: doctest
-          #   container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
-          #   markers: 'not daily and not gpu and not vision and not remote and doctest'
-          #   pytest_command: 'coverage run -m pytest tests/test_docs.py'
-          # - container: mosaicml/pytorch:1.13.0_cpu-python3.10-ubuntu20.04
-          #   markers: 'not daily and not gpu and not vision and not remote and not doctest'
-          #   pytest_command: 'coverage run -m pytest'
+          - name: doctest
+            container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
+            markers: 'not daily and not gpu and not vision and not remote and doctest'
+            pytest_command: 'coverage run -m pytest tests/test_docs.py'
+          - container: mosaicml/pytorch:1.13.0_cpu-python3.10-ubuntu20.04
+            markers: 'not daily and not gpu and not vision and not remote and not doctest'
+            pytest_command: 'coverage run -m pytest'
     container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@v2
@@ -78,10 +78,6 @@ jobs:
 
           # Flatten the coverage files
           ls artifacts | while read x; do mv artifacts/$x/.coverage .coverage.$x; done
-
-          sleep 5
-          ls -la
-          sleep 5
 
           python -m coverage combine
           python -m coverage report
