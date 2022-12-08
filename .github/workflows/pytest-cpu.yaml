@@ -41,7 +41,7 @@ jobs:
           export PATH=/composer-python:$PATH
           export COMMON_ARGS="-v --durations=20 -m '${{ matrix.markers }}'"
 
-
+          git config --global --add safe.directory .
           ls -la
           sleep 5
           ls -la .git
