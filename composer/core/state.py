@@ -388,11 +388,6 @@ class State(Serializable):
         self.eval_metric_values: Dict[str, float] = {}
         self.total_loss_dict: Dict[str, float] = {}
 
-    @property
-    def train_dataloader(self):
-        """The train dataloader."""
-        return self._train_dataloader
-
     def _dataset_of(self, dataloader: Optional[Union[Evaluator, DataSpec, DataLoader, Iterable]]) -> Optional[Dataset]:
         """Get the dataset contained by the given dataloader-like object.
 
@@ -423,8 +418,22 @@ class State(Serializable):
         else:
             return None
 
+    @property
+    def train_dataloader(self) -> Optional[Union[Iterable, DataLoader]]:
+        """Get the train dataloader.
+
+        Returns:
+            Iterable | DataLoader, optional: The dataloader.
+        """
+        return self._train_dataloader
+
     @train_dataloader.setter
     def train_dataloader(self, train_dataloader: Optional[Union[Iterable, DataLoader]]):
+        """Set the train dataloader.
+
+        Args:
+            train_dataloader (Iterable | DataLoader, optional): The dataloader.
+        """
         self._train_dataloader = train_dataloader
         # Load dataset state from checkpoint when train_dataloader is set
         if self.dataset_state:
@@ -614,6 +623,11 @@ class State(Serializable):
         return metadata_dict
 
     def _dataset_state_dict(self) -> Dict[str, Any]:
+        """Collect the state dict(s) of our train and eval dataset(s).
+
+        Returns:
+            Dict[str, Any]: The state dict(s).
+        """
         obj = {
             'train': None,
             'eval': {},
@@ -633,6 +647,11 @@ class State(Serializable):
         return obj
 
     def state_dict(self) -> Dict[str, Any]:
+        """Collect the state dicts of our serializable attributes.
+
+        Returns:
+            Dict[str, Any]: The state dict.
+        """
         state_dict = {}
 
         for attribute_name in self.serialized_attributes:
@@ -819,6 +838,11 @@ class State(Serializable):
             log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
     def load_optim_state(self, state_dict: Dict[str, Any]):
+        """Load the optimizer state.
+
+        Args:
+            state_dict (Dict[str, Any]): The state to load.
+        """
         serialized_value = state_dict['optimizers']
         for target in ensure_tuple(self.optimizers):
             if type(target).__qualname__ not in serialized_value:
@@ -833,6 +857,11 @@ class State(Serializable):
                 target.load_state_dict(source)
 
     def _load_dataset_state(self, obj: Dict[str, Any]) -> None:
+        """Load the dataset state.
+
+        Args:
+            obj (Dict[str, Any]): The state to load.
+        """
         self.dataset_state = obj
 
         dataset = self._dataset_of(self.train_dataloader)
