@@ -21,19 +21,21 @@ def setup_oci_mocks(monkeypatch):
 
 
 
-@pytest.importorskip('oci')
+
 class TestOCIObjectStore:
 
+ 
     @classmethod
     def setup_class(cls):
+        oci = pytest.importorskip('oci')
         cls.mock_bucket_name = 'my_bucket'
         cls.mock_namespace = 'my_namespace'
 
         cls.oci_os = OCIObjectStore(cls.mock_bucket_name)
         cls.oci_os.namespace = cls.mock_namespace
 
-    
     def test_upload_object(self, setup_oci_mocks, monkeypatch, tmp_path):
+        oci = pytest.importorskip('oci')
         mock_object_name = 'my_object'
 
         # oci_os = OCIObjectStore(mock_bucket_name)
@@ -50,7 +52,9 @@ class TestOCIObjectStore:
                                                  object_name=mock_object_name,
                                                  file_path=file_to_upload)
 
+
     def test_download_object(self, monkeypatch, tmp_path):
+        oci = pytest.importorskip('oci')
         mock_object_name = 'my_object'
         mock_response_object = MagicMock()
         file_content = bytes(range(4))
@@ -86,5 +90,5 @@ class TestOCIObjectStore:
         assert self.oci_os.get_object_size(mock_object_name) == mock_object_size
 
 
-def test_checkpointing_with_oci_object_store(self, setup_oci_mocks, monkeypatch, tmp_path):
-    pass
+# def test_checkpointing_with_oci_object_store(self, setup_oci_mocks, monkeypatch, tmp_path):
+#     pass
