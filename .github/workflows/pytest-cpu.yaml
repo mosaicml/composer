@@ -23,5 +23,7 @@ jobs:
         run: |
           set -ex
           git --version
+          echo $PWD
+          echo $GIT_DIR
           git init
           git diff
