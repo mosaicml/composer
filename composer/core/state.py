@@ -526,15 +526,31 @@ class State(Serializable):
     def algorithms(self, algorithms: Sequence[Algorithm]):
         self._algorithms[:] = algorithms
 
-    def _dataset_of(self, obj: Optional[Union[Iterable, Evaluator, DataSpec, DataLoader]]) -> Optional[Dataset]:
-        if obj is None:
+    def _dataset_of(self, dataloader: Optional[Union[Evaluator, DataSpec, DataLoader, Iterable]]) -> Optional[Dataset]:
+        """Get the dataset contained by the given dataloader-like object.
+
+        Args:
+            dataloader (Evaluator | DataSpec | DataLoader | Iterable, optional): The dataloader, wrapped dataloader, or
+                generic python iterable to the dataset of, if applicable.
+
+        Returns:
+            Dataset: Its dataset, if there is one.
+        """
+        # If it's None, no dataset for you.
+        if dataloader is None:
             return None
-        if isinstance(obj, Evaluator):
-            obj = obj.dataloader
-        if isinstance(obj, DataSpec):
-            obj = obj.dataloader
-        if isinstance(obj, DataLoader):
-            return obj.dataset
+
+        # An Evaluator is a dataloader wrapped with metrics. Unwrap its dataloader.
+        if isinstance(dataloader, Evaluator):
+            dataloader = dataloader.dataloader
+
+        # A DataSpec is a dataloader wrapped with an on-device transform. Unwrap its dataloader.
+        if isinstance(dataloader, DataSpec):
+            dataloader = dataloader.dataloader
+
+        # If what we now have is an actual DataLoader, return its dataset. If not, return None.
+        if isinstance(dataloader, DataLoader):
+            return dataloader.dataset
         else:
             return None
 
