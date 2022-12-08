@@ -134,6 +134,8 @@ class State(Serializable):
 
             By convention, the training dataloader is called ``'train'``. The evaluator dataloader is called
             ``'eval'``, or when multiple evaluators are used, the name of the evaluator.
+        dataset_state (Dict[str, Any], optional): Mapping of dataset split to its iteration state for resumption.
+        dataset_resumption (Dict[str, Any], optional): Mapping of dataset split to whether resumption is used.
         max_duration (str | Time, optional): The maximum duration to train for. (default: ``None``)
         precision (str | Precision): The numerical precision to use for training. See :class:`~.Precision` for
             the supported precisions.
