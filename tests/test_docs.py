@@ -33,6 +33,10 @@ def check_output(proc: subprocess.CompletedProcess):
 @pytest.mark.doctest
 def test_run_doctests():
     docs_folder = os.path.join(os.path.dirname(__file__), '..', 'docs')
+
+    check_output(subprocess.run(['git', 'diff'], capture_output=True, text=True))
+    check_output(subprocess.run(['git', 'diff'], cwd=docs_folder, capture_output=True, text=True))
+
     check_output(subprocess.run(['make', 'clean'], cwd=docs_folder, capture_output=True, text=True))
     # Must build the html first to ensure that doctests in .. autosummary:: generated pages are included
     check_output(subprocess.run(['make', 'html'], cwd=docs_folder, capture_output=True, text=True))
