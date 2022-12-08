@@ -531,7 +531,7 @@ class State(Serializable):
 
         Args:
             dataloader (Evaluator | DataSpec | DataLoader | Iterable, optional): The dataloader, wrapped dataloader, or
-                generic python iterable to the dataset of, if applicable.
+                generic python iterable to get the dataset of, if applicable.
 
         Returns:
             Dataset: Its dataset, if there is one.
