@@ -43,7 +43,8 @@ jobs:
 
 
           ls
-          ls ..
+          # ls ..
+          sleep(10)
           git diff
 
           make test PYTEST='${{ matrix.pytest_command }}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
