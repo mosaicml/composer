@@ -194,9 +194,7 @@ extra_deps['onnx'] = [
     'onnxruntime>=1.12.1,<2',
 ]
 
-extra_deps['mlflow'] = [
-    'mlflow>=2.0.1'
-]
+extra_deps['mlflow'] = ['mlflow>=2.0.1']
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
