@@ -156,7 +156,7 @@ class Evaluator:
         self.dataloader = ensure_data_spec(dataloader)
 
         self.metric_names = []
-        if (metric_names is not None) and (metrics is not None):
+        if metric_names is not None and metrics is not None:
             raise ValueError('only one of ``metrics`` or ``metric_names`` should be specified.')
         elif metric_names is not None:
             if not isinstance(metric_names, list):
