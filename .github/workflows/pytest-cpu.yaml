@@ -48,7 +48,7 @@ jobs:
           python -m coverage combine
       - uses: actions/upload-artifact@v3
         with:
-          name: coverage-${{ env.GITHUB_SHA }}
+          name: coverage-${{ github.sha }}
           path: .coverage
   coverage:
     needs: [ pytest ]
