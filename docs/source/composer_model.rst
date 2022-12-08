@@ -100,7 +100,7 @@ To compute metrics during training, implement the following methods:
 
 .. code:: python
 
-   def eval_forward (self, batch, outputs) -> outputs:
+   def eval_forward(self, batch, outputs) -> outputs:
        ...
 
    def get_metrics(self, is_train=False) -> Dict[str, Metric]:
