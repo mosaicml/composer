@@ -7,7 +7,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from composer.utils import OCIObjectStore
-from composer.loggers import RemoteUploaderDownloader
 
 
 @pytest.fixture
@@ -21,6 +20,8 @@ def setup_oci_mocks(monkeypatch):
     monkeypatch.setattr(oci.object_storage, 'UploadManager', mock_upload_manager)
 
 
+
+@pytest.importorskip('oci')
 class TestOCIObjectStore:
 
     @classmethod
@@ -31,6 +32,7 @@ class TestOCIObjectStore:
         cls.oci_os = OCIObjectStore(cls.mock_bucket_name)
         cls.oci_os.namespace = cls.mock_namespace
 
+    
     def test_upload_object(self, setup_oci_mocks, monkeypatch, tmp_path):
         mock_object_name = 'my_object'
 
@@ -67,6 +69,7 @@ class TestOCIObjectStore:
         assert actual_content == file_content
 
     def test_get_object_size(self, monkeypatch):
+        oci = pytest.importorskip('oci')
         mock_object_name = 'my_object'
         mock_object_size = 11
         mock_object_1, mock_object_2 = MagicMock(), MagicMock()
