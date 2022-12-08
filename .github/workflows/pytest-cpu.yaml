@@ -7,7 +7,6 @@ jobs:
     timeout-minutes: 30
     runs-on: ubuntu-20.04
     strategy:
-      fail-fast: false
       matrix:
         include:
           # - container: mosaicml/pytorch:1.11.0_cpu-python3.8-ubuntu20.04
@@ -60,3 +59,18 @@ jobs:
         with:
           name: coverage-${{ env.GITHUB_SHA }}
           path: .coverage
+  coverage2:
+    needs: [ pytest ]
+    timeout-minutes: 30
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      # - name: Download artifacts
+      #   uses: actions/download-artifact@v3
+      # - name: Generate coverage report
+      #   run: |
+      #     set -ex
+      #     ls
+      #     python -m coverage combine
+      #     python -m coverage report
