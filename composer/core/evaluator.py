@@ -163,7 +163,7 @@ class Evaluator:
                 raise ValueError(f'``metric_names`` should be a list of strings, not a {type(metric_names)}')
             self.metric_names = metric_names
         elif metrics is not None:
-            warnings.warn(DeprecationWarning('``metrics`` is deprecated and will be removed in a future release.'))
+            warnings.warn(DeprecationWarning('``metrics`` is deprecated and will be removed in 0.13.0.'))
             if isinstance(metrics, Metric):
                 self.metric_names = [metrics.__class__.__name__]
             else:
