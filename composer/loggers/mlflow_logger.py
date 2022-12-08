@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Log to `MLFlow <https://www.mlflow.org/docs/latest/index.html>"""
+"""Log to `MLFlow <https://www.mlflow.org/docs/latest/index.html>."""
 
 from __future__ import annotations
 
