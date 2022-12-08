@@ -33,14 +33,6 @@ def warn_yahp_deprecation() -> None:
         stacklevel=2)
 
 
-def warn_streaming_dataset_deprecation(old_version: int, new_version: int) -> None:
-    warnings.warn(
-        f'streaming dataset version {old_version} is deprecated and will be removed in the future. '
-        f'Please migrate to using streaming dataset version {new_version}',
-        DeprecationWarning,
-        stacklevel=2)
-
-
 __all__ = [
     'ensure_tuple',
     'get_free_tcp_port',

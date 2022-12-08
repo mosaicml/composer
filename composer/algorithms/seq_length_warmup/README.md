@@ -60,8 +60,8 @@ from composer.algorithms import SeqLengthWarmup
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   eval_dataloader=eval_dataloader,
-                  max_duration='250ep',
-                  algorithms=[SeqLengthWarmup()])
+                  max_duration='25ep',
+                  algorithms=[SeqLengthWarmup(max_seq_length=64)])
 
 trainer.fit()
 ```
