@@ -43,7 +43,8 @@ jobs:
 
 
           ls -la
-          # ls ..
+          sleep 5
+          ls -la .git
           sleep 5
           git diff
 
