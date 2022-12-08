@@ -13,6 +13,7 @@ from composer.algorithms.gradient_clipping import GradientClipping, apply_gradie
 from composer.algorithms.gradient_clipping.gradient_clipping import _apply_agc, _get_clipped_gradient_coeff
 from composer.core import Engine, State
 from composer.core.event import Event
+from tests.common import world_size
 
 
 @pytest.fixture
@@ -134,37 +135,33 @@ def test_gradient_clipping_algorithm_with_deepspeed_enabled(
     apply_gc_fn.assert_not_called()
 
 
+def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:
+    if recurse:
+        return True
+    if hasattr(module, '_fsdp_wrap'):
+        return bool(module._fsdp_wrap)
+    return False
+
+
 @pytest.mark.parametrize('clipping_type', ['norm', 'value'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 @pytest.mark.gpu
+@world_size(2)
 def test_gradient_clipping_algorithm_with_fsdp_enabled(
     monkeypatch,
     clipping_type,
     simple_model_with_grads,
     dummy_state: State,
+    world_size: int,
 ):
     from torch.distributed.fsdp import FullyShardedDataParallel
 
-    from composer.devices import DeviceGPU
-    from composer.utils import dist
-
-    def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:
-        if recurse:
-            return True
-        if hasattr(module, '_fsdp_wrap'):
-            return bool(module._fsdp_wrap)
-        return False
-
-    device = DeviceGPU()
-    if not dist.is_initialized():
-        dist.initialize_dist(device=device, timeout=300)
-
     clipping_threshold = 0.1191
     state = dummy_state
-    model = simple_model_with_grads
-    model = FullyShardedDataParallel(model, auto_wrap_policy=_auto_wrap_policy, device_id=torch.cuda.current_device())
-    state.model = model
+    state.model = FullyShardedDataParallel(simple_model_with_grads,
+                                           auto_wrap_policy=_auto_wrap_policy,
+                                           device_id=torch.cuda.current_device())
 
     state.algorithms = [GradientClipping(clipping_type=clipping_type, clipping_threshold=clipping_threshold)]
     logger = Mock()
