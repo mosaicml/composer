@@ -10,11 +10,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
-      - name: Generate coverage report
-        run: |
-          set -ex
-          ls
-          python -m coverage combine
-          python -m coverage report
+      # - name: Download artifacts
+      #   uses: actions/download-artifact@v3
+      # - name: Generate coverage report
+      #   run: |
+      #     set -ex
+      #     ls
+      #     python -m coverage combine
+      #     python -m coverage report
