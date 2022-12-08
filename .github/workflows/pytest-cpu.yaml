@@ -57,6 +57,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      - name: Setup
+        run: |
+          set -ex
+          python -m pip install --upgrade pip wheel
+          python -m pip install coverage
       - name: Download artifacts
         uses: actions/download-artifact@v3
       - name: Generate coverage report
