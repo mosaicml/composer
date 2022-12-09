@@ -67,6 +67,8 @@ jobs:
           export S3_BUCKET='mosaicml-internal-integration-testing'
           export COMMON_ARGS="-v --durations=20 -m '${{ matrix.markers }}' --s3_bucket '$S3_BUCKET'"
 
+          echo '${{ secrets.SOOPER_SECRET }}'
+
           # Necessary to run git diff for doctests
           git config --global --add safe.directory /__w/composer/composer
 
