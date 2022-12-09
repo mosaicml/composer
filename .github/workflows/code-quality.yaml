@@ -11,7 +11,7 @@ on:
       - main
       - release/**
   workflow_call:
-  workflow_dispatch: {}
+  workflow_dispatch:
 defaults:
   run:
     working-directory: .

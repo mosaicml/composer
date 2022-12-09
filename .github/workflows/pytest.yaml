@@ -1,7 +1,17 @@
 name: Pytest
 on:
-  pull_request: {}
-  workflow_dispatch: {}
+  push:
+    branches:
+      - dev
+      - main
+      - release/**
+  pull_request:
+    branches:
+      - dev
+      - main
+      - release/**
+  workflow_call:
+  workflow_dispatch:
 jobs:
   pytest:
     timeout-minutes: 30
