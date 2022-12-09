@@ -13,6 +13,7 @@ from composer.utils import OCIObjectStore
 def mock_bucket_name():
     return 'my_bucket'
 
+
 @pytest.fixture
 def test_oci_obj_store(mock_bucket_name, monkeypatch):
     oci = pytest.importorskip('oci')
@@ -46,9 +47,10 @@ def test_upload_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_na
 
     oci_os.upload_object(object_name=mock_object_name, filename=file_to_upload)
     mock_upload_file.assert_called_once_with(namespace_name=oci_os.namespace,
-                                                bucket_name=mock_bucket_name,
-                                                object_name=mock_object_name,
-                                                file_path=file_to_upload)
+                                             bucket_name=mock_bucket_name,
+                                             object_name=mock_object_name,
+                                             file_path=file_to_upload)
+
 
 def test_download_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_name):
     pytest.importorskip('oci')
@@ -70,6 +72,7 @@ def test_download_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_
         actual_content = f.readline()
     assert actual_content == file_content
 
+
 def test_get_object_size(test_oci_obj_store, monkeypatch):
     pytest.importorskip('oci')
     oci_os = test_oci_obj_store
@@ -87,4 +90,3 @@ def test_get_object_size(test_oci_obj_store, monkeypatch):
     monkeypatch.setattr(oci_os.client, 'list_objects', mock_list_objects_fn)
 
     assert oci_os.get_object_size(mock_object_name) == mock_object_size
-
