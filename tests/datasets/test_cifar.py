@@ -3,18 +3,13 @@
 
 import pytest
 
-from composer.datasets import build_cifar10_dataloader, build_synthetic_cifar10_dataloader
+from composer.datasets import build_synthetic_cifar10_dataloader
 
 
 @pytest.mark.parametrize('is_train', [False, True])
-@pytest.mark.parametrize('synthetic', [pytest.param(False, marks=pytest.mark.daily), True])
-def test_cifar10_shape_length(is_train, synthetic):
+def test_cifar10_shape_length(is_train):
     batch_size = 1
-
-    if synthetic:
-        dataspec = build_synthetic_cifar10_dataloader(global_batch_size=batch_size, is_train=is_train)
-    else:
-        dataspec = build_cifar10_dataloader(datadir='/tmp', global_batch_size=batch_size, is_train=is_train)
+    dataspec = build_synthetic_cifar10_dataloader(global_batch_size=batch_size, is_train=is_train)
 
     samples = [_ for _ in dataspec.dataloader]
     if is_train:
