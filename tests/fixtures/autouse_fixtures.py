@@ -7,11 +7,11 @@ import pathlib
 
 import pytest
 import tqdm.std
-from conftest import _get_option
 
 import composer
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.utils import dist, reproducibility
+from tests.conftest import _get_option
 
 
 @pytest.fixture(autouse=True)

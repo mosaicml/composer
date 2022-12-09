@@ -8,7 +8,6 @@ import time
 import coolname
 import pytest
 import torch
-from conftest import _get_option
 from torch.utils.data import DataLoader
 
 from composer.core import State
@@ -16,6 +15,7 @@ from composer.devices import DeviceCPU, DeviceGPU
 from composer.loggers import Logger
 from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
+from tests.conftest import _get_option
 
 
 @pytest.fixture
