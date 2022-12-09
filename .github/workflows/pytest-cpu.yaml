@@ -3,29 +3,26 @@ on:
   pull_request: {}
   workflow_dispatch: {}
 jobs:
-  test:
-    timeout-minutes: 15
+  pytest:
+    timeout-minutes: 30
     runs-on: ubuntu-20.04
     strategy:
       matrix:
         include:
-          - name: 'cpu-3.8-1.11'
-            container: mosaicml/pytorch:1.11.0_cpu-python3.8-ubuntu20.04
+          - container: mosaicml/pytorch:1.11.0_cpu-python3.8-ubuntu20.04
             markers: 'not daily and not gpu and not vision and not remote and not doctest'
             pytest_command: 'coverage run -m pytest'
-          - name: 'cpu-3.9-1.12'
-            container: mosaicml/pytorch:1.12.1_cpu-python3.9-ubuntu20.04
+          - container: mosaicml/pytorch:1.12.1_cpu-python3.9-ubuntu20.04
             markers: 'not daily and not gpu and not vision and not remote and not doctest'
             pytest_command: 'coverage run -m pytest'
-          - name: 'cpu-3.10-1.13'
-            container: mosaicml/pytorch:1.13.0_cpu-python3.10-ubuntu20.04
+          - container: mosaicml/pytorch:1.13.0_cpu-python3.10-ubuntu20.04
             markers: 'not daily and not gpu and not vision and not remote and not doctest'
             pytest_command: 'coverage run -m pytest'
-          - name: 'cpu-vision'
+          - name: vision
             container: mosaicml/pytorch_vision:latest
             markers: 'not daily and not gpu and vision and not remote and not doctest'
             pytest_command: 'coverage run -m pytest'
-          - name: 'cpu-doctest'
+          - name: doctest
             container: mosaicml/pytorch_vision:latest
             markers: 'not daily and not gpu and not vision and not remote and doctest'
             pytest_command: 'coverage run -m pytest tests/test_docs.py'
@@ -58,7 +55,7 @@ jobs:
           path: .coverage
   coverage:
     needs: [ pytest ]
-    timeout-minutes: 15
+    timeout-minutes: 30
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout
