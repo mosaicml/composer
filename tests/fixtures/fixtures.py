@@ -96,11 +96,8 @@ def test_session_name(configure_dist: None) -> str:
 
 
 @pytest.fixture
-def sftp_uri(request: pytest.FixtureRequest):
-    if request.node.get_closest_marker('remote') is None:
-        return 'sftp://localhost'
-    else:
-        return _get_option(request.config, 'sftp_uri')
+def sftp_uri():
+    return 'sftp://localhost'
 
 
 @pytest.fixture
