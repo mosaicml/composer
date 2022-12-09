@@ -57,8 +57,11 @@ jobs:
         run: |
           set -ex
           export PATH=/composer-python:$PATH
+          export WANDB_API_KEY='${{ secrets.WANDB_API_KEY }}'
           export WANDB_ENTITY='mosaicml-public-integration-tests'
           export WANDB_PROJECT="integration-tests-${{ github.sha }}"
+          export AWS_ACCESS_KEY_ID='${{ secrets.AWS_ACCESS_KEY_ID }}'
+          export AWS_SECRET_ACCESS_KEY='${{ secrets.AWS_SECRET_ACCESS_KEY }}'
           export S3_BUCKET='mosaicml-internal-integration-testing'
           export COMMON_ARGS="-v --durations=20 -m '${{ matrix.markers }}' --s3_bucket '$S3_BUCKET'"
 
