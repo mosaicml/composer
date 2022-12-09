@@ -18,4 +18,4 @@ import composer
 ])
 def test_cli_version(args: List[str]):
     version_str = subprocess.check_output(args, text=True)
-    assert version_str == f'composer {composer.__version__}\n'
+    assert version_str == f'MosaicML Composer {composer.__version__}\n'
