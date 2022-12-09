@@ -1913,8 +1913,8 @@ class Trainer:
                     dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
 
                 for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
-                    # if resuming, skip dataloader forward to the minibatch index
-                    if batch_idx < int(self.state.timestamp.batch_in_epoch):
+                    # Don't spin if dataloader handles it internally. Otherwise, if resuming, skip dataloader forward
+                    if 'train' not in self.state.dataloader_resumption and batch_idx < int(self.state.timestamp.batch_in_epoch):
                         # Restore the RNG state immediately before the next batch is yielded from the dataloader
                         if batch_idx + 1 == int(self.state.timestamp.batch_in_epoch) and self._rng_state is not None:
                             reproducibility.load_rng_state(self._rng_state)
