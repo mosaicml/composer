@@ -2,12 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """These fixtures are shared globally across the test suite."""
-import os
+import copy
 import time
 
 import coolname
 import pytest
 import torch
+from conftest import _get_option
 from torch.utils.data import DataLoader
 
 from composer.core import State
@@ -45,41 +46,6 @@ def minimal_state(rank_zero_seed: int, request: pytest.FixtureRequest):
 def empty_logger(minimal_state: State) -> Logger:
     """Logger without any output configured."""
     return Logger(state=minimal_state, destinations=[])
-
-
-@pytest.fixture(autouse=True)
-def disable_wandb(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest):
-    monkeypatch.setenv('WANDB_START_METHOD', 'thread')
-    if request.node.get_closest_marker('remote') is None:
-        monkeypatch.setenv('WANDB_MODE', 'offline')
-    else:
-        if not os.environ.get('WANDB_PROJECT'):
-            monkeypatch.setenv('WANDB_PROJECT', 'pytest')
-
-
-@pytest.fixture(autouse=True, scope='session')
-def configure_dist(request: pytest.FixtureRequest):
-    # Configure dist globally when the world size is greater than 1,
-    # so individual tests that do not use the trainer
-    # do not need to worry about manually configuring dist.
-
-    if dist.get_world_size() == 1:
-        return
-
-    device = None
-
-    for item in request.session.items:
-        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
-        break
-
-    assert device is not None
-
-    if not dist.is_initialized():
-        dist.initialize_dist(device, timeout=300.0)
-    # Hold PyTest until all ranks have reached this barrier. Ensure that no rank starts
-    # any test before other ranks are ready to start it, which could be a cause of random timeouts
-    # (e.g. rank 1 starts the next test while rank 0 is finishing up the previous test).
-    dist.barrier()
 
 
 @pytest.fixture(scope='session')
@@ -127,3 +93,63 @@ def dummy_state(
     state.set_dataloader(DataLoader(RandomClassificationDataset()), 'train')
 
     return state
+
+
+@pytest.fixture
+def sftp_uri(request: pytest.FixtureRequest):
+    if request.node.get_closest_marker('remote') is None:
+        return 'sftp://localhost'
+    else:
+        return _get_option(request.config, 'sftp_uri')
+
+
+@pytest.fixture
+def s3_bucket(request: pytest.FixtureRequest):
+    if request.node.get_closest_marker('remote') is None:
+        return 'my-bucket'
+    else:
+        return _get_option(request.config, 's3_bucket')
+
+
+# Note: These session scoped fixtures should not be used directly in tests, but the non session scoped fixtures
+# below should be used instead. This is because the session scoped fixtures return the same object to every
+# test that requests it, so tests would have side effects on each other. Instead, the non session
+# scoped fixtures below perform a deepcopy before returning the fixture.
+@pytest.fixture(scope='session')
+def _session_tiny_bert_model():  # type: ignore
+    transformers = pytest.importorskip('transformers')
+
+    config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny')
+    hf_model = transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
+    return hf_model
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_bert_tokenizer():  # type: ignore
+    transformers = pytest.importorskip('transformers')
+
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('prajjwal1/bert-tiny')
+    return hf_tokenizer
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_bert_config():  # type: ignore
+    transformers = pytest.importorskip('transformers')
+
+    hf_config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny')
+    return hf_config
+
+
+@pytest.fixture
+def tiny_bert_model(_session_tiny_bert_model):
+    return copy.deepcopy(_session_tiny_bert_model)
+
+
+@pytest.fixture
+def tiny_bert_tokenizer(_session_tiny_bert_tokenizer):
+    return copy.deepcopy(_session_tiny_bert_tokenizer)
+
+
+@pytest.fixture
+def tiny_bert_config(_session_tiny_bert_config):
+    return copy.deepcopy(_session_tiny_bert_config)
