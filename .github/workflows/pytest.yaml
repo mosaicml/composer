@@ -57,7 +57,7 @@ jobs:
         run: |
           set -ex
           export PATH=/composer-python:$PATH
-          export COMMON_ARGS="-v -n auto --durations=20 -m '${{ matrix.markers }}'"
+          export COMMON_ARGS="-v --durations=20 -m '${{ matrix.markers }}'"
 
           # Necessary to run git diff for doctests
           git config --global --add safe.directory /__w/composer/composer
