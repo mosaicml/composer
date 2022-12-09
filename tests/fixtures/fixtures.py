@@ -42,23 +42,6 @@ def minimal_state(rank_zero_seed: int, request: pytest.FixtureRequest):
     )
 
 
-@pytest.fixture
-def empty_logger(minimal_state: State) -> Logger:
-    """Logger without any output configured."""
-    return Logger(state=minimal_state, destinations=[])
-
-
-@pytest.fixture(scope='session')
-def test_session_name(configure_dist: None) -> str:
-    """Generate a random name for the test session that is the same on all ranks."""
-    del configure_dist  # unused
-    generated_session_name = str(int(time.time())) + '-' + coolname.generate_slug(2)
-    name_list = [generated_session_name]
-    # ensure all ranks have the same name
-    dist.broadcast_object_list(name_list)
-    return name_list[0]
-
-
 @pytest.fixture()
 def dummy_state(
     rank_zero_seed: int,
@@ -93,6 +76,23 @@ def dummy_state(
     state.set_dataloader(DataLoader(RandomClassificationDataset()), 'train')
 
     return state
+
+
+@pytest.fixture
+def empty_logger(minimal_state: State) -> Logger:
+    """Logger without any output configured."""
+    return Logger(state=minimal_state, destinations=[])
+
+
+@pytest.fixture(scope='session')
+def test_session_name(configure_dist: None) -> str:
+    """Generate a random name for the test session that is the same on all ranks."""
+    del configure_dist  # unused
+    generated_session_name = str(int(time.time())) + '-' + coolname.generate_slug(2)
+    name_list = [generated_session_name]
+    # ensure all ranks have the same name
+    dist.broadcast_object_list(name_list)
+    return name_list[0]
 
 
 @pytest.fixture
