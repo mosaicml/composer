@@ -1,6 +1,6 @@
 name: Pytest-Nightly
 on:
-  pull_request
+  pull_request_target
 # Cancel old runs when a new commit is pushed to the same branch if not on main or dev
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
