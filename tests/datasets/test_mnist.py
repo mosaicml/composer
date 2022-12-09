@@ -3,13 +3,18 @@
 
 import pytest
 
-from composer.datasets import build_synthetic_mnist_dataloader
+from composer.datasets import build_mnist_dataloader, build_synthetic_mnist_dataloader
 
 
 @pytest.mark.parametrize('is_train', [False, True])
-def test_mnist_shape_length(is_train):
+@pytest.mark.parametrize('synthetic', [pytest.param(False, marks=pytest.mark.daily), True])
+def test_mnist_shape_length(is_train, synthetic):
     batch_size = 1
-    loader = build_synthetic_mnist_dataloader(global_batch_size=batch_size, is_train=is_train)
+
+    if synthetic:
+        loader = build_synthetic_mnist_dataloader(global_batch_size=batch_size, is_train=is_train)
+    else:
+        loader = build_mnist_dataloader(datadir='/tmp', global_batch_size=batch_size, is_train=is_train)
 
     samples = [_ for _ in loader]
     if is_train:
