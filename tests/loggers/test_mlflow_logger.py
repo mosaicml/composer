@@ -55,7 +55,7 @@ def test_mlflow_experiment_set_up_correctly(tmp_path):
     actual_run_name = run_cfg['run_name']
     assert actual_run_name == expected_run_name
 
-    test_mlflow_logger.close()
+    test_mlflow_logger.post_close()
 
     # check run ended
     assert mlflow.active_run() is None

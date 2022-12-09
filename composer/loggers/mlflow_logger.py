@@ -83,7 +83,7 @@ class MLFlowLogger(LoggerDestination):
         if self._enabled:
             mlflow.log_params(params=hyperparameters)
 
-    def close(self):
+    def post_close(self):
         import mlflow
         if self._enabled:
             mlflow.end_run()
