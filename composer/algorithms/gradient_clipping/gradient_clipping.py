@@ -56,7 +56,7 @@ def apply_gradient_clipping(model: Union[ComposerModel, torch.nn.Module], clippi
                         raise ValueError(f"clipping type must be 'norm' or 'value' with FSDP not {clipping_type}")
                 except AssertionError as e:
                     # Catches the error message from PyTorch
-                    if 'AssertionError: clip_grad_norm should only be called on the root (parent) instance' == str(e):
+                    if 'clip_grad_norm should only be called on the root (parent) instance' == str(e):
                         continue
                     else:
                         raise

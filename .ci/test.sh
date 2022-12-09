@@ -41,7 +41,7 @@ trap cleanup EXIT
 
 COMMON_ARGS="-v --durations=20 -m '$MARKERS' --s3_bucket '$S3_BUCKET' --sftp_uri '$SFTP_URI'"
 
-# Set the run directory to build/output, which will be caputred by Jenkins
+# Set the run directory to build/output, which will be captured by Jenkins
 # Run pytest with coverage, and store the junit output
 make test \
     PYTEST="coverage run -m pytest" \
