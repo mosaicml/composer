@@ -1,10 +1,21 @@
 name: Pytest-Nightly
 on:
+  push:
+    branches:
+      - dev
+      - main
+      - release/**
   pull_request_target:
+    branches:
+      - dev
+      - main
+      - release/**
+  workflow_call:
+  workflow_dispatch:
 # Cancel old runs when a new commit is pushed to the same branch if not on main or dev
-# concurrency:
-#   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-#   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
   pytest:
     timeout-minutes: 30
@@ -55,9 +66,6 @@ jobs:
           export AWS_SECRET_ACCESS_KEY='${{ secrets.AWS_SECRET_ACCESS_KEY }}'
           export S3_BUCKET='mosaicml-internal-integration-testing'
           export COMMON_ARGS="-v --durations=20 -m '${{ matrix.markers }}' --s3_bucket '$S3_BUCKET'"
-
-          echo $WANDB_API_KEY
-          echo '${{ secrets.WANDB_API_KEY }}'
 
           # Necessary to run git diff for doctests
           git config --global --add safe.directory /__w/composer/composer
