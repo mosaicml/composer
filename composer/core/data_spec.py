@@ -31,10 +31,7 @@ def _num_microbatches_split_list(l, num_microbatches: int):
 
     # Note: this is to match the behavior of tensor.chunk, which is used in _split_tensor
     chunked_microbatch_size = math.ceil(len(l) / num_microbatches)
-    return [
-        l[(i * chunked_microbatch_size):(i * chunked_microbatch_size) + chunked_microbatch_size]
-        for i in range(num_microbatches)
-    ]
+    return [l[start:start + chunked_microbatch_size] for start in range(0, len(l), chunked_microbatch_size)]
 
 
 def _num_microbatches_split_tensor(t, num_microbatches: int):
@@ -103,10 +100,7 @@ def _split_list(l, microbatch_size: int):
     num_microbatches = math.ceil(len(l) / microbatch_size)
     # Note: this is to match the behavior of tensor.chunk, which is used in _split_tensor
     chunked_microbatch_size = math.ceil(len(l) / num_microbatches)
-    return [
-        l[(i * chunked_microbatch_size):(i * chunked_microbatch_size) + chunked_microbatch_size]
-        for i in range(num_microbatches)
-    ]
+    return [l[start:start + chunked_microbatch_size] for start in range(0, len(l), chunked_microbatch_size)]
 
 
 def _split_tensor(t, microbatch_size: int):
