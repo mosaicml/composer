@@ -305,9 +305,10 @@ that gets uploaded to the S3 or OCI URI that you specified.
 
 For example, for S3:
 .. testcode::
-    # Save checkpoints every epoch to s3://my_bucket/checkpoints
+
     from composer.trainer import Trainer
 
+    # Save checkpoints every epoch to s3://my_bucket/checkpoints
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
@@ -328,9 +329,10 @@ and delete the checkpoints from the local disk. The checkpoints will be located 
 
 Similarly for OCI:
 .. testcode::
-    # Save checkpoints every epoch to oci://my_bucket/checkpoints
+
     from composer.trainer import Trainer
 
+    # Save checkpoints every epoch to oci://my_bucket/checkpoints
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
