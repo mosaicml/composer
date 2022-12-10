@@ -17,8 +17,10 @@ import torch.nn.modules.utils
 from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
+from torch.utils.data import DataLoader, Dataset
 from torchmetrics import Metric
 
+from composer.core.data_spec import DataSpec
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
@@ -122,7 +124,7 @@ class State(Serializable):
         auto_microbatching (bool, optional): Whether automatic microbatching is enabled.
         using_device_microbatch_size (bool, optional): Whether device_train_microbatch_size is set by the user.
         train_dataloader (Iterable, optional): Dataloader used for training
-        evaluators (Evalutor | Evaluators, optional): :class:`.Evaluator` used for evaluation.
+        evaluators (Evaluator | Evaluators, optional): :class:`.Evaluator` used for evaluation.
         dataloader (Iterable, optional): The active DataLoader.
         dataloader_len (int | Time[int], optional): The number of batches per dataloader iteration (e.g. epoch).
             The trainer will yield the first ``dataloader_len`` batches per iteration. If ``-1`` (the default),
@@ -132,6 +134,8 @@ class State(Serializable):
 
             By convention, the training dataloader is called ``'train'``. The evaluator dataloader is called
             ``'eval'``, or when multiple evaluators are used, the name of the evaluator.
+        dataset_state (Dict[str, Any], optional): Mapping of dataset split to its iteration state for resumption.
+        dataset_resumption (Dict[str, Any], optional): Mapping of dataset split to whether resumption is used.
         max_duration (str | Time, optional): The maximum duration to train for. (default: ``None``)
         precision (str | Precision): The numerical precision to use for training. See :class:`~.Precision` for
             the supported precisions.
@@ -254,9 +258,10 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
             | run_name              | The run name for training.                                  |
             +-----------------------+-------------------------------------------------------------+
+            | dataset_state         | The dataset iteration state.                                |
+            +-----------------------+-------------------------------------------------------------+
 
         timestamp (Timestamp): The current training timestamp.
-        train_dataloader (Iterable): The training dataloader. (May be ``None`` if not training.)
     """
 
     def __init__(
@@ -292,6 +297,8 @@ class State(Serializable):
         dataloader: Optional[Iterable] = None,
         dataloader_label: Optional[str] = None,
         dataloader_len: Union[int, Time[int]] = -1,
+        dataset_state: Optional[Dict[str, Any]] = None,
+        dataset_resumption: Optional[Dict[str, Any]] = None,
 
         # precision
         precision: Union[str, Precision] = Precision.FP32,
@@ -322,10 +329,12 @@ class State(Serializable):
         self._dataloader = None
         self._dataloader_label = None
         self.set_dataloader(dataloader, dataloader_label, dataloader_len)
+        self.dataset_state = dataset_state
+        self.dataset_resumption = dataset_resumption or {}
         self._max_duration = None
         self.max_duration = max_duration
 
-        self.train_dataloader = train_dataloader
+        self._train_dataloader = train_dataloader
         self._evaluators = list(ensure_tuple(evaluators))
 
         self.timestamp = Timestamp()
@@ -370,6 +379,7 @@ class State(Serializable):
             'train_metrics',
             'eval_metrics',
             'run_name',
+            'dataset_state',
         ]
 
         self.train_metrics: Dict[str, Metric] = {}
@@ -377,6 +387,61 @@ class State(Serializable):
         self.train_metric_values: Dict[str, float] = {}
         self.eval_metric_values: Dict[str, float] = {}
         self.total_loss_dict: Dict[str, float] = {}
+
+    def _dataset_of(self, dataloader: Optional[Union[Evaluator, DataSpec, DataLoader, Iterable]]) -> Optional[Dataset]:
+        """Get the dataset contained by the given dataloader-like object.
+
+        Args:
+            dataloader (Evaluator | DataSpec | DataLoader | Iterable, optional): The dataloader, wrapped dataloader, or
+                generic python iterable to get the dataset of, if applicable.
+
+        Returns:
+            Dataset: Its dataset, if there is one.
+        """
+        from composer.core.evaluator import Evaluator
+
+        # If it's None, no dataset for you.
+        if dataloader is None:
+            return None
+
+        # An Evaluator is a dataloader wrapped with metrics. Unwrap its dataloader.
+        if isinstance(dataloader, Evaluator):
+            dataloader = dataloader.dataloader
+
+        # A DataSpec is a dataloader wrapped with an on-device transform. Unwrap its dataloader.
+        if isinstance(dataloader, DataSpec):
+            dataloader = dataloader.dataloader
+
+        # If what we now have is an actual DataLoader, return its dataset. If not, return None.
+        if isinstance(dataloader, DataLoader):
+            return dataloader.dataset
+        else:
+            return None
+
+    @property
+    def train_dataloader(self) -> Optional[Union[Iterable, DataLoader]]:
+        """Get the train dataloader.
+
+        Returns:
+            Iterable | DataLoader, optional: The dataloader.
+        """
+        return self._train_dataloader
+
+    @train_dataloader.setter
+    def train_dataloader(self, train_dataloader: Optional[Union[Iterable, DataLoader]]):
+        """Set the train dataloader.
+
+        Args:
+            train_dataloader (Iterable | DataLoader, optional): The dataloader.
+        """
+        self._train_dataloader = train_dataloader
+        # Load dataset state from checkpoint when train_dataloader is set
+        if self.dataset_state:
+            dataset = self._dataset_of(self._train_dataloader)
+            if hasattr(dataset, 'load_state_dict'):
+                dataset.load_state_dict(self.dataset_state['train'])  # pyright: ignore
+                self.dataset_resumption['train'] = True
+            self.dataset_state['train'] = None
 
     @property
     def current_metrics(self):
@@ -509,6 +574,14 @@ class State(Serializable):
     @evaluators.setter
     def evaluators(self, evaluators: Union[Evaluator, Sequence[Evaluator]]):
         self._evaluators[:] = list(ensure_tuple(evaluators))
+        # Load dataset state from checkpoint when evaluators are set
+        if self.dataset_state:
+            state = self.dataset_state['eval']
+            for evaluator in self._evaluators:
+                dataset = self._dataset_of(evaluator)
+                if hasattr(dataset, 'load_state_dict') and evaluator.label in state:
+                    dataset.load_state_dict(state[evaluator.label])  # pyright: ignore
+            del self.dataset_state['eval']
 
     @property
     def deepspeed_enabled(self):
@@ -549,12 +622,43 @@ class State(Serializable):
 
         return metadata_dict
 
+    def _dataset_state_dict(self) -> Dict[str, Any]:
+        """Collect the state dict(s) of our train and eval dataset(s).
+
+        Returns:
+            Dict[str, Any]: The state dict(s).
+        """
+        obj = {
+            'train': None,
+            'eval': {},
+        }
+
+        dataset = self._dataset_of(self.train_dataloader)
+        if hasattr(dataset, 'state_dict'):
+            num_samples = int(self.timestamp.sample_in_epoch.value)
+            obj['train'] = dataset.state_dict(num_samples, True)  # pyright: ignore
+
+        for evaluator in self.evaluators:
+            dataset = self._dataset_of(evaluator)
+            if hasattr(dataset, 'state_dict'):
+                # Don't save eval sample because we do not checkpoint during eval.
+                obj['eval'][evaluator.label] = dataset.state_dict(0, True)  # pyright: ignore
+
+        return obj
+
     def state_dict(self) -> Dict[str, Any]:
+        """Collect the state dicts of our serializable attributes.
+
+        Returns:
+            Dict[str, Any]: The state dict.
+        """
         state_dict = {}
 
         for attribute_name in self.serialized_attributes:
             attribute_value = getattr(self, attribute_name)
-            if attribute_name == 'model':
+            if attribute_name == 'dataset_state':
+                serialized_value = self._dataset_state_dict()
+            elif attribute_name == 'model':
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                 # If it is DDP wrapped, do not save the `module.` prefix, as that is an implmentation detail
                 with get_fsdp_rank0_cpu_save_context(
@@ -734,6 +838,11 @@ class State(Serializable):
             log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
     def load_optim_state(self, state_dict: Dict[str, Any]):
+        """Load the optimizer state.
+
+        Args:
+            state_dict (Dict[str, Any]): The state to load.
+        """
         serialized_value = state_dict['optimizers']
         for target in ensure_tuple(self.optimizers):
             if type(target).__qualname__ not in serialized_value:
@@ -746,6 +855,32 @@ class State(Serializable):
                 target.load_state_dict(sharded_osd)
             else:
                 target.load_state_dict(source)
+
+    def _load_dataset_state(self, obj: Dict[str, Any]) -> None:
+        """Load the dataset state.
+
+        Args:
+            obj (Dict[str, Any]): The state to load.
+        """
+        self.dataset_state = obj
+
+        dataset = self._dataset_of(self.train_dataloader)
+        if hasattr(dataset, 'load_state_dict'):
+            dataset.load_state_dict(obj['train'])  # pyright: ignore
+            obj['train'] = None
+            self.dataset_resumption['train'] = True
+
+        for evaluator in self.evaluators:
+            dataset = self._dataset_of(evaluator)
+            if hasattr(dataset, 'load_state_dict') and evaluator.label in obj['eval']:
+                dataset.load_state_dict(obj['eval'][evaluator.label])  # pyright: ignore
+                del obj['eval'][evaluator.label]
+                if 'eval' not in self.dataset_resumption:
+                    self.dataset_resumption['eval'] = {}
+                # Note: We currently disable setting dataset_resumption for eval datasets,
+                # which means they have one sample fetched in _spin_dataloaders before training
+                # starts. This avoids "CUDA error: initialization error" -- its not clear why.
+                # self.dataset_resumption['eval'][evaluator.label] = True
 
     def load_state_dict(
         self,
@@ -795,7 +930,9 @@ class State(Serializable):
             if attribute_name == 'algorithms' and isinstance(serialized_value, list):
                 serialized_value = {algo_name: algo_serialized for algo_name, algo_serialized in serialized_value}
 
-            if attribute_name == 'optimizers':
+            if attribute_name == 'dataset_state':
+                self._load_dataset_state(serialized_value)
+            elif attribute_name == 'optimizers':
                 self.load_optim_state(state)
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 state_field_value = getattr(self, attribute_name)
