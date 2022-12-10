@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""S3-Compatible object store."""
+"""OCI-Compatible object store."""
 
 from __future__ import annotations
 
