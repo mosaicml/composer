@@ -196,6 +196,13 @@ def build_streaming_coco_dataloader(
     drop_last: bool = True,
     shuffle: bool = True,
     input_size: int = 300,
+    predownload: Optional[int] = 100_000,
+    keep_zip: Optional[bool] = None,
+    download_retry: int = 2,
+    download_timeout: float = 60,
+    validate_hash: Optional[str] = None,
+    shuffle_seed: Optional[int] = None,
+    num_canonical_nodes: Optional[int] = None,
     **dataloader_kwargs: Dict[str, Any],
 ) -> DataSpec:
     """Builds a COCO streaming dataset
@@ -210,6 +217,20 @@ def build_streaming_coco_dataloader(
         drop_last (bool, optional): whether to drop last samples. Default: ``True``.
         shuffle (bool, optional): whether to shuffle dataset. Defaults to ``True``.
         input_size (int): the size of the input image, keep this at `300` for SSD300. Default: ``300``.
+        predownload (int, optional): Target number of samples ahead to download the shards of while
+            iterating. Defaults to ``100_000``.
+        keep_zip (bool, optional): Whether to keep or delete the compressed file when
+            decompressing downloaded shards. If set to None, keep iff remote is local. Defaults to
+            ``None``.
+        download_retry (int): Number of download re-attempts before giving up. Defaults to ``2``.
+        download_timeout (float): Number of seconds to wait for a shard to download before raising
+            an exception. Defaults to ``60``.
+        validate_hash (str, optional): Optional hash or checksum algorithm to use to validate
+            shards. Defaults to ``None``.
+        shuffle_seed (int, optional): Seed for shuffling, or ``None`` for random seed. Defaults to
+            ``None``.
+        num_canonical_nodes (int, optional): Canonical number of nodes for shuffling with resumption.
+            Defaults to ``None``, which is interpreted as the number of nodes of the initial run.
         **dataloader_kwargs (Any): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
     if global_batch_size % dist.get_world_size() != 0:
@@ -232,14 +253,31 @@ def build_streaming_coco_dataloader(
         transform = SSDTransformer(default_boxes, (input_size, input_size), val=True)
 
     try:
-        from streaming.vision import COCO
+        from streaming.vision import StreamingCOCO
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
 
-    dataset = COCO(local=local, remote=remote, split=split, shuffle=shuffle, transform=transform, batch_size=batch_size)
+    dataset = StreamingCOCO(
+        local=local,
+        remote=remote,
+        split=split,
+        shuffle=shuffle,
+        transform=transform,
+        predownload=predownload,
+        keep_zip=keep_zip,
+        download_retry=download_retry,
+        download_timeout=download_timeout,
+        validate_hash=validate_hash,
+        shuffle_seed=shuffle_seed,
+        num_canonical_nodes=num_canonical_nodes,
+        batch_size=batch_size,
+    )
 
-    return DataSpec(dataloader=DataLoader(dataset=dataset,
-                                          batch_size=batch_size,
-                                          drop_last=drop_last,
-                                          **dataloader_kwargs),
-                    split_batch=split_coco_batch)
+    dataloader = DataLoader(
+        dataset=dataset,
+        batch_size=batch_size,
+        drop_last=drop_last,
+        **dataloader_kwargs,
+    )
+
+    return DataSpec(dataloader=dataloader, split_batch=split_coco_batch)
