@@ -55,8 +55,7 @@ _object_store_marks = {
 object_stores = [
     pytest.param(x, marks=_object_store_marks[x], id=x.__name__)
     for x in get_module_subclasses(composer.utils.object_store, ObjectStore)
-    # Decided to make a separate test suite for OCI instead of use this existing one
-    # because it is kinda complex to work with.
+    # Note: OCI has its own test suite, so it is exempted from being included in this one.
     if not issubclass(x, OCIObjectStore)
 ]
 
