@@ -115,7 +115,7 @@ extra_deps['dev'] = [
     'sphinx_markdown_tables==0.0.17',
     'sphinx-argparse==0.4.0',
     'sphinxcontrib.katex==0.9.3',
-    'sphinxext.opengraph==0.6.3',
+    'sphinxext.opengraph==0.7.3',
     'sphinxemoji==0.2.0',
     'furo==2022.9.29',
     'sphinx-copybutton==0.5.0',
@@ -180,7 +180,7 @@ extra_deps['mlperf'] = [
 ]
 
 extra_deps['streaming'] = [
-    'mosaicml-streaming<0.2.*',
+    'mosaicml-streaming<0.3.*',
     'boto3>=1.21.45,<2',
     'paramiko>=2.11.0,<3',
 ]
