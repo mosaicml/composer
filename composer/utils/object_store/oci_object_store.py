@@ -58,7 +58,7 @@ class OCIObjectStore(ObjectStore):
     def get_object_size(self, object_name: str) -> int:
         objects = self.client.list_objects(self.namespace, self.bucket, prefix=object_name, fields='size').data.objects
         relevant_objects = [obj for obj in objects if obj.name == object_name]
-        if relevant_objects:
+        if len(relevant_objects) > 0:
             obj = relevant_objects.pop()
             return obj.size
         else:
