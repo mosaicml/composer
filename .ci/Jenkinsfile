@@ -186,7 +186,7 @@ void scheduleJob(jobs, String image, buildArgs, originalTags) {
     // buildArgs: The build args matrix
     // originalTags: The original tags
 
-    String markers = 'not daily'
+    String markers = 'not daily and not doctest'
     Boolean isDocTestImage = false
     Boolean isVisionImage = false
     Boolean isDevTestInstallImage = false
@@ -391,8 +391,7 @@ stage('Build') {
             }]
         }
         else if (!isComposerImage) {
-            // If not rebuilding the docker image, and it's not a composer image, then run CPU tests acorss all images,
-            // and run GPU tests only on the "latest" image
+            // If not rebuilding the docker image, and it's not a composer image, run GPU tests only on the "latest" image
             // Only run tests on the 'mosaicml/pytorch' or 'mosaicml/pytorch_vision' images -- not 'mosaicml/composer'
             Boolean isCpuImage = buildArgs['CUDA_VERSION'] == ''
             Boolean shouldRunGpuTests = false
@@ -403,7 +402,7 @@ stage('Build') {
                 }
             }
 
-            if (isCpuImage || shouldRunGpuTests) {
+            if (shouldRunGpuTests) {
                 String existingImageTag = originalTags[0]
                 scheduleJob(jobs, existingImageTag, buildArgs, originalTags)
             }

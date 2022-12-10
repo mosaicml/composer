@@ -156,6 +156,13 @@ def build_streaming_ade20k_dataloader(
     max_resize_scale: float = 2.0,
     final_size: int = 512,
     ignore_background: bool = True,
+    predownload: Optional[int] = 100_000,
+    keep_zip: Optional[bool] = None,
+    download_retry: int = 2,
+    download_timeout: float = 60,
+    validate_hash: Optional[str] = None,
+    shuffle_seed: Optional[int] = None,
+    num_canonical_nodes: Optional[int] = None,
     **dataloader_kwargs: Dict[str, Any],
 ):
     """Build an ADE20k streaming dataset.
@@ -172,6 +179,20 @@ def build_streaming_ade20k_dataloader(
         final_size (int): The final size of the image and target. Default: ``512``.
         ignore_background (bool): If true, ignore the background class when calculating the training loss.
             Default: ``true``.
+        predownload (int, optional): Target number of samples ahead to download the shards of while
+            iterating. Defaults to ``100_000``.
+        keep_zip (bool, optional): Whether to keep or delete the compressed file when
+            decompressing downloaded shards. If set to None, keep iff remote is local. Defaults to
+            ``None``.
+        download_retry (int): Number of download re-attempts before giving up. Defaults to ``2``.
+        download_timeout (float): Number of seconds to wait for a shard to download before raising
+            an exception. Defaults to ``60``.
+        validate_hash (str, optional): Optional hash or checksum algorithm to use to validate
+            shards. Defaults to ``None``.
+        shuffle_seed (int, optional): Seed for shuffling, or ``None`` for random seed. Defaults to
+            ``None``.
+        num_canonical_nodes (int, optional): Canonical number of nodes for shuffling with resumption.
+            Defaults to ``None``, which is interpreted as the number of nodes of the initial run.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
     if global_batch_size % dist.get_world_size() != 0:
@@ -180,35 +201,50 @@ def build_streaming_ade20k_dataloader(
     batch_size = global_batch_size // dist.get_world_size()
 
     try:
-        from streaming.vision import ADE20K
+        from streaming.vision import StreamingADE20K
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
 
     # Build the sets of transformations for ADE20k
-    both_transforms, image_transforms, target_transforms = build_ade20k_transformations(
+    joint_transform, image_transform, target_transform = build_ade20k_transformations(
         split=split,
         base_size=base_size,
         min_resize_scale=min_resize_scale,
         max_resize_scale=max_resize_scale,
-        final_size=final_size)
+        final_size=final_size,
+    )
 
-    dataset = ADE20K(remote=remote,
-                     local=local,
-                     split=split,
-                     shuffle=shuffle,
-                     both_transforms=both_transforms,
-                     transform=image_transforms,
-                     target_transform=target_transforms,
-                     batch_size=batch_size)
+    dataset = StreamingADE20K(
+        local=local,
+        remote=remote,
+        split=split,
+        shuffle=shuffle,
+        joint_transform=joint_transform,
+        transform=image_transform,
+        target_transform=target_transform,
+        predownload=predownload,
+        keep_zip=keep_zip,
+        download_retry=download_retry,
+        download_timeout=download_timeout,
+        validate_hash=validate_hash,
+        shuffle_seed=shuffle_seed,
+        num_canonical_nodes=num_canonical_nodes,
+        batch_size=batch_size,
+    )
 
-    dataloader = DataLoader(dataset=dataset,
-                            batch_size=batch_size,
-                            collate_fn=pil_image_collate,
-                            drop_last=drop_last,
-                            **dataloader_kwargs)
-    device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
-                                          std=IMAGENET_CHANNEL_STD,
-                                          ignore_background=ignore_background)
+    dataloader = DataLoader(
+        dataset=dataset,
+        batch_size=batch_size,
+        collate_fn=pil_image_collate,
+        drop_last=drop_last,
+        **dataloader_kwargs,
+    )
+
+    device_transform_fn = NormalizationFn(
+        mean=IMAGENET_CHANNEL_MEAN,
+        std=IMAGENET_CHANNEL_STD,
+        ignore_background=ignore_background,
+    )
 
     return DataSpec(dataloader=dataloader, device_transforms=device_transform_fn)
 
