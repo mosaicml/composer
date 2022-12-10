@@ -39,7 +39,7 @@ class OCIObjectStore(ObjectStore):
         # Format paths
         self.bucket = bucket.strip('/')
         self.prefix = prefix.strip('/')
-        if self.prefix:
+        if self.prefix != '':
             self.prefix += '/'
 
         if 'OCI_CONFIG_FILE' in os.environ:
