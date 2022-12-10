@@ -78,15 +78,15 @@ def test_get_object_size(test_oci_obj_store, monkeypatch):
     oci_os = test_oci_obj_store
     mock_object_name = 'my_object'
     mock_object_size = 11
-    mock_object_1, mock_object_2 = MagicMock(), MagicMock()
-    mock_object_1.name = mock_object_name
-    mock_object_2.name = 'foobar'
-    mock_object_1.size = mock_object_size
-    mock_object_2.size = 3
 
-    mock_list_objects_return = MagicMock()
-    mock_list_objects_return.data.objects = [mock_object_1, mock_object_2]
-    mock_list_objects_fn = MagicMock(return_value=mock_list_objects_return)
-    monkeypatch.setattr(oci_os.client, 'list_objects', mock_list_objects_fn)
+    mock_response = MagicMock()
+    mock_response.status = 200
+    mock_response.data.headers = {'Content-Length': mock_object_size}
+    mock_get_object_fn = MagicMock(return_value=mock_response)
 
+    monkeypatch.setattr(oci_os.client, 'get_object', mock_get_object_fn)
     assert oci_os.get_object_size(mock_object_name) == mock_object_size
+
+    mock_response.status = 400
+    with pytest.raises(FileNotFoundError):
+        oci_os.get_object_size(mock_object_name)

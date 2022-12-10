@@ -56,11 +56,13 @@ class OCIObjectStore(ObjectStore):
         return f'oci://{self.bucket}/{object_name}'
 
     def get_object_size(self, object_name: str) -> int:
-        objects = self.client.list_objects(self.namespace, self.bucket, prefix=object_name, fields='size').data.objects
-        relevant_objects = [obj for obj in objects if obj.name == object_name]
-        if len(relevant_objects) > 0:
-            obj = relevant_objects.pop()
-            return obj.size
+        response = self.client.get_object(
+            namespace_name=self.namespace,
+            bucket_name=self.bucket,
+            object_name=object_name,
+        )
+        if response.status == 200:
+            return int(response.data.headers['Content-Length'])
         else:
             raise FileNotFoundError(f'Unable to locate oci://{self.bucket}@{self.namespace}/{object_name}')
 
