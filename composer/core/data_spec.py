@@ -28,7 +28,13 @@ def _num_microbatches_split_list(l, num_microbatches: int):
             textwrap.dedent(f"""\
         Cannot split list of length {len(l)} into {num_microbatches} batches.
          make sure `grad_accum` is less than or equal to `train_batch_size // world_size`."""))
-    return [l[i::num_microbatches] for i in range(num_microbatches)]
+
+    # Note: this is to match the behavior of tensor.chunk, which is used in _split_tensor
+    chunked_microbatch_size = math.ceil(len(l) / num_microbatches)
+    return [
+        l[(i * chunked_microbatch_size):(i * chunked_microbatch_size) + chunked_microbatch_size]
+        for i in range(num_microbatches)
+    ]
 
 
 def _num_microbatches_split_tensor(t, num_microbatches: int):
@@ -95,7 +101,12 @@ def _split_list(l, microbatch_size: int):
                       'As it is smaller, no splitting will be done.')
         microbatch_size = len(l)
     num_microbatches = math.ceil(len(l) / microbatch_size)
-    return [l[i::num_microbatches] for i in range(num_microbatches)]
+    # Note: this is to match the behavior of tensor.chunk, which is used in _split_tensor
+    chunked_microbatch_size = math.ceil(len(l) / num_microbatches)
+    return [
+        l[(i * chunked_microbatch_size):(i * chunked_microbatch_size) + chunked_microbatch_size]
+        for i in range(num_microbatches)
+    ]
 
 
 def _split_tensor(t, microbatch_size: int):
