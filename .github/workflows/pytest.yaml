@@ -81,6 +81,7 @@ jobs:
         run: |
           set -ex
           python -m pip install --upgrade pip wheel
+          pip install coverage[toml]==6.5.0
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
