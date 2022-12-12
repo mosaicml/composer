@@ -43,6 +43,7 @@ jobs:
             container: mosaicml/pytorch_vision:latest
             markers: 'not gpu and not vision and daily and not doctest and not remote'
             pytest_command: 'coverage run -m pytest'
+    name: ${{ matrix.name }}
     container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@v2
