@@ -26,23 +26,23 @@ jobs:
           - name: 'cpu-3.8-1.11'
             container: mosaicml/pytorch:1.11.0_cpu-python3.8-ubuntu20.04
             markers: 'not daily and not gpu and not vision and not remote and not doctest'
-            pytest_command: 'coverage run -m pytest'
+            pytest_command: 'coverage run -m pytest tests/trainer'
           - name: 'cpu-3.9-1.12'
             container: mosaicml/pytorch:1.12.1_cpu-python3.9-ubuntu20.04
             markers: 'not daily and not gpu and not vision and not remote and not doctest'
-            pytest_command: 'coverage run -m pytest'
-          - name: 'cpu-3.10-1.13'
-            container: mosaicml/pytorch:1.13.0_cpu-python3.10-ubuntu20.04
-            markers: 'not daily and not gpu and not vision and not remote and not doctest'
-            pytest_command: 'coverage run -m pytest'
-          - name: 'cpu-vision'
-            container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
-            markers: 'not daily and not gpu and vision and not remote and not doctest'
-            pytest_command: 'coverage run -m pytest'
-          - name: 'cpu-doctest'
-            container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
-            markers: 'not daily and not gpu and not vision and not remote and doctest'
-            pytest_command: 'coverage run -m pytest tests/test_docs.py'
+            pytest_command: 'coverage run -m pytest tests/trainer'
+          # - name: 'cpu-3.10-1.13'
+          #   container: mosaicml/pytorch:1.13.0_cpu-python3.10-ubuntu20.04
+          #   markers: 'not daily and not gpu and not vision and not remote and not doctest'
+          #   pytest_command: 'coverage run -m pytest'
+          # - name: 'cpu-vision'
+          #   container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
+          #   markers: 'not daily and not gpu and vision and not remote and not doctest'
+          #   pytest_command: 'coverage run -m pytest'
+          # - name: 'cpu-doctest'
+          #   container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
+          #   markers: 'not daily and not gpu and not vision and not remote and doctest'
+          #   pytest_command: 'coverage run -m pytest tests/test_docs.py'
     container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@v2
@@ -95,3 +95,13 @@ jobs:
 
           python -m coverage combine
           python -m coverage report
+          ls -al
+      # - name: Upload coverage report
+      #   uses: codecov/codecov-action@v3
+      #   with:
+      #     files: coverage/cpu_tests/coverage.xml,coverage/gpu_tests/coverage.xml,coverage/model_tests/coverage.xml
+      #     # Ignore codecov failures as the codecov server is not
+      #     # very reliable but we don't want to report a failure
+      #     # in the github UI just because the coverage report failed to
+      #     # be published.
+      #     fail_ci_if_error: false
