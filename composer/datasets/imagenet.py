@@ -8,7 +8,7 @@ Dataset <http://image-net.org/>`_ for more details.
 """
 
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import torch
@@ -279,6 +279,13 @@ def build_streaming_imagenet1k_dataloader(
     shuffle: bool = True,
     resize_size: int = -1,
     crop_size: int = 224,
+    predownload: Optional[int] = 100_000,
+    keep_zip: Optional[bool] = None,
+    download_retry: int = 2,
+    download_timeout: float = 60,
+    validate_hash: Optional[str] = None,
+    shuffle_seed: Optional[int] = None,
+    num_canonical_nodes: Optional[int] = None,
     **dataloader_kwargs: Dict[str, Any],
 ) -> DataSpec:
     """Builds an imagenet1k streaming dataset
@@ -294,6 +301,20 @@ def build_streaming_imagenet1k_dataloader(
         shuffle (bool, optional): whether to shuffle dataset. Defaults to ``True``.
         resize_size (int, optional): The resize size to use. Use ``-1`` to not resize. Default: ``-1``.
         crop size (int): The crop size to use. Default: ``224``.
+        predownload (int, optional): Target number of samples ahead to download the shards of while
+            iterating. Defaults to ``100_000``.
+        keep_zip (bool, optional): Whether to keep or delete the compressed file when
+            decompressing downloaded shards. If set to None, keep iff remote is local. Defaults to
+            ``None``.
+        download_retry (int): Number of download re-attempts before giving up. Defaults to ``2``.
+        download_timeout (float): Number of seconds to wait for a shard to download before raising
+            an exception. Defaults to ``60``.
+        validate_hash (str, optional): Optional hash or checksum algorithm to use to validate
+            shards. Defaults to ``None``.
+        shuffle_seed (int, optional): Seed for shuffling, or ``None`` for random seed. Defaults to
+            ``None``.
+        num_canonical_nodes (int, optional): Canonical number of nodes for shuffling with resumption.
+            Defaults to ``None``, which is interpreted as the number of nodes of the initial run.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
     if global_batch_size % dist.get_world_size() != 0:
@@ -302,7 +323,7 @@ def build_streaming_imagenet1k_dataloader(
     batch_size = global_batch_size // dist.get_world_size()
 
     try:
-        from streaming.vision import ImageNet
+        from streaming.vision import StreamingImageNet
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
 
@@ -324,18 +345,26 @@ def build_streaming_imagenet1k_dataloader(
     transform.append(lambda image: image.convert('RGB'))
     transform = transforms.Compose(transform)
 
-    dataset = ImageNet(local=local,
-                       remote=remote,
-                       split=split,
-                       shuffle=shuffle,
-                       transform=transform,
-                       batch_size=batch_size)
+    dataset = StreamingImageNet(
+        local=local,
+        remote=remote,
+        split=split,
+        shuffle=shuffle,
+        transform=transform,
+        predownload=predownload,
+        keep_zip=keep_zip,
+        download_retry=download_retry,
+        download_timeout=download_timeout,
+        validate_hash=validate_hash,
+        shuffle_seed=shuffle_seed,
+        num_canonical_nodes=num_canonical_nodes,
+        batch_size=batch_size,
+    )
 
     dataloader = DataLoader(
         dataset=dataset,
         batch_size=batch_size,
         collate_fn=pil_image_collate,
-        sampler=None,
         drop_last=drop_last,
         **dataloader_kwargs,
     )
