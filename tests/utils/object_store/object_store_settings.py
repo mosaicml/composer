@@ -94,21 +94,24 @@ def get_object_store_ctx(object_store_cls: Type[ObjectStore],
         yield
     elif object_store_cls is SFTPObjectStore:
         pytest.importorskip('paramiko')
-        private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-        pem = private_key.private_bytes(encoding=serialization.Encoding.PEM,
-                                        format=serialization.PrivateFormat.TraditionalOpenSSL,
-                                        encryption_algorithm=serialization.NoEncryption())
-        private_key_path = tmp_path / 'test_rsa_key'
-        username = object_store_kwargs['username']
-        with open(private_key_path, 'wb') as private_key_file:
-            private_key_file.write(pem)
-        with mockssh.Server(users={
-                username: str(private_key_path),
-        }) as server:
-            client = server.client(username)
-            monkeypatch.setattr(client, 'connect', lambda *args, **kwargs: None)
-            monkeypatch.setattr(composer.utils.object_store.sftp_object_store, 'SSHClient', lambda: client)
-            yield
+        if remote:
+            pytest.skip('SFTP object store has no remote tests.')
+        else:
+            private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+            pem = private_key.private_bytes(encoding=serialization.Encoding.PEM,
+                                            format=serialization.PrivateFormat.TraditionalOpenSSL,
+                                            encryption_algorithm=serialization.NoEncryption())
+            private_key_path = tmp_path / 'test_rsa_key'
+            username = object_store_kwargs['username']
+            with open(private_key_path, 'wb') as private_key_file:
+                private_key_file.write(pem)
+            with mockssh.Server(users={
+                    username: str(private_key_path),
+            }) as server:
+                client = server.client(username)
+                monkeypatch.setattr(client, 'connect', lambda *args, **kwargs: None)
+                monkeypatch.setattr(composer.utils.object_store.sftp_object_store, 'SSHClient', lambda: client)
+                yield
 
     else:
         raise NotImplementedError('Parameterization not implemented')
