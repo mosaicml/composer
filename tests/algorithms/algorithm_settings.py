@@ -18,7 +18,7 @@ import composer.algorithms
 from composer import Algorithm
 from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
                                  Factorize, FusedLayerNorm, GatedLinearUnits, GhostBatchNorm, GradientClipping,
-                                 LabelSmoothing, LayerFreezing, LowPrecisionLayerNorm, MixUp, NoOpModel,
+                                 GyroDropout, LabelSmoothing, LayerFreezing, LowPrecisionLayerNorm, MixUp, NoOpModel,
                                  ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup, SqueezeExcite,
                                  StochasticDepth, WeightStandardization)
 from composer.models import composer_resnet
@@ -150,6 +150,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
         }
     },
     WeightStandardization: simple_vision_settings,
+    GyroDropout: None,  # Dropout settings needed
 }
 
 

@@ -117,13 +117,14 @@ class TestCallbackTrains:
     def _get_trainer(self, cb: Callback, grad_accum: int):
         loggers = cb if isinstance(cb, LoggerDestination) else None
         callbacks = cb if not isinstance(cb, LoggerDestination) else None
+        batch_size = 2
 
         return Trainer(
             model=SimpleModel(),
-            train_dataloader=DataLoader(RandomClassificationDataset(size=4), batch_size=2),
-            eval_dataloader=DataLoader(RandomClassificationDataset(size=4), batch_size=2),
+            train_dataloader=DataLoader(RandomClassificationDataset(size=4), batch_size=batch_size),
+            eval_dataloader=DataLoader(RandomClassificationDataset(size=4), batch_size=batch_size),
             max_duration=2,
-            grad_accum=grad_accum,
+            device_train_microbatch_size=batch_size // grad_accum,
             callbacks=callbacks,
             loggers=loggers,
             profiler=Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[]),

@@ -19,9 +19,9 @@ import torch.distributed
 from pytest import MonkeyPatch
 from torch.utils.data import DataLoader
 
-from composer.callbacks.checkpoint_saver import CheckpointSaver
-from composer.core.callback import Callback
-from composer.core.time import Time, TimeUnit
+from composer.algorithms import NoOpModel
+from composer.callbacks import CheckpointSaver
+from composer.core import Callback, Time, TimeUnit
 from composer.loggers import RemoteUploaderDownloader, remote_uploader_downloader
 from composer.optim import ExponentialScheduler
 from composer.trainer import trainer
@@ -260,24 +260,26 @@ class TestCheckpointLoading:
 
         train_dataset = RandomImageDataset()
         eval_dataset = RandomImageDataset()
+        train_batch_size = 2
 
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
                 dataset=train_dataset,
-                batch_size=8,
+                batch_size=train_batch_size,
                 sampler=dist.get_sampler(train_dataset),
             ),
             eval_dataloader=DataLoader(
                 dataset=eval_dataset,
-                batch_size=16,
+                batch_size=4,
                 sampler=dist.get_sampler(eval_dataset),
             ),
-            grad_accum=2,
+            device_train_microbatch_size=train_batch_size // 2,
             precision='fp32',
             train_subset_num_batches=5,
+            eval_subset_num_batches=1,
             save_interval='1ep',
-            eval_interval='1ba',
+            eval_interval='1ep',
             save_filename='ep{epoch}.pt',
             max_duration='2ep',
             optimizers=optimizer,
@@ -491,6 +493,31 @@ class TestCheckpointLoading:
         )
         trainer_3.fit(duration='1ba')
 
+    def test_autoload_algorithm_old_checkpoint(self):
+        trainer_1 = self.get_trainer(
+            save_folder='first',
+            algorithms=[NoOpModel()],
+        )
+        trainer_1.fit()
+        trainer_1.close()
+
+        trainer_2 = self.get_trainer(
+            load_path=os.path.join('first', 'ep1.pt'),
+            algorithms=[NoOpModel()],
+        )
+        trainer_2.fit(duration='1ba')
+
+        # Monkeypatch algorithm to have different signature
+        old_init, old_repr = NoOpModel.__init__, NoOpModel.__repr__
+        NoOpModel.__init__ = lambda self, x: None  # type: ignore
+        NoOpModel.__repr__ = lambda self: 'NoOpModel(3)'
+        with pytest.warns(UserWarning, match='required_on_load algorithm.*'), pytest.raises(
+                ValueError, match='loaded state dict contains a parameter group.*'):
+            trainer_3 = self.get_trainer(load_path=os.path.join('first', 'ep1.pt'),)
+            trainer_3.fit(duration='1ba')
+        # Restore algorithm
+        NoOpModel.__init__, NoOpModel.__repr__ = old_init, old_repr
+
 
 class TestCheckpointResumption:
 
@@ -499,13 +526,14 @@ class TestCheckpointResumption:
         optimizer = torch.optim.Adam(model.parameters())
 
         train_dataset = RandomImageDataset()
-        eval_dataset = RandomImageDataset()
+        eval_dataset = RandomImageDataset(size=10)
+        train_batch_size = 2
 
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
                 dataset=train_dataset,
-                batch_size=8,
+                batch_size=train_batch_size,
                 sampler=dist.get_sampler(train_dataset),
             ),
             eval_dataloader=DataLoader(
@@ -513,7 +541,7 @@ class TestCheckpointResumption:
                 batch_size=16,
                 sampler=dist.get_sampler(eval_dataset),
             ),
-            grad_accum=2,
+            device_train_microbatch_size=train_batch_size // 2,
             precision='fp32',
             train_subset_num_batches=5,
             max_duration='2ep',
@@ -527,13 +555,25 @@ class TestCheckpointResumption:
         pytest.param(1),
         pytest.param(2, marks=pytest.mark.world_size(2)),
     ])
-    @pytest.mark.parametrize('device,deepspeed_zero_stage', [
-        pytest.param('cpu', None, id='cpu-ddp'),
-        pytest.param('gpu', None, id='gpu-ddp', marks=pytest.mark.gpu),
-        pytest.param('gpu', 0, id='deepspeed-zero0', marks=pytest.mark.gpu),
-        pytest.param('gpu', 1, id='deepspeed-zero1', marks=pytest.mark.gpu),
-        pytest.param('gpu', 2, id='deepspeed-zero2', marks=pytest.mark.gpu),
-    ])
+    @pytest.mark.parametrize(
+        'device,deepspeed_zero_stage',
+        [
+            pytest.param('cpu', None, id='cpu-ddp'),
+            pytest.param('gpu', None, id='gpu-ddp', marks=pytest.mark.gpu),
+            # TODO: Remove filterwarnings after DeepSpeed removes deprecated code
+            pytest.param('gpu',
+                         0,
+                         id='deepspeed-zero0',
+                         marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore::UserWarning')]),
+            pytest.param('gpu',
+                         1,
+                         id='deepspeed-zero1',
+                         marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore::UserWarning')]),
+            pytest.param('gpu',
+                         2,
+                         id='deepspeed-zero2',
+                         marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore::UserWarning')]),
+        ])
     @pytest.mark.parametrize(
         'seed,save_interval,save_filename,resume_file,final_checkpoint',
         [
@@ -681,9 +721,30 @@ class TestCheckpointResumption:
 @pytest.mark.parametrize('device,deepspeed_enabled,zero_stage', [
     pytest.param('cpu', False, None, id='cpu-ddp'),
     pytest.param('gpu', False, None, id='gpu-ddp', marks=pytest.mark.gpu),
-    pytest.param('gpu', True, 0, id='deepspeed-zero0', marks=pytest.mark.gpu),
-    pytest.param('gpu', True, 1, id='deepspeed-zero1', marks=pytest.mark.gpu),
-    pytest.param('gpu', True, 2, id='deepspeed-zero2', marks=pytest.mark.gpu),
+    pytest.param('gpu',
+                 True,
+                 0,
+                 id='deepspeed-zero0',
+                 marks=[
+                     pytest.mark.gpu,
+                     pytest.mark.filterwarnings('ignore::UserWarning'),
+                 ]),
+    pytest.param('gpu',
+                 True,
+                 1,
+                 id='deepspeed-zero1',
+                 marks=[
+                     pytest.mark.gpu,
+                     pytest.mark.filterwarnings('ignore::UserWarning'),
+                 ]),
+    pytest.param('gpu',
+                 True,
+                 2,
+                 id='deepspeed-zero2',
+                 marks=[
+                     pytest.mark.gpu,
+                     pytest.mark.filterwarnings('ignore::UserWarning'),
+                 ]),
 ])
 def test_rotate_checkpoints(
     world_size,

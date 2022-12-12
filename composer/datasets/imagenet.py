@@ -8,25 +8,21 @@ Dataset <http://image-net.org/>`_ for more details.
 """
 
 import os
-from io import BytesIO
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import torch
-from PIL import Image
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from torchvision.datasets import ImageFolder, VisionDataset
+from torchvision.datasets import ImageFolder
 
 from composer.core import DataSpec, MemoryFormat
 from composer.datasets.ffcv_utils import ffcv_monkey_patches, write_ffcv_dataset
-from composer.datasets.streaming import StreamingDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
-from composer.utils import MissingConditionalImportError, dist, warn_streaming_dataset_deprecation
+from composer.utils import MissingConditionalImportError, dist
 
 __all__ = [
-    'StreamingImageNet1k',
     'build_imagenet_dataloader',
     'build_streaming_imagenet1k_dataloader',
     'build_synthetic_imagenet_dataloader',
@@ -40,19 +36,19 @@ IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
 
 def build_imagenet_dataloader(
     datadir: str,
-    batch_size: int,
+    global_batch_size: int,
     is_train: bool = True,
     drop_last: bool = True,
     shuffle: bool = True,
     resize_size: int = -1,
     crop_size: int = 224,
-    **dataloader_kwargs,
+    **dataloader_kwargs: Dict[str, Any],
 ) -> DataSpec:
     """Builds an ImageNet dataloader.
 
     Args:
         datadir (str): path to location of dataset.
-        batch_size (int): Batch size per device.
+        global_batch_size (int): Global batch size.
         is_train (bool): Whether to load the training data or validation data. Default:
             ``True``.
         drop_last (bool): whether to drop last samples. Default: ``True``.
@@ -61,6 +57,10 @@ def build_imagenet_dataloader(
         crop size (int): The crop size to use. Default: ``224``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     if is_train:
         # include fixed-size resize before RandomResizedCrop in training only
         # if requested (by specifying a size > 0)
@@ -102,7 +102,7 @@ def build_imagenet_dataloader(
 
 
 def build_synthetic_imagenet_dataloader(
-    batch_size: int,
+    global_batch_size: int,
     num_unique_samples: int = 100,
     device: str = 'cpu',
     memory_format: MemoryFormat = MemoryFormat.CONTIGUOUS_FORMAT,
@@ -110,12 +110,12 @@ def build_synthetic_imagenet_dataloader(
     crop_size: int = 224,
     drop_last: bool = True,
     shuffle: bool = True,
-    **dataloader_kwargs,
+    **dataloader_kwargs: Dict[str, Any],
 ) -> DataSpec:
     """Builds a synthetic ImageNet dataloader.
 
     Args:
-        batch_size (int): Batch size per device.
+        global_batch_size (int): Global batch size.
         num_unique_samples (int): number of unique samples in synthetic dataset. Default: ``100``.
         device (str): device with which to load the dataset. Default: ``cpu``.
         memory_format (:class:`composer.core.MemoryFormat`): memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
@@ -126,6 +126,10 @@ def build_synthetic_imagenet_dataloader(
         shuffle (bool): whether to shuffle the dataset. Default: ``True``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     total_dataset_size = 1_281_167 if is_train else 50_000
     dataset = SyntheticBatchPairDataset(
         total_dataset_size=total_dataset_size,
@@ -178,7 +182,7 @@ def write_ffcv_imagenet(
 
 def build_ffcv_imagenet_dataloader(
     datadir: str,
-    batch_size: int,
+    global_batch_size: int,
     is_train: bool = True,
     resize_size: int = -1,
     crop_size: int = 224,
@@ -191,7 +195,7 @@ def build_ffcv_imagenet_dataloader(
 
     Args:
         datadir (str): path to location of dataset.
-        batch_size (int): Batch size per device.
+        global_batch_size (int): Global batch size.
         is_train (bool): Whether to load the training data or validation data. Default:
             ``True``.
         resize_size (int, optional): The resize size to use. Use ``-1`` to not resize. Default: ``-1``.
@@ -208,7 +212,10 @@ def build_ffcv_imagenet_dataloader(
     except ImportError:
         raise ImportError('Composer was installed without ffcv support.'
                           'To use ffcv with Composer, please install ffcv.')
-
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     device = torch.device(f'cuda:{dist.get_local_rank()}')
     label_pipeline: List[Operation] = [
         IntDecoder(),
@@ -263,24 +270,29 @@ def build_ffcv_imagenet_dataloader(
 
 
 def build_streaming_imagenet1k_dataloader(
-    batch_size: int,
+    global_batch_size: int,
     remote: str,
     *,
-    version: int = 2,
     local: str = '/tmp/mds-cache/mds-imagenet1k',
     split: str = 'train',
     drop_last: bool = True,
     shuffle: bool = True,
     resize_size: int = -1,
     crop_size: int = 224,
-    **dataloader_kwargs,
+    predownload: Optional[int] = 100_000,
+    keep_zip: Optional[bool] = None,
+    download_retry: int = 2,
+    download_timeout: float = 60,
+    validate_hash: Optional[str] = None,
+    shuffle_seed: Optional[int] = None,
+    num_canonical_nodes: Optional[int] = None,
+    **dataloader_kwargs: Dict[str, Any],
 ) -> DataSpec:
     """Builds an imagenet1k streaming dataset
 
     Args:
-        batch_size (int): Batch size per device.
+        global_batch_size (int): Global batch size.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-        version (int, optional): Which version of streaming to use. Default: ``2``.
         local (str, optional): Local filesystem directory where dataset is cached during operation.
             Defaults to ``'/tmp/mds-cache/mds-imagenet1k/```.
         split (str): Which split of the dataset to use. Either ['train', 'val']. Default:
@@ -289,156 +301,73 @@ def build_streaming_imagenet1k_dataloader(
         shuffle (bool, optional): whether to shuffle dataset. Defaults to ``True``.
         resize_size (int, optional): The resize size to use. Use ``-1`` to not resize. Default: ``-1``.
         crop size (int): The crop size to use. Default: ``224``.
+        predownload (int, optional): Target number of samples ahead to download the shards of while
+            iterating. Defaults to ``100_000``.
+        keep_zip (bool, optional): Whether to keep or delete the compressed file when
+            decompressing downloaded shards. If set to None, keep iff remote is local. Defaults to
+            ``None``.
+        download_retry (int): Number of download re-attempts before giving up. Defaults to ``2``.
+        download_timeout (float): Number of seconds to wait for a shard to download before raising
+            an exception. Defaults to ``60``.
+        validate_hash (str, optional): Optional hash or checksum algorithm to use to validate
+            shards. Defaults to ``None``.
+        shuffle_seed (int, optional): Seed for shuffling, or ``None`` for random seed. Defaults to
+            ``None``.
+        num_canonical_nodes (int, optional): Canonical number of nodes for shuffling with resumption.
+            Defaults to ``None``, which is interpreted as the number of nodes of the initial run.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
 
-    if version == 1:
-        warn_streaming_dataset_deprecation(old_version=version, new_version=2)
-        dataset = StreamingImageNet1k(remote=remote,
-                                      local=local,
-                                      split=split,
-                                      shuffle=shuffle,
-                                      resize_size=resize_size,
-                                      crop_size=crop_size,
-                                      batch_size=batch_size)
-    elif version == 2:
-        try:
-            from streaming.vision import ImageNet
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
-        transform = []
-        if split == 'train':
-            # include fixed-size resize before RandomResizedCrop in training only
-            # if requested (by specifying a size > 0)
-            if resize_size > 0:
-                transform.append(transforms.Resize(resize_size))
-            # always include RandomResizedCrop and RandomHorizontalFlip
-            transform += [
-                transforms.RandomResizedCrop(crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
-                transforms.RandomHorizontalFlip()
-            ]
-        else:
-            if resize_size > 0:
-                transform.append(transforms.Resize(resize_size))
-            transform.append(transforms.CenterCrop(crop_size))
-        transform.append(lambda image: image.convert('RGB'))
-        transform = transforms.Compose(transform)
-        dataset = ImageNet(local=local,
-                           remote=remote,
-                           split=split,
-                           shuffle=shuffle,
-                           transform=transform,
-                           batch_size=batch_size)
+    try:
+        from streaming.vision import StreamingImageNet
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
+
+    transform = []
+    if split == 'train':
+        # include fixed-size resize before RandomResizedCrop in training only
+        # if requested (by specifying a size > 0)
+        if resize_size > 0:
+            transform.append(transforms.Resize(resize_size))
+        # always include RandomResizedCrop and RandomHorizontalFlip
+        transform += [
+            transforms.RandomResizedCrop(crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
+            transforms.RandomHorizontalFlip()
+        ]
     else:
-        raise ValueError(f'Invalid streaming version: {version}')
+        if resize_size > 0:
+            transform.append(transforms.Resize(resize_size))
+        transform.append(transforms.CenterCrop(crop_size))
+    transform.append(lambda image: image.convert('RGB'))
+    transform = transforms.Compose(transform)
+
+    dataset = StreamingImageNet(
+        local=local,
+        remote=remote,
+        split=split,
+        shuffle=shuffle,
+        transform=transform,
+        predownload=predownload,
+        keep_zip=keep_zip,
+        download_retry=download_retry,
+        download_timeout=download_timeout,
+        validate_hash=validate_hash,
+        shuffle_seed=shuffle_seed,
+        num_canonical_nodes=num_canonical_nodes,
+        batch_size=batch_size,
+    )
 
     dataloader = DataLoader(
         dataset=dataset,
         batch_size=batch_size,
         collate_fn=pil_image_collate,
-        sampler=None,
         drop_last=drop_last,
         **dataloader_kwargs,
     )
 
     device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
     return DataSpec(dataloader=dataloader, device_transforms=device_transform_fn)
-
-
-class StreamingImageNet1k(StreamingDataset, VisionDataset):
-    """
-    Implementation of the ImageNet1k dataset using StreamingDataset.
-
-    Args:
-        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-        local (str): Local filesystem directory where dataset is cached during operation.
-        split (str): The dataset split to use, either 'train' or 'val'.
-        shuffle (bool): Whether to shuffle the samples in this dataset.
-        resize_size (int, optional): The resize size to use. Use -1 to not resize. Default: ``-1``.
-        crop size (int): The crop size to use. Default: ``224``.
-        batch_size (Optional[int]): Hint batch_size that will be used on each device's DataLoader. Default: ``None``.
-    """
-
-    def decode_image(self, data: bytes) -> Image.Image:
-        """Decode the sample image.
-
-        Args:
-            data (bytes): The raw bytes.
-
-        Returns:
-            Image: PIL image encoded by the bytes.
-        """
-        return Image.open(BytesIO(data)).convert('RGB')
-
-    def decode_class(self, data: bytes) -> np.int64:
-        """Decode the sample class.
-
-        Args:
-            data (bytes): The raw bytes.
-
-        Returns:
-            np.int64: The class encoded by the bytes.
-        """
-        return np.frombuffer(data, np.int64)[0]
-
-    def __init__(self,
-                 remote: str,
-                 local: str,
-                 split: str,
-                 shuffle: bool,
-                 resize_size: int = -1,
-                 crop_size: int = 224,
-                 batch_size: Optional[int] = None):
-        # Build StreamingDataset
-        decoders = {
-            'x': self.decode_image,
-            'y': self.decode_class,
-        }
-        super().__init__(remote=os.path.join(remote, split),
-                         local=os.path.join(local, split),
-                         shuffle=shuffle,
-                         decoders=decoders,
-                         batch_size=batch_size)
-
-        # Validation
-        if split not in ['train', 'val']:
-            raise ValueError(f"split='{split}' must be one of ['train', 'val'].")
-        if crop_size <= 0:
-            raise ValueError(f'crop_size must be positive.')
-
-        # Define custom transforms
-        if split == 'train':
-            # include fixed-size resize before RandomResizedCrop in training only
-            # if requested (by specifying a size > 0)
-            train_transforms: List[torch.nn.Module] = []
-            if resize_size > 0:
-                train_transforms.append(transforms.Resize(resize_size))
-            # always include RandomResizedCrop and RandomHorizontalFlip
-            train_transforms += [
-                transforms.RandomResizedCrop(crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
-                transforms.RandomHorizontalFlip(),
-            ]
-            transform = transforms.Compose(train_transforms)
-        else:
-            val_transforms: List[torch.nn.Module] = []
-            if resize_size > 0:
-                val_transforms.append(transforms.Resize(resize_size))
-            val_transforms += [transforms.CenterCrop(crop_size)]
-            transform = transforms.Compose(val_transforms)
-        VisionDataset.__init__(self, root=local, transform=transform)
-
-    def __getitem__(self, idx: int) -> Any:
-        """Get the decoded and transformed (image, class) pair by ID.
-
-        Args:
-            idx (int): Sample ID.
-
-        Returns:
-            Any: Pair of (x, y) for this sample.
-        """
-        obj = super().__getitem__(idx)
-        x = obj['x']
-        assert self.transform is not None, 'transform set in __init__'
-        x = self.transform(x)
-        y = obj['y']
-        return x, y

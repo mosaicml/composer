@@ -81,7 +81,7 @@ The above code, when run, will produce the checkpoints below:
     >>> list(state_dict)
     ['state', 'rng']
     >>> list(state_dict['state'].keys())
-    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timestamp', 'rank_zero_seed', 'train_metrics', 'eval_metrics', 'run_name']
+    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timestamp', 'rank_zero_seed', 'train_metrics', 'eval_metrics', 'run_name', 'dataset_state', 'integrations', 'metadata']
 
 Resume training
 ---------------
@@ -162,6 +162,8 @@ state from the checkpoint are not compatible with these new objects.
     | eval_metrics          | The current validation metrics.                             |
     +-----------------------+-------------------------------------------------------------+
     | run_name              | The run name for training.                                  |
+    +-----------------------+-------------------------------------------------------------+
+    | dataset_state         | The dataset iteration state.                                |
     +-----------------------+-------------------------------------------------------------+
 
     All other trainer arguments (e.g. ``max_duration`` or ``precision``) will use either the defaults
