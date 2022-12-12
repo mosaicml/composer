@@ -41,7 +41,7 @@ jobs:
           #   pytest_command: 'coverage run -m pytest'
           - name: 'cpu-debug'
             container: mosaicml/pytorch_vision:latest
-            markers: 'not gpu and not vision and not daily and not doctest and remote'
+            markers: 'not gpu and not vision and not daily and doctest and not remote'
             pytest_command: 'coverage run -m pytest'
     container: ${{ matrix.container }}
     steps:
