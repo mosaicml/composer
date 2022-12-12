@@ -36,11 +36,11 @@ jobs:
             markers: 'not daily and not gpu and not vision and not remote and not doctest'
             pytest_command: 'coverage run -m pytest'
           - name: 'cpu-vision'
-            container: mosaicml/pytorch_vision:latest
+            container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
             markers: 'not daily and not gpu and vision and not remote and not doctest'
             pytest_command: 'coverage run -m pytest'
           - name: 'cpu-doctest'
-            container: mosaicml/pytorch_vision:latest
+            container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
             markers: 'not daily and not gpu and not vision and not remote and doctest'
             pytest_command: 'coverage run -m pytest tests/test_docs.py'
     container: ${{ matrix.container }}
@@ -68,7 +68,7 @@ jobs:
           python -m coverage combine
       - uses: actions/upload-artifact@v3
         with:
-          name: coverage-${{ github.sha }}
+          name: coverage-${{ github.sha }}-${{ matrix.name }}
           path: .coverage
   coverage:
     needs: [ pytest ]
@@ -81,7 +81,7 @@ jobs:
         run: |
           set -ex
           python -m pip install --upgrade pip wheel
-          python -m pip install -e .[all]
+          pip install coverage[toml]==6.5.0
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
