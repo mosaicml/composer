@@ -6,7 +6,8 @@ from typing import Dict, List, Mapping, Tuple, Union
 import pytest
 import torch
 
-from composer.core.data_spec import _default_split_batch, _num_microbatches_split_batch, _split_list
+from composer.core.data_spec import (_default_split_batch, _num_microbatches_split_batch, _num_microbatches_split_list,
+                                     _num_microbatches_split_tensor, _split_list, _split_tensor)
 
 
 def dummy_tensor_batch(batch_size=12) -> torch.Tensor:
@@ -88,6 +89,15 @@ def test_split_without_error(batch):
     assert len(microbatches) == 4
 
 
+@pytest.mark.parametrize('batch', [dummy_tensor_batch(i) for i in [12, 13, 14, 15]])
+def test_tensor_vs_list_chunking(batch):
+    tensor_microbatches = _split_tensor(batch, microbatch_size=4)
+    list_microbatches = _split_list([t for t in batch], microbatch_size=4)
+
+    assert len(tensor_microbatches) == len(list_microbatches)
+    assert all(torch.equal(t1, torch.stack(t2, dim=0)) for t1, t2 in zip(tensor_microbatches, list_microbatches))
+
+
 @pytest.mark.parametrize('batch', [dummy_tuple_batch(12)])
 def test_split_tuple(batch):
     microbatches = _default_split_batch(batch, microbatch_size=4)
@@ -137,6 +147,15 @@ def test_microbatch_size_split_maskrcnn(batch):
 def test_num_microbatches_split_without_error(batch):
     microbatches = _num_microbatches_split_batch(batch, num_microbatches=3)
     assert len(microbatches) == 3
+
+
+@pytest.mark.parametrize('batch', [dummy_tensor_batch(i) for i in [12, 13, 14, 15]])
+def test_tensor_vs_list_chunking_num_microbatches(batch):
+    tensor_microbatches = _num_microbatches_split_tensor(batch, num_microbatches=5)
+    list_microbatches = _num_microbatches_split_list([t for t in batch], num_microbatches=5)
+
+    assert len(tensor_microbatches) == len(list_microbatches)
+    assert all(torch.equal(t1, torch.stack(t2, dim=0)) for t1, t2 in zip(tensor_microbatches, list_microbatches))
 
 
 @pytest.mark.parametrize('batch', [dummy_tuple_batch(12)])
