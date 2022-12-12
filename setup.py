@@ -85,7 +85,7 @@ install_requires = [
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
-    'packaging>=21.3.0,<22',
+    'packaging>=21.3.0,<23',
     'importlib-metadata>=5.0.0,<6',
 ]
 extra_deps = {}
