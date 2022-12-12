@@ -11,7 +11,11 @@ on:
       - main
       - release/**
   workflow_call:
-  workflow_dispatch: {}
+  workflow_dispatch:
+# Cancel old runs when a new commit is pushed to the same branch if not on main or dev
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 defaults:
   run:
     working-directory: .
@@ -22,9 +26,9 @@ jobs:
     strategy:
       matrix:
         python_version:
-          - "3.7"
           - "3.8"
           - "3.9"
+          - "3.10"
         pip_deps:
           - "[all]"
     steps:

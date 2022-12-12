@@ -4,7 +4,9 @@
 """Contains commonly used models that are shared across the test suite."""
 
 import torch
+from torchmetrics import MetricCollection
 
+from composer.metrics import CrossEntropy, MIoU
 from composer.models import ComposerClassifier
 
 
@@ -77,6 +79,67 @@ class SimpleConvModel(ComposerClassifier):
         # bind these to class for access during surgery tests
         self.conv1 = conv1
         self.conv2 = conv2
+
+
+class SimpleSegmentationModel(ComposerClassifier):
+    """Small convolutional classifer.
+
+    Args:
+        num_channels (int): number of input channels (default: 3)
+        num_classes (int): number of classes (default: 2)
+    """
+
+    def __init__(self, num_channels: int = 3, num_classes: int = 2) -> None:
+        self.num_classes = num_classes
+        self.num_channels = num_channels
+
+        conv_args = {'kernel_size': (3, 3), 'padding': 'same', 'stride': 1}
+        conv1 = torch.nn.Conv2d(in_channels=num_channels, out_channels=8, **conv_args)
+        conv2 = torch.nn.Conv2d(in_channels=8, out_channels=num_classes, **conv_args)
+
+        net = torch.nn.Sequential(
+            conv1,
+            conv2,
+        )
+        train_metrics = MetricCollection([CrossEntropy(), MIoU(num_classes)])
+        val_metrics = MetricCollection([CrossEntropy(), MIoU(num_classes)])
+
+        super().__init__(module=net, train_metrics=train_metrics, val_metrics=val_metrics)
+
+        # bind these to class for access during surgery tests
+        self.conv1 = conv1
+        self.conv2 = conv2
+
+
+class Mean(torch.nn.Module):
+
+    def forward(self, x):
+        return torch.mean(x, dim=1)
+
+
+class SimpleTransformerClassifier(ComposerClassifier):
+    """Transformer model for testing"""
+
+    def __init__(self, vocab_size: int = 100, num_classes: int = 2):
+        embedding = torch.nn.Embedding(vocab_size, 16)
+        transformer = torch.nn.TransformerEncoder(torch.nn.TransformerEncoderLayer(d_model=16,
+                                                                                   nhead=2,
+                                                                                   dim_feedforward=16,
+                                                                                   dropout=0.3),
+                                                  num_layers=2,
+                                                  norm=torch.nn.LayerNorm(16))
+        pooler = Mean()
+        dropout = torch.nn.Dropout(0.3)
+        classifier = torch.nn.Linear(16, num_classes)
+
+        net = torch.nn.Sequential(embedding, transformer, pooler, dropout, classifier)
+
+        super().__init__(module=net)
+
+        self.embedding = embedding
+        self.transformer = transformer
+        self.pooler = pooler
+        self.classifier = classifier
 
 
 class ConvModel(ComposerClassifier):

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
+import pathlib
 import tempfile
 import textwrap
 from typing import Callable, List, Optional, Union
@@ -276,17 +277,24 @@ class CheckpointSaver(Callback):  # noqa: D101
 
     def __init__(
         self,
-        folder: str = '{run_name}/checkpoints',
-        filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
-        remote_file_name: Optional[str] = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}.pt',
-        latest_filename: Optional[str] = 'latest-rank{rank}.pt',
-        latest_remote_file_name: Optional[str] = '{run_name}/checkpoints/latest-rank{rank}.pt',
+        folder: Union[str, pathlib.Path] = '{run_name}/checkpoints',
+        filename: Union[str, pathlib.Path] = 'ep{epoch}-ba{batch}-rank{rank}.pt',
+        remote_file_name: Optional[Union[str,
+                                         pathlib.Path]] = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}.pt',
+        latest_filename: Optional[Union[str, pathlib.Path]] = 'latest-rank{rank}.pt',
+        latest_remote_file_name: Optional[Union[str, pathlib.Path]] = '{run_name}/checkpoints/latest-rank{rank}.pt',
         save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = '1ep',
         *,
         overwrite: bool = False,
         num_checkpoints_to_keep: int = -1,
         weights_only: bool = False,
     ):
+        folder = str(folder)
+        filename = str(filename)
+        remote_file_name = str(remote_file_name) if remote_file_name is not None else None
+        latest_filename = str(latest_filename) if latest_filename is not None else None
+        latest_remote_file_name = str(latest_remote_file_name) if latest_remote_file_name is not None else None
+
         if not callable(save_interval):
             save_interval = checkpoint_periodically(save_interval)
         self.save_interval = save_interval

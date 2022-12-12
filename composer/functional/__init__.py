@@ -28,6 +28,7 @@ from composer.algorithms.fused_layernorm import apply_fused_layernorm
 from composer.algorithms.gated_linear_units import apply_gated_linear_units
 from composer.algorithms.ghost_batchnorm import apply_ghost_batchnorm
 from composer.algorithms.gradient_clipping import apply_gradient_clipping
+from composer.algorithms.gyro_dropout import apply_gyro_dropout
 from composer.algorithms.label_smoothing import smooth_labels
 from composer.algorithms.layer_freezing import freeze_layers
 from composer.algorithms.low_precision_layernorm import apply_low_precision_layernorm
@@ -67,4 +68,5 @@ __all__ = [
     'apply_squeeze_excite',
     'apply_stochastic_depth',
     'apply_weight_standardization',
+    'apply_gyro_dropout',
 ]

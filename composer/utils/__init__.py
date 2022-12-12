@@ -6,12 +6,14 @@ import warnings
 
 from composer.utils.batch_helpers import batch_get, batch_set
 from composer.utils.checkpoint import PartialFilePath, load_checkpoint, save_checkpoint
-from composer.utils.collect_env import configure_excepthook, disable_env_report, enable_env_report, print_env
+from composer.utils.collect_env import (configure_excepthook, disable_env_report, enable_env_report,
+                                        get_composer_env_dict, print_env)
 from composer.utils.device import get_device, is_tpu_installed
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
                                          create_symlink_file, ensure_folder_has_no_conflicting_files,
                                          ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time,
-                                         get_file, is_tar)
+                                         get_file, is_tar, maybe_create_object_store_from_uri,
+                                         maybe_create_remote_uploader_downloader_from_uri, parse_uri)
 from composer.utils.import_helpers import MissingConditionalImportError, import_object
 from composer.utils.inference import ExportFormat, Transform, export_for_inference, export_with_logger, quantize_dynamic
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_collection
@@ -27,14 +29,6 @@ def warn_yahp_deprecation() -> None:
         'yahp-based workflows are deprecated and will be removed in a future release. Please'
         'migrate to using other configuration managers and create the Trainer objects directly.'
         'v0.10 will be the last release to support yahp.',
-        DeprecationWarning,
-        stacklevel=2)
-
-
-def warn_streaming_dataset_deprecation(old_version: int, new_version: int) -> None:
-    warnings.warn(
-        f'streaming dataset version {old_version} is deprecated and will be removed in the future. '
-        f'Please migrate to using streaming dataset version {new_version}',
         DeprecationWarning,
         stacklevel=2)
 
@@ -70,12 +64,16 @@ __all__ = [
     'format_name_with_dist',
     'format_name_with_dist_and_time',
     'is_tar',
+    'maybe_create_object_store_from_uri',
+    'maybe_create_remote_uploader_downloader_from_uri',
+    'parse_uri',
     'batch_get',
     'batch_set',
     'configure_excepthook',
     'disable_env_report',
     'enable_env_report',
     'print_env',
+    'get_composer_env_dict',
     'retry',
     'model_eval_mode',
     'get_device',

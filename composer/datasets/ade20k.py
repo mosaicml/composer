@@ -8,9 +8,8 @@ dataset.
 """
 
 import os
-from io import BytesIO
 from math import ceil
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -20,12 +19,13 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
 from composer.core import DataSpec, MemoryFormat
-from composer.datasets.streaming import StreamingDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
-from composer.utils import MissingConditionalImportError, dist, warn_streaming_dataset_deprecation
+from composer.utils import MissingConditionalImportError, dist
 
-__all__ = ['ADE20k', 'StreamingADE20k']
+__all__ = [
+    'ADE20k', 'build_ade20k_dataloader', 'build_streaming_ade20k_dataloader', 'build_synthetic_ade20k_dataloader'
+]
 
 IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
 IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
@@ -81,7 +81,7 @@ def build_ade20k_transformations(split,
 
 
 def build_ade20k_dataloader(
-    batch_size: int,
+    global_batch_size: int,
     datadir: str,
     *,
     split: str = 'train',
@@ -97,8 +97,8 @@ def build_ade20k_dataloader(
     """Builds an ADE20k dataloader.
 
     Args:
+        global_batch_size (int): Global batch size.
         datadir (str): Path to location of dataset.
-        batch_size (int): Batch size per device.
         split (str): The dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
         drop_last (bool): Whether to drop last samples. Default: ``True``.
         shuffle (bool): Whether to shuffle the dataset. Default: ``True``.
@@ -110,6 +110,10 @@ def build_ade20k_dataloader(
             Default: ``true``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     both_transforms, image_transforms, target_transforms = build_ade20k_transformations(
         split=split,
         base_size=base_size,
@@ -140,10 +144,9 @@ def build_ade20k_dataloader(
 
 
 def build_streaming_ade20k_dataloader(
-    batch_size: int,
+    global_batch_size: int,
     remote: str,
     *,
-    version: int = 2,
     local: str = '/tmp/mds-cache/mds-ade20k/',
     split: str = 'train',
     drop_last: bool = True,
@@ -153,14 +156,20 @@ def build_streaming_ade20k_dataloader(
     max_resize_scale: float = 2.0,
     final_size: int = 512,
     ignore_background: bool = True,
-    **dataloader_kwargs,
+    predownload: Optional[int] = 100_000,
+    keep_zip: Optional[bool] = None,
+    download_retry: int = 2,
+    download_timeout: float = 60,
+    validate_hash: Optional[str] = None,
+    shuffle_seed: Optional[int] = None,
+    num_canonical_nodes: Optional[int] = None,
+    **dataloader_kwargs: Dict[str, Any],
 ):
     """Build an ADE20k streaming dataset.
 
     Args:
-        batch_size (int): Batch size per device.
+        global_batch_size (int): Global batch size.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-        version (int): Which version of streaming to use. Default: ``2``.
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-ade20k/```.
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
@@ -170,60 +179,78 @@ def build_streaming_ade20k_dataloader(
         final_size (int): The final size of the image and target. Default: ``512``.
         ignore_background (bool): If true, ignore the background class when calculating the training loss.
             Default: ``true``.
+        predownload (int, optional): Target number of samples ahead to download the shards of while
+            iterating. Defaults to ``100_000``.
+        keep_zip (bool, optional): Whether to keep or delete the compressed file when
+            decompressing downloaded shards. If set to None, keep iff remote is local. Defaults to
+            ``None``.
+        download_retry (int): Number of download re-attempts before giving up. Defaults to ``2``.
+        download_timeout (float): Number of seconds to wait for a shard to download before raising
+            an exception. Defaults to ``60``.
+        validate_hash (str, optional): Optional hash or checksum algorithm to use to validate
+            shards. Defaults to ``None``.
+        shuffle_seed (int, optional): Seed for shuffling, or ``None`` for random seed. Defaults to
+            ``None``.
+        num_canonical_nodes (int, optional): Canonical number of nodes for shuffling with resumption.
+            Defaults to ``None``, which is interpreted as the number of nodes of the initial run.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
-    if version == 1:
-        warn_streaming_dataset_deprecation(old_version=version, new_version=2)
-        dataset = StreamingADE20k(remote=remote,
-                                  local=local,
-                                  split=split,
-                                  shuffle=shuffle,
-                                  base_size=base_size,
-                                  min_resize_scale=min_resize_scale,
-                                  max_resize_scale=max_resize_scale,
-                                  final_size=final_size,
-                                  batch_size=batch_size)
-    elif version == 2:
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
 
-        try:
-            import streaming
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
+    try:
+        from streaming.vision import StreamingADE20K
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
 
-        # Build the sets of transformations for ADE20k
-        both_transforms, image_transforms, target_transforms = build_ade20k_transformations(
-            split=split,
-            base_size=base_size,
-            min_resize_scale=min_resize_scale,
-            max_resize_scale=max_resize_scale,
-            final_size=final_size)
+    # Build the sets of transformations for ADE20k
+    joint_transform, image_transform, target_transform = build_ade20k_transformations(
+        split=split,
+        base_size=base_size,
+        min_resize_scale=min_resize_scale,
+        max_resize_scale=max_resize_scale,
+        final_size=final_size,
+    )
 
-        dataset = streaming.vision.ADE20K(remote=remote,
-                                          local=local,
-                                          split=split,
-                                          shuffle=shuffle,
-                                          both_transforms=both_transforms,
-                                          transform=image_transforms,
-                                          target_transform=target_transforms,
-                                          batch_size=batch_size)
+    dataset = StreamingADE20K(
+        local=local,
+        remote=remote,
+        split=split,
+        shuffle=shuffle,
+        joint_transform=joint_transform,
+        transform=image_transform,
+        target_transform=target_transform,
+        predownload=predownload,
+        keep_zip=keep_zip,
+        download_retry=download_retry,
+        download_timeout=download_timeout,
+        validate_hash=validate_hash,
+        shuffle_seed=shuffle_seed,
+        num_canonical_nodes=num_canonical_nodes,
+        batch_size=batch_size,
+    )
 
-    else:
-        raise ValueError(f'Invalid streaming version: {version}')
+    dataloader = DataLoader(
+        dataset=dataset,
+        batch_size=batch_size,
+        collate_fn=pil_image_collate,
+        drop_last=drop_last,
+        **dataloader_kwargs,
+    )
 
-    dataloader = DataLoader(dataset=dataset,
-                            batch_size=batch_size,
-                            collate_fn=pil_image_collate,
-                            drop_last=drop_last,
-                            **dataloader_kwargs)
-    device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
-                                          std=IMAGENET_CHANNEL_STD,
-                                          ignore_background=ignore_background)
+    device_transform_fn = NormalizationFn(
+        mean=IMAGENET_CHANNEL_MEAN,
+        std=IMAGENET_CHANNEL_STD,
+        ignore_background=ignore_background,
+    )
 
     return DataSpec(dataloader=dataloader, device_transforms=device_transform_fn)
 
 
 def build_synthetic_ade20k_dataloader(
-    batch_size: int,
+    global_batch_size: int,
     *,
     split: str = 'train',
     drop_last: bool = True,
@@ -232,12 +259,12 @@ def build_synthetic_ade20k_dataloader(
     num_unique_samples: int = 100,
     device: str = 'cpu',
     memory_format: MemoryFormat = MemoryFormat.CONTIGUOUS_FORMAT,
-    **dataloader_kwargs,
+    **dataloader_kwargs: Dict[str, Any],
 ):
     """Builds a synthetic ADE20k dataloader.
 
     Args:
-        batch_size (int): Batch size per device.
+        batch_size (int): Global batch size.
         split (str): The dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
         drop_last (bool): Whether to drop last samples. Default: ``True``.
         shuffle (bool): Whether to shuffle the dataset. Default: ``True``.
@@ -247,6 +274,10 @@ def build_synthetic_ade20k_dataloader(
         memory_format (:class:`composer.core.MemoryFormat`): Memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     if split == 'train':
         total_dataset_size = 20_206
     elif split == 'val':
@@ -520,85 +551,3 @@ class ADE20k(Dataset):
 
     def __len__(self):
         return len(self.image_files)
-
-
-class StreamingADE20k(StreamingDataset):
-    """
-    Implementation of the ADE20k dataset using StreamingDataset.
-
-    Args:
-        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-        local (str): Local filesystem directory where dataset is cached during operation.
-        split (str): The dataset split to use, either 'train' or 'val'.
-        shuffle (bool): Whether to shuffle the samples in this dataset.
-        base_size (int): initial size of the image and target before other augmentations. Default: ``512``.
-        min_resize_scale (float): the minimum value the samples can be rescaled. Default: ``0.5``.
-        max_resize_scale (float): the maximum value the samples can be rescaled. Default: ``2.0``.
-        final_size (int): the final size of the image and target. Default: ``512``.
-        batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default: ``None``.
-    """
-
-    def decode_uid(self, data: bytes) -> str:
-        return data.decode('utf-8')
-
-    def decode_image(self, data: bytes) -> Image.Image:
-        return Image.open(BytesIO(data))
-
-    def decode_annotation(self, data: bytes) -> Image.Image:
-        return Image.open(BytesIO(data))
-
-    def __init__(self,
-                 remote: str,
-                 local: str,
-                 split: str,
-                 shuffle: bool,
-                 base_size: int = 512,
-                 min_resize_scale: float = 0.5,
-                 max_resize_scale: float = 2.0,
-                 final_size: int = 512,
-                 batch_size: Optional[int] = None):
-
-        # Validation
-        if split not in ['train', 'val']:
-            raise ValueError(f"split='{split}' must be one of ['train', 'val'].")
-        if base_size <= 0:
-            raise ValueError('base_size must be positive.')
-        if min_resize_scale <= 0:
-            raise ValueError('min_resize_scale must be positive')
-        if max_resize_scale <= 0:
-            raise ValueError('max_resize_scale must be positive')
-        if max_resize_scale < min_resize_scale:
-            raise ValueError('max_resize_scale cannot be less than min_resize_scale')
-        if final_size <= 0:
-            raise ValueError('final_size must be positive')
-
-        # Build StreamingDataset
-        decoders = {
-            'image': self.decode_image,
-            'annotation': self.decode_annotation,
-        }
-        super().__init__(remote=os.path.join(remote, split),
-                         local=os.path.join(local, split),
-                         shuffle=shuffle,
-                         decoders=decoders,
-                         batch_size=batch_size)
-
-        # Define custom transforms
-        self.both_transform, self.image_transform, self.target_transform = build_ade20k_transformations(
-            split=split,
-            base_size=base_size,
-            min_resize_scale=min_resize_scale,
-            max_resize_scale=max_resize_scale,
-            final_size=final_size)
-
-    def __getitem__(self, idx: int) -> Tuple[Any, Any]:
-        obj = super().__getitem__(idx)
-        x = obj['image']
-        y = obj['annotation']
-        if self.both_transform:
-            x, y = self.both_transform((x, y))
-        if self.image_transform:
-            x = self.image_transform(x)
-        if self.target_transform:
-            y = self.target_transform(y)
-        return x, y

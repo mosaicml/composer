@@ -77,15 +77,15 @@ install_requires = [
     'tqdm>=4.62.3,<5',
     'torchmetrics>=0.7.0,<0.10.0',
     'torch_optimizer>=0.3.0,<0.4',
-    'torchvision>=0.10.0',  # torchvision has strict pytorch requirements
-    'torch>=1.10,<1.13',
+    'torchvision>=0.11.0,<0.15',
+    'torch>=1.10.0,<1.14',
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<1.23.0',
     'psutil>=5.8.0,<6',
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
-    'packaging>=21.3.0,<22',
+    'packaging>=21.3.0,<23',
     'importlib-metadata>=5.0.0,<6',
 ]
 extra_deps = {}
@@ -103,7 +103,7 @@ extra_deps['dev'] = [
     'pytest==7.2.0',
     'toml==0.10.2',
     'ipython==7.32.0',
-    'ipykernel==6.16.2',
+    'ipykernel==6.19.2',
     'jupyter==1.0.0',
     'yamllint==1.28.0',
     'recommonmark==0.7.1',
@@ -113,9 +113,9 @@ extra_deps['dev'] = [
     # https://myst-parser.readthedocs.io/en/latest/sphinx/use.html?highlight=parser#include-markdown-files-into-an-rst-file
     'docutils==0.17.1',
     'sphinx_markdown_tables==0.0.17',
-    'sphinx-argparse==0.3.2',
-    'sphinxcontrib.katex==0.9.0',
-    'sphinxext.opengraph==0.6.3',
+    'sphinx-argparse==0.4.0',
+    'sphinxcontrib.katex==0.9.3',
+    'sphinxext.opengraph==0.7.3',
     'sphinxemoji==0.2.0',
     'furo==2022.9.29',
     'sphinx-copybutton==0.5.0',
@@ -124,20 +124,20 @@ extra_deps['dev'] = [
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.16.1',
-    'traitlets==5.5.0',
-    'nbsphinx==0.8.9',
-    'pandoc==2.2',
+    'traitlets==5.7.0',
+    'nbsphinx==0.8.10',
+    'pandoc==2.3',
     'pypandoc==1.10',
     'GitPython==3.1.28',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
-    'cryptography==38.0.3',
+    'cryptography==38.0.4',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
 ]
 
 extra_deps['deepspeed'] = [
-    'deepspeed==0.5.10',  # TODO should this be >=0.5.10,<0.6
+    'deepspeed==0.7.6',
 ]
 
 extra_deps['wandb'] = [
@@ -180,7 +180,7 @@ extra_deps['mlperf'] = [
 ]
 
 extra_deps['streaming'] = [
-    'mosaicml-streaming<0.2.*',
+    'mosaicml-streaming<0.3.*',
     'boto3>=1.21.45,<2',
     'paramiko>=2.11.0,<3',
 ]
