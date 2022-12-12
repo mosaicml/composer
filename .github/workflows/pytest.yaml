@@ -95,13 +95,12 @@ jobs:
 
           python -m coverage combine
           python -m coverage report
-          ls -al
-      # - name: Upload coverage report
-      #   uses: codecov/codecov-action@v3
-      #   with:
-      #     files: coverage/cpu_tests/coverage.xml,coverage/gpu_tests/coverage.xml,coverage/model_tests/coverage.xml
-      #     # Ignore codecov failures as the codecov server is not
-      #     # very reliable but we don't want to report a failure
-      #     # in the github UI just because the coverage report failed to
-      #     # be published.
-      #     fail_ci_if_error: false
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v3
+        with:
+          files: .coverage
+          # Ignore codecov failures as the codecov server is not
+          # very reliable but we don't want to report a failure
+          # in the github UI just because the coverage report failed to
+          # be published.
+          fail_ci_if_error: false
