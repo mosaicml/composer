@@ -29,7 +29,6 @@ __all__ = [
     'build_streaming_c4_dataloader',
     'build_cifar10_dataloader',
     'build_streaming_cifar10_dataloader',
-    'build_streaming_coco_dataloader',
     'build_ffcv_cifar10_dataloader',
     'build_synthetic_ade20k_dataloader',
     'build_synthetic_cifar10_dataloader',
