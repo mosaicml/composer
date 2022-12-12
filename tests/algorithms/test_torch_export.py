@@ -170,7 +170,7 @@ def test_surgery_onnx(
 
     # check onnx model
     onnx_model = onnx.load(onnx_path)
-    onnx.checker.check_model(onnx_model)
+    onnx.checker.check_model(onnx_model)  # type: ignore (third-party)
 
     # run inference
     ort_session = ort.InferenceSession(onnx_path)
