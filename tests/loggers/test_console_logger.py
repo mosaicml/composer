@@ -75,8 +75,8 @@ def test_console_logger_interval(console_logger_test_stream, console_logger_test
 
 @pytest.mark.parametrize('eval_interval_unit', ['ba', 'ep'])
 @pytest.mark.parametrize('max_duration_unit', ['ba', 'ep'])
-@pytest.mark.parametrize('eval_interval', [1, 2, 3])
-@pytest.mark.parametrize('max_duration', [8, 9, 10, 11])
+@pytest.mark.parametrize('eval_interval', [2, 3])
+@pytest.mark.parametrize('max_duration', [8, 9])
 def test_console_logger_interval_with_eval(console_logger_test_stream, console_logger_test_file_path, eval_interval,
                                            max_duration, eval_interval_unit, max_duration_unit):
 
@@ -92,7 +92,7 @@ def test_console_logger_interval_with_eval(console_logger_test_stream, console_l
                       progress_bar=False,
                       train_dataloader=DataLoader(RandomClassificationDataset(size=dataset_size),
                                                   batch_size=batch_size),
-                      eval_dataloader=DataLoader(RandomClassificationDataset()),
+                      eval_dataloader=DataLoader(RandomClassificationDataset(size=dataset_size), batch_size=batch_size),
                       max_duration=f'{max_duration}{max_duration_unit}')
     trainer.fit()
     console_logger_test_stream.flush()

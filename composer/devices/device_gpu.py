@@ -41,7 +41,7 @@ class DeviceGPU(Device):
     ):
         if not torch.cuda.is_available():
             raise ValueError('DeviceGPU cannot be created as torch.cuda is not available.')
-        if not device_id:
+        if device_id is None:
             device_id = dist.get_local_rank()
         self._device = torch.device(f'cuda:{device_id}')
         torch.cuda.set_device(self._device)
