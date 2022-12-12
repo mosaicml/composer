@@ -23,26 +23,26 @@ jobs:
     strategy:
       matrix:
         include:
-          # - name: 'cpu-3.8-1.11'
-          #   container: mosaicml/pytorch:1.11.0_cpu-python3.8-ubuntu20.04
-          #   markers: 'not gpu and not vision'
-          #   pytest_command: 'coverage run -m pytest'
-          # - name: 'cpu-3.9-1.12'
-          #   container: mosaicml/pytorch:1.12.1_cpu-python3.9-ubuntu20.04
-          #   markers: 'not gpu and not vision'
-          #   pytest_command: 'coverage run -m pytest'
-          # - name: 'cpu-3.10-1.13'
-          #   container: mosaicml/pytorch:1.13.0_cpu-python3.10-ubuntu20.04
-          #   markers: 'not gpu and not vision'
-          #   pytest_command: 'coverage run -m pytest'
-          # - name: 'cpu-vision'
-          #   container: mosaicml/pytorch_vision:latest
-          #   markers: 'not gpu and vision'
-          #   pytest_command: 'coverage run -m pytest'
-          - name: 'cpu-debug'
-            container: mosaicml/pytorch_vision:latest
-            markers: 'not gpu and not vision and not daily and not doctest and remote'
+          - name: 'cpu-3.8-1.11'
+            container: mosaicml/pytorch:1.11.0_cpu-python3.8-ubuntu20.04
+            markers: 'not gpu and not vision'
             pytest_command: 'coverage run -m pytest'
+          - name: 'cpu-3.9-1.12'
+            container: mosaicml/pytorch:1.12.1_cpu-python3.9-ubuntu20.04
+            markers: 'not gpu and not vision'
+            pytest_command: 'coverage run -m pytest'
+          - name: 'cpu-3.10-1.13'
+            container: mosaicml/pytorch:1.13.0_cpu-python3.10-ubuntu20.04
+            markers: 'not gpu and not vision'
+            pytest_command: 'coverage run -m pytest'
+          - name: 'cpu-vision'
+            container: mosaicml/pytorch_vision:latest
+            markers: 'not gpu and vision'
+            pytest_command: 'coverage run -m pytest'
+          # - name: 'cpu-debug'
+          #   container: mosaicml/pytorch_vision:latest
+          #   markers: 'not gpu and not vision and not daily and not doctest and remote'
+          #   pytest_command: 'coverage run -m pytest'
     container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@v2
