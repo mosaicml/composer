@@ -1214,9 +1214,15 @@ class Trainer:
             )
         if len(evaluators) == 0:
             if eval_subset_num_batches != -1:
-                raise ValueError('Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.')
+                raise ValueError(
+                    f'Specifying `eval_subset_num_batches={eval_subset_num_batches}` without an `eval_dataloader` '
+                    'has no effect. If trying to run an evaluator, make sure `eval_dataloader` is specified. '
+                    'Otherwise, set `eval_subset_num_batches` to default value -1.')
             if eval_interval != 1:
-                raise ValueError('Specifying `eval_interval` without an `eval_dataloader` has no effect.')
+                raise ValueError(
+                    f'Specifying `eval_interval={eval_interval}` without an `eval_dataloader` has no effect. '
+                    'If trying to run an evaluator, make sure `eval_dataloader` is specified. Otherwise, '
+                    'set `eval_interval` to default value 1.')
 
         self.state.evaluators = evaluators
 
@@ -1825,24 +1831,28 @@ class Trainer:
         Only one batch must be loaded to seed the sampler's generator. since only the first batch is being loaded, the
         dataloader may not be completely iterated through.
         """
+        log.debug('Spinning the dataloaders')
+
         # spin the evaluator dataloaders once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
-        log.debug('Spinning the dataloaders')
+        eval_state = self.state.dataset_resumption.get('eval', {})
         for evaluator in self.state.evaluators:
             dataloader = evaluator.dataloader.dataloader
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                 dataloader.sampler.set_epoch(0)
-            for _ in dataloader:
-                break
+            if evaluator.label not in eval_state:
+                for _ in dataloader:
+                    break
 
         # spin the train dataloader's sampler to get to the state of the desired epoch
         dataloader = self.state.dataloader
         assert dataloader is not None, 'train dataloader is set on state after FIT_START'
-        for epoch in range(int(self.state.timestamp.epoch)):
-            if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
-                dataloader.sampler.set_epoch(epoch)
-            for _ in dataloader:
-                break
+        if 'train' not in self.state.dataset_resumption:
+            for epoch in range(int(self.state.timestamp.epoch)):
+                if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
+                    dataloader.sampler.set_epoch(epoch)
+                for _ in dataloader:
+                    break
 
     def _accumulate_time_across_ranks(
         self,
@@ -1903,8 +1913,9 @@ class Trainer:
                     dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
 
                 for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
-                    # if resuming, skip dataloader forward to the minibatch index
-                    if batch_idx < int(self.state.timestamp.batch_in_epoch):
+                    # Don't spin if dataloader handles it internally. Otherwise, if resuming, skip dataloader forward
+                    if 'train' not in self.state.dataset_resumption and batch_idx < int(
+                            self.state.timestamp.batch_in_epoch):
                         # Restore the RNG state immediately before the next batch is yielded from the dataloader
                         if batch_idx + 1 == int(self.state.timestamp.batch_in_epoch) and self._rng_state is not None:
                             reproducibility.load_rng_state(self._rng_state)

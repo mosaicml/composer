@@ -124,7 +124,7 @@ class TestTrainerInitOrFit:
 
     @pytest.fixture
     def train_dataloader(self):
-        dataset = RandomClassificationDataset()
+        dataset = RandomClassificationDataset(size=10)
         return DataLoader(dataset=dataset, batch_size=2, sampler=dist.get_sampler(dataset))
 
     @pytest.fixture
@@ -672,7 +672,7 @@ class TestTrainerInitOrFit:
         eval_interval: str,
     ):
         # Construct the trainer with a callback that sleeps during evaluation
-        sleep_duration = datetime.timedelta(seconds=0.5)
+        sleep_duration = datetime.timedelta(seconds=0.05)
         sleepy_callback = SleepyCallback(
             sleep_duration=sleep_duration,
             event=Event.EVAL_AFTER_FORWARD,
@@ -905,8 +905,8 @@ class TestTrainerEquivalence():
     def config(self, device: Device, precision: Precision, world_size: int, rank_zero_seed: int):
         """Returns the reference config."""
 
-        train_dataset = RandomClassificationDataset()
-        eval_dataset = RandomClassificationDataset()
+        train_dataset = RandomClassificationDataset(size=16)
+        eval_dataset = RandomClassificationDataset(size=16)
 
         return {
             'model':

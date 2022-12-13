@@ -81,7 +81,7 @@ The above code, when run, will produce the checkpoints below:
     >>> list(state_dict)
     ['state', 'rng']
     >>> list(state_dict['state'].keys())
-    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timestamp', 'rank_zero_seed', 'train_metrics', 'eval_metrics', 'run_name', 'integrations', 'metadata']
+    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timestamp', 'rank_zero_seed', 'train_metrics', 'eval_metrics', 'run_name', 'dataset_state', 'integrations', 'metadata']
 
 Resume training
 ---------------
@@ -162,6 +162,8 @@ state from the checkpoint are not compatible with these new objects.
     | eval_metrics          | The current validation metrics.                             |
     +-----------------------+-------------------------------------------------------------+
     | run_name              | The run name for training.                                  |
+    +-----------------------+-------------------------------------------------------------+
+    | dataset_state         | The dataset iteration state.                                |
     +-----------------------+-------------------------------------------------------------+
 
     All other trainer arguments (e.g. ``max_duration`` or ``precision``) will use either the defaults
@@ -297,13 +299,16 @@ and then the :class:`.RemoteUploaderDownloader` logger will upload checkpoints t
 
 Behind the scenes, the :class:`.RemoteUploaderDownloader` uses :doc:`Apache Libcloud <libcloud:storage/index>`.
 
-The easiest way to upload checkpoints to S3 is to prefix your ``save_folder``  with ``'s3://'``. All other
+The easiest way to upload checkpoints to S3 or OCI is to prefix your ``save_folder``  with ``'s3://'`` or ``'oci://'``. All other
 checkpoint arguments remain the same. For example, ``save_filename`` will be the name of the checkpoint file
-that gets uploaded to the S3 URI that you specified.
+that gets uploaded to the S3 or OCI URI that you specified.
 
+For example, for S3:
 .. testcode::
+
     from composer.trainer import Trainer
 
+    # Save checkpoints every epoch to s3://my_bucket/checkpoints
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
@@ -317,11 +322,36 @@ that gets uploaded to the S3 URI that you specified.
 
     trainer.fit()
 
-
 This will train your model, saving the checkpoints locally, upload them to the S3 Bucket `my_bucket`,
 and delete the checkpoints from the local disk. The checkpoints will be located on S3 inside your bucket as
 `checkpoints/ep3.pt` for third epoch's checkpoints, for example. The full URI in this case would be:
 `s3://my_bucket/checkpoints/ep3.pt`.
+
+Similarly for OCI:
+.. testcode::
+
+    from composer.trainer import Trainer
+
+    # Save checkpoints every epoch to oci://my_bucket/checkpoints
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration='10ep',
+        save_folder='oci://my_bucket/checkpoints',
+        save_interval='1ep',
+        save_overwrite=True,
+        save_filename='ep{epoch}.pt',
+        save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
+    )
+
+    trainer.fit()
+
+This will train your model, saving the checkpoints locally, upload them to the OCI Bucket `my_bucket`,
+and delete the checkpoints from the local disk. The checkpoints will be located on OCI inside your bucket as
+`checkpoints/ep3.pt` for third epoch's checkpoints, for example. The full URI in this case would be:
+`oci://my_bucket/checkpoints/ep3.pt`.
+
+There are a few additional trainer arguments which can be helpful to configure:
 
 *   ``save_num_checkpoints_to_keep``: Set this parameter to remove checkpoints from the local disk after they have been
     uploaded. For example, setting this parameter to 1 will only keep the latest checkpoint locally; setting it to 0
@@ -372,11 +402,6 @@ GCS.
     *   :doc:`Full list of object store providers <libcloud:storage/supported_providers>`
     *   :class:`~.RemoteUploaderDownloader`
 
-There are a few additional trainer arguments which can be helpful to configure:
-
-*   ``save_num_checkpoints_to_keep``: Set this parameter to remove checkpoints from the local disk after they have been
-    uploaded. For example, setting this parameter to 1 will only keep the latest checkpoint locally; setting it to 0
-    will remove each checkpoint after it has been uploaded. Checkpoints are never deleted from object stores.
 
 
 Saving Checkpoints to Google Cloud Storage (GCS)
@@ -498,8 +523,8 @@ should be the path to the checkpoint file *within the container/bucket*.
 
     new_trainer.fit()
 
-An easier way to load checkpoints from S3 specifically is to just use a URI starting with ``s3://``.
-If you use the S3 URI, it is not necessary to specify a ``load_object_store``. Note, that for other
+An easier way to load checkpoints from S3 or OCI specifically is to just use a URI starting with ``s3://`` or ``oci://``.
+If you use the S3 or OCI URI, it is not necessary to specify a ``load_object_store``. Note, that for other
 object stores like WandB or LibCloud, you must still specify a ``load_object_store``.
 
 .. testcode::
@@ -516,6 +541,21 @@ object stores like WandB or LibCloud, you must still specify a ``load_object_sto
 
 This will load the first epoch's checkpoints from S3 and resume training in the second epoch.
 
+Similarly for OCI:
+
+.. testcode::
+    :skipif: not _LIBCLOUD_INSTALLED
+
+    new_trainer = Trainer(
+    model=model,
+    train_dataloader=train_dataloader,
+    max_duration="10ep",
+    load_path="oci://checkpoint-debugging/checkpoints/ep1.pt",
+    )
+
+    new_trainer.fit()
+
+This will load the first epoch's checkpoints from OCI and resume training in the second epoch.
 
 Loading Checkpoints from Google Cloud Storage (GCS)
 ---------------------------------------------------

@@ -66,10 +66,8 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    examples/pretrain_finetune_huggingface.ipynb
    examples/migrate_from_ptl.ipynb
    examples/early_stopping.ipynb
-   examples/streaming_dataloader_facesynthetics.ipynb
    examples/auto_microbatching.ipynb
    examples/checkpoint_autoresume.ipynb
-   examples/training_without_local_storage.ipynb
    examples/exporting_for_inference.ipynb
    examples/TPU_Training_in_composer.ipynb
    tutorials/train_resnet50_on_aws.md

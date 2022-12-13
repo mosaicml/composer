@@ -9,25 +9,21 @@ The CIFAR datasets are a collection of labeled 32x32 colour images. Please refer
 
 import os
 import textwrap
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
-import numpy as np
 import torch
-from PIL import Image
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-from torchvision.datasets import VisionDataset
 
 from composer.core import DataSpec, MemoryFormat
 from composer.datasets.ffcv_utils import write_ffcv_dataset
-from composer.datasets.streaming import StreamingDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import pil_image_collate
-from composer.utils import MissingConditionalImportError, dist, warn_streaming_dataset_deprecation
+from composer.utils import MissingConditionalImportError, dist
 
 __all__ = [
     'build_cifar10_dataloader', 'build_ffcv_cifar10_dataloader', 'build_streaming_cifar10_dataloader',
-    'build_synthetic_cifar10_dataloader', 'StreamingCIFAR10'
+    'build_synthetic_cifar10_dataloader'
 ]
 
 CIFAR10_CHANNEL_MEAN = 0.4914, 0.4822, 0.4465
@@ -248,60 +244,84 @@ def build_streaming_cifar10_dataloader(
     global_batch_size: int,
     remote: str,
     *,
-    version: int = 2,
     local: str = '/tmp/mds-cache/mds-cifar10',
     split: str = 'train',
     drop_last: bool = True,
     shuffle: bool = True,
-    **dataloader_kwargs,
+    predownload: Optional[int] = 100_000,
+    keep_zip: Optional[bool] = None,
+    download_retry: int = 2,
+    download_timeout: float = 60,
+    validate_hash: Optional[str] = None,
+    shuffle_seed: Optional[int] = None,
+    num_canonical_nodes: Optional[int] = None,
+    **dataloader_kwargs: Dict[str, Any],
 ) -> DataSpec:
     """Builds a streaming CIFAR10 dataset
 
     Args:
         global_batch_size (int): Global batch size.
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-        version (int, optional): Which version of streaming to use. Default: ``2``.
         local (str, optional): Local filesystem directory where dataset is cached during operation.
             Defaults to ``'/tmp/mds-cache/mds-imagenet1k/```.
         split (str): Which split of the dataset to use. Either ['train', 'val']. Default:
             ``'train```.
         drop_last (bool, optional): whether to drop last samples. Default: ``True``.
         shuffle (bool, optional): whether to shuffle dataset. Defaults to ``True``.
+        predownload (int, optional): Target number of samples ahead to download the shards of while
+            iterating. Defaults to ``100_000``.
+        keep_zip (bool, optional): Whether to keep or delete the compressed file when
+            decompressing downloaded shards. If set to None, keep iff remote is local. Defaults to
+            ``None``.
+        download_retry (int): Number of download re-attempts before giving up. Defaults to ``2``.
+        download_timeout (float): Number of seconds to wait for a shard to download before raising
+            an exception. Defaults to ``60``.
+        validate_hash (str, optional): Optional hash or checksum algorithm to use to validate
+            shards. Defaults to ``None``.
+        shuffle_seed (int, optional): Seed for shuffling, or ``None`` for random seed. Defaults to
+            ``None``.
+        num_canonical_nodes (int, optional): Canonical number of nodes for shuffling with resumption.
+            Defaults to ``None``, which is interpreted as the number of nodes of the initial run.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
     if global_batch_size % dist.get_world_size() != 0:
         raise ValueError(
             f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
     batch_size = global_batch_size // dist.get_world_size()
-    if version == 1:
-        warn_streaming_dataset_deprecation(old_version=version, new_version=2)
-        dataset = StreamingCIFAR10(remote=remote, local=local, split=split, shuffle=shuffle, batch_size=batch_size)
-    elif version == 2:
-        try:
-            from streaming.vision import CIFAR10
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
-        transform = []
-        if split == 'train':
-            transform = transforms.Compose([
-                transforms.RandomCrop(32, padding=4),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize(CIFAR10_CHANNEL_MEAN, CIFAR10_CHANNEL_STD),
-            ])
-        else:
-            transform = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize(CIFAR10_CHANNEL_MEAN, CIFAR10_CHANNEL_STD),
-            ])
-        dataset = CIFAR10(local=local,
-                          remote=remote,
-                          split=split,
-                          shuffle=shuffle,
-                          transform=transform,
-                          batch_size=batch_size)
+
+    try:
+        from streaming.vision import StreamingCIFAR10
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='mosaicml-streaming') from e
+
+    if split == 'train':
+        transform = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize(CIFAR10_CHANNEL_MEAN, CIFAR10_CHANNEL_STD),
+        ])
     else:
-        raise ValueError(f'Invalid streaming version: {version}')
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(CIFAR10_CHANNEL_MEAN, CIFAR10_CHANNEL_STD),
+        ])
+
+    dataset = StreamingCIFAR10(
+        local=local,
+        remote=remote,
+        split=split,
+        shuffle=shuffle,
+        transform=transform,
+        predownload=predownload,
+        keep_zip=keep_zip,
+        download_retry=download_retry,
+        download_timeout=download_timeout,
+        validate_hash=validate_hash,
+        shuffle_seed=shuffle_seed,
+        num_canonical_nodes=num_canonical_nodes,
+        batch_size=batch_size,
+    )
 
     dataloader = DataLoader(
         dataset=dataset,
@@ -313,89 +333,3 @@ def build_streaming_cifar10_dataloader(
     )
 
     return DataSpec(dataloader=dataloader)
-
-
-class StreamingCIFAR10(StreamingDataset, VisionDataset):
-    """
-    Implementation of the CIFAR10 dataset using StreamingDataset.
-
-    Args:
-        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-        local (str): Local filesystem directory where dataset is cached during operation.
-        split (str): The dataset split to use, either 'train' or 'val'.
-        shuffle (bool): Whether to shuffle the samples in this dataset.
-        batch_size (Optional[int]): Hint batch_size that will be used on each device's DataLoader. Default: ``None``.
-    """
-
-    def decode_image(self, data: bytes) -> Image.Image:
-        """Decode the sample image.
-
-        Args:
-            data (bytes): The raw bytes.
-
-        Returns:
-            Image: PIL image encoded by the bytes.
-        """
-        arr = np.frombuffer(data, np.uint8)
-        arr = arr.reshape(32, 32, 3)
-        return Image.fromarray(arr)
-
-    def decode_class(self, data: bytes) -> np.int64:
-        """Decode the sample class.
-
-        Args:
-            data (bytes): The raw bytes.
-
-        Returns:
-            np.int64: The class encoded by the bytes.
-        """
-        return np.frombuffer(data, np.int64)[0]
-
-    def __init__(self, remote: str, local: str, split: str, shuffle: bool, batch_size: Optional[int] = None):
-        # Build StreamingDataset
-        decoders = {
-            'x': self.decode_image,
-            'y': self.decode_class,
-        }
-        super().__init__(remote=os.path.join(remote, split),
-                         local=os.path.join(local, split),
-                         shuffle=shuffle,
-                         decoders=decoders,
-                         batch_size=batch_size)
-
-        # Validation
-        if split not in ['train', 'val']:
-            raise ValueError(f"split='{split}' must be one of ['train', 'val'].")
-
-        # Define custom transforms
-        channel_means = 0.4914, 0.4822, 0.4465
-        channel_stds = 0.247, 0.243, 0.261
-        if split == 'train':
-            transform = transforms.Compose([
-                transforms.RandomCrop(32, 4),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize(channel_means, channel_stds),
-            ])
-        else:
-            transform = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize(channel_means, channel_stds),
-            ])
-        VisionDataset.__init__(self, root=local, transform=transform)
-
-    def __getitem__(self, idx: int) -> Any:
-        """Get the decoded and transformed (image, class) pair by ID.
-
-        Args:
-            idx (int): Sample ID.
-
-        Returns:
-            Any: Pair of (x, y) for this sample.
-        """
-        obj = super().__getitem__(idx)
-        x = obj['x']
-        assert self.transform is not None, 'transform set in __init__'
-        x = self.transform(x)
-        y = obj['y']
-        return x, y

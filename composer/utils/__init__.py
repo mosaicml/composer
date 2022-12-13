@@ -18,8 +18,8 @@ from composer.utils.import_helpers import MissingConditionalImportError, import_
 from composer.utils.inference import ExportFormat, Transform, export_for_inference, export_with_logger, quantize_dynamic
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_collection
 from composer.utils.misc import get_free_tcp_port, is_model_deepspeed, is_model_fsdp, is_notebook, model_eval_mode
-from composer.utils.object_store import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, S3ObjectStore,
-                                         SFTPObjectStore)
+from composer.utils.object_store import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, OCIObjectStore,
+                                         S3ObjectStore, SFTPObjectStore)
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
 
@@ -29,14 +29,6 @@ def warn_yahp_deprecation() -> None:
         'yahp-based workflows are deprecated and will be removed in a future release. Please'
         'migrate to using other configuration managers and create the Trainer objects directly.'
         'v0.10 will be the last release to support yahp.',
-        DeprecationWarning,
-        stacklevel=2)
-
-
-def warn_streaming_dataset_deprecation(old_version: int, new_version: int) -> None:
-    warnings.warn(
-        f'streaming dataset version {old_version} is deprecated and will be removed in the future. '
-        f'Please migrate to using streaming dataset version {new_version}',
         DeprecationWarning,
         stacklevel=2)
 
@@ -56,6 +48,7 @@ __all__ = [
     'LibcloudObjectStore',
     'S3ObjectStore',
     'SFTPObjectStore',
+    'OCIObjectStore',
     'MissingConditionalImportError',
     'import_object',
     'is_model_deepspeed',
