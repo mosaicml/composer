@@ -1669,6 +1669,7 @@ class Trainer:
 
         # Max Duration
         if duration is not None:
+            log.info(str(duration))
             duration = ensure_time(duration, TimeUnit.EPOCH)
             # Effectively increment the max duration (if not resetting the Time)
             # or set the max_duration (if resetting the time -- self.state.timestamp.get(duration.unit) will be 0)
