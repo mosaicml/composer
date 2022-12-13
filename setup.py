@@ -190,7 +190,7 @@ extra_deps['libcloud'] = [
 ]
 
 extra_deps['oci'] = [
-    'oci>=oci-2.88.2',
+    'oci>=2.88.2,<3.0.0',
 ]
 
 extra_deps['onnx'] = [
