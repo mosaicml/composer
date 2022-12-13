@@ -57,8 +57,8 @@ reportUnusedCoroutine = "error"
 
 # Pytest
 [tool.pytest.ini_options]
-# By default, do not run gpu, vision, notebook, or daily tests
-addopts = "--codeblocks --strict-markers -m 'not gpu and not vision and not daily and not remote'"
+# By default, do not run gpu, vision, docs, notebook, or daily tests
+addopts = "--codeblocks --strict-markers -m 'not gpu and not vision and not doctest and not daily and not remote'"
 
 markers = [
     # !!!!!!!!!!!IMPORTANT!!!!!!!!!: when updating the markers, also make sure to update .ci/Jenkinsfile and meta.yaml
@@ -70,6 +70,8 @@ markers = [
     "gpu",
     # Whether the test should run in a container based on the vision dockerimage, which contains ffcv and opencv
     "vision",
+    # Tests which are run as part of the documentation build
+    "doctest",
     # Should be run during daily regression
     "daily",
     # Whether the test will be reading data from a remote source, and may require credentials
