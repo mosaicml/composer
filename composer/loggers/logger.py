@@ -64,7 +64,6 @@ class Logger:
         if step is None:
             step = self._state.timestamp.batch.value
         for destination in self.destinations:
-
             destination.log_metrics(metrics, step)
 
     def log_images(
