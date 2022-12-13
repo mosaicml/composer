@@ -1650,7 +1650,6 @@ class Trainer:
             device_train_microbatch_size (int | str, optional): See :class:`.Trainer`.
             precision (Precision | str, optional): See :class:`.Trainer`.
         """
-        log.info(f'Duration: {duration}, train_subset_num_batches: {train_subset_num_batches}')
         # Train Dataloader
         if train_dataloader is not None:
             self._train_data_spec = ensure_data_spec(train_dataloader)
