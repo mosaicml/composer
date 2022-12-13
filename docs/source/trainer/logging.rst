@@ -24,7 +24,7 @@ arguments in :class:`.Trainer`, like the following code, which will log metrics 
 
 To attach other loggers, use the ``loggers`` argument. For example, the
 below logs the results to `Weights and
-Biases <https://www.wandb.com/>`__, and `CometML <https://www.comet.com/?utm_source=mosaicml&utm_medium=partner&utm_campaign=mosaicml_comet_integration>`__,
+Biases <https://www.wandb.com/>`__, `MLFlow <https://www.mlflow.org/docs/latest/index.html>`__, and `CometML <https://www.comet.com/?utm_source=mosaicml&utm_medium=partner&utm_campaign=mosaicml_comet_integration>`__,
 and also saves them to the file
 ``log.txt``.
 
@@ -40,17 +40,18 @@ and also saves them to the file
     :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED
 
     from composer import Trainer
-    from composer.loggers import WandBLogger, CometMLLogger, FileLogger
+    from composer.loggers import WandBLogger, CometMLLogger, MLFlowLogger, FileLogger
 
     wandb_logger = WandBLogger()
     cometml_logger = CometMLLogger()
+    mlflow_logger = MLFlowLogger()
     file_logger = FileLogger(filename="log.txt")
 
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
         eval_dataloader=eval_dataloader,
-        loggers=[wandb_logger, cometml_logger, file_logger],
+        loggers=[wandb_logger, cometml_logger, mlflow_logger, file_logger],
     )
 
 .. testcleanup::
@@ -69,6 +70,7 @@ Available Loggers
 
     ~file_logger.FileLogger
     ~wandb_logger.WandBLogger
+    ~mlflow_logger.MLFlowLogger
     ~cometml_logger.CometMLLogger
     ~progress_bar_logger.ProgressBarLogger
     ~tensorboard_logger.TensorboardLogger
