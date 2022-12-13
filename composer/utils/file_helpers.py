@@ -326,6 +326,8 @@ def parse_uri(uri: str) -> Tuple[str, str, str]:
 def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     """Automatically creates an :class:`composer.utils.ObjectStore` from supported URI formats.
 
+    Currently supported backends are ``s3://``, ``oci://``, and local paths (in which case ``None`` will be returned)
+
     Args:
         uri (str): The path to (maybe) create an :class:`composer.utils.ObjectStore` from
 
@@ -353,6 +355,8 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
 def maybe_create_remote_uploader_downloader_from_uri(
         uri: str, loggers: List[LoggerDestination]) -> Optional['RemoteUploaderDownloader']:
     """Automatically creates a :class:`composer.loggers.RemoteUploaderDownloader` from supported URI formats.
+
+    Currently supported backends are ``s3://``, ``oci://``, and local paths (in which case ``None`` will be returned)
 
     Args:
         uri (str):The path to (maybe) create a :class:`composer.loggers.RemoteUploaderDownloader` from
@@ -405,7 +409,8 @@ def get_file(
             *   If ``object_store`` is not specified but the ``path`` begins with ``http://`` or ``https://``,
                 the object at this URL will be downloaded.
 
-            *   If ``object_store`` is not specified, but the ``path`` begins with ``s3://``, an :class:`composer.utils.S3ObjectStore`
+            *   If ``object_store`` is not specified, but the ``path`` begins with ``s3://``, or another backend
+                supported by :meth:`composer.utils.maybe_create_object_store_from_uri` an appropriate object store
                 will be created and used.
 
             *   Otherwise, ``path`` is presumed to be a local filepath.
