@@ -92,7 +92,7 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
         pytest.skip('The FFCV notebook requires CUDA')
     if notebook_name != 'pretrain_finetune_huggingface':
         pytest.skip('TODO: DELETE THIS SKIP!!')
-    with testbook.testbook(notebook) as tb:
+    with testbook.testbook(notebook, timeout=180) as tb:
         tb.inject(trainer_monkeypatch_code)
         tb.inject('patch_notebooks()')
         for i, cell in enumerate(tb.cells):
