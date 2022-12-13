@@ -50,6 +50,7 @@ def patch_notebooks():
         if 'eval_dataloader' in kwargs:
             if 'eval_subset_num_batches' not in kwargs:
                 kwargs['eval_subset_num_batches'] = 1
+        print(f'Duration: {kwargs["duration"]}, train_subset_num_batches: {kwargs["train_subset_num_batches"]}')
         original_fit(self, *args, **kwargs)
 
     Trainer.fit = new_fit
@@ -91,6 +92,8 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
         pytest.skip('The CI does not support tpus')
     if notebook_name == 'ffcv_dataloaders' and device == 'cpu':
         pytest.skip('The FFCV notebook requires CUDA')
+    if notebook_name != 'pretrain_finetune_huggingface':
+        pytest.skip('TODO: DELETE THIS SKIP!!')
     with testbook.testbook(notebook) as tb:
         tb.inject(trainer_monkeypatch_code)
         tb.inject('patch_notebooks()')
