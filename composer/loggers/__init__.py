@@ -26,6 +26,15 @@ from composer.loggers.wandb_logger import WandBLogger
 
 # All needs to be defined properly for sphinx autosummary
 __all__ = [
-    'Logger', 'LoggerDestination', 'FileLogger', 'InMemoryLogger', 'ProgressBarLogger', 'WandBLogger',
-    'RemoteUploaderDownloader', 'TensorboardLogger', 'CometMLLogger', 'ConsoleLogger', 'MLFlowLogger',
+    'Logger',
+    'LoggerDestination',
+    'FileLogger',
+    'InMemoryLogger',
+    'ProgressBarLogger',
+    'WandBLogger',
+    'RemoteUploaderDownloader',
+    'TensorboardLogger',
+    'CometMLLogger',
+    'ConsoleLogger',
+    'MLFlowLogger',
 ]
