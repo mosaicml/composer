@@ -25,7 +25,7 @@ class MLFlowLogger(LoggerDestination):
         tracking_uri (str | pathlib.Path, optional): MLFlow tracking uri, the URI to the
             remote or local endpoint where logs are stored (If none it is set to `./mlruns`)
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process
-            (default: ``False``).
+            (default: ``True``).
     """
 
     def __init__(
@@ -68,8 +68,7 @@ class MLFlowLogger(LoggerDestination):
             if self.tracking_uri is not None:
                 mlflow.set_tracking_uri(self.tracking_uri)
             mlflow.set_experiment(self.experiment_name)
-            mlflow.start_run()
-            mlflow.set_tag('mlflow.runName', self.run_name)
+            mlflow.start_run(run_name=self.run_name)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         import mlflow

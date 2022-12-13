@@ -38,7 +38,7 @@ class CometMLLogger(LoggerDestination):
         name (str, optional): The name of your experiment. If not specified, it will be set
             to :attr:`.State.run_name`.
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process.
-            (default: ``False``).
+            (default: ``True``).
         exp_kwargs (Dict[str, Any], optional): Any additional kwargs to
             comet_ml.Experiment(see
             `Comet documentation <https://www.comet.com/docs/v2/api-and-sdk/python-sdk/reference/Experiment/?utm_source=mosaicml&utm_medium=partner&utm_campaign=mosaicml_comet_integration>`_).
