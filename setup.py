@@ -85,7 +85,7 @@ install_requires = [
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
-    'packaging>=21.3.0,<22',
+    'packaging>=21.3.0,<23',
     'importlib-metadata>=5.0.0,<6',
 ]
 extra_deps = {}
@@ -103,7 +103,7 @@ extra_deps['dev'] = [
     'pytest==7.2.0',
     'toml==0.10.2',
     'ipython==7.32.0',
-    'ipykernel==6.16.2',
+    'ipykernel==6.19.2',
     'jupyter==1.0.0',
     'yamllint==1.28.0',
     'recommonmark==0.7.1',
@@ -124,7 +124,7 @@ extra_deps['dev'] = [
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.16.1',
-    'traitlets==5.6.0',
+    'traitlets==5.7.0',
     'nbsphinx==0.8.10',
     'pandoc==2.3',
     'pypandoc==1.10',
