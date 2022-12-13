@@ -13,7 +13,7 @@ import yaml
 from composer.core.time import Time, TimeUnit
 from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import dist, extract_hparams
+from composer.utils import dist, extract_hparams, convert_flat_dict_to_nested_dict
 
 if TYPE_CHECKING:
     from composer.core import State
@@ -75,6 +75,7 @@ class ConsoleLogger(LoggerDestination):
         self.logged_hparams.update(hyperparameters)
 
     def _log_hparams_to_console(self):
+        self.logged_hparams = convert_flat_dict_to_nested_dict(self.logged_hparams)
         if dist.get_local_rank() == 0:
             self._log_to_console('*' * 30)
             self._log_to_console('Config:')

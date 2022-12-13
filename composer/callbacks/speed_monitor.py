@@ -9,6 +9,7 @@ from typing import Any, Deque, Dict
 
 from composer.core import Callback, State
 from composer.loggers import Logger
+from composer.utils import extract_hparams
 
 __all__ = ['SpeedMonitor']
 
@@ -70,6 +71,8 @@ class SpeedMonitor(Callback):
 
         # Keep track of time spent evaluating
         self.total_eval_wct = 0.0
+        self.local_hparams = extract_hparams(locals())
+        
 
     def state_dict(self) -> Dict[str, Any]:
         return {

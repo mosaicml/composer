@@ -12,7 +12,7 @@ import numpy as np
 import torch
 from torch import nn
 from torchvision.utils import draw_segmentation_masks
-
+from composer.utils import extract_hparams
 from composer.core.state import State
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
@@ -54,6 +54,7 @@ class CometMLLogger(LoggerDestination):
         rank_zero_only: bool = True,
         exp_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
+        self.local_hparams = extract_hparams(locals())
         try:
             from comet_ml import Experiment
         except ImportError as e:

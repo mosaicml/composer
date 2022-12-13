@@ -10,6 +10,7 @@ from composer.core import Callback, State, Time, TimeUnit
 from composer.loggers import Logger
 from composer.loss.utils import infer_target_type
 from composer.utils import MissingConditionalImportError
+from composer.utils import extract_hparams
 
 __all__ = ['ImageVisualizer']
 
@@ -76,6 +77,8 @@ class ImageVisualizer(Callback):
                  channels_last: bool = False,
                  input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
                  target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1):
+
+        self.local_hparams = extract_hparams(locals())
         self.mode = mode
         self.num_images = num_images
         self.channels_last = channels_last

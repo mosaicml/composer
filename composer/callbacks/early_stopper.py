@@ -12,7 +12,7 @@ import torch
 
 from composer.core import Callback, State, Time, TimeUnit
 from composer.loggers import Logger
-
+from composer.utils import extract_hparams
 log = logging.getLogger(__name__)
 
 __all__ = ['EarlyStopper']
@@ -74,6 +74,7 @@ class EarlyStopper(Callback):
         min_delta: float = 0.0,
         patience: Union[int, str, Time] = 1,
     ):
+        self.local_hparams = extract_hparams(locals())
         self.monitor = monitor
         self.dataloader_label = dataloader_label
         self.min_delta = abs(min_delta)

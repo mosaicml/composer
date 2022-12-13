@@ -9,7 +9,7 @@ import torch
 
 from composer.core import Callback, State
 from composer.loggers import Logger
-
+from composer.utils import extract_hparams
 
 class ThresholdStopper(Callback):
     """Halt training when a metric value reaches a certain threshold.
@@ -63,6 +63,8 @@ class ThresholdStopper(Callback):
                      Any,
                  ], Any]]] = None,
                  stop_on_batch: bool = False):
+                 
+        self.local_hparams = extract_hparams(locals())
         self.monitor = monitor
         self.threshold = threshold
         self.dataloader_label = dataloader_label

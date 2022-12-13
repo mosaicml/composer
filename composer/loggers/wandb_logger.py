@@ -21,7 +21,7 @@ import torch
 
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import MissingConditionalImportError, dist
+from composer.utils import MissingConditionalImportError, dist, convert_flat_dict_to_nested_dict
 
 if TYPE_CHECKING:
     from composer.core import State
@@ -112,6 +112,7 @@ class WandBLogger(LoggerDestination):
         self._is_in_atexit = True
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
+        hyperparameters = convert_flat_dict_to_nested_dict(hyperparameters)
         if self._enabled:
             import wandb
             wandb.config.update(hyperparameters)
