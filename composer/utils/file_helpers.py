@@ -405,7 +405,8 @@ def get_file(
             *   If ``object_store`` is not specified but the ``path`` begins with ``http://`` or ``https://``,
                 the object at this URL will be downloaded.
 
-            *   If ``object_store`` is not specified, but the ``path`` begins with ``s3://``, an :class:`composer.utils.S3ObjectStore`
+            *   If ``object_store`` is not specified, but the ``path`` begins with ``s3://``, or another backend
+                supported by :method:`composer.maybe_create_object_store_from_uri` a appropriate object store
                 will be created and used.
 
             *   Otherwise, ``path`` is presumed to be a local filepath.
