@@ -50,9 +50,9 @@ def patch_notebooks():
             kwargs['duration'] = '2ep'
         if 'train_subset_num_batches' not in kwargs:
             kwargs['train_subset_num_batches'] = 2
-        if 'eval_dataloader' in kwargs:
-            if 'eval_subset_num_batches' not in kwargs:
-                kwargs['eval_subset_num_batches'] = 1
+        if 'eval_dataloader' in kwargs and 'eval_subset_num_batches' not in kwargs:
+            kwargs['eval_subset_num_batches'] = 1
+        global log
         log.info(f'Duration: {kwargs["duration"]}, train_subset_num_batches: {kwargs["train_subset_num_batches"]}')
         original_fit(self, *args, **kwargs)
 
