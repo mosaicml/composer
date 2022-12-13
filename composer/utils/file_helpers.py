@@ -20,7 +20,7 @@ import tqdm
 
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
-from composer.utils.object_store import ObjectStore, S3ObjectStore
+from composer.utils.object_store import ObjectStore, OCIObjectStore, S3ObjectStore
 
 if TYPE_CHECKING:
     from composer.core import Timestamp
@@ -315,7 +315,8 @@ def parse_uri(uri: str) -> Tuple[str, str, str]:
                               Backend and bucket name will be empty string if the input is a local path
     """
     parse_result = urlparse(uri)
-    backend, bucket_name, path = parse_result.scheme, parse_result.netloc, parse_result.path
+    backend, net_loc, path = parse_result.scheme, parse_result.netloc, parse_result.path
+    bucket_name = net_loc if '@' not in net_loc else net_loc.split('@')[0]
     if backend == '' and bucket_name == '':
         return backend, bucket_name, path
     else:
@@ -342,6 +343,8 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     elif backend == 'wandb':
         raise NotImplementedError(f'There is no implementation for WandB load_object_store via URI. Please use '
                                   'WandBLogger')
+    elif backend == 'oci':
+        return OCIObjectStore(bucket=bucket_name)
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
                                   's3 or one of the supported object stores')
@@ -372,7 +375,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
             warnings.warn(
                 f'There already exists a RemoteUploaderDownloader object to handle the uri: {uri} you specified')
             return None
-    if backend == 's3':
+    if backend in ['s3', 'oci']:
         return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}')
 
     elif backend == 'wandb':
