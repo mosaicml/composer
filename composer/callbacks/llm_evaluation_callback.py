@@ -37,6 +37,7 @@ def evaluate_model_on_tasks(model: lm_eval.base.LM, tasks: List[str], num_fewsho
     task_dict = lm_eval_tasks.get_task_dict(tasks)
     results = {}
     for num in num_fewshots:
+        breakpoint()
         eval_res = evaluate(lm=model, task_dict=task_dict, num_fewshot=num, limit=subsample_size)['results']
 
         for task_name, task_res in eval_res.items():

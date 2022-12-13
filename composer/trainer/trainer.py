@@ -48,6 +48,7 @@ from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectS
                             is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
                             maybe_create_remote_uploader_downloader_from_uri, model_eval_mode, parse_uri,
                             reproducibility)
+from composer.metrics import METRIC_CTORS
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -2569,14 +2570,17 @@ class Trainer:
                 for evaluator in ensure_tuple(eval_dataloader)
             ]
 
-            if self.state.eval_metrics:
-                for evaluator in evaluators:
-                    if evaluator.label in self.state.eval_metrics:
-                        warnings.warn(
-                            f'eval_dataloader label \'{evaluator.label}\' was already provided in'
-                            'trainer initialization. Existing data for that label will be overwritten.'
-                            'To prevent this in the future, assign unique label names.',
-                            category=UserWarning)
+            for evaluator in evaluators:
+                if self.state.eval_metrics and evaluator.label in self.state.eval_metrics:
+                    warnings.warn(
+                        f'eval_dataloader label \'{evaluator.label}\' was already provided in'
+                        'trainer initialization. Existing data for that label will be overwritten.'
+                        'To prevent this in the future, assign unique label names.',
+                        category=UserWarning)
+                    
+                eval_metrics.update({
+                    m: METRIC_CTORS[m]() for m in evaluator.metric_names if m in METRIC_CTORS and m not in eval_metrics
+                })
 
             # match metric names to model metrics
             log.info(f'Added {[e.label for e in evaluators]} to eval_metrics.')
@@ -2760,7 +2764,6 @@ class Trainer:
 
             self.logger.log_metrics({'epoch': self.state.timestamp.epoch.value})
             self.logger.log_metrics({'trainer/global_step': self.state.timestamp.batch.value})
-
             self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics)
 
             self.engine.run_event(Event.EVAL_END)

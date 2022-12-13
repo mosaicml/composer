@@ -17,7 +17,6 @@ def test_eleuther_eval_harness():
     # Construct the callback
     eval_callback = EleutherEvalHarness(tokenizer=tokenizer, task_list=['lambada'], num_fewshot=[0], subsample_size=8)
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
-
     # Construct the trainer and train
     model = create_gpt2(use_pretrained=True, pretrained_model_name='EleutherAI/gpt-neo-125M')
     optimizer = DecoupledSGDW(model.parameters(), lr=1e-12)
