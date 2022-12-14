@@ -80,6 +80,8 @@ SHELL ["/bin/bash", "-c"]
 
 ARG CUDA_VERSION
 
+ls /usr/local/
+
 # Remove a bad symlink from the base composer image
 # If this file is present after the first command, kaniko
 # won't be able to build the docker image.
