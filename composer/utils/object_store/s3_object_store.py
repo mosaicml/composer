@@ -150,23 +150,21 @@ class S3ObjectStore(ObjectStore):
             cb_wrapper = lambda bytes_transferred: callback(bytes_transferred, file_size)
 
         try:
-            try:
-                self.client.download_file(Bucket=self.bucket,
-                                          Key=self.get_key(object_name),
-                                          Filename=tmp_path,
-                                          Callback=cb_wrapper,
-                                          Config=self.transfer_config)
-            except Exception as e:
-                _ensure_not_found_errors_are_wrapped(self.get_uri(object_name), e)
-        except:
-            # Make a best effort attempt to clean up the temporary file
-            try:
-                os.remove(tmp_path)
-            except OSError:
-                pass
-            raise
+            self.client.download_file(Bucket=self.bucket,
+                                      Key=self.get_key(object_name),
+                                      Filename=tmp_path,
+                                      Callback=cb_wrapper,
+                                      Config=self.transfer_config)
+        except Exception as e:
+            _ensure_not_found_errors_are_wrapped(self.get_uri(object_name), e)
         else:
             if overwrite:
                 os.replace(tmp_path, filename)
             else:
                 os.rename(tmp_path, filename)
+        finally:
+            # Make a best effort attempt to clean up the temporary file
+            try:
+                os.remove(tmp_path)
+            except (OSError, FileNotFoundError):
+                pass
