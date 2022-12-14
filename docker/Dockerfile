@@ -229,6 +229,7 @@ ARG HPCX_VERSION
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib:
 
 RUN if [ -n "$HPCX_VERSION" ] ; then \
+        mkdir -p /opt && \
         mkdir -p /tmp/hpcx && \
         wget -nv -P /tmp/hpcx https://content.mellanox.com/hpc/hpc-x/v${HPCX_VERSION}/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz && \
         tar -xvf /tmp/hpcx/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz -C /opt/hpcx && \
