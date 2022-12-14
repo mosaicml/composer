@@ -41,6 +41,10 @@ ARG PILLOW_SIMD_VERSION=7.0.0.post3
 # Leave blank for no Mellanox Drivers
 ARG MOFED_VERSION=5.5-1.0.3.2
 
+# Version of the HPC-X Drivers to install (for InfiniBand support)
+# Leave blank for no HPC-X Drivers
+ARG HPCX_VERSION=2.13.1
+
 ########################
 # Vision Image Arguments
 ########################
@@ -216,26 +220,43 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
         rm -rf /tmp/mofed ; \
     fi
 
-#####################################
-# NCCL RDMA SHARP Plugin installation
-#####################################
+###########################
+# HPC-X driver installation
+###########################
 
-ENV HPCX_SHARP_DIR=/opt/mellanox/sharp
+ARG HPCX_VERSION
 
-RUN if [ -n "$MOFED_VERSION" ] ; then \
-        mkdir -p /tmp/nccl-rdma-sharp-plugins && \
-        wget -nv -P /tmp/nccl-rdma-sharp-plugins https://github.com/Mellanox/nccl-rdma-sharp-plugins/archive/refs/heads/master.zip && \
-        unzip /tmp/nccl-rdma-sharp-plugins/master.zip -d /tmp/nccl-rdma-sharp-plugins && \
-        cd /tmp/nccl-rdma-sharp-plugins/nccl-rdma-sharp-plugins-master && \
-        ./autogen.sh && \
-        # ./configure --with-cuda=/usr/local/cuda && \
-        ./configure && \
-        make && \
-        make install && \
-        libtool --finish /usr/local/lib && \
-        cd / && \
-        rm -rf /tmp/nccl-rdma-sharp-plugins ; \
+# wget https://content.mellanox.com/hpc/hpc-x/v2.13.1/hpcx-v2.13.1-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz
+ENV HPCX_SHARP_DIR=/opt/hpcx/sharp
+
+RUN if [ -n "$HPCX_VERSION" ] ; then \
+        mkdir -p /tmp/hpcx && \
+        wget -nv -P /tmp/hpcx https://content.mellanox.com/hpc/hpc-x/v${HPCX_VERSION}/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz && \
+        tar -xvf /tmp/hpcx/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz -C /opt/hpcx && \
+        # TODO: install?
+        rm -rf /tmp/hpcx ; \
     fi
+
+# #####################################
+# # NCCL RDMA SHARP Plugin installation
+# #####################################
+
+# ENV HPCX_SHARP_DIR=/opt/mellanox/sharp
+
+# RUN if [ -n "$MOFED_VERSION" ] ; then \
+#         mkdir -p /tmp/nccl-rdma-sharp-plugins && \
+#         wget -nv -P /tmp/nccl-rdma-sharp-plugins https://github.com/Mellanox/nccl-rdma-sharp-plugins/archive/refs/heads/master.zip && \
+#         unzip /tmp/nccl-rdma-sharp-plugins/master.zip -d /tmp/nccl-rdma-sharp-plugins && \
+#         cd /tmp/nccl-rdma-sharp-plugins/nccl-rdma-sharp-plugins-master && \
+#         ./autogen.sh && \
+#         # ./configure --with-cuda=/usr/local/cuda && \
+#         ./configure && \
+#         make && \
+#         make install && \
+#         libtool --finish /usr/local/lib && \
+#         cd / && \
+#         rm -rf /tmp/nccl-rdma-sharp-plugins ; \
+#     fi
 
 #####################
 # Install NVIDIA Apex
