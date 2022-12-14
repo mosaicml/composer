@@ -80,7 +80,7 @@ SHELL ["/bin/bash", "-c"]
 
 ARG CUDA_VERSION
 
-ls /usr/local/
+RUN ls /usr/local/
 
 # Remove a bad symlink from the base composer image
 # If this file is present after the first command, kaniko
