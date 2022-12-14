@@ -46,7 +46,7 @@ class SimpleModel(ComposerClassifier):
 
 
 class SimpleConvModel(ComposerClassifier):
-    """Small convolutional classifer.
+    """Small convolutional classifier.
 
     Args:
         num_channels (int): number of input channels (default: 3)
