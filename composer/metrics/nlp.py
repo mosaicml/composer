@@ -2,23 +2,19 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """A collection of common torchmetrics for NLP tasks."""
+import math
 from typing import Mapping, Union
 
 import torch
+import torch.nn.functional as F
 from torch import Tensor
 from torchmetrics import Metric
-import math
+
 from composer.loss import soft_cross_entropy
-import torch.nn.functional as F
 
 __all__ = [
-    'Perplexity',
-    'InContextLearningLMPerplexity',
-    'InContextLearningLMAccuracy',
-    'BinaryF1Score',
-    'HFCrossEntropy',
-    'LanguageCrossEntropy',
-    'MaskedAccuracy'
+    'Perplexity', 'InContextLearningLMPerplexity', 'InContextLearningLMAccuracy', 'BinaryF1Score', 'HFCrossEntropy',
+    'LanguageCrossEntropy', 'MaskedAccuracy'
 ]
 
 
@@ -266,11 +262,11 @@ class InContextLearningLMAccuracy(Metric):
         targets = torch.roll(labels, shifts=-1)
         targets[:, -1] = -100
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
-            cont_tok_pred = output_logits[batch_idx].index_select(dim=0, index=cont_idx-1).argmax(dim=-1)
-            cont_tok_targ = targets[batch_idx].index_select(dim=0, index=cont_idx-1)
+            cont_tok_pred = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
+            cont_tok_targ = targets[batch_idx].index_select(dim=0, index=cont_idx - 1)
 
             self.correct += (cont_tok_pred == cont_tok_targ).all().int()
-            self.total += 1
+            self.total += torch.tensor(1)
 
     def compute(self):
         assert isinstance(self.correct, Tensor)
@@ -304,12 +300,11 @@ class InContextLearningLMPerplexity(Metric):
         targets = torch.roll(labels, shifts=-1)
         targets[:, -1] = -100
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
-            cont_logits_pred = F.log_softmax(output_logits[batch_idx].index_select(dim=0, index=cont_idx-1), dim=1)
-            cont_tok_targ = targets[batch_idx].index_select(dim=0, index=cont_idx-1)
-            self.log_prob_sum += torch.gather(cont_logits_pred, 1, cont_tok_targ.reshape(-1,1)).sum()
-            self.total += 1
-
+            cont_logits_pred = F.log_softmax(output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1), dim=1)
+            cont_tok_targ = targets[batch_idx].index_select(dim=0, index=cont_idx - 1)
+            self.log_prob_sum += torch.gather(cont_logits_pred, 1, cont_tok_targ.reshape(-1, 1)).sum()
+            self.total += torch.tensor(1)
 
     def compute(self):
         assert isinstance(self.log_prob_sum, Tensor)
-        return math.exp(self.log_prob_sum / self.total.float()) 
+        return math.exp(self.log_prob_sum / self.total.float())
