@@ -226,15 +226,17 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
 
 ARG HPCX_VERSION
 
-# wget https://content.mellanox.com/hpc/hpc-x/v2.13.1/hpcx-v2.13.1-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz
-ENV HPCX_SHARP_DIR=/opt/hpcx/sharp
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib:
 
 RUN if [ -n "$HPCX_VERSION" ] ; then \
         mkdir -p /tmp/hpcx && \
         wget -nv -P /tmp/hpcx https://content.mellanox.com/hpc/hpc-x/v${HPCX_VERSION}/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz && \
         tar -xvf /tmp/hpcx/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz -C /opt/hpcx && \
-        # TODO: install?
-        rm -rf /tmp/hpcx ; \
+        rm -rf /tmp/hpcx && \
+        # Set appropriate env vars to use SHARP
+        echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/profile && \
+        echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/bash.bashrc && \
+        echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/zshenv ; \
     fi
 
 # #####################################
