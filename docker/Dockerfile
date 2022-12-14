@@ -228,7 +228,8 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
         unzip /tmp/nccl-rdma-sharp-plugins/master.zip -d /tmp/nccl-rdma-sharp-plugins && \
         cd /tmp/nccl-rdma-sharp-plugins/nccl-rdma-sharp-plugins-master && \
         ./autogen.sh && \
-        ./configure --with-cuda=/usr/local/cuda && \
+        # ./configure --with-cuda=/usr/local/cuda && \
+        ./configure && \
         make && \
         make install && \
         libtool --finish /usr/local/lib && \
