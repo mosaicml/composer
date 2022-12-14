@@ -41,10 +41,6 @@ ARG PILLOW_SIMD_VERSION=7.0.0.post3
 # Leave blank for no Mellanox Drivers
 ARG MOFED_VERSION=5.5-1.0.3.2
 
-# Version of HPC-X to install for SHARP
-# Leave blank for no HPC-X
-ARG HPCX_VERSION=2.12
-
 ########################
 # Vision Image Arguments
 ########################
@@ -128,7 +124,10 @@ RUN apt-get update && \
         liblcms2-dev \
         tcl \
         libjpeg8-dev \
-        less && \
+        less \
+        # For SHARP:
+        unzip \
+        libtool-bin && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -214,7 +213,18 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
         wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz && \
         tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
         /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
-        rm -rf /tmp/mofed ; \
+        rm -rf /tmp/mofed && \
+        mkdir -p /tmp/nccl-rdma-sharp-plugins && \
+        wget -nv -P /tmp/nccl-rdma-sharp-plugins https://github.com/Mellanox/nccl-rdma-sharp-plugins/archive/refs/heads/master.zip && \
+        unzip /tmp/nccl-rdma-sharp-plugins/master.zip -d /tmp/nccl-rdma-sharp-plugins && \
+        cd /tmp/nccl-rdma-sharp-plugins/nccl-rdma-sharp-plugins-master && \
+        ./autogen.sh && \
+        ./configure --with-cuda=/usr/local/cuda && \
+        make && \
+        make install && \
+        libtool --finish /usr/local/lib && \
+        cd / && \
+        rm -rf /tmp/nccl-rdma-sharp-plugins ; \
     fi
 
 
@@ -241,21 +251,6 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
 RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --no-cache-dir flash-attn==0.2.2; \
     fi
-
-################################
-# Install SHARP and set env vars
-################################
-
-ARG HPCX_VERSION
-
-# TODO: Move off coreweave blobstore
-RUN if [ -n "$HPCX_VERSION" ] ; then \
-        mkdir -p /tmp/hpcx && \
-        wget -q -O - http://blobstore.s3.ord1.coreweave.com/drivers/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl${HPCX_VERSION}-x86_64.tbz && \
-        tar xjf  && \
-    fi
-mv hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl${HPCX_VERSION}-x86_64 /opt/hpcx
-cd ..
 
 ###########################
 # Install Pandoc Dependency
