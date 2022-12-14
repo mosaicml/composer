@@ -770,6 +770,10 @@ class Trainer:
 
             To use DeepSpeed with default values, set to the empty dictionary ``{}``.
             To disable DeepSpeed (the default), set to ``None``.
+        fsdp_config (Dict[str, Any], optional): Configuration for FSDP.
+            See :doc:`FSDP Documentation </notes/distributed_training>` for more details.
+            To use FSDP with default values, set to the empty dictionary ``{}``. To
+            disable FSDP, set to ``None``. (default: ``None``)
         device (Device | str, optional): The device to use for training, which can be ``'cpu'``, ``'gpu'``,
             ``'tpu'``, or ``'mps'``. (default: ``None``)
 
@@ -1065,6 +1069,7 @@ class Trainer:
             optimizers=optimizers,
             run_name=run_name,
             deepspeed_config=deepspeed_config,
+            fsdp_config=fsdp_config,
         )
 
         # Profiler
