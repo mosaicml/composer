@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from typing import Callable, Optional, Tuple, Union
+from typing import Callable, Optional, Union
 
 import torch
 import torch.nn as nn
@@ -11,9 +11,10 @@ import torch.nn.functional as F
 from composer import Algorithm, Event, State
 from composer.core.precision import get_precision_context
 from composer.core.time import Time
+from composer.devices import Device, DeviceTPU
 from composer.loggers import Logger
 from composer.models import ComposerModel
-from composer.utils import dist, get_file
+from composer.utils import get_device
 
 log = logging.getLogger(__name__)
 
@@ -87,11 +88,11 @@ class Distillation(Algorithm):
         if event == Event.FIT_START:
             # move teacher to correct device after init
             try:
-                self._move_teacher_model_to_device(self.teacher.module, state.model)
+                self._move_teacher_model_to_device(self.teacher.module, state.model, state.device)
             except:
                 log.error('Unable to move teacher.module to device. Will attempt to move teacher.')
                 try:
-                    self._move_teacher_model_to_device(self.teacher, state.model)
+                    self._move_teacher_model_to_device(self.teacher, state.model, state.device)
                 except:
                     log.error('Unable to move teacher to device.')
                     raise
@@ -108,54 +109,50 @@ class Distillation(Algorithm):
             # get teacher output
             with torch.no_grad():
                 with get_precision_context(state.precision):
-                    t_output = self.teacher(input)
+                    teacher_output = self.teacher(input)
 
             # get original loss
             base_loss = state.loss
 
             # calculate KD loss
-            s_output = state.outputs
+            student_output = state.outputs
 
-            kd_loss: torch.Tensor = None
-            if isinstance(s_output, torch.Tensor):
-                kd_loss = self.kd_loss_fn(t_output, s_output)
+            kd_loss = torch.empty(0)
+            if isinstance(student_output, torch.Tensor):
+                kd_loss = self.kd_loss_fn(teacher_output, student_output)
             else:
-                kd_loss = self.kd_loss_fn(t_output.logits, s_output.logits)
+                kd_loss = self.kd_loss_fn(teacher_output.logits, student_output.logits)  #type: ignore #TODO: Fix this
 
-            # modify original loss and return to original format (dict, tuple, numeric)
-            if type(base_loss) is tuple:
-                state.loss = tuple([self.org_loss * v for v in state.loss] + [kd_loss])
-            elif type(base_loss) is dict:
-                new_loss = dict()
+            # Modify original loss and return to original format (dict, tuple, numeric)
+            if isinstance(base_loss, tuple):
+                state.loss = tuple([self.org_loss_weight * v for v in state.loss] + [kd_loss])
+            elif isinstance(base_loss, dict):
+                new_loss = {}
                 for k, v in base_loss:
                     new_loss[k] = self.org_loss_weight * v
-
                 new_loss['kd_loss'] = self.kd_loss_weight * kd_loss
-
-                state.loss = new_loss
-            else:
+                state.loss = new_loss  #type: ignore #TODO: Fix this
+            elif isinstance(base_loss, torch.Tensor) or isinstance(base_loss, float):
                 state.loss = self.org_loss_weight * base_loss + self.kd_loss_weight * kd_loss
 
     def _move_teacher_model_to_device(self, teacher_model: Union[ComposerModel, nn.Module, torch.Tensor],
-                                      destination_model: Union[ComposerModel, nn.Module]):
-        """Ensures the tensors of a teacher model are on the same device as a destination model."""
+                                      student_model: Union[ComposerModel, nn.Module], device: Device):
+        """Moves the teacher model to student model device.
+
+        Args:
+            teacher_model (Union[ComposerModel, nn.Module, torch.Tensor]): Teacher model.
+            student_model (ComposerModel): Student model.
+            device (Device): Device to move teacher model to.
+        """
+        device = get_device(device)
         with torch.no_grad():
-            #device = next(destination_model.parameters()).device
-            if torch.cuda.is_available():
-                self.teacher.to(torch.cuda.current_device())
-            # destination_params = destination_model.parameters()
-            # teacher_params = teacher_model.parameters()
-            # teacher_model.param_list = [s.to(d.device) for s, d in zip(teacher_params, destination_params)]
-
-            # destination_buffers = destination_model.buffers()
-            # teacher_buffers = teacher_model.buffers()
-            # teacher_model.buffer_list = [s.to(d.device) for s, d in zip(teacher_buffers, destination_buffers)]
-
-    #def _apply_teacher_transforms(self, )
-
-    def _download_s3_weights(self):
-        store = S3ObjectStore(self.s3_bucket_name)
-        store.download_object(self.s3_path, '/tmp/teacher.pt', overwrite=True)
+            # check if model is already on tpu
+            if isinstance(device, DeviceTPU) and 'xla' not in str(next(student_model.parameters()).device):
+                raise ValueError(
+                    'Use model.to(xm.xla_device()) to set the model to the TPU before providing to the trainer.')
+            else:
+                assert isinstance(teacher_model, nn.Module)
+                device.module_to_device(teacher_model)
 
 
 class KLDivergence(nn.Module):
