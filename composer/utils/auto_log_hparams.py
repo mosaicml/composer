@@ -85,32 +85,42 @@ def extract_hparams(locals_dict: Dict[str, Any]) -> Dict[str, Any]:
     hparams = {}
     if 'self' in locals_dict:
         locals_dict.pop('self')
-    for k, v in locals_dict.items():
-        hparams_to_add = _grab_hparams(v)
-        hparams[k] = hparams_to_add
+    try:
+        for k, v in locals_dict.items():
+            hparams_to_add = _grab_hparams(v)
+            hparams[k] = hparams_to_add
+    except RecursionError as e:
+        raise RecursionError(f'Crawled too deeply into Trainer members and members of members, etc. during auto-logging of hparams: {str(e)}')
     return hparams
 
 
-def convert_nested_dict_to_flat_dict(my_dict, prefix=None):
-    prefix = prefix + '/' if prefix else ''
-    d = {}
-    for k, v in my_dict.items():
+def convert_nested_dict_to_flat_dict(nested_dict, prefix=''):
+    flat_dict = {}
+    for k, v in nested_dict.items():
+        key = prefix + '/' + k if prefix != '' else k
+        # Recursively crawl sub-dictionary.
         if isinstance(v, dict):
-            flat_dict = convert_nested_dict_to_flat_dict(prefix=prefix + k, my_dict=v)
-            d.update(flat_dict)
+            flat_dict = convert_nested_dict_to_flat_dict(prefix=key, nested_dict=v)
+            flat_dict.update(flat_dict)
         else:
-            d[prefix + k] = v
-    return d
+            flat_dict[key] = v
+    return flat_dict
 
 
 def convert_flat_dict_to_nested_dict(flat_dict):
-    nested_dic = {}
+    nested_dict = {}
     for k, v in flat_dict.items():
-        cur_dict = nested_dic
+        # Initially sub_dict is the main nested_dict, but we will continually update it to be the 
+        # sub-dictionary of sub_dict. 
+        sub_dict = nested_dict
         sub_keys = k.split('/')
         for sub_key in sub_keys[:-1]:
-            if sub_key not in cur_dict:
-                cur_dict[sub_key] = {}
-            cur_dict = cur_dict[sub_key]
-        cur_dict[sub_keys[-1]] = v
-    return nested_dic
+            if sub_key not in sub_dict:
+                # Create a new sub-dictionary inside of sub_dict.
+                sub_dict[sub_key] = {}
+            # Change the sub_dict reference to be the sub-dictionary of sub_dict (i.e. go one level deeper).
+            sub_dict = sub_dict[sub_key]
+        # The last key in sub_keys does not map to a dict. It just maps to v.
+        sub_dict[sub_keys[-1]] = v
+    # Changes to sub_dict will be reflected in nested_dict, so we can just return nested_dict.
+    return nested_dict
