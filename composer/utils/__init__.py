@@ -18,8 +18,8 @@ from composer.utils.import_helpers import MissingConditionalImportError, import_
 from composer.utils.inference import ExportFormat, Transform, export_for_inference, export_with_logger, quantize_dynamic
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_collection
 from composer.utils.misc import get_free_tcp_port, is_model_deepspeed, is_model_fsdp, is_notebook, model_eval_mode
-from composer.utils.object_store import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, S3ObjectStore,
-                                         SFTPObjectStore)
+from composer.utils.object_store import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, OCIObjectStore,
+                                         S3ObjectStore, SFTPObjectStore)
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
 
@@ -48,6 +48,7 @@ __all__ = [
     'LibcloudObjectStore',
     'S3ObjectStore',
     'SFTPObjectStore',
+    'OCIObjectStore',
     'MissingConditionalImportError',
     'import_object',
     'is_model_deepspeed',
