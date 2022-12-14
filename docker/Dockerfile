@@ -222,12 +222,6 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
 
 ENV HPCX_SHARP_DIR=/opt/mellanox/sharp
 
-# RUN ls /usr/local/
-
-# RUN ls /etc/alternatives/
-
-RUN which nvcc
-
 RUN if [ -n "$MOFED_VERSION" ] ; then \
         mkdir -p /tmp/nccl-rdma-sharp-plugins && \
         wget -nv -P /tmp/nccl-rdma-sharp-plugins https://github.com/Mellanox/nccl-rdma-sharp-plugins/archive/refs/heads/master.zip && \
