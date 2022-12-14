@@ -220,9 +220,7 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
 # NCCL RDMA SHARP Plugin installation
 #####################################
 
-if [ ! -z "$MOFED_VERSION" ]; then
-  ENV HPCX_SHARP_DIR /opt/mellanox/sharp
-fi
+ENV HPCX_SHARP_DIR=/opt/mellanox/sharp
 
 RUN if [ -n "$MOFED_VERSION" ] ; then \
         mkdir -p /tmp/nccl-rdma-sharp-plugins && \
