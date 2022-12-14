@@ -38,8 +38,12 @@ ARG PILLOW_PSEUDOVERSION=7.0.0
 ARG PILLOW_SIMD_VERSION=7.0.0.post3
 
 # Version of the Mellanox Drivers to install (for InfiniBand support)
-# Levave blank for no Mellanox Drivers
+# Leave blank for no Mellanox Drivers
 ARG MOFED_VERSION=5.5-1.0.3.2
+
+# Version of HPC-X to install for SHARP
+# Leave blank for no HPC-X
+ARG HPCX_VERSION=2.12
 
 ########################
 # Vision Image Arguments
@@ -237,6 +241,21 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
 RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --no-cache-dir flash-attn==0.2.2; \
     fi
+
+################################
+# Install SHARP and set env vars
+################################
+
+ARG HPCX_VERSION
+
+# TODO: Move off coreweave blobstore
+RUN if [ -n "$HPCX_VERSION" ] ; then \
+        mkdir -p /tmp/hpcx && \
+        wget -q -O - http://blobstore.s3.ord1.coreweave.com/drivers/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl${HPCX_VERSION}-x86_64.tbz && \
+        tar xjf  && \
+    fi
+mv hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl${HPCX_VERSION}-x86_64 /opt/hpcx
+cd ..
 
 ###########################
 # Install Pandoc Dependency
