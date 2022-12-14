@@ -141,7 +141,8 @@ def _set_evaluator_interval_and_subset_num_batches(
         if evaluator.eval_interval is None:
             evaluator.eval_interval = eval_interval
         eval_dataloader = evaluator.dataloader.dataloader
-        if isinstance(eval_dataloader, collections.abc.Sized) and evaluator.subset_num_batches is None:
+        if isinstance(eval_dataloader, collections.abc.Sized) and (evaluator.subset_num_batches is None or
+                                                                   evaluator.subset_num_batches == -1):
             try:
                 dataloader_len = len(eval_dataloader)
             except TypeError:
