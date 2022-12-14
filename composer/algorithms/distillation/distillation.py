@@ -18,6 +18,8 @@ from composer.utils import get_device
 
 log = logging.getLogger(__name__)
 
+__all__ = ['Distillation', 'KLDivergence']
+
 
 class Distillation(Algorithm):
     """`Knowledge Distillation <https://arxiv.org/abs/1503.02531>`_ trains a model with a
