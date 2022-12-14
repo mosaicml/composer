@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
 import numpy as np
 import torch
 
-from composer.utils import ensure_tuple, format_name_with_dist, convert_nested_dict_to_flat_dict
+from composer.utils import convert_nested_dict_to_flat_dict, ensure_tuple, format_name_with_dist
 
 if TYPE_CHECKING:
     from composer.core import State
@@ -67,7 +67,7 @@ class Logger:
             step = self._state.timestamp.batch.value
         for destination in self.destinations:
             destination.log_metrics(metrics, step)
-    
+
     def log_images(
         self,
         images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],

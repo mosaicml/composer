@@ -13,6 +13,7 @@ import torch
 from composer.core import Callback, State, Time, TimeUnit
 from composer.loggers import Logger
 from composer.utils import extract_hparams
+
 log = logging.getLogger(__name__)
 
 __all__ = ['EarlyStopper']

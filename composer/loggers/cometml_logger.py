@@ -12,11 +12,11 @@ import numpy as np
 import torch
 from torch import nn
 from torchvision.utils import draw_segmentation_masks
-from composer.utils import extract_hparams
+
 from composer.core.state import State
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import MissingConditionalImportError, dist
+from composer.utils import MissingConditionalImportError, dist, extract_hparams
 
 __all__ = ['CometMLLogger']
 

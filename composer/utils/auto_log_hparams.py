@@ -1,15 +1,16 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Mapping, Sequence, Dict, Any
 import array
+from typing import Any, Dict, Mapping, Sequence
+
 import numpy as np
 import torch
 
 __all__ = ['extract_hparams', 'convert_nested_dict_to_flat_dict', 'convert_flat_dict_to_nested_dict']
 
 
-def _parse_dict_for_hparams(dic: Dict) -> Dict:
+def _parse_dict_for_hparams(dic: Mapping) -> Dict:
     '''Grabs hyperparamters from each element in dictionary.'''
     hparams_to_add = {}
     for k, v in dic.items():
@@ -60,13 +61,13 @@ def _grab_hparams(obj):
                 else:
                     hparams_to_add_seq.append(parsed_sub_obj)
         if hparams_to_add_seq:
-            
+
             if len(hparams_to_add_dict) == 0:
                 return hparams_to_add_seq
             else:
                 hparams_to_add_dict['seq'] = hparams_to_add_seq
         return hparams_to_add_dict
-        
+
     # The object is an instance of a class that does not have a __dict__ or local_hparams members.
     else:
         # If the object is a primitive type like int, str, etc. then return not inside a dict
@@ -81,7 +82,19 @@ def _grab_hparams(obj):
 
 
 def extract_hparams(locals_dict: Dict[str, Any]) -> Dict[str, Any]:
-    """Takes in local symbol table and recursively grabs any hyperparameter."""
+    """Takes in local symbol table and recursively grabs any hyperparameter
+
+    Args:
+        locals_dict (Dict[str, Any]): The local symbol table returned when calling locals(),
+            which maps any free local variables' names to their values.
+
+    Raises:
+        RecursionError: If recursion depth reached.
+
+    Returns:
+        Dict[str, Any]: A nested dictionary with every element of locals_dict mapped to its
+            value or to another sub_dict.
+    """
     hparams = {}
     if 'self' in locals_dict:
         locals_dict.pop('self')
@@ -90,11 +103,24 @@ def extract_hparams(locals_dict: Dict[str, Any]) -> Dict[str, Any]:
             hparams_to_add = _grab_hparams(v)
             hparams[k] = hparams_to_add
     except RecursionError as e:
-        raise RecursionError(f'Crawled too deeply into Trainer members and members of members, etc. during auto-logging of hparams: {str(e)}')
+        raise RecursionError(
+            f'Crawled too deeply into Trainer members and members of members, etc. during auto-logging of hparams: {str(e)}'
+        )
     return hparams
 
 
-def convert_nested_dict_to_flat_dict(nested_dict, prefix=''):
+def convert_nested_dict_to_flat_dict(nested_dict: Dict, prefix='') -> Dict:
+    """Takes in a nested dict converts it to a flat dict with keys separated by slashes.
+
+    Args:
+        nested_dict (Dict): A dictionary containing at least one other dictionary.
+        prefix (str, optional): A prefix to left append to the keys in the dictionary.
+            'Defaults to ''.
+
+    Returns:
+        Dict: A flat dictionary representation of the nested one (contains no other
+            dictionaries inside of it)
+    """
     flat_dict = {}
     for k, v in nested_dict.items():
         key = prefix + '/' + k if prefix != '' else k
@@ -107,11 +133,11 @@ def convert_nested_dict_to_flat_dict(nested_dict, prefix=''):
     return flat_dict
 
 
-def convert_flat_dict_to_nested_dict(flat_dict):
+def convert_flat_dict_to_nested_dict(flat_dict: Dict):
     nested_dict = {}
     for k, v in flat_dict.items():
-        # Initially sub_dict is the main nested_dict, but we will continually update it to be the 
-        # sub-dictionary of sub_dict. 
+        # Initially sub_dict is the main nested_dict, but we will continually update it to be the
+        # sub-dictionary of sub_dict.
         sub_dict = nested_dict
         sub_keys = k.split('/')
         for sub_key in sub_keys[:-1]:

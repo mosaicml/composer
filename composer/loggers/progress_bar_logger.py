@@ -15,7 +15,7 @@ import yaml
 from composer.core.time import TimeUnit
 from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import dist, is_notebook, convert_flat_dict_to_nested_dict
+from composer.utils import convert_flat_dict_to_nested_dict, dist, is_notebook
 
 if TYPE_CHECKING:
     from composer.core import State, Timestamp

@@ -72,7 +72,6 @@ class SpeedMonitor(Callback):
         # Keep track of time spent evaluating
         self.total_eval_wct = 0.0
         self.local_hparams = extract_hparams(locals())
-        
 
     def state_dict(self) -> Dict[str, Any]:
         return {

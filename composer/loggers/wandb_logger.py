@@ -21,7 +21,7 @@ import torch
 
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import MissingConditionalImportError, dist, convert_flat_dict_to_nested_dict
+from composer.utils import MissingConditionalImportError, convert_flat_dict_to_nested_dict, dist
 
 if TYPE_CHECKING:
     from composer.core import State
