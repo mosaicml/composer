@@ -164,8 +164,9 @@ def _main():
             # only build the vision image on python 3.9
 
         if not cuda_version:
-            # Skip the mellanox drivers if not in the cuda images
+            # Skip the mellanox/hpcx drivers if not in the cuda images
             entry['MOFED_VERSION'] = ''
+            entry['HPCX_VERSION'] = ''
 
         pytorch_entries.append(entry)
 
