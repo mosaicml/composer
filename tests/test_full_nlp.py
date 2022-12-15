@@ -9,6 +9,7 @@ import torch
 from torch.utils.data import DataLoader
 from torchmetrics.classification import Accuracy
 
+from composer.algorithms import GatedLinearUnits
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
@@ -31,6 +32,7 @@ def test_full_nlp_pipeline(tiny_bert_model, tiny_bert_tokenizer, tmp_path):
                                          tiny_bert_tokenizer,
                                          use_logits=True,
                                          metrics=pretraining_metrics)
+    pretraining_model_copy = copy.deepcopy(pretraining_model)
     pretraining_train_dataset = RandomTextLMDataset(size=10,
                                                     vocab_size=tiny_bert_tokenizer.vocab_size,
                                                     sequence_length=4,
@@ -46,18 +48,21 @@ def test_full_nlp_pipeline(tiny_bert_model, tiny_bert_tokenizer, tmp_path):
                                              sampler=dist.get_sampler(pretraining_train_dataset),
                                              collate_fn=collator)
 
-    pretraining_trainer = Trainer(model=pretraining_model,
+    pretraining_trainer = Trainer(model=pretraining_model_copy,
                                   train_dataloader=pretraining_train_dataloader,
                                   save_folder=str(tmp_path / 'pretraining_checkpoints'),
                                   max_duration='1ep',
-                                  seed=17)
+                                  seed=17,
+                                  algorithms=[GatedLinearUnits()])
     pretraining_trainer.fit()
     reproducibility.seed_all(17)  # seed so that the masking is the same
     pretraining_trainer.eval(pretraining_eval_dataloader)
 
     loaded_pretraining_trainer = Trainer(model=pretraining_model,
                                          load_path=str(tmp_path / 'pretraining_checkpoints' / 'latest-rank0.pt'),
-                                         seed=17)
+                                         seed=17,
+                                         algorithms=[GatedLinearUnits()])
+
     reproducibility.seed_all(17)  # seed so that the masking is the same
     loaded_pretraining_trainer.eval(pretraining_eval_dataloader)
 
@@ -77,6 +82,7 @@ def test_full_nlp_pipeline(tiny_bert_model, tiny_bert_tokenizer, tmp_path):
                                         tokenizer=finetuning_tokenizer,
                                         use_logits=True,
                                         metrics=[finetuning_metrics])
+    finetuning_model_copy = copy.deepcopy(finetuning_model)
 
     finetuning_train_dataset = RandomTextClassificationDataset(size=100,
                                                                vocab_size=tiny_bert_tokenizer.vocab_size,
@@ -95,13 +101,16 @@ def test_full_nlp_pipeline(tiny_bert_model, tiny_bert_tokenizer, tmp_path):
                                  load_path=str(tmp_path / 'pretraining_checkpoints' / 'latest-rank0.pt'),
                                  load_weights_only=True,
                                  max_duration='2ep',
-                                 seed=17)
+                                 seed=17,
+                                 algorithms=[GatedLinearUnits()])
     finetuning_trainer.fit()
     finetuning_trainer.eval(finetuning_eval_dataloader)
 
-    loaded_finetuning_trainer = Trainer(model=finetuning_model,
+    loaded_finetuning_trainer = Trainer(model=finetuning_model_copy,
                                         load_path=str(tmp_path / 'finetuning_checkpoints' / 'latest-rank0.pt'),
-                                        seed=17)
+                                        seed=17,
+                                        algorithms=[GatedLinearUnits()])
+
     loaded_finetuning_trainer.eval(finetuning_eval_dataloader)
 
     original_acc = finetuning_trainer.state.eval_metrics['eval']['Accuracy']
@@ -130,7 +139,7 @@ def test_full_nlp_pipeline(tiny_bert_model, tiny_bert_tokenizer, tmp_path):
         copied_batch[key] = value.numpy()
     loaded_model_out = ort_session.run(None, copied_batch)
 
-    assert out_original.loss.detach().numpy() == loaded_model_out[0]
+    torch.testing.assert_close(out_original.loss.detach().numpy(), loaded_model_out[0])
     torch.testing.assert_close(loaded_model_out[1], out_original.logits.detach().numpy())
 
     # add algo (GLU)
