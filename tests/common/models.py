@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Contains commonly used models that are shared across the test suite."""
+from typing import Any, Dict, Tuple, Union
 
 import torch
-from torchmetrics import MetricCollection
+from torchmetrics import Metric, MetricCollection
 
 from composer.metrics import CrossEntropy, MIoU
+from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import ComposerClassifier
 
 
@@ -118,6 +120,7 @@ class Mean(torch.nn.Module):
 
 
 class SimpleTransformerBase(torch.nn.Module):
+    """Base encoding transformer model for testing"""
 
     def __init__(self, vocab_size: int = 100, d_model: int = 16):
         super().__init__()
@@ -136,6 +139,47 @@ class SimpleTransformerBase(torch.nn.Module):
 
     def forward(self, batch: torch.Tensor) -> torch.Tensor:
         return self.net(batch)
+
+
+class SimpleTransformerMaskedLM(ComposerClassifier):
+
+    def __init__(self, vocab_size: int = 100):
+        self.vocab_size = vocab_size
+        transformer_base = SimpleTransformerBase(vocab_size=vocab_size, d_model=16)
+        lm_head = torch.nn.Linear(16, vocab_size)
+
+        net = torch.nn.Sequential(transformer_base, lm_head)
+
+        mlm_metrics = MetricCollection(LanguageCrossEntropy(ignore_index=-100, vocab_size=vocab_size),
+                                       MaskedAccuracy(ignore_index=-100))
+        loss = torch.nn.CrossEntropyLoss()
+        super().__init__(module=net, train_metrics=mlm_metrics, val_metrics=mlm_metrics, loss_fn=loss)
+
+        self.transformer_base = transformer_base
+        self.lm_head = lm_head
+
+    def loss(self, outputs: torch.Tensor, batch: Union[Tuple[Any, torch.Tensor], Dict[str, Any]], *args,
+             **kwargs) -> torch.Tensor:
+        if isinstance(batch, tuple):
+            _, targets = batch
+        else:
+            targets = batch['labels']
+        return self._loss_fn(outputs.view(-1, self.vocab_size), targets.view(-1), *args, **kwargs)
+
+    def forward(self, batch: Union[Tuple[torch.Tensor, Any], Dict[str, Any]]) -> torch.Tensor:
+        if isinstance(batch, tuple):
+            inputs, _ = batch
+        else:
+            inputs = batch['input_ids']
+        outputs = self.module(inputs)
+        return outputs
+
+    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
+        if isinstance(batch, tuple):
+            _, targets = batch
+        else:
+            targets = batch['labels']
+        metric.update(outputs, targets)
 
 
 class SimpleTransformerClassifier(ComposerClassifier):
