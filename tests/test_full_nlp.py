@@ -158,6 +158,6 @@ def test_full_nlp_pipeline(model_type, tiny_bert_tokenizer, tmp_path, request):
     torch.testing.assert_close(out_original.loss.detach().numpy(), loaded_model_out[0])
     torch.testing.assert_close(loaded_model_out[1], out_original.logits.detach().numpy())
 
-    # add algo (GLU)
+    # double check simple nlp lm for expected behavior
     # parametrize
     assert False
