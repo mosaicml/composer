@@ -17,6 +17,8 @@ from tests.common.markers import world_size
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 
 
+
+
 @pytest.mark.xfail(reason='Occasionally hits the timeout. Should refactor to use a local webserver.')
 def test_get_file_uri(tmp_path: pathlib.Path, httpserver: pytest_httpserver.HTTPServer):
     httpserver.expect_request('/hi').respond_with_data('hi')
@@ -230,6 +232,13 @@ def test_format_name_with_dist_and_time():
     )
     assert format_name_with_dist_and_time(format_str, 'awesome_run', timestamp=timestamp, extra=42) == expected_str
 
+@pytest.mark.parametrize(
+    'input_uri,expected_parsed_uri',
+    [
+        
+    ])
+def test_parse_uri():
+    pass
 
 def test_ensure_folder_is_empty(tmp_path: pathlib.Path):
     ensure_folder_is_empty(tmp_path)
