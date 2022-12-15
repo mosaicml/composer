@@ -1065,8 +1065,8 @@ class Trainer:
 
         # Log hparams.
         if self.auto_log_hparams:
-            self.hparams = extract_hparams(locals())
-            self.logger.log_hyperparameters(self.hparams)
+            self.local_hparams = extract_hparams(locals())
+            self.logger.log_hyperparameters(self.local_hparams)
 
         # Log gpus and nodes.
         device_name = self._device.__class__.__name__.lstrip('Device').lower()
