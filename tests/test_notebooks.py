@@ -90,8 +90,6 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
         pytest.skip('The CI does not support tpus')
     if notebook_name == 'ffcv_dataloaders' and device == 'cpu':
         pytest.skip('The FFCV notebook requires CUDA')
-    if notebook_name != 'pretrain_finetune_huggingface':
-        pytest.skip('TODO: DELETE THIS SKIP!!')
     with testbook.testbook(notebook) as tb:
         tb.inject(trainer_monkeypatch_code)
         tb.inject('patch_notebooks()')
