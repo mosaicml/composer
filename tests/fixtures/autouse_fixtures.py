@@ -11,7 +11,6 @@ import tqdm.std
 import composer
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.utils import dist, reproducibility
-from tests.conftest import _get_option
 
 
 @pytest.fixture(autouse=True)
@@ -73,13 +72,6 @@ def set_loglevels():
     """Ensures all log levels are set to DEBUG."""
     logging.basicConfig()
     logging.getLogger(composer.__name__).setLevel(logging.DEBUG)
-
-
-@pytest.fixture
-def rank_zero_seed(pytestconfig: pytest.Config) -> int:
-    """Read the rank_zero_seed from the CLI option."""
-    seed = _get_option(pytestconfig, 'seed', default='0')
-    return int(seed)
 
 
 @pytest.fixture(autouse=True)
