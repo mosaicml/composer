@@ -100,21 +100,6 @@ class Logger:
         for destination in self.destinations:
             destination.log_images(images, name, channels_last, step, masks, mask_class_labels, use_table)
 
-    def data_fit(self, data: Dict[str, Any]) -> None:
-        raise NotImplementedError(
-            'data_fit is no longer a valid call to the logger API. Please use log_hyperparameters or log_metrics instead'
-        )
-
-    def data_epoch(self, data: Dict[str, Any]) -> None:
-        raise NotImplementedError(
-            'data_epoch is no longer a valid call to the logger API. Please use log_hyperparameters or log_metrics instead'
-        )
-
-    def data_batch(self, data: Dict[str, Any]) -> None:
-        raise NotImplementedError(
-            'data_batch is no longer a valid call to the logger API. Please use log_hyperparameters or log_metrics instead'
-        )
-
     def upload_file(
         self,
         remote_file_name: str,
