@@ -22,6 +22,7 @@ def test_full_nlp_pipeline(tiny_bert_model, tiny_bert_tokenizer, tmp_path):
     onnx = pytest.importorskip('onnx')
     ort = pytest.importorskip('onnxruntime')
 
+    # pretraining
     pretraining_metrics = [
         LanguageCrossEntropy(ignore_index=-100, vocab_size=tiny_bert_tokenizer.vocab_size),
         MaskedAccuracy(ignore_index=-100)
@@ -65,6 +66,7 @@ def test_full_nlp_pipeline(tiny_bert_model, tiny_bert_tokenizer, tmp_path):
     assert original_ce.compute() > 0.0
     assert original_ce.compute() == loaded_ce.compute()
 
+    # finetuning
     finetuning_metrics = Accuracy()
     reproducibility.seed_all(17)
     hf_finetuning_model, finetuning_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
@@ -90,6 +92,8 @@ def test_full_nlp_pipeline(tiny_bert_model, tiny_bert_tokenizer, tmp_path):
     finetuning_trainer = Trainer(model=finetuning_model,
                                  train_dataloader=finetuning_train_dataloader,
                                  save_folder=str(tmp_path / 'finetuning_checkpoints'),
+                                 load_path=str(tmp_path / 'pretraining_checkpoints' / 'latest-rank0.pt'),
+                                 load_weights_only=True,
                                  max_duration='2ep',
                                  seed=17)
     finetuning_trainer.fit()
@@ -105,6 +109,7 @@ def test_full_nlp_pipeline(tiny_bert_model, tiny_bert_tokenizer, tmp_path):
     assert original_acc.compute() > 0.0
     assert original_acc.compute() == loaded_acc.compute()
 
+    # inference
     os.mkdir(tmp_path / 'inference_checkpoints')
     inference.export_for_inference(model=loaded_finetuning_trainer.state.model,
                                    save_format='onnx',
