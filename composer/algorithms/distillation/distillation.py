@@ -2,11 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from typing import Callable, Optional, Union
+from typing import Callable, Dict, Optional, Union
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from transformers.modeling_outputs import \
+    MaskedLMOutput  # TODO: This is not installed by default so it needs to made a conditional import
 
 from composer import Algorithm, Event, State
 from composer.core.precision import get_precision_context
@@ -26,8 +29,9 @@ class Distillation(Algorithm):
     modified loss function that includes the outputs from a supplementary "teacher" model.
 
     Args:
-        teacher (nn.Module) : A teacher model.
-        teacher_weights_path (str): Path to teacher weights.
+        teachers (dict) : A dictionary that contains path(s) to checkpoints and teacher
+            models, of the form {``checkpoint_path``: ``model``}, where
+            ``checkpoint_path`` is a string and ``model`` is a :class:`torch.nn.Module`.
         kd_loss_fn (Callable): Loss function with which to perform distillation.
             For example, :class:`torch.nn.MSELoss`, or :class:`.KLDivergence`.
         kd_loss_weight (float, optional): Weighting of kd loss in the overall loss.
@@ -36,22 +40,29 @@ class Distillation(Algorithm):
         start_dur (float, optional): Fraction of training at which to start distillation.
             ``0`` is start and ``1.0`` is end. See :class:`composer.core.time.TimeUnit`. Default: ``0``.
         end_dur (float, optional): Fraction of training at which to end distillation.
-            ``0`` is start and ``1.0`` is end. See :class:`composer.core.time.TimeUnit`. Default: ``1.0``.
+            ``0`` is start and ``1.0`` is end. See :class:`composer.core.time.TimeUnit`.
+            Default: ``1.0``.
+        n_teachers_to_sample (int, optional): Number of teachers from which to (sub)
+            sample for a single iteration. If ``n_teachers_to_sample`` is less than the
+            number of teachers, teachers will be randomly subsampled on each iteration. We
+            have found that randomly sampling one teacher from a group of teachers
+            yields nearly as much benefit as ensembling the predictions of all the
+            teachers. If ``None``, will default to be number of teachers (i.e.
+            ``len(teachers)``).  Default: ``None``.
     """
 
     def __init__(
         self,
-        teacher: nn.Module,
-        teacher_weights_path: str,
+        teachers: Dict[str, nn.Module],
         kd_loss_fn: Callable,
         kd_loss_weight: float = 0.9,
         org_loss_weight: float = 0.1,
         start_dur: float = 0.0,
         end_dur: float = 1.0,
+        n_teachers_to_sample: Union[int, None] = None,
     ):
         super().__init__()
-        self.teacher = teacher
-        self.teacher_weights_path = teacher_weights_path
+        self.teachers = []
         self.kd_loss_fn = kd_loss_fn
         self.base_kd_loss_weight = kd_loss_weight
         self.kd_loss_weight = kd_loss_weight
@@ -59,18 +70,25 @@ class Distillation(Algorithm):
         self.start_dur = start_dur
         self.end_dur = end_dur
 
-        ckpt = torch.load(self.teacher_weights_path)
-        weights = None
-        try:
-            weights = ckpt['state']['model']
-        except KeyError:
-            log.error("Keys ['state']['model'] not found. Only Composer models supported at this time.")
-            raise
-        try:
-            self.teacher.load_state_dict(weights)
-        except:
-            log.error('Unable to load teacher checkpoint weights.')
-            raise
+        if n_teachers_to_sample is None:
+            self.n_teachers_to_sample = len(teachers)
+        else:
+            self.n_teachers_to_sample = n_teachers_to_sample
+
+        for checkpoint_path, teacher in teachers.items():
+            ckpt = torch.load(checkpoint_path)
+            weights = None
+            try:
+                weights = ckpt['state']['model']
+            except KeyError:
+                log.error("Keys ['state']['model'] not found. Only Composer models supported at this time.")
+                raise
+            try:
+                teacher.load_state_dict(weights)
+            except:
+                log.error(f'Unable to load weights into teacher state_dict for checkpoint {checkpoint_path}.')
+                raise
+            self.teachers.append(teacher)
 
     def match(self, event: Event, state: State) -> bool:
         if event == Event.FIT_START:
@@ -89,15 +107,16 @@ class Distillation(Algorithm):
 
         if event == Event.FIT_START:
             # move teacher to correct device after init
-            try:
-                self._move_teacher_model_to_device(self.teacher.module, state.model, state.device)
-            except:
-                log.error('Unable to move teacher.module to device. Will attempt to move teacher.')
+            for teacher in self.teachers:
                 try:
-                    self._move_teacher_model_to_device(self.teacher, state.model, state.device)
+                    self._move_teacher_model_to_device(teacher.module, state.model, state.device)
                 except:
-                    log.error('Unable to move teacher to device.')
-                    raise
+                    log.error('Unable to move teacher.module to device. Will attempt to move teacher.')
+                    try:
+                        self._move_teacher_model_to_device(teacher, state.model, state.device)
+                    except:
+                        log.error('Unable to move teacher to device.')
+                        raise
 
         elif event == Event.AFTER_LOSS:
 
@@ -108,10 +127,22 @@ class Distillation(Algorithm):
             else:
                 input = state.batch
 
+            # Get teacher(s) to sample from
+            t_idx = np.random.choice(range(len(self.teachers)), size=self.n_teachers_to_sample, replace=False)
+            # get teacher output
+            teacher_outputs = []
+
             # get teacher output
             with torch.no_grad():
                 with get_precision_context(state.precision):
-                    teacher_output = self.teacher(input)
+                    for idx in t_idx:
+                        teacher_output = self.teachers[int(idx)](input)
+                        if isinstance(teacher_output, MaskedLMOutput):
+                            teacher_outputs.append(teacher_output.logits.detach().clone())
+                        else:
+                            teacher_outputs.append(teacher_output)
+            # Avg teacher outputs
+            teacher_output = torch.mean(torch.stack(teacher_outputs), dim=0)
 
             # get original loss
             base_loss = state.loss
