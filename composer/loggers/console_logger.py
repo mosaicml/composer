@@ -62,7 +62,7 @@ class ConsoleLogger(LoggerDestination):
         self.should_log_traces = log_traces
         self.stream = stream
         self.logged_hparams: Dict[str, Any] = {}
-        self.logged_hparams_already_logged_to_console: bool = False
+        self.hparams_already_logged_to_console: bool = False
 
     def log_traces(self, traces: Dict[str, Any]):
         if self.should_log_traces:
@@ -105,18 +105,18 @@ class ConsoleLogger(LoggerDestination):
         self.log_to_console(state.eval_metric_values, prefix='Eval ', state=state)
 
     def fit_start(self, state: State, logger: Logger) -> None:
-        if not self.logged_hparams_already_logged_to_console:
-            self.logged_hparams_already_logged_to_console = True
+        if not self.hparams_already_logged_to_console:
+            self.hparams_already_logged_to_console = True
             self._log_hparams_to_console()
 
     def predict_start(self, state: State, logger: Logger) -> None:
-        if not self.logged_hparams_already_logged_to_console:
-            self.logged_hparams_already_logged_to_console = True
+        if not self.hparams_already_logged_to_console:
+            self.hparams_already_logged_to_console = True
             self._log_hparams_to_console()
 
     def eval_start(self, state: State, logger: Logger) -> None:
-        if not self.logged_hparams_already_logged_to_console:
-            self.logged_hparams_already_logged_to_console = True
+        if not self.hparams_already_logged_to_console:
+            self.hparams_already_logged_to_console = True
             self._log_hparams_to_console()
 
     def _get_progress_string(self, state: State):

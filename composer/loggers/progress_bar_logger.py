@@ -158,7 +158,7 @@ class ProgressBarLogger(LoggerDestination):
         self.stream = stream
         self.state: Optional[State] = None
         self.logged_hparams: Dict[str, Any] = {}
-        self.logged_hparams_already_logged_to_console: bool = False
+        self.hparams_already_logged_to_console: bool = False
 
     @property
     def show_pbar(self) -> bool:
@@ -175,7 +175,7 @@ class ProgressBarLogger(LoggerDestination):
             self._log_to_console('Config:')
             self._log_to_console(yaml.dump(self.logged_hparams))
             self._log_to_console('*' * 30)
-        self.logged_hparams_already_logged_to_console = True
+        self.hparams_already_logged_to_console = True
 
     def log_traces(self, traces: Dict[str, Any]):
         if self.should_log_traces:
@@ -281,11 +281,11 @@ class ProgressBarLogger(LoggerDestination):
         self.state = state
 
     def fit_start(self, state: State, logger: Logger) -> None:
-        if not self.logged_hparams_already_logged_to_console:
+        if not self.hparams_already_logged_to_console:
             self._log_hparams_to_console()
 
     def predict_start(self, state: State, logger: Logger) -> None:
-        if not self.logged_hparams_already_logged_to_console:
+        if not self.hparams_already_logged_to_console:
             self._log_hparams_to_console()
 
     def epoch_start(self, state: State, logger: Logger) -> None:
@@ -293,7 +293,7 @@ class ProgressBarLogger(LoggerDestination):
             self.train_pbar = self._build_pbar(state=state, is_train=True)
 
     def eval_start(self, state: State, logger: Logger) -> None:
-        if not self.logged_hparams_already_logged_to_console:
+        if not self.hparams_already_logged_to_console:
             self._log_hparams_to_console()
         if self.show_pbar:
             self.eval_pbar = self._build_pbar(state, is_train=False)
