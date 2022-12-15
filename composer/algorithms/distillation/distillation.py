@@ -17,7 +17,8 @@ from composer.core.time import Time
 from composer.devices import Device, DeviceTPU
 from composer.loggers import Logger
 from composer.models import ComposerModel
-from composer.utils import get_device
+from composer.trainer.dist_strategy import prepare_ddp_module, prepare_fsdp_module
+from composer.utils import dist, get_device
 
 log = logging.getLogger(__name__)
 
@@ -106,17 +107,35 @@ class Distillation(Algorithm):
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
 
         if event == Event.FIT_START:
-            # move teacher to correct device after init
-            for teacher in self.teachers:
-                try:
-                    self._move_teacher_model_to_device(teacher.module, state.model, state.device)
-                except:
-                    log.error('Unable to move teacher.module to device. Will attempt to move teacher.')
+            # Handle parallelization
+            for teacher_i, teacher in enumerate(self.teachers):
+                if state.fsdp_config is not None:
                     try:
-                        self._move_teacher_model_to_device(teacher, state.model, state.device)
+                        prepare_fsdp_module(teacher,
+                                            optimizers=None,
+                                            fsdp_config=state.fsdp_config,
+                                            precision=state.precision)
                     except:
-                        log.error('Unable to move teacher to device.')
+                        log.error('Unable to prepare teacher model for FSDP')
                         raise
+                # TODO: Figure out whether we even need DDP wrapping, given that teacher
+                # params don't receive gradients
+                elif state.fsdp_config is None and dist.get_world_size() > 1:
+                    try:
+                        self.teachers[teacher_i] = prepare_ddp_module(teacher, find_unused_parameters=True)
+                    except:
+                        log.error('Unable to prepare teacher model for DDP')
+                        raise
+                else:
+                    try:
+                        self._move_teacher_model_to_device(teacher.module, state.model, state.device)
+                    except:
+                        log.error('Unable to move teacher.module to device. Will attempt to move teacher.')
+                        try:
+                            self._move_teacher_model_to_device(teacher, state.model, state.device)
+                        except:
+                            log.error('Unable to move teacher to device.')
+                            raise
 
         elif event == Event.AFTER_LOSS:
 
