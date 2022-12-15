@@ -147,6 +147,7 @@ class State(Serializable):
         algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms used for training.
         callbacks (Callback | Sequence[Callback], optional): The callbacks used for training.
         deepspeed_config (Dict[str, Any], optional): The configuration dictionary for deepspeed.
+        fsdp_config (Dict[str, Any], optional): The configuration dictionary for FSDP.
 
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
@@ -313,8 +314,9 @@ class State(Serializable):
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
         callbacks: Optional[Union[Callback, Sequence[Callback]]] = None,
 
-        # deepspeed
+        # Distributed training configs
         deepspeed_config: Optional[Dict[str, Any]] = None,
+        fsdp_config: Optional[Dict[str, Any]] = None,
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
@@ -356,6 +358,7 @@ class State(Serializable):
         self.profiler: Optional[Profiler] = None
 
         self.deepspeed_config = deepspeed_config
+        self.fsdp_config = fsdp_config
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
