@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Contains helper functions for auto-logging hparams."""
+
 import array
 from typing import Any, Dict, List, Mapping, Tuple
 
@@ -11,7 +13,7 @@ __all__ = ['extract_hparams', 'convert_nested_dict_to_flat_dict', 'convert_flat_
 
 
 def extract_hparams(locals_dict: Dict[str, Any]) -> Dict[str, Any]:
-    """Takes in local symbol table and recursively grabs any hyperparameter
+    """Takes in local symbol table and recursively grabs any hyperparameter.
 
     Args:
         locals_dict (Dict[str, Any]): The local symbol table returned when calling locals(),
@@ -91,7 +93,7 @@ def convert_flat_dict_to_nested_dict(flat_dict: Dict) -> Dict:
 
 
 def _parse_dict_for_hparams(dic) -> Dict:
-    '''Grabs hyperparamters from each element in dictionary.'''
+    """Grabs hyperparamters from each element in dictionary."""
     hparams_to_add = {}
     for k, v in dic.items():
         if k.startswith('_') or k == 'defaults':
@@ -105,7 +107,6 @@ def _parse_dict_for_hparams(dic) -> Dict:
 
 def _grab_hparams(obj) -> Any:
     """Helper function that recursively parses objects for their hyperparameters."""
-
     if any([isinstance(obj, torch.Tensor), isinstance(obj, np.ndarray), isinstance(obj, array.array)]):
         return {}
 
@@ -126,7 +127,10 @@ def _grab_hparams(obj) -> Any:
     elif hasattr(obj, '__dict__'):
         obj_name = obj.__class__.__name__
         parsed_hparams = _parse_dict_for_hparams(dic=vars(obj))
-        hparams_to_add = {obj_name: parsed_hparams}
+        if parsed_hparams == {}:
+            hparams_to_add = {obj_name: {'null': None}}
+        else:
+            hparams_to_add = {obj_name: parsed_hparams}
         return hparams_to_add
 
     # If object is sequence then loop through a parse each element in sequence.
