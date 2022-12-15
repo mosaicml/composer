@@ -12,7 +12,7 @@ There are two ways to get a `run_name`.
 
 You create your own `run_name` and pass it to the trainer, like so:
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```python
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
