@@ -7,15 +7,15 @@ import textwrap
 import torch
 import transformers
 from datasets import load_dataset
-from torch.utils.data import DataLoader, IterableDataset
+from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer
 
 from composer.core import DataSpec
-from composer.utils import ensure_tuple
+from composer.utils import dist, ensure_tuple
 from composer.utils.file_helpers import get_file
 
 
-class InContextLearningLMTaskDataset(IterableDataset):
+class InContextLearningLMTaskDataset(Dataset):
 
     def __init__(
         self,
@@ -27,18 +27,18 @@ class InContextLearningLMTaskDataset(IterableDataset):
     ):
         get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-        self.encoded_dataset = dataset.map(lambda examples: {
-            'continuation': tokenizer(examples['continuation']),
-            'context': tokenizer(examples['context']),
-        })
+        self.encoded_dataset = list(
+            dataset.map(lambda examples: {
+                'continuation': tokenizer(examples['continuation']),
+                'context': tokenizer(examples['context']),
+            }))
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.eos_tok_id = eos_tok_id
         self.size = len(dataset)
 
-    def __iter__(self):
-        for example in self.encoded_dataset:
-            yield example
+    def __getitem__(self, index):
+        return self.encoded_dataset[index]
 
     def __len__(self):
         return self.size
@@ -129,12 +129,15 @@ class InContextLearningLMTaskDataset(IterableDataset):
         metric.update(batch, output_logits, labels)
 
 
-def get_lm_task_dataloader(dataset_uri, tokenizer, batch_size, max_seq_len, eos_tok_id):
+def get_lm_task_dataloader(dataset_uri, tokenizer, global_batch_size, max_seq_len, eos_tok_id):
     dataset = InContextLearningLMTaskDataset(dataset_uri, tokenizer, max_seq_len, eos_tok_id)
+    sampler = dist.get_sampler(dataset, drop_last=False, shuffle=True)
+    batch_size = global_batch_size // dist.get_world_size()
+    print(f'Using microbatch size {batch_size}')
     return DataSpec(DataLoader(
         dataset,
         batch_size=batch_size,
-        sampler=None,
+        sampler=sampler,
         collate_fn=dataset.collate_fn,
     ),
                     device_transforms=None,

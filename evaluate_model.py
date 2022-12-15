@@ -1,4 +1,3 @@
-
 import transformers
 
 from composer.core import Evaluator
@@ -11,7 +10,7 @@ if __name__ == '__main__':
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     dataset_uri = 's3://mosaicml-internal-dataset-lambda/lambada/lambada_test.json'
     tokenizer = transformers.AutoTokenizer.from_pretrained('gpt2')
-    dl = get_lm_task_dataloader(dataset_uri, tokenizer, 16, max_seq_len=2048, eos_tok_id=tokenizer.eos_token_id)
+    dl = get_lm_task_dataloader(dataset_uri, tokenizer, 256, max_seq_len=2048, eos_tok_id=tokenizer.eos_token_id)
     evaluator = Evaluator(label='lambada', dataloader=dl, metric_names=['InContextLearningLMAccuracy'])
     model = create_gpt2(use_pretrained=True, pretrained_model_name='EleutherAI/gpt-neo-1.3B')
     trainer = Trainer(model=model, max_duration='1ep', loggers=in_memory_logger)

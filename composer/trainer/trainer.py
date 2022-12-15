@@ -36,6 +36,7 @@ from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException,
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, ProgressBarLogger, RemoteUploaderDownloader,
                               WandBLogger)
+from composer.metrics import METRIC_CTORS
 from composer.models import ComposerModel
 from composer.optim import ComposerScheduler, DecoupledSGDW, compile_composer_scheduler
 from composer.profiler import Profiler
@@ -48,7 +49,6 @@ from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectS
                             is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
                             maybe_create_remote_uploader_downloader_from_uri, model_eval_mode, parse_uri,
                             reproducibility)
-from composer.metrics import METRIC_CTORS
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -2577,7 +2577,7 @@ class Trainer:
                         'trainer initialization. Existing data for that label will be overwritten.'
                         'To prevent this in the future, assign unique label names.',
                         category=UserWarning)
-                    
+
                 eval_metrics.update({
                     m: METRIC_CTORS[m]() for m in evaluator.metric_names if m in METRIC_CTORS and m not in eval_metrics
                 })

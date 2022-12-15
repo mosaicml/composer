@@ -272,39 +272,3 @@ class InContextLearningLMAccuracy(Metric):
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
         return self.correct.float() / self.total
-
-
-class InContextLearningLMPerplexity(Metric):
-    """Computes accuracy with support for masked indicies.
-
-    Adds metric state variables:
-        correct (float): The number of instances where the prediction masked the target.
-        total (float): The number of total instances that were predicted.
-
-    Args:
-        ignore_index (int): The class index to ignore. Default: -100.
-        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
-            each forward() before returning the value at the step. Default: ``False``.
-    """
-
-    # Make torchmetrics call update only once
-    full_state_update = False
-
-    def __init__(self, dist_sync_on_step: bool = False):
-        # state from multiple processes
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
-        self.add_state('log_prob_sum', default=torch.tensor(0.0), dist_reduce_fx='sum')
-        self.add_state('total', default=torch.tensor(0), dist_reduce_fx='sum')
-
-    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
-        targets = torch.roll(labels, shifts=-1)
-        targets[:, -1] = -100
-        for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
-            cont_logits_pred = F.log_softmax(output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1), dim=1)
-            cont_tok_targ = targets[batch_idx].index_select(dim=0, index=cont_idx - 1)
-            self.log_prob_sum += torch.gather(cont_logits_pred, 1, cont_tok_targ.reshape(-1, 1)).sum()
-            self.total += torch.tensor(1)
-
-    def compute(self):
-        assert isinstance(self.log_prob_sum, Tensor)
-        return math.exp(self.log_prob_sum / self.total.float())
