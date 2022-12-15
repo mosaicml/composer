@@ -3,6 +3,7 @@
 
 """Helpers for running distributed data parallel training."""
 
+import collections
 import logging
 from contextlib import contextmanager, nullcontext
 from typing import Any, Callable, ContextManager, Dict, Optional, Sequence, Union, cast
@@ -247,9 +248,34 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     for name, obj in model.named_children():
         if not isinstance(obj, (Metric, MetricCollection)):
 
-            # If `obj` contains meta tensors, try to use `obj.param_init_fn` to initialize them
             def _param_init_fn(module: torch.nn.Module) -> None:
+                # A dictionary of all tied parameters
+                tied_pointers = {}
+
+                # Goes through all modules finding which weights have the same pointers
+                for n, p in module.named_modules():
+                    if hasattr(p, 'weight'):
+                        ptr = id(p.weight)
+                        tied_pointers[ptr] = tied_pointers.get(ptr, set()) | set([n])
+
+                # Creates a dictionary of param names should be tied together
+                tied_params = collections.defaultdict(lambda: [])
+                for _, s in tied_pointers.items():
+                    if len(s) == 1:
+                        continue
+                    first = next(s.__iter__())
+                    for elem in s:
+                        tied_params[first].append(elem)
+
                 module.to_empty(device=f'cuda:{torch.cuda.current_device()}')
+
+                # Redoes weight tying
+                for n, tied_names in tied_params.items():
+                    params = module.get_submodule(n).weight
+                    for tied_name in tied_names:
+                        dest_module = module.get_submodule(tied_name)
+                        dest_module.weight = params
+
                 if hasattr(obj, 'param_init_fn') and isinstance(obj.param_init_fn, Callable):
                     module.apply(obj.param_init_fn)
                 elif hasattr(module, 'reset_parameters') and isinstance(module.reset_parameters, Callable):
