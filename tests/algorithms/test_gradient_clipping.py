@@ -5,6 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 import torch
+from packaging import version
 from torch import nn
 
 import composer.algorithms.gradient_clipping.gradient_clipping as gc_module
@@ -12,6 +13,7 @@ from composer.algorithms.gradient_clipping import GradientClipping, apply_gradie
 from composer.algorithms.gradient_clipping.gradient_clipping import _apply_agc, _get_clipped_gradient_coeff
 from composer.core import Engine, State
 from composer.core.event import Event
+from tests.common import world_size
 
 
 @pytest.fixture
@@ -22,6 +24,12 @@ def simple_model_with_grads():
     x = torch.rand((N, hin))
     y = torch.randint(high=num_classes - 1, size=(N,))
     model = nn.Sequential(nn.Linear(hin, num_classes, bias=False), nn.Softmax(dim=1))
+    # Force wrap every module in FSDP, to allow for testing FSDP
+    # gradient clipping properly.
+    for module in model:
+        module._fsdp_wrap = True
+
+    model._fsdp_wrap = True
     o = model(x)
     loss_fn = nn.CrossEntropyLoss()
     loss = loss_fn(o, y)
@@ -59,20 +67,20 @@ def cnn_model_with_grads():
 
 
 def test_gradient_clipping_functional(monkeypatch):
-    parameters = Mock()
+    model = Mock()
     new_gc_fn = Mock()
     monkeypatch.setattr(gc_module, '_apply_agc', new_gc_fn)
-    apply_gradient_clipping(parameters, 'adaptive', 0.1)
-    new_gc_fn.assert_called_once_with(parameters, clipping_threshold=0.1)
+    apply_gradient_clipping(model, 'adaptive', 0.1, fsdp_enabled=False)
+    new_gc_fn.assert_called_once_with(model.parameters(), clipping_threshold=0.1)
 
     new_gc_fn = Mock()
     monkeypatch.setattr(torch.nn.utils, 'clip_grad_norm_', new_gc_fn)
-    apply_gradient_clipping(parameters, 'norm', 0.1)
+    apply_gradient_clipping(model, 'norm', 0.1, fsdp_enabled=False)
     new_gc_fn.assert_called_once()
 
     new_gc_fn = Mock()
     monkeypatch.setattr(torch.nn.utils, 'clip_grad_value_', new_gc_fn)
-    apply_gradient_clipping(parameters, 'value', 0.1)
+    apply_gradient_clipping(model, 'value', 0.1, fsdp_enabled=False)
     new_gc_fn.assert_called_once()
 
 
@@ -125,6 +133,41 @@ def test_gradient_clipping_algorithm_with_deepspeed_enabled(
 
     # Make sure apply_gradient_clipping is not called.
     apply_gc_fn.assert_not_called()
+
+
+def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:
+    if recurse:
+        return True
+    if hasattr(module, '_fsdp_wrap'):
+        return bool(module._fsdp_wrap)
+    return False
+
+
+@pytest.mark.parametrize('clipping_type', ['norm', 'value'])
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                    reason='requires PyTorch 1.13 or higher')
+@pytest.mark.gpu
+@world_size(2)
+def test_gradient_clipping_algorithm_with_fsdp_enabled(
+    monkeypatch,
+    clipping_type,
+    simple_model_with_grads,
+    dummy_state: State,
+    world_size: int,
+):
+    from torch.distributed.fsdp import FullyShardedDataParallel
+
+    clipping_threshold = 0.1191
+    state = dummy_state
+    state.model = FullyShardedDataParallel(simple_model_with_grads,
+                                           auto_wrap_policy=_auto_wrap_policy,
+                                           device_id=torch.cuda.current_device())
+
+    state.algorithms = [GradientClipping(clipping_type=clipping_type, clipping_threshold=clipping_threshold)]
+    logger = Mock()
+
+    engine = Engine(state, logger)
+    engine.run_event(Event.AFTER_TRAIN_BATCH)
 
 
 def test_algorithm_with_deepspeed_enabled_errors_out_for_non_norm(

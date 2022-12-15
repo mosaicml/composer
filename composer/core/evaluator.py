@@ -123,7 +123,7 @@ class Evaluator:
             By default, if left blank, then all metrics returned by ``model.get_metrics()`` will be used.
         subset_num_batches (int, optional): The maximum number of batches to use for each evaluation. Defaults to ``None``,
             which means that the ``eval_subset_num_batches`` parameter from the :class:`.Trainer` will be used.
-            Set to ``-1`` to evaluate the entire ``dataloader``
+            Set to ``-1`` to evaluate the entire ``dataloader``.
         eval_interval (Time | int | str | (State, Event) -> bool, optional): An integer,
             which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time` object, or a callable.
             Defaults to ``None``, which means that the ``eval_interval`` parameter from the :class:`.Trainer` will be used.
@@ -156,17 +156,18 @@ class Evaluator:
         self.dataloader = ensure_data_spec(dataloader)
 
         self.metric_names = []
-        if metric_names or metrics:
-            if (metric_names and metrics):
-                raise ValueError('only one of ``metrics`` or ``metric_names`` should be specified.')
-            if metric_names:
-                self.metric_names = metric_names
-            elif metrics:
-                warnings.warn(DeprecationWarning('``metrics`` is deprecated and will be removed in a future release.'))
-                if isinstance(metrics, Metric):
-                    self.metric_names = [metrics.__class__.__name__]
-                else:
-                    self.metric_names = [str(k) for k, _ in metrics.items()]
+        if metric_names is not None and metrics is not None:
+            raise ValueError('only one of ``metrics`` or ``metric_names`` should be specified.')
+        elif metric_names is not None:
+            if not isinstance(metric_names, list):
+                raise ValueError(f'``metric_names`` should be a list of strings, not a {type(metric_names)}')
+            self.metric_names = metric_names
+        elif metrics is not None:
+            warnings.warn(DeprecationWarning('``metrics`` is deprecated and will be removed in 0.13.0.'))
+            if isinstance(metrics, Metric):
+                self.metric_names = [metrics.__class__.__name__]
+            else:
+                self.metric_names = [str(k) for k, _ in metrics.items()]
 
         self.subset_num_batches = subset_num_batches
         self._eval_interval = None

@@ -18,14 +18,22 @@ from tests.common import RandomClassificationDataset, SimpleModel
 
 
 @pytest.fixture
-def minimal_state(rank_zero_seed: int):
+def minimal_state(rank_zero_seed: int, request: pytest.FixtureRequest):
     """Most minimally defined state possible.
 
     Tests should configure the state for their specific needs.
     """
+
+    device = None
+    for item in request.session.items:
+        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
+        break
+    assert device != None
+
     return State(
         model=SimpleModel(),
         run_name='minimal_run_name',
+        device=device,
         rank_zero_seed=rank_zero_seed,
         max_duration='100ep',
         dataloader=DataLoader(RandomClassificationDataset()),
@@ -99,9 +107,16 @@ def dummy_state(
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda _: 1.0)
 
+    device = None
+    for item in request.session.items:
+        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
+        break
+    assert device != None
+
     state = State(
         model=model,
         run_name='dummy_run_name',
+        device=device,
         precision='fp32',
         grad_accum=1,
         rank_zero_seed=rank_zero_seed,

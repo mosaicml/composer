@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
 import logging
 import os
 import pathlib
@@ -159,3 +160,47 @@ def s3_bucket(request: pytest.FixtureRequest):
         return 'my-bucket'
     else:
         return _get_option(request.config, 's3_bucket')
+
+
+# Note: These session scoped fixtures should not be used directly in tests, but the non session scoped fixtures
+# below should be used instead. This is because the session scoped fixtures return the same object to every
+# test that requests it, so tests would have side effects on each other. Instead, the non session
+# scoped fixtures below perform a deepcopy before returning the fixture.
+@pytest.fixture(scope='session')
+def _session_tiny_bert_model():  # type: ignore
+    transformers = pytest.importorskip('transformers')
+
+    config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny')
+    hf_model = transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
+    return hf_model
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_bert_tokenizer():  # type: ignore
+    transformers = pytest.importorskip('transformers')
+
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('prajjwal1/bert-tiny')
+    return hf_tokenizer
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_bert_config():  # type: ignore
+    transformers = pytest.importorskip('transformers')
+
+    hf_config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny')
+    return hf_config
+
+
+@pytest.fixture
+def tiny_bert_model(_session_tiny_bert_model):
+    return copy.deepcopy(_session_tiny_bert_model)
+
+
+@pytest.fixture
+def tiny_bert_tokenizer(_session_tiny_bert_tokenizer):
+    return copy.deepcopy(_session_tiny_bert_tokenizer)
+
+
+@pytest.fixture
+def tiny_bert_config(_session_tiny_bert_config):
+    return copy.deepcopy(_session_tiny_bert_config)
