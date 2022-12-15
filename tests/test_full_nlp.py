@@ -17,21 +17,29 @@ from composer.utils import dist, inference, reproducibility
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
 
 
-# @pytest.mark.parameterize('model_type', ['tinybert', 'simpletransformer'])
-def test_full_nlp_pipeline(tiny_bert_model, tiny_bert_tokenizer, tmp_path):
+@pytest.mark.parametrize('model_type', ['tinybert'])
+def test_full_nlp_pipeline(model_type, tiny_bert_tokenizer, tmp_path, request):
     transformers = pytest.importorskip('transformers')
     onnx = pytest.importorskip('onnx')
     ort = pytest.importorskip('onnxruntime')
+
+    if model_type == 'tinybert':
+        tiny_bert_model = request.getfixturevalue('tiny_bert_model')
 
     # pretraining
     pretraining_metrics = [
         LanguageCrossEntropy(ignore_index=-100, vocab_size=tiny_bert_tokenizer.vocab_size),
         MaskedAccuracy(ignore_index=-100)
     ]
-    pretraining_model = HuggingFaceModel(tiny_bert_model,
-                                         tiny_bert_tokenizer,
-                                         use_logits=True,
-                                         metrics=pretraining_metrics)
+
+    if model_type == 'tinybert':
+        pretraining_model = HuggingFaceModel(tiny_bert_model,
+                                             tiny_bert_tokenizer,
+                                             use_logits=True,
+                                             metrics=pretraining_metrics)
+    else:
+        pass
+
     pretraining_model_copy = copy.deepcopy(pretraining_model)
     pretraining_train_dataset = RandomTextLMDataset(size=10,
                                                     vocab_size=tiny_bert_tokenizer.vocab_size,
@@ -73,15 +81,19 @@ def test_full_nlp_pipeline(tiny_bert_model, tiny_bert_tokenizer, tmp_path):
 
     # finetuning
     finetuning_metrics = Accuracy()
-    reproducibility.seed_all(17)
-    hf_finetuning_model, finetuning_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
-        str(tmp_path / 'pretraining_checkpoints' / 'latest-rank0.pt'),
-        model_instantiation_class='transformers.AutoModelForSequenceClassification',
-        model_config_kwargs={'num_labels': 3})
-    finetuning_model = HuggingFaceModel(model=hf_finetuning_model,
-                                        tokenizer=finetuning_tokenizer,
-                                        use_logits=True,
-                                        metrics=[finetuning_metrics])
+
+    if model_type == 'tinybert':
+        hf_finetuning_model, finetuning_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
+            str(tmp_path / 'pretraining_checkpoints' / 'latest-rank0.pt'),
+            model_instantiation_class='transformers.AutoModelForSequenceClassification',
+            model_config_kwargs={'num_labels': 3})
+        finetuning_model = HuggingFaceModel(model=hf_finetuning_model,
+                                            tokenizer=finetuning_tokenizer,
+                                            use_logits=True,
+                                            metrics=[finetuning_metrics])
+    else:
+        pass
+
     finetuning_model_copy = copy.deepcopy(finetuning_model)
 
     finetuning_train_dataset = RandomTextClassificationDataset(size=100,
@@ -120,10 +132,14 @@ def test_full_nlp_pipeline(tiny_bert_model, tiny_bert_tokenizer, tmp_path):
 
     # inference
     os.mkdir(tmp_path / 'inference_checkpoints')
+    if model_type == 'tinybert':
+        sample_input = (next(iter(finetuning_train_dataloader)), {})
+    else:
+        pass
     inference.export_for_inference(model=loaded_finetuning_trainer.state.model,
                                    save_format='onnx',
                                    save_path=str(tmp_path / 'inference_checkpoints' / 'exported_model.onnx'),
-                                   sample_input=(next(iter(finetuning_train_dataloader)), {}))
+                                   sample_input=sample_input)
 
     loaded_inference_model = onnx.load(str(tmp_path / 'inference_checkpoints' / 'exported_model.onnx'))
     onnx.checker.check_model(loaded_inference_model)
