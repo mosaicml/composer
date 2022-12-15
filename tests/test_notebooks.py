@@ -47,9 +47,8 @@ def patch_notebooks():
             kwargs['duration'] = '2ep'
         if 'train_subset_num_batches' not in kwargs:
             kwargs['train_subset_num_batches'] = 2
-        if 'eval_dataloader' in kwargs:
-            if 'eval_subset_num_batches' not in kwargs:
-                kwargs['eval_subset_num_batches'] = 1
+        if 'eval_dataloader' in kwargs and 'eval_subset_num_batches' not in kwargs:
+            kwargs['eval_subset_num_batches'] = 1
         original_fit(self, *args, **kwargs)
 
     Trainer.fit = new_fit
@@ -84,7 +83,7 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
     trainer_monkeypatch_code = inspect.getsource(patch_notebooks)
     notebook_name = os.path.split(notebook)[-1][:-len('.ipynb')]
     if notebook_name == 'medical_image_segmentation':
-        pytest.xfail('Dataset is only available via kaggle; need to authenticate on ci/cd')
+        pytest.skip('Dataset is only available via kaggle; need to authenticate on ci/cd')
     if notebook_name == 'auto_microbatching' and device == 'cpu':
         pytest.skip('auto_grad_accum notebook only runs with a gpu')
     if notebook_name == 'TPU_Training_in_composer':
