@@ -8,6 +8,8 @@ import numpy as np
 import torch
 
 __all__ = ['extract_hparams', 'convert_nested_dict_to_flat_dict', 'convert_flat_dict_to_nested_dict']
+
+
 def extract_hparams(locals_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Takes in local symbol table and recursively grabs any hyperparameter
 
@@ -165,5 +167,3 @@ def _grab_hparams(obj) -> Any:
         # The object is some object of a custom class, so just return it with the class name.
         else:
             return {obj.__class__.__name__: obj}
-
-

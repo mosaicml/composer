@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
+
 from composer.utils import convert_flat_dict_to_nested_dict, convert_nested_dict_to_flat_dict, extract_hparams
 
 
