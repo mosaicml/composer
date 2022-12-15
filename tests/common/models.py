@@ -82,7 +82,7 @@ class SimpleConvModel(ComposerClassifier):
 
 
 class SimpleSegmentationModel(ComposerClassifier):
-    """Small convolutional classifer.
+    """Small convolutional classifier.
 
     Args:
         num_channels (int): number of input channels (default: 3)
@@ -117,27 +117,41 @@ class Mean(torch.nn.Module):
         return torch.mean(x, dim=1)
 
 
+class SimpleTransformerBase(torch.nn.Module):
+
+    def __init__(self, vocab_size: int = 100, d_model: int = 16):
+        super().__init__()
+        embedding = torch.nn.Embedding(vocab_size, 16)
+        transformer = torch.nn.TransformerEncoder(torch.nn.TransformerEncoderLayer(d_model=d_model,
+                                                                                   nhead=2,
+                                                                                   dim_feedforward=d_model,
+                                                                                   dropout=0.3),
+                                                  num_layers=2,
+                                                  norm=torch.nn.LayerNorm(d_model))
+
+        self.net = torch.nn.Sequential(embedding, transformer)
+
+        self.embedding = embedding
+        self.transformer = transformer
+
+    def forward(self, batch: torch.Tensor) -> torch.Tensor:
+        return self.net(batch)
+
+
 class SimpleTransformerClassifier(ComposerClassifier):
     """Transformer model for testing"""
 
     def __init__(self, vocab_size: int = 100, num_classes: int = 2):
-        embedding = torch.nn.Embedding(vocab_size, 16)
-        transformer = torch.nn.TransformerEncoder(torch.nn.TransformerEncoderLayer(d_model=16,
-                                                                                   nhead=2,
-                                                                                   dim_feedforward=16,
-                                                                                   dropout=0.3),
-                                                  num_layers=2,
-                                                  norm=torch.nn.LayerNorm(16))
+        transformer_base = SimpleTransformerBase(vocab_size=vocab_size, d_model=16)
         pooler = Mean()
         dropout = torch.nn.Dropout(0.3)
         classifier = torch.nn.Linear(16, num_classes)
 
-        net = torch.nn.Sequential(embedding, transformer, pooler, dropout, classifier)
+        net = torch.nn.Sequential(transformer_base, pooler, dropout, classifier)
 
         super().__init__(module=net)
 
-        self.embedding = embedding
-        self.transformer = transformer
+        self.transformer_base = transformer_base
         self.pooler = pooler
         self.classifier = classifier
 
