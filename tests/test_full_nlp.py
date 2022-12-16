@@ -147,6 +147,11 @@ def inference_test_helper(model, original_input, original_output, tmp_path, save
 @pytest.mark.parametrize('model_type,algorithms,save_format', [('tinybert_hf', [GatedLinearUnits()], 'onnx'),
                                                                ('simpletransformer', [], 'torchscript')])
 def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokenizer, tmp_path, request, device):
+    """This test is intended to exercise our full pipeline for NLP.
+
+    To this end, it performs pretraining, loads the pretrained model with a classification head for finetuning
+    and finetunes it, exports the model for inference, and loads it back in to make predictions.
+    """
     device = get_device(device)
 
     tiny_bert_model = None
