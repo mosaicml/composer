@@ -23,18 +23,18 @@ def pretraining_test_helper(tokenizer, model, algorithms, tmp_path, device):
     transformers = pytest.importorskip('transformers')
 
     pretraining_model_copy = copy.deepcopy(model)
-    pretraining_train_dataset = RandomTextLMDataset(size=10,
+    pretraining_train_dataset = RandomTextLMDataset(size=8,
                                                     vocab_size=tokenizer.vocab_size,
                                                     sequence_length=4,
                                                     use_keys=True)
 
     collator = transformers.DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm_probability=0.15)
     pretraining_train_dataloader = DataLoader(pretraining_train_dataset,
-                                              batch_size=2,
+                                              batch_size=4,
                                               sampler=dist.get_sampler(pretraining_train_dataset),
                                               collate_fn=collator)
     pretraining_eval_dataloader = DataLoader(pretraining_train_dataset,
-                                             batch_size=2,
+                                             batch_size=4,
                                              sampler=dist.get_sampler(pretraining_train_dataset),
                                              collate_fn=collator)
 
@@ -69,16 +69,16 @@ def pretraining_test_helper(tokenizer, model, algorithms, tmp_path, device):
 def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, tmp_path, device):
     finetuning_model_copy = copy.deepcopy(model)
 
-    finetuning_train_dataset = RandomTextClassificationDataset(size=100,
+    finetuning_train_dataset = RandomTextClassificationDataset(size=8,
                                                                vocab_size=tokenizer.vocab_size,
                                                                sequence_length=4,
                                                                num_classes=3,
                                                                use_keys=isinstance(model, HuggingFaceModel))
     finetuning_train_dataloader = DataLoader(finetuning_train_dataset,
-                                             batch_size=10,
+                                             batch_size=4,
                                              sampler=dist.get_sampler(finetuning_train_dataset))
     finetuning_eval_dataloader = DataLoader(finetuning_train_dataset,
-                                            batch_size=10,
+                                            batch_size=4,
                                             sampler=dist.get_sampler(finetuning_train_dataset))
 
     finetuning_trainer = Trainer(model=model,
@@ -86,7 +86,7 @@ def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, tmp_pa
                                  save_folder=str(tmp_path / 'finetuning_checkpoints'),
                                  load_path=checkpoint_path,
                                  load_weights_only=True,
-                                 max_duration='2ep',
+                                 max_duration='1ep',
                                  seed=17,
                                  algorithms=algorithms,
                                  device=device)
