@@ -99,7 +99,7 @@ def test_simple_nlp_lm(tiny_bert_tokenizer, tiny_bert_model):
     trainer.fit()
     trainer.eval()
 
-    # Check that there is some train/eval accuracy
+    # Check that there is some train/eval cross entropy
     assert trainer.state.train_metrics['LanguageCrossEntropy'].compute() != 0.0
     assert trainer.state.eval_metrics['eval']['LanguageCrossEntropy'].compute() != 0.0
 
