@@ -58,7 +58,7 @@ def test_simple_nlp_classification():
     assert predictions[0].shape == (batch_size, 2)
 
 
-def test_simple_nlp_lm(tiny_bert_tokenizer, tiny_bert_model):
+def test_simple_nlp_mlm(tiny_bert_tokenizer, tiny_bert_model):
     transformers = pytest.importorskip('transformers')
 
     vocab_size = tiny_bert_tokenizer.vocab_size
