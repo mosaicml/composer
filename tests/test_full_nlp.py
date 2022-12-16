@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 from torchmetrics.classification import Accuracy
 
 from composer.algorithms import GatedLinearUnits
+from composer.loggers import RemoteUploaderDownloader
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
@@ -81,11 +82,29 @@ def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, tmp_pa
                                             batch_size=4,
                                             sampler=dist.get_sampler(finetuning_train_dataset))
 
+    remote_dir = str(tmp_path / 'object_store')
+    os.makedirs(remote_dir, exist_ok=True)
+
+    rud = RemoteUploaderDownloader(
+        bucket_uri='libcloud://.',
+        backend_kwargs={
+            'provider': 'local',
+            'container': '.',
+            'provider_kwargs': {
+                'key': remote_dir,
+            },
+        },
+        num_concurrent_uploads=1,
+        use_procs=False,
+        upload_staging_folder=str(tmp_path / 'staging_folder'),
+    )
+
     finetuning_trainer = Trainer(model=model,
                                  train_dataloader=finetuning_train_dataloader,
-                                 save_folder=str(tmp_path / 'finetuning_checkpoints'),
+                                 save_folder='finetuning_checkpoints',
                                  load_path=checkpoint_path,
                                  load_weights_only=True,
+                                 loggers=[rud],
                                  max_duration='1ep',
                                  seed=17,
                                  algorithms=algorithms,
@@ -94,7 +113,8 @@ def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, tmp_pa
     finetuning_trainer.eval(finetuning_eval_dataloader)
 
     loaded_finetuning_trainer = Trainer(model=finetuning_model_copy,
-                                        load_path=str(tmp_path / 'finetuning_checkpoints' / 'latest-rank0.pt'),
+                                        load_path='finetuning_checkpoints/latest-rank0.pt',
+                                        load_object_store=rud,
                                         seed=17,
                                         algorithms=algorithms,
                                         device=device)
@@ -106,14 +126,23 @@ def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, tmp_pa
     assert original_acc.compute() > 0.0
     assert original_acc.compute() == loaded_acc.compute()
 
-    return loaded_finetuning_trainer, finetuning_eval_dataloader
+    return loaded_finetuning_trainer, finetuning_eval_dataloader, rud, 'finetuning_checkpoints/latest-rank0.pt'
 
 
-def inference_test_helper(model, original_input, original_output, tmp_path, save_format, device):
+def inference_test_helper(finetuning_output_path, rud, finetuning_model, algorithms, original_input, original_output,
+                          tmp_path, save_format, device):
+    inference_trainer = Trainer(model=finetuning_model,
+                                load_path=finetuning_output_path,
+                                load_weights_only=True,
+                                loggers=[rud],
+                                seed=17,
+                                algorithms=algorithms,
+                                device=device)
+
     os.mkdir(tmp_path / 'inference_checkpoints')
     sample_input = (original_input, {})
 
-    inference.export_for_inference(model=model,
+    inference.export_for_inference(model=inference_trainer.state.model,
                                    save_format=save_format,
                                    save_path=str(tmp_path / 'inference_checkpoints' / f'exported_model.{save_format}'),
                                    sample_input=sample_input)
@@ -153,6 +182,8 @@ def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokeni
     To this end, it performs pretraining, loads the pretrained model with a classification head for finetuning
     and finetunes it, exports the model for inference, and loads it back in to make predictions.
     """
+    pytest.importorskip('libcloud')
+
     device = get_device(device)
 
     tiny_bert_model = None
@@ -192,13 +223,15 @@ def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokeni
         finetuning_model = SimpleTransformerClassifier(vocab_size=tiny_bert_tokenizer.vocab_size, num_classes=3)
     else:
         raise ValueError('Unsupported model type.')
-    finetuning_trainer, finetuning_dataloader = finetuning_test_helper(tiny_bert_tokenizer, finetuning_model,
-                                                                       algorithms, pretraining_output_path, tmp_path,
-                                                                       device)
+
+    finetuning_model_copy = copy.deepcopy(finetuning_model)
+    finetuning_trainer, finetuning_dataloader, rud, finetuning_output_path = finetuning_test_helper(
+        tiny_bert_tokenizer, finetuning_model, algorithms, pretraining_output_path, tmp_path, device)
 
     # inference
     batch = next(iter(finetuning_dataloader))
     finetuning_trainer.state.model.to('cpu')
     finetuning_trainer.state.model.eval()
     original_output = finetuning_trainer.state.model(batch)
-    inference_test_helper(finetuning_trainer.state.model, batch, original_output, tmp_path, save_format, device)
+    inference_test_helper(finetuning_output_path, rud, finetuning_model_copy, algorithms, batch, original_output,
+                          tmp_path, save_format, device)
