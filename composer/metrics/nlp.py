@@ -17,7 +17,7 @@ __all__ = [
 
 
 class MaskedAccuracy(Metric):
-    """Computes accuracy with support for masked indicies.
+    """Computes accuracy with support for masked indices.
 
     Adds metric state variables:
         correct (float): The number of instances where the prediction masked the target.
@@ -41,11 +41,11 @@ class MaskedAccuracy(Metric):
         self.add_state('total', default=torch.tensor(0), dist_reduce_fx='sum')
 
     def update(self, preds: torch.Tensor, target: torch.Tensor):
-        # predictions is a batch x num_classes tensor, take the argmax to get class indicies
+        # predictions is a batch x num_classes tensor, take the argmax to get class indices
         preds = torch.argmax(preds, dim=-1)
         assert preds.shape == target.shape
 
-        # mask out the padded indicies
+        # mask out the padded indices
         mask = (target != self.ignore_index)
         masked_target = target[mask]
         masked_preds = preds[mask]
@@ -101,7 +101,7 @@ class LanguageCrossEntropy(Metric):
         total_items = (target != self.ignore_index).sum()
         self.total_items += total_items  #type: ignore (third-party)
 
-        # accmulate loss over all batches
+        # accumulate loss over all batches
         self.sum_loss += losses
 
     def compute(self) -> Tensor:
@@ -206,9 +206,11 @@ class HFCrossEntropy(Metric):
 
             loss = soft_cross_entropy(logits, target)
 
-        # accmulate loss over all batches
+        # accumulate loss over all batches
         self.sum_loss += loss
 
+        # Note: This is a slightly different reduction than LanguageCrossEntropy, because LanguageCrossEntropy
+        # uses 'sum' reduction in its update call
         self.total_batches += 1  #type: ignore (third-party)
 
     def compute(self) -> Tensor:
