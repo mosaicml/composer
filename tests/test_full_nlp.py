@@ -13,13 +13,13 @@ from composer.algorithms import GatedLinearUnits
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
-from composer.utils import dist, inference, reproducibility
+from composer.utils import dist, get_device, inference, reproducibility
 from tests.common import device
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
 from tests.common.models import SimpleTransformerClassifier, SimpleTransformerMaskedLM
 
 
-def pretraining_test_helper(tokenizer, model, algorithms, tmp_path):
+def pretraining_test_helper(tokenizer, model, algorithms, tmp_path, device):
     transformers = pytest.importorskip('transformers')
 
     pretraining_model_copy = copy.deepcopy(model)
@@ -43,7 +43,8 @@ def pretraining_test_helper(tokenizer, model, algorithms, tmp_path):
                                   save_folder=str(tmp_path / 'pretraining_checkpoints'),
                                   max_duration='1ep',
                                   seed=17,
-                                  algorithms=algorithms)
+                                  algorithms=algorithms,
+                                  device=device)
     pretraining_trainer.fit()
     reproducibility.seed_all(17)  # seed so that the masking is the same
     pretraining_trainer.eval(pretraining_eval_dataloader)
@@ -51,7 +52,8 @@ def pretraining_test_helper(tokenizer, model, algorithms, tmp_path):
     loaded_pretraining_trainer = Trainer(model=model,
                                          load_path=str(tmp_path / 'pretraining_checkpoints' / 'latest-rank0.pt'),
                                          seed=17,
-                                         algorithms=algorithms)
+                                         algorithms=algorithms,
+                                         device=device)
 
     reproducibility.seed_all(17)  # seed so that the masking is the same
     loaded_pretraining_trainer.eval(pretraining_eval_dataloader)
@@ -64,7 +66,7 @@ def pretraining_test_helper(tokenizer, model, algorithms, tmp_path):
     return str(tmp_path / 'pretraining_checkpoints' / 'latest-rank0.pt')
 
 
-def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, tmp_path):
+def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, tmp_path, device):
     finetuning_model_copy = copy.deepcopy(model)
 
     finetuning_train_dataset = RandomTextClassificationDataset(size=100,
@@ -86,14 +88,16 @@ def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, tmp_pa
                                  load_weights_only=True,
                                  max_duration='2ep',
                                  seed=17,
-                                 algorithms=algorithms)
+                                 algorithms=algorithms,
+                                 device=device)
     finetuning_trainer.fit()
     finetuning_trainer.eval(finetuning_eval_dataloader)
 
     loaded_finetuning_trainer = Trainer(model=finetuning_model_copy,
                                         load_path=str(tmp_path / 'finetuning_checkpoints' / 'latest-rank0.pt'),
                                         seed=17,
-                                        algorithms=algorithms)
+                                        algorithms=algorithms,
+                                        device=device)
 
     loaded_finetuning_trainer.eval(finetuning_eval_dataloader)
 
@@ -105,7 +109,7 @@ def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, tmp_pa
     return loaded_finetuning_trainer, finetuning_eval_dataloader
 
 
-def inference_test_helper(model, original_input, original_output, tmp_path, save_format):
+def inference_test_helper(model, original_input, original_output, tmp_path, save_format, device):
     os.mkdir(tmp_path / 'inference_checkpoints')
     sample_input = (original_input, {})
 
@@ -142,7 +146,8 @@ def inference_test_helper(model, original_input, original_output, tmp_path, save
 @device('cpu', 'gpu')
 @pytest.mark.parametrize('model_type,algorithms,save_format', [('tinybert_hf', [GatedLinearUnits()], 'onnx'),
                                                                ('simpletransformer', [], 'torchscript')])
-def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokenizer, tmp_path, request):
+def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokenizer, tmp_path, request, device):
+    device = get_device(device)
 
     tiny_bert_model = None
     if model_type == 'tinybert_hf':
@@ -163,7 +168,8 @@ def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokeni
         pretraining_model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
     else:
         raise ValueError('Unsupported model type')
-    pretraining_output_path = pretraining_test_helper(tiny_bert_tokenizer, pretraining_model, algorithms, tmp_path)
+    pretraining_output_path = pretraining_test_helper(tiny_bert_tokenizer, pretraining_model, algorithms, tmp_path,
+                                                      device)
 
     # finetuning
     if model_type == 'tinybert_hf':
@@ -181,10 +187,12 @@ def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokeni
     else:
         raise ValueError('Unsupported model type.')
     finetuning_trainer, finetuning_dataloader = finetuning_test_helper(tiny_bert_tokenizer, finetuning_model,
-                                                                       algorithms, pretraining_output_path, tmp_path)
+                                                                       algorithms, pretraining_output_path, tmp_path,
+                                                                       device)
 
     # inference
     batch = next(iter(finetuning_dataloader))
+    finetuning_trainer.state.model.to('cpu')
     finetuning_trainer.state.model.eval()
     original_output = finetuning_trainer.state.model(batch)
-    inference_test_helper(finetuning_trainer.state.model, batch, original_output, tmp_path, save_format)
+    inference_test_helper(finetuning_trainer.state.model, batch, original_output, tmp_path, save_format, device)
