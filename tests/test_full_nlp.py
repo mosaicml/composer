@@ -14,6 +14,7 @@ from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
 from composer.utils import dist, inference, reproducibility
+from tests.common import device
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
 from tests.common.models import SimpleTransformerClassifier, SimpleTransformerMaskedLM
 
@@ -138,6 +139,7 @@ def inference_test_helper(model, original_input, original_output, tmp_path, save
         if isinstance(original_output, torch.Tensor) else original_output.logits.detach().numpy())
 
 
+@device('cpu', 'gpu')
 @pytest.mark.parametrize('model_type,algorithms,save_format', [('tinybert_hf', [GatedLinearUnits()], 'onnx'),
                                                                ('simpletransformer', [], 'torchscript')])
 def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokenizer, tmp_path, request):
