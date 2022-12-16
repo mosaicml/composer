@@ -138,16 +138,16 @@ def inference_test_helper(model, original_input, original_output, tmp_path, save
         if isinstance(original_output, torch.Tensor) else original_output.logits.detach().numpy())
 
 
-@pytest.mark.parametrize('model_type,algorithms,save_format', [('tinybert', [GatedLinearUnits()], 'onnx'),
+@pytest.mark.parametrize('model_type,algorithms,save_format', [('tinybert_hf', [GatedLinearUnits()], 'onnx'),
                                                                ('simpletransformer', [], 'torchscript')])
 def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokenizer, tmp_path, request):
 
     tiny_bert_model = None
-    if model_type == 'tinybert':
+    if model_type == 'tinybert_hf':
         tiny_bert_model = request.getfixturevalue('tiny_bert_model')
 
     # pretraining
-    if model_type == 'tinybert':
+    if model_type == 'tinybert_hf':
         assert tiny_bert_model is not None
         pretraining_metrics = [
             LanguageCrossEntropy(ignore_index=-100, vocab_size=tiny_bert_tokenizer.vocab_size),
@@ -164,7 +164,7 @@ def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokeni
     pretraining_output_path = pretraining_test_helper(tiny_bert_tokenizer, pretraining_model, algorithms, tmp_path)
 
     # finetuning
-    if model_type == 'tinybert':
+    if model_type == 'tinybert_hf':
         finetuning_metric = Accuracy()
         hf_finetuning_model, _ = HuggingFaceModel.hf_from_composer_checkpoint(
             pretraining_output_path,
