@@ -20,6 +20,15 @@ from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMD
 from tests.common.models import SimpleTransformerClassifier, SimpleTransformerMaskedLM
 
 
+def get_model_embeddings(model):
+    if isinstance(model, HuggingFaceModel):
+        return model.model.bert.embeddings.word_embeddings.weight
+    elif isinstance(model, SimpleTransformerClassifier) or isinstance(model, SimpleTransformerMaskedLM):
+        return model.transformer_base.embedding.weight
+    else:
+        raise ValueError('Unsure how to get embeddings layer from model.')
+
+
 def pretraining_test_helper(tokenizer, model, algorithms, tmp_path, device):
     transformers = pytest.importorskip('transformers')
 
@@ -67,7 +76,7 @@ def pretraining_test_helper(tokenizer, model, algorithms, tmp_path, device):
     return str(tmp_path / 'pretraining_checkpoints' / 'latest-rank0.pt')
 
 
-def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, tmp_path, device):
+def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, pretraining_model, tmp_path, device):
     finetuning_model_copy = copy.deepcopy(model)
 
     finetuning_train_dataset = RandomTextClassificationDataset(size=8,
@@ -99,6 +108,10 @@ def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, tmp_pa
         upload_staging_folder=str(tmp_path / 'staging_folder'),
     )
 
+    finetuning_embedding_layer = get_model_embeddings(model)
+    pretraining_embedding_layer = get_model_embeddings(pretraining_model)
+    # The pretraining weights have not yet been loaded into the finetuning model
+    assert not torch.equal(finetuning_embedding_layer, pretraining_embedding_layer)
     finetuning_trainer = Trainer(model=model,
                                  train_dataloader=finetuning_train_dataloader,
                                  save_folder='finetuning_checkpoints',
@@ -109,6 +122,8 @@ def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, tmp_pa
                                  seed=17,
                                  algorithms=algorithms,
                                  device=device)
+    # Now they have been loaded
+    assert torch.equal(finetuning_embedding_layer, pretraining_embedding_layer)
     finetuning_trainer.fit()
     finetuning_trainer.eval(finetuning_eval_dataloader)
 
@@ -226,7 +241,7 @@ def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokeni
 
     finetuning_model_copy = copy.deepcopy(finetuning_model)
     finetuning_trainer, finetuning_dataloader, rud, finetuning_output_path = finetuning_test_helper(
-        tiny_bert_tokenizer, finetuning_model, algorithms, pretraining_output_path, tmp_path, device)
+        tiny_bert_tokenizer, finetuning_model, algorithms, pretraining_output_path, pretraining_model, tmp_path, device)
 
     # inference
     batch = next(iter(finetuning_dataloader))
