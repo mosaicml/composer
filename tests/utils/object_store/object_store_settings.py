@@ -97,7 +97,7 @@ def get_object_store_ctx(object_store_cls: Type[ObjectStore],
     elif object_store_cls is SFTPObjectStore:
         pytest.importorskip('paramiko')
         if remote:
-            yield
+            pytest.skip('SFTP object store has no remote tests.')
         else:
             private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
             pem = private_key.private_bytes(encoding=serialization.Encoding.PEM,
