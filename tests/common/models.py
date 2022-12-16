@@ -125,12 +125,14 @@ class SimpleTransformerBase(torch.nn.Module):
     def __init__(self, vocab_size: int = 100, d_model: int = 16):
         super().__init__()
         embedding = torch.nn.Embedding(vocab_size, 16)
-        transformer = torch.nn.TransformerEncoder(torch.nn.TransformerEncoderLayer(d_model=d_model,
-                                                                                   nhead=2,
-                                                                                   dim_feedforward=d_model,
-                                                                                   dropout=0.3),
-                                                  num_layers=2,
-                                                  norm=torch.nn.LayerNorm(d_model))
+        layer = torch.nn.TransformerEncoderLayer(d_model=d_model, nhead=2, dim_feedforward=d_model, dropout=0.3)
+        # necessary to make the model scriptable
+        layer.__constants__ = []
+
+        transformer = torch.nn.TransformerEncoder(layer, num_layers=2, norm=torch.nn.LayerNorm(d_model))
+
+        # necessary to make the model scriptable
+        transformer.__constants__ = []
 
         self.net = torch.nn.Sequential(embedding, transformer)
 
