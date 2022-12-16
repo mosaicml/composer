@@ -4,19 +4,21 @@
 import datetime
 import os
 import pathlib
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import pytest_httpserver
 
+from composer import loggers
 from composer.core.time import Time, Timestamp, TimeUnit
+from composer.utils import file_helpers
 from composer.utils.file_helpers import (ensure_folder_has_no_conflicting_files, ensure_folder_is_empty,
-                                         format_name_with_dist, format_name_with_dist_and_time, get_file, is_tar)
+                                         format_name_with_dist, format_name_with_dist_and_time, get_file, is_tar,
+                                         maybe_create_object_store_from_uri,
+                                         maybe_create_remote_uploader_downloader_from_uri, parse_uri)
 from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
 from tests.common.markers import world_size
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
-
-
 
 
 @pytest.mark.xfail(reason='Occasionally hits the timeout. Should refactor to use a local webserver.')
@@ -232,13 +234,72 @@ def test_format_name_with_dist_and_time():
     )
     assert format_name_with_dist_and_time(format_str, 'awesome_run', timestamp=timestamp, extra=42) == expected_str
 
-@pytest.mark.parametrize(
-    'input_uri,expected_parsed_uri',
-    [
-        
-    ])
-def test_parse_uri():
-    pass
+
+@pytest.mark.parametrize('input_uri,expected_parsed_uri', [
+    ('backend://bucket/path', ('backend', 'bucket', 'path')),
+    ('backend://bucket@namespace/path', ('backend', 'bucket', 'path')),
+    ('backend://bucket/a/longer/path', ('backend', 'bucket', 'a/longer/path')),
+    ('a/long/path', ('', '', 'a/long/path')),
+    ('/a/long/path', ('', '', '/a/long/path')),
+    ('backend://bucket/', ('backend', 'bucket', '')),
+    ('backend://bucket', ('backend', 'bucket', '')),
+    ('backend://', ('backend', '', '')),
+])
+def test_parse_uri(input_uri, expected_parsed_uri):
+    actual_parsed_uri = parse_uri(input_uri)
+    assert actual_parsed_uri == expected_parsed_uri
+
+
+def test_maybe_create_object_store_from_uri(monkeypatch):
+    mock_s3_obj = MagicMock()
+    monkeypatch.setattr(file_helpers, 'S3ObjectStore', mock_s3_obj)
+    mock_oci_obj = MagicMock()
+    monkeypatch.setattr(file_helpers, 'OCIObjectStore', mock_oci_obj)
+
+    assert maybe_create_object_store_from_uri('checkpoint/for/my/model.pt') is None
+
+    maybe_create_object_store_from_uri('s3://my-bucket/path')
+    mock_s3_obj.assert_called_once_with(bucket='my-bucket')
+
+    with pytest.raises(NotImplementedError):
+        maybe_create_object_store_from_uri('wandb://my-cool/checkpoint/for/my/model.pt')
+
+    maybe_create_object_store_from_uri('oci://my-bucket/path')
+    mock_oci_obj.assert_called_once_with(bucket='my-bucket')
+
+    with pytest.raises(NotImplementedError):
+        maybe_create_object_store_from_uri('ms://bucket/checkpoint/for/my/model.pt')
+
+
+def test_maybe_create_remote_uploader_downloader_from_uri(monkeypatch):
+    assert maybe_create_remote_uploader_downloader_from_uri('checkpoint/for/my/model.pt', loggers=[]) is None
+    from composer.loggers import RemoteUploaderDownloader
+    mock_remote_ud_obj = MagicMock()
+    mock_remote_ud_obj.remote_backend_name = 's3'
+    mock_remote_ud_obj.remote_bucket_name = 'my-nifty-bucket'
+    mock_remote_ud_obj.__class__ = RemoteUploaderDownloader
+
+    with pytest.warns(Warning, match='There already exists a RemoteUploaderDownloader object to handle'):
+        maybe_create_remote_uploader_downloader_from_uri('s3://my-nifty-bucket/path', loggers=[mock_remote_ud_obj])
+    del RemoteUploaderDownloader
+    with monkeypatch.context() as m:
+        mock_remote_ud = MagicMock()
+        m.setattr(loggers, 'RemoteUploaderDownloader', mock_remote_ud)
+        maybe_create_remote_uploader_downloader_from_uri('s3://my-nifty-s3-bucket/path/to/checkpoints.pt', loggers=[])
+        mock_remote_ud.assert_called_once_with(bucket_uri='s3://my-nifty-s3-bucket')
+
+    with monkeypatch.context() as m:
+        mock_remote_ud = MagicMock()
+        m.setattr(loggers, 'RemoteUploaderDownloader', mock_remote_ud)
+        maybe_create_remote_uploader_downloader_from_uri('oci://my-nifty-oci-bucket/path/to/checkpoints.pt', loggers=[])
+        mock_remote_ud.assert_called_once_with(bucket_uri='oci://my-nifty-oci-bucket')
+
+    with pytest.raises(NotImplementedError):
+        maybe_create_remote_uploader_downloader_from_uri('wandb://my-cool/checkpoint/for/my/model.pt', loggers=[])
+
+    with pytest.raises(NotImplementedError):
+        maybe_create_remote_uploader_downloader_from_uri('ms://bucket/checkpoint/for/my/model.pt', loggers=[])
+
 
 def test_ensure_folder_is_empty(tmp_path: pathlib.Path):
     ensure_folder_is_empty(tmp_path)
