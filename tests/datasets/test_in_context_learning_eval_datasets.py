@@ -13,7 +13,7 @@ from composer.models.gpt2 import create_gpt2
 from composer.trainer import Trainer
 
 
-@pytest.mark.parametrize('dataset_uri', ['lambada_test_small.json'])
+@pytest.mark.parametrize('dataset_uri', ['lambada_test_small.jsonz'])
 def test_get_lm_task_dataloader(dataset_uri):
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')

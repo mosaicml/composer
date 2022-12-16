@@ -35,13 +35,12 @@ class InContextLearningLMTaskDataset(Dataset):
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.eos_tok_id = eos_tok_id
-        self.size = len(dataset)
 
     def __getitem__(self, index):
         return self.encoded_dataset[index]
 
     def __len__(self):
-        return self.size
+        return len(self.encoded_dataset)
 
     def collate_fn(self, data):
         inputs = []

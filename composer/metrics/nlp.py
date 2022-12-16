@@ -2,19 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """A collection of common torchmetrics for NLP tasks."""
-import math
 from typing import Mapping, Union
 
 import torch
-import torch.nn.functional as F
 from torch import Tensor
 from torchmetrics import Metric
 
 from composer.loss import soft_cross_entropy
 
 __all__ = [
-    'Perplexity', 'InContextLearningLMPerplexity', 'InContextLearningLMAccuracy', 'BinaryF1Score', 'HFCrossEntropy',
-    'LanguageCrossEntropy', 'MaskedAccuracy'
+    'Perplexity', 'InContextLearningLMAccuracy', 'BinaryF1Score', 'HFCrossEntropy', 'LanguageCrossEntropy',
+    'MaskedAccuracy'
 ]
 
 
