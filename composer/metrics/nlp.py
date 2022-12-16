@@ -206,7 +206,7 @@ class HFCrossEntropy(Metric):
         # accumulate loss over all batches
         self.sum_loss += loss
 
-        # Note: This is a slightly different reduction that LanguageCrossEntropy, because LanguageCrossEntropy
+        # Note: This is a slightly different reduction than LanguageCrossEntropy, because LanguageCrossEntropy
         # uses 'sum' reduction in its update call
         self.total_batches += 1  #type: ignore (third-party)
 
