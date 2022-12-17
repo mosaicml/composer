@@ -1972,6 +1972,11 @@ class Trainer:
                         batch_time,
                     )
 
+                    self.logger.log_metrics({
+                        'trainer/total_samples': total_num_samples,
+                        'trainer/total_tokens': total_num_tokens
+                    })
+
                     # `now` is actually in the past, but want to include the time it takes to perform this reduction
                     last_wct = now
 
@@ -2443,6 +2448,11 @@ class Trainer:
                     batch_time=batch_time,
                 )
 
+                self.logger.log_metrics({
+                    'predict/total_samples': total_num_samples,
+                    'predict/total_tokens': total_num_tokens
+                })
+
                 last_wct = now
 
                 self.state.predict_timestamp = self.state.predict_timestamp.to_next_batch(samples=total_num_samples,
@@ -2736,6 +2746,11 @@ class Trainer:
                     num_tokens=rank_num_tokens,
                     batch_time=batch_time,
                 )
+
+                self.logger.log_metrics({
+                    'eval/total_samples': total_num_samples,
+                    'eval/total_tokens': total_num_tokens
+                })
 
                 self.state.eval_timestamp = self.state.eval_timestamp.to_next_batch(
                     samples=total_num_samples,
