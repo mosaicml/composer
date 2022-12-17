@@ -144,6 +144,23 @@ def _session_tiny_bert_config():  # type: ignore
     return hf_config
 
 
+@pytest.fixture(scope='session')
+def _session_gpt2_config():  # type: ignore
+    transformers = pytest.importorskip('transformers')
+
+    hf_config = transformers.AutoConfig.from_pretrained('gpt2')
+    return hf_config
+
+
+@pytest.fixture(scope='session')
+def _session_gpt2_tokenizer():  # type: ignore
+    transformers = pytest.importorskip('transformers')
+
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('gpt2')
+    hf_tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+    return hf_tokenizer
+
+
 @pytest.fixture
 def tiny_bert_model(_session_tiny_bert_model):
     return copy.deepcopy(_session_tiny_bert_model)
@@ -157,3 +174,13 @@ def tiny_bert_tokenizer(_session_tiny_bert_tokenizer):
 @pytest.fixture
 def tiny_bert_config(_session_tiny_bert_config):
     return copy.deepcopy(_session_tiny_bert_config)
+
+
+@pytest.fixture
+def gpt2_config(_session_gpt2_config):
+    return copy.deepcopy(_session_gpt2_config)
+
+
+@pytest.fixture
+def gpt2_tokenizer(_session_gpt2_tokenizer):
+    return copy.deepcopy(_session_gpt2_tokenizer)
