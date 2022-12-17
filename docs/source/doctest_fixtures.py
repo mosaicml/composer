@@ -198,7 +198,7 @@ def _new_trainer_init(self, fake_ellipses: None = None, **kwargs: Any):
         kwargs['progress_bar'] = False  # hide tqdm logging
     if 'log_to_console' not in kwargs:
         kwargs['log_to_console'] = False  # hide console logging
-    if 'load_path' in kwargs and urlparse(kwargs['load_path']).scheme in ['s3', 'oci']:
+    if 'load_path' in kwargs and urlparse(kwargs['load_path']).scheme in ['s3', 'oci', 'gs']:
         kwargs['load_path'] = urlparse(kwargs['load_path']).path.lstrip('/')
         kwargs['load_object_store'] = LibcloudObjectStore()
     _original_trainer_init(self, **kwargs)

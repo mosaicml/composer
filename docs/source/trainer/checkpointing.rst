@@ -299,9 +299,9 @@ and then the :class:`.RemoteUploaderDownloader` logger will upload checkpoints t
 
 Behind the scenes, the :class:`.RemoteUploaderDownloader` uses :doc:`Apache Libcloud <libcloud:storage/index>`.
 
-The easiest way to upload checkpoints to S3 or OCI is to prefix your ``save_folder``  with ``'s3://'`` or ``'oci://'``. All other
+The easiest way to upload checkpoints to S3, OCI, or GCS is to prefix your ``save_folder``  with ``'s3://'``, ``'oci://'``, or ``'gs://'``. All other
 checkpoint arguments remain the same. For example, ``save_filename`` will be the name of the checkpoint file
-that gets uploaded to the S3 or OCI URI that you specified.
+that gets uploaded to the S3, OCI, or GCS URI that you specified.
 
 For example, for S3:
 .. testcode::
@@ -351,6 +351,32 @@ and delete the checkpoints from the local disk. The checkpoints will be located 
 `checkpoints/ep3.pt` for third epoch's checkpoints, for example. The full URI in this case would be:
 `oci://my_bucket/checkpoints/ep3.pt`.
 
+Similarly for GCS:
+.. testcode::
+
+    from composer.trainer import Trainer
+
+    # Save checkpoints every epoch to gs://my_bucket/checkpoints
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration='10ep',
+        save_folder='gs://my_bucket/checkpoints',
+        save_interval='1ep',
+        save_overwrite=True,
+        save_filename='ep{epoch}.pt',
+        save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
+    )
+
+    trainer.fit()
+
+This will train your model, saving the checkpoints locally, upload them to the GCS Bucket `my_bucket`,
+and delete the checkpoints from the local disk. The checkpoints will be located on GCS inside your bucket as
+`checkpoints/ep3.pt` for third epoch's checkpoints, for example. The full URI in this case would be:
+`gs://my_bucket/checkpoints/ep3.pt`.
+Note: For GCS, remember to input your `HMAC access id and secret <https://cloud.google.com/storage/docs/authentication/hmackeys/>`__
+to the environment variables ``GCS_KEY`` and ``GCS_SECRET`` respectively or the save operation will fail.
+
 There are a few additional trainer arguments which can be helpful to configure:
 
 *   ``save_num_checkpoints_to_keep``: Set this parameter to remove checkpoints from the local disk after they have been
@@ -361,8 +387,7 @@ There are a few additional trainer arguments which can be helpful to configure:
     :class:`.CheckpointSaver` documentation for the available format variables.
 
 This is equivalent to creating a RemoteUploaderDownloader object and adding it to loggers. This a more
-involved operation, but is necessary for uploading checkpoints to other cloud object stores, like
-GCS.
+involved operation, but is necessary for uploading checkpoints to other cloud object stores not supported by URI
 
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
@@ -403,92 +428,6 @@ GCS.
     *   :class:`~.RemoteUploaderDownloader`
 
 
-
-Saving Checkpoints to Google Cloud Storage (GCS)
-------------------------------------------------
-
-To save checkpoints to GCS, make sure to create a :class:`.RemoteUploaderDownloader` instance
-and pass it to the ``loggers`` argument of :class:`.Trainer`.
-
-Make sure to input your `HMAC access id and secret <https://cloud.google.com/storage/docs/authentication/hmackeys/>`__
-as `'key'` and `'secret'` respectively to the :class:`.RemoteUploaderDownloader` constructor like so:
-
-.. testcode::
-    :skipif: not _LIBCLOUD_INSTALLED
-
-    from composer.loggers import RemoteUploaderDownloader
-    from composer.trainer import Trainer
-
-    remote_uploader_downloader = RemoteUploaderDownloader(
-        bucket_uri="libcloud://my-gcs-bucket",
-        backend_kwargs={
-            "provider": "google_storage",  # The Apache Libcloud provider name
-            "container": "my-gcs-bucket",  # The name of the cloud container (i.e. bucket) to use.
-            "provider_kwargs": {  # The Apache Libcloud provider driver initialization arguments
-                'key': 'your-HMAC-access-id',  # The cloud provider key.
-                'secret': 'your-HMAC-secret',  # The cloud provider secret.
-                # Any additional arguments required for the cloud provider.
-            },
-        },
-    )
-
-If you don't want to directly enter your access id and secret in plaintext, you can instead
-store them as environment variables and pass the name of the environment variables as shown below:
-
-.. testcode::
-    :skipif: not _LIBCLOUD_INSTALLED
-
-    from composer.loggers import RemoteUploaderDownloader
-    from composer.trainer import Trainer
-
-    remote_uploader_downloader = RemoteUploaderDownloader(
-        bucket_uri="libcloud://my-gcs-bucket",
-        backend_kwargs={
-            "provider": "google_storage",
-            "container": "my-gcs-bucket",
-            "key_environ": "MY_HMAC_ACCESS_ID", # Name of env variable for HMAC access id.
-            "secret_environ": "MY_HMAC_SECRET", # Name of env variable for HMAC secret.
-        },
-    )
-
-
-Putting it all together:
-
-.. testcode::
-    :skipif: not _LIBCLOUD_INSTALLED
-
-    from composer.loggers import RemoteUploaderDownloader
-    from composer.trainer import Trainer
-
-    remote_uploader_downloader = RemoteUploaderDownloader(
-        bucket_uri="libcloud://my-gcs-bucket",
-        backend_kwargs={
-            "provider": "google_storage",
-            "container": "my-gcs-bucket",
-            "key_environ": "MY_HMAC_ACCESS_ID", # Name of env variable for HMAC access id.
-            "secret_environ": "MY_HMAC_SECRET", # Name of env variable for HMAC secret.
-        },
-    )
-
-    trainer = Trainer(
-        model=model,
-        train_dataloader=train_dataloader,
-        max_duration='10ep',
-        save_folder='checkpoints',
-        save_interval='1ep',
-        save_overwrite=True,
-        save_filename='ep{epoch}.pt',
-        save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
-        loggers=[remote_uploader_downloader],
-    )
-
-    trainer.fit()
-
-This will save checkpoints every epoch to the gs URI: ``gs://my-gcs-bucket/checkpoints``.
-Each checkpoint will then be at the gs URI: ``gs://my-gcs-bucket/checkpoints/ep{epoch}.pt``, where
-``{epoch}`` will be filled in with the epoch of that checkpoint.
-
-
 Loading Checkpoints from Object Store
 -------------------------------------
 
@@ -523,8 +462,8 @@ should be the path to the checkpoint file *within the container/bucket*.
 
     new_trainer.fit()
 
-An easier way to load checkpoints from S3 or OCI specifically is to just use a URI starting with ``s3://`` or ``oci://``.
-If you use the S3 or OCI URI, it is not necessary to specify a ``load_object_store``. Note, that for other
+An easier way to load checkpoints from S3, OCI, GCS specifically is to just use a URI starting with ``s3://``, ``oci://``, or ``gs://``.
+If you use the S3, OCI, or GCS URI, it is not necessary to specify a ``load_object_store``. Note, that for other
 object stores like WandB or LibCloud, you must still specify a ``load_object_store``.
 
 .. testcode::
@@ -557,43 +496,24 @@ Similarly for OCI:
 
 This will load the first epoch's checkpoints from OCI and resume training in the second epoch.
 
-Loading Checkpoints from Google Cloud Storage (GCS)
----------------------------------------------------
 
-To load checkpoints from GCS, you need to once again create a :class:`.RemoteUploaderDownloader`
-instance, but this time make sure to pass the instance to the ``load_object_store`` argument of the :class:`.Trainer`.
-The ``load_path`` argument should be the path to the checkpoint file *within the container/bucket*.
-
-Here is an example for loading the third epoch's checkpoint from a GCS bucket:
+Similarly for GCS:
 
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
 
-    from composer.loggers import RemoteUploaderDownloader
-    from composer.trainer import Trainer
-
-    remote_uploader_downloader = RemoteUploaderDownloader(
-        bucket_uri="libcloud://my-gcs-bucket",
-        backend_kwargs={
-            "provider": "google_storage",
-            "container": "my-gcs-bucket",
-            "key_environ": "MY_HMAC_ACCESS_ID", # Name of env variable for HMAC access id.
-            "secret_environ": "MY_HMAC_SECRET", # Name of env variable for HMAC secret.
-        },
-    )
-
     new_trainer = Trainer(
-        model=model,
-        train_dataloader=train_dataloader,
-        max_duration="10ep",
-        load_path="checkpoints/ep3.pt",
-        load_object_store=remote_uploader_downloader,
+    model=model,
+    train_dataloader=train_dataloader,
+    max_duration="10ep",
+    load_path="gs://checkpoint-debugging/checkpoints/ep1.pt",
     )
 
     new_trainer.fit()
 
-This code will load the third epoch's checkpoint from your GCS bucket and and resume the
-training run on the fourth epoch.
+This will load the first epoch's checkpoints from GCS and resume training in the second epoch.
+Note: For GCS, remember to input your `HMAC access id and secret <https://cloud.google.com/storage/docs/authentication/hmackeys/>`__
+to the environment variables ``GCS_KEY`` and ``GCS_SECRET`` respectively or the save operation will fail.
 
 
 API Reference
