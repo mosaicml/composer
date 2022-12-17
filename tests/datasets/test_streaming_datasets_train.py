@@ -33,8 +33,9 @@ def test_streaming_datasets(dataset, dataset_args, tiny_bert_tokenizer, tiny_ber
         'enwiki': streaming.text.enwiki.StreamingEnWiki
     }
     streaming_dataset = name_to_cls[dataset](local=str(tmp_path / dataset),
-                                             split='train',
-                                             predownload=0,
+                                             split='val',
+                                             predownload=10,
+                                             batch_size=8,
                                              **dataset_args)
 
     pretraining_metrics = [
