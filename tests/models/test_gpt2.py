@@ -9,17 +9,20 @@ from composer.trainer import Trainer
 from tests.common.datasets import RandomTextLMDataset
 
 
-def test_gpt2_hf_factory(gpt2_config, gpt2_tokenizer, monkeypatch):
+def test_gpt2_hf_factory(tiny_gpt2_config, tiny_gpt2_tokenizer, monkeypatch):
     transformers = pytest.importorskip('transformers')
-    monkeypatch.setattr('transformers.AutoConfig.from_pretrained', lambda x: gpt2_config)
+    monkeypatch.setattr('transformers.AutoConfig.from_pretrained', lambda x: tiny_gpt2_config)
     gpt2_composer_model = create_gpt2(use_pretrained=False,
                                       pretrained_model_name='dummy',
                                       model_config=None,
                                       tokenizer_name=None,
                                       gradient_checkpointing=False)
 
-    train_dataset = RandomTextLMDataset(size=8, vocab_size=gpt2_tokenizer.vocab_size, sequence_length=8, use_keys=True)
-    collator = transformers.DataCollatorForLanguageModeling(tokenizer=gpt2_tokenizer, mlm=False)
+    train_dataset = RandomTextLMDataset(size=8,
+                                        vocab_size=tiny_gpt2_tokenizer.vocab_size,
+                                        sequence_length=8,
+                                        use_keys=True)
+    collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_gpt2_tokenizer, mlm=False)
     train_dataloader = DataLoader(train_dataset, batch_size=4, collate_fn=collator)
 
     trainer = Trainer(model=gpt2_composer_model, train_dataloader=train_dataloader, max_duration='1ep')
