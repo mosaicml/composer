@@ -272,10 +272,14 @@ def test_maybe_create_object_store_from_uri(monkeypatch):
     os.environ['GCS_KEY'] = 'foo'
     os.environ['GCS_SECRET'] = 'foo'
     maybe_create_object_store_from_uri('gs://my-bucket/path')
-    mock_gs_libcloud_obj.assert_called_once_with(provider="google_storage",
-                                                container='my-bucket',
-                                                key_environ="GCS_KEY",
-                                                secret_environ="GCS_SECRET",)
+    mock_gs_libcloud_obj.assert_called_once_with(
+        provider='google_storage',
+        container='my-bucket',
+        key_environ='GCS_KEY',
+        secret_environ='GCS_SECRET',
+    )
+    del os.environ['GCS_KEY']
+    del os.environ['GCS_SECRET']
 
     maybe_create_object_store_from_uri('oci://my-bucket/path')
     mock_oci_obj.assert_called_once_with(bucket='my-bucket')
@@ -310,20 +314,23 @@ def test_maybe_create_remote_uploader_downloader_from_uri(monkeypatch):
     with monkeypatch.context() as m:
         mock_remote_ud = MagicMock()
         m.setattr(loggers, 'RemoteUploaderDownloader', mock_remote_ud)
+
         with pytest.raises(ValueError):
-            maybe_create_remote_uploader_downloader_from_uri('gs://my-nifty-gs-bucket/path/to/checkpoints.pt', loggers=[])
-        
+            maybe_create_remote_uploader_downloader_from_uri('gs://my-nifty-gs-bucket/path/to/checkpoints.pt',
+                                                             loggers=[])
+
         os.environ['GCS_KEY'] = 'foo'
         os.environ['GCS_SECRET'] = 'foo'
         maybe_create_remote_uploader_downloader_from_uri('gs://my-nifty-gs-bucket/path/to/checkpoints.pt', loggers=[])
         mock_remote_ud.assert_called_once_with(bucket_uri='libcloud://my-nifty-gs-bucket',
                                                backend_kwargs={
-                                                    "provider": "google_storage",
-                                                    "container": 'my-nifty-gs-bucket',
-                                                    "key_environ": "GCS_KEY",
-                                                    "secret_environ": "GCS_SECRET",
-                                            }
-                                                )
+                                                   'provider': 'google_storage',
+                                                   'container': 'my-nifty-gs-bucket',
+                                                   'key_environ': 'GCS_KEY',
+                                                   'secret_environ': 'GCS_SECRET',
+                                               })
+        del os.environ['GCS_KEY']
+        del os.environ['GCS_SECRET']
 
     with pytest.raises(NotImplementedError):
         maybe_create_remote_uploader_downloader_from_uri('wandb://my-cool/checkpoint/for/my/model.pt', loggers=[])
