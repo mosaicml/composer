@@ -144,7 +144,8 @@ def test_gradient_clipping_algorithm(monkeypatch, clipping_type, model_with_grad
 @pytest.mark.parametrize(
     'model_with_grads',
     [simple_model_with_grads(),
-     cnn_model_with_grads(), simple_transformer_model_with_grads(),
+     cnn_model_with_grads(),
+     simple_transformer_model_with_grads(),
      hf_model_with_grads()])
 def test_gradient_clipping_algorithm_with_deepspeed_enabled(
     monkeypatch: pytest.MonkeyPatch,
@@ -191,7 +192,8 @@ def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: 
 @pytest.mark.parametrize(
     'model_with_grads',
     [simple_model_with_grads(),
-     cnn_model_with_grads(), simple_transformer_model_with_grads(),
+     cnn_model_with_grads(),
+     simple_transformer_model_with_grads(),
      hf_model_with_grads()])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
@@ -222,7 +224,8 @@ def test_gradient_clipping_algorithm_with_fsdp_enabled(
 @pytest.mark.parametrize(
     'model_with_grads',
     [simple_model_with_grads(),
-     cnn_model_with_grads(), simple_transformer_model_with_grads(),
+     cnn_model_with_grads(),
+     simple_transformer_model_with_grads(),
      hf_model_with_grads()])
 def test_algorithm_with_deepspeed_enabled_errors_out_for_non_norm(
     monkeypatch: pytest.MonkeyPatch,
@@ -260,7 +263,8 @@ def test_algorithm_with_deepspeed_enabled_errors_out_for_non_norm(
 @pytest.mark.parametrize(
     'model_with_grads',
     [simple_model_with_grads(),
-     cnn_model_with_grads(), simple_transformer_model_with_grads(),
+     cnn_model_with_grads(),
+     simple_transformer_model_with_grads(),
      hf_model_with_grads()])
 def test_apply_agc(model_with_grads):
 
@@ -279,7 +283,8 @@ def test_apply_agc(model_with_grads):
 @pytest.mark.parametrize(
     'model_with_grads',
     [simple_model_with_grads(),
-     cnn_model_with_grads(), simple_transformer_model_with_grads(),
+     cnn_model_with_grads(),
+     simple_transformer_model_with_grads(),
      hf_model_with_grads()])
 def test_apply_agc_with_cnn_does_not_error(model_with_grads):
     """This test is just to ensure that no errors are raised.
