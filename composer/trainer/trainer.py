@@ -29,7 +29,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
-from composer.callbacks import CheckpointSaver, GradMonitor
+from composer.callbacks import CheckpointSaver, OptimizerMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException, Callback, DataSpec, Engine, Evaluator,
                            Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
                            ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context)
@@ -1277,8 +1277,8 @@ class Trainer:
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
             for callback in self.state.callbacks:
-                if isinstance(callback, GradMonitor):
-                    raise ValueError('GradMonitor is not supported with DeepSpeed because DeepSpeed clears '
+                if isinstance(callback, OptimizerMonitor):
+                    raise ValueError('OptimizerMonitor is not supported with DeepSpeed because DeepSpeed clears '
                                      'the gradients before in the last call to .backward see: '
                                      'https://github.com/microsoft/DeepSpeed/issues/2329 for more details.')
 
