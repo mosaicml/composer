@@ -7,8 +7,10 @@ from torch.utils.data import DataLoader
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
+from tests.common import world_size
 
 
+@world_size(1, 2)
 @pytest.mark.parametrize('dataset,dataset_args', [('c4', {
     'remote': 's3://mosaicml-internal-dataset-c4/mds/2/',
     'tokenizer_name': 'prajjwal1/bert-tiny',
@@ -24,7 +26,7 @@ from composer.trainer import Trainer
                                                   ('enwiki', {
                                                       'remote': 's3://mosaicml-internal-dataset-enwiki-20200101/mds/2/'
                                                   })])
-def test_streaming_datasets(dataset, dataset_args, tiny_bert_tokenizer, tiny_bert_model, tmp_path):
+def test_streaming_datasets(dataset, dataset_args, tiny_bert_tokenizer, tiny_bert_model, tmp_path, world_size):
     streaming = pytest.importorskip('streaming')
     transformers = pytest.importorskip('transformers')
     name_to_cls = {
