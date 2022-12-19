@@ -12,7 +12,7 @@ from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMD
 def test_bert_mlm_hf_factory(tiny_bert_config, tiny_bert_tokenizer, monkeypatch):
     transformers = pytest.importorskip('transformers')
     monkeypatch.setattr('transformers.AutoConfig.from_pretrained', lambda x: tiny_bert_config)
-    gpt2_composer_model = create_bert_mlm(use_pretrained=False,
+    bert_composer_model = create_bert_mlm(use_pretrained=False,
                                           pretrained_model_name='dummy',
                                           model_config=None,
                                           tokenizer_name=None,
@@ -27,7 +27,7 @@ def test_bert_mlm_hf_factory(tiny_bert_config, tiny_bert_tokenizer, monkeypatch)
                                                             mlm_probability=0.15)
     train_dataloader = DataLoader(train_dataset, batch_size=4, collate_fn=collator)
 
-    trainer = Trainer(model=gpt2_composer_model, train_dataloader=train_dataloader, max_duration='1ep')
+    trainer = Trainer(model=bert_composer_model, train_dataloader=train_dataloader, max_duration='1ep')
     trainer.fit()
 
     assert trainer.state.train_metrics['LanguageCrossEntropy'].compute() > 0.0
@@ -41,7 +41,7 @@ def test_bert_classification_hf_factory(tiny_bert_config, tiny_bert_tokenizer, m
         return tiny_bert_config
 
     monkeypatch.setattr('transformers.AutoConfig.from_pretrained', config_patch)
-    gpt2_composer_model = create_bert_classification(use_pretrained=False,
+    bert_composer_model = create_bert_classification(use_pretrained=False,
                                                      pretrained_model_name='dummy',
                                                      model_config=None,
                                                      tokenizer_name=None,
@@ -55,7 +55,7 @@ def test_bert_classification_hf_factory(tiny_bert_config, tiny_bert_tokenizer, m
                                                     use_keys=True)
     train_dataloader = DataLoader(train_dataset, batch_size=4)
 
-    trainer = Trainer(model=gpt2_composer_model, train_dataloader=train_dataloader, max_duration='1ep')
+    trainer = Trainer(model=bert_composer_model, train_dataloader=train_dataloader, max_duration='1ep')
     trainer.fit()
 
     assert trainer.state.train_metrics['Accuracy'].compute() > 0.0
