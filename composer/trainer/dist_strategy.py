@@ -5,6 +5,7 @@
 
 import collections
 import logging
+import warnings
 from contextlib import contextmanager, nullcontext
 from typing import Any, Callable, ContextManager, Dict, Optional, Sequence, Union, cast
 
@@ -284,12 +285,19 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                                 should_not_init_params,
                                 module_name='')
 
+                if len(tied_mod_names) > 0:
+                    warnings.warn(('The passed in model appears to have tied weights. In order to '
+                                   'support effective weight tying, the tied modules need to be '
+                                   'in the same FSDP module. If the weights are not properly tied '
+                                   'it can lead to loss spikes. We have tried our best to ensure '
+                                   'the tied weights are in the same FSDP module.'))
+
                 # Redoes weight tying
                 for name_attr, tied_names in tied_mod_names.items():
                     name, attr = name_attr
                     src_mod = module.get_submodule(name)
                     # We need to make sure the source and destination
-                    # modules end up in the same FSDP block otherwise
+                    # modules end up in the same FSDP module otherwise
                     # with sharding weight tying gets violated
                     src_mod._fsdp_wrap = False  # type: ignore
                     src_params = getattr(src_mod, attr)
