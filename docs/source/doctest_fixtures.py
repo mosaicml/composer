@@ -198,7 +198,13 @@ def _new_trainer_init(self, fake_ellipses: None = None, **kwargs: Any):
         kwargs['progress_bar'] = False  # hide tqdm logging
     if 'log_to_console' not in kwargs:
         kwargs['log_to_console'] = False  # hide console logging
+    if 'save_folder' in kwargs and urlparse(kwargs['save_folder']).scheme == 'gs':
+        os.environ['GCS_KEY'] = 'foo'
+        os.environ['GCS_SECRET'] = 'foo'
     if 'load_path' in kwargs and urlparse(kwargs['load_path']).scheme in ['s3', 'oci', 'gs']:
+        if urlparse(kwargs['load_path']).scheme == 'gs':
+            os.environ['GCS_KEY'] = 'foo'
+            os.environ['GCS_SECRET'] = 'foo'
         kwargs['load_path'] = urlparse(kwargs['load_path']).path.lstrip('/')
         kwargs['load_object_store'] = LibcloudObjectStore()
     _original_trainer_init(self, **kwargs)
