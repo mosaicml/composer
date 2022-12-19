@@ -50,9 +50,9 @@ def test_glu_outputs(batch_size, seq_length, d_embed, d_ff, dropout_rate, act_fn
 
 
 @pytest.fixture()
-def synthetic_bert_state():
+def synthetic_bert_state(request: pytest.FixtureRequest):
     synthetic_config = make_dataset_configs(model_family=['bert'])[0]
-    return synthetic_hf_state_maker(synthetic_config)
+    return synthetic_hf_state_maker(synthetic_config, request.session)
 
 
 def assert_is_glu_instance(model):
