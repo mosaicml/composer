@@ -8,7 +8,7 @@ from tests.common.compare import deep_compare
 from tests.common.datasets import RandomClassificationDataset, RandomImageDataset, RandomSegmentationDataset
 from tests.common.events import EventCounterCallback
 from tests.common.markers import device, world_size
-from tests.common.models import ConvModel, SimpleConvModel, SimpleModel
+from tests.common.models import ConvModel, SimpleConvModel, SimpleModel, SimpleTransformerClassifier
 from tests.common.state import assert_state_equivalent
 
 
@@ -25,6 +25,7 @@ __all__ = [
     'ConvModel',
     'SimpleConvModel',
     'SimpleModel',
+    'SimpleTransformerClassifier',
     'EventCounterCallback',
     'deep_compare',
     'device',

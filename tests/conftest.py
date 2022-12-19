@@ -11,6 +11,7 @@ import pytest
 import tqdm.std
 
 import composer
+from composer.models.huggingface import HuggingFaceModel
 from composer.utils import dist, reproducibility
 
 # Allowed options for pytest.mark.world_size()
@@ -141,7 +142,7 @@ def disable_tqdm_bars():
     tqdm.std.tqdm.__init__ = new_tqdm_init
 
 
-def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
+def pytestsessionfinish(session: pytest.Session, exitstatus: int):
     if exitstatus == 5:
         session.exitstatus = 0  # Ignore no-test-ran errors
 
@@ -204,3 +205,35 @@ def tiny_bert_tokenizer(_session_tiny_bert_tokenizer):
 @pytest.fixture
 def tiny_bert_config(_session_tiny_bert_config):
     return copy.deepcopy(_session_tiny_bert_config)
+
+
+# Note: These methods are an alternative to the tiny_bert fixtures above.
+# Fixtures cannot be used natively as paramaterized inputs, which we require when
+# we wish to run a test across multiple models, one of which is a HuggingFace BERT Tiny.
+# As a workaround, we inject objects into the PyTest namespace. Tests should not directly
+# use pytest.{var}, but instead should import and use the helper copy methods configure_{var}
+# so the objects in the PyTest namespace do not change.
+def pytest_configure():
+    transformers = pytest.importorskip('transformers')
+    config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny')
+    hf_model = transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('prajjwal1/bert-tiny')
+    pytest.tiny_bert_model = hf_model  # type: ignore
+    pytest.tiny_bert_tokenizer = hf_tokenizer  # type: ignore
+    pytest.tiny_bert_config = config  # type: ignore
+
+
+def configure_tiny_bert_model():
+    return copy.deepcopy(pytest.tiny_bert_model)
+
+
+def configure_tiny_bert_tokenizer():
+    return copy.deepcopy(pytest.tiny_bert_tokenizer)
+
+
+def configure_tiny_bert_config():
+    return copy.deepcopy(pytest.tiny_bert_config)
+
+
+def tiny_bert(use_logits=True):
+    return HuggingFaceModel(configure_tiny_bert_model(), configure_tiny_bert_tokenizer(), use_logits)

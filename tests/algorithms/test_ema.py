@@ -11,7 +11,8 @@ import torch
 from composer.algorithms import EMA
 from composer.algorithms.ema.ema import compute_ema
 from composer.core import Event, Time, Timestamp, TimeUnit
-from tests.common import SimpleConvModel, SimpleModel
+from tests.common import SimpleConvModel, SimpleTransformerClassifier
+from tests.conftest import tiny_bert
 
 
 def validate_ema(model, original_model, ema_model, smoothing):
@@ -20,7 +21,7 @@ def validate_ema(model, original_model, ema_model, smoothing):
     ema_params = itertools.chain(ema_model.parameters(), ema_model.buffers())
 
     for model_param, original_param, ema_param in zip(model_params, original_params, ema_params):
-        new_param = original_param * smoothing + (1. - smoothing) * model_param
+        new_param = (original_param * smoothing + (1. - smoothing) * model_param).type(ema_param.data.dtype)
         torch.testing.assert_close(ema_param.data, new_param)
 
 
@@ -33,9 +34,11 @@ def validate_model(model1, model2):
 
 
 @pytest.mark.parametrize('smoothing', [0, 0.5, 0.99, 1])
-def test_ema(smoothing):
-    model = SimpleModel()
-    ema_model = SimpleModel()
+@pytest.mark.parametrize('model_cls, model_params', [(SimpleConvModel, ()), (SimpleTransformerClassifier, ()),
+                                                     (tiny_bert, ())])
+def test_ema(smoothing, model_cls, model_params):
+    model = model_cls(*model_params)
+    ema_model = model_cls(*model_params)
     original_model = copy.deepcopy(ema_model)
     compute_ema(model=model, ema_model=ema_model, smoothing=smoothing)
     validate_ema(model, original_model, ema_model, smoothing)
@@ -52,7 +55,9 @@ def test_ema(smoothing):
     'smoothing': 0.999,
     'update_interval': '1ba'
 }])
-def test_ema_algorithm(params, minimal_state, empty_logger):
+@pytest.mark.parametrize('model_cls, model_params', [(SimpleConvModel, ()), (SimpleTransformerClassifier, ()),
+                                                     (tiny_bert, ())])
+def test_ema_algorithm(params, model_cls, model_params, minimal_state, empty_logger):
 
     # Initialize input tensor
     input = torch.rand((32, 5))
@@ -63,7 +68,7 @@ def test_ema_algorithm(params, minimal_state, empty_logger):
         half_life, update_interval = params['half_life'], params['update_interval']
         algorithm = EMA(half_life=half_life, update_interval=update_interval)
     state = minimal_state
-    state.model = SimpleConvModel()
+    state.model = model_cls(*model_params)
     state.batch = (input, torch.Tensor())
 
     # Start EMA
@@ -78,7 +83,7 @@ def test_ema_algorithm(params, minimal_state, empty_logger):
 
     # Fake a training update by replacing state.model after ema grabbed it.
     original_model = copy.deepcopy(state.model)
-    state.model = SimpleConvModel()
+    state.model = model_cls(*model_params)
     # Do the EMA update
     state.timestamp = Timestamp()
     if update_interval.unit == TimeUnit.BATCH:
