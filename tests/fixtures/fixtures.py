@@ -120,11 +120,10 @@ def s3_bucket(request: pytest.FixtureRequest):
 # test that requests it, so tests would have side effects on each other. Instead, the non session
 # scoped fixtures below perform a deepcopy before returning the fixture.
 @pytest.fixture(scope='session')
-def _session_tiny_bert_model():  # type: ignore
+def _session_tiny_bert_model(_session_tiny_bert_config):  # type: ignore
     transformers = pytest.importorskip('transformers')
 
-    config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny')
-    hf_model = transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
+    hf_model = transformers.AutoModelForMaskedLM.from_config(_session_tiny_bert_config)  # type: ignore (thirdparty)
     return hf_model
 
 
@@ -132,7 +131,7 @@ def _session_tiny_bert_model():  # type: ignore
 def _session_tiny_bert_tokenizer():  # type: ignore
     transformers = pytest.importorskip('transformers')
 
-    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('prajjwal1/bert-tiny')
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('bert-base-uncased')
     return hf_tokenizer
 
 
@@ -140,7 +139,13 @@ def _session_tiny_bert_tokenizer():  # type: ignore
 def _session_tiny_bert_config():  # type: ignore
     transformers = pytest.importorskip('transformers')
 
-    hf_config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny')
+    tiny_overrides = {
+        'hidden_size': 128,
+        'num_attention_heads': 2,
+        'num_hidden_layers': 2,
+        'intermediate_size': 512,
+    }
+    hf_config = transformers.AutoConfig.from_pretrained('bert-base-uncased', **tiny_overrides)
     return hf_config
 
 
@@ -148,7 +153,12 @@ def _session_tiny_bert_config():  # type: ignore
 def _session_tiny_gpt2_config():  # type: ignore
     transformers = pytest.importorskip('transformers')
 
-    hf_config = transformers.AutoConfig.from_pretrained('sshleifer/tiny-gpt2')
+    tiny_overrides = {
+        'n_embd': 2,
+        'n_head': 2,
+        'n_layer': 2,
+    }
+    hf_config = transformers.AutoConfig.from_pretrained('gpt2', **tiny_overrides)
     return hf_config
 
 
@@ -156,7 +166,7 @@ def _session_tiny_gpt2_config():  # type: ignore
 def _session_tiny_gpt2_tokenizer():  # type: ignore
     transformers = pytest.importorskip('transformers')
 
-    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('sshleifer/tiny-gpt2')
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('gpt2')
     hf_tokenizer.add_special_tokens({'pad_token': '[PAD]'})
     return hf_tokenizer
 
