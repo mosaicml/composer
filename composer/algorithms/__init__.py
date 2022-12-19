@@ -50,8 +50,10 @@ from composer.algorithms.fused_layernorm import FusedLayerNorm
 from composer.algorithms.gated_linear_units import GatedLinearUnits
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm
 from composer.algorithms.gradient_clipping import GradientClipping
+from composer.algorithms.gyro_dropout import GyroDropout
 from composer.algorithms.label_smoothing import LabelSmoothing
 from composer.algorithms.layer_freezing import LayerFreezing
+from composer.algorithms.low_precision_layernorm import LowPrecisionLayerNorm
 from composer.algorithms.mixup import MixUp
 from composer.algorithms.no_op_model import NoOpModel
 from composer.algorithms.progressive_resizing import ProgressiveResizing
@@ -82,6 +84,7 @@ __all__ = [
     'GradientClipping',
     'LabelSmoothing',
     'LayerFreezing',
+    'LowPrecisionLayerNorm',
     'MixUp',
     'NoOpModel',
     'ProgressiveResizing',
@@ -96,4 +99,5 @@ __all__ = [
     'StochasticDepth',
     'SWA',
     'WeightStandardization',
+    'GyroDropout',
 ]

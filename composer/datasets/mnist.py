@@ -6,14 +6,14 @@ from typing import Any
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-from composer.core.types import MemoryFormat
+from composer.core import MemoryFormat
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import dist
 
 
 def build_mnist_dataloader(
     datadir: str,
-    batch_size: int,
+    global_batch_size: int,
     is_train: bool = True,
     download: bool = True,
     drop_last: bool = True,
@@ -24,7 +24,7 @@ def build_mnist_dataloader(
 
     Args:
         datadir (str): Path to the data directory
-        batch_size (int): Batch size per device
+        global_batch_size (int): Global batch size.
         is_train (bool): Whether to load the training data or validation data. Default:
             ``True``.
         download (bool, optional): Whether to download the dataset, if needed. Default:
@@ -33,6 +33,11 @@ def build_mnist_dataloader(
         shuffle (bool): Shuffle the dataset. Default: ``True``.
         **dataloader_kwargs (Any): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
+
     transform = transforms.Compose([transforms.ToTensor()])
 
     with dist.run_local_rank_zero_first():
@@ -55,7 +60,7 @@ def build_mnist_dataloader(
 
 
 def build_synthetic_mnist_dataloader(
-    batch_size: int,
+    global_batch_size: int,
     is_train: bool = True,
     drop_last: bool = True,
     shuffle: bool = True,
@@ -67,16 +72,20 @@ def build_synthetic_mnist_dataloader(
     """Builds a synthetic MNIST dataset.
 
     Args:
-        batch_size (int): Batch size per device
+        global_batch_size (int): Global batch size.
         is_train (bool): Whether to load the training data or validation data. Default:
             ``True``.
         drop_last (bool): Drop remainder samples. Default: ``True``.
         shuffle (bool): Shuffle the dataset. Default: ``True``.
         num_unique_samples (int): number of unique samples in synthetic dataset. Default: ``100``.
         device (str): device with which to load the dataset. Default: ``cpu``.
-        memory_format (MemoryFormat): memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
+        memory_format (:class:`composer.core.MemoryFormat`): memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
         **dataloader_kwargs (Any): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     dataset = SyntheticBatchPairDataset(
         total_dataset_size=60_000 if is_train else 10_000,
         data_shape=[1, 28, 28],

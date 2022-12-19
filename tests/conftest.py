@@ -1,16 +1,12 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-import logging
 import os
-import pathlib
 from typing import List, Optional
 
 import pytest
-import tqdm.std
 
-import composer
-from composer.utils import dist, reproducibility
+from composer.utils import reproducibility
 
 # Allowed options for pytest.mark.world_size()
 # Important: when updating this list, make sure to also up ./.ci/test.sh
@@ -23,7 +19,8 @@ reproducibility.configure_deterministic_mode()
 
 # Add the path of any pytest fixture files you want to make global
 pytest_plugins = [
-    'tests.fixtures.new_fixtures',
+    'tests.fixtures.autouse_fixtures',
+    'tests.fixtures.fixtures',
     'tests.fixtures.synthetic_hf_state',
 ]
 
@@ -44,7 +41,7 @@ def _add_option(parser: pytest.Parser, name: str, help: str, choices: Optional[L
     )
 
 
-def _get_option(config: pytest.Config, name: str, default: Optional[str] = None) -> str:
+def _get_option(config: pytest.Config, name: str, default: Optional[str] = None) -> str:  # type: ignore
     val = config.getoption(name)
     if val is not None:
         assert isinstance(val, str)
@@ -99,63 +96,6 @@ def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item
         items[:] = remaining
 
 
-@pytest.fixture(autouse=True)
-def set_loglevels():
-    """Ensures all log levels are set to DEBUG."""
-    logging.basicConfig()
-    logging.getLogger(composer.__name__).setLevel(logging.DEBUG)
-
-
-@pytest.fixture
-def rank_zero_seed(pytestconfig: pytest.Config) -> int:
-    """Read the rank_zero_seed from the CLI option."""
-    seed = _get_option(pytestconfig, 'seed', default='0')
-    return int(seed)
-
-
-@pytest.fixture(autouse=True)
-def seed_all(rank_zero_seed: int, monkeypatch: pytest.MonkeyPatch):
-    """Monkeypatch reproducibility get_random_seed to always return the rank zero seed, and set the random seed before
-    each test to the rank local seed."""
-    monkeypatch.setattr(reproducibility, 'get_random_seed', lambda: rank_zero_seed)
-    reproducibility.seed_all(rank_zero_seed + dist.get_global_rank())
-
-
-@pytest.fixture(autouse=True)
-def chdir_to_tmp_path(tmp_path: pathlib.Path):
-    os.chdir(tmp_path)
-
-
-@pytest.fixture(autouse=True, scope='session')
-def disable_tqdm_bars():
-    # Disable tqdm progress bars globally in tests
-    original_tqdm_init = tqdm.std.tqdm.__init__
-
-    def new_tqdm_init(*args, **kwargs):
-        if 'disable' not in kwargs:
-            kwargs['disable'] = True
-        return original_tqdm_init(*args, **kwargs)
-
-    # Not using pytest monkeypatch as it is a function-scoped fixture
-    tqdm.std.tqdm.__init__ = new_tqdm_init
-
-
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
     if exitstatus == 5:
         session.exitstatus = 0  # Ignore no-test-ran errors
-
-
-@pytest.fixture
-def sftp_uri(request: pytest.FixtureRequest):
-    if request.node.get_closest_marker('remote') is None:
-        return 'sftp://localhost'
-    else:
-        return _get_option(request.config, 'sftp_uri')
-
-
-@pytest.fixture
-def s3_bucket(request: pytest.FixtureRequest):
-    if request.node.get_closest_marker('remote') is None:
-        return 'my-bucket'
-    else:
-        return _get_option(request.config, 's3_bucket')

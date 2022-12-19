@@ -16,7 +16,7 @@ from torchvision.transforms.functional import InterpolationMode
 
 from composer import DataSpec, Time, Trainer
 from composer.algorithms import EMA, SAM, ChannelsLast, MixUp
-from composer.callbacks import CheckpointSaver, LRMonitor, SpeedMonitor
+from composer.callbacks import CheckpointSaver, ImageVisualizer, LRMonitor, SpeedMonitor
 from composer.datasets.ade20k import (ADE20k, PadToSize, PhotometricDistoration, RandomCropPair, RandomHFlipPair,
                                       RandomResizePair)
 from composer.datasets.utils import NormalizationFn, pil_image_collate
@@ -82,6 +82,8 @@ parser.add_argument('--recipe_name',
 parser.add_argument('--wandb_logger', help='Whether or not to log results to Weights and Biases', action='store_true')
 parser.add_argument('--wandb_entity', help='WandB entity name', type=str)
 parser.add_argument('--wandb_project', help='WandB project name', type=str)
+
+parser.add_argument('--image_viz', help='Whether or not to log images using ImageVisualizer', action='store_true')
 
 # Trainer arguments
 parser.add_argument('--grad_accum', help='Amount of gradient accumulation if running on CPU', type=int, default=1)
@@ -328,6 +330,9 @@ def _main():
         logger = WandBLogger(entity=args.wandb_entity, project=args.wandb_project)
         logging.info('Built Weights and Biases logger')
 
+    callbacks = [speed_monitor, lr_monitor, checkpoint_saver]
+    if args.image_viz:
+        callbacks.append(ImageVisualizer(mode='segmentation'))
     # Create the Trainer!
     logging.info('Building Trainer')
     device = 'gpu' if torch.cuda.is_available() else 'cpu'
@@ -343,7 +348,7 @@ def _main():
                       algorithms=algorithms,
                       loggers=logger,
                       max_duration=args.max_duration,
-                      callbacks=[speed_monitor, lr_monitor, checkpoint_saver],
+                      callbacks=callbacks,
                       load_path=args.load_checkpoint_path,
                       device=device,
                       precision=precision,

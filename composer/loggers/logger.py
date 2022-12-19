@@ -11,13 +11,13 @@ import pathlib
 from functools import reduce
 from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
 
+import numpy as np
 import torch
 
-from composer.utils import ensure_tuple
-from composer.utils.file_helpers import format_name_with_dist
+from composer.utils import ensure_tuple, format_name_with_dist
 
 if TYPE_CHECKING:
-    from composer.core.state import State
+    from composer.core import State
     from composer.loggers.logger_destination import LoggerDestination
 
 __all__ = ['LoggerDestination', 'Logger', 'format_log_data_value']
@@ -61,25 +61,44 @@ class Logger:
             destination.log_hyperparameters(parameters)
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
-        if not step:
+        if step is None:
             step = self._state.timestamp.batch.value
         for destination in self.destinations:
             destination.log_metrics(metrics, step)
 
-    def data_fit(self, data: Dict[str, Any]) -> None:
-        raise NotImplementedError(
-            'data_fit is no longer a valid call to the logger API. Please use log_hyperparameters or log_metrics instead'
-        )
+    def log_images(
+        self,
+        images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
+        name: str = 'Images',
+        channels_last: bool = False,
+        step: Optional[int] = None,
+        masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
+        mask_class_labels: Optional[Dict[int, str]] = None,
+        use_table: bool = True,
+    ):
+        """Log images. Logs any tensors or arrays as images.
 
-    def data_epoch(self, data: Dict[str, Any]) -> None:
-        raise NotImplementedError(
-            'data_epoch is no longer a valid call to the logger API. Please use log_hyperparameters or log_metrics instead'
-        )
-
-    def data_batch(self, data: Dict[str, Any]) -> None:
-        raise NotImplementedError(
-            'data_batch is no longer a valid call to the logger API. Please use log_hyperparameters or log_metrics instead'
-        )
+        Args:
+            images (np.ndarray | torch.Tensor | Sequence[np.ndarray | torch.Tensor]): Dictionary mapping
+                image(s)' names (str) to an image of array of images.
+            name (str): The name of the image(s). (Default: ``'Images'``)
+            channels_last (bool): Whether the channel dimension is first or last.
+                (Default: ``False``)
+            step (int, optional): The current step or batch of training at the
+                time of logging. Defaults to None. If not specified the specific
+                LoggerDestination implementation will choose a step (usually a running
+                counter).
+            masks (Dict[str, np.ndarray | torch.Tensor | Sequence[np.ndarray | torch.Tensor]], optional): A dictionary
+                mapping the mask name (e.g. predictions or ground truth) to a sequence of masks.
+            mask_class_labels (Dict[int, str], optional): Dictionary mapping label id to its name. Used for labelling
+                each color in the mask.
+            use_table (bool): Whether to make a table of the images or not. (default: ``True``). Only for use
+                with WandB.
+        """
+        if step is None:
+            step = self._state.timestamp.batch.value
+        for destination in self.destinations:
+            destination.log_images(images, name, channels_last, step, masks, mask_class_labels, use_table)
 
     def upload_file(
         self,

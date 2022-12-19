@@ -7,29 +7,21 @@ from __future__ import annotations
 
 import logging
 import pathlib
-from typing import Callable, Dict, List, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Sequence, Tuple, Union
 
-from composer.core.callback import Callback
-from composer.core.state import State
 from composer.profiler.marker import Marker
 from composer.profiler.profiler_action import ProfilerAction
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
 from composer.profiler.trace_handler import TraceHandler
-from composer.utils.iter_helpers import ensure_tuple
+from composer.utils import ensure_tuple
+
+if TYPE_CHECKING:
+    from composer.core import Callback, State
 
 __all__ = ['Profiler']
 
 log = logging.getLogger(__name__)
-
-try:
-    import yahp
-    del yahp
-except ImportError:
-    profiler_scheduler_registry = {}
-    trace_handler_registry = {}
-else:
-    from composer.profiler.profiler_hparams import profiler_scheduler_registry, trace_handler_registry
 
 
 class Profiler:
@@ -90,11 +82,6 @@ class Profiler:
         torch_prof_with_flops (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_num_traces_to_keep (int, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
     """
-
-    hparams_registry = {
-        'schedule': profiler_scheduler_registry,
-        'trace_handlers': trace_handler_registry,
-    }
 
     def __init__(
         self,

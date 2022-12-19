@@ -26,12 +26,14 @@ These orderings are enforced by algorithm passes. The default passes registered 
     def run_last(algorithms: Sequence[Algorithm], event: Event) -> Sequence[Algorithm]:
         algorithms = sorted(algorithms, key=lambda x: isinstance(x, MyAlgorithm))
 
-    Engine.register_pass(run_last)
+    engine = Engine(algorithm_passes=run_last)
 
 .. note::
 
     * An instance of :class:`.Engine` is automatically constructed by the :class:`.Trainer`
-      constructor. A user need not instantiate the :class:`.Engine` class.
+      constructor. A user need not instantiate the :class:`.Engine` class. Instead, they should
+      specify algorithm_passes to the :class:`.Trainer` constructor, which will be passed to the
+      :class:`.Engine` constructor.
 
 .. note::
     * The design of :class:`.Engine` is subject to change in future releases
@@ -67,10 +69,11 @@ import atexit
 import contextlib
 import logging
 import os
+import textwrap
 import weakref
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import ContextManager, Dict, List, Optional, Sequence, TypeVar, Union, cast
+from typing import Callable, ContextManager, Dict, List, Optional, Sequence, Tuple, TypeVar, Union, cast
 
 from composer.core import passes
 from composer.core.algorithm import Algorithm
@@ -79,6 +82,7 @@ from composer.core.event import Event
 from composer.core.state import State
 from composer.loggers import Logger
 from composer.profiler import ProfilerAction
+from composer.utils import ensure_tuple
 
 log = logging.getLogger(__name__)
 
@@ -114,6 +118,7 @@ def _get_default_passes():
     return [
         passes.sort_selective_backprop_first,
         passes.sort_fused_layernorm_last,
+        passes.sort_low_precision_layernorm_last,
         passes.set_filo_order,
         passes.warn_if_multiple_loss_interpolation,
     ]
@@ -159,14 +164,41 @@ class Engine():
         state (State): The initial :class:`.State` of the trainer. ``state`` will be modified in-place.
         logger (Logger): A :class:`.Logger` instance to be used for logging algorithm and callback
             specific metrics.
+        algorithm_passes ([AlgorithmPass | Tuple[AlgorithmPass, int] | Sequence[AlgorithmPass | Tuple[AlgorithmPass, int]], optional):
+            Optional list of passes to change order in which algorithms are applied. These passes are merged with the
+            default passes specified in :class:`.Engine`. If ``None``, then no additional passes will be used.
     """
 
-    def __init__(self, state: State, logger: Logger):
+    def __init__(
+        self,
+        state: State,
+        logger: Logger,
+        algorithm_passes: Optional[Union[passes.AlgorithmPass, Tuple[passes.AlgorithmPass, int],
+                                         Sequence[Union[passes.AlgorithmPass, Tuple[passes.AlgorithmPass,
+                                                                                    int]]]]] = None,
+    ):
         self.logger = logger
         self.state = state
         self._is_closed = False
 
         self.algorithm_passes: List[passes.AlgorithmPass] = _get_default_passes()
+        if algorithm_passes is not None:
+            # Wrap in list if not already a list or if it's a length 2 list specifying a single
+            # call to register_pass with type [AlgorithmPass, int]
+            if not isinstance(algorithm_passes, list) or (len(algorithm_passes) == 2 and
+                                                          isinstance(algorithm_passes[1], int)):
+                algorithm_passes = [algorithm_passes]  # type: ignore wrapping list
+            algo_passes = algorithm_passes if isinstance(algorithm_passes, list) else [algorithm_passes]
+            for algo_pass in algo_passes:
+                algo_pass = ensure_tuple(algo_pass)
+                if len(algo_pass) == 1 and isinstance(algo_pass[0], Callable):
+                    self.register_pass(algo_pass[0])
+                elif len(algo_pass) == 2 and isinstance(algo_pass[0], Callable) and isinstance(algo_pass[1], int):
+                    self.register_pass(algo_pass[0], algo_pass[1])
+                else:
+                    raise ValueError(
+                        textwrap.dedent('Received invalid algorithm_pass. Expected either a single AlgorithmPass '
+                                        f'or a tuple of (AlgorithmPass, int), but received {algo_pass}.'))
 
         atexit.register(self._close, state, logger)
 
@@ -413,6 +445,8 @@ class Engine():
             # Do not attempt to shutdown again, since close() already ran via __atexit__ or was already invoked
             return
         self.close()
+        atexit.unregister(_set_atexit_ran)
+        atexit.unregister(self._close)
 
     def _debug_log(self, event: Event, msg: str):
         """Helper to include timestamp and event info in log messages."""

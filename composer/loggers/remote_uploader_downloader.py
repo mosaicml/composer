@@ -17,14 +17,16 @@ import time
 import uuid
 import warnings
 from multiprocessing.context import SpawnProcess
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 from urllib.parse import urlparse
 
-from composer.core.state import State
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, S3ObjectStore, SFTPObjectStore,
-                            dist, format_name_with_dist, get_file, retry)
+from composer.utils import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, OCIObjectStore, S3ObjectStore,
+                            SFTPObjectStore, dist, format_name_with_dist, get_file, retry)
+
+if TYPE_CHECKING:
+    from composer.core import State
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +34,12 @@ __all__ = ['RemoteUploaderDownloader']
 
 
 def _build_remote_backend(remote_backend_name: str, backend_kwargs: Dict[str, Any]):
-    remote_backend_name_to_cls = {'s3': S3ObjectStore, 'sftp': SFTPObjectStore, 'libcloud': LibcloudObjectStore}
+    remote_backend_name_to_cls = {
+        's3': S3ObjectStore,
+        'oci': OCIObjectStore,
+        'sftp': SFTPObjectStore,
+        'libcloud': LibcloudObjectStore
+    }
     remote_backend_cls = remote_backend_name_to_cls.get(remote_backend_name, None)
     if remote_backend_cls is None:
         raise ValueError(
@@ -56,7 +63,6 @@ class RemoteUploaderDownloader(LoggerDestination):
 
         remote_uploader_downloader = RemoteUploaderDownloader(
             bucket_uri="s3://my-bucket",
-            file_path_format_string="path/to/my/checkpoints/{remote_file_name}",
         )
 
         # Construct the trainer using this logger
@@ -182,7 +188,7 @@ class RemoteUploaderDownloader(LoggerDestination):
             .. doctest:: composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader.__init__.file_path_format_string
 
                 >>> remote_uploader_downloader = RemoteUploaderDownloader(..., file_path_format_string='rank_{rank}/{remote_file_name}')
-                >>> trainer = Trainer(..., run_name='foo', loggers=[remote_uploader_downloader])
+                >>> trainer = Trainer(..., save_latest_filename=None, run_name='foo', loggers=[remote_uploader_downloader])
                 >>> trainer.logger.upload_file(
                 ...     remote_file_name='bar.txt',
                 ...     file_path='path/to/file.txt',
@@ -219,7 +225,7 @@ class RemoteUploaderDownloader(LoggerDestination):
         parsed_remote_bucket = urlparse(bucket_uri)
         self.remote_backend_name, self.remote_bucket_name = parsed_remote_bucket.scheme, parsed_remote_bucket.netloc
         self.backend_kwargs = backend_kwargs if backend_kwargs is not None else {}
-        if self.remote_backend_name == 's3' and 'bucket' not in self.backend_kwargs:
+        if self.remote_backend_name in ['s3', 'oci'] and 'bucket' not in self.backend_kwargs:
             self.backend_kwargs['bucket'] = self.remote_bucket_name
         elif self.remote_backend_name == 'sftp' and 'host' not in self.backend_kwargs:
             self.backend_kwargs['host'] = f'sftp://{self.remote_bucket_name}'
