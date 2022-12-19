@@ -141,7 +141,8 @@ def _set_evaluator_interval_and_subset_num_batches(
         if evaluator.eval_interval is None:
             evaluator.eval_interval = eval_interval
         eval_dataloader = evaluator.dataloader.dataloader
-        if isinstance(eval_dataloader, collections.abc.Sized) and evaluator.subset_num_batches is None:
+        if isinstance(eval_dataloader, collections.abc.Sized) and (evaluator.subset_num_batches is None or
+                                                                   evaluator.subset_num_batches == -1):
             try:
                 dataloader_len = len(eval_dataloader)
             except TypeError:
@@ -769,6 +770,10 @@ class Trainer:
 
             To use DeepSpeed with default values, set to the empty dictionary ``{}``.
             To disable DeepSpeed (the default), set to ``None``.
+        fsdp_config (Dict[str, Any], optional): Configuration for FSDP.
+            See :doc:`FSDP Documentation </notes/distributed_training>` for more details.
+            To use FSDP with default values, set to the empty dictionary ``{}``. To
+            disable FSDP, set to ``None``. (default: ``None``)
         device (Device | str, optional): The device to use for training, which can be ``'cpu'``, ``'gpu'``,
             ``'tpu'``, or ``'mps'``. (default: ``None``)
 
@@ -1064,6 +1069,7 @@ class Trainer:
             optimizers=optimizers,
             run_name=run_name,
             deepspeed_config=deepspeed_config,
+            fsdp_config=fsdp_config,
         )
 
         # Profiler

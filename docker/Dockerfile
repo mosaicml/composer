@@ -38,8 +38,12 @@ ARG PILLOW_PSEUDOVERSION=7.0.0
 ARG PILLOW_SIMD_VERSION=7.0.0.post3
 
 # Version of the Mellanox Drivers to install (for InfiniBand support)
-# Levave blank for no Mellanox Drivers
+# Leave blank for no Mellanox Drivers
 ARG MOFED_VERSION=5.5-1.0.3.2
+
+# Version of the HPC-X Drivers to install (for InfiniBand support)
+# Leave blank for no HPC-X Drivers
+ARG HPCX_VERSION=2.13.1
 
 ########################
 # Vision Image Arguments
@@ -213,6 +217,25 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
         rm -rf /tmp/mofed ; \
     fi
 
+###########################
+# HPC-X driver installation
+###########################
+
+ARG HPCX_VERSION
+
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib:
+
+RUN if [ -n "$HPCX_VERSION" ] ; then \
+        mkdir -p /tmp/hpcx && \
+        wget -nv -P /tmp/hpcx https://content.mellanox.com/hpc/hpc-x/v${HPCX_VERSION}/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz && \
+        tar -xvf /tmp/hpcx/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz -C /tmp/hpcx && \
+        mv /tmp/hpcx/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64 /opt/hpcx && \
+        rm -rf /tmp/hpcx && \
+        # Set appropriate env vars to use SHARP
+        echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/profile && \
+        echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/bash.bashrc && \
+        echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/zshenv ; \
+    fi
 
 #####################
 # Install NVIDIA Apex

@@ -189,10 +189,16 @@ extra_deps['libcloud'] = [
     'apache-libcloud>=3.3.1,<4',
 ]
 
+extra_deps['oci'] = [
+    'oci>=2.88.2,<3.0.0',
+]
+
 extra_deps['onnx'] = [
     'onnx>=1.12.0,<2',
     'onnxruntime>=1.12.1,<2',
 ]
+
+extra_deps['mlflow'] = ['mlflow>=2.0.1,<3.0']
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
