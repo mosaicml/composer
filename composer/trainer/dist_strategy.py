@@ -15,6 +15,7 @@ from torchmetrics import Metric, MetricCollection
 
 from composer.core import Precision
 from composer.core.state import State
+from composer.trainer.meta_safe_apply import meta_safe_apply
 from composer.utils import StringEnum, dist, ensure_tuple
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module']
@@ -249,32 +250,56 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         if not isinstance(obj, (Metric, MetricCollection)):
 
             def _param_init_fn(module: torch.nn.Module) -> None:
-                # A dictionary of all tied parameters
+                # A dictionary of all tied parameter pointers to module names
                 tied_pointers = {}
 
                 # Goes through all modules finding which weights have the same pointers
-                for n, p in module.named_modules():
-                    if hasattr(p, 'weight'):
-                        ptr = id(p.weight)
-                        tied_pointers[ptr] = tied_pointers.get(ptr, set()) | set([n])
+                for name, mod in module.named_modules():
+                    for attr in ['weight', 'bias']:
+                        if hasattr(mod, attr):
+                            ptr = id(getattr(mod, attr))
+                            ptr_attr = (ptr, attr)
+                            tied_pointers[ptr_attr] = tied_pointers.get(ptr_attr, set()) | set([name])
 
-                # Creates a dictionary of param names should be tied together
-                tied_params = collections.defaultdict(lambda: [])
-                for _, s in tied_pointers.items():
+                # Creates a dictionary of module names should be tied together
+                tied_mod_names = collections.defaultdict(lambda: [])
+                # Creates a set of modules we should initialize
+                should_init_params = set()
+                should_not_init_params = set()
+                for ptr_attr_type, s in tied_pointers.items():
+                    _, attr_type = ptr_attr_type
                     if len(s) == 1:
+                        should_init_params.add(next(s.__iter__()))
                         continue
                     first = next(s.__iter__())
+                    should_init_params.add(first)
                     for elem in s:
-                        tied_params[first].append(elem)
+                        should_not_init_params.add('.'.join([elem, attr_type]))
+                        tied_mod_names[(first, attr_type)].append(elem)
+                    # Make sure at least one of the tied parameters is initialized
+                    should_not_init_params.remove('.'.join([first, attr_type]))
 
-                module.to_empty(device=f'cuda:{torch.cuda.current_device()}')
+                meta_safe_apply(module,
+                                lambda t: torch.empty_like(t, device=f'cuda:{torch.cuda.current_device()}'),
+                                should_not_init_params,
+                                module_name='')
 
                 # Redoes weight tying
-                for n, tied_names in tied_params.items():
-                    params = module.get_submodule(n).weight
+                for name_attr, tied_names in tied_mod_names.items():
+                    name, attr = name_attr
+                    src_mod = module.get_submodule(name)
+                    # We need to make sure the source and destination
+                    # modules end up in the same FSDP block otherwise
+                    # with sharding weight tying gets violated
+                    src_mod._fsdp_wrap = False  # type: ignore
+                    src_params = getattr(src_mod, attr)
                     for tied_name in tied_names:
-                        dest_module = module.get_submodule(tied_name)
-                        dest_module.weight = params
+                        dest_mod = module.get_submodule(tied_name)
+                        dest_mod._fsdp_wrap = False  # type: ignore
+                        if attr == 'weight':
+                            dest_mod.weight = src_params
+                        elif attr == 'bias':
+                            dest_mod.bias = src_params
 
                 if hasattr(obj, 'param_init_fn') and isinstance(obj.param_init_fn, Callable):
                     module.apply(obj.param_init_fn)
