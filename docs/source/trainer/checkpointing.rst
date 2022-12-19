@@ -359,7 +359,7 @@ Similarly for GCS:
 
 .. testcode::
     :skipif: not _LIBCLOUD_INSTALLED
-    
+
     from composer.trainer import Trainer
 
     # Save checkpoints every epoch to gs://my_bucket/checkpoints
