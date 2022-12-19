@@ -186,6 +186,29 @@ class DecoupledAdamW(AdamW):
         amsgrad (bool, optional): Enables the amsgrad variant of Adam. Default: ``False``.
     """
 
+    metric_functions = {
+        'l2_norm/moment':
+            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(optim_state['exp_avg']),
+        'l2_norm_ratio/moment_grad':
+            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(param.grad) / torch.linalg.vector_norm(
+                optim_state['exp_avg']),
+        'cosine/moment_grad':
+            lambda param, optim_state, step_tensor: torch.nn.functional.cosine_similarity(
+                param.grad.flatten(), optim_state['exp_avg'].flatten(), dim=0),
+        'l2_norm/param':
+            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(param.data),
+        'l2_norm/second_moment_sqrt':
+            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(optim_state['exp_avg_sq']).sqrt(),
+        'l2_norm/update':
+            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(step_tensor),
+        'cosine/update_grad':
+            lambda param, optim_state, step_tensor: torch.nn.functional.cosine_similarity(
+                param.grad.flatten(), step_tensor.flatten(), dim=0),
+        'l2_norm_ratio/update_param':
+            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(step_tensor) / torch.linalg.vector_norm(
+                param.data),
+    }
+
     def __init__(self,
                  params: Union[Iterable[torch.Tensor], Iterable[dict]],
                  lr: float = 1e-3,
@@ -326,3 +349,25 @@ class DecoupledAdamW(AdamW):
                        eps=eps)
 
         return loss
+
+    def report_per_parameter_metrics(self, param: torch.Tensor, name: str, optimizer_metrics: dict):
+        lr = self.param_groups[0]['lr']
+        eps = self.param_groups[0]['eps']
+        weight_decay = self.param_groups[0]['weight_decay']
+        initial_lr = self.param_groups[0]['initial_lr']
+
+        beta1, beta2 = self.param_groups[0]['betas']
+        if param in self.state:
+            param_optim_state = self.state[param]
+            step = param_optim_state['step']
+            bias_correction1 = 1 - beta1**step
+            bias_correction2 = 1 - beta2**step
+            denom = (param_optim_state['exp_avg_sq'].sqrt() / math.sqrt(bias_correction2)).add_(eps)
+            step_size = lr / bias_correction1
+            step_tensor = step_size * param_optim_state['exp_avg'].div(denom)
+            decay_factor = (lr / initial_lr) if initial_lr else 1.0
+            step_tensor.add_(param, alpha=-weight_decay * decay_factor)
+            for metric in self.metric_functions:
+                optimizer_metrics[f'{metric}/{name}'] = self.metric_functions[metric](param, param_optim_state,
+                                                                                      step_tensor).item()
+        return optimizer_metrics
