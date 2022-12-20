@@ -49,10 +49,10 @@ def test_current_metrics(eval_interval: str,):
     mock_logger_destination = MagicMock()
     mock_logger_destination.log_metrics = MagicMock()
     model = SimpleModel(num_features=1, num_classes=2)
-    compute_val_metrics = eval_interval != '0ep'
-    train_subset_num_batches = 2
-    eval_subset_num_batches = 2
-    num_epochs = 2
+    compute_val_metrics = True if eval_interval != '0ep' else False
+    train_subset_num_batches = 1
+    eval_subset_num_batches = 1
+    num_epochs = 1
     metrics_callback = MetricsCallback(compute_val_metrics=compute_val_metrics,)
 
     dataset_kwargs = {
@@ -92,32 +92,37 @@ def test_current_metrics(eval_interval: str,):
     else:
         assert 'eval' not in trainer.state.eval_metrics
 
-    num_step_and_index_calls = 2  # global_step and batch_idx calls
-    num_loss_calls_per_epoch = 1
+    num_log_step_and_index_calls_per_batch = 1  # global_step and batch_idx calls
+    num_log_grad_accum_calls_per_batch = 1
+    num_log_loss_calls_per_batch = 1
+    num_log_epoch_calls_per_batch = 1
+    num_log_train_metric_calls_per_batch = 1
 
+
+    total_num_train_batches = num_epochs * train_subset_num_batches
     # Validate that the logger was called the correct number of times for metric calls
-    num_expected_calls = 0
 
     # Every epoch is logged.
-    num_expected_calls += num_epochs
+    num_log_epoch_calls = num_log_epoch_calls_per_batch * total_num_train_batches
+    num_log_train_step_and_index_calls = total_num_train_batches * num_log_step_and_index_calls_per_batch
+    num_log_loss_calls = total_num_train_batches * num_log_loss_calls_per_batch
+    num_log_grad_accum_calls = total_num_train_batches * num_log_grad_accum_calls_per_batch
+    num_log_train_metric_calls = total_num_train_batches * num_log_train_metric_calls_per_batch
+    num_expected_train_log_calls = (num_log_epoch_calls + num_log_train_step_and_index_calls + num_log_loss_calls 
+                                        + num_log_grad_accum_calls + num_log_train_metric_calls)
 
-    num_expected_calls += num_epochs * train_subset_num_batches * num_step_and_index_calls
-
-    num_expected_calls += num_epochs * train_subset_num_batches * num_loss_calls_per_epoch
-
-    # computed once per batch
-    # and again at epoch end
-    num_expected_calls += (train_subset_num_batches + 1) * num_epochs
+    num_expected_eval_log_calls = 0
     # computed at eval end
     if compute_val_metrics:
-        num_calls_per_eval = 3  # metrics + epoch + trainer/global_step
+        num_log_calls_per_eval = 4  # eval metrics + train_metrics + epoch + trainer/global_step
         num_evals = 0
         if eval_interval == '1ba':
-            num_evals += train_subset_num_batches * num_epochs
+            num_evals = total_num_train_batches
         if eval_interval == '1ep':
-            num_evals += num_epochs
-        num_expected_calls += (num_calls_per_eval) * num_evals
+            num_evals = num_epochs
+        num_expected_eval_log_calls = (num_log_calls_per_eval) * num_evals
 
+    num_expected_calls = num_expected_train_log_calls + num_expected_eval_log_calls
     num_actual_calls = len(mock_logger_destination.log_metrics.mock_calls)
 
     assert num_actual_calls == num_expected_calls
