@@ -13,18 +13,18 @@ from tests.common import world_size
 @world_size(1, 2)
 @pytest.mark.parametrize('dataset,dataset_args', [('c4', {
     'remote': 's3://mosaicml-internal-dataset-c4/mds/2/',
-    'tokenizer_name': 'prajjwal1/bert-tiny',
+    'tokenizer_name': 'bert-base-uncased',
     'max_seq_len': 256,
     'group_method': 'truncate'
 }),
                                                   ('pile', {
                                                       'remote': 's3://mosaicml-internal-dataset-the-pile/mds/2/',
-                                                      'tokenizer_name': 'prajjwal1/bert-tiny',
+                                                      'tokenizer_name': 'bert-base-uncased',
                                                       'max_seq_len': 256,
                                                       'group_method': 'truncate'
                                                   }),
                                                   ('enwiki', {
-                                                      'remote': 's3://mosaicml-internal-dataset-enwiki-20200101/mds/2/'
+                                                      'remote': 's3://mosaicml-internal-dataset-enwiki-20200101/mds/2b/'
                                                   })])
 def test_streaming_datasets(dataset, dataset_args, tiny_bert_tokenizer, tiny_bert_model, tmp_path, world_size):
     streaming = pytest.importorskip('streaming')
@@ -36,7 +36,7 @@ def test_streaming_datasets(dataset, dataset_args, tiny_bert_tokenizer, tiny_ber
     }
     streaming_dataset = name_to_cls[dataset](local=str(tmp_path / dataset),
                                              split='val',
-                                             predownload=10,
+                                             predownload=None,
                                              batch_size=8,
                                              **dataset_args)
 
@@ -45,7 +45,8 @@ def test_streaming_datasets(dataset, dataset_args, tiny_bert_tokenizer, tiny_ber
         MaskedAccuracy(ignore_index=-100)
     ]
     model = HuggingFaceModel(model=tiny_bert_model, use_logits=True, metrics=pretraining_metrics)
-    collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer, mlm_probability=0.15)
+    collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer,
+                                                            mlm_probability=0.15) if dataset != 'enwiki' else None
     dataloader = DataLoader(streaming_dataset, batch_size=8, collate_fn=collator)
 
     trainer = Trainer(model=model, train_dataloader=dataloader, max_duration='2ba')
