@@ -33,7 +33,7 @@ from tests.common import device, world_size
 def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_tokenizer, tiny_bert_model, tmp_path,
                             world_size, device):
     from sys import platform
-    if platform == 'darwin' and world_size > 1:
+    if device == 'cpu' and world_size > 1:
         pytest.xfail('Streaming bug, it just hangs')
 
     streaming = pytest.importorskip('streaming')
