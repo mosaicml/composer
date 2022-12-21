@@ -14,6 +14,11 @@ from composer.utils import dist, reproducibility
 
 
 @pytest.fixture(autouse=True)
+def disable_tokenizer_parallelism():
+    os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+
+
+@pytest.fixture(autouse=True)
 def disable_wandb(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest):
     monkeypatch.setenv('WANDB_START_METHOD', 'thread')
     if request.node.get_closest_marker('remote') is None:
