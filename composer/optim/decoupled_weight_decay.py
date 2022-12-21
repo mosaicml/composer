@@ -19,7 +19,7 @@ from torch.optim.optimizer import required  # type: ignore
 
 log = logging.getLogger(__name__)
 
-__all__ = ['DecoupledSGDW', 'DecoupledAdamW']
+__all__ = ['DecoupledSGDW', 'DecoupledAdamW', 'ThresholdAdamW']
 
 
 class DecoupledSGDW(SGD):
