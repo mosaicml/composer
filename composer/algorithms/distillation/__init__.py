@@ -7,7 +7,7 @@
 See the :doc:`Method Card </method_cards/distillation>` for more details.
 """
 
-from composer.algorithms.distillation import Distillation as Distillation
-from composer.algorithms.distillation import KLDivergence as KLDivergence
+from composer.algorithms.distillation.distillation import Distillation as Distillation
+from composer.algorithms.distillation.distillation import KLDivergence as KLDivergence
 
 __all__ = ['Distillation', 'KLDivergence']
