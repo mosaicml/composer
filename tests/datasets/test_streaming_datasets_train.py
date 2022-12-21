@@ -35,9 +35,8 @@ def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_
     from sys import platform
     if device == 'cpu' and world_size > 1:
         pytest.xfail('Streaming bug, it just hangs')
-    if num_workers > 0 and device == 'gpu':
-        pytest.xfail(
-            "don't know. fails with FileNotFoundError: Caught FileNotFoundError in DataLoader worker process 0.")
+    if num_workers > 1 and device == 'gpu':
+        pytest.xfail("don't know. fails with fatal python error")
     if world_size > 1 and device == 'gpu':
         pytest.xfail("don't know. just hangs")
 
@@ -50,7 +49,7 @@ def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_
     }
 
     # This seed setting is necessary to prevent a shared memory collision due to a streaming bug
-    np.random.seed(seed)
+    np.random.seed(seed + (num_workers + 1) * 10 + (world_size + 1) * 100 + (1 if device == 'cpu' else 2) * 1000)
     streaming_dataset = name_to_cls[dataset](local=str(tmp_path / dataset),
                                              split='val',
                                              predownload=1,
