@@ -9,7 +9,7 @@ Make sure to run:
 pip install 'mosaicml[tensorboard]'
 ```
 
-## Logging to Tensorboard Pythonically
+## Logging to Tensorboard
 To log your run's results to tensorboard, first you will need to create a `TensorboardLogger`
 object, like so:
 

@@ -53,7 +53,7 @@ ResNet family members are identified by their number of layers. Parameter count,
 - LR schedulers:
   - Cosine decay with warmup for 8 epochs
 - Batch size: 2048
-Number of epochs: 90ep
+- Number of epochs: 90ep
 
 ## Attribution
 
