@@ -1,6 +1,9 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import os
+import shutil
+
 import numpy as np
 import pytest
 import torch
@@ -31,14 +34,14 @@ from tests.common import device, world_size
                           }, 2), ('enwiki', {
                               'remote': 's3://mosaicml-internal-dataset-enwiki-20200101/mds/2b/'
                           }, 3)])
-def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_tokenizer, tiny_bert_model, tmp_path,
-                            world_size, device):
+def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_tokenizer, tiny_bert_model, world_size,
+                            device, tmp_path):
+    # Need to initialize dist before we get to streaming, because streaming always uses NCCL
     if not dist.is_initialized():
         dist.initialize_dist(device=device)
-                            
+
     from sys import platform
-    if device == 'cpu' and world_size > 1:
-        pytest.xfail('Streaming bug, it just hangs')
+
     if num_workers > 1 and device == 'gpu':
         pytest.xfail("don't know. fails with fatal python error")
     if world_size > 1 and device == 'gpu':
@@ -54,13 +57,14 @@ def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_
         'enwiki': streaming.text.enwiki.StreamingEnWiki
     }
 
+    # distribute the local dataset path from rank 0
+    local_path = [os.path.abspath(tmp_path)]
+    dist.broadcast_object_list(local_path, src=0)
+    local_path = local_path[0]
+
     # This seed setting is necessary to prevent a shared memory collision due to a streaming bug
     np.random.seed(seed + (num_workers + 1) * 10 + (world_size + 1) * 100 + (1 if device == 'cpu' else 2) * 1000)
-    streaming_dataset = name_to_cls[dataset](local=str(tmp_path / dataset),
-                                             split='val',
-                                             predownload=1,
-                                             batch_size=8,
-                                             **dataset_args)
+    streaming_dataset = name_to_cls[dataset](local=local_path, split='val', predownload=1, batch_size=8, **dataset_args)
 
     pretraining_metrics = [
         LanguageCrossEntropy(ignore_index=-100, vocab_size=tiny_bert_tokenizer.vocab_size),
