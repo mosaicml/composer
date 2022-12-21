@@ -1,32 +1,39 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import numpy as np
 import pytest
+import torch
 from torch.utils.data import DataLoader
 
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
-from tests.common import world_size
+from tests.common import device, world_size
 
 
+@device('cpu', 'gpu')
 @world_size(1, 2)
-@pytest.mark.parametrize('dataset,dataset_args', [('c4', {
-    'remote': 's3://mosaicml-internal-dataset-c4/mds/2/',
-    'tokenizer_name': 'bert-base-uncased',
-    'max_seq_len': 256,
-    'group_method': 'truncate'
-}),
-                                                  ('pile', {
-                                                      'remote': 's3://mosaicml-internal-dataset-the-pile/mds/2/',
-                                                      'tokenizer_name': 'bert-base-uncased',
-                                                      'max_seq_len': 256,
-                                                      'group_method': 'truncate'
-                                                  }),
-                                                  ('enwiki', {
-                                                      'remote': 's3://mosaicml-internal-dataset-enwiki-20200101/mds/2b/'
-                                                  })])
-def test_streaming_datasets(dataset, dataset_args, tiny_bert_tokenizer, tiny_bert_model, tmp_path, world_size):
+@pytest.mark.parametrize('dataset,dataset_args,seed',
+                         [('c4', {
+                             'remote': 's3://mosaicml-internal-dataset-c4/mds/2/',
+                             'tokenizer_name': 'bert-base-uncased',
+                             'max_seq_len': 256,
+                             'group_method': 'truncate'
+                         }, 1),
+                          ('pile', {
+                              'remote': 's3://mosaicml-internal-dataset-the-pile/mds/2/',
+                              'tokenizer_name': 'bert-base-uncased',
+                              'max_seq_len': 256,
+                              'group_method': 'truncate'
+                          }, 2), ('enwiki', {
+                              'remote': 's3://mosaicml-internal-dataset-enwiki-20200101/mds/2b/'
+                          }, 3)])
+def test_streaming_datasets(dataset, dataset_args, seed, tiny_bert_tokenizer, tiny_bert_model, tmp_path, world_size,
+                            device):
+    if torch.cuda.is_available() and device == 'cpu':
+        pytest.xfail('There is currently a bug in streaming that prevents this combination of settings from working.')
+
     streaming = pytest.importorskip('streaming')
     transformers = pytest.importorskip('transformers')
     name_to_cls = {
@@ -34,6 +41,9 @@ def test_streaming_datasets(dataset, dataset_args, tiny_bert_tokenizer, tiny_ber
         'pile': streaming.text.pile.StreamingPile,
         'enwiki': streaming.text.enwiki.StreamingEnWiki
     }
+
+    # This seed setting is necessary to prevent a shared memory collision due to a streaming bug
+    np.random.seed(seed)
     streaming_dataset = name_to_cls[dataset](local=str(tmp_path / dataset),
                                              split='val',
                                              predownload=None,
@@ -49,5 +59,5 @@ def test_streaming_datasets(dataset, dataset_args, tiny_bert_tokenizer, tiny_ber
                                                             mlm_probability=0.15) if dataset != 'enwiki' else None
     dataloader = DataLoader(streaming_dataset, batch_size=8, collate_fn=collator)
 
-    trainer = Trainer(model=model, train_dataloader=dataloader, max_duration='2ba')
+    trainer = Trainer(model=model, train_dataloader=dataloader, max_duration='2ba', device=device)
     trainer.fit()
