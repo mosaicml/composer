@@ -29,10 +29,8 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
-<<<<<<< HEAD
-=======
+
 from composer.algorithms import GradientClipping
->>>>>>> 5d2b2f29 (add optimizer monitor)
 from composer.callbacks import CheckpointSaver, OptimizerMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException, Callback, DataSpec, Engine, Evaluator,
                            Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
@@ -1046,7 +1044,7 @@ class Trainer:
                              'is deprecated, we recommend using device_train_microbatch_size.')
         eval_batch_split = 1
         assert not isinstance(grad_accum, str)
-        assert not isinstance(device_train_microbatch_size, str)
+        assert not isinstance(train_device_microbatch_size, str)
 
         # Run Name
         if run_name is None:
