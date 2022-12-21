@@ -14,6 +14,7 @@ from tests.common import device, world_size
 
 @device('cpu', 'gpu')
 @world_size(1, 2)
+@pytest.mark.parametrize('num_workers', [0, 1, 2])
 @pytest.mark.parametrize('dataset,dataset_args,seed',
                          [('c4', {
                              'remote': 's3://mosaicml-internal-dataset-c4/mds/2/',
@@ -29,8 +30,8 @@ from tests.common import device, world_size
                           }, 2), ('enwiki', {
                               'remote': 's3://mosaicml-internal-dataset-enwiki-20200101/mds/2b/'
                           }, 3)])
-def test_streaming_datasets(dataset, dataset_args, seed, tiny_bert_tokenizer, tiny_bert_model, tmp_path, world_size,
-                            device):
+def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_tokenizer, tiny_bert_model, tmp_path,
+                            world_size, device):
     if torch.cuda.is_available() and device == 'cpu' or world_size > 1 and device == 'cpu':
         pytest.xfail('There is currently a bug in streaming that prevents this combination of settings from working.')
 
@@ -57,7 +58,7 @@ def test_streaming_datasets(dataset, dataset_args, seed, tiny_bert_tokenizer, ti
     model = HuggingFaceModel(model=tiny_bert_model, use_logits=True, metrics=pretraining_metrics)
     collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer,
                                                             mlm_probability=0.15) if dataset != 'enwiki' else None
-    dataloader = DataLoader(streaming_dataset, batch_size=8, collate_fn=collator)
+    dataloader = DataLoader(streaming_dataset, batch_size=8, num_workers=num_workers, collate_fn=collator)
 
     trainer = Trainer(model=model, train_dataloader=dataloader, max_duration='2ba', device=device)
     trainer.fit()
