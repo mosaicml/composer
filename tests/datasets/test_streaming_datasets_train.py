@@ -32,7 +32,8 @@ from tests.common import device, world_size
                           }, 3)])
 def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_tokenizer, tiny_bert_model, tmp_path,
                             world_size, device):
-    if torch.cuda.is_available() and device == 'cpu' or world_size > 1 and device == 'cpu':
+    if torch.cuda.is_available() and device == 'cpu' or (torch.distributed.get_backend() == 'nccl' and
+                                                         device == 'cpu' and world_size > 1):
         pytest.xfail(
             'There is currently a bug in streaming that prevents using CPU device on a machine with CUDA available.')
 
