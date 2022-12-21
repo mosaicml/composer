@@ -17,8 +17,8 @@ import composer
 import composer.algorithms
 from composer import Algorithm
 from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
-                                 Factorize, FusedLayerNorm, GatedLinearUnits, GhostBatchNorm, GradientClipping,
-                                 GyroDropout, LabelSmoothing, LayerFreezing, LowPrecisionLayerNorm, MixUp, NoOpModel,
+                                 Distillation, Factorize, FusedLayerNorm, GatedLinearUnits, GhostBatchNorm, GradientClipping,
+                                 GyroDropout, KLDivergence, LabelSmoothing, LayerFreezing, LowPrecisionLayerNorm, MixUp, NoOpModel,
                                  ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup, SqueezeExcite,
                                  StochasticDepth, WeightStandardization)
 from composer.models import composer_resnet
@@ -90,6 +90,14 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
         'kwargs': {}
     },
     CutOut: simple_vision_settings,
+    Distillation: {
+        'model' : common.SimpleConvModel,
+        'dataset': common.RandomImageDataset,
+        'kwargs': {
+            'teachers': common.SimpleConvModel,
+            'kd_loss_fn': KLDivergence(),
+        },
+    },
     EMA: {
         'model': common.SimpleConvModel,
         'dataset': common.RandomImageDataset,
