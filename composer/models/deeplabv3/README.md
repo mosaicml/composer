@@ -88,7 +88,6 @@ We tested two sets of hyperparameters for DeepLabv3+ trained on the ADE20k datas
 - Number of epochs: 128
 - Batch size: 32
 - Precision: amp
-```
 
 | Model | mIoU | Time-to-Train on 8xA100 |
 | --- | --- | --- |
