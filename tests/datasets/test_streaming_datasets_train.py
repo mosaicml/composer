@@ -46,7 +46,7 @@ def test_streaming_datasets(dataset, dataset_args, seed, tiny_bert_tokenizer, ti
     np.random.seed(seed)
     streaming_dataset = name_to_cls[dataset](local=str(tmp_path / dataset),
                                              split='val',
-                                             predownload=None,
+                                             predownload=1,
                                              batch_size=8,
                                              **dataset_args)
 
