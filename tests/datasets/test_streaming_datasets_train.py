@@ -32,10 +32,9 @@ from tests.common import device, world_size
                           }, 3)])
 def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_tokenizer, tiny_bert_model, tmp_path,
                             world_size, device):
-    if torch.cuda.is_available() and device == 'cpu' or (torch.distributed.get_backend() == 'nccl' and
-                                                         device == 'cpu' and world_size > 1):
-        pytest.xfail(
-            'There is currently a bug in streaming that prevents using CPU device on a machine with CUDA available.')
+    from sys import platform
+    if platform == 'darwin' and world_size > 1:
+        pytest.xfail('Streaming bug, it just hangs')
 
     streaming = pytest.importorskip('streaming')
     transformers = pytest.importorskip('transformers')
@@ -63,4 +62,15 @@ def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_
     dataloader = DataLoader(streaming_dataset, batch_size=8, num_workers=num_workers, collate_fn=collator)
 
     trainer = Trainer(model=model, train_dataloader=dataloader, max_duration='2ba', device=device)
+
+    try:
+        backend = torch.distributed.get_backend()  # type: ignore
+    except:
+        backend = None
+    if backend == 'nccl' and device == 'cpu':
+        pytest.xfail(
+            'There is currently a bug in streaming that prevents using CPU device on a machine with CUDA available.')
+    if platform == 'darwin' and num_workers > 0:
+        pytest.xfail('Streaming currently does not work on OSX with subprocess workers.')
+
     trainer.fit()
