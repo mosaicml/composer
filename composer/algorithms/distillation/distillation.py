@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from typing import Callable, Dict, Optional, Union
+from typing import Callable, Dict, Optional, List, Union
 
 import numpy as np
 import torch
@@ -30,7 +30,7 @@ class Distillation(Algorithm):
     modified loss function that includes the outputs from a supplementary "teacher" model.
 
     Args:
-        teachers (dict) : A dictionary that contains path(s) to checkpoints and teacher
+        teachers (dict, list, nn.Module) : A dictionary that contains path(s) to checkpoints and teacher
             models, of the form {``checkpoint_path``: ``model``}, where
             ``checkpoint_path`` is a string and ``model`` is a :class:`torch.nn.Module`.
         kd_loss_fn (Callable): Loss function with which to perform distillation.
@@ -54,7 +54,7 @@ class Distillation(Algorithm):
 
     def __init__(
         self,
-        teachers: Dict[str, nn.Module],
+        teachers: Union[Dict[str, nn.Module], List[nn.Module], nn.Module],
         kd_loss_fn: Callable,
         kd_loss_weight: float = 0.9,
         org_loss_weight: float = 0.1,
@@ -76,20 +76,27 @@ class Distillation(Algorithm):
         else:
             self.n_teachers_to_sample = n_teachers_to_sample
 
-        for checkpoint_path, teacher in teachers.items():
-            ckpt = torch.load(checkpoint_path)
-            weights = None
-            try:
-                weights = ckpt['state']['model']
-            except KeyError:
-                log.error("Keys ['state']['model'] not found. Only Composer models supported at this time.")
-                raise
-            try:
-                teacher.load_state_dict(weights)
-            except:
-                log.error(f'Unable to load weights into teacher state_dict for checkpoint {checkpoint_path}.')
-                raise
-            self.teachers.append(teacher)
+        # teachers can be a dict of path / models, or a list of teachers with loaded
+        # checkpoints, or a single teacher with loaded checkpoints
+        if isinstance(Dict):
+            for checkpoint_path, teacher in teachers.items():
+                ckpt = torch.load(checkpoint_path)
+                weights = None
+                try:
+                    weights = ckpt['state']['model']
+                except KeyError:
+                    log.error("Keys ['state']['model'] not found. Only Composer models supported at this time.")
+                    raise
+                try:
+                    teacher.load_state_dict(weights)
+                except:
+                    log.error(f'Unable to load weights into teacher state_dict for checkpoint {checkpoint_path}.')
+                    raise
+                self.teachers.append(teacher)
+        elif isinstance(nn.Module):
+            self.teachers.append(teachers)
+        else:
+            self.teachers = teachers
 
     def match(self, event: Event, state: State) -> bool:
         if event == Event.FIT_START:
