@@ -1,0 +1,16 @@
+{
+    "distillation": {
+        "name": "Distillation",
+        "class_name": "Distillation",
+        "funtional": "",
+        "tldr": "Use a pretrained model to train another model",
+        "attribution": "(Hinton et al, 2015)",
+        "link": "https://arxiv.org/abs/1503.02531",
+        "domains": [
+            "cv",
+            "nlp"
+        ],
+        "summary": "Uses a pretrained model to train another model via KL Divergance or other loss function",
+        "use": "Response based knowledge distillation"
+    }
+}
