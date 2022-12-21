@@ -99,7 +99,12 @@ class OptimizerMonitor(Callback):
                 param_grad_norm = torch.linalg.vector_norm(p.grad)
                 default_metrics[f'l2_norm/grad/{name}'] = param_grad_norm
 
+<<<<<<< HEAD
                 norm += param_grad_norm**2
+=======
+                param_grad_norm = param_grad_norm**2
+                norm += param_grad_norm
+>>>>>>> f21f9b87 (remove inspect args)
                 metric_reporter = getattr(state.optimizers[0], 'report_per_parameter_metrics', None)
                 if callable(metric_reporter) and self.log_optimizer_metrics:
                     optimizer_metrics = metric_reporter(p, name, optimizer_metrics)
