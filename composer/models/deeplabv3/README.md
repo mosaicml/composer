@@ -46,31 +46,24 @@ We tested two sets of hyperparameters for DeepLabv3+ trained on the ADE20k datas
 
 ### Typical ADE20k Model Hyperparameters
 
-```yaml
-model:
-  deeplabv3:
-    initializers:
-      - kaiming_normal
-      - bn_ones
-    num_classes: 150
-    backbone_weights: IMAGENET1K_V1
-    use_plus: true
-    sync_bn: true
-optimizer:
-  sgd:
-    lr: 0.01
-    momentum: 0.9
-    weight_decay: 5.0e-4
-    dampening: 0
-    nesterov: false
-schedulers:
-  - polynomial:
-      alpha_f: 0.01
-      power: 0.9
-max_duration: 127ep
-train_batch_size: 16
-precision: amp
-```
+- Model: deeplabv3:
+  - Initializers: kaiming_normal, bn_ones
+  - Number of classes: 150
+  - Backbone weights: IMAGENET1K_V1
+  - Sync BatchNorm
+- Optimizer: SGD
+  - Learning rate: 0.01
+  - Momentum: 0.9
+  - Weight decay: 5.0e-4
+  - Dampening: 0
+  - Nsterov: false
+- LR schedulers:
+  - Polynomial:
+    - Alpha_f: 0.01
+    - Power: 0.9
+- Number of epochs: 127
+- Batch size: 16
+- Precision: amp
 
 | Model | mIoU | Time-to-Train on 8xA100 |
 | --- | --- | --- |
@@ -78,32 +71,23 @@ precision: amp
 
 ### Composer ADE20k Model Hyperparameters
 
-```yaml
-model:
-  deeplabv3:
-    initializers:
-      - kaiming_normal
-      - bn_ones
-    num_classes: 150
-    backbone_arch: resnet101
-    use_plus: true
-    sync_bn: true
-    # New Pytorch pretrained weights
-    backbone_weights: IMAGENET1K_V2
-optimizer:
-  decoupled_sgdw:
-    lr: 0.01
-    momentum: 0.9
-    weight_decay: 2.0e-5
-    dampening: 0
-    nesterov: false
-schedulers:
-  - cosine_decay:
-      t_max: 1dur
-max_duration: 128ep
-train_batch_size: 32
-precision: amp
-```
+- Model: deeplabv3:
+  - Initializers: kaiming_normal, bn_ones
+  - Number of classes: 150
+  - Backbone Architecture: resnet101
+  - Sync BatchNorm
+  - Backbone weights: IMAGENET1K_V2
+- Optimizer: Decoupled SGDW
+  - Learning rate: 0.01
+  - Momentum: 0.9
+  - Weight decay: 2.0e-5
+  - Dampening: 0
+  - Nesterov: false
+- LR schedulers:
+  - Cosine decay, t_max: 1dur
+- Number of epochs: 128
+- Batch size: 32
+- Precision: amp
 
 | Model | mIoU | Time-to-Train on 8xA100 |
 | --- | --- | --- |
