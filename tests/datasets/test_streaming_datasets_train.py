@@ -42,6 +42,9 @@ def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_
 
     from sys import platform
 
+    if platform == 'darwin' and num_workers > 0:
+        pytest.xfail('Streaming currently does not work on OSX with subprocess workers.')
+
     if num_workers == 2 and device == 'gpu' and world_size == 1:
         pytest.xfail("don't know. fatal python error")
 
@@ -75,8 +78,5 @@ def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_
     dataloader = DataLoader(streaming_dataset, batch_size=8, num_workers=num_workers, collate_fn=collator)
 
     trainer = Trainer(model=model, train_dataloader=dataloader, max_duration='2ba', device=device)
-
-    if platform == 'darwin' and num_workers > 0:
-        pytest.xfail('Streaming currently does not work on OSX with subprocess workers.')
 
     trainer.fit()
