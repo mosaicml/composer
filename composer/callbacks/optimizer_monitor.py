@@ -12,7 +12,11 @@ __all__ = ['OptimizerMonitor']
 
 
 class OptimizerMonitor(Callback):
+<<<<<<< HEAD
     """Computes and logs the L2 norm of gradients as well as any optimizer-specific metrics implemented in the optimizer's `report_per_parameter_metrics` method.
+=======
+    """Computes and logs the L2 norm of gradients on the :attr:`.Event.AFTER_BATCH_END` event.
+>>>>>>> 5d2b2f29 (add optimizer monitor)
 
     L2 norms are calculated after the reduction of gradients across GPUs. This function iterates over the parameters of
     the model and may cause a reduction in throughput while training large models. In order to ensure the
