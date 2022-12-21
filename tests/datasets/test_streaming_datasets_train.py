@@ -76,11 +76,6 @@ def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_
 
     trainer = Trainer(model=model, train_dataloader=dataloader, max_duration='2ba', device=device)
 
-    try:
-        backend = torch.distributed.get_backend()  # type: ignore
-    except:
-        backend = None
-
     if platform == 'darwin' and num_workers > 0:
         pytest.xfail('Streaming currently does not work on OSX with subprocess workers.')
 
