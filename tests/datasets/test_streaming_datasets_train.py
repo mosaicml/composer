@@ -44,8 +44,6 @@ def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_
 
     if num_workers > 1 and device == 'gpu':
         pytest.xfail("don't know. fails with fatal python error")
-    if world_size > 1 and device == 'gpu' and num_workers > 0:
-        pytest.xfail("don't know. just hangs")
 
     streaming = pytest.importorskip('streaming')
     transformers = pytest.importorskip('transformers')
