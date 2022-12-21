@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
+from composer.utils import dist
 from tests.common import device, world_size
 
 
@@ -32,12 +33,17 @@ from tests.common import device, world_size
                           }, 3)])
 def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_tokenizer, tiny_bert_model, tmp_path,
                             world_size, device):
+    if not dist.is_initialized():
+        dist.initialize_dist(device=device)
+                            
     from sys import platform
     if device == 'cpu' and world_size > 1:
         pytest.xfail('Streaming bug, it just hangs')
     if num_workers > 1 and device == 'gpu':
         pytest.xfail("don't know. fails with fatal python error")
     if world_size > 1 and device == 'gpu':
+        pytest.xfail("don't know. just hangs")
+    if world_size > 1 and device == 'gpu' and num_workers > 0:
         pytest.xfail("don't know. just hangs")
 
     streaming = pytest.importorskip('streaming')
@@ -71,9 +77,7 @@ def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_
         backend = torch.distributed.get_backend()  # type: ignore
     except:
         backend = None
-    if backend == 'nccl' and device == 'cpu':
-        pytest.xfail(
-            'There is currently a bug in streaming that prevents using CPU device on a machine with CUDA available.')
+
     if platform == 'darwin' and num_workers > 0:
         pytest.xfail('Streaming currently does not work on OSX with subprocess workers.')
 
