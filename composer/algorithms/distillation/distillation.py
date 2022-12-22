@@ -246,5 +246,5 @@ class KLDivergence(nn.Module):
     def forward(self, y_student: torch.Tensor, y_teacher: torch.Tensor):
         p_student = F.log_softmax(y_student / self.temperature, dim=self.softmax_dim)
         p_teacher = F.softmax(y_teacher / self.temperature, dim=self.softmax_dim)
-        loss = F.kl_div(p_student, p_teacher, size_average=False) * (self.temperature**2) / y_student.shape[0]
+        loss = F.kl_div(p_student, p_teacher, reduction='batchmean') * (self.temperature**2)
         return loss
