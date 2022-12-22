@@ -32,18 +32,16 @@ from tests.common import device, world_size
                               'group_method': 'truncate'
                           }, 2), ('enwiki', {
                               'remote': 's3://mosaicml-internal-dataset-enwiki-20200101/mds/2b/'
-                          }, 3)])
+                          }, 3)
+                          ])
 def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_tokenizer, tiny_bert_model, world_size,
                             device, tmp_path):
     # Need to initialize dist before we get to streaming, because streaming always uses NCCL
     if not dist.is_initialized():
         dist.initialize_dist(device=device)
 
-    if num_workers == 2 and device == 'gpu' and world_size == 1:
+    if num_workers == 2 and device == 'gpu':
         pytest.xfail("don't know. fatal python error")
-
-    if num_workers > 0 and device == 'gpu' and world_size == 2:
-        pytest.xfail("don't know. various inconsistent hangs and failures")
 
     streaming = pytest.importorskip('streaming')
     transformers = pytest.importorskip('transformers')
