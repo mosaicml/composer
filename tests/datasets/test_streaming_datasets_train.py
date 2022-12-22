@@ -25,15 +25,14 @@ from tests.common import device, world_size
                              'max_seq_len': 256,
                              'group_method': 'truncate'
                          }, 1),
-                        #   ('pile', {
-                        #       'remote': 's3://mosaicml-internal-dataset-the-pile/mds/2/',
-                        #       'tokenizer_name': 'bert-base-uncased',
-                        #       'max_seq_len': 256,
-                        #       'group_method': 'truncate'
-                        #   }, 2), ('enwiki', {
-                        #       'remote': 's3://mosaicml-internal-dataset-enwiki-20200101/mds/2b/'
-                        #   }, 3)
-                          ])
+                          ('pile', {
+                              'remote': 's3://mosaicml-internal-dataset-the-pile/mds/2/',
+                              'tokenizer_name': 'bert-base-uncased',
+                              'max_seq_len': 256,
+                              'group_method': 'truncate'
+                          }, 2), ('enwiki', {
+                              'remote': 's3://mosaicml-internal-dataset-enwiki-20200101/mds/2b/'
+                          }, 3)])
 def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_tokenizer, tiny_bert_model, world_size,
                             device, tmp_path):
     # Need to initialize dist before we get to streaming, because streaming always uses NCCL
@@ -79,18 +78,3 @@ def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_
     trainer = Trainer(model=model, train_dataloader=dataloader, max_duration='2ba', device=device)
 
     trainer.fit()
-
-    # import time
-    # time.sleep(5)
-    # if streaming_dataset._partition_state is not None:
-    #     streaming_dataset._partition_state.stop()
-
-    # import time
-    # time.sleep(5)
-    # # Close potentially persistent dataloader workers
-    # loader = trainer.state.train_dataloader
-    # if loader and loader._iterator is not None:  # type: ignore
-    #     loader._iterator._shutdown_workers()  # type: ignore
-
-    # import time
-    # time.sleep(5)
