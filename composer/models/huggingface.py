@@ -118,9 +118,12 @@ class HuggingFaceModel(ComposerModel):
     ) -> Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]:
         """Loads a HuggingFace model (and tokenizer if present) from a composer checkpoint.
 
+<<<<<<< HEAD
         .. note:: This function does not load the weights from the checkpoint. It just loads the correctly configured
             model and tokenizer classes.
 
+=======
+>>>>>>> 6eaf0bc0 (Autoload HuggingFace model/tokenizer (#1754))
         .. testsetup::
 
             import torch
@@ -289,6 +292,7 @@ class HuggingFaceModel(ComposerModel):
         output = outputs if outputs else self.forward(batch)
         if self.use_logits or batch.get('mode', None) == 'lm_task':
             self.labels = batch.pop('labels')
+<<<<<<< HEAD
             if self.shift_labels:
                 # HF CausalLM models internally shift labels before computing loss, so we do the same here
                 self.labels[:, :-1] = self.labels[:, 1:].clone()
@@ -298,12 +302,24 @@ class HuggingFaceModel(ComposerModel):
             else:
                 # logits are at index 1 in the output tuple
                 output = output[1]
+=======
+            return batch['eval_forward_handle'](self, batch)
+        else:
+            output = outputs if outputs else self.forward(batch)
+            if self.use_logits:
+                self.labels = batch.pop('labels')
+                if self.config.use_return_dict:
+                    output = output['logits']
+                else:
+                    # logits are at index 1 in the output tuple
+                    output = output[1]
+>>>>>>> b6770761 (new branch)
 
-            # if we are in the single class case, then remove the classes dimension
-            if output.shape[1] == 1:
-                output = output.squeeze(dim=1)
+                # if we are in the single class case, then remove the classes dimension
+                if output.shape[1] == 1:
+                    output = output.squeeze(dim=1)
 
-        return output
+            return output
 
     def get_metrics(self, is_train: bool = False) -> Dict[str, Metric]:
         if is_train:
