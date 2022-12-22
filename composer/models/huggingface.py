@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 import torch
 from torchmetrics import Metric
 
+from composer.metrics import InContextLearningLMAccuracy
 from composer.models.base import ComposerModel
 from composer.utils import get_file
 from composer.utils.import_helpers import MissingConditionalImportError, import_object
@@ -105,12 +106,9 @@ class HuggingFaceModel(ComposerModel):
     ) -> Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]:
         """Loads a HuggingFace model (and tokenizer if present) from a composer checkpoint.
 
-<<<<<<< HEAD
         .. note:: This function does not load the weights from the checkpoint. It just loads the correctly configured
             model and tokenizer classes.
 
-=======
->>>>>>> 6eaf0bc0 (Autoload HuggingFace model/tokenizer (#1754))
         .. testsetup::
 
             import torch
@@ -275,9 +273,15 @@ class HuggingFaceModel(ComposerModel):
             return outputs[0]
 
     def eval_forward(self, batch, outputs: Optional[Any] = None):
-        if 'eval_forward_handle' in batch:
+        if 'mode' in batch and batch['mode'] == 'lm_task':
             self.labels = batch.pop('labels')
-            return batch['eval_forward_handle'](self, batch)
+            args = {'input_ids': batch['input_ids']}
+            args['attention_mask'] = ~(batch['input_ids'] == batch['eos_tok_id'])
+
+            with torch.no_grad():
+                output = self.forward(args)
+                output = output.logits
+                return output
         else:
             output = outputs if outputs else self.forward(batch)
             if self.use_logits:
@@ -303,8 +307,9 @@ class HuggingFaceModel(ComposerModel):
         return metrics if metrics else {}
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
-        if 'update_metric_handle' in batch:
-            batch['update_metric_handle'](metric, batch, outputs, self.labels)
+        if isinstance(metric, InContextLearningLMAccuracy):
+            assert self.labels is not None
+            metric.update(batch, outputs, self.labels)
         else:
             metric.update(outputs, self.labels)
 

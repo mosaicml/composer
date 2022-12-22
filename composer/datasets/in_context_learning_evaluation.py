@@ -1,11 +1,9 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-import inspect
 import textwrap
 
 import torch
-import transformers
 from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer
@@ -16,6 +14,7 @@ from composer.utils.file_helpers import get_file
 
 
 class InContextLearningLMTaskDataset(Dataset):
+
     def __init__(
         self,
         dataset_uri: str,
@@ -72,10 +71,9 @@ class InContextLearningLMTaskDataset(Dataset):
         return {
             'input_ids': torch.stack(inputs),
             'continuation_indices': continuation_indices,
-            'eval_forward_handle': self.eval_forward,
-            'update_metric_handle': self.update_metric,
+            'mode': 'lm_task',
             'labels': torch.stack(inputs),
-            'tokenizer': self.tokenizer
+            'eos_tok_id': self.eos_tok_id
         }
 
     def get_num_samples_in_batch(self, batch) -> int:
@@ -104,41 +102,19 @@ class InContextLearningLMTaskDataset(Dataset):
                     different lengths were found in the batch: sizes in batch: {dim0_sizes}.
                     Please use a DataSpec and specify `get_num_samples_in_batch`."""))
 
-    def eval_forward(self, model, batch):
-        while inspect.getfullargspec(model.forward).args == ['self', 'batch']:
-            model = model.model
-
-        forward_argspec = inspect.getfullargspec(model.forward).args
-        args = {'input_ids': batch['input_ids']}
-        if 'key_padding_mask' in forward_argspec:
-            # composer gpt uses key padding mask
-            args['key_padding_mask'] = ~(batch['input_ids'] == self.eos_tok_id)
-        elif 'attention_mask' in forward_argspec:
-            # huggingface transformer uses attention_mask
-            args['attention_mask'] = ~(batch['input_ids'] == self.eos_tok_id)
-
-        with torch.no_grad():
-            res = model(**args)
-            if isinstance(res, transformers.modeling_outputs.CausalLMOutputWithPast):
-                res = res.logits
-            return res
-
     def update_metric(self, metric, batch, output_logits, labels):
         metric.update(batch, output_logits, labels)
 
 
-def get_lm_task_dataloader(dataset_uri, tokenizer, global_batch_size, max_seq_len, eos_tok_id):
+def get_lm_task_dataloader(dataset_uri, tokenizer, batch_size, max_seq_len, eos_tok_id):
     dataset = InContextLearningLMTaskDataset(dataset_uri, tokenizer, max_seq_len, eos_tok_id)
     sampler = dist.get_sampler(dataset, drop_last=False, shuffle=True)
-    batch_size = global_batch_size // dist.get_world_size()
     print(f'Using microbatch size {batch_size}')
-    return DataSpec(
-            DataLoader(
-                dataset,
-                batch_size=batch_size,
-                sampler=sampler,
-                collate_fn=dataset.collate_fn,
-            ),
-            device_transforms=None,
-            get_num_samples_in_batch=dataset.get_num_samples_in_batch
-        )
+    return DataSpec(DataLoader(
+        dataset,
+        batch_size=batch_size,
+        sampler=sampler,
+        collate_fn=dataset.collate_fn,
+    ),
+                    device_transforms=None,
+                    get_num_samples_in_batch=dataset.get_num_samples_in_batch)
