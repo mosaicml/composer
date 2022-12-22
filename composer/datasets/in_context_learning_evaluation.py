@@ -4,9 +4,7 @@
 
 from __future__ import annotations
 
-import inspect
 import random
-import textwrap
 from typing import TYPE_CHECKING, Union
 
 import torch
@@ -24,7 +22,7 @@ if TYPE_CHECKING:
 __all__ = ['InContextLearningLMTaskDataset', 'InContextLearningMultipleChoiceTaskDataset', 'get_icl_task_dataloader']
 
 
-def _make_padded_input(context_enc, continuation_enc, max_seq_len, eos_tok_id):
+def _make_padded_input(context_enc, continuation_enc, max_seq_len, pad_tok_id):
     if len(continuation_enc) + len(context_enc) > max_seq_len:
         # clip from the end
         context_max_subseq_len = max_seq_len - len(continuation_enc)
@@ -44,7 +42,7 @@ def _make_padded_input(context_enc, continuation_enc, max_seq_len, eos_tok_id):
     inp = torch.cat(
         [
             inp,  # [seq]
-            torch.LongTensor((max_seq_len - inp_len) * [eos_tok_id]),
+            torch.LongTensor((max_seq_len - inp_len) * [pad_tok_id]),
         ],
         dim=0,
     )
@@ -79,7 +77,7 @@ class InContextLearningLMTaskDataset(Dataset):
         tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to transform data into batches
         batch_size (int): Size of a batch used for eval
         max_seq_len (int): The sequence length expected by the model
-        eos_tok_id (int): The special token reserved for padding the ends of batches
+        pad_tok_id (int): The special token reserved for padding the ends of batches
         num_fewshot (int): The number of complete fewshot examples to pad each test example with
         prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
         example_delimiter (str): Separator that goes between individual examples (e.g. '\n')
@@ -92,7 +90,7 @@ class InContextLearningLMTaskDataset(Dataset):
         dataset_uri: str,
         tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
         max_seq_len: int,
-        eos_tok_id: int,
+        pad_tok_id: int,
         num_fewshot: int,
         prompt_string: str,
         example_delimiter: str,
@@ -115,7 +113,7 @@ class InContextLearningLMTaskDataset(Dataset):
             }))
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
-        self.eos_tok_id = eos_tok_id
+        self.pad_tok_id = pad_tok_id
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter)
 
     def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str):
@@ -178,7 +176,7 @@ class InContextLearningLMTaskDataset(Dataset):
             continuation_enc = continuation['input_ids']
 
             inp, continuation_span = _make_padded_input(context_enc, continuation_enc, self.max_seq_len,
-                                                        self.eos_tok_id)
+                                                        self.pad_tok_id)
 
             inputs.append(inp)
             continuation_indices.append(continuation_span)
@@ -190,7 +188,7 @@ class InContextLearningLMTaskDataset(Dataset):
             'labels': torch.stack(inputs),
         }
 
-        batch['attention_mask'] = ~(batch['input_ids'] == self.eos_tok_id)
+        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
     def get_num_samples_in_batch(self, batch) -> int:
@@ -222,7 +220,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to transform data into batches
         batch_size (int): Size of a batch used for eval
         max_seq_len (int): The sequence length expected by the model
-        eos_tok_id (int): The special token reserved for padding the ends of batches
+        pad_tok_id (int): The special token reserved for padding the ends of batches
         num_fewshot (int): The number of complete fewshot examples to pad each test example with
         prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
         example_delimiter (str): Separator that goes between individual examples (e.g. '\n')
@@ -235,7 +233,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         dataset_uri: str,
         tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
         max_seq_len: int,
-        eos_tok_id: int,
+        pad_tok_id: int,
         num_fewshot: int,
         prompt_string: str,
         example_delimiter: str,
@@ -253,7 +251,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         self.num_choices = len(self.samples[0]['choices'])
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
-        self.eos_tok_id = eos_tok_id
+        self.pad_tok_id = pad_tok_id
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter)
 
     def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str):
@@ -327,7 +325,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
                 context_enc = preamble['input_ids'] + context['input_ids']
                 continuation_enc = choice['input_ids']
                 inp, continuation_span = _make_padded_input(context_enc, continuation_enc, self.max_seq_len,
-                                                            self.eos_tok_id)
+                                                            self.pad_tok_id)
 
                 inputs.append(inp)
                 continuation_indices.append(continuation_span)
@@ -351,7 +349,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
             'gold_indices': gold_idxs,
             'choice_groupings': choice_groupings
         }
-        batch['attention_mask'] = ~(batch['input_ids'] == self.eos_tok_id)
+        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
     def get_num_samples_in_batch(self, batch) -> int:
@@ -367,7 +365,7 @@ def get_icl_task_dataloader(
         tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
         batch_size: int,
         max_seq_len: int,
-        eos_tok_id: int,
+        pad_tok_id: int,
         num_fewshot: int,
         prompt_string: str,  # e.g. 'translate english to french:'
         example_delimiter: str,  # e.g. '\n'
@@ -381,7 +379,7 @@ def get_icl_task_dataloader(
        ... tokenizer,
        ... batch_size=2,
        ... max_seq_len=2048,
-       ... eos_tok_id=tokenizer.eos_token_id,
+       ... pad_tok_id=tokenizer.pad_token_id,
        ... num_fewshot=10,
        ... prompt_string='translate english to french',
        ... example_delimiter='\n',
@@ -406,7 +404,7 @@ def get_icl_task_dataloader(
         tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to transform data into batches
         batch_size (int): Size of a batch used for eval
         max_seq_len (int): The sequence length expected by the model
-        eos_tok_id (int): The special token reserved for padding the ends of batches
+        pad_tok_id (int): The special token reserved for padding the ends of batches
         num_fewshot (int): The number of complete fewshot examples to pad each test example with
         prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
         example_delimiter (str): Separator that goes between individual examples (e.g. '\n')
@@ -417,13 +415,13 @@ def get_icl_task_dataloader(
     """
 
     if icl_task_type == 'multiple_choice':
-        dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri, tokenizer, max_seq_len, eos_tok_id,
+        dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri, tokenizer, max_seq_len, pad_tok_id,
                                                              num_fewshot, prompt_string, example_delimiter,
                                                              continuation_delimiter)
         batch_size = max(dataset.num_choices, batch_size)
         effective_batchsize = batch_size // dataset.num_choices
     elif icl_task_type == 'language_modeling':
-        dataset = InContextLearningLMTaskDataset(dataset_uri, tokenizer, max_seq_len, eos_tok_id, num_fewshot,
+        dataset = InContextLearningLMTaskDataset(dataset_uri, tokenizer, max_seq_len, pad_tok_id, num_fewshot,
                                                  prompt_string, example_delimiter, continuation_delimiter)
         effective_batchsize = batch_size
     else:
@@ -437,4 +435,5 @@ def get_icl_task_dataloader(
         sampler=sampler,
         collate_fn=dataset.collate_fn,
     ),
+                    device_transforms=None,
                     get_num_samples_in_batch=dataset.get_num_samples_in_batch)
