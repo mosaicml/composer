@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from typing import Callable, Dict, Optional, List, Union
+from typing import Callable, Dict, List, Optional, Union
 
 import numpy as np
 import torch
@@ -70,7 +70,6 @@ class Distillation(Algorithm):
         self.org_loss_weight = org_loss_weight
         self.start_dur = start_dur
         self.end_dur = end_dur
-
 
         # teachers can be a dict of path / models, or a list of teachers with loaded
         # checkpoints, or a single teacher with loaded checkpoints

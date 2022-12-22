@@ -10,7 +10,7 @@ The process of knowledge distillation. The teacher model makes predictions for a
 How to Use
 To use knowledge distillation, you will need to have both a teacher model and a student model. You can then train the student model by providing it with the predictions of the teacher model as "soft targets" (i.e., predicted probabilities for each class), in addition to the ground truth labels. The student model can be trained using standard supervised learning techniques, such as cross-entropy loss.
 
-## How to use 
+## How to use
 
 To use knowledge distillation, you will need to have both a teacher model and a student model. You can then train the student model by providing it with the predictions of the teacher model as "soft targets" (i.e., predicted probabilities for each class), in addition to the ground truth labels. The student model can be trained using standard supervised learning techniques, such as cross-entropy loss.
 
@@ -36,11 +36,11 @@ torch.save(teacher_model.state_dict(), '/path/to/weights.pt')
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
 
-from composer.algorithms.distillation import Distillation, KLDivergance 
+from composer.algorithms.distillation import Distillation, KLDivergance
 from composer.trainer import Trainer
 
 distillation = Distillation(
-    teachers={'/path/to/weights.pt': teacher_model}, 
+    teachers={'/path/to/weights.pt': teacher_model},
     kd_loss_fn=KLDivergance(temperature=4.0),
     org_loss_weight=0.1,
     kd_loss_weight=0.9,
@@ -57,7 +57,7 @@ trainer = Trainer(
 
 ### Implementation Details
 
-The Distillation works by calculating the loss between the teacher and student models after the student model completes its forward pass and modifying the resulting loss in the trainer. `org_loss_weight` and `kd_loss_weight` can be used to balance loss of the ground truth training objective and the knowledge distillation loss. This particular implementation 
+The Distillation works by calculating the loss between the teacher and student models after the student model completes its forward pass and modifying the resulting loss in the trainer. `org_loss_weight` and `kd_loss_weight` can be used to balance loss of the ground truth training objective and the knowledge distillation loss. This particular implementation
 
 
 ## Suggested Hyperparameters
