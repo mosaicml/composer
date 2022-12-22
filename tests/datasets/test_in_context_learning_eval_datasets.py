@@ -14,7 +14,7 @@ from composer.trainer import Trainer
 from tests.common import device, world_size
 
 
-@pytest.mark.parametrize('dataset_uri', ['lambada_test_small.jsonz'])
+@pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonz'])
 def test_get_lm_task_dataloader(dataset_uri):
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -29,13 +29,10 @@ def test_get_lm_task_dataloader(dataset_uri):
     assert in_memory_logger.data['metrics/lambada/InContextLearningLMAccuracy'][0][1].item() == 0.4375
 
 
-
-
-
-@pytest.mark.parametrize('dataset_uri', ['lambada_test_small.jsonz'])
+@pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonz'])
 @world_size(1, 2)
 @device('gpu')
-def test_get_lm_task_dataloader_gpu(device, dataset_uri):
+def test_get_lm_task_dataloader_gpu(device, world_size, dataset_uri):
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
