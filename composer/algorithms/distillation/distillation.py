@@ -71,10 +71,6 @@ class Distillation(Algorithm):
         self.start_dur = start_dur
         self.end_dur = end_dur
 
-        if n_teachers_to_sample is None:
-            self.n_teachers_to_sample = len(teachers)
-        else:
-            self.n_teachers_to_sample = n_teachers_to_sample
 
         # teachers can be a dict of path / models, or a list of teachers with loaded
         # checkpoints, or a single teacher with loaded checkpoints
@@ -97,6 +93,11 @@ class Distillation(Algorithm):
             self.teachers.append(teachers)
         else:
             self.teachers = teachers
+
+        if n_teachers_to_sample is None:
+            self.n_teachers_to_sample = len(teachers)
+        else:
+            self.n_teachers_to_sample = n_teachers_to_sample
 
     def match(self, event: Event, state: State) -> bool:
         if event == Event.FIT_START:
