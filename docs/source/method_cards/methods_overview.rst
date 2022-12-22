@@ -69,6 +69,15 @@
    Randomly erases rectangular blocks from the image.
 
    ---
+   .. link-button:: distillation.html
+      :text: Distillation
+      :classes: card-title
+
+   :badge:`CV,badge-primary` :badge:`NLP,badge-success`
+   ++++++++++++++
+   Use a pretained model to train a new one.
+
+   ---
    .. link-button:: ema.html
       :text: EMA
       :classes: card-title
