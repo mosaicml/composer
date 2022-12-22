@@ -28,7 +28,7 @@ student_model = SimpleConvModel()
 train_dataloader = DataLoader(RandomImageDataset())
 eval_dataloader = DataLoader(RandomImageDataset())
 
-torch.save(teacher_model.state_dict(), '/path/to/weights.pt')
+torch.save(teacher_model.state_dict(), './path/to/weights.pt')
 ```
 -->
 <!--pytest-codeblocks:cont-->
@@ -40,7 +40,7 @@ from composer.algorithms.distillation import Distillation, KLDivergance
 from composer.trainer import Trainer
 
 distillation = Distillation(
-    teachers={'/path/to/weights.pt': teacher_model},
+    teachers={'./path/to/weights.pt': teacher_model},
     kd_loss_fn=KLDivergance(temperature=4.0),
     org_loss_weight=0.1,
     kd_loss_weight=0.9,
