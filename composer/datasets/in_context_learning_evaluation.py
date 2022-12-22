@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Union
 
 import transformers
 import torch
-import transformers
 from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset
 
@@ -40,6 +39,10 @@ class InContextLearningLMTaskDataset(Dataset):
         tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
         max_seq_len: int,
         eos_tok_id: int,
+        num_fewshot: int,
+        preamble_string: str,
+        example_delimiter: str,
+        continuation_delimiter: str,
         destination_path: str = 'icl_lm_task.json',
     ):
         try:
@@ -51,14 +54,48 @@ class InContextLearningLMTaskDataset(Dataset):
 
         get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-        self.encoded_dataset = list(
+        self.samples = list(
             dataset.map(lambda examples: {
-                'continuation': tokenizer(examples['continuation']),
-                'context': tokenizer(examples['context']),
+                'continuation': examples['continuation'],
+                'context': examples['context'],
             }))
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.eos_tok_id = eos_tok_id
+        self.encoded_dataset = self.prep_examples(num_fewshot, preamble_string, example_delimiter,
+                                                  continuation_delimiter)
+
+    def prep_examples(self, num_fewshot, preamble_string, example_delimiter, continuation_delimiter):
+        examples = []
+        for sample_idx in range(len(self.samples)):
+            encoded_example = {}
+
+            encoded_example['preamble'] = preamble_string
+
+            if num_fewshot > 0:
+                allowable_indices = list(range(len(self.samples)))
+                allowable_indices.remove(sample_idx)
+                fewshot_idxs = random.sample(allowable_indices, num_fewshot)
+
+                for fewshot_idx in fewshot_idxs:
+                    ctxt, cont = self.samples[fewshot_idx]['context'], self.samples[fewshot_idx]['continuation']
+                    if len(encoded_example['preamble']) > 0:
+                        ctxt = f'{example_delimiter}{ctxt}'
+                    encoded_example['preamble'] += f'{ctxt}{continuation_delimiter}{cont}'
+
+            ctxt, cont = self.samples[sample_idx]['context'], self.samples[sample_idx]['continuation']
+            if len(encoded_example['preamble']) > 0:
+                ctxt = f'{example_delimiter}{ctxt}'
+
+            cont = f'{continuation_delimiter}{cont}'
+
+            encoded_example['context'] = self.tokenizer(ctxt)
+            encoded_example['continuation'] = self.tokenizer(cont)
+            encoded_example['preamble'] = self.tokenizer(encoded_example['preamble'])
+
+            examples.append(encoded_example)
+
+        return examples
 
     def __getitem__(self, index):
         return self.encoded_dataset[index]
@@ -70,9 +107,9 @@ class InContextLearningLMTaskDataset(Dataset):
         inputs = []
         continuation_indices = []
         for data_pair in data:
-            context, continuation = data_pair['context'], data_pair['continuation']
+            preamble, context, continuation = (data_pair['preamble'], data_pair['context'], data_pair['continuation'])
 
-            context_enc = context['input_ids']
+            context_enc = preamble['input_ids'] + context['input_ids']
             continuation_enc = continuation['input_ids']
             continuation_span = torch.tensor(range(len(context_enc), len(context_enc) + len(continuation_enc)))
 
@@ -100,6 +137,7 @@ class InContextLearningLMTaskDataset(Dataset):
             'continuation_indices': continuation_indices,
             'mode': 'lm_task',
             'labels': torch.stack(inputs),
+            'eos_tok_id': self.eos_tok_id
         }
 
         batch['attention_mask'] = ~(batch['input_ids'] == self.eos_tok_id)
@@ -112,9 +150,17 @@ class InContextLearningLMTaskDataset(Dataset):
         metric.update(batch, output_logits, labels)
 
 
-def get_lm_task_dataloader(dataset_uri: str, tokenizer: Union[transformers.PreTrainedTokenizer,
-                                                              transformers.PreTrainedTokenizerFast], batch_size: int,
-                           max_seq_len: int, eos_tok_id: int) -> DataSpec:
+def get_lm_task_dataloader(
+        dataset_uri: str,
+        tokenizer: AutoTokenizer,
+        batch_size: int,
+        max_seq_len: int,
+        eos_tok_id: int,
+        num_fewshot: int,
+        preamble_string: str,  # e.g. 'translate english to french:'
+        example_delimiter: str,  # e.g. '\n'
+        continuation_delimiter: str,  # e.g. ''
+) -> DataSpec:
     """This constructs a dataloader capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
     >>> dl = get_lm_task_dataloader(dataset_uri, tokenizer, 2, max_seq_len=2048, eos_tok_id=tokenizer.eos_token_id)
@@ -142,12 +188,15 @@ def get_lm_task_dataloader(dataset_uri: str, tokenizer: Union[transformers.PreTr
     Returns:
         DataLoader: A dataloader used for performing in-context learning evaluation on the dataset provided.
     """
-    dataset = InContextLearningLMTaskDataset(dataset_uri, tokenizer, max_seq_len, eos_tok_id)
+    dataset = InContextLearningLMTaskDataset(dataset_uri, tokenizer, max_seq_len, eos_tok_id, num_fewshot,
+                                             preamble_string, example_delimiter, continuation_delimiter)
     sampler = dist.get_sampler(dataset, drop_last=False, shuffle=True)
+    print(f'Using microbatch size {batch_size}')
     return DataSpec(DataLoader(
         dataset,
         batch_size=batch_size,
         sampler=sampler,
         collate_fn=dataset.collate_fn,
     ),
+                    device_transforms=None,
                     get_num_samples_in_batch=dataset.get_num_samples_in_batch)
