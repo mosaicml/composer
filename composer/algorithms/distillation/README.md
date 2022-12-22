@@ -20,16 +20,14 @@ To use knowledge distillation, you will need to have both a teacher model and a 
 <!--
 ```python
 import torch
-import os
 from torch.utils.data import DataLoader
 from tests.common import RandomImageDataset, SimpleConvModel
-
+import os
+from composer.trainer import Trainer
 teacher_model = SimpleConvModel()
 student_model = SimpleConvModel()
 train_dataloader = DataLoader(RandomImageDataset())
 eval_dataloader = DataLoader(RandomImageDataset())
-os.makedirs('./path/to/')
-torch.save(teacher_model.state_dict(), './path/to/weights.pt')
 ```
 -->
 <!--pytest-codeblocks:cont-->
@@ -38,7 +36,8 @@ torch.save(teacher_model.state_dict(), './path/to/weights.pt')
 # properly loaded and pass it into the Trainer. The trainer will automatically
 # run it at the appropriate points in the training loop
 
-from composer.algorithms.distillation import Distillation, KLDivergance
+from composer.algorithms.distillation import Distillation
+from composer.algorithms.distillation import KLDivergence
 from composer.trainer import Trainer
 from composer.model
 distillation = Distillation(
@@ -55,6 +54,8 @@ trainer = Trainer(
     max_duration='1ep',
     algorithms=[distillation],
 )
+
+trainer.fit()
 ```
 
 
@@ -66,16 +67,26 @@ trainer = Trainer(
 <!--
 ```python
 import torch
-import os
 from torch.utils.data import DataLoader
 from tests.common import RandomImageDataset, SimpleConvModel
-
+import os
+from composer.trainer import Trainer
 teacher_model = SimpleConvModel()
 student_model = SimpleConvModel()
 train_dataloader = DataLoader(RandomImageDataset())
 eval_dataloader = DataLoader(RandomImageDataset())
-os.makedirs('./path/to/')
-torch.save(teacher_model.state_dict(), './path/to/weights.pt')
+
+
+trainer = Trainer(
+model=teacher_model,
+train_dataloader=train_dataloader,
+eval_dataloader=eval_dataloader,
+max_duration='1ep',
+save_folder='./path/to/',
+save_filename='weights.pt',
+)
+
+trainer.fit()
 ```
 -->
 <!--pytest-codeblocks:cont-->
@@ -85,7 +96,8 @@ torch.save(teacher_model.state_dict(), './path/to/weights.pt')
 # a dictionary of checkpoint path keys and models. The weights will
 # automatically be loaded from the Composer checkpoints.
 
-from composer.algorithms.distillation import Distillation, KLDivergance
+from composer.algorithms.distillation import Distillation
+from composer.algorithms.distillation import KLDivergence
 from composer.trainer import Trainer
 
 distillation = Distillation(
@@ -102,6 +114,8 @@ trainer = Trainer(
     max_duration='1ep',
     algorithms=[distillation],
 )
+
+trainer.fit()
 ```
 
 
