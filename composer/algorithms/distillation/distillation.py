@@ -95,7 +95,7 @@ class Distillation(Algorithm):
             self.teachers = teachers
 
         if n_teachers_to_sample is None:
-            self.n_teachers_to_sample = len(teachers)
+            self.n_teachers_to_sample = len(self.teachers)
         else:
             self.n_teachers_to_sample = n_teachers_to_sample
 
