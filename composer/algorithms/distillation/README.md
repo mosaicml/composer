@@ -14,7 +14,7 @@ To use knowledge distillation, you will need to have both a teacher model and a 
 
 To use knowledge distillation, you will need to have both a teacher model and a student model. You can then train the student model by providing it with the predictions of the teacher model as "soft targets" (i.e., predicted probabilities for each class), in addition to the ground truth labels. The student model can be trained using standard supervised learning techniques, such as cross-entropy loss.
 
-### Composer Trainer
+### Composer Trainer With Composer Checkpoints
 
 <!--pytest.mark.gpu-->
 <!--
@@ -34,8 +34,56 @@ torch.save(teacher_model.state_dict(), './path/to/weights.pt')
 -->
 <!--pytest-codeblocks:cont-->
 ```python
-# Instantiate the algorithm and pass it into the Trainer
-# The trainer will automatically run it at the appropriate points in the training loop
+# Instantiate the algorithm by passing a composer model with weights
+# properly loaded and pass it into the Trainer. The trainer will automatically
+# run it at the appropriate points in the training loop
+
+from composer.algorithms.distillation import Distillation, KLDivergance
+from composer.trainer import Trainer
+from composer.model
+distillation = Distillation(
+    teachers=teacher_model,
+    kd_loss_fn=KLDivergance(temperature=4.0),
+    org_loss_weight=0.1,
+    kd_loss_weight=0.9,
+)
+
+trainer = Trainer(
+    model=student_model,
+    train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
+    max_duration='1ep',
+    algorithms=[distillation],
+)
+```
+
+
+### Composer Trainer With Composer Checkpoints
+
+
+
+<!--pytest.mark.gpu-->
+<!--
+```python
+import torch
+import os
+from torch.utils.data import DataLoader
+from tests.common import RandomImageDataset, SimpleConvModel
+
+teacher_model = SimpleConvModel()
+student_model = SimpleConvModel()
+train_dataloader = DataLoader(RandomImageDataset())
+eval_dataloader = DataLoader(RandomImageDataset())
+os.makedirs('./path/to/')
+torch.save(teacher_model.state_dict(), './path/to/weights.pt')
+```
+-->
+<!--pytest-codeblocks:cont-->
+```python
+
+# Models trained with Composer can be used as teachers by passing
+# a dictionary of checkpoint path keys and models. The weights will
+# automatically be loaded from the Composer checkpoints.
 
 from composer.algorithms.distillation import Distillation, KLDivergance
 from composer.trainer import Trainer
@@ -55,6 +103,8 @@ trainer = Trainer(
     algorithms=[distillation],
 )
 ```
+
+
 
 ### Implementation Details
 
