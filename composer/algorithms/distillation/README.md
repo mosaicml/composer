@@ -3,7 +3,7 @@
 
 `Computer Vision`, `Natural Language Processing`
 
-Knowledge Distillation is a technique used to transfer the knowledge of a large, complex model (called the "teacher") to a smaller, simpler model (called the "student"). This is typically done by training the student model to mimic the predictions of the teacher model, rather than the ground truth labels. The hope is that the student model will learn a compressed representation of the knowledge of the teacher model, allowing it to achieve similar performance but with fewer parameters and faster inference times.
+Knowledge Distillation is a technique used to "transfer" the knowledge of a pretrained model to another model. Typically the pretrained model (called the "teacher") is a larger and more complex model and is used to train a smaller, simpler model (called the "student"). This is typically done by training the student model to mimic the predictions of the teacher model, in addition to or instead of the ground truth labels. The hope is that the student model will learn a compressed representation of the knowledge of the teacher model, allowing it to achieve similar performance but with fewer parameters and faster inference times.
 
 KnowledgeDistillation
 The process of knowledge distillation. The teacher model makes predictions for a set of inputs, and the student model is trained to mimic these predictions. This image is from Chen et al., 2015.
@@ -20,6 +20,7 @@ To use knowledge distillation, you will need to have both a teacher model and a 
 <!--
 ```python
 import torch
+import os
 from torch.utils.data import DataLoader
 from tests.common import RandomImageDataset, SimpleConvModel
 
@@ -27,7 +28,7 @@ teacher_model = SimpleConvModel()
 student_model = SimpleConvModel()
 train_dataloader = DataLoader(RandomImageDataset())
 eval_dataloader = DataLoader(RandomImageDataset())
-
+os.makedirs('./path/to/')
 torch.save(teacher_model.state_dict(), './path/to/weights.pt')
 ```
 -->
