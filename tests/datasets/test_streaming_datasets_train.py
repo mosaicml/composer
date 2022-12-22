@@ -39,9 +39,6 @@ def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_
     if not dist.is_initialized() and world_size > 1:
         dist.initialize_dist(device=device)
 
-    if num_workers == 2 and device == 'gpu' and world_size == 1:
-        pytest.xfail("don't know. fatal python error")
-
     if num_workers > 0 and device == 'gpu' and world_size == 2:
         pytest.xfail("don't know. various inconsistent hangs and failures")
 
