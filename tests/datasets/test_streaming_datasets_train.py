@@ -25,25 +25,26 @@ from tests.common import device, world_size
                              'max_seq_len': 256,
                              'group_method': 'truncate'
                          }, 1),
-                          ('pile', {
-                              'remote': 's3://mosaicml-internal-dataset-the-pile/mds/2/',
-                              'tokenizer_name': 'bert-base-uncased',
-                              'max_seq_len': 256,
-                              'group_method': 'truncate'
-                          }, 2), ('enwiki', {
-                              'remote': 's3://mosaicml-internal-dataset-enwiki-20200101/mds/2b/'
-                          }, 3)])
+                        #   ('pile', {
+                        #       'remote': 's3://mosaicml-internal-dataset-the-pile/mds/2/',
+                        #       'tokenizer_name': 'bert-base-uncased',
+                        #       'max_seq_len': 256,
+                        #       'group_method': 'truncate'
+                        #   }, 2), ('enwiki', {
+                        #       'remote': 's3://mosaicml-internal-dataset-enwiki-20200101/mds/2b/'
+                        #   }, 3)
+                          ])
 def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_tokenizer, tiny_bert_model, world_size,
                             device, tmp_path):
     # Need to initialize dist before we get to streaming, because streaming always uses NCCL
-    if not dist.is_initialized() and world_size > 1:
+    if not dist.is_initialized():
         dist.initialize_dist(device=device)
 
     if num_workers == 2 and device == 'gpu' and world_size == 1:
         pytest.xfail("don't know. fatal python error")
 
-    if num_workers > 0 and device == 'gpu' and world_size == 2:
-        pytest.xfail("don't know. various inconsistent hangs and failures")
+    # if num_workers > 0 and device == 'gpu' and world_size == 2:
+    #     pytest.xfail("don't know. various inconsistent hangs and failures")
 
     streaming = pytest.importorskip('streaming')
     transformers = pytest.importorskip('transformers')
@@ -79,17 +80,17 @@ def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_
 
     trainer.fit()
 
-    import time
-    time.sleep(5)
-    if streaming_dataset._partition_state is not None:
-        streaming_dataset._partition_state.stop()
+    # import time
+    # time.sleep(5)
+    # if streaming_dataset._partition_state is not None:
+    #     streaming_dataset._partition_state.stop()
 
-    import time
-    time.sleep(5)
-    # Close potentially persistent dataloader workers
-    loader = trainer.state.train_dataloader
-    if loader and loader._iterator is not None:  # type: ignore
-        loader._iterator._shutdown_workers()  # type: ignore
+    # import time
+    # time.sleep(5)
+    # # Close potentially persistent dataloader workers
+    # loader = trainer.state.train_dataloader
+    # if loader and loader._iterator is not None:  # type: ignore
+    #     loader._iterator._shutdown_workers()  # type: ignore
 
-    import time
-    time.sleep(5)
+    # import time
+    # time.sleep(5)
