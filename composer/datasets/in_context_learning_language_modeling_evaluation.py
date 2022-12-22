@@ -8,10 +8,11 @@ from typing import TYPE_CHECKING, Union
 from typing import Union
 import random
 from typing import Union
+import random
+import textwrap
 
 import transformers
 import torch
-import transformers
 from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset
 
@@ -194,10 +195,12 @@ def get_lm_task_dataloader(
     dataset = InContextLearningLMTaskDataset(dataset_uri, tokenizer, max_seq_len, eos_tok_id, num_fewshot,
                                              preamble_string, example_delimiter, continuation_delimiter)
     sampler = dist.get_sampler(dataset, drop_last=False, shuffle=True)
+    print(f'Using microbatch size {batch_size}')
     return DataSpec(DataLoader(
         dataset,
         batch_size=batch_size,
         sampler=sampler,
         collate_fn=dataset.collate_fn,
     ),
+                    device_transforms=None,
                     get_num_samples_in_batch=dataset.get_num_samples_in_batch)
