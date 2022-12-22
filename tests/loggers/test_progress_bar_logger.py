@@ -9,6 +9,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from tqdm import auto
 
 from composer.core.time import Time, TimeUnit
+from composer.loggers import ProgressBarLogger
 from composer.trainer.trainer import Trainer
 from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
@@ -96,3 +97,8 @@ def test_progress_bar_logger(max_duration: Time[int], monkeypatch: MonkeyPatch, 
     # test eval pbar
     for mt in mock_tqdms_eval:
         assert mt.update.call_count == eval_subset_num_batches
+
+
+def test_progress_bar_warning():
+    with pytest.warns(Warning):
+        Trainer(model=SimpleModel(), loggers=ProgressBarLogger())
