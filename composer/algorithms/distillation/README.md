@@ -42,7 +42,7 @@ from composer.trainer import Trainer
 from composer.model
 distillation = Distillation(
     teachers=teacher_model,
-    kd_loss_fn=KLDivergance(temperature=4.0),
+    kd_loss_fn=KLDivergence(temperature=4.0),
     org_loss_weight=0.1,
     kd_loss_weight=0.9,
 )
@@ -102,7 +102,7 @@ from composer.trainer import Trainer
 
 distillation = Distillation(
     teachers={'./path/to/weights.pt': teacher_model},
-    kd_loss_fn=KLDivergance(temperature=4.0),
+    kd_loss_fn=KLDivergence(temperature=4.0),
     org_loss_weight=0.1,
     kd_loss_weight=0.9,
 )
