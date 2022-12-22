@@ -95,7 +95,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
         'model': common.SimpleConvModel,
         'dataset': common.RandomImageDataset,
         'kwargs': {
-            'teachers': common.SimpleConvModel,
+            'teachers': common.SimpleConvModel(),
             'kd_loss_fn': KLDivergence(),
         },
     },
