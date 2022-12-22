@@ -9,15 +9,8 @@ examples for writing your own callbacks at the :class:`.Callback` base class.
 from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.callbacks.early_stopper import EarlyStopper
 from composer.callbacks.export_for_inference import ExportForInferenceCallback
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 from composer.callbacks.optimizer_monitor import OptimizerMonitor
->>>>>>> 5d2b2f29 (add optimizer monitor)
-=======
->>>>>>> f21f9b87 (remove inspect args)
 from composer.callbacks.image_visualizer import ImageVisualizer
-from composer.callbacks.llm_evaluation_callback import EleutherEvalHarness
 from composer.callbacks.lr_monitor import LRMonitor
 from composer.callbacks.memory_monitor import MemoryMonitor
 from composer.callbacks.mlperf import MLPerfCallback
@@ -27,5 +20,5 @@ from composer.callbacks.threshold_stopper import ThresholdStopper
 
 __all__ = [
     'OptimizerMonitor', 'LRMonitor', 'MemoryMonitor', 'SpeedMonitor', 'CheckpointSaver', 'MLPerfCallback',
-    'EarlyStopper', 'ExportForInferenceCallback', 'ThresholdStopper', 'ImageVisualizer', 'EleutherEvalHarness'
+    'EarlyStopper', 'ExportForInferenceCallback', 'ThresholdStopper', 'ImageVisualizer',
 ]

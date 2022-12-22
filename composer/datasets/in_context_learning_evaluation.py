@@ -16,11 +16,6 @@ from composer.utils.file_helpers import get_file
 
 
 class InContextLearningLMTaskDataset(Dataset):
-
-<<<<<<< HEAD
-=======
-class InContextLearningLMTaskDataset(IterableDataset):
->>>>>>> 70762455 (add evalute)
     def __init__(
         self,
         dataset_uri: str,
@@ -131,32 +126,19 @@ class InContextLearningLMTaskDataset(IterableDataset):
     def update_metric(self, metric, batch, output_logits, labels):
         metric.update(batch, output_logits, labels)
 
-<<<<<<< HEAD
 
 def get_lm_task_dataloader(dataset_uri, tokenizer, global_batch_size, max_seq_len, eos_tok_id):
     dataset = InContextLearningLMTaskDataset(dataset_uri, tokenizer, max_seq_len, eos_tok_id)
     sampler = dist.get_sampler(dataset, drop_last=False, shuffle=True)
     batch_size = global_batch_size // dist.get_world_size()
     print(f'Using microbatch size {batch_size}')
-    return DataSpec(DataLoader(
-        dataset,
-        batch_size=batch_size,
-        sampler=sampler,
-        collate_fn=dataset.collate_fn,
-    ),
-                    device_transforms=None,
-                    get_num_samples_in_batch=dataset.get_num_samples_in_batch)
-=======
-def get_lm_task_dataloader(dataset_uri, tokenizer, batch_size,  max_seq_len, eos_tok_id):
-    dataset = InContextLearningLMTaskDataset(dataset_uri, tokenizer, max_seq_len, eos_tok_id)
     return DataSpec(
-        DataLoader(
-            dataset,
-            batch_size=batch_size,
-            sampler=None,
-            collate_fn=dataset.collate_fn,
-        ),
-        device_transforms=None,
-        get_num_samples_in_batch=dataset.get_num_samples_in_batch
-    )
->>>>>>> 70762455 (add evalute)
+            DataLoader(
+                dataset,
+                batch_size=batch_size,
+                sampler=sampler,
+                collate_fn=dataset.collate_fn,
+            ),
+            device_transforms=None,
+            get_num_samples_in_batch=dataset.get_num_samples_in_batch
+        )

@@ -12,11 +12,7 @@ __all__ = ['OptimizerMonitor']
 
 
 class OptimizerMonitor(Callback):
-<<<<<<< HEAD
     """Computes and logs the L2 norm of gradients as well as any optimizer-specific metrics implemented in the optimizer's `report_per_parameter_metrics` method.
-=======
-    """Computes and logs the L2 norm of gradients on the :attr:`.Event.AFTER_BATCH_END` event.
->>>>>>> 5d2b2f29 (add optimizer monitor)
 
     L2 norms are calculated after the reduction of gradients across GPUs. This function iterates over the parameters of
     the model and may cause a reduction in throughput while training large models. In order to ensure the
@@ -99,12 +95,7 @@ class OptimizerMonitor(Callback):
                 param_grad_norm = torch.linalg.vector_norm(p.grad)
                 default_metrics[f'l2_norm/grad/{name}'] = param_grad_norm
 
-<<<<<<< HEAD
                 norm += param_grad_norm**2
-=======
-                param_grad_norm = param_grad_norm**2
-                norm += param_grad_norm
->>>>>>> f21f9b87 (remove inspect args)
                 metric_reporter = getattr(state.optimizers[0], 'report_per_parameter_metrics', None)
                 if callable(metric_reporter) and self.log_optimizer_metrics:
                     optimizer_metrics = metric_reporter(p, name, optimizer_metrics)

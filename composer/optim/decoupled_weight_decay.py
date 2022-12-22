@@ -187,7 +187,6 @@ class DecoupledAdamW(AdamW):
     """
 
     metric_functions = {
-<<<<<<< HEAD
         'l2_norm/moment':
             lambda param, optim_state, step_tensor: torch.linalg.vector_norm(optim_state['exp_avg']),
         'l2_norm_ratio/moment_grad':
@@ -206,26 +205,6 @@ class DecoupledAdamW(AdamW):
             lambda param, optim_state, step_tensor: torch.nn.functional.cosine_similarity(
                 param.grad.flatten(), step_tensor.flatten(), dim=0),
         'l2_norm_ratio/update_param':
-=======
-        'layer_moment_l2_norm':
-            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(optim_state['exp_avg']),
-        'layer_moment_grad_norm_ratio':
-            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(param.grad) / torch.linalg.vector_norm(
-                optim_state['exp_avg']),
-        'layer_moment_grad_cosine':
-            lambda param, optim_state, step_tensor: torch.nn.functional.cosine_similarity(
-                param.grad.flatten(), optim_state['exp_avg'].flatten(), dim=0),
-        'layer_param_norm':
-            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(param.data),
-        'layer_second_moment_l2_norm':
-            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(optim_state['exp_avg_sq']).sqrt(),
-        'layer_step_norm':
-            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(step_tensor),
-        'layer_step_grad_cosine':
-            lambda param, optim_state, step_tensor: torch.nn.functional.cosine_similarity(
-                param.grad.flatten(), step_tensor.flatten(), dim=0),
-        'layer_step_param_norm_ratio':
->>>>>>> f21f9b87 (remove inspect args)
             lambda param, optim_state, step_tensor: torch.linalg.vector_norm(step_tensor) / torch.linalg.vector_norm(
                 param.data),
     }

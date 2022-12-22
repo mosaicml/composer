@@ -1044,7 +1044,7 @@ class Trainer:
                              'is deprecated, we recommend using device_train_microbatch_size.')
         eval_batch_split = 1
         assert not isinstance(grad_accum, str)
-        assert not isinstance(train_device_microbatch_size, str)
+        assert not isinstance(device_train_microbatch_size, str)
 
         # Run Name
         if run_name is None:
