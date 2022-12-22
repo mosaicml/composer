@@ -16,6 +16,22 @@ To use knowledge distillation, you will need to have both a teacher model and a 
 
 ### Composer Trainer
 
+<!--pytest.mark.gpu-->
+<!--
+```python
+import torch
+from torch.utils.data import DataLoader
+from tests.common import RandomImageDataset, SimpleConvModel
+
+teacher_model = SimpleConvModel()
+student_model = SimpleConvModel()
+train_dataloader = DataLoader(RandomImageDataset())
+eval_dataloader = DataLoader(RandomImageDataset())
+
+torch.save(teacher_model.state_dict(), '/path/to/weights.pt')
+```
+-->
+<!--pytest-codeblocks:cont-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
