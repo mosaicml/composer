@@ -10,7 +10,10 @@ from torchmetrics import Metric
 
 from composer.loss import soft_cross_entropy
 
-__all__ = ['Perplexity', 'BinaryF1Score', 'HFCrossEntropy', 'LanguageCrossEntropy', 'MaskedAccuracy']
+__all__ = [
+    'Perplexity', 'InContextLearningLMAccuracy', 'BinaryF1Score', 'HFCrossEntropy', 'LanguageCrossEntropy',
+    'MaskedAccuracy'
+]
 
 
 class MaskedAccuracy(Metric):
@@ -231,3 +234,41 @@ class Perplexity(HFCrossEntropy):
         """Returns torch.exp() of the LanguageCrossEntropyLoss."""
         avg_loss = super().compute()
         return torch.exp(avg_loss)
+
+
+class InContextLearningLMAccuracy(Metric):
+    """Computes accuracy with support for masked indicies.
+
+    Adds metric state variables:
+        correct (float): The number of instances where the prediction masked the target.
+        total (float): The number of total instances that were predicted.
+
+    Args:
+        ignore_index (int): The class index to ignore. Default: -100.
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
+            each forward() before returning the value at the step. Default: ``False``.
+    """
+
+    # Make torchmetrics call update only once
+    full_state_update = False
+
+    def __init__(self, dist_sync_on_step: bool = False):
+        # state from multiple processes
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.add_state('correct', default=torch.tensor(0), dist_reduce_fx='sum')
+        self.add_state('total', default=torch.tensor(0), dist_reduce_fx='sum')
+
+    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
+        targets = torch.roll(labels, shifts=-1)
+        targets[:, -1] = -100
+        for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
+            cont_tok_pred = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
+            cont_tok_targ = targets[batch_idx].index_select(dim=0, index=cont_idx - 1)
+
+            self.correct += (cont_tok_pred == cont_tok_targ).all().int()
+            self.total += torch.tensor(1)
+
+    def compute(self):
+        assert isinstance(self.correct, Tensor)
+        assert isinstance(self.total, Tensor)
+        return self.correct.float() / self.total
