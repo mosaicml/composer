@@ -74,7 +74,7 @@ class Distillation(Algorithm):
 
         # teachers can be a dict of path / models, or a list of teachers with loaded
         # checkpoints, or a single teacher with loaded checkpoints
-        if isinstance(Dict):
+        if isinstance(teachers, Dict):
             for checkpoint_path, teacher in teachers.items():
                 ckpt = torch.load(checkpoint_path)
                 weights = None
@@ -89,7 +89,7 @@ class Distillation(Algorithm):
                     log.error(f'Unable to load weights into teacher state_dict for checkpoint {checkpoint_path}.')
                     raise
                 self.teachers.append(teacher)
-        elif isinstance(nn.Module):
+        elif isinstance(teachers, nn.Module):
             self.teachers.append(teachers)
         else:
             self.teachers = teachers
