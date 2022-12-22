@@ -6,7 +6,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import torch
 from torch.utils.data import DataLoader
 
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
@@ -39,11 +38,6 @@ def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_
     # Need to initialize dist before we get to streaming, because streaming always uses NCCL
     if not dist.is_initialized() and world_size > 1:
         dist.initialize_dist(device=device)
-
-    from sys import platform
-
-    if platform == 'darwin' and num_workers > 0:
-        pytest.xfail('Streaming currently does not work on OSX with subprocess workers.')
 
     if num_workers == 2 and device == 'gpu' and world_size == 1:
         pytest.xfail("don't know. fatal python error")
