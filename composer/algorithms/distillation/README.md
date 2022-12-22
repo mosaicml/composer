@@ -19,7 +19,6 @@ To use knowledge distillation, you will need to have both a teacher model and a 
 <!--pytest.mark.gpu-->
 <!--
 ```python
-import torch
 from torch.utils.data import DataLoader
 from tests.common import RandomImageDataset, SimpleConvModel
 import os
@@ -39,7 +38,7 @@ eval_dataloader = DataLoader(RandomImageDataset())
 from composer.algorithms.distillation import Distillation
 from composer.algorithms.distillation import KLDivergence
 from composer.trainer import Trainer
-from composer.model
+
 distillation = Distillation(
     teachers=teacher_model,
     kd_loss_fn=KLDivergence(temperature=4.0),
@@ -66,7 +65,6 @@ trainer.fit()
 <!--pytest.mark.gpu-->
 <!--
 ```python
-import torch
 from torch.utils.data import DataLoader
 from tests.common import RandomImageDataset, SimpleConvModel
 import os
