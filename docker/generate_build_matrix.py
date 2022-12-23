@@ -84,7 +84,7 @@ def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: s
     cuda_version_tag = _get_cuda_version_tag(cuda_version)
     tags = [f'{base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu20.04']
 
-    if python_version == '3.9':
+    if python_version == '3.10':
         if not cuda_version:
             tags.append(f'{base_image_name}:latest_cpu')
         else:
@@ -173,8 +173,8 @@ def _main():
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
-    composer_versions = ['', '==0.11.1', 'GIT_COMMIT']  # Only build images for the latest composer version
-    composer_python_versions = ['3.9']  # just build composer against the latest
+    composer_versions = ['', '==0.12.0', 'GIT_COMMIT']  # Only build images for the latest composer version
+    composer_python_versions = ['3.10']  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):
         python_version, composer_version, use_cuda = product
