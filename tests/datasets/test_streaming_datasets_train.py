@@ -71,7 +71,7 @@ def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_
                                                             mlm_probability=0.15) if dataset != 'enwiki' else None
     dataloader = DataLoader(streaming_dataset, batch_size=16, num_workers=num_workers, collate_fn=collator)
 
-    trainer = Trainer(model=model, train_dataloader=dataloader, max_duration='32ba', device=device)
+    trainer = Trainer(model=model, train_dataloader=dataloader, max_duration='2ba', device=device)
 
     trainer.fit()
 
