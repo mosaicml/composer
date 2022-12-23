@@ -14,8 +14,7 @@ from composer.algorithms.gradient_clipping.gradient_clipping import _apply_agc, 
 from composer.core import Engine, State
 from composer.core.event import Event
 from tests.common import world_size
-from tests.common.models import SimpleTransformerClassifier
-from tests.conftest import configure_tiny_bert_config
+from tests.common.models import SimpleTransformerClassifier, configure_tiny_bert_config
 from tests.fixtures.inputs import dummy_tiny_bert_classification_batch, dummy_transformer_classifier_batch
 
 

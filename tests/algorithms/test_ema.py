@@ -12,7 +12,7 @@ from composer.algorithms import EMA
 from composer.algorithms.ema.ema import compute_ema
 from composer.core import Event, Time, Timestamp, TimeUnit
 from tests.common import SimpleConvModel, SimpleTransformerClassifier
-from tests.conftest import tiny_bert
+from tests.common.models import tiny_bert
 
 
 def validate_ema(model, original_model, ema_model, smoothing):

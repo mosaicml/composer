@@ -29,7 +29,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
-from composer.callbacks import CheckpointSaver, GradMonitor
+from composer.callbacks import CheckpointSaver, OptimizerMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException, Callback, DataSpec, Engine, Evaluator,
                            Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
                            ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context)
@@ -141,7 +141,8 @@ def _set_evaluator_interval_and_subset_num_batches(
         if evaluator.eval_interval is None:
             evaluator.eval_interval = eval_interval
         eval_dataloader = evaluator.dataloader.dataloader
-        if isinstance(eval_dataloader, collections.abc.Sized) and evaluator.subset_num_batches is None:
+        if isinstance(eval_dataloader, collections.abc.Sized) and (evaluator.subset_num_batches is None or
+                                                                   evaluator.subset_num_batches == -1):
             try:
                 dataloader_len = len(eval_dataloader)
             except TypeError:
@@ -569,11 +570,8 @@ class Trainer:
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
         run_name (str, optional): A name for this training run. If not specified, the timestamp will be combined with a
             :doc:`coolname <coolname:index>`, e.g. ``1654298855-electric-zebra``.
-        progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
-        log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
-
-            The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is ``False``.
-
+        progress_bar (bool): Whether to show a progress bar. (default: ``True``)
+        log_to_console (bool): Whether to print logging statements to the console. (default: ``False``)
         console_stream (TextIO | str, optional): The stream to write to. If a string, it can either be
             ``'stdout'`` or ``'stderr'``. (default: :attr:`sys.stderr`)
         console_log_interval (int | str | Time, optional): Specifies how frequently to log metrics to console.
@@ -769,6 +767,10 @@ class Trainer:
 
             To use DeepSpeed with default values, set to the empty dictionary ``{}``.
             To disable DeepSpeed (the default), set to ``None``.
+        fsdp_config (Dict[str, Any], optional): Configuration for FSDP.
+            See :doc:`FSDP Documentation </notes/distributed_training>` for more details.
+            To use FSDP with default values, set to the empty dictionary ``{}``. To
+            disable FSDP, set to ``None``. (default: ``None``)
         device (Device | str, optional): The device to use for training, which can be ``'cpu'``, ``'gpu'``,
             ``'tpu'``, or ``'mps'``. (default: ``None``)
 
@@ -1064,6 +1066,7 @@ class Trainer:
             optimizers=optimizers,
             run_name=run_name,
             deepspeed_config=deepspeed_config,
+            fsdp_config=fsdp_config,
         )
 
         # Profiler
@@ -1271,8 +1274,8 @@ class Trainer:
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
             for callback in self.state.callbacks:
-                if isinstance(callback, GradMonitor):
-                    raise ValueError('GradMonitor is not supported with DeepSpeed because DeepSpeed clears '
+                if isinstance(callback, OptimizerMonitor):
+                    raise ValueError('OptimizerMonitor is not supported with DeepSpeed because DeepSpeed clears '
                                      'the gradients before in the last call to .backward see: '
                                      'https://github.com/microsoft/DeepSpeed/issues/2329 for more details.')
 

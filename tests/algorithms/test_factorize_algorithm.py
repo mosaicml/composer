@@ -14,7 +14,7 @@ from composer.loggers import Logger
 from composer.models import HuggingFaceModel
 from composer.utils import module_surgery
 from tests.common import SimpleConvModel, SimpleTransformerClassifier
-from tests.conftest import tiny_bert
+from tests.common.models import tiny_bert
 from tests.fixtures.inputs import dummy_tiny_bert_lm_batch, dummy_transformer_classifier_batch
 
 

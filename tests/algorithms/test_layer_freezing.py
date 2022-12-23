@@ -12,7 +12,7 @@ from composer.core import Event, Precision, State, Timestamp
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.loggers import Logger
 from tests.common import SimpleConvModel, SimpleTransformerClassifier
-from tests.conftest import tiny_bert
+from tests.common.models import tiny_bert
 
 
 def _generate_state(request: pytest.FixtureRequest, model_cls, epoch: int, max_epochs: int):

@@ -46,18 +46,14 @@ ResNet family members are identified by their number of layers. Parameter count,
 
 ## Default Training Hyperparameters
 
-```yaml
-optimizer:
-  decoupled_sgdw:
-    learning_rate: 2.048
-    momentum: 0.875
-    weight_decay: 5.0e-4
-schedulers:
-  cosine_decay_with_warmup:
-    t_warmup: 8ep
-train_batch_size: 2048
-max_duration: 90ep
-```
+- Optimizer: Decoupled SGDW
+  - Learning rate: 2.048
+    Momentum: 0.875
+    Weight_decay: 5.0e-4
+- LR schedulers:
+  - Cosine decay with warmup for 8 epochs
+- Batch size: 2048
+- Number of epochs: 90ep
 
 ## Attribution
 
