@@ -198,6 +198,7 @@ def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokeni
     and finetunes it, exports the model for inference, and loads it back in to make predictions.
     """
     pytest.importorskip('libcloud')
+    pytest.importorskip('transformers')
 
     device = get_device(device)
 
