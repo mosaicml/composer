@@ -54,7 +54,7 @@ def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_
     # distribute the local dataset path from rank 0
     local_path = [os.path.abspath(tmp_path)]
     dist.broadcast_object_list(local_path, src=0)
-    local_path = Path(local_path[0]) / dataset / str(full_seed)
+    local_path = Path(local_path[0]) / dataset
 
     streaming_dataset = name_to_cls[dataset](local=local_path,
                                              split='val',
