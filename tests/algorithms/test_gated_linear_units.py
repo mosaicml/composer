@@ -73,24 +73,26 @@ def assert_is_glu_instance(model):
     ), 'composer.algorithms.gated_linear_units.gated_linear_unit_layers.BERTGatedFFOutput is not found in the post-surgery model.'
 
 
-@pytest.mark.parametrize('synthetic_state_family', ['bert', 'simple_transformer'])
+@pytest.mark.parametrize('synthetic_state_family', [
+    'bert',
+    pytest.param('simple_transformer',
+                 marks=pytest.mark.xfail(reason='Gated Linear Units does not currently support non-HuggingFace models'))
+])
 def test_gated_linear_units_functional(synthetic_state_family: str, request: pytest.FixtureRequest):
-    if synthetic_state_family == 'simple_transformer':
-        pytest.xfail('Gated Linear Units does not currently support non-HuggingFace models')
-
     state, _, _ = make_synthetic_state(synthetic_state_family, request.session)
     apply_gated_linear_units(state.model, state.optimizers)
     assert_is_glu_instance(state.model.model)
 
 
-@pytest.mark.parametrize('synthetic_state_family', ['bert', 'simple_transformer'])
+@pytest.mark.parametrize('synthetic_state_family', [
+    'bert',
+    pytest.param('simple_transformer',
+                 marks=pytest.mark.xfail(reason='Gated Linear Units does not currently support non-HuggingFace models'))
+])
 def test_gated_linear_units_algorithm(synthetic_state_family: str, empty_logger: Logger,
                                       request: pytest.FixtureRequest):
     pytest.importorskip('transformers')
     from transformers import BertForMaskedLM, BertForSequenceClassification
-
-    if synthetic_state_family == 'simple_transformer':
-        pytest.xfail('Gated Linear Units does not currently support non-HuggingFace models')
 
     state, _, _ = make_synthetic_state(synthetic_state_family, request.session)
 

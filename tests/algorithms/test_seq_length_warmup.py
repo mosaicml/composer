@@ -80,17 +80,18 @@ def check_forward_backward(model, batch):
     output['loss'].backward()
 
 
-@pytest.mark.parametrize('synthetic_state_family', ['bert', 'gpt2', 'simple_transformer'])
+@pytest.mark.parametrize('synthetic_state_family', [
+    'bert', 'gpt2',
+    pytest.param(
+        'simple_transformer',
+        marks=pytest.mark.xfail(reason='Sequence Length Warmup does not currently support non-HuggingFace models'))
+])
 @pytest.mark.parametrize('truncate,preserve_end_of_sequence', [(True, True), (True, False), (False, False)])
 class TestSeqLengthWarmup:
 
     @pytest.mark.parametrize('curr_seq_length', [8, 64])
     def test_functional(self, synthetic_state_family: str, curr_seq_length: int, truncate: bool,
                         preserve_end_of_sequence: bool, request: pytest.FixtureRequest):
-
-        if synthetic_state_family == 'simple_transformer':
-            pytest.xfail('Sequence Length Warmup does not currently support non-HuggingFace models')
-
         state, _, dataloader = make_synthetic_state(synthetic_state_family, request.session)
         batch_before = next(iter(dataloader))
         batch_after = set_batch_sequence_length(deepcopy(batch_before), curr_seq_length, truncate,
@@ -102,9 +103,6 @@ class TestSeqLengthWarmup:
     def test_algorithm(self, synthetic_state_family: str, empty_logger: Logger, truncate: bool,
                        preserve_end_of_sequence: bool, request: pytest.FixtureRequest):
         state, _, dataloader = make_synthetic_state(synthetic_state_family, request.session)
-
-        if synthetic_state_family == 'simple_transformer':
-            pytest.xfail('Sequence Length Warmup does not currently support non-HuggingFace models')
 
         # Synthetic dataset has a size of 2 batches per epoch (max duration = 1ep)
         seq_length_warmup = SeqLengthWarmup(duration=0.5,
