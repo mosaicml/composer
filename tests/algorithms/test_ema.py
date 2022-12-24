@@ -12,7 +12,7 @@ from composer.algorithms import EMA
 from composer.algorithms.ema.ema import compute_ema
 from composer.core import Event, Time, Timestamp, TimeUnit
 from tests.common import SimpleConvModel, SimpleTransformerClassifier
-from tests.common.models import tiny_bert
+from tests.common.models import configure_tiny_bert_hf_model
 
 
 def validate_ema(model, original_model, ema_model, smoothing):
@@ -35,7 +35,7 @@ def validate_model(model1, model2):
 
 @pytest.mark.parametrize('smoothing', [0, 0.5, 0.99, 1])
 @pytest.mark.parametrize('model_cls, model_params', [(SimpleConvModel, ()), (SimpleTransformerClassifier, ()),
-                                                     (tiny_bert, ())])
+                                                     (configure_tiny_bert_hf_model, ())])
 def test_ema(smoothing, model_cls, model_params):
     model = model_cls(*model_params)
     ema_model = model_cls(*model_params)
@@ -56,7 +56,7 @@ def test_ema(smoothing, model_cls, model_params):
     'update_interval': '1ba'
 }])
 @pytest.mark.parametrize('model_cls, model_params', [(SimpleConvModel, ()), (SimpleTransformerClassifier, ()),
-                                                     (tiny_bert, ())])
+                                                     (configure_tiny_bert_hf_model, ())])
 def test_ema_algorithm(params, model_cls, model_params, minimal_state, empty_logger):
 
     # Initialize input tensor

@@ -258,5 +258,5 @@ def configure_tiny_bert_config():
     return copy.deepcopy(pytest.tiny_bert_config)
 
 
-def tiny_bert(use_logits=True):
+def configure_tiny_bert_hf_model(use_logits=True):
     return HuggingFaceModel(configure_tiny_bert_model(), configure_tiny_bert_tokenizer(), use_logits)

@@ -15,7 +15,7 @@ from composer.models import HuggingFaceModel
 from composer.utils import module_surgery
 from tests.common import SimpleConvModel, SimpleTransformerClassifier
 from tests.common.datasets import dummy_tiny_bert_lm_batch, dummy_transformer_classifier_batch
-from tests.common.models import tiny_bert
+from tests.common.models import configure_tiny_bert_hf_model
 
 
 def create_state(minimal_state: State, model):
@@ -33,7 +33,7 @@ def create_algo_instance(replace_convs, replace_linears):
 
 
 @pytest.mark.parametrize('model_cls, model_params', [(SimpleConvModel, (3, 100)), (SimpleTransformerClassifier, ()),
-                                                     (tiny_bert, ())])
+                                                     (configure_tiny_bert_hf_model, ())])
 @pytest.mark.parametrize('replace_convs', [False, True])
 @pytest.mark.parametrize('replace_linears', [False, True])
 def test_factorize_surgery(minimal_state: State, model_cls, model_params, empty_logger: Logger, replace_convs: bool,
@@ -65,7 +65,7 @@ def test_factorize_surgery(minimal_state: State, model_cls, model_params, empty_
 @pytest.mark.parametrize('model_cls, model_params, batch',
                          [(SimpleConvModel, (3, 100), (torch.Tensor(64, 3, 32, 32), torch.Tensor())),
                           (SimpleTransformerClassifier, (), dummy_transformer_classifier_batch()),
-                          (tiny_bert, (), dummy_tiny_bert_lm_batch())])
+                          (configure_tiny_bert_hf_model, (), dummy_tiny_bert_lm_batch())])
 @pytest.mark.parametrize('replace_convs', [False, True])
 @pytest.mark.parametrize('replace_linears', [False, True])
 def test_forward_shape(minimal_state: State, model_cls, model_params, empty_logger: Logger, batch, replace_convs,
@@ -90,7 +90,7 @@ def test_forward_shape(minimal_state: State, model_cls, model_params, empty_logg
 
 
 @pytest.mark.parametrize('model_cls, model_params', [(SimpleConvModel, (3, 100)), (SimpleTransformerClassifier, ()),
-                                                     (tiny_bert, ())])
+                                                     (configure_tiny_bert_hf_model, ())])
 @pytest.mark.parametrize('replace_convs', [False, True])
 @pytest.mark.parametrize('replace_linears', [False, True])
 def test_algorithm_logging(minimal_state: State, model_cls, model_params, replace_convs, replace_linears):
