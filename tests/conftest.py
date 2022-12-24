@@ -96,20 +96,18 @@ def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item
         items[:] = remaining
 
 
-# Note: These methods are an alternative to the tiny_bert fixtures above.
-# Fixtures cannot be used natively as paramaterized inputs, which we require when
+# Note: These methods are an alternative to the tiny_bert fixtures in fixtures.py.
+# Fixtures cannot be used natively as parametrized inputs, which we require when
 # we wish to run a test across multiple models, one of which is a HuggingFace BERT Tiny.
 # As a workaround, we inject objects into the PyTest namespace. Tests should not directly
 # use pytest.{var}, but instead should import and use the helper copy methods configure_{var}
-# so the objects in the PyTest namespace do not change.
+# (in tests.common.models) so the objects in the PyTest namespace do not change.
 def pytest_configure():
-    transformers = pytest.importorskip('transformers')
-    config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny')
-    hf_model = transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
-    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('prajjwal1/bert-tiny')
-    pytest.tiny_bert_model = hf_model  # type: ignore
-    pytest.tiny_bert_tokenizer = hf_tokenizer  # type: ignore
-    pytest.tiny_bert_config = config  # type: ignore
+    pytest.importorskip('transformers')
+    from tests.fixtures.fixtures import tiny_bert_config_helper, tiny_bert_model_helper, tiny_bert_tokenizer_helper
+    pytest.tiny_bert_config = tiny_bert_config_helper()  # type: ignore
+    pytest.tiny_bert_model = tiny_bert_model_helper(pytest.tiny_bert_config)  # type: ignore
+    pytest.tiny_bert_tokenizer = tiny_bert_tokenizer_helper()  # type: ignore
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
