@@ -80,7 +80,7 @@ def simple_transformer_model_with_grads():
 
 def hf_model_with_grads():
     # Make a HuggingFace BERT model.
-    import transformers
+    transformers = pytest.importorskip('transformers')
 
     from composer.models import HuggingFaceModel
     tiny_bert_config = configure_tiny_bert_config()
