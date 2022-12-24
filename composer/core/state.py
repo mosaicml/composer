@@ -100,7 +100,7 @@ class State(Serializable):
     """The state of the trainer.
 
     Contains variables that the trainer tracks throughout the training loop. Note that all the necessary parts (i.e.,
-    :attr:`serialized_attributes`) of state are serialized when the trainer is checkpointed so that it can be used
+    :attr:`serialized_attributes`) of state are serialized when the trainer is checkpointed so that it can be used to
     restore the trainer and continue training from a checkpoint.  :mod:`~composer.algorithms` are able to modify an
     instance of this class in-place.
 
