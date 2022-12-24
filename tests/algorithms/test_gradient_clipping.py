@@ -286,7 +286,7 @@ def test_apply_agc(model_with_grads):
      cnn_model_with_grads(),
      simple_transformer_model_with_grads(),
      hf_model_with_grads()])
-def test_apply_agc_with_cnn_does_not_error(model_with_grads):
+def test_apply_agc_does_not_error(model_with_grads):
     """This test is just to ensure that no errors are raised.
 
     Accuracy of the AGC calculations are tested in other tests.
