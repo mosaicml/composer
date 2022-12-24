@@ -220,10 +220,9 @@ def dummy_transformer_classifier_batch(vocab_size=100, num_classes=2):
     return next(iter(train_dataloader))
 
 
-def dummy_tiny_bert_classification_batch():
+def dummy_tiny_bert_classification_batch(num_classes=2):
     vocab_size = 30522  # Match bert vocab size
     sequence_length = 4
-    num_classes = 2
     size = 16
     batch_size = 8
 

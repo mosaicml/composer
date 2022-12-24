@@ -68,8 +68,8 @@ def cnn_model_with_grads():
 
 def simple_transformer_model_with_grads():
     # Make a Transformer model.
-    model = SimpleTransformerClassifier()
-    x = dummy_transformer_classifier_batch()
+    model = SimpleTransformerClassifier(num_classes=3)
+    x = dummy_transformer_classifier_batch(num_classes=3)
     o = model(x)
     y = torch.randint(high=1, size=o.shape, dtype=o.dtype)
     loss_fn = nn.CrossEntropyLoss()
@@ -84,12 +84,13 @@ def hf_model_with_grads():
 
     from composer.models import HuggingFaceModel
     tiny_bert_config = configure_tiny_bert_config()
+    tiny_bert_config.num_labels = 3  # type: ignore
     hf_model = transformers.AutoModelForSequenceClassification.from_config(
         tiny_bert_config)  # type: ignore (thirdparty)
 
     model = HuggingFaceModel(hf_model, metrics=[], use_logits=True)
 
-    x = dummy_tiny_bert_classification_batch()
+    x = dummy_tiny_bert_classification_batch(num_classes=3)
     o = model(x).logits
     y = torch.randint(high=1, size=o.shape, dtype=o.dtype)
     loss_fn = nn.CrossEntropyLoss()
