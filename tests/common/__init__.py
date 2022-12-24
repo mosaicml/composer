@@ -5,7 +5,8 @@ import types
 from typing import List, Type
 
 from tests.common.compare import deep_compare
-from tests.common.datasets import RandomClassificationDataset, RandomImageDataset, RandomSegmentationDataset
+from tests.common.datasets import (RandomClassificationDataset, RandomImageDataset, RandomSegmentationDataset,
+                                   RandomTextClassificationDataset)
 from tests.common.events import EventCounterCallback
 from tests.common.markers import device, world_size
 from tests.common.models import ConvModel, SimpleConvModel, SimpleModel, SimpleTransformerClassifier
@@ -20,6 +21,7 @@ def get_module_subclasses(module: types.ModuleType, cls: Type) -> List[Type]:
 __all__ = [
     'assert_state_equivalent',
     'RandomClassificationDataset',
+    'RandomTextClassificationDataset',
     'RandomImageDataset',
     'RandomSegmentationDataset',
     'ConvModel',

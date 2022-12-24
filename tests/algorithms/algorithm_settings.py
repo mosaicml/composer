@@ -150,7 +150,10 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
         }
     },
     WeightStandardization: simple_vision_settings,
-    GyroDropout: None,  # Dropout settings needed
+    GyroDropout: {
+        'model': common.SimpleTransformerClassifier,
+        'dataset': common.RandomTextClassificationDataset,
+    },
 }
 
 
