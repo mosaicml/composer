@@ -73,7 +73,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
             'clipping_threshold': 0.1
         },
     },
-    Alibi: None,  # NLP settings needed
+    Alibi: simple_bert_settings,
     AugMix: simple_vision_settings,
     BlurPool: {
         'model': common.SimpleConvModel,
@@ -121,7 +121,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     NoOpModel: simple_vision_settings,
     SAM: simple_vision_settings,
     SelectiveBackprop: simple_vision_settings,
-    SeqLengthWarmup: None,  # NLP settings needed
+    SeqLengthWarmup: simple_bert_settings,
     SqueezeExcite: simple_resnet_settings,
     StochasticDepth: {
         'model': (composer_resnet, {
