@@ -2552,7 +2552,6 @@ class Trainer:
 
         """
         if eval_dataloader is not None:
-
             eval_metrics = deepcopy(self._original_model.get_metrics(is_train=False))
             metric_names = [str(k) for k in eval_metrics.keys()]
 

@@ -7,7 +7,7 @@ import pytest
 from torch.utils.data import DataLoader
 
 from composer.core import Evaluator
-from composer.datasets.in_context_learning_evaluation import get_lm_task_dataloader
+from composer.datasets.in_context_learning_language_modeling_evaluation import get_lm_task_dataloader
 from composer.loggers import InMemoryLogger
 from composer.models.gpt2 import create_gpt2
 from composer.trainer import Trainer
