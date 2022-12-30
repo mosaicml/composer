@@ -310,7 +310,11 @@ class HuggingFaceModel(ComposerModel):
         return metrics if metrics else {}
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
+<<<<<<< HEAD
         if isinstance(metric, InContextLearningMetric) and batch.get('mode', None) == 'icl_task':
+=======
+        if isinstance(metric, InContextLearningMetric):
+>>>>>>> b3c5de0b (add multiple choice eval)
             assert self.labels is not None
             metric.update(batch, outputs, self.labels)
         else:
