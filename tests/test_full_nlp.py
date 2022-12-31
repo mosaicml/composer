@@ -189,7 +189,7 @@ def inference_test_helper(finetuning_output_path, rud, finetuning_model, algorit
 
 @device('cpu', 'gpu')
 # Note: the specificity of these settings are due to incompatibilities (e.g. the simpletransformer model is not traceable)
-@pytest.mark.parametrize('model_type,algorithms,save_format', [('tinybert_hf', [GatedLinearUnits()], 'onnx'),
+@pytest.mark.parametrize('model_type,algorithms,save_format', [('tinybert_hf', [GatedLinearUnits], 'onnx'),
                                                                ('simpletransformer', [], 'torchscript')])
 def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokenizer, tmp_path, request, device):
     """This test is intended to exercise our full pipeline for NLP.
@@ -199,6 +199,8 @@ def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokeni
     """
     pytest.importorskip('libcloud')
     pytest.importorskip('transformers')
+
+    algorithms = [algorithm() for algorithm in algorithms]
 
     device = get_device(device)
 
