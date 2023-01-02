@@ -36,7 +36,6 @@ from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException,
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, ProgressBarLogger, RemoteUploaderDownloader,
                               WandBLogger)
-from composer.metrics import METRIC_CTORS
 from composer.models import ComposerModel
 from composer.optim import ComposerScheduler, DecoupledSGDW, compile_composer_scheduler
 from composer.profiler import Profiler
@@ -456,9 +455,9 @@ class Trainer:
             should be a :class:`torch.utils.data.DataLoader`.
 
             .. note:: The ``train_dataloader`` should yield per-rank batches. Each per-rank batch
-                will then be further divided based on the ``train_device_microbatch_size`` parameter. For example, if the
+                will then be further divided based on the ``device_train_microbatch_size`` parameter. For example, if the
                 desired optimization batch size is ``2048`` and training is happening across 8 GPUs, then each
-                ``train_dataloader`` should yield a batch of size ``2048 / 8 = 256``. If ``train_device_microbatch_size = 128``,
+                ``train_dataloader`` should yield a batch of size ``2048 / 8 = 256``. If ``device_train_microbatch_size = 128``,
                 then the per-rank batch will be divided into ``256 / 128 = 2`` microbatches of size ``128``.
 
             If ``train_dataloader`` is not specified when constructing the trainer, it must be specified when invoking
@@ -790,8 +789,8 @@ class Trainer:
                 then the last section will be of size ``batch_size mod grad_accum``.
 
             .. deprecated:: 0.12
-               Please use train_device_microbatch_size.
-        train_device_microbatch_size (Union[int, str), optional): The number of samples to process on each device per
+               Please use device_train_microbatch_size.
+        device_train_microbatch_size (Union[int, str), optional): The number of samples to process on each device per
             microbatch during training. Gradients are summed over the microbatches per device. If set to ``auto``,
             dynamically decreases device_train_microbatch_size if microbatch is too large for GPU. (default: ``None``)
 
@@ -2562,17 +2561,14 @@ class Trainer:
                 for evaluator in ensure_tuple(eval_dataloader)
             ]
 
-            for evaluator in evaluators:
-                if self.state.eval_metrics and evaluator.label in self.state.eval_metrics:
-                    warnings.warn(
-                        f'eval_dataloader label \'{evaluator.label}\' was already provided in'
-                        'trainer initialization. Existing data for that label will be overwritten.'
-                        'To prevent this in the future, assign unique label names.',
-                        category=UserWarning)
-
-                eval_metrics.update({
-                    m: METRIC_CTORS[m]() for m in evaluator.metric_names if m in METRIC_CTORS and m not in eval_metrics
-                })
+            if self.state.eval_metrics:
+                for evaluator in evaluators:
+                    if evaluator.label in self.state.eval_metrics:
+                        warnings.warn(
+                            f'eval_dataloader label \'{evaluator.label}\' was already provided in'
+                            'trainer initialization. Existing data for that label will be overwritten.'
+                            'To prevent this in the future, assign unique label names.',
+                            category=UserWarning)
 
             # match metric names to model metrics
             log.info(f'Added {[e.label for e in evaluators]} to eval_metrics.')
@@ -2756,6 +2752,7 @@ class Trainer:
 
             self.logger.log_metrics({'epoch': self.state.timestamp.epoch.value})
             self.logger.log_metrics({'trainer/global_step': self.state.timestamp.batch.value})
+
             self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics)
 
             self.engine.run_event(Event.EVAL_END)

@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Union
 
 import transformers
 import torch
+import transformers
+from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset
 
 from composer.core import DataSpec
@@ -98,7 +100,6 @@ class InContextLearningLMTaskDataset(Dataset):
             'continuation_indices': continuation_indices,
             'mode': 'lm_task',
             'labels': torch.stack(inputs),
-            'eos_tok_id': self.eos_tok_id
         }
 
         batch['attention_mask'] = ~(batch['input_ids'] == self.eos_tok_id)
@@ -149,5 +150,4 @@ def get_lm_task_dataloader(dataset_uri: str, tokenizer: Union[transformers.PreTr
         sampler=sampler,
         collate_fn=dataset.collate_fn,
     ),
-                    device_transforms=None,
                     get_num_samples_in_batch=dataset.get_num_samples_in_batch)
