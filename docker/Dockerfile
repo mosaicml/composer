@@ -158,6 +158,9 @@ RUN \
 ################
 ARG PYTHON_VERSION
 
+# Python 3.10 changes where packages are installed. Workaround until all packages support new format
+ENV DEB_PYTHON_INSTALL_LAYOUT=deb
+
 RUN add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
