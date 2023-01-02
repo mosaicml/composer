@@ -237,14 +237,22 @@ class Perplexity(HFCrossEntropy):
 
 
 class InContextLearningLMAccuracy(Metric):
-    """Computes accuracy with support for masked indicies.
+    r"""Computes accuracy for In-context learning (ICL) language modeling (LM) tasks.
+
+    ICL LM tasks consist of some number of example language modeling tasks (referred to as the 'context'), followed by a test task where the model must correctly predict all the tokens
+    following tokens in some passage (referred to as the 'continuation').
+
+    For example, the model may be provided the context below and evaluated on its ability to correctly predict the continuation. Note: it doesn't matter
+    whether the model correctly predicts the context tokens.
+
+    Context: `The dog is->fuzzy\nthe water is->hot\nthe tree is->`
+    Continuation: `green`
 
     Adds metric state variables:
-        correct (float): The number of instances where the prediction masked the target.
-        total (float): The number of total instances that were predicted.
+        correct (float): The number of examples where the model correctly predicted the whole continuation.
+        total (float): The number of total examples seen.
 
     Args:
-        ignore_index (int): The class index to ignore. Default: -100.
         dist_sync_on_step (bool, optional): Synchronize metric state across processes at
             each forward() before returning the value at the step. Default: ``False``.
     """

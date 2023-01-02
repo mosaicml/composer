@@ -22,6 +22,6 @@ __all__ = [
     'InContextLearningLMAccuracy',
 ]
 
-METRIC_CTORS = {
+METRIC_DEFAULT_CTORS = {
     'InContextLearningLMAccuracy': InContextLearningLMAccuracy,
 }

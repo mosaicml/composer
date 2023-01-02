@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import tempfile
@@ -16,7 +17,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 import torch
 from torchmetrics import Metric
 
-from composer.metrics import InContextLearningLMAccuracy
+from composer.metrics import METRIC_DEFAULT_CTORS, InContextLearningLMAccuracy
 from composer.models.base import ComposerModel
 from composer.utils import get_file
 from composer.utils.import_helpers import MissingConditionalImportError, import_object
@@ -87,14 +88,14 @@ class HuggingFaceModel(ComposerModel):
 
         self.use_logits = use_logits
 
-        self.train_metrics = None
-        self.val_metrics = None
+        self.train_metrics: Optional[Dict] = None
+        self.val_metrics: Optional[Dict] = None
 
         if metrics:
             self.train_metrics = {metric.__class__.__name__: metric for metric in metrics}
             self.val_metrics = {metric.__class__.__name__: metric for metric in metrics}
 
-        self.labels = None  # set in eval_forward() if exists
+        self.labels: Optional[torch.Tensor] = None  # set in eval_forward() if exists
 
     @staticmethod
     def hf_from_composer_checkpoint(
@@ -258,6 +259,7 @@ class HuggingFaceModel(ComposerModel):
     def forward(self, batch):
         if isinstance(batch, dict) or isinstance(batch, UserDict):
             # Further input validation is left to the huggingface forward call
+            batch = {k: v for k, v in batch.items() if k in inspect.getfullargspec(self.model.forward).args}
             output = self.model(**batch)  # type: ignore (thirdparty)
         else:
             raise ValueError(
@@ -273,30 +275,20 @@ class HuggingFaceModel(ComposerModel):
             return outputs[0]
 
     def eval_forward(self, batch, outputs: Optional[Any] = None):
-        if 'mode' in batch and batch['mode'] == 'lm_task':
+        output = outputs if outputs else self.forward(batch)
+        if self.use_logits or batch.get('mode', None) == 'lm_task':
             self.labels = batch.pop('labels')
-            args = {'input_ids': batch['input_ids']}
-            args['attention_mask'] = ~(batch['input_ids'] == batch['eos_tok_id'])
+            if self.config.use_return_dict:
+                output = output['logits']
+            else:
+                # logits are at index 1 in the output tuple
+                output = output[1]
 
-            with torch.no_grad():
-                output = self.forward(args)
-                output = output.logits
-                return output
-        else:
-            output = outputs if outputs else self.forward(batch)
-            if self.use_logits:
-                self.labels = batch.pop('labels')
-                if self.config.use_return_dict:
-                    output = output['logits']
-                else:
-                    # logits are at index 1 in the output tuple
-                    output = output[1]
+            # if we are in the single class case, then remove the classes dimension
+            if output.shape[1] == 1:
+                output = output.squeeze(dim=1)
 
-                # if we are in the single class case, then remove the classes dimension
-                if output.shape[1] == 1:
-                    output = output.squeeze(dim=1)
-
-            return output
+        return output
 
     def get_metrics(self, is_train: bool = False) -> Dict[str, Metric]:
         if is_train:
@@ -350,3 +342,10 @@ class HuggingFaceModel(ComposerModel):
                         'content': tokenizer_file_content
                     }
         return {'model': model_output, 'tokenizer': tokenizer_output}
+
+    def add_eval_metrics(self, evaluator):
+        evaluator_metrics = {m: METRIC_DEFAULT_CTORS[m]() for m in evaluator.metric_names}
+        if self.val_metrics is not None:
+            self.val_metrics.update(evaluator_metrics)
+        else:
+            self.val_metrics = evaluator_metrics
