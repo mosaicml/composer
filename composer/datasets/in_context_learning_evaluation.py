@@ -188,7 +188,6 @@ class InContextLearningLMTaskDataset(Dataset):
             'continuation_indices': continuation_indices,
             'mode': 'icl_task',
             'labels': torch.stack(inputs),
-            'eos_tok_id': self.eos_tok_id
         }
 
         batch['attention_mask'] = ~(batch['input_ids'] == self.eos_tok_id)
@@ -438,5 +437,4 @@ def get_icl_task_dataloader(
         sampler=sampler,
         collate_fn=dataset.collate_fn,
     ),
-                    device_transforms=None,
                     get_num_samples_in_batch=dataset.get_num_samples_in_batch)
