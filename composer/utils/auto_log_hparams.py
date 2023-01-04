@@ -10,9 +10,11 @@ __all__ = ['extract_hparams', 'convert_nested_dict_to_flat_dict', 'convert_flat_
 
 def extract_hparams(locals_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Takes in local symbol table and recursively grabs any hyperparameter.
+
     Args:
         locals_dict (Dict[str, Any]): The local symbol table returned when calling locals(),
             which maps any free local variables' names to their values.
+
     Returns:
         Dict[str, Any]: A nested dictionary with every element of locals_dict mapped to its
             value or to another sub_dict.
@@ -29,7 +31,6 @@ def extract_hparams(locals_dict: Dict[str, Any]) -> Dict[str, Any]:
 
 def _grab_hparams(obj) -> Any:
     """Helper function parses objects for their hyperparameters going only one level deep."""
-
     # If the object has already grabbed its hyperparameters (it calls extract_hparams inside __init__)
     # then parse hparams attribute (which is a dict) and name those sub-hyperparameters
     if hasattr(obj, 'local_hparams'):
@@ -47,6 +48,7 @@ def _get_obj_repr(obj: Any):
 
     Args:
         obj (Any): the object.
+
     Returns:
         float(obj) if object is a float, int(obj) if object is an int, str(obj) if object
         is str or has a buitlin __str__ method, obj.__class__.__name__ otherwise.
@@ -59,10 +61,12 @@ def _get_obj_repr(obj: Any):
 
 def convert_nested_dict_to_flat_dict(nested_dict: Dict, prefix='') -> Dict:
     """Takes in a nested dict converts it to a flat dict with keys separated by slashes.
+
     Args:
         nested_dict (Dict): A dictionary containing at least one other dictionary.
         prefix (str, optional): A prefix to left append to the keys in the dictionary.
             'Defaults to ''.
+
     Returns:
         Dict: A flat dictionary representation of the nested one (contains no other
             dictionaries inside of it)
@@ -81,9 +85,11 @@ def convert_nested_dict_to_flat_dict(nested_dict: Dict, prefix='') -> Dict:
 
 def convert_flat_dict_to_nested_dict(flat_dict: Dict) -> Dict:
     """Converts flat dictionary separated by slashes to nested dictionary.
+
     Args:
         flat_dict (Dict): flat dictionary containing no sub-dictionary with keys
             separated by slashes. e.g. {'a':1, 'b/c':2}
+
     Returns:
         Dict: a nested dict.
     """
