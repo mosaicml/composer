@@ -49,6 +49,8 @@ def test_glu_outputs(batch_size, seq_length, d_embed, d_ff, dropout_rate, act_fn
 
 
 def make_synthetic_state(family, session):
+    """Supported model families are 'simple_transformer', 'bert', 'gpt2', and 'bert_classification'.
+    """
     if family == 'simple_transformer':
         return synthetic_simple_transformer_state_maker(session)
     synthetic_config = make_dataset_configs(model_family=[family])[0]
