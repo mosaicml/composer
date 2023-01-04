@@ -1891,9 +1891,6 @@ class Trainer:
         """Run training for the specified number of epochs and log results."""
         # print training start
         log.info('Using precision %s', self.state.precision)
-        self.logger.log_hyperparameters(
-            {'enabled_algorithms/' + algo.__class__.__name__: True for algo in self.state.algorithms})
-
         assert self.state.dataloader is not None, 'dataloader is set in __init__() or fit()'
         assert self._train_data_spec is not None, 'The train data spec is set in __init__() or fit()'
         assert self.state.scaler is not None, 'scaler should have been set in __init__()'
