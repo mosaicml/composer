@@ -199,7 +199,7 @@ def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: 
                     reason='requires PyTorch 1.13 or higher')
 @pytest.mark.gpu
 @world_size(2)
-def test_gradient_clipping_algorithm_with_fsdp_enabled(
+def test_gradient_clipping_algorithm_with_fsdp_enabled_does_not_error(
     monkeypatch,
     clipping_type,
     model_with_grads,

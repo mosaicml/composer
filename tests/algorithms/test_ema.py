@@ -34,11 +34,11 @@ def validate_model(model1, model2):
 
 
 @pytest.mark.parametrize('smoothing', [0, 0.5, 0.99, 1])
-@pytest.mark.parametrize('model_cls, model_params', [(SimpleConvModel, ()), (SimpleTransformerClassifier, ()),
-                                                     (configure_tiny_bert_hf_model, ())])
-def test_ema(smoothing, model_cls, model_params):
-    model = model_cls(*model_params)
-    ema_model = model_cls(*model_params)
+@pytest.mark.parametrize('model_cls', [(SimpleConvModel), (SimpleTransformerClassifier),
+                                                     (configure_tiny_bert_hf_model)])
+def test_ema(smoothing, model_cls):
+    model = model_cls()
+    ema_model = model_cls()
     original_model = copy.deepcopy(ema_model)
     compute_ema(model=model, ema_model=ema_model, smoothing=smoothing)
     validate_ema(model, original_model, ema_model, smoothing)
@@ -55,9 +55,9 @@ def test_ema(smoothing, model_cls, model_params):
     'smoothing': 0.999,
     'update_interval': '1ba'
 }])
-@pytest.mark.parametrize('model_cls, model_params', [(SimpleConvModel, ()), (SimpleTransformerClassifier, ()),
-                                                     (configure_tiny_bert_hf_model, ())])
-def test_ema_algorithm(params, model_cls, model_params, minimal_state, empty_logger):
+@pytest.mark.parametrize('model_cls', [(SimpleConvModel), (SimpleTransformerClassifier),
+                                                     (configure_tiny_bert_hf_model)])
+def test_ema_algorithm(params, model_cls, minimal_state, empty_logger):
 
     # Initialize input tensor
     input = torch.rand((32, 5))
@@ -68,7 +68,7 @@ def test_ema_algorithm(params, model_cls, model_params, minimal_state, empty_log
         half_life, update_interval = params['half_life'], params['update_interval']
         algorithm = EMA(half_life=half_life, update_interval=update_interval)
     state = minimal_state
-    state.model = model_cls(*model_params)
+    state.model = model_cls()
     state.batch = (input, torch.Tensor())
 
     # Start EMA
@@ -83,7 +83,7 @@ def test_ema_algorithm(params, model_cls, model_params, minimal_state, empty_log
 
     # Fake a training update by replacing state.model after ema grabbed it.
     original_model = copy.deepcopy(state.model)
-    state.model = model_cls(*model_params)
+    state.model = model_cls()
     # Do the EMA update
     state.timestamp = Timestamp()
     if update_interval.unit == TimeUnit.BATCH:
