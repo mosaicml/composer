@@ -37,7 +37,7 @@ def training_loop(model, train_loader):
             opt.zero_grad()
 
         # Applying layer freezing at the end of the epoch
-        freeze_depth, feeze_level = freeze_layers(
+        freeze_depth, freeze_level = freeze_layers(
                                         model=model,
                                         optimizers=opt,
                                         current_duration=epoch/num_epochs,

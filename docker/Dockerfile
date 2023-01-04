@@ -128,10 +128,7 @@ RUN apt-get update && \
         liblcms2-dev \
         tcl \
         libjpeg8-dev \
-        less \
-        # For SHARP:
-        unzip \
-        libtool-bin && \
+        less && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -160,6 +157,9 @@ RUN \
 # Install Python
 ################
 ARG PYTHON_VERSION
+
+# Python 3.10 changes where packages are installed. Workaround until all packages support new format
+ENV DEB_PYTHON_INSTALL_LAYOUT=deb
 
 RUN add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
@@ -239,27 +239,6 @@ RUN if [ -n "$HPCX_VERSION" ] ; then \
         echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/bash.bashrc && \
         echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/zshenv ; \
     fi
-
-# #####################################
-# # NCCL RDMA SHARP Plugin installation
-# #####################################
-
-# ENV HPCX_SHARP_DIR=/opt/mellanox/sharp
-
-# RUN if [ -n "$MOFED_VERSION" ] ; then \
-#         mkdir -p /tmp/nccl-rdma-sharp-plugins && \
-#         wget -nv -P /tmp/nccl-rdma-sharp-plugins https://github.com/Mellanox/nccl-rdma-sharp-plugins/archive/refs/heads/master.zip && \
-#         unzip /tmp/nccl-rdma-sharp-plugins/master.zip -d /tmp/nccl-rdma-sharp-plugins && \
-#         cd /tmp/nccl-rdma-sharp-plugins/nccl-rdma-sharp-plugins-master && \
-#         ./autogen.sh && \
-#         # ./configure --with-cuda=/usr/local/cuda && \
-#         ./configure && \
-#         make && \
-#         make install && \
-#         libtool --finish /usr/local/lib && \
-#         cd / && \
-#         rm -rf /tmp/nccl-rdma-sharp-plugins ; \
-#     fi
 
 #####################
 # Install NVIDIA Apex
