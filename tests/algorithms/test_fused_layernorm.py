@@ -49,11 +49,18 @@ def assert_is_fln_instance(model):
 ])
 def test_fused_layernorm_functional(synthetic_state_family: Tuple, device: str, request: pytest.FixtureRequest):
     state, _, _ = make_synthetic_state(synthetic_state_family, request.session)
+    if device == 'gpu':
+        state.model = state.model.cuda()  # move the model to gpu
+
     apply_fused_layernorm(state.model, state.optimizers)
     assert_is_fln_instance(state.model)
 
 
 @device('gpu')
+@pytest.mark.parametrize('synthetic_state_family', [
+    'bert',
+    'simple_transformer',
+])
 def test_fused_layernorm_algorithm(synthetic_state_family: Tuple, empty_logger: Logger, device: str,
                                    request: pytest.FixtureRequest):
 
