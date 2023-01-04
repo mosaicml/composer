@@ -44,8 +44,8 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
 from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, Transform, checkpoint, dist,
-                            ensure_tuple, export_with_logger, format_name_with_dist, get_device, get_file,
-                            is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
+                            ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist, get_device,
+                            get_file, is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
                             maybe_create_remote_uploader_downloader_from_uri, model_eval_mode, parse_uri,
                             reproducibility)
 
@@ -585,6 +585,7 @@ class Trainer:
 
             Set to ``0`` to disable metrics logging to console.
         log_traces (bool): Whether to log traces or not. (default: ``False``)
+        auto_log_hparams (bool): Whether to automatically extract hyperparameters. (default: ``False``)
         load_path (str, optional):  The path format string to an existing checkpoint file.
 
             It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
@@ -882,6 +883,7 @@ class Trainer:
         console_stream: Union[str, TextIO] = 'stderr',
         console_log_interval: Union[int, str, Time] = '1ep',
         log_traces: bool = False,
+        auto_log_hparams: bool = False,
 
         # Load Checkpoint
         load_path: Optional[str] = None,
@@ -929,6 +931,7 @@ class Trainer:
         python_log_level: Optional[str] = None,
     ):
 
+        self.auto_log_hparams = auto_log_hparams
         self.python_log_level = python_log_level
         if self.python_log_level is not None:
             logging.basicConfig(
@@ -1175,6 +1178,11 @@ class Trainer:
 
         # Run Event.INIT
         self.engine.run_event(Event.INIT)
+
+        # Log hparams.
+        if self.auto_log_hparams:
+            self.local_hparams = extract_hparams(locals())
+            self.logger.log_hyperparameters(self.local_hparams)
 
         # Log gpus and nodes.
         device_name = self.state.device.__class__.__name__.lstrip('Device').lower()
