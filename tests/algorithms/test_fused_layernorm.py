@@ -47,7 +47,7 @@ def assert_is_fln_instance(model):
     'bert',
     'simple_transformer',
 ])
-def test_fused_layernorm_functional(synthetic_state_family: Tuple, request: pytest.FixtureRequest):
+def test_fused_layernorm_functional(synthetic_state_family: Tuple, device: str, request: pytest.FixtureRequest):
     state, _, _ = make_synthetic_state(synthetic_state_family, request.session)
     apply_fused_layernorm(state.model, state.optimizers)
     assert_is_fln_instance(state.model)
