@@ -37,4 +37,5 @@ jobs:
         id: tests
         run: |
           set -ex
+          cat ~/.mosaic/mcli_config
           MCLI_MODE=DEV mcli run -f hello_world.yaml
