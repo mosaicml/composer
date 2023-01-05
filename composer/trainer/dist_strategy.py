@@ -264,16 +264,11 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
 
                 # Creates a dictionary of module names should be tied together
                 tied_mod_names = collections.defaultdict(lambda: [])
-                # Creates a set of modules we should initialize
-                should_init_params = set()
+                # Creates a set of modules we should not initialize
                 should_not_init_params = set()
                 for ptr_attr_type, s in tied_pointers.items():
                     _, attr_type = ptr_attr_type
-                    if len(s) == 1:
-                        should_init_params.add(next(s.__iter__()))
-                        continue
                     first = next(s.__iter__())
-                    should_init_params.add(first)
                     for elem in s:
                         should_not_init_params.add('.'.join([elem, attr_type]))
                         tied_mod_names[(first, attr_type)].append(elem)
