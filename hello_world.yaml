@@ -10,4 +10,3 @@ integrations:
     pip_install: --user -e .[all]
 command: |
   composer_collect_env
-

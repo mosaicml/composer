@@ -1,4 +1,4 @@
-name: Test MCloud 
+name: Test MCloud
 on:
   push:
   workflow_dispatch: {}
