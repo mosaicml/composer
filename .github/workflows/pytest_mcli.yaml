@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-20.04
     timeout-minutes: 30
     env:
-      TEST_MCLOUD_API_KEY: ${{ secrets.TEST_MCLOUD_API_KEY }}
+      MOSAICML_API_KEY: ${{ secrets.TEST_MCLOUD_API_KEY }}
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v2
@@ -32,10 +32,8 @@ jobs:
           python -m pip install mosaicml-cli
           MCLI_MODE=DEV mcli init --mcloud
           MCLI_MODE=DEV mcli version
-          MCLI_MODE=DEV mcli set api-key "$TEST_MCLOUD_API_KEY" --force
       - name: Submit Run
         id: tests
         run: |
           set -ex
-          cat ~/.mosaic/mcli_config
           MCLI_MODE=DEV mcli run -f hello_world.yaml
