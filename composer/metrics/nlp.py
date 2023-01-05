@@ -91,10 +91,16 @@ class LanguageCrossEntropy(Metric):
                 either the Tensor or a Mapping type that contains the loss or model logits.
             target (~torch.Tensor): A Tensor of ground-truth values to compare against.
         """
-        assert isinstance(output, Tensor)
-        output = output.view(-1, self.vocab_size)
+        if isinstance(output, Mapping):
+            logits = output['logits']
+        elif isinstance(output, Tensor):
+            logits = output
+        else:
+            raise Exception(f'Type {type(output)} for the output is unsupported.')
+
+        logits = logits.view(-1, self.vocab_size)
         target = target.view(-1)
-        losses = self.loss_fn(output, target)
+        losses = self.loss_fn(logits, target)
 
         total_items = (target != self.ignore_index).sum()
         self.total_items += total_items  #type: ignore (third-party)
