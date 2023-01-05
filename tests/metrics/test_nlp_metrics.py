@@ -238,8 +238,8 @@ def test_language_perplexity():
         preds_subset = generated_preds[begin_idx:end_idx]
         true_subset = generated_true[begin_idx:end_idx]
 
-        ce_metric.update(preds_subset.view(-1, num_classes), true_subset.view(-1))
-        perplexity_metric.update(preds_subset.view(-1, num_classes), true_subset.view(-1))
+        ce_metric.update(preds_subset, true_subset)
+        perplexity_metric.update(preds_subset, true_subset)
 
     ce = ce_metric.compute()
     perplexity = perplexity_metric.compute()
