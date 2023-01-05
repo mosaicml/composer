@@ -7,7 +7,8 @@ import pytest
 import torch
 from torch.nn.functional import cross_entropy
 
-from composer.metrics.nlp import BinaryF1Score, HFCrossEntropy, LanguageCrossEntropy, MaskedAccuracy, Perplexity
+from composer.metrics.nlp import (BinaryF1Score, HFCrossEntropy, LanguageCrossEntropy, LanguagePerplexity,
+                                  MaskedAccuracy, Perplexity)
 
 
 @pytest.mark.parametrize('ignore_index', [-100])
@@ -167,7 +168,7 @@ def test_hf_cross_entropy_equivalence():
     assert all(torch.isclose(metric, correct_loss) for metric in [ce_tensors, ce_with_keys, ce_direct_loss])
 
 
-def test_perplexity():
+def test_hf_perplexity():
     batch_size = 1024
     sequence_length = 64
     num_classes = 10
@@ -179,6 +180,41 @@ def test_perplexity():
 
     ce_metric = HFCrossEntropy(dist_sync_on_step=False)
     perplexity_metric = Perplexity(dist_sync_on_step=False)
+
+    labels_mask = torch.rand((batch_size, sequence_length))
+    labels_mask[labels_mask > 0.8] = 1
+    labels_mask[labels_mask <= 0.8] = 0
+    labels_mask = labels_mask.bool()
+    generated_true[labels_mask] = ignore_index
+
+    num_batches = math.ceil(batch_size / minibatch_size)
+    for batch_idx in range(num_batches):
+        begin_idx = (batch_idx * minibatch_size)
+        end_idx = ((batch_idx + 1) * minibatch_size)
+        preds_subset = generated_preds[begin_idx:end_idx]
+        true_subset = generated_true[begin_idx:end_idx]
+
+        ce_metric.update(preds_subset.view(-1, num_classes), true_subset.view(-1))
+        perplexity_metric.update(preds_subset.view(-1, num_classes), true_subset.view(-1))
+
+    ce = ce_metric.compute()
+    perplexity = perplexity_metric.compute()
+
+    assert torch.equal(torch.exp(ce), perplexity)
+
+
+def test_language_perplexity():
+    batch_size = 1024
+    sequence_length = 64
+    num_classes = 10
+    ignore_index = -100
+    minibatch_size = 128
+
+    generated_preds = torch.randn((batch_size, sequence_length, num_classes))
+    generated_true = torch.randint(low=0, high=num_classes, size=(batch_size, sequence_length))
+
+    ce_metric = LanguageCrossEntropy(vocab_size=num_classes, dist_sync_on_step=False)
+    perplexity_metric = LanguagePerplexity(vocab_size=num_classes, dist_sync_on_step=False)
 
     labels_mask = torch.rand((batch_size, sequence_length))
     labels_mask[labels_mask > 0.8] = 1

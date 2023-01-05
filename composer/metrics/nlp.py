@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """A collection of common torchmetrics for NLP tasks."""
+import warnings
 from typing import Mapping, Union
 
 import torch
@@ -221,13 +222,29 @@ class HFCrossEntropy(Metric):
 
 
 class Perplexity(HFCrossEntropy):
-    """Subclasses :class:`~composer.models.nlp_metrics.HFLanguageCrossEntropyLoss` to implement perplexity.
+    """Subclasses :class:`~composer.metrics.nlp.HFCrossEntropy` to implement perplexity.
 
     If an algorithm modifies the loss function and it is no longer directly provided in the output, then this could be
     expensive because it'll compute the loss twice.
     """
 
+    def __init__(self, dist_sync_on_step=False):
+        warnings.warn(
+            DeprecationWarning(
+                "'Perplexity' is deprecated and will be removed in 0.14. Please use `LanguagePerplexity' instead."))
+
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+
     def compute(self) -> Tensor:
-        """Returns torch.exp() of the LanguageCrossEntropyLoss."""
+        """Returns torch.exp() of the HFCrossEntropy."""
+        avg_loss = super().compute()
+        return torch.exp(avg_loss)
+
+
+class LanguagePerplexity(LanguageCrossEntropy):
+    """Subclasses :class:`~composer.metrics.nlp.LanguageCrossEntropy` to implement perplexity."""
+
+    def compute(self) -> Tensor:
+        """Returns torch.exp() of the LanguageCrossEntropy."""
         avg_loss = super().compute()
         return torch.exp(avg_loss)
