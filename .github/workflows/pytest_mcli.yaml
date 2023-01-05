@@ -7,8 +7,8 @@ jobs:
   testing:
     runs-on: ubuntu-20.04
     timeout-minutes: 30
-    #env:
-    #  TEST_MCLOUD_API_KEY: ${{ secrets.TEST_MCLOUD_API_KEY }}
+    env:
+      TEST_MCLOUD_API_KEY: ${{ secrets.TEST_MCLOUD_API_KEY }}
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v2
