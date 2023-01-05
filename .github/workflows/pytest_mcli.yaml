@@ -1,0 +1,40 @@
+name: Test MCloud 
+on:
+  push:
+  workflow_dispatch: {}
+
+jobs:
+  testing:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    env:
+      TEST_MCLOUD_API_KEY: ${{ secrets.TEST_MCLOUD_API_KEY }}
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Cache pip
+        uses: actions/cache@v2
+        with:
+          # This path is specific to Ubuntu
+          path: ~/.cache/pip
+          # Look to see if there is a cache hit for the corresponding requirements file
+          key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            ${{ runner.os }}-
+      - name: Setup MCLI
+        run: |
+          set -ex
+          python -m pip install mosaicml-cli
+          MCLI_MODE=DEV mcli init --mcloud
+          MCLI_MODE=DEV mcli version
+          MCLI_MODE=DEV mcli set api-key env.TEST_MCLOUD_API_KEY --force
+      - name: Submit Run
+        id: tests
+        run: |
+          set -ex
+          MCLI_MODE=DEV mcli run -f hello_world.yaml
