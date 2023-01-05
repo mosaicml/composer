@@ -177,6 +177,11 @@ class HFCrossEntropy(Metric):
     full_state_update = False
 
     def __init__(self, dist_sync_on_step=False):
+        warnings.warn(
+            DeprecationWarning(
+                "'HFCrossEntropy' is deprecated and will be removed in 0.14. Please use `LanguageCrossEntropy' instead."
+            ))
+
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
         self.add_state('sum_loss', default=torch.tensor(0.), dist_reduce_fx='sum')
