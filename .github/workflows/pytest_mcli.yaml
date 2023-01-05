@@ -32,7 +32,7 @@ jobs:
           python -m pip install mosaicml-cli
           MCLI_MODE=DEV mcli init --mcloud
           MCLI_MODE=DEV mcli version
-          MCLI_MODE=DEV mcli set api-key $TEST_MCLOUD_API_KEY --force
+          MCLI_MODE=DEV mcli set api-key "$TEST_MCLOUD_API_KEY" --force
       - name: Submit Run
         id: tests
         run: |
