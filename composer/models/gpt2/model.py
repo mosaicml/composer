@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from composer.metrics.nlp import HFCrossEntropy, Perplexity
+from composer.metrics.nlp import LanguageCrossEntropy, LanguagePerplexity
 from composer.models.huggingface import HuggingFaceModel
 from composer.utils.import_helpers import MissingConditionalImportError
 
@@ -112,4 +112,10 @@ def create_gpt2(use_pretrained: Optional[bool] = False,
     else:
         tokenizer = None
 
-    return HuggingFaceModel(model=model, tokenizer=tokenizer, metrics=[HFCrossEntropy(), Perplexity()])
+    vocab_size = tokenizer.vocab_size if tokenizer is not None else model.config.vocab_size
+    return HuggingFaceModel(
+        model=model,
+        tokenizer=tokenizer,
+        metrics=[LanguageCrossEntropy(vocab_size=vocab_size),
+                 LanguagePerplexity(vocab_size=vocab_size)],
+        use_logits=True)
