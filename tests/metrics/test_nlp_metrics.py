@@ -64,14 +64,7 @@ def test_cross_entropy(batch_size: float, ignore_index: int, sequence_length: in
         num_classes (int): the number of classes in the classification task
         minibatch_size (int): the minibatch size to simulate for model predictions
     """
-    batch_size = 1024
-    sequence_length = 64
-    num_classes = 10
-    ignore_index = -100
-    minibatch_size = 128
     batch_size = int(batch_size)
-    from composer.utils import reproducibility
-    reproducibility.seed_all(42)
     generated_preds = torch.randn((batch_size, sequence_length, num_classes))
     generated_true = torch.randint(low=0, high=num_classes, size=(batch_size, sequence_length))
 
