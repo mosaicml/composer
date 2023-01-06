@@ -3,7 +3,7 @@
 
 """A collection of common torchmetrics for NLP tasks."""
 import warnings
-from typing import Mapping, Union
+from typing import Mapping, Optional, Union
 
 import torch
 from torch import Tensor
@@ -76,10 +76,15 @@ class LanguageCrossEntropy(Metric):
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def __init__(self, vocab_size: int, dist_sync_on_step=False, ignore_index: int = -100):
+    def __init__(self, vocab_size: Optional[int] = None, dist_sync_on_step: bool = False, ignore_index: int = -100):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
-        self.vocab_size = vocab_size
+        if vocab_size is not None:
+            warnings.warn(
+                DeprecationWarning(
+                    'The vocab_size argument is deprecated and will be removed in 0.14. It is no longer needed, because the correct shape of output and target is inferred based on the number of target elements.'
+                ))
+
         self.ignore_index = ignore_index
         self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, reduction='sum')
         self.add_state('sum_loss', default=torch.tensor(0.), dist_reduce_fx='sum')
