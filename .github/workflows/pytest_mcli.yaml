@@ -5,7 +5,7 @@ on:
       - dev
       - main
       - release/**
-  pull_request:
+  pull_request: # TODO: change this to pull_request_target
     branches:
       - dev
       - main
