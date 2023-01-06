@@ -68,10 +68,8 @@ def test_cross_entropy(batch_size: float, ignore_index: int, sequence_length: in
     generated_preds = torch.randn((batch_size, sequence_length, num_classes))
     generated_true = torch.randint(low=0, high=num_classes, size=(batch_size, sequence_length))
 
-    torchmetrics_xent = LanguageCrossEntropy(vocab_size=num_classes, dist_sync_on_step=False, ignore_index=ignore_index)
-    ce_with_keys_metric = LanguageCrossEntropy(vocab_size=num_classes,
-                                               dist_sync_on_step=False,
-                                               ignore_index=ignore_index)
+    torchmetrics_xent = LanguageCrossEntropy(dist_sync_on_step=False, ignore_index=ignore_index)
+    ce_with_keys_metric = LanguageCrossEntropy(dist_sync_on_step=False, ignore_index=ignore_index)
 
     if ignore_index is not None:
         labels_mask = torch.rand((batch_size, sequence_length))
@@ -222,8 +220,8 @@ def test_language_perplexity():
     generated_preds = torch.randn((batch_size, sequence_length, num_classes))
     generated_true = torch.randint(low=0, high=num_classes, size=(batch_size, sequence_length))
 
-    ce_metric = LanguageCrossEntropy(vocab_size=num_classes, dist_sync_on_step=False)
-    perplexity_metric = LanguagePerplexity(vocab_size=num_classes, dist_sync_on_step=False)
+    ce_metric = LanguageCrossEntropy(dist_sync_on_step=False)
+    perplexity_metric = LanguagePerplexity(dist_sync_on_step=False)
 
     labels_mask = torch.rand((batch_size, sequence_length))
     labels_mask[labels_mask > 0.8] = 1

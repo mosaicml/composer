@@ -112,10 +112,7 @@ def create_gpt2(use_pretrained: Optional[bool] = False,
     else:
         tokenizer = None
 
-    vocab_size = tokenizer.vocab_size if tokenizer is not None else model.config.vocab_size
-    return HuggingFaceModel(
-        model=model,
-        tokenizer=tokenizer,
-        metrics=[LanguageCrossEntropy(vocab_size=vocab_size),
-                 LanguagePerplexity(vocab_size=vocab_size)],
-        use_logits=True)
+    return HuggingFaceModel(model=model,
+                            tokenizer=tokenizer,
+                            metrics=[LanguageCrossEntropy(), LanguagePerplexity()],
+                            use_logits=True)

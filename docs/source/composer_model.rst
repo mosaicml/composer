@@ -228,7 +228,7 @@ and make it compatible with our trainer.
                              num_labels=2)
 
     # list of torchmetrics
-    metrics = [LanguageCrossEntropy(vocab_size=30522), Accuracy()]
+    metrics = [LanguageCrossEntropy(), Accuracy()]
 
     # composer model, ready to be passed to our trainer
     composer_model = HuggingFaceModel(model, metrics=metrics)
