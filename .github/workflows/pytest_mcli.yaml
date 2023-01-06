@@ -5,13 +5,11 @@ on:
       - dev
       - main
       - release/**
-  pull_request:
+  pull_request_target:
     branches:
       - dev
       - main
       - release/**
-  workflow_call:
-  workflow_dispatch:
 # Cancel old runs when a new commit is pushed to the same branch if not on main or dev
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -25,6 +23,8 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
