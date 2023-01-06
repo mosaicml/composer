@@ -1,7 +1,13 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 # Source code is compiled from a modified version of:
 # https://github.com/pytorch/pytorch/blob/v1.13.0/torch/nn/modules/module.py
-# This code will need to be removed when PyTorch correctly supports delayed initialization
+# Link to PyTorch License File: https://github.com/pytorch/pytorch/blob/master/LICENSE
+# TODO: This code will need to be removed when PyTorch correctly supports delayed initialization
 # with meta tensors.
+
+"""Helper function to safely call .apply for initializing meta tensors in PyTorch."""
 
 from typing import Set
 
@@ -11,6 +17,7 @@ from torch.nn.parameter import Parameter
 
 def meta_safe_apply(self, fn, ignored_modules: Set, module_name: str):
     """Applies the function recursively to a module's children and the module itself.
+
     This variant allows us to ignore modules to apply the function.
     The function is a slightly modified version of the one from PyTorch:
     https://github.com/pytorch/pytorch/blob/v1.13.0/torch/nn/modules/module.py#L637

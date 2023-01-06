@@ -89,7 +89,8 @@ class SimpleWeightTiedModel(ComposerClassifier):
 
 
 class EmbeddedWeightTiedModel(ComposerClassifier):
-    """A small classification model that consists of two
+    """A small classification model that consists of two simple MLPs,
+    and we tie weights across the simple MLPs.
     Typically this model will be used to test weight tying w/ FSDP.
 
     Args:
