@@ -1,8 +1,21 @@
 name: Test MCloud
 on:
   push:
+    branches:
+      - dev
+      - main
+      - release/**
   pull_request:
-  workflow_dispatch: {}
+    branches:
+      - dev
+      - main
+      - release/**
+  workflow_call:
+  workflow_dispatch:
+# Cancel old runs when a new commit is pushed to the same branch if not on main or dev
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
   testing:
     runs-on: ubuntu-20.04
@@ -36,4 +49,4 @@ jobs:
         id: tests
         run: |
           set -ex
-          mcli run -f hello_world.yaml
+          mcli run -f .github/mcli_yamls/hello_world.yaml
