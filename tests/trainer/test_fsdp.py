@@ -3,6 +3,7 @@
 
 import pytest
 import torch
+from packaging import version
 from torch.utils.data import DataLoader
 
 from composer.models import ComposerClassifier
@@ -14,6 +15,9 @@ from tests.common import EmbeddedWeightTiedModel, RandomClassificationDataset, S
 @pytest.mark.parametrize('model', [SimpleWeightTiedModel, EmbeddedWeightTiedModel])
 @pytest.mark.parametrize('device', ['cpu', 'meta'])
 @pytest.mark.filterwarnings('ignore::UserWarning')
+@pytest.mark.gpu
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                    reason='requires PyTorch 1.13 or higher')
 def test_fsdp_device_initialization(model: ComposerClassifier, device: str):
     """test FSDP device initialization for a simple model with weight tying and a model where two modules
     from separate submodules have weight tying applied. This test also covers both 'cpu' and
