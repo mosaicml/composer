@@ -24,6 +24,8 @@ def extract_hparams(locals_dict: Dict[str, Any]) -> Dict[str, Any]:
         locals_dict.pop('self')
 
     for k, v in locals_dict.items():
+        if k.startswith('_'):
+            continue
         hparams_to_add = _grab_hparams(v)
         hparams[k] = hparams_to_add
     return hparams

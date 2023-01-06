@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 
 from composer.algorithms import EMA
 from composer.callbacks import SpeedMonitor
-from composer.loggers import MLFlowLogger
+from composer.loggers import InMemoryLogger
 from composer.trainer import Trainer
 from composer.utils import convert_flat_dict_to_nested_dict, convert_nested_dict_to_flat_dict, extract_hparams
 from tests.common.datasets import RandomClassificationDataset
@@ -41,7 +41,7 @@ def test_extract_hparams():
         def __init__(self):
             self.local_hparams = {'m': 11}
 
-    locals_dict = {'a': 1.5, 'b': {'c': 2.5, 'd': 3}, 'e': [4, 5, 6.2], 'f': Foo(), 'p': Bar()}
+    locals_dict = {'a': 1.5, 'b': {'c': 2.5, 'd': 3}, 'e': [4, 5, 6.2], 'f': Foo(), 'p': Bar(), '_g': 7}
 
     expected_parsed_dict = {
         'a': 1.5,
@@ -76,7 +76,7 @@ def test_extract_hparams_trainer():
         run_name='test',
         seed=3,
         algorithms=[EMA()],
-        loggers=[MLFlowLogger()],
+        loggers=[InMemoryLogger()],
         callbacks=[SpeedMonitor()],
     )
 
@@ -110,7 +110,7 @@ def test_extract_hparams_trainer():
 
         # Callbacks and Logging
         'callbacks': ['SpeedMonitor'],
-        'loggers': ['MLFlowLogger'],
+        'loggers': ['InMemoryLogger'],
         'run_name': 'test',
         'progress_bar': False,
         'log_to_console': False,
