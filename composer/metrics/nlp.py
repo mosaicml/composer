@@ -100,8 +100,8 @@ class LanguageCrossEntropy(Metric):
         else:
             raise Exception(f'Type {type(output)} for the output is unsupported.')
 
-        logits = logits.view(-1, self.vocab_size)
         target = target.view(-1)
+        logits = logits.view(target.shape[0], -1)
         losses = self.loss_fn(logits, target)
 
         total_items = (target != self.ignore_index).sum()
