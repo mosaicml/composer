@@ -41,7 +41,19 @@ def test_extract_hparams():
         def __init__(self):
             self.local_hparams = {'m': 11}
 
-    locals_dict = {'a': 1.5, 'b': {'c': 2.5, 'd': 3}, 'e': [4, 5, 6.2], 'f': Foo(), 'p': Bar(), '_g': 7}
+    locals_dict = {
+        'a': 1.5,
+        'b': {
+            'c': 2.5,
+            'd': 3
+        },
+        'e': [4, 5, 6.2],
+        'f': Foo(),
+        'p': Bar(),
+        '_g': 7,
+        'h': None,
+        'i': True
+    }
 
     expected_parsed_dict = {
         'a': 1.5,
@@ -56,6 +68,8 @@ def test_extract_hparams():
                 'm': 11,
             }
         },
+        'h': None,
+        'i': True,
     }
 
     parsed_dict = extract_hparams(locals_dict)
