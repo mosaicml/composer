@@ -4,6 +4,8 @@
 """Helper utilities."""
 import warnings
 
+from composer.utils.auto_log_hparams import (convert_flat_dict_to_nested_dict, convert_nested_dict_to_flat_dict,
+                                             extract_hparams)
 from composer.utils.batch_helpers import batch_get, batch_set
 from composer.utils.checkpoint import PartialFilePath, load_checkpoint, save_checkpoint
 from composer.utils.collect_env import (configure_excepthook, disable_env_report, enable_env_report,
@@ -82,4 +84,7 @@ __all__ = [
     'ExportFormat',
     'Transform',
     'export_with_logger',
+    'extract_hparams',
+    'convert_nested_dict_to_flat_dict',
+    'convert_flat_dict_to_nested_dict',
 ]
