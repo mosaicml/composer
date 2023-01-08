@@ -134,7 +134,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 ###############################
-# Install latest verison of git
+# Install latest version of git
 ###############################
 RUN add-apt-repository ppa:git-core/ppa && \
     apt-get install -y --no-install-recommends \
@@ -267,7 +267,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
 ###########################
 # Install Pandoc Dependency
 ###########################
-# Pandoc is needed for the documentation buid and is a nuisance to install via pip so just installing via dpkg
+# Pandoc is needed for the documentation build and is a nuisance to install via pip so just installing via dpkg
 RUN wget https://github.com/jgm/pandoc/releases/download/2.19.2/pandoc-2.19.2-1-amd64.deb && \
     dpkg -i pandoc-2.19.2-1-amd64.deb && \
     rm pandoc-2.19.2-1-amd64.deb
