@@ -37,11 +37,21 @@ def test_lm_task_evaluation(device, dataset_uri, tiny_gpt2_tokenizer):
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
-    dl = get_lm_task_dataloader(dataset_uri, tokenizer, 2, max_seq_len=2048, eos_tok_id=tokenizer.eos_token_id)
+    dl = get_lm_task_dataloader(
+        dataset_uri,
+        tokenizer,
+        2,
+        max_seq_len=2048,
+        eos_tok_id=tokenizer.eos_token_id,
+        num_fewshot=num_fewshot,
+        preamble_string="",
+        example_delimiter='\n',
+        continuation_delimiter=""
+    )
     evaluator = Evaluator(label='lambada', dataloader=dl, metric_names=['InContextLearningLMAccuracy'])
     model = create_gpt2(use_pretrained=False, pretrained_model_name='EleutherAI/gpt-neo-125M')
     model.add_eval_metrics(evaluator)
     trainer = Trainer(model=model, max_duration='1ep', loggers=in_memory_logger)
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
     assert 'metrics/lambada/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
-    assert in_memory_logger.data['metrics/lambada/InContextLearningLMAccuracy'][0][1].item() == 0
+    assert in_memory_logger.data['metrics/lambada/InContextLearningLMAccuracy'][0][1].item() >= 0.125
