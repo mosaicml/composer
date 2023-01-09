@@ -69,13 +69,13 @@ class InContextLearningLMTaskDataset(Dataset):
                 )[-(self.max_seq_len + 1):],  # trim from the left if context + continuation are larger than max_seq_len
                 dtype=torch.long,
             )
-            (inplen,) = inp.shape
+            (inp_len,) = inp.shape
 
             # pad length from seq to padding_length
             inp = torch.cat(
                 [
                     inp,  # [seq]
-                    torch.LongTensor((self.max_seq_len - inplen) * [self.eos_tok_id]),
+                    torch.LongTensor((self.max_seq_len - inp_len) * [self.eos_tok_id]),
                 ],
                 dim=0,
             )

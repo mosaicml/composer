@@ -14,7 +14,7 @@ from composer.trainer import Trainer
 from tests.common import device, world_size
 
 
-@pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonz'])
+@pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
 def test_lm_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
@@ -30,7 +30,7 @@ def test_lm_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
     assert 'mode' in next(dl.dataloader._get_iterator())
 
 
-@pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonz'])
+@pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
 @world_size(1, 2)
 @device('cpu', 'gpu')
 def test_lm_task_evaluation(device, world_size, dataset_uri, tiny_gpt2_tokenizer):
