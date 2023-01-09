@@ -507,3 +507,9 @@ class Engine():
                     log.error(f'Error running {callback.__class__.__name__}.post_close().', exc_info=e, stack_info=True)
                 else:
                     _OPEN_CALLBACKS.discard(callback)
+
+        # Try to shut down any persistent workers
+        try:
+            state.train_dataloader._iterator._shutdown_workers()  # type: ignore [reportGeneralTypeIssues]
+        except:
+            pass
