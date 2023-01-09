@@ -98,7 +98,7 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.0',
     'junitparser==2.8.0',
-    'coverage[toml]==7.0.1',
+    'coverage[toml]==7.0.4',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.2.0',
     'toml==0.10.2',
