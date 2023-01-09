@@ -107,8 +107,20 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     model_max_length_2 = tokenizer2.init_kwargs.get('model_max_length', None)
     if model_max_length_1 is not None and model_max_length_2 is not None:
         assert model_max_length_1 == model_max_length_2
+
     tokenizer1.__dict__['init_kwargs'].pop('model_max_length', None)
     tokenizer2.__dict__['init_kwargs'].pop('model_max_length', None)
+
+    # tokenizer.init_kwargs['tokenizer_file'] is unset when the tokenizer does not specify it, but is set to
+    # None when you save and reload, so here we just check that its the same if it is present in both tokenizers.
+    tokenizer_file_1 = tokenizer1.init_kwargs.get('tokenizer_file', None)
+    tokenizer_file_2 = tokenizer2.init_kwargs.get('tokenizer_file', None)
+    if tokenizer_file_1 is not None or tokenizer_file_2 is not None:
+        assert tokenizer_file_1 == tokenizer_file_2
+
+    tokenizer1.__dict__['init_kwargs'].pop('tokenizer_file', None)
+    tokenizer2.__dict__['init_kwargs'].pop('tokenizer_file', None)
+
     assert tokenizer1.__dict__ == tokenizer2.__dict__
 
 

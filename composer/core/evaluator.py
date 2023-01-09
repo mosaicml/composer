@@ -123,7 +123,7 @@ class Evaluator:
             By default, if left blank, then all metrics returned by ``model.get_metrics()`` will be used.
         subset_num_batches (int, optional): The maximum number of batches to use for each evaluation. Defaults to ``None``,
             which means that the ``eval_subset_num_batches`` parameter from the :class:`.Trainer` will be used.
-            Set to ``-1`` to evaluate the entire ``dataloader``
+            Set to ``-1`` to evaluate the entire ``dataloader``.
         eval_interval (Time | int | str | (State, Event) -> bool, optional): An integer,
             which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time` object, or a callable.
             Defaults to ``None``, which means that the ``eval_interval`` parameter from the :class:`.Trainer` will be used.

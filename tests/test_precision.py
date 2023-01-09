@@ -17,14 +17,14 @@ def get_trainer(precision: Precision) -> Trainer:
     return Trainer(
         model=composer_resnet_cifar('resnet_9'),
         train_dataloader=DataLoader(
-            dataset=RandomImageDataset(size=128),
-            batch_size=64,
+            dataset=RandomImageDataset(size=1024),
+            batch_size=512,
             persistent_workers=False,
             num_workers=0,
         ),
         eval_dataloader=DataLoader(
-            dataset=RandomImageDataset(size=128),
-            batch_size=64,
+            dataset=RandomImageDataset(size=1024),
+            batch_size=512,
             persistent_workers=False,
             num_workers=0,
         ),
@@ -70,7 +70,7 @@ def predict_and_measure_memory(precision) -> int:
 def test_train_precision_memory(precision: Precision):
     memory_fp32 = fit_and_measure_memory(Precision.FP32)
     memory_half = fit_and_measure_memory(precision)
-    assert memory_half < 0.75 * memory_fp32
+    assert memory_half < 0.7 * memory_fp32
 
 
 @pytest.mark.gpu
@@ -78,7 +78,7 @@ def test_train_precision_memory(precision: Precision):
 def test_eval_precision_memory(precision: Precision):
     memory_fp32 = eval_and_measure_memory(Precision.FP32)
     memory_half = eval_and_measure_memory(precision)
-    assert memory_half < 0.97 * memory_fp32
+    assert memory_half < 0.95 * memory_fp32
 
 
 @pytest.mark.gpu
@@ -86,4 +86,4 @@ def test_eval_precision_memory(precision: Precision):
 def test_predict_precision_memory(precision: Precision):
     memory_fp32 = predict_and_measure_memory(Precision.FP32)
     memory_half = predict_and_measure_memory(precision)
-    assert memory_half < 0.97 * memory_fp32
+    assert memory_half < 0.95 * memory_fp32
