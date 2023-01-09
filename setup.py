@@ -98,11 +98,11 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.0',
     'junitparser==2.8.0',
-    'coverage[toml]==7.0.1',
+    'coverage[toml]==7.0.4',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.2.0',
     'toml==0.10.2',
-    'ipython==7.32.0',
+    'ipython==8.8.0',
     'ipykernel==6.19.2',
     'jupyter==1.0.0',
     'yamllint==1.28.0',
@@ -114,7 +114,7 @@ extra_deps['dev'] = [
     'docutils==0.17.1',
     'sphinx_markdown_tables==0.0.17',
     'sphinx-argparse==0.4.0',
-    'sphinxcontrib.katex==0.9.3',
+    'sphinxcontrib.katex==0.9.4',
     'sphinxext.opengraph==0.7.4',
     'sphinxemoji==0.2.0',
     'furo==2022.9.29',
@@ -153,7 +153,7 @@ extra_deps['tensorboard'] = [
 ]
 
 extra_deps['unet'] = [
-    'monai>=0.9.1,<0.10',
+    'monai>=0.9.1,<1.2',
     'scikit-learn>=1.0.1,<2',
 ]
 
