@@ -73,6 +73,8 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
         cell_source = cell_source.replace(
             'sst2_dataset = datasets.load_dataset("glue", "sst2")',
             'sst2_dataset = datasets.load_dataset("glue", "sst2", download_mode="force_redownload")')
+    if notebook_name == 'pretrain_finetine_huggingface':
+        cell_source = cell_source.replace('batch_size=64', 'batch_size=2')
     return cell_source
 
 
@@ -90,8 +92,6 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
         pytest.skip('The CI does not support tpus')
     if notebook_name == 'ffcv_dataloaders' and device == 'cpu':
         pytest.skip('The FFCV notebook requires CUDA')
-    # if notebook_name != 'pretrain_finetune_huggingface':
-    #     pytest.skip('TODO: DELETE THIS SKIP!!')
     with testbook.testbook(notebook) as tb:
         tb.inject(trainer_monkeypatch_code)
         tb.inject('patch_notebooks()')
