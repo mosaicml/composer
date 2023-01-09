@@ -1,4 +1,4 @@
-name: Pytest-Nightly
+name: Pytest-Daily
 on:
   push:
     branches:
@@ -23,32 +23,50 @@ jobs:
     strategy:
       matrix:
         include:
-          # - name: 'cpu-3.8-1.11'
-          #   container: mosaicml/pytorch:1.11.0_cpu-python3.8-ubuntu20.04
-          #   markers: 'not gpu and not vision'
-          #   pytest_command: 'coverage run -m pytest'
-          # - name: 'cpu-3.9-1.12'
-          #   container: mosaicml/pytorch:1.12.1_cpu-python3.9-ubuntu20.04
-          #   markers: 'not gpu and not vision'
-          #   pytest_command: 'coverage run -m pytest'
-          # - name: 'cpu-3.10-1.13'
-          #   container: mosaicml/pytorch:1.13.0_cpu-python3.10-ubuntu20.04
-          #   markers: 'not gpu and not vision'
-          #   pytest_command: 'coverage run -m pytest'
-          # - name: 'cpu-vision'
-          #   container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
-          #   markers: 'not gpu and vision'
-          #   pytest_command: 'coverage run -m pytest'
-          - name: 'cpu-debug'
-            container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
-            markers: 'not gpu and not vision and daily and not doctest and not remote'
+          - name: 'cpu-3.8-1.11'
+            container: mosaicml/pytorch:1.11.0_cpu-python3.8-ubuntu20.04
+            markers: 'not daily and not remote and not gpu and not vision and not doctest'
             pytest_command: 'coverage run -m pytest'
+          - name: 'cpu-3.9-1.12'
+            container: mosaicml/pytorch:1.12.1_cpu-python3.9-ubuntu20.04
+            markers: 'not daily and not remote and not gpu and not vision and not doctest'
+            pytest_command: 'coverage run -m pytest'
+          - name: 'cpu-3.10-1.13'
+            container: mosaicml/pytorch:1.13.0_cpu-python3.10-ubuntu20.04
+            markers: 'not daily and not remote and not gpu and not vision and not doctest'
+            pytest_command: 'coverage run -m pytest'
+          - name: 'cpu-vision'
+            container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
+            markers: 'not daily and not remote and not gpu and vision and not doctest'
+            pytest_command: 'coverage run -m pytest'
+          - name: 'cpu-doctest'
+            container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
+            markers: 'not daily and not remote and not gpu and not vision and doctest'
+            pytest_command: 'coverage run -m pytest tests/test_docs.py'
+          - name: 'daily-cpu-3.8-1.11'
+            container: mosaicml/pytorch:1.11.0_cpu-python3.8-ubuntu20.04
+            markers: 'daily and not remote and not gpu and not vision and not doctest'
+            pytest_command: 'coverage run -m pytest'
+          - name: 'daily-cpu-3.9-1.12'
+            container: mosaicml/pytorch:1.12.1_cpu-python3.9-ubuntu20.04
+            markers: 'daily and not remote and not gpu and not vision and not doctest'
+            pytest_command: 'coverage run -m pytest'
+          - name: 'daily-cpu-3.10-1.13'
+            container: mosaicml/pytorch:1.13.0_cpu-python3.10-ubuntu20.04
+            markers: 'daily and not remote and not gpu and not vision and not doctest'
+            pytest_command: 'coverage run -m pytest'
+          - name: 'daily-cpu-vision'
+            container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
+            markers: 'daily and not remote and not gpu and vision and not doctest'
+            pytest_command: 'coverage run -m pytest'
+          - name: 'daily-cpu-doctest'
+            container: mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
+            markers: 'daily and not remote and not gpu and not vision and doctest'
+            pytest_command: 'coverage run -m pytest tests/test_docs.py'
     name: ${{ matrix.name }}
     container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
       - name: Setup
         run: |
           set -ex
@@ -77,7 +95,7 @@ jobs:
           python -m coverage combine
       - uses: actions/upload-artifact@v3
         with:
-          name: coverage-${{ github.sha }}
+          name: coverage-${{ github.sha }}-${{ matrix.name }}
           path: .coverage
   coverage:
     needs: [ pytest ]
@@ -90,7 +108,7 @@ jobs:
         run: |
           set -ex
           python -m pip install --upgrade pip wheel
-          python -m pip install -e .[all]
+          pip install coverage[toml]==6.5.0
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
