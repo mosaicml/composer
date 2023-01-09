@@ -287,7 +287,7 @@ class HuggingFaceModel(ComposerModel):
 
     def eval_forward(self, batch, outputs: Optional[Any] = None):
         output = outputs if outputs else self.forward(batch)
-        if self.use_logits or batch.get('mode', None) == 'lm_task':
+        if self.use_logits or batch.get('mode', None) == 'icl_task':
             self.labels = batch.pop('labels')
             return batch['eval_forward_handle'](self, batch)
         else:
