@@ -15,17 +15,20 @@ from tests.common import device, world_size
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonz', 'hellaswag_small.jsonz'])
-def test_get_mc_task_dataloader(dataset_uri):
+@world_size(1, 2)
+@device('gpu', 'cpu')
+@pytest.mark.parametrize('num_fewshot', [0, 1, 5])
+def test_get_mc_task_dataloader(world_size, device, num_fewshot, dataset_uri, tiny_gpt2_tokenizer):
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
-    tokenizer = transformers.AutoTokenizer.from_pretrained('gpt2')
+    tokenizer = tiny_gpt2_tokenizer
     dl = get_mc_task_dataloader(dataset_uri,
                                 tokenizer,
                                 8,
                                 max_seq_len=2048,
                                 eos_tok_id=tokenizer.eos_token_id,
-                                num_fewshot=2,
+                                num_fewshot=num_fewshot,
                                 preamble_string='',
                                 example_delimiter='\n',
                                 continuation_delimiter=': ')
