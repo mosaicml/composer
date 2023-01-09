@@ -75,7 +75,7 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
             'sst2_dataset = datasets.load_dataset("glue", "sst2")',
             'sst2_dataset = datasets.load_dataset("glue", "sst2", download_mode="force_redownload")')
         cell_source = cell_source.replace('batch_size=16', 'batch_size=2')
-    if notebook_name == 'pretrain_finetine_huggingface':
+    if notebook_name == 'pretrain_finetune_huggingface':
         cell_source = cell_source.replace('batch_size=64', 'batch_size=1')
         cell_source = cell_source.replace('batch_size=32', 'batch_size=1')
     if notebook_name == 'early_stopping':
