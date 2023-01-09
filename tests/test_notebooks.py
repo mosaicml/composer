@@ -67,6 +67,7 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
         # avoid div by 0 errors with batch size of 1
         cell_source = cell_source.replace('max_epochs = 5', 'max_epochs = 1')
         cell_source = cell_source.replace('acc_percent = 100 * num_right / eval_size', 'acc_percent = 1')
+        cell_source = cell_source.replace('batch_size = 1024', 'batch_size = 64')
     if notebook_name == 'custom_speedup_methods':
         cell_source = cell_source.replace('resnet_56', 'resnet_9')
         cell_source = cell_source.replace('batch_size=1024', 'batch_size=64')
