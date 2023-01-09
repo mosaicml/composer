@@ -4,6 +4,7 @@
 import os
 
 import pytest
+from torch.utils.data import DataLoader
 
 from composer.core import Evaluator
 from composer.datasets.in_context_learning_evaluation import get_lm_task_dataloader
@@ -21,6 +22,7 @@ def test_lm_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
     dataset_uri = f'{local_data}/{dataset_uri}'
     dl = get_lm_task_dataloader(dataset_uri, tokenizer, 2, max_seq_len=2048, eos_tok_id=tokenizer.eos_token_id)
 
+    assert isinstance(dl.dataloader, DataLoader)  # pyright
     assert 'input_ids' in next(dl.dataloader._get_iterator())
     assert 'attention_mask' in next(dl.dataloader._get_iterator())
     assert 'continuation_indices' in next(dl.dataloader._get_iterator())
