@@ -34,8 +34,8 @@ To install composer, once inside the image, run `pip install mosaicml`.
 <!-- BEGIN_PYTORCH_BUILD_MATRIX -->
 | Linux Distro   | Flavor   | PyTorch Version   | CUDA Version   | Python Version   | Docker Tags                                                                         |
 |----------------|----------|-------------------|----------------|------------------|-------------------------------------------------------------------------------------|
-| Ubuntu 20.04   | Base     | 1.13.0            | 11.7.1         | 3.10             | `mosaicml/pytorch:latest`, `mosaicml/pytorch:1.13.0_cu117-python3.10-ubuntu20.04`   |
-| Ubuntu 20.04   | Base     | 1.13.0            | cpu            | 3.10             | `mosaicml/pytorch:latest_cpu`, `mosaicml/pytorch:1.13.0_cpu-python3.10-ubuntu20.04` |
+| Ubuntu 20.04   | Base     | 1.13.1            | 11.7.1         | 3.10             | `mosaicml/pytorch:latest`, `mosaicml/pytorch:1.13.1_cu117-python3.10-ubuntu20.04`   |
+| Ubuntu 20.04   | Base     | 1.13.1            | cpu            | 3.10             | `mosaicml/pytorch:latest_cpu`, `mosaicml/pytorch:1.13.1_cpu-python3.10-ubuntu20.04` |
 | Ubuntu 20.04   | Base     | 1.12.1            | 11.6.2         | 3.9              | `mosaicml/pytorch:1.12.1_cu116-python3.9-ubuntu20.04`                               |
 | Ubuntu 20.04   | Base     | 1.12.1            | cpu            | 3.9              | `mosaicml/pytorch:1.12.1_cpu-python3.9-ubuntu20.04`                                 |
 | Ubuntu 20.04   | Base     | 1.11.0            | 11.5.2         | 3.8              | `mosaicml/pytorch:1.11.0_cu115-python3.8-ubuntu20.04`                               |
