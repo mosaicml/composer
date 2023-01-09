@@ -49,7 +49,7 @@ def test_lm_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
                                  tokenizer,
                                  batch_size,
                                  max_seq_len=seqlen,
-                                 eos_tok_id=tokenizer.eos_token_id,
+                                 pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=1,
                                  prompt_string='',
                                  example_delimiter='\n',
@@ -81,7 +81,7 @@ def test_mc_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
                                  tokenizer,
                                  batch_size,
                                  max_seq_len=seqlen,
-                                 eos_tok_id=tokenizer.eos_token_id,
+                                 pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=1,
                                  prompt_string='',
                                  example_delimiter='\n',
@@ -108,7 +108,7 @@ def test_mc_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
 
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 5])
-@device('gpu')
+@device('gpu', 'cpu')
 def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenizer):
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -119,7 +119,7 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
                                  tokenizer,
                                  2,
                                  max_seq_len=2048,
-                                 eos_tok_id=tokenizer.eos_token_id,
+                                 pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=num_fewshot,
                                  prompt_string='',
                                  example_delimiter='\n',
@@ -134,7 +134,7 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl', 'hellaswag_small.jsonl'])
-@device('gpu')
+@device('gpu', 'cpu')
 @pytest.mark.parametrize('num_fewshot', [0, 5])
 def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenizer):
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
@@ -146,7 +146,7 @@ def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenize
                                  tokenizer,
                                  8,
                                  max_seq_len=2048,
-                                 eos_tok_id=tokenizer.eos_token_id,
+                                 pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=num_fewshot,
                                  prompt_string='',
                                  example_delimiter='\n',
