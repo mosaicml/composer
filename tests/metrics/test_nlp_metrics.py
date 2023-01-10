@@ -7,7 +7,8 @@ import pytest
 import torch
 from torch.nn.functional import cross_entropy
 
-from composer.metrics.nlp import BinaryF1Score, HFCrossEntropy, LanguageCrossEntropy, MaskedAccuracy, Perplexity
+from composer.metrics.nlp import (BinaryF1Score, HFCrossEntropy, InContextLearningLMAccuracy, LanguageCrossEntropy,
+                                  MaskedAccuracy, Perplexity)
 
 
 @pytest.mark.parametrize('ignore_index', [-100])
@@ -200,3 +201,28 @@ def test_perplexity():
     perplexity = perplexity_metric.compute()
 
     assert torch.equal(torch.exp(ce), perplexity)
+
+
+def test_in_context_learning_lm_accuracy(tiny_gpt2_tokenizer):
+    contexts = ['The dog is', 'I love to eat', 'I hate', 'The weather is']
+    continuations = [' furry', ' pie', ' long lines', ' snowy']
+    pad = tiny_gpt2_tokenizer.pad_token_id
+    inputs = [
+        tiny_gpt2_tokenizer(context)['input_ids'] + tiny_gpt2_tokenizer(continuation)['input_ids']
+        for context, continuation in zip(contexts, continuations)
+    ]
+    inputs = torch.tensor([input + [pad] * (2048 - len(input)) for input in inputs])
+
+    cont_idxs = []
+    for context, continuation in zip(contexts, continuations):
+        start = len(tiny_gpt2_tokenizer(context)['input_ids'])
+        end = start + len(tiny_gpt2_tokenizer(continuation)['input_ids'])
+        cont_idxs.append(torch.tensor(list(range(start, end))))
+
+    batch = {'continuation_indices': cont_idxs, 'labels': inputs, 'input_ids': inputs}
+    logits = torch.nn.functional.one_hot(torch.roll(inputs, shifts=-1), num_classes=pad + 1)
+    logits[2] = logits[1].clone()  # make one of the answers incorrect
+    metric = InContextLearningLMAccuracy()
+    metric.update(batch, logits, batch['labels'])
+
+    assert metric.compute() == 0.75
