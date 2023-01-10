@@ -570,8 +570,8 @@ class Trainer:
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
         run_name (str, optional): A name for this training run. If not specified, the timestamp will be combined with a
             :doc:`coolname <coolname:index>`, e.g. ``1654298855-electric-zebra``.
-        progress_bar (bool): Whether to show a progress bar. (default: ``True``)
-        log_to_console (bool): Whether to print logging statements to the console. (default: ``False``)
+        console_log_mode (str, optional): which console logging mode to use. Options are ``'text'`` or ``'progress_bar'``.
+            (default: ``'progress_bar'``). Set to None if no logging to console desired.
         console_stream (TextIO | str, optional): The stream to write to. If a string, it can either be
             ``'stdout'`` or ``'stderr'``. (default: :attr:`sys.stderr`)
         console_log_interval (int | str | Time, optional): Specifies how frequently to log metrics to console.
@@ -878,8 +878,7 @@ class Trainer:
         callbacks: Optional[Union[Callback, Sequence[Callback]]] = None,
         loggers: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
         run_name: Optional[str] = None,
-        progress_bar: bool = True,
-        log_to_console: bool = False,
+        console_log_mode: Optional[str] = 'progress_bar',
         console_stream: Union[str, TextIO] = 'stderr',
         console_log_interval: Union[int, str, Time] = '1ep',
         log_traces: bool = False,
@@ -1081,33 +1080,27 @@ class Trainer:
         # Console Logging
         loggers = list(ensure_tuple(loggers))
 
-        if progress_bar and log_to_console:
-            warnings.warn(
-                'Setting both `progress_bar` and `log_to_console` both to True is not recommended and will'
-                'lead to duplicate logs and weird formatting issues. Please set one of them to False for a better logging experience.'
-            )
-
         if any(isinstance(x, ProgressBarLogger) for x in loggers):
             warnings.warn(
                 DeprecationWarning(
                     (f'Specifying the {ProgressBarLogger.__name__} via `loggers` is deprecated. Instead, '
-                     'please specify `progress_bar`, `console_stream` and `log_traces` arguments when '
+                     'please specify `console_log_mode='progress_bar'` arguments when '
                      'constructing the trainer. If specified, these arguments will be ignored, as the '
                      f'{ProgressBarLogger.__name__} was already created.')))
         else:
-            if progress_bar:
+            if console_log_mode == 'progress_bar':
                 loggers.append(ProgressBarLogger(stream=console_stream, log_traces=log_traces))
 
         # Console Logging
         if any(isinstance(x, ConsoleLogger) for x in loggers):
             warnings.warn(
-                DeprecationWarning((
+                DeprecationWarning(
                     f'Specifying the {ConsoleLogger.__name__} via `loggers` is deprecated. Instead, '
-                    'please specify `log_to_console`, `console_stream`, `console_log_interval`, and `log_traces` arguments when '
+                    'please specify the `console_log_mode="text"` arguments when '
                     'constructing the trainer. If specified, these arguments will be ignored, as the '
-                    f'{ConsoleLogger.__name__} was already created.')))
+                    f'{ConsoleLogger.__name__} was already created.'))
         else:
-            if log_to_console:
+            if console_log_mode == 'text':
                 loggers.append(
                     ConsoleLogger(stream=console_stream, log_interval=console_log_interval, log_traces=log_traces))
 
