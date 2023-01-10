@@ -9,7 +9,7 @@ Composer generally follows Google's
 
 Composer uses [Pre Commit](https://pre-commit.com/) to enforce style checks. To configure, run
 ```
-pip install '.[dev]'  # if not already installed
+pip install '.[all]'  # if not already installed
 pre-commit install
 ```
 
