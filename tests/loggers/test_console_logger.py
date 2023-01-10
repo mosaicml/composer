@@ -38,8 +38,7 @@ def test_console_logger_interval(console_logger_test_stream, console_logger_test
     trainer = Trainer(model=model,
                       console_stream=console_logger_test_stream,
                       console_log_interval=f'{log_interval}{log_interval_unit}',
-                      log_to_console=True,
-                      progress_bar=False,
+                      console_log_mode='text',
                       train_dataloader=DataLoader(RandomClassificationDataset(size=dataset_size),
                                                   batch_size=batch_size),
                       max_duration=f'{max_duration}{max_duration_unit}')
@@ -90,8 +89,7 @@ def test_console_logger_interval_with_eval(console_logger_test_stream, console_l
     trainer = Trainer(model=model,
                       console_stream=console_logger_test_stream,
                       eval_interval=f'{eval_interval}{eval_interval_unit}',
-                      log_to_console=True,
-                      progress_bar=False,
+                      console_log_mode='text',
                       train_dataloader=DataLoader(RandomClassificationDataset(size=dataset_size),
                                                   batch_size=batch_size),
                       eval_dataloader=DataLoader(RandomClassificationDataset(size=dataset_size), batch_size=batch_size),
@@ -129,12 +127,3 @@ def test_console_logger_interval_with_eval(console_logger_test_stream, console_l
     expected_num_eval_lines = expected_num_eval_logging_events * num_eval_metrics_and_losses_per_logging_event
 
     assert actual_num_eval_log_lines == expected_num_eval_lines
-
-
-def test_log_to_console_and_progress_bar_warning():
-    with pytest.warns(Warning):
-        Trainer(model=SimpleModel(),
-                log_to_console=True,
-                progress_bar=True,
-                train_dataloader=DataLoader(RandomClassificationDataset()),
-                max_duration=f'2ep')

@@ -1082,11 +1082,10 @@ class Trainer:
 
         if any(isinstance(x, ProgressBarLogger) for x in loggers):
             warnings.warn(
-                DeprecationWarning(
-                    (f'Specifying the {ProgressBarLogger.__name__} via `loggers` is deprecated. Instead, '
-                     'please specify `console_log_mode='progress_bar'` arguments when '
-                     'constructing the trainer. If specified, these arguments will be ignored, as the '
-                     f'{ProgressBarLogger.__name__} was already created.')))
+                DeprecationWarning(f'Specifying the {ProgressBarLogger.__name__} via `loggers` is deprecated. Instead, '
+                                   'please specify `console_log_mode="progress_bar"` arguments when '
+                                   'constructing the trainer. If specified, these arguments will be ignored, as the '
+                                   f'{ProgressBarLogger.__name__} was already created.'))
         else:
             if console_log_mode == 'progress_bar':
                 loggers.append(ProgressBarLogger(stream=console_stream, log_traces=log_traces))
@@ -1094,11 +1093,10 @@ class Trainer:
         # Console Logging
         if any(isinstance(x, ConsoleLogger) for x in loggers):
             warnings.warn(
-                DeprecationWarning(
-                    f'Specifying the {ConsoleLogger.__name__} via `loggers` is deprecated. Instead, '
-                    'please specify the `console_log_mode="text"` arguments when '
-                    'constructing the trainer. If specified, these arguments will be ignored, as the '
-                    f'{ConsoleLogger.__name__} was already created.'))
+                DeprecationWarning(f'Specifying the {ConsoleLogger.__name__} via `loggers` is deprecated. Instead, '
+                                   'please specify the `console_log_mode="text"` arguments when '
+                                   'constructing the trainer. If specified, these arguments will be ignored, as the '
+                                   f'{ConsoleLogger.__name__} was already created.'))
         else:
             if console_log_mode == 'text':
                 loggers.append(

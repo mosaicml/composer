@@ -56,7 +56,7 @@ def test_progress_bar_logger(max_duration: Time[int], monkeypatch: MonkeyPatch, 
         model=model,
         max_duration=max_duration,
         eval_interval=eval_interval,
-        progress_bar=True,
+        console_log_mode='progress_bar',
         train_dataloader=torch.utils.data.DataLoader(
             train_dataset,
             batch_size=batch_size,

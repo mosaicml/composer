@@ -16,8 +16,7 @@ arguments in :class:`.Trainer`, like the following code, which will log metrics 
         model=model,
         train_dataloader=train_dataloader,
         eval_dataloader=eval_dataloader,
-        log_to_console=True,
-        progress_bar=False,
+        console_log_mode='text',
         console_log_interval='100ba'
     )
 
