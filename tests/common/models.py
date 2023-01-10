@@ -2,14 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Contains commonly used models that are shared across the test suite."""
+import copy
 from typing import Any, Dict, Tuple, Union
 
+import pytest
 import torch
 from torchmetrics import Metric, MetricCollection
 
 from composer.metrics import CrossEntropy, MIoU
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
-from composer.models import ComposerClassifier
+from composer.models import ComposerClassifier, HuggingFaceModel
 
 
 class SimpleModel(ComposerClassifier):
@@ -242,3 +244,19 @@ class ConvModel(ComposerClassifier):
         self.flatten = flatten
         self.linear1 = linear1
         self.linear2 = linear2
+
+
+def configure_tiny_bert_model():
+    return copy.deepcopy(pytest.tiny_bert_model)
+
+
+def configure_tiny_bert_tokenizer():
+    return copy.deepcopy(pytest.tiny_bert_tokenizer)
+
+
+def configure_tiny_bert_config():
+    return copy.deepcopy(pytest.tiny_bert_config)
+
+
+def configure_tiny_bert_hf_model(use_logits=True):
+    return HuggingFaceModel(configure_tiny_bert_model(), configure_tiny_bert_tokenizer(), use_logits)
