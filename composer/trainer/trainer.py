@@ -1099,7 +1099,7 @@ class Trainer:
         if any(isinstance(x, ConsoleLogger) for x in loggers):
             warnings.warn(
                 Warning((
-                    f'Specifying the  {ConsoleLogger.__name__} via `loggers` is not recommended as '
+                    f'Specifying the {ConsoleLogger.__name__} via `loggers` is not recommended as '
                     'any values set for the following Trainer arguments will be ignored: `log_to_console`, `console_stream`, `log_traces`, and `console_log_interval`. '
                     'The recommended way of enabling a console logging is to set `log_to_console` to True instead of '
                     f'constructing a {ConsoleLogger.__name__} instance.')))
