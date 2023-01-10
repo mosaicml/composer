@@ -8,11 +8,10 @@ from typing import TYPE_CHECKING, Union
 from typing import Union
 import random
 from typing import Union
-import random
-import textwrap
 
 import transformers
 import torch
+import transformers
 from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset
 
@@ -22,7 +21,10 @@ from composer.utils import MissingConditionalImportError, dist, get_file
 if TYPE_CHECKING:
     import transformers
 
-__all__ = ['InContextLearningLMTaskDataset', 'InContextLearningMultipleChoiceTaskDataset', 'get_mc_task_dataloader', 'get_lm_task_dataloader']
+__all__ = [
+    'InContextLearningLMTaskDataset', 'InContextLearningMultipleChoiceTaskDataset', 'get_mc_task_dataloader',
+    'get_lm_task_dataloader'
+]
 
 
 class InContextLearningLMTaskDataset(Dataset):
@@ -194,14 +196,15 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
                 fewshot_idxs = random.sample(allowable_indices, num_fewshot)
 
                 for fewshot_idx in fewshot_idxs:
-                    query, choices, gold_idx = self.samples[fewshot_idx]['query'], self.samples[fewshot_idx]['choices'], self.samples[fewshot_idx]['gold']
+                    query, choices, gold_idx = self.samples[fewshot_idx]['query'], self.samples[fewshot_idx][
+                        'choices'], self.samples[fewshot_idx]['gold']
                     if len(preamble) > 0:
                         query = f'{example_delimiter}{query}'
                     preamble += f'{query}{continuation_delimiter}{choices[gold_idx]}'
 
-            
             encoded_example = {}
-            query, choices, gold_idx = self.samples[sample_idx]['query'], self.samples[sample_idx]['choices'], self.samples[sample_idx]['gold'],
+            query, choices, gold_idx = self.samples[sample_idx]['query'], self.samples[sample_idx][
+                'choices'], self.samples[sample_idx]['gold'],
             if len(preamble) > 0:
                 query = f'{example_delimiter}{query}'
 
@@ -228,8 +231,9 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         choice_groupings = []
         for data_pair in data:
 
-            choice_start_idx = len(continuation_indices)        
-            preamble, context, choices, gold_idx = (data_pair['preamble'], data_pair['query'], data_pair['choices'], data_pair['gold_idx'])
+            choice_start_idx = len(continuation_indices)
+            preamble, context, choices, gold_idx = (data_pair['preamble'], data_pair['query'], data_pair['choices'],
+                                                    data_pair['gold_idx'])
 
             for choice in choices:
                 context_enc = preamble['input_ids'] + context['input_ids']
@@ -253,25 +257,25 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
 
                 inputs.append(inp)
                 continuation_indices.append(continuation_span)
-            
-            gold_idxs.append(gold_idx)
-            choice_end_idx = len(continuation_indices)  
-            choice_groupings.append((choice_start_idx, choice_end_idx))
-            
 
-        return {
+            gold_idxs.append(gold_idx)
+            choice_end_idx = len(continuation_indices)
+            choice_groupings.append((choice_start_idx, choice_end_idx))
+
+        batch = {
             'input_ids': torch.stack(inputs),
             'continuation_indices': continuation_indices,
             'mode': 'icl_task',
             'labels': torch.stack(inputs),
-            'eos_tok_id': self.eos_tok_id,
             'gold_indices': gold_idxs,
             'choice_groupings': choice_groupings
         }
+        batch['attention_mask'] = ~(batch['input_ids'] == self.eos_tok_id)
+        return batch
 
     def get_num_samples_in_batch(self, batch) -> int:
         return batch['input_ids'].shape[0]
-    
+
     def update_metric(self, metric, batch, output_logits, labels):
         metric.update(batch, output_logits, labels)
 
@@ -288,7 +292,7 @@ def get_mc_task_dataloader(
         continuation_delimiter: str,  # e.g. ''
 ) -> DataSpec:
     dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri, tokenizer, max_seq_len, eos_tok_id, num_fewshot,
-                                             preamble_string, example_delimiter, continuation_delimiter)
+                                                         preamble_string, example_delimiter, continuation_delimiter)
     sampler = dist.get_sampler(dataset, drop_last=False, shuffle=True)
     batch_size = max(dataset.num_choices, batch_size)
     effective_batchsize = batch_size // dataset.num_choices

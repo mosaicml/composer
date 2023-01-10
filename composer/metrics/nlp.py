@@ -7,7 +7,6 @@ from typing import Mapping, Union
 import torch
 from torch import Tensor
 from torchmetrics import Metric
-import math
 
 from composer.loss import soft_cross_entropy
 
@@ -193,7 +192,6 @@ class HFCrossEntropy(Metric):
                 either the Tensor or a Mapping type that contains the loss or model logits.
             target (~torch.Tensor): A Tensor of ground-truth values to compare against.
         """
-        breakpoint()
         # if logit modification algorithms aren't on, we take the loss directly from the model output
         if isinstance(output, Mapping) and 'loss' in output:
             loss = output['loss']
@@ -239,8 +237,11 @@ class Perplexity(HFCrossEntropy):
 
 
 class InContextLearningMetric(Metric):
+
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
-       raise NotImplementedError
+        raise NotImplementedError
+
+
 class InContextLearningLMAccuracy(InContextLearningMetric):
     r"""Computes accuracy for In-context learning (ICL) language modeling (LM) tasks.
 
@@ -298,8 +299,8 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
     def __init__(self, dist_sync_on_step: bool = False):
         # state from multiple processes
         super().__init__(dist_sync_on_step=dist_sync_on_step)
-        self.add_state('correct', default=torch.tensor(0), dist_reduce_fx='sum')
-        self.add_state('total', default=torch.tensor(0), dist_reduce_fx='sum')
+        self.add_state('correct', default=torch.tensor(0.0), dist_reduce_fx='sum')
+        self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
         targets = torch.roll(labels, shifts=-1)
@@ -312,14 +313,14 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
             cross_entropy = soft_cross_entropy(cont_tok_logits, cont_tok_targ)
             perplexity = torch.exp(cross_entropy)
             perplexities.append(perplexity)
-        
+
         for (start, end), gold_idx in zip(batch['choice_groupings'], batch['gold_indices']):
             subset = perplexities[start:end]
             idx_min = subset.index(min(subset))
 
             if idx_min == gold_idx:
-                self.correct += 1.0
-            self.total += 1.0
+                self.correct += torch.tensor(1.0)
+            self.total += torch.tensor(1.0)
 
     def compute(self):
         assert isinstance(self.correct, Tensor)
