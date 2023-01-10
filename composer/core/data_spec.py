@@ -179,7 +179,7 @@ class DataSpec:
        ... )
 
     Args:
-        dataloader (Iterable): The dataloader, which can be any iterable that yields batches.
+        dataloader (Union[Iterable, torch.utils.data.DataLoader]): The dataloader, which can be any iterable that yields batches.
 
         num_samples (int, optional): The total number of samples in an epoch, across all ranks. This field is used by
             the :class:`.Timestamp` (training progress tracker). If not specified, then ``len(dataloader.dataset)`` is
@@ -214,7 +214,7 @@ class DataSpec:
 
     def __init__(
         self,
-        dataloader: Iterable,
+        dataloader: Union[Iterable, torch.utils.data.DataLoader],
         num_samples: Optional[int] = None,
         num_tokens: Optional[int] = None,
         device_transforms: Optional[Callable[[Batch], Batch]] = None,
@@ -222,7 +222,7 @@ class DataSpec:
         get_num_samples_in_batch: Optional[Callable[[Batch], int]] = None,
         get_num_tokens_in_batch: Optional[Callable[[Batch], int]] = None,
     ) -> None:
-        self.dataloader = dataloader
+        self.dataloader: Union[Iterable, torch.utils.data.DataLoader] = dataloader
         self.num_tokens = num_tokens
         self.device_transforms = self._default_device_transforms if device_transforms is None else device_transforms
         self.split_batch = _default_split_batch if split_batch is None else split_batch
