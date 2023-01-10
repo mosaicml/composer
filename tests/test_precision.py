@@ -17,14 +17,14 @@ def get_trainer(precision: Precision) -> Trainer:
     return Trainer(
         model=composer_resnet_cifar('resnet_9'),
         train_dataloader=DataLoader(
-            dataset=RandomImageDataset(size=10240),
-            batch_size=1024,
+            dataset=RandomImageDataset(size=1024),
+            batch_size=512,
             persistent_workers=False,
             num_workers=0,
         ),
         eval_dataloader=DataLoader(
-            dataset=RandomImageDataset(size=10240),
-            batch_size=1024,
+            dataset=RandomImageDataset(size=1024),
+            batch_size=512,
             persistent_workers=False,
             num_workers=0,
         ),
