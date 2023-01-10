@@ -164,8 +164,20 @@ def _session_tiny_bert_config():  # type: ignore
     return hf_config
 
 
+def tiny_gpt_model_helper(config):
+    transformers = pytest.importorskip('transformers')
+
+    hf_model = transformers.AutoModelForCausalLM.from_config(config)
+    return hf_model
+
+
 @pytest.fixture(scope='session')
-def _session_tiny_gpt2_config():  # type: ignore
+def _session_tiny_gpt_model(_session_tiny_gpt_config):  # type: ignore
+    hf_model = tiny_gpt_model_helper(_session_tiny_gpt_config)
+    return hf_model
+
+
+def tiny_gpt_config_helper():
     transformers = pytest.importorskip('transformers')
 
     tiny_overrides = {
@@ -178,11 +190,22 @@ def _session_tiny_gpt2_config():  # type: ignore
 
 
 @pytest.fixture(scope='session')
-def _session_tiny_gpt2_tokenizer():  # type: ignore
+def _session_tiny_gpt2_config():  # type: ignore
+    hf_config = tiny_gpt_config_helper()
+    return hf_config
+
+
+def tiny_gpt_tokenizer_helper():
     transformers = pytest.importorskip('transformers')
 
     hf_tokenizer = transformers.AutoTokenizer.from_pretrained('gpt2')
     hf_tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+    return hf_tokenizer
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_gpt2_tokenizer():  # type: ignore
+    hf_tokenizer = tiny_gpt_tokenizer_helper()
     return hf_tokenizer
 
 
