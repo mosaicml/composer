@@ -11,6 +11,12 @@ config = RunConfig(
     gpu_type='a100_80gb',
     gpu_num=8,
     image='mosaicml/pytorch',
+    integrations=[{
+        'integration_type': 'git_repo',
+        'git_repo': 'mosaicml/composer',
+        'git_branch': 'dev',
+        'pip_install': '--user -e .[all]',
+    }],
     command='composer_collect_env',
 )
 
