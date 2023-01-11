@@ -24,8 +24,9 @@ from composer.trainer.dist_strategy import prepare_ddp_module
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, export_with_logger, inference
 from composer.utils.device import get_device
-from tests.common import device
-from tests.common.datasets import RandomImageDataset
+from tests.common import SimpleTransformerClassifier, device
+from tests.common.datasets import RandomImageDataset, dummy_tiny_bert_lm_batch, dummy_transformer_classifier_batch
+from tests.common.models import configure_tiny_bert_hf_model
 
 
 class MockFileUploader(LoggerDestination):
@@ -37,9 +38,11 @@ class MockFileUploader(LoggerDestination):
 
 @pytest.mark.parametrize(
     'model_cls, sample_input',
-    [
-        (partial(composer_resnet, 'resnet18'), (torch.rand(4, 3, 224, 224), torch.randint(10, (4,)))),
-    ],
+    [(partial(composer_resnet, 'resnet18'), (torch.rand(4, 3, 224, 224), torch.randint(10, (4,)))),
+     (SimpleTransformerClassifier, dummy_transformer_classifier_batch()),
+     pytest.param(configure_tiny_bert_hf_model,
+                  dummy_tiny_bert_lm_batch(),
+                  marks=pytest.mark.xfail(reason='HuggingFace models do not support torch.jit.script()'))],
 )
 def test_export_for_inference_torchscript(model_cls, sample_input):
     model = model_cls()
@@ -248,6 +251,7 @@ def test_gpu_huggingface_export_for_inference_onnx():
     'model_cls, sample_input',
     [
         (partial(composer_resnet, 'resnet18'), (torch.rand(4, 3, 224, 224), torch.randint(10, (4,)))),
+        (SimpleTransformerClassifier, dummy_transformer_classifier_batch()),
     ],
 )
 def test_export_for_inference_onnx(model_cls, sample_input, device):
@@ -365,9 +369,7 @@ def test_export_for_inference_onnx_ddp(model_cls, sample_input, request: pytest.
 
 @pytest.mark.parametrize(
     'model_cls, sample_input',
-    [
-        (partial(composer_resnet, 'resnet18'), (torch.rand(1, 3, 224, 224), torch.randint(10, (1,)))),
-    ],
+    [(partial(composer_resnet, 'resnet18'), (torch.rand(1, 3, 224, 224), torch.randint(10, (1,))))],
 )
 @pytest.mark.world_size(2)
 def test_export_for_inference_torchscript_ddp(model_cls, sample_input, request: pytest.FixtureRequest):
@@ -417,12 +419,10 @@ def test_export_for_inference_torchscript_ddp(model_cls, sample_input, request: 
 
 
 @pytest.mark.parametrize(
-    'model_cls, sample_input',
-    [
-        (partial(composer_resnet, 'resnet18'), (torch.rand(1, 3, 224, 224), torch.randint(10, (1,)))),
-    ],
+    'model_cls',
+    [(partial(composer_resnet, 'resnet18'))],
 )
-def test_export_with_file_uploading_logger(model_cls, sample_input):
+def test_export_with_file_uploading_logger(model_cls):
     with patch('composer.utils.inference.export_for_inference'):
         save_format = 'torchscript'
         model = model_cls()
@@ -458,12 +458,12 @@ def test_export_with_file_uploading_logger(model_cls, sample_input):
 
 
 @pytest.mark.parametrize(
-    'model_cls, sample_input',
+    'model_cls',
     [
-        (partial(composer_resnet, 'resnet18'), (torch.rand(1, 3, 224, 224), torch.randint(10, (1,)))),
+        partial(composer_resnet, 'resnet18'),
     ],
 )
-def test_export_with_other_logger(model_cls, sample_input):
+def test_export_with_other_logger(model_cls):
     with patch('composer.utils.inference.export_for_inference'):
         save_format = 'torchscript'
         model = model_cls()

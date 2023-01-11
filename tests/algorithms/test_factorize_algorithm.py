@@ -53,12 +53,16 @@ def test_factorize_surgery(minimal_state: State, model_cls, model_params, empty_
 
     if algo_instance.factorize_convs:
         num_factorized_layers = module_surgery.count_module_instances(state.model, FactorizedConv2d)
-        assert num_conv_layers == num_factorized_layers
+        num_non_factorized_layers = module_surgery.count_module_instances(state.model,
+                                                                          torch.nn.Conv2d) - 2 * num_factorized_layers
+        assert num_conv_layers == num_factorized_layers + num_non_factorized_layers
         assert num_factorized_layers > 0
 
     if algo_instance.factorize_linears:
         num_factorized_layers = module_surgery.count_module_instances(state.model, FactorizedLinear)
-        assert num_linear_layers == num_factorized_layers
+        num_non_factorized_layers = module_surgery.count_module_instances(state.model,
+                                                                          torch.nn.Linear) - 2 * num_factorized_layers
+        assert num_linear_layers == num_factorized_layers + num_non_factorized_layers
         assert num_factorized_layers > 0
 
 
@@ -71,13 +75,17 @@ def test_factorize_surgery(minimal_state: State, model_cls, model_params, empty_
 def test_forward_shape(minimal_state: State, model_cls, model_params, empty_logger: Logger, batch, replace_convs,
                        replace_linears):
     model = model_cls(*model_params)
-    state = create_state(minimal_state, model)
 
     if (isinstance(model, SimpleTransformerClassifier) or isinstance(model, HuggingFaceModel)) and replace_convs:
         pytest.skip('Skipping: NLP models do not contain conv layers.')
 
-    algo_instance = create_algo_instance(replace_convs, replace_linears)
+    if isinstance(model, SimpleTransformerClassifier):
+        pytest.xfail(
+            'Factorize does not support torch.nn.MultiheadAttention layers, which are part of the SimpleTransformerClassifier.'
+        )
 
+    state = create_state(minimal_state, model)
+    algo_instance = create_algo_instance(replace_convs, replace_linears)
     output = state.model.forward(batch)
 
     algo_instance.apply(event=Event.INIT, state=state, logger=empty_logger)
@@ -104,8 +112,6 @@ def test_algorithm_logging(minimal_state: State, model_cls, model_params, replac
 
     logger_mock = Mock()
 
-    conv_count = module_surgery.count_module_instances(state.model, torch.nn.Conv2d)
-    linear_count = module_surgery.count_module_instances(state.model, torch.nn.Linear)
     algo_instance.apply(Event.INIT, state, logger=logger_mock)
 
     factorize_convs = algo_instance.factorize_convs
@@ -114,9 +120,11 @@ def test_algorithm_logging(minimal_state: State, model_cls, model_params, replac
     mock_obj = logger_mock.log_hyperparameters
 
     if factorize_convs:
-        mock_obj.assert_any_call({LOG_NUM_CONV2D_REPLACEMENTS_KEY: conv_count})
+        num_factorized_convs = module_surgery.count_module_instances(state.model, FactorizedConv2d)
+        mock_obj.assert_any_call({LOG_NUM_CONV2D_REPLACEMENTS_KEY: num_factorized_convs})
     if factorize_linears:
-        mock_obj.assert_any_call({LOG_NUM_LINEAR_REPLACEMENTS_KEY: linear_count})
+        num_factorized_linears = module_surgery.count_module_instances(state.model, FactorizedLinear)
+        mock_obj.assert_any_call({LOG_NUM_LINEAR_REPLACEMENTS_KEY: num_factorized_linears})
 
     target_count = 0
     target_count += 1 if factorize_convs else 0
