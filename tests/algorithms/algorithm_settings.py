@@ -73,7 +73,13 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
             'clipping_threshold': 0.1
         },
     },
-    Alibi: simple_bert_settings,
+    Alibi: {
+        'model': make_synthetic_bert_model,
+        'dataloader': make_synthetic_bert_dataloader,
+        'kwargs': {
+            'max_sequence_length': 256
+        },
+    },
     AugMix: simple_vision_settings,
     BlurPool: {
         'model': common.SimpleConvModel,
@@ -121,7 +127,15 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     NoOpModel: simple_vision_settings,
     SAM: simple_vision_settings,
     SelectiveBackprop: simple_vision_settings,
-    SeqLengthWarmup: simple_bert_settings,
+    SeqLengthWarmup: {
+        'model': make_synthetic_bert_model,
+        'dataloader': make_synthetic_bert_dataloader,
+        'kwargs': {
+            'duration': 0.5,
+            'min_seq_length': 8,
+            'max_seq_length': 16
+        },
+    },
     SqueezeExcite: simple_resnet_settings,
     StochasticDepth: {
         'model': (composer_resnet, {
@@ -151,8 +165,15 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     },
     WeightStandardization: simple_vision_settings,
     GyroDropout: {
-        'model': common.SimpleTransformerClassifier,
-        'dataset': common.RandomTextClassificationDataset,
+        'model': common.SimpleModelWithDropout,
+        'dataloader': (DataLoader, {
+            'dataset': common.SimpleDataset(batch_size=2, feature_size=64, num_classes=10)
+        }),
+        'kwargs': {
+            'p': 0.5,
+            'sigma': 2,
+            'tau': 1
+        }
     },
 }
 

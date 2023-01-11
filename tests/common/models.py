@@ -246,6 +246,44 @@ class ConvModel(ComposerClassifier):
         self.linear2 = linear2
 
 
+class SimpleModelWithDropout(ComposerClassifier):
+
+    def __init__(self, num_features: int = 64, num_classes: int = 10) -> None:
+        fc1 = torch.nn.Linear(num_features, 512)
+        fc2 = torch.nn.Linear(512, num_classes)
+        dropout = torch.nn.Dropout(0.5)
+
+        net = torch.nn.Sequential(
+            torch.nn.Flatten(),
+            fc1,
+            torch.nn.ReLU(),
+            dropout,
+            fc2,
+            torch.nn.Softmax(dim=-1),
+        )
+
+        super().__init__(module=net)
+
+        self.fc1 = fc1
+        self.fc2 = fc2
+        self.dropout = dropout
+
+    def loss(self, outputs: torch.Tensor, batch: Tuple[Any, torch.Tensor], *args, **kwargs) -> torch.Tensor:
+        _, targets = batch
+        targets = targets.squeeze(dim=0)
+        return self._loss_fn(outputs, targets, *args, **kwargs)
+
+    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
+        _, targets = batch
+        metric.update(outputs.squeeze(dim=0), targets.squeeze(dim=0))
+
+    def forward(self, batch: Tuple[torch.Tensor, Any]) -> torch.Tensor:
+        inputs, _ = batch
+        inputs = inputs.squeeze(dim=0)
+        outputs = self.module(inputs)
+        return outputs
+
+
 def configure_tiny_bert_model():
     return copy.deepcopy(pytest.tiny_bert_model)
 

@@ -8,7 +8,7 @@ from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision.datasets import VisionDataset
 
-from composer.utils import dist
+from composer.utils import dist, reproducibility
 
 
 class RandomClassificationDataset(Dataset):
@@ -206,6 +206,22 @@ class RandomTextLMDataset(Dataset):
             return {'input_ids': x}
         else:
             return x
+
+
+class SimpleDataset(Dataset):
+
+    def __init__(self, size: int = 256, batch_size: int = 256, feature_size: int = 1, num_classes: int = 2):
+        self.size = size
+        self.batch_size = batch_size
+        self.x = torch.randn(size * batch_size, feature_size)
+        self.y = torch.randint(0, num_classes, size=(size * batch_size,), dtype=torch.long)
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index: int):
+        return self.x[index * self.batch_size:(index + 1) *
+                      self.batch_size], self.y[index * self.batch_size:(index + 1) * self.batch_size]
 
 
 def dummy_transformer_classifier_batch(vocab_size=100, num_classes=2):
