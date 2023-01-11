@@ -2,14 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 # This code is based on the implementation in https://github.com/EleutherAI/lm-evaluation-harness/blob/8c048e266a22a1c85ccbdb0c209ac712e4f39989/lm_eval/base.py#L221-L330
 
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 import torch
-import transformers
 from torch.utils.data import DataLoader, Dataset
 
 from composer.core import DataSpec
 from composer.utils import MissingConditionalImportError, dist, get_file
+
+if TYPE_CHECKING:
+    import transformers
 
 __all__ = ['InContextLearningLMTaskDataset', 'get_lm_task_dataloader']
 
