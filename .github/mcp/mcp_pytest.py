@@ -34,6 +34,8 @@ if __name__ == '__main__':
 
     command += f'''
 
+    ls
+
     export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}'"
 
     make test PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
@@ -69,7 +71,7 @@ if __name__ == '__main__':
 
     # Print logs
     for line in follow_run_logs(run):
-        print(line.rstrip('\n'))
+        print(line, end='')
 
     # Fail if command exited with non-zero exit code
     run = wait_for_run_status(run, 'completed')
