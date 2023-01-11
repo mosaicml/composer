@@ -40,6 +40,7 @@ To disable automatic environment report generation, use the :func:`disable_env_r
 function.  Report generation can be re-enabled by using the :func:`enable_env_report` function.
 """
 
+import functools
 import json
 import sys
 import time
@@ -51,7 +52,7 @@ import psutil
 
 from composer.utils.misc import is_notebook
 
-__all__ = ['configure_excepthook', 'disable_env_report', 'enable_env_report', 'print_env']
+__all__ = ['configure_excepthook', 'disable_env_report', 'enable_env_report', 'print_env', 'get_composer_env_dict']
 
 # Check if PyTorch is installed
 try:
@@ -122,6 +123,7 @@ def get_composer_version() -> str:
     return str(composer.__version__)
 
 
+@functools.lru_cache(maxsize=1)
 def get_host_processor_name() -> str:
     """Query the host processor name."""
     cpu_info = cpuinfo.get_cpu_info()
@@ -283,9 +285,9 @@ CUDA Device Count: {cuda_device_count}
 """.strip()
 
 
-# Get Composer environment info
-def get_composer_env() -> str:
-    """Query Composer pertinent system information."""
+# Get composer environment info as a dictionary
+def get_composer_env_dict() -> dict:
+    """Query Composer pertinent system information as a dict."""
     mutable_dict = ComposerEnv(
         composer_version=get_composer_version(),
         composer_commit_hash=get_composer_commit_hash(),
@@ -296,7 +298,13 @@ def get_composer_env() -> str:
         local_world_size=get_local_world_size(),
         cuda_device_count=get_cuda_device_count(),
     )._asdict()
+    return mutable_dict
 
+
+# Get Composer environment info
+def get_composer_env() -> str:
+    """Query Composer pertinent system information."""
+    mutable_dict = get_composer_env_dict()
     return _COMPOSER_ENV_INFO_FORMAT.format(**mutable_dict)
 
 

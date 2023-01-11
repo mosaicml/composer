@@ -2,9 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Contains commonly used models that are shared across the test suite."""
+from typing import Any, Dict, Tuple, Union
 
 import torch
+from torchmetrics import Metric, MetricCollection
 
+from composer.metrics import CrossEntropy, MIoU
+from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import ComposerClassifier
 
 
@@ -44,7 +48,7 @@ class SimpleModel(ComposerClassifier):
 
 
 class SimpleConvModel(ComposerClassifier):
-    """Small convolutional classifer.
+    """Small convolutional classifier.
 
     Args:
         num_channels (int): number of input channels (default: 3)
@@ -79,33 +83,121 @@ class SimpleConvModel(ComposerClassifier):
         self.conv2 = conv2
 
 
+class SimpleSegmentationModel(ComposerClassifier):
+    """Small convolutional classifier.
+
+    Args:
+        num_channels (int): number of input channels (default: 3)
+        num_classes (int): number of classes (default: 2)
+    """
+
+    def __init__(self, num_channels: int = 3, num_classes: int = 2) -> None:
+        self.num_classes = num_classes
+        self.num_channels = num_channels
+
+        conv_args = {'kernel_size': (3, 3), 'padding': 'same', 'stride': 1}
+        conv1 = torch.nn.Conv2d(in_channels=num_channels, out_channels=8, **conv_args)
+        conv2 = torch.nn.Conv2d(in_channels=8, out_channels=num_classes, **conv_args)
+
+        net = torch.nn.Sequential(
+            conv1,
+            conv2,
+        )
+        train_metrics = MetricCollection([CrossEntropy(), MIoU(num_classes)])
+        val_metrics = MetricCollection([CrossEntropy(), MIoU(num_classes)])
+
+        super().__init__(module=net, train_metrics=train_metrics, val_metrics=val_metrics)
+
+        # bind these to class for access during surgery tests
+        self.conv1 = conv1
+        self.conv2 = conv2
+
+
 class Mean(torch.nn.Module):
 
     def forward(self, x):
         return torch.mean(x, dim=1)
 
 
+class SimpleTransformerBase(torch.nn.Module):
+    """Base encoding transformer model for testing"""
+
+    def __init__(self, vocab_size: int = 100, d_model: int = 16):
+        super().__init__()
+        embedding = torch.nn.Embedding(vocab_size, 16)
+        layer = torch.nn.TransformerEncoderLayer(d_model=d_model, nhead=2, dim_feedforward=d_model, dropout=0.3)
+        # necessary to make the model scriptable
+        layer.__constants__ = []
+
+        transformer = torch.nn.TransformerEncoder(layer, num_layers=2, norm=torch.nn.LayerNorm(d_model))
+
+        # necessary to make the model scriptable
+        transformer.__constants__ = []
+
+        self.net = torch.nn.Sequential(embedding, transformer)
+
+        self.embedding = embedding
+        self.transformer = transformer
+
+    def forward(self, batch: torch.Tensor) -> torch.Tensor:
+        return self.net(batch)
+
+
+class SimpleTransformerMaskedLM(ComposerClassifier):
+
+    def __init__(self, vocab_size: int = 100):
+        self.vocab_size = vocab_size
+        transformer_base = SimpleTransformerBase(vocab_size=vocab_size, d_model=16)
+        lm_head = torch.nn.Linear(16, vocab_size)
+
+        net = torch.nn.Sequential(transformer_base, lm_head)
+
+        mlm_metrics = MetricCollection(LanguageCrossEntropy(ignore_index=-100, vocab_size=vocab_size),
+                                       MaskedAccuracy(ignore_index=-100))
+        loss = torch.nn.CrossEntropyLoss()
+        super().__init__(module=net, train_metrics=mlm_metrics, val_metrics=mlm_metrics, loss_fn=loss)
+
+        self.transformer_base = transformer_base
+        self.lm_head = lm_head
+
+    def loss(self, outputs: torch.Tensor, batch: Union[Tuple[Any, torch.Tensor], Dict[str, Any]], *args,
+             **kwargs) -> torch.Tensor:
+        if isinstance(batch, tuple):
+            _, targets = batch
+        else:
+            targets = batch['labels']
+        return self._loss_fn(outputs.view(-1, self.vocab_size), targets.view(-1), *args, **kwargs)
+
+    def forward(self, batch: Union[Tuple[torch.Tensor, Any], Dict[str, Any]]) -> torch.Tensor:
+        if isinstance(batch, tuple):
+            inputs, _ = batch
+        else:
+            inputs = batch['input_ids']
+        outputs = self.module(inputs)
+        return outputs
+
+    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
+        if isinstance(batch, tuple):
+            _, targets = batch
+        else:
+            targets = batch['labels']
+        metric.update(outputs, targets)
+
+
 class SimpleTransformerClassifier(ComposerClassifier):
     """Transformer model for testing"""
 
     def __init__(self, vocab_size: int = 100, num_classes: int = 2):
-        embedding = torch.nn.Embedding(vocab_size, 16)
-        transformer = torch.nn.TransformerEncoder(torch.nn.TransformerEncoderLayer(d_model=16,
-                                                                                   nhead=2,
-                                                                                   dim_feedforward=16,
-                                                                                   dropout=0.3),
-                                                  num_layers=2,
-                                                  norm=torch.nn.LayerNorm(16))
+        transformer_base = SimpleTransformerBase(vocab_size=vocab_size, d_model=16)
         pooler = Mean()
         dropout = torch.nn.Dropout(0.3)
         classifier = torch.nn.Linear(16, num_classes)
 
-        net = torch.nn.Sequential(embedding, transformer, pooler, dropout, classifier)
+        net = torch.nn.Sequential(transformer_base, pooler, dropout, classifier)
 
         super().__init__(module=net)
 
-        self.embedding = embedding
-        self.transformer = transformer
+        self.transformer_base = transformer_base
         self.pooler = pooler
         self.classifier = classifier
 

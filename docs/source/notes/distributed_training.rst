@@ -11,18 +11,14 @@ Data Parallelism
 ----------------
 
 Composer distributes work across devices via **data-parallelism-only**.
-We choose this in order to provide the most flexibility to algorithms,
+We made this design choice in order to provide the most flexibility to algorithms,
 which can modify the training loop in complex ways. Data parallelism
 greatly simplifies model building and memory management. Every GPU is
 performing the same work, so inspecting the rank zero is sufficient to
 reason about memory, performance, and other properties.
 
-Within Composer, we have two options for data-parallelism-only
-execution: `Pytorch FSDP`_, `Pytorch DDP`_, and `DeepSpeed Zero`_. We currently default to
-Pytorch DDP, though DeepSpeed Zero can provide better performance and
-lower memory utilization when configured correctly. We are also support Pytorch FSDP which produces
-the same results as Pytorch DDP, while also increasing memory and computational efficiency.
-
+Within Composer, we have three options for data-parallelism-only
+execution: `Pytorch DDP`_ (default), `Pytorch FSDP`_, and `DeepSpeed Zero`_. Although Pytorch DDP is the default, DeepSpeed Zero provides better performance and lower memory utilization when configured correctly, and Pytorch FSDP increases memory and computational efficiency, while producing the same results as Pytorch DDP.
 
 Usage
 -----

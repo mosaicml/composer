@@ -20,32 +20,33 @@ import yaml
 
 
 def _get_pytorch_version(python_version: str):
+    if python_version == '3.10':
+        return '1.13.1'
     if python_version == '3.9':
         return '1.12.1'
     if python_version in '3.8':
         return '1.11.0'
-    if python_version == '3.7':
-        return '1.10.2'
     raise ValueError(f'Invalid python version: {python_version}')
 
 
 def _get_torchvision_version(pytorch_version: str):
+    if pytorch_version == '1.13.1':
+        return '0.14.1'
     if pytorch_version == '1.12.1':
         return '0.13.1'
     if pytorch_version == '1.11.0':
         return '0.12.0'
-    if pytorch_version == '1.10.2':
-        return '0.11.3'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
 def _get_torchtext_version(pytorch_version: str):
+    if pytorch_version == '1.13.1':
+        return '0.14.1'
     if pytorch_version == '1.12.1':
         return '0.13.1'
     if pytorch_version == '1.11.0':
         return '0.12.0'
-    if pytorch_version == '1.10.2':
-        return '0.11.2'
+
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
@@ -58,13 +59,13 @@ def _get_base_image(cuda_version: str):
 def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     if not use_cuda:
         return ''
-    if pytorch_version == '1.10.2':
-        return '11.3.1'
-    if pytorch_version == '1.11.0':
-        return '11.5.2'
+    if pytorch_version == '1.13.1':
+        return '11.7.1'
     if pytorch_version == '1.12.1':
         return '11.6.2'
-    raise ValueError(f'Invalid pytorch_version: {str}')
+    if pytorch_version == '1.11.0':
+        return '11.5.2'
+    raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
 def _get_cuda_version_tag(cuda_version: str):
@@ -83,7 +84,7 @@ def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: s
     cuda_version_tag = _get_cuda_version_tag(cuda_version)
     tags = [f'{base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu20.04']
 
-    if python_version == '3.9':
+    if python_version == '3.10':
         if not cuda_version:
             tags.append(f'{base_image_name}:latest_cpu')
         else:
@@ -121,7 +122,7 @@ def _write_table(table_tag: str, table_contents: str):
 
 
 def _main():
-    python_versions = ['3.7', '3.8', '3.9']
+    python_versions = ['3.8', '3.9', '3.10']
     cuda_options = [True, False]
     stages = ['pytorch_stage', 'vision_stage']
 
@@ -163,16 +164,17 @@ def _main():
             # only build the vision image on python 3.9
 
         if not cuda_version:
-            # Skip the mellanox drivers if not in the cuda images
+            # Skip the mellanox/hpcx drivers if not in the cuda images
             entry['MOFED_VERSION'] = ''
+            entry['HPCX_VERSION'] = ''
 
         pytorch_entries.append(entry)
 
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
-    composer_versions = ['', '==0.11.1', 'GIT_COMMIT']  # Only build images for the latest composer version
-    composer_python_versions = ['3.9']  # just build composer against the latest
+    composer_versions = ['', '==0.12.0', 'GIT_COMMIT']  # Only build images for the latest composer version
+    composer_python_versions = ['3.10']  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):
         python_version, composer_version, use_cuda = product

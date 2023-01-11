@@ -81,20 +81,24 @@ class CheckBatch0(Callback):
             )
 
 
-@pytest.mark.parametrize('device,deepspeed,fsdp', [
-    pytest.param('cpu', False, False, id='cpu'),
-    pytest.param('gpu', False, False, id='gpu', marks=pytest.mark.gpu),
-    pytest.param('gpu', True, False, id='deepspeed', marks=pytest.mark.gpu),
-    pytest.param('gpu',
-                 False,
-                 True,
-                 id='fsdp',
-                 marks=[
-                     pytest.mark.gpu,
-                     pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.12.0'),
-                                        reason='requires PyTorch 1.12 or higher')
-                 ]),
-])
+@pytest.mark.parametrize(
+    'device,deepspeed,fsdp',
+    [
+        pytest.param('cpu', False, False, id='cpu'),
+        pytest.param('gpu', False, False, id='gpu', marks=pytest.mark.gpu),
+        # TODO: Remove filterwarnings after FSDP removes deprecated code
+        pytest.param('gpu', True, False, id='deepspeed', marks=pytest.mark.gpu),
+        pytest.param('gpu',
+                     False,
+                     True,
+                     id='fsdp',
+                     marks=[
+                         pytest.mark.gpu,
+                         pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                                            reason='requires PyTorch 1.13 or higher'),
+                         pytest.mark.filterwarnings('ignore::UserWarning'),
+                     ]),
+    ])
 @pytest.mark.parametrize('world_size', [
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
@@ -175,7 +179,7 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
             'sharding_strategy': 'FULL_SHARD',
             'min_params': 1e8,
             'cpu_offload': False,
-            'mixed_precision': 'DEFAULT',
+            'mixed_precision': 'PURE',
             'backward_prefetch': 'BACKWARD_PRE',
             'activation_checkpointing': False,
             'activation_cpu_offload': False,

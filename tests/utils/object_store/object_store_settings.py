@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 import composer.utils.object_store
 import composer.utils.object_store.sftp_object_store
-from composer.utils.object_store import LibcloudObjectStore, ObjectStore, S3ObjectStore, SFTPObjectStore
+from composer.utils.object_store import LibcloudObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore, SFTPObjectStore
 from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 from tests.common import get_module_subclasses
 
@@ -55,6 +55,8 @@ _object_store_marks = {
 object_stores = [
     pytest.param(x, marks=_object_store_marks[x], id=x.__name__)
     for x in get_module_subclasses(composer.utils.object_store, ObjectStore)
+    # Note: OCI has its own test suite, so it is exempt from being included in this one.``
+    if not issubclass(x, OCIObjectStore)
 ]
 
 
@@ -95,7 +97,7 @@ def get_object_store_ctx(object_store_cls: Type[ObjectStore],
     elif object_store_cls is SFTPObjectStore:
         pytest.importorskip('paramiko')
         if remote:
-            yield
+            pytest.skip('SFTP object store has no remote tests.')
         else:
             private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
             pem = private_key.private_bytes(encoding=serialization.Encoding.PEM,

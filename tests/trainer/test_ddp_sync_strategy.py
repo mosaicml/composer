@@ -10,6 +10,7 @@ from torch import Tensor
 from torch.utils.data import DataLoader
 
 from composer.core import State
+from composer.devices import DeviceCPU, DeviceGPU
 from composer.trainer.dist_strategy import ddp_sync_context, prepare_ddp_module
 from composer.utils import dist
 from tests.common.datasets import RandomClassificationDataset
@@ -51,14 +52,21 @@ def test_ddp_sync_strategy(
     ddp_sync_strategy: str,
     expected_grads: List[List[Optional[float]]],
     rank_zero_seed: int,
+    request: pytest.FixtureRequest,
 ):
     original_model = MinimalConditionalModel()
     # ddp = DDP(backend="gloo", find_unused_parameters=True, sync_strategy=ddp_sync_strategy, timeout=5.)
     optimizer = torch.optim.SGD(original_model.parameters(), 0.1)
+    device = None
+    for item in request.session.items:
+        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
+        break
+    assert device != None
     state = State(
         model=original_model,
         rank_zero_seed=rank_zero_seed,
         run_name='run_name',
+        device=device,
         optimizers=optimizer,
         grad_accum=2,
         max_duration='1ep',

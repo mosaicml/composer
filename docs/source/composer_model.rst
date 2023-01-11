@@ -9,8 +9,8 @@ to easily speed up training.
 Using your own Model
 --------------------
 
-To create a trainable torchvision ResNet-18 classifier with cross-entropy loss,
-define the |forward| and |loss| methods.
+To create your own model, define the |forward| and |loss| methods. Here is
+an example with a trainable torchvision ResNet-18 classifier with cross-entropy loss.
 
 Notice how the forward pass is still under user control (no magic here!)
 and encapsulated together clearly within the architecture.
@@ -100,7 +100,7 @@ To compute metrics during training, implement the following methods:
 
 .. code:: python
 
-   def eval_forward (self, batch, outputs) -> outputs:
+   def eval_forward(self, batch, outputs) -> outputs:
        ...
 
    def get_metrics(self, is_train=False) -> Dict[str, Metric]:

@@ -48,6 +48,7 @@ from composer.core import Timestamp as Timestamp
 from composer.core import TimeUnit as TimeUnit
 from composer.core import types as types
 from composer.datasets.synthetic import SyntheticBatchPairDataset
+from composer.devices import DeviceCPU
 from composer.loggers import InMemoryLogger as InMemoryLogger
 from composer.loggers import Logger as Logger
 from composer.loggers import RemoteUploaderDownloader
@@ -85,6 +86,7 @@ if sys.path[0] != _repo_root:
     sys.path.insert(0, _repo_root)
 
 from tests.common import SimpleModel
+from tests.common.datasets import RandomTextClassificationDataset
 
 # Disable wandb
 os.environ['WANDB_MODE'] = 'disabled'
@@ -147,6 +149,7 @@ state = State(
     rank_zero_seed=0,
     model=model,
     run_name='run_name',
+    device=DeviceCPU(),
     optimizers=optimizer,
     grad_accum=1,
     dataloader=train_dataloader,
@@ -195,7 +198,13 @@ def _new_trainer_init(self, fake_ellipses: None = None, **kwargs: Any):
         kwargs['progress_bar'] = False  # hide tqdm logging
     if 'log_to_console' not in kwargs:
         kwargs['log_to_console'] = False  # hide console logging
-    if 'load_path' in kwargs and urlparse(kwargs['load_path']).scheme == 's3':
+    if 'save_folder' in kwargs and urlparse(kwargs['save_folder']).scheme == 'gs':
+        os.environ['GCS_KEY'] = 'foo'
+        os.environ['GCS_SECRET'] = 'foo'
+    if 'load_path' in kwargs and urlparse(kwargs['load_path']).scheme in ['s3', 'oci', 'gs']:
+        if urlparse(kwargs['load_path']).scheme == 'gs':
+            os.environ['GCS_KEY'] = 'foo'
+            os.environ['GCS_SECRET'] = 'foo'
         kwargs['load_path'] = urlparse(kwargs['load_path']).path.lstrip('/')
         kwargs['load_object_store'] = LibcloudObjectStore()
     _original_trainer_init(self, **kwargs)
