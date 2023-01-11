@@ -11,7 +11,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--name', type=str, default='mcp_pytest', help='Name of run')
-    parser.add_argument('--platform', type=str, default='r1z1', help='Platform to use')
+    parser.add_argument('--cluster', type=str, default='r1z1', help='Cluster to use')
     parser.add_argument('--gpu_type', type=str, default='a100_80gb', help='Type of GPU to use')
     parser.add_argument('--gpu_num', type=int, default=8, help='Number of the GPU to use')
     parser.add_argument('--image', type=str, default='mosaicml/pytorch:latest', help='Docker image to use')
@@ -27,6 +27,10 @@ if __name__ == '__main__':
     if args.pr_number:
         command += f'''
 
+        ls
+
+        sleep 6
+
         git fetch origin pull/{args.pr_number}/head:pr_branch
 
         git checkout pr_branch
@@ -35,6 +39,8 @@ if __name__ == '__main__':
     command += f'''
 
     ls
+
+    sleep 5
 
     export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}'"
 
@@ -49,7 +55,7 @@ if __name__ == '__main__':
 
     config = RunConfig(
         name=args.name,
-        platform=args.platform,
+        cluster=args.cluster,
         gpu_type=args.gpu_type,
         gpu_num=args.gpu_num,
         image=args.image,
