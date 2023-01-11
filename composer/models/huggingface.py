@@ -19,8 +19,7 @@ from torchmetrics import Metric
 
 from composer.metrics import METRIC_DEFAULT_CTORS, InContextLearningLMAccuracy
 from composer.models.base import ComposerModel
-from composer.utils import get_file
-from composer.utils.import_helpers import MissingConditionalImportError, import_object
+from composer.utils import MissingConditionalImportError, get_file, import_object
 
 if TYPE_CHECKING:
     import transformers
@@ -67,7 +66,7 @@ class HuggingFaceModel(ComposerModel):
             import transformers
             del transformers  # unused
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='transformers',
+            raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='transformers',
                                                 conda_channel='conda-forge') from e
 
@@ -166,7 +165,7 @@ class HuggingFaceModel(ComposerModel):
         try:
             import transformers
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='transformers',
+            raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='transformers',
                                                 conda_channel='conda-forge') from e
 

@@ -32,7 +32,7 @@ the following installation targets are available:
 * ``pip install 'mosaicml[vit]'``: Installs Composer with support for :mod:`vit`.
 * ``pip install 'mosaicml[coco]'``: Installs Composer with support for :mod:`coco`.
 * ``pip install 'mosaicml[libcloud]'``: Installs Composer with support for :mod:`libcloud`.
-* ``pip install 'mosaicml[all]'``: Install all optional dependencies.
+* ``pip install 'mosaicml[all]'``: Installs all optional dependencies.
 
 For a developer install, clone directly:
 
