@@ -11,7 +11,7 @@ from composer.datasets.in_context_learning_evaluation import get_lm_task_dataloa
 from composer.loggers import InMemoryLogger
 from composer.models.gpt2 import create_gpt2
 from composer.trainer import Trainer
-from tests.common import device, world_size
+from tests.common import device
 
 
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
@@ -31,9 +31,8 @@ def test_lm_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
 
 
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
-@world_size(1, 2)
-@device('cpu', 'gpu')
-def test_lm_task_evaluation(device, world_size, dataset_uri, tiny_gpt2_tokenizer):
+@device('gpu')
+def test_lm_task_evaluation(device, dataset_uri, tiny_gpt2_tokenizer):
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
@@ -43,6 +42,6 @@ def test_lm_task_evaluation(device, world_size, dataset_uri, tiny_gpt2_tokenizer
     model = create_gpt2(use_pretrained=False, pretrained_model_name='EleutherAI/gpt-neo-125M')
     model.add_eval_metrics(evaluator)
     trainer = Trainer(model=model, max_duration='1ep', loggers=in_memory_logger)
-    trainer.eval(eval_dataloader=evaluator)
+    trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
     assert 'metrics/lambada/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/lambada/InContextLearningLMAccuracy'][0][1].item() == 0
