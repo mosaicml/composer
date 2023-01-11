@@ -11,7 +11,7 @@ from composer.core import DataSpec
 from composer.utils import MissingConditionalImportError, dist, get_file
 
 if TYPE_CHECKING:
-    from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
+    import transformers
 
 __all__ = ['InContextLearningLMTaskDataset', 'get_lm_task_dataloader']
 
@@ -32,7 +32,7 @@ class InContextLearningLMTaskDataset(Dataset):
     def __init__(
         self,
         dataset_uri: str,
-        tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast],
+        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
         max_seq_len: int,
         eos_tok_id: int,
         destination_path: str = 'icl_lm_task.json',
@@ -107,8 +107,9 @@ class InContextLearningLMTaskDataset(Dataset):
         metric.update(batch, output_logits, labels)
 
 
-def get_lm_task_dataloader(dataset_uri: str, tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast],
-                           batch_size: int, max_seq_len: int, eos_tok_id: int) -> DataSpec:
+def get_lm_task_dataloader(dataset_uri: str, tokenizer: Union[transformers.PreTrainedTokenizer,
+                                                              transformers.PreTrainedTokenizerFast], batch_size: int,
+                           max_seq_len: int, eos_tok_id: int) -> DataSpec:
     """This constructs a dataloader capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
     >>> dl = get_lm_task_dataloader(dataset_uri, tokenizer, 2, max_seq_len=2048, eos_tok_id=tokenizer.eos_token_id)
