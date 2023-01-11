@@ -71,7 +71,7 @@ def test_algorithm_resumption(
     # in order to get complete matching of the rng state, we have to cause that extra call to be skipped
     # when reloading.
     if alg_cls is SeqLengthWarmup:
-        alg._activated = True
+        alg._activated = True  # type: ignore
     trainer2 = Trainer(
         model=copied_model,
         train_dataloader=get_alg_dataloader(alg_cls),

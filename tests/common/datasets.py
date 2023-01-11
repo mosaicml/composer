@@ -8,7 +8,7 @@ from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision.datasets import VisionDataset
 
-from composer.utils import dist, reproducibility
+from composer.utils import dist
 
 
 class RandomClassificationDataset(Dataset):
