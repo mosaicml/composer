@@ -5,7 +5,7 @@
 
 import argparse
 
-from mcli.sdk import RunConfig, create_run, follow_run_logs, wait_for_run_status
+from mcli.sdk import RunConfig, RunStatus, create_run, follow_run_logs, wait_for_run_status
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--name', type=str, default='mcp_pytest', help='Name of run')
@@ -61,5 +61,8 @@ run = wait_for_run_status(run, status='running')
 # Print logs
 for line in follow_run_logs(run):
     print(line.rstrip('\n'))
+
+run = wait_for_run_status(run, 'completed')
+assert run.status == RunStatus.COMPLETED
 
 # delete_runs([run])
