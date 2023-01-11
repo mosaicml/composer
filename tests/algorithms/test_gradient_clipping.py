@@ -17,6 +17,9 @@ from tests.common import world_size
 from tests.common.datasets import dummy_tiny_bert_classification_batch, dummy_transformer_classifier_batch
 from tests.common.models import SimpleTransformerClassifier, configure_tiny_bert_config
 
+# from torch.distributed.fsdp.wrap import default_auto_wrap_policy
+# from torch.distributed.fsdp import FullyShardedDataParallel
+
 
 def simple_model_with_grads():
     # Set up small NN with one linear layer with no bias + softmax, so only
@@ -39,7 +42,7 @@ def simple_model_with_grads():
 
 
 def cnn_model_with_grads():
-    # Make a NN with all the common parameters: bias, weight matrix, conv filters.
+    # Make a CNN with all the common parameters: bias, weight matrix, conv filters.
     class myNN(nn.Module):
 
         def __init__(self, n_ch, num_fmaps, h, num_classes, filter_size):
@@ -59,6 +62,12 @@ def cnn_model_with_grads():
     x = torch.rand((N, n_ch, 16, 16))
     y = torch.randint(high=num_classes - 1, size=(N,))
     model = myNN(n_ch, num_fmaps, h, num_classes, filter_size)
+
+    # Force wrap every module in FSDP, to allow for testing FSDP
+    # gradient clipping properly.
+    for layer in model.modules():
+        layer._fsdp_wrap = True
+
     o = model(x)
     loss_fn = nn.CrossEntropyLoss()
     loss = loss_fn(o, y)
@@ -69,6 +78,11 @@ def cnn_model_with_grads():
 def simple_transformer_model_with_grads():
     # Make a Transformer model.
     model = SimpleTransformerClassifier(num_classes=3)
+    # Force wrap every module in FSDP, to allow for testing FSDP
+    # gradient clipping properly.
+    for layer in model.modules():
+        layer._fsdp_wrap = True
+
     x = dummy_transformer_classifier_batch(num_classes=3)
     o = model(x)
     y = torch.randint(high=1, size=o.shape, dtype=o.dtype)
@@ -89,6 +103,10 @@ def hf_model_with_grads():
         tiny_bert_config)  # type: ignore (thirdparty)
 
     model = HuggingFaceModel(hf_model, metrics=[], use_logits=True)
+    # Force wrap every module in FSDP, to allow for testing FSDP
+    # gradient clipping properly.
+    for layer in model.modules():
+        layer._fsdp_wrap = True
 
     x = dummy_tiny_bert_classification_batch(num_classes=3)
     o = model(x).logits
@@ -120,12 +138,9 @@ def test_gradient_clipping_functional(monkeypatch):
 @pytest.mark.parametrize('clipping_type', [('adaptive',), ('norm',), ('value',)])
 @pytest.mark.parametrize(
     'model_with_grads',
-    [simple_model_with_grads(),
-     cnn_model_with_grads(),
-     simple_transformer_model_with_grads(),
-     hf_model_with_grads()])
+    [simple_model_with_grads, cnn_model_with_grads, simple_transformer_model_with_grads, hf_model_with_grads])
 def test_gradient_clipping_algorithm(monkeypatch, clipping_type, model_with_grads, dummy_state: State):
-    model = model_with_grads
+    model = model_with_grads()
     apply_gc_fn = Mock()
     monkeypatch.setattr(gc_module, 'apply_gradient_clipping', apply_gc_fn)
     state = dummy_state
@@ -188,21 +203,24 @@ def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: 
     return False
 
 
-@pytest.mark.parametrize('clipping_type', ['norm', 'value'])
+# @pytest.mark.parametrize(
+#    'model_with_grads',
+#    [simple_model_with_grads(),
+#     cnn_model_with_grads(),
+#     simple_transformer_model_with_grads(),
+#     hf_model_with_grads()])
 @pytest.mark.parametrize(
     'model_with_grads',
-    [simple_model_with_grads(),
-     cnn_model_with_grads(),
-     simple_transformer_model_with_grads(),
-     hf_model_with_grads()])
+    [simple_model_with_grads, cnn_model_with_grads, simple_transformer_model_with_grads, hf_model_with_grads])
+@pytest.mark.parametrize('clipping_type', ['norm', 'value'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 @pytest.mark.gpu
 @world_size(2)
 def test_gradient_clipping_algorithm_with_fsdp_enabled_does_not_error(
     monkeypatch,
-    clipping_type,
     model_with_grads,
+    clipping_type,
     dummy_state: State,
     world_size: int,
 ):
@@ -210,7 +228,7 @@ def test_gradient_clipping_algorithm_with_fsdp_enabled_does_not_error(
 
     clipping_threshold = 0.1191
     state = dummy_state
-    state.model = FullyShardedDataParallel(model_with_grads,
+    state.model = FullyShardedDataParallel(model_with_grads(),
                                            auto_wrap_policy=_auto_wrap_policy,
                                            device_id=torch.cuda.current_device())
 
@@ -223,10 +241,7 @@ def test_gradient_clipping_algorithm_with_fsdp_enabled_does_not_error(
 
 @pytest.mark.parametrize(
     'model_with_grads',
-    [simple_model_with_grads(),
-     cnn_model_with_grads(),
-     simple_transformer_model_with_grads(),
-     hf_model_with_grads()])
+    [simple_model_with_grads, cnn_model_with_grads, simple_transformer_model_with_grads, hf_model_with_grads])
 def test_algorithm_with_deepspeed_enabled_errors_out_for_non_norm(
     monkeypatch: pytest.MonkeyPatch,
     dummy_state: State,
@@ -242,7 +257,7 @@ def test_algorithm_with_deepspeed_enabled_errors_out_for_non_norm(
     state.algorithms = [GradientClipping(clipping_type='value', clipping_threshold=clipping_threshold)]
     state.deepspeed_config = {}
 
-    model = model_with_grads
+    model = model_with_grads()
     state.model = model
     logger = Mock()
     engine = Engine(state, logger)
@@ -262,13 +277,10 @@ def test_algorithm_with_deepspeed_enabled_errors_out_for_non_norm(
 
 @pytest.mark.parametrize(
     'model_with_grads',
-    [simple_model_with_grads(),
-     cnn_model_with_grads(),
-     simple_transformer_model_with_grads(),
-     hf_model_with_grads()])
+    [simple_model_with_grads, cnn_model_with_grads, simple_transformer_model_with_grads, hf_model_with_grads])
 def test_apply_agc(model_with_grads):
 
-    model = model_with_grads
+    model = model_with_grads()
     # Make sure after calling apply_agc, the gradients inside the model are
     # the same as if we manually called _get_clipped_gradients on the weights and
     # gradients.
