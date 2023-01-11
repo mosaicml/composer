@@ -28,6 +28,6 @@ run = wait_for_run_status(run, status='running')
 
 # Print logs
 for line in follow_run_logs(run):
-    print(f'[Log]: {line}')
+    print(line.rstrip('\n'))
 
 # delete_runs([run])
