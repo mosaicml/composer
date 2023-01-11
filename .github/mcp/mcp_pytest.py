@@ -21,11 +21,9 @@ args = parser.parse_args()
 command = f'''
 export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}'"
 
-git config --global --add safe.directory /__w/composer/composer
+cd composer
 
-ls
-
-cat Makefile
+# git config --global --add safe.directory .
 
 make test PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
 
