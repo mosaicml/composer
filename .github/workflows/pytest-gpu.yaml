@@ -18,6 +18,10 @@ jobs:
     env:
       MOSAICML_API_KEY: ${{ secrets.MCLOUD_API_KEY }}
     steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
