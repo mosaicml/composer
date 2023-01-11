@@ -23,6 +23,10 @@ export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}'"
 
 git config --global --add safe.directory /__w/composer/composer
 
+ls
+
+cat Makefile
+
 make test PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
 
 make test-dist PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS" WORLD_SIZE=2
