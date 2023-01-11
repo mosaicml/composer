@@ -46,4 +46,5 @@ jobs:
         id: tests
         run: |
           set -ex
-          mcli run -f .github/mcli_yamls/hello_world.yaml
+          # mcli run -f .github/mcli/hello_world.yaml
+          python .github/mcli/hello_world.py
