@@ -3,7 +3,7 @@
 
 """A hello world script using MCP."""
 
-from mcli.sdk import RunConfig, create_run, follow_run_logs
+from mcli.sdk import RunConfig, create_run, follow_run_logs, wait_for_run_status
 
 config = RunConfig(
     name='hello-world',
@@ -22,6 +22,9 @@ config = RunConfig(
 
 run = create_run(config)
 print(f'Launching run {run.name}')
+
+run = wait_for_run_status(run, status='running')
+print(f'Run named {run.name} has status {run.status}')
 
 # Print logs
 for line in follow_run_logs(run):
