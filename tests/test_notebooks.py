@@ -96,6 +96,8 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
     notebook_name = os.path.split(notebook)[-1][:-len('.ipynb')]
     if notebook_name == 'medical_image_segmentation':
         pytest.skip('Dataset is only available via kaggle; need to authenticate on ci/cd')
+    if notebook_name == 'training_with_submitit':
+        pytest.skip('The CI does not support SLURM and submitit')
     if notebook_name == 'auto_microbatching' and device == 'cpu':
         pytest.skip('auto_grad_accum notebook only runs with a gpu')
     if notebook_name == 'TPU_Training_in_composer':
