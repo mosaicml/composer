@@ -27,20 +27,17 @@ if __name__ == '__main__':
     if args.pr_number:
         command += f'''
 
-        ls
-
-        sleep 6
-
         git fetch origin pull/{args.pr_number}/head:pr_branch
 
         git checkout pr_branch
+
+        git log
+
+        ls | grep Makefile
+
         '''
 
     command += f'''
-
-    ls
-
-    sleep 5
 
     export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}'"
 
