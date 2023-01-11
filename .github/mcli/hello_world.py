@@ -7,8 +7,9 @@ from mcli.sdk import RunConfig, create_run, follow_run_logs
 
 config = RunConfig(
     name='hello-world',
-    gpu_type='a100_80gb',
     platform='r1z1',
+    gpu_type='a100_80gb',
+    gpu_num=8,
     image='mosaicml/pytorch',
     command='composer_collect_env',
 )
