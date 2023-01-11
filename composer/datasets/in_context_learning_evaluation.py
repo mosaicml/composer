@@ -2,16 +2,18 @@
 # SPDX-License-Identifier: Apache-2.0
 # This code is based on the implementation in https://github.com/EleutherAI/lm-evaluation-harness/blob/8c048e266a22a1c85ccbdb0c209ac712e4f39989/lm_eval/base.py#L221-L330
 
-from typing import Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Union
 
 import torch
-import transformers
-from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset
 
 from composer.core import DataSpec
-from composer.utils import dist
-from composer.utils.file_helpers import get_file
+from composer.utils import MissingConditionalImportError, dist, get_file
+
+if TYPE_CHECKING:
+    import transformers
 
 __all__ = ['InContextLearningLMTaskDataset', 'get_lm_task_dataloader']
 
@@ -37,6 +39,13 @@ class InContextLearningLMTaskDataset(Dataset):
         eos_tok_id: int,
         destination_path: str = 'icl_lm_task.json',
     ):
+        try:
+            from datasets import load_dataset
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='nlp',
+                                                conda_package='datasets',
+                                                conda_channel='conda-forge') from e
+
         get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         self.encoded_dataset = list(
