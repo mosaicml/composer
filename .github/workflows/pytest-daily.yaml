@@ -17,8 +17,8 @@ jobs:
   pytest:
     timeout-minutes: 30
     runs-on: ubuntu-20.04
-    fail-fast: false
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: 'cpu-3.8-1.11'
