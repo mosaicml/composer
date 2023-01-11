@@ -15,6 +15,7 @@ config = RunConfig(
         'integration_type': 'git_repo',
         'git_repo': 'mosaicml/composer',
         'git_branch': 'dev',
+        'ssh_clone': 'False',
         'pip_install': '--user -e .[all]',
     }],
     command='composer_collect_env',
@@ -24,7 +25,6 @@ run = create_run(config)
 print(f'Launching run {run.name}')
 
 run = wait_for_run_status(run, status='running')
-print(f'Run named {run.name} has status {run.status}')
 
 # Print logs
 for line in follow_run_logs(run):
