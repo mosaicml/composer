@@ -19,7 +19,7 @@ jobs:
       matrix:
         include:
           - name: 'gpu-3.9-1.12-vision-doctest'
-            container: mosaicml/pytorch_vision:1.12.1_cu116-python3.9-ubuntu20.04
+            container: mosaicml/pytorch_vision:1.13.1_cpu-python3.10-ubuntu20.04
             markers: 'not daily and not remote and gpu and (vision or not vision) and (doctest or not doctest)'
             pytest_command: 'coverage run -m pytest'
     name: ${{ matrix.name }}
