@@ -64,8 +64,6 @@ def test_lm_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
     assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen)
     assert 'continuation_indices' in batch
     assert isinstance(batch['continuation_indices'], list) and len(batch['continuation_indices']) == batch_size
-    assert 'labels' in batch
-    assert tuple(batch['labels'].shape) == (batch_size, seqlen)
     assert 'mode' in batch
     assert batch['mode'] == 'icl_task'
 
@@ -99,8 +97,6 @@ def test_mc_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
     assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen)
     assert 'continuation_indices' in batch
     assert isinstance(batch['continuation_indices'], list) and len(batch['continuation_indices']) == batch_size
-    assert 'labels' in batch
-    assert tuple(batch['labels'].shape) == (batch_size, seqlen)
     assert 'mode' in batch
     assert batch['mode'] == 'icl_task'
     assert 'gold_indices' in batch

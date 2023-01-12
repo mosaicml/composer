@@ -286,19 +286,14 @@ class HuggingFaceModel(ComposerModel):
             return outputs[0]
 
     def eval_forward(self, batch, outputs: Optional[Any] = None):
+        self.labels = batch.pop('labels')
         output = outputs if outputs else self.forward(batch)
         if self.use_logits or batch.get('mode', None) == 'icl_task':
-            self.labels = batch.pop('labels')
-            return batch['eval_forward_handle'](self, batch)
-        else:
-            output = outputs if outputs else self.forward(batch)
-            if self.use_logits:
-                self.labels = batch.pop('labels')
-                if self.config.use_return_dict:
-                    output = output['logits']
-                else:
-                    # logits are at index 1 in the output tuple
-                    output = output[1]
+            if self.config.use_return_dict:
+                output = output['logits']
+            else:
+                # logits are at index 1 in the output tuple
+                output = output[1]
 
                 # if we are in the single class case, then remove the classes dimension
                 if output.shape[1] == 1:
@@ -315,7 +310,7 @@ class HuggingFaceModel(ComposerModel):
         return metrics if metrics else {}
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
-        if isinstance(metric, InContextLearningMetric):
+        if isinstance(metric, InContextLearningMetric) and batch.get('mode', None) == 'icl_task':
             assert self.labels is not None
             metric.update(batch, outputs, self.labels)
         else:

@@ -5,22 +5,13 @@
 
 from composer.metrics.map import MAP
 from composer.metrics.metrics import CrossEntropy, Dice, LossMetric, MIoU
-from composer.metrics.nlp import (BinaryF1Score, HFCrossEntropy, InContextLearningLMAccuracy, LanguageCrossEntropy,
-                                  MaskedAccuracy, Perplexity, InContextLearningMultipleChoiceAccuracy, InContextLearningMetric)
+from composer.metrics.nlp import (BinaryF1Score, HFCrossEntropy, InContextLearningLMAccuracy, InContextLearningMetric,
+                                  InContextLearningMultipleChoiceAccuracy, LanguageCrossEntropy, MaskedAccuracy,
+                                  Perplexity)
 
 __all__ = [
-    'MAP',
-    'MIoU',
-    'Dice',
-    'CrossEntropy',
-    'LossMetric',
-    'Perplexity',
-    'BinaryF1Score',
-    'HFCrossEntropy',
-    'LanguageCrossEntropy',
-    'MaskedAccuracy',
-    'InContextLearningLMAccuracy',
-    'InContextLearningMultipleChoiceAccuracy',
+    'MAP', 'MIoU', 'Dice', 'CrossEntropy', 'LossMetric', 'Perplexity', 'BinaryF1Score', 'HFCrossEntropy',
+    'LanguageCrossEntropy', 'MaskedAccuracy', 'InContextLearningLMAccuracy', 'InContextLearningMultipleChoiceAccuracy',
     'InContextLearningMetric'
 ]
 

@@ -4,16 +4,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Union
-from typing import Union
 import random
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
-import transformers
 import torch
 import transformers
 from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
 
 from composer.core import DataSpec
 from composer.utils import MissingConditionalImportError, dist, get_file
@@ -97,7 +95,7 @@ class InContextLearningLMTaskDataset(Dataset):
         prompt_string: str,
         example_delimiter: str,
         continuation_delimiter: str,
-        destination_path: str = 'icl_lm_task.json',
+        destination_path: str = 'icl_lm_task.jsonl',
     ):
         try:
             from datasets import load_dataset
@@ -134,7 +132,7 @@ class InContextLearningLMTaskDataset(Dataset):
             dict: Contains the context, the continuation, and the preamble (prompt + fewshot examples)
         """
         examples = []
-        for sample_idx in range(len(self.samples)):
+        for sample_idx in tqdm(range(len(self.samples))):
             encoded_example = {}
 
             preamble = prompt_string
@@ -240,7 +238,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         prompt_string: str,
         example_delimiter: str,
         continuation_delimiter: str,
-        destination_path: str = 'icl_mc_task.json',
+        destination_path: str = 'icl_mc_task.jsonl',
     ):
         get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
@@ -277,7 +275,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
                 the index of the correct answer choice.
         """
         examples = []
-        for sample_idx in range(len(self.samples)):
+        for sample_idx in tqdm(range(len(self.samples))):
 
             preamble = prompt_string
             if num_fewshot > 0:
