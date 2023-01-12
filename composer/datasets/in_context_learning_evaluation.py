@@ -188,6 +188,7 @@ class InContextLearningLMTaskDataset(Dataset):
             'continuation_indices': continuation_indices,
             'mode': 'icl_task',
             'labels': torch.stack(inputs),
+            'eos_tok_id': self.eos_tok_id
         }
 
         batch['attention_mask'] = ~(batch['input_ids'] == self.eos_tok_id)

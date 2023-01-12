@@ -286,8 +286,7 @@ class HuggingFaceModel(ComposerModel):
             return outputs[0]
 
     def eval_forward(self, batch, outputs: Optional[Any] = None):
-        if 'labels' in batch:
-            self.labels = batch.pop('labels')
+        self.labels = batch.pop('labels')
         output = outputs if outputs else self.forward(batch)
         if self.use_logits or batch.get('mode', None) == 'icl_task':
             if self.config.use_return_dict:
@@ -296,11 +295,11 @@ class HuggingFaceModel(ComposerModel):
                 # logits are at index 1 in the output tuple
                 output = output[1]
 
-                # if we are in the single class case, then remove the classes dimension
-                if output.shape[1] == 1:
-                    output = output.squeeze(dim=1)
+            # if we are in the single class case, then remove the classes dimension
+            if output.shape[1] == 1:
+                output = output.squeeze(dim=1)
 
-            return output
+        return output
 
     def get_metrics(self, is_train: bool = False) -> Dict[str, Metric]:
         if is_train:
@@ -315,7 +314,7 @@ class HuggingFaceModel(ComposerModel):
             assert self.labels is not None
             metric.update(batch, outputs, self.labels)
         else:
-            metric.update(outputs, self.labels)
+            metric.update(outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
 
     def get_metadata(self):
         model_output = {}
