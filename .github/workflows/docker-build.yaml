@@ -26,20 +26,72 @@ jobs:
       - id: set-matrix
         run: |
           BUILD_MATRIX=$(cat docker/build_matrix_gha.txt)
-          echo "matrix={\"include\": ${BUILD_MATRIX}}"
           echo "matrix={\"include\": ${BUILD_MATRIX}}" >> $GITHUB_OUTPUT
   build-images:
     needs: build-image-matrix
     runs-on: ubuntu-20.04
     strategy:
+      fail-fast: true
       matrix: ${{ fromJSON(needs.build-image-matrix.outputs.matrix) }}
     steps:
-      - run: |
-          echo ${{ matrix.BASE_IMAGE }}
-          echo ${{ matrix.CUDA_VERSION }}
-          echo ${{ matrix.PYTHON_VERSION }}
-          echo ${{ matrix.PYTORCH_VERSION }}
-          echo ${{ matrix.TAGS }}
-          echo ${{ matrix.TARGET }}
-          echo ${{ matrix.TORCHTEXT_VERSION }}
-          echo ${{ matrix.TORCHVISION_VERSION }}
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+      - name: Calculate Docker Image Variables
+        run: |
+          set -euxo pipefail
+
+          ###################
+          # Image config
+          ###################
+          echo "BASE_IMAGE: ${{ matrix.BASE_IMAGE }}"
+          echo "CUDA_VERSION: \${{ matrix.CUDA_VERSION }}"
+          echo "PYTHON_VERSION: \${{ matrix.PYTHON_VERSION }}"
+          echo "PYTORCH_VERSION: \${{ matrix.PYTORCH_VERSION }}"
+          echo "TAGS: \${{ matrix.TAGS }}"
+          echo "TARGET: \${{ matrix.TARGET }}"
+          echo "TORCHTEXT_VERSION: \${{ matrix.TORCHTEXT_VERSION }}"
+          echo "TORCHVISION_VERSION: \${{ matrix.TORCHVISION_VERSION }}"
+
+
+          ###################
+          # Calculate the tag
+          ###################
+          if [[ ${GITHUB_REF} != "refs'heads'dev" ]]; then
+            DOCKERHUB_REPO="mosaicml/jekins-staging"
+            GIT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+            IMAGE_TAG=${DOCKERHUB_REPO}:${GIT_SHA}
+          else
+            IMAGE_TAG=${{ matrix.TAGS }}
+
+          echo "IMAGE_TAG: ${IMAGE_TAG}"
+          echo "IMAGE_TAG=${GIT_SHA}" >> ${GITHUB_ENV}
+
+      - name: Build and Push the Docker Image
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          tags: ${{ env.IMAGE_TAG }}
+          target: ${{ matrix.TARGET }}
+          push: false
+          #cache-from: type=registry,ref=mosaicml/examples:${{ matrix.example }}-buildcache
+          #cache-to: type=registry,ref=mosaicml/examples:${{ matrix.example }}-buildcache,mode=max
+          build-args: |
+            BASE_IMAGE=${{ matrix.BASE_IMAGE }}
+            CUDA_VERSION=${{ matrix.CUDA_VERSION }}
+            PYTHON_VERSION=${{ matrix.PYTHON_VERSION }}
+            PYTORCH_VERSION=${{ matrix.PYTORCH_VERSION }}
+            TORCHTEXT_VERSION=${{ matrix.TORCHTEXT_VERSION }}
+            TORCHVISION_VERSION=${{ matrix.TORCHVISION_VERSION }}
