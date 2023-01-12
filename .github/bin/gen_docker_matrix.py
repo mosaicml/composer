@@ -8,6 +8,7 @@
 
 import json
 from argparse import ArgumentParser, FileType, Namespace
+from uuid import uuid4
 
 import yaml
 
@@ -29,7 +30,12 @@ def main(args: Namespace):
     image_configs = yaml.safe_load(args.yaml_file)
 
     for image_config in image_configs:
+
+        # Convert tags list to a CSV string
         image_config['TAGS'] = ','.join(image_config['TAGS'])
+
+        # Generate a random UUID for staging
+        image_config['STAGING_TAG'] = str(uuid4())
 
     json_string = json.dumps(image_configs)
     print(f"""matrix={{"include": {json_string}}}""")
