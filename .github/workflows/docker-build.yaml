@@ -28,12 +28,12 @@ jobs:
           BUILD_MATRIX=$(cat docker/build_matrix_gha.txt)
           echo "matrix={\"include\": ${BUILD_MATRIX}}" >> $GITHUB_OUTPUT
   build-images:
-    name: ${{ matrix.TAGS }}
     needs: build-image-matrix
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: true
       matrix: ${{ fromJSON(needs.build-image-matrix.outputs.matrix) }}
+    name: ${{ matrix.TAGS }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
