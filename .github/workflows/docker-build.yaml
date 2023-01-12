@@ -82,7 +82,7 @@ jobs:
       - name: Build and Push the Docker Image
         uses: docker/build-push-action@v3
         with:
-          context: .
+          context: ./docker
           tags: ${{ env.IMAGE_TAG }}
           target: ${{ matrix.TARGET }}
           push: false
