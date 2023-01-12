@@ -69,14 +69,14 @@ jobs:
           echo "TORCHVISION_VERSION: ${{ matrix.TORCHVISION_VERSION }}"
           echo "CUDA_VERSION: ${{ matrix.CUDA_VERSION }}"
           echo "TAGS: ${{ matrix.TAGS }}"
-          echo "STAGING_TAG: ${{ matrix.STAGING_UUID }}"
+          echo "UUID: ${{ matrix.UUID }}"
 
           ###################
           # Calculate the tag
           ###################
           if [[ ${GITHUB_REF} != "refs'heads'dev" ]]; then
             DOCKERHUB_REPO="mosaicml/jenkins-staging"
-            IMAGE_TAG=${DOCKERHUB_REPO}:${{ matrix.STAGING_UUID }}
+            IMAGE_TAG=${DOCKERHUB_REPO}:${{ matrix.UUID }}
           else
             IMAGE_TAG=${{ matrix.TAGS }}
           fi

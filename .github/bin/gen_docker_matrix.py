@@ -35,7 +35,7 @@ def main(args: Namespace):
         image_config['TAGS'] = ','.join(image_config['TAGS'])
 
         # Generate a random UUID for staging
-        image_config['STAGING_TAG'] = str(uuid4())
+        image_config['UUID'] = str(uuid4())
 
     json_string = json.dumps(image_configs)
     print(f"""matrix={{"include": {json_string}}}""")
