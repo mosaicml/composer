@@ -28,6 +28,7 @@ jobs:
           BUILD_MATRIX=$(cat docker/build_matrix_gha.txt)
           echo "matrix={\"include\": ${BUILD_MATRIX}}" >> $GITHUB_OUTPUT
   build-images:
+    name: ${{ matrix.TAGS }}
     needs: build-image-matrix
     runs-on: ubuntu-20.04
     strategy:
