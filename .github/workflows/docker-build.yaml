@@ -65,7 +65,6 @@ jobs:
           echo "TORCHTEXT_VERSION: \${{ matrix.TORCHTEXT_VERSION }}"
           echo "TORCHVISION_VERSION: \${{ matrix.TORCHVISION_VERSION }}"
 
-
           ###################
           # Calculate the tag
           ###################
@@ -75,6 +74,7 @@ jobs:
             IMAGE_TAG=${DOCKERHUB_REPO}:${GIT_SHA}
           else
             IMAGE_TAG=${{ matrix.TAGS }}
+          fi
 
           echo "IMAGE_TAG: ${IMAGE_TAG}"
           echo "IMAGE_TAG=${GIT_SHA}" >> ${GITHUB_ENV}
