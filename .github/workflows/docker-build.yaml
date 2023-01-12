@@ -33,7 +33,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix: ${{ fromJSON(needs.build-image-matrix.outputs.matrix) }}
-    name: TAG
+    name: "${{ matrix.TAGS }}"
     steps:
       - name: Checkout
         uses: actions/checkout@v3
