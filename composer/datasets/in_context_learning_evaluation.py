@@ -6,12 +6,6 @@ from __future__ import annotations
 
 import random
 from typing import TYPE_CHECKING, Union
-<<<<<<< HEAD
-=======
-from typing import Union
-import random
-from typing import Union
->>>>>>> 0d30fa0e (add testing)
 
 import torch
 import transformers
@@ -25,7 +19,6 @@ from composer.utils import MissingConditionalImportError, dist, get_file
 if TYPE_CHECKING:
     import transformers
 
-<<<<<<< HEAD
 __all__ = ['InContextLearningLMTaskDataset', 'InContextLearningMultipleChoiceTaskDataset', 'get_icl_task_dataloader']
 
 
@@ -73,12 +66,6 @@ def _get_fewshot_sample_idxs(dataset_size, num_fewshot, sample_idx):
             replacement_sample = random.choice(range(0, dataset_size))
         fewshot_idxs.add(replacement_sample)
     return fewshot_idxs
-=======
-__all__ = [
-    'InContextLearningLMTaskDataset', 'InContextLearningMultipleChoiceTaskDataset', 'get_mc_task_dataloader',
-    'get_lm_task_dataloader'
-]
->>>>>>> 0d30fa0e (add testing)
 
 
 class InContextLearningLMTaskDataset(Dataset):
@@ -347,7 +334,6 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
             choice_end_idx = len(continuation_indices)
             choice_groupings.append((choice_start_idx, choice_end_idx))
 
-<<<<<<< HEAD
         # We run each distinct query + answer choice through the model separately and determine which
         # answer has the lowest per-token-perplexity.
         #
@@ -355,8 +341,6 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         # since the batch may consist of multiple questions, the choice_groupings indicates
         # which contiguous sequences of elements in the batch correspond to which question
         # gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
-=======
->>>>>>> 0d30fa0e (add testing)
         batch = {
             'input_ids': torch.stack(inputs),
             'continuation_indices': continuation_indices,
@@ -365,11 +349,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
             'gold_indices': gold_idxs,
             'choice_groupings': choice_groupings
         }
-<<<<<<< HEAD
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
-=======
-        batch['attention_mask'] = ~(batch['input_ids'] == self.eos_tok_id)
->>>>>>> 0d30fa0e (add testing)
         return batch
 
     def get_num_samples_in_batch(self, batch) -> int:
@@ -387,38 +367,7 @@ def get_icl_task_dataloader(
         max_seq_len: int,
         pad_tok_id: int,
         num_fewshot: int,
-<<<<<<< HEAD
         prompt_string: str,  # e.g. 'translate english to french:'
-=======
-        preamble_string: str,  # e.g. 'translate english to french:'
-        example_delimiter: str,  # e.g. '\n'
-        continuation_delimiter: str,  # e.g. ''
-) -> DataSpec:
-    dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri, tokenizer, max_seq_len, eos_tok_id, num_fewshot,
-                                                         preamble_string, example_delimiter, continuation_delimiter)
-    sampler = dist.get_sampler(dataset, drop_last=False, shuffle=True)
-    batch_size = max(dataset.num_choices, batch_size)
-    effective_batchsize = batch_size // dataset.num_choices
-    print(f'Using microbatch size {effective_batchsize}')
-    return DataSpec(DataLoader(
-        dataset,
-        batch_size=effective_batchsize,
-        sampler=sampler,
-        collate_fn=dataset.collate_fn,
-    ),
-                    device_transforms=None,
-                    get_num_samples_in_batch=dataset.get_num_samples_in_batch)
-
-
-def get_lm_task_dataloader(
-        dataset_uri: str,
-        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
-        batch_size: int,
-        max_seq_len: int,
-        eos_tok_id: int,
-        num_fewshot: int,
-        preamble_string: str,  # e.g. 'translate english to french:'
->>>>>>> 0d30fa0e (add testing)
         example_delimiter: str,  # e.g. '\n'
         continuation_delimiter: str,  # e.g. ''
 ) -> DataSpec:

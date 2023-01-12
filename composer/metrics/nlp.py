@@ -238,8 +238,6 @@ class Perplexity(HFCrossEntropy):
 
 
 class InContextLearningMetric(Metric):
-<<<<<<< HEAD
-<<<<<<< HEAD
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
         """Abstract interface for computing an in-context learning metrics.
@@ -256,17 +254,6 @@ class InContextLearningMetric(Metric):
         raise NotImplementedError
 
 
-=======
-    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
-       raise NotImplementedError
->>>>>>> b3c5de0b (add multiple choice eval)
-=======
-
-    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
-        raise NotImplementedError
-
-
->>>>>>> 0d30fa0e (add testing)
 class InContextLearningLMAccuracy(InContextLearningMetric):
     r"""Computes accuracy for In-context learning (ICL) language modeling (LM) tasks.
 
@@ -278,7 +265,6 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
 
     Context: `The dog is->fuzzy\nthe water is->hot\nthe tree is->`
     Continuation: `green`
-<<<<<<< HEAD
 
     Adds metric state variables:
         correct (float): The number of instances where the prediction masked the target.
@@ -287,8 +273,6 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
     Args:
         dist_sync_on_step (bool, optional): Synchronize metric state across processes at
             each forward() before returning the value at the step. Default: ``False``.
-=======
->>>>>>> b3c5de0b (add multiple choice eval)
     """
 
     # Make torchmetrics call update only once
@@ -355,54 +339,6 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
             cont_tok_logits = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1)
             cont_tok_targ = targets[batch_idx].index_select(dim=0, index=cont_idx - 1)
             cross_entropy = F.cross_entropy(cont_tok_logits, cont_tok_targ)
-            perplexity = torch.exp(cross_entropy)
-            perplexities.append(perplexity)
-
-        for (start, end), gold_idx in zip(batch['choice_groupings'], batch['gold_indices']):
-            subset = perplexities[start:end]
-            idx_min = subset.index(min(subset))
-
-            if idx_min == gold_idx:
-                self.correct += torch.tensor(1.0)
-            self.total += torch.tensor(1.0)
-
-    def compute(self):
-        assert isinstance(self.correct, Tensor)
-        assert isinstance(self.total, Tensor)
-        return self.correct.float() / self.total
-
-
-class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
-    """Computes accuracy with support for masked indicies.
-
-    Adds metric state variables:
-        correct (float): The number of instances where the prediction masked the target.
-        total (float): The number of total instances that were predicted.
-
-    Args:
-        ignore_index (int): The class index to ignore. Default: -100.
-        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
-            each forward() before returning the value at the step. Default: ``False``.
-    """
-
-    # Make torchmetrics call update only once
-    full_state_update = False
-
-    def __init__(self, dist_sync_on_step: bool = False):
-        # state from multiple processes
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
-        self.add_state('correct', default=torch.tensor(0.0), dist_reduce_fx='sum')
-        self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
-
-    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
-        targets = torch.roll(labels, shifts=-1)
-        targets[:, -1] = -100
-
-        perplexities = []
-        for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
-            cont_tok_logits = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1)
-            cont_tok_targ = targets[batch_idx].index_select(dim=0, index=cont_idx - 1)
-            cross_entropy = soft_cross_entropy(cont_tok_logits, cont_tok_targ)
             perplexity = torch.exp(cross_entropy)
             perplexities.append(perplexity)
 
