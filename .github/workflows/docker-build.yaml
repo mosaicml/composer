@@ -57,13 +57,13 @@ jobs:
           # Image config
           ###################
           echo "BASE_IMAGE: ${{ matrix.BASE_IMAGE }}"
-          echo "CUDA_VERSION: \${{ matrix.CUDA_VERSION }}"
-          echo "PYTHON_VERSION: \${{ matrix.PYTHON_VERSION }}"
-          echo "PYTORCH_VERSION: \${{ matrix.PYTORCH_VERSION }}"
-          echo "TAGS: \${{ matrix.TAGS }}"
-          echo "TARGET: \${{ matrix.TARGET }}"
-          echo "TORCHTEXT_VERSION: \${{ matrix.TORCHTEXT_VERSION }}"
-          echo "TORCHVISION_VERSION: \${{ matrix.TORCHVISION_VERSION }}"
+          echo "CUDA_VERSION: ${{ matrix.CUDA_VERSION }}"
+          echo "PYTHON_VERSION: ${{ matrix.PYTHON_VERSION }}"
+          echo "PYTORCH_VERSION: ${{ matrix.PYTORCH_VERSION }}"
+          echo "TAGS: ${{ matrix.TAGS }}"
+          echo "TARGET: ${{ matrix.TARGET }}"
+          echo "TORCHTEXT_VERSION: ${{ matrix.TORCHTEXT_VERSION }}"
+          echo "TORCHVISION_VERSION: ${{ matrix.TORCHVISION_VERSION }}"
 
           ###################
           # Calculate the tag
