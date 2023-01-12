@@ -69,15 +69,15 @@ jobs:
           # Calculate the tag
           ###################
           if [[ ${GITHUB_REF} != "refs'heads'dev" ]]; then
-            DOCKERHUB_REPO="mosaicml/jekins-staging"
-            GIT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
-            IMAGE_TAG=${DOCKERHUB_REPO}:${GIT_SHA}
+            DOCKERHUB_REPO="mosaicml/jenkins-staging"
+            UUID_TAG=$(uuidgen -r)
+            IMAGE_TAG=${DOCKERHUB_REPO}:${UUID_TAG}
           else
             IMAGE_TAG=${{ matrix.TAGS }}
           fi
 
           echo "IMAGE_TAG: ${IMAGE_TAG}"
-          echo "IMAGE_TAG=${GIT_SHA}" >> ${GITHUB_ENV}
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> ${GITHUB_ENV}
 
       - name: Build and Push the Docker Image
         uses: docker/build-push-action@v3
