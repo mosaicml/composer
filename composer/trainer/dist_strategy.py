@@ -239,6 +239,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     sync_module_states = fsdp_config.get('sync_module_states', False)
     forward_prefetch = fsdp_config.get('forward_prefetch', False)
     limit_all_gathers = fsdp_config.get('limit_all_gathers', False)
+    ignored_modules = fsdp_config.get('ignored_modules', None)
 
     # We choose to not wrap the ComposerModel directly, but instead wrap any submodules like `ComposerModel.model`
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
@@ -279,6 +280,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                 cpu_offload=cpu_offload,
                 mixed_precision=mixed_precision,
                 backward_prefetch=backward_prefetch,
+                ignored_modules=ignored_modules,
                 param_init_fn=_param_init_fn,
                 device_id=torch.cuda.current_device(),
                 sync_module_states=sync_module_states,
