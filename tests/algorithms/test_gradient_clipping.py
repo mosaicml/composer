@@ -17,9 +17,6 @@ from tests.common import world_size
 from tests.common.datasets import dummy_tiny_bert_classification_batch, dummy_transformer_classifier_batch
 from tests.common.models import SimpleTransformerClassifier, configure_tiny_bert_config
 
-# from torch.distributed.fsdp.wrap import default_auto_wrap_policy
-# from torch.distributed.fsdp import FullyShardedDataParallel
-
 
 def simple_model_with_grads():
     # Set up small NN with one linear layer with no bias + softmax, so only
@@ -203,15 +200,12 @@ def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: 
     return False
 
 
-# @pytest.mark.parametrize(
-#    'model_with_grads',
-#    [simple_model_with_grads(),
-#     cnn_model_with_grads(),
-#     simple_transformer_model_with_grads(),
-#     hf_model_with_grads()])
-@pytest.mark.parametrize(
-    'model_with_grads',
-    [simple_model_with_grads, cnn_model_with_grads, simple_transformer_model_with_grads, hf_model_with_grads])
+@pytest.mark.parametrize('model_with_grads', [
+    simple_model_with_grads, cnn_model_with_grads,
+    pytest.param(simple_transformer_model_with_grads,
+                 marks=pytest.mark.xfail(reason='SimpleTransformerBase cannot be recursively FSDP wrapped.')),
+    hf_model_with_grads
+])
 @pytest.mark.parametrize('clipping_type', ['norm', 'value'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
