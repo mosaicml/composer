@@ -584,6 +584,9 @@ class Trainer:
             :attr:`.TimeUnit.BATCH` or :attr:`.TimeUnit.EPOCH`.
 
             Set to ``0`` to disable metrics logging to console.
+        log_only_train_eval_metrics (bool): Whether to only log loss and model accuracy. If False, logs
+            everything thats logged through ``log_metrics``. If False, only logs loss and model 
+            train/eval performance metrics, like accuracy. (default: ``False``)
         log_traces (bool): Whether to log traces or not. (default: ``False``)
         auto_log_hparams (bool): Whether to automatically extract hyperparameters. (default: ``False``)
         load_path (str, optional):  The path format string to an existing checkpoint file.
@@ -882,6 +885,7 @@ class Trainer:
         log_to_console: bool = False,
         console_stream: Union[str, TextIO] = 'stderr',
         console_log_interval: Union[int, str, Time] = '1ep',
+        log_only_train_eval_metrics: bool = False,
         log_traces: bool = False,
         auto_log_hparams: bool = False,
 
@@ -1109,7 +1113,7 @@ class Trainer:
         else:
             if log_to_console:
                 loggers.append(
-                    ConsoleLogger(stream=console_stream, log_interval=console_log_interval, log_traces=log_traces))
+                    ConsoleLogger(log_only_train_eval_metrics=log_only_train_eval_metrics, stream=console_stream, log_interval=console_log_interval, log_traces=log_traces))
 
         if save_folder is not None:
             remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
@@ -1130,8 +1134,9 @@ class Trainer:
                     'Specifying a `file_path_format_string` to a `RemoteUploaderDownloader` is not currently supported while using `save_latest_filename`. '
                     'Please specify the path formatting via `save_folder`, `save_filename`, and `save_latest_filename`')
 
+        # Put loggers after callbacks to ensure anything a callback logs actually gets logged.
         # Callbacks
-        self.state.callbacks[:] = list(cast(List[Callback], loggers)) + self.state.callbacks
+        self.state.callbacks[:] = self.state.callbacks + list(cast(List[Callback], loggers))
 
         # Checkpoint Saving
         self._checkpoint_saver = None

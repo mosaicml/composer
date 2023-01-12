@@ -11,6 +11,7 @@ from torchmetrics import MetricCollection
 
 from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel
+from composer.callbacks import SpeedMonitor
 
 
 @pytest.fixture
@@ -36,6 +37,7 @@ def test_console_logger_interval(console_logger_test_stream, console_logger_test
 
     model = SimpleModel()
     trainer = Trainer(model=model,
+                      log_only_train_eval_metrics=True,
                       console_stream=console_logger_test_stream,
                       console_log_interval=f'{log_interval}{log_interval_unit}',
                       log_to_console=True,
@@ -88,6 +90,7 @@ def test_console_logger_interval_with_eval(console_logger_test_stream, console_l
 
     model = SimpleModel()
     trainer = Trainer(model=model,
+                      log_only_train_eval_metrics=True,
                       console_stream=console_logger_test_stream,
                       eval_interval=f'{eval_interval}{eval_interval_unit}',
                       log_to_console=True,
@@ -138,3 +141,56 @@ def test_log_to_console_and_progress_bar_warning():
                 progress_bar=True,
                 train_dataloader=DataLoader(RandomClassificationDataset()),
                 max_duration=f'2ep')
+
+
+@pytest.mark.parametrize('log_interval_unit', ['ba', 'ep'])
+@pytest.mark.parametrize('max_duration_unit', ['ba', 'ep'])
+@pytest.mark.parametrize('log_interval', [1])
+@pytest.mark.parametrize('max_duration', [8])
+def test_console_logger_with_a_callback(console_logger_test_stream, console_logger_test_file_path, log_interval, max_duration,
+                                        log_interval_unit, max_duration_unit):
+
+
+
+    batch_size = 4
+    dataset_size = 17
+    batches_per_epoch = math.ceil(dataset_size / batch_size)
+
+    model = SimpleModel()
+    trainer = Trainer(model=model,
+                      log_only_train_eval_metrics=False,
+                      console_stream=console_logger_test_stream,
+                      console_log_interval=f'{log_interval}{log_interval_unit}',
+                      log_to_console=True,
+                      progress_bar=False,
+                      callbacks=SpeedMonitor(),
+                      train_dataloader=DataLoader(RandomClassificationDataset(size=dataset_size),
+                                                  batch_size=batch_size),
+                      max_duration=f'{max_duration}{max_duration_unit}')
+
+    trainer.fit()
+    console_logger_test_stream.flush()
+    console_logger_test_stream.close()
+
+    if log_interval_unit == max_duration_unit:
+        expected_num_logging_events = max_duration // log_interval
+    elif log_interval_unit == 'ba' and max_duration_unit == 'ep':
+        expected_num_logging_events = (batches_per_epoch * max_duration) // log_interval
+    else:  # for the case where log_interval_unit == 'ep' and max_duration == 'ba'.
+        total_epochs = max_duration // batches_per_epoch
+        expected_num_logging_events = total_epochs // log_interval
+    if log_interval != 1:
+        expected_num_logging_events += 1  # Because we automatically log the first batch or epoch.
+
+    with open(console_logger_test_file_path, 'r') as f:
+        lines = f.readlines()
+
+    # Make a regular expression for matches for any line that contains "wall_clock" followed by
+    # a slash.
+    wallclock_reg_exp = re.compile('Train wall_clock*')
+    actual_num_wallclock_lines = sum([1 if bool(wallclock_reg_exp.search(line)) else 0 for line in lines])
+
+    num_wallclock_lines_per_log_event = 3
+    expected_wallclock_lines = num_wallclock_lines_per_log_event * expected_num_logging_events
+
+    assert actual_num_wallclock_lines == expected_wallclock_lines
