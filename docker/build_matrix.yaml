@@ -28,15 +28,6 @@
   TARGET: pytorch_stage
   TORCHTEXT_VERSION: 0.13.1
   TORCHVISION_VERSION: 0.13.1
-- BASE_IMAGE: nvidia/cuda:11.6.2-cudnn8-devel-ubuntu20.04
-  CUDA_VERSION: 11.6.2
-  PYTHON_VERSION: '3.9'
-  PYTORCH_VERSION: 1.12.1
-  TAGS:
-  - mosaicml/pytorch_vision:1.12.1_cu116-python3.9-ubuntu20.04
-  TARGET: vision_stage
-  TORCHTEXT_VERSION: 0.13.1
-  TORCHVISION_VERSION: 0.13.1
 - BASE_IMAGE: ubuntu:20.04
   CUDA_VERSION: ''
   HPCX_VERSION: ''
@@ -46,17 +37,6 @@
   TAGS:
   - mosaicml/pytorch:1.12.1_cpu-python3.9-ubuntu20.04
   TARGET: pytorch_stage
-  TORCHTEXT_VERSION: 0.13.1
-  TORCHVISION_VERSION: 0.13.1
-- BASE_IMAGE: ubuntu:20.04
-  CUDA_VERSION: ''
-  HPCX_VERSION: ''
-  MOFED_VERSION: ''
-  PYTHON_VERSION: '3.9'
-  PYTORCH_VERSION: 1.12.1
-  TAGS:
-  - mosaicml/pytorch_vision:1.12.1_cpu-python3.9-ubuntu20.04
-  TARGET: vision_stage
   TORCHTEXT_VERSION: 0.13.1
   TORCHVISION_VERSION: 0.13.1
 - BASE_IMAGE: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
@@ -69,6 +49,16 @@
   TARGET: pytorch_stage
   TORCHTEXT_VERSION: 0.14.1
   TORCHVISION_VERSION: 0.14.1
+- BASE_IMAGE: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
+  CUDA_VERSION: 11.7.1
+  PYTHON_VERSION: '3.10'
+  PYTORCH_VERSION: 1.13.1
+  TAGS:
+  - mosaicml/pytorch_vision:1.13.1_cu117-python3.10-ubuntu20.04
+  - mosaicml/pytorch_vision:latest
+  TARGET: vision_stage
+  TORCHTEXT_VERSION: 0.14.1
+  TORCHVISION_VERSION: 0.14.1
 - BASE_IMAGE: ubuntu:20.04
   CUDA_VERSION: ''
   HPCX_VERSION: ''
@@ -79,6 +69,18 @@
   - mosaicml/pytorch:1.13.1_cpu-python3.10-ubuntu20.04
   - mosaicml/pytorch:latest_cpu
   TARGET: pytorch_stage
+  TORCHTEXT_VERSION: 0.14.1
+  TORCHVISION_VERSION: 0.14.1
+- BASE_IMAGE: ubuntu:20.04
+  CUDA_VERSION: ''
+  HPCX_VERSION: ''
+  MOFED_VERSION: ''
+  PYTHON_VERSION: '3.10'
+  PYTORCH_VERSION: 1.13.1
+  TAGS:
+  - mosaicml/pytorch_vision:1.13.1_cpu-python3.10-ubuntu20.04
+  - mosaicml/pytorch_vision:latest_cpu
+  TARGET: vision_stage
   TORCHTEXT_VERSION: 0.14.1
   TORCHVISION_VERSION: 0.14.1
 - BASE_IMAGE: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
