@@ -269,6 +269,9 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                 # Creates a set of modules we should not initialize
                 should_not_init_params = set()
                 for ptr_attr_type, mod_names in tied_pointers.items():
+                    # No modules for this pointer are tied
+                    if len(mod_names) == 1:
+                        continue
                     _, attr_type = ptr_attr_type
                     first = next(mod_names.__iter__())
                     for elem in mod_names:
@@ -301,10 +304,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                     for tied_name in tied_names:
                         dest_mod = module.get_submodule(tied_name)
                         dest_mod._fsdp_wrap = False  # type: ignore
-                        if attr == 'weight':
-                            dest_mod.weight = src_params
-                        elif attr == 'bias':
-                            dest_mod.bias = src_params
+                        setattr(dest_mod, attr, src_params)
 
                 if hasattr(obj, 'param_init_fn') and isinstance(obj.param_init_fn, Callable):
                     module.apply(obj.param_init_fn)
