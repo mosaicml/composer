@@ -31,8 +31,6 @@ if __name__ == '__main__':
 
         git checkout pr_branch
 
-        git log
-
         '''
 
     command += f'''
