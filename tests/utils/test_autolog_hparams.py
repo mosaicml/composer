@@ -130,6 +130,7 @@ def test_extract_hparams_trainer():
         'log_to_console': False,
         'console_stream': 'stderr',
         'console_log_interval': '1ep',
+        'console_log_only_train_eval_metrics': False,
         'log_traces': False,
         'auto_log_hparams': True,
 
