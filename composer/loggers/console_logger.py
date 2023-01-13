@@ -28,9 +28,10 @@ class ConsoleLogger(LoggerDestination):
         and ``console_stream`` options. This logger does not need to be created manually.
 
     Args:
-        log_only_train_eval_metrics (bool): Whether to only log loss and model accuracy. If False, logs
-            everything thats logged through ``log_metrics``. If False, only logs loss and model 
-            train/eval performance metrics, like accuracy. (default: ``False``)
+        log_only_train_eval_metrics (bool): Whether to only log model performance metrics 
+            like loss and accuracy. If False, logs everything that is logged through 
+            the ``log_metrics`` method. If True, only logs model accuracy,loss, etc.
+            (default: ``False``)
         log_interval (int | str | Time): How frequently to log to console. (default: ``'1ep'``)
         stream (str | TextIO, optional): The console stream to use. If a string, it can either be ``'stdout'`` or
             ``'stderr'``. (default: :attr:`sys.stderr`)
@@ -82,7 +83,6 @@ class ConsoleLogger(LoggerDestination):
         # Lazy logging of metrics.
         # Stores all metrics logged until they are cleared with a log_to_console call
         self.logged_metrics.update(metrics)
-
 
     def _log_hparams_to_console(self):
         if dist.get_local_rank() == 0:

@@ -37,7 +37,7 @@ def test_console_logger_interval(console_logger_test_stream, console_logger_test
 
     model = SimpleModel()
     trainer = Trainer(model=model,
-                      log_only_train_eval_metrics=True,
+                      console_log_only_train_eval_metrics=True,
                       console_stream=console_logger_test_stream,
                       console_log_interval=f'{log_interval}{log_interval_unit}',
                       log_to_console=True,
@@ -90,7 +90,7 @@ def test_console_logger_interval_with_eval(console_logger_test_stream, console_l
 
     model = SimpleModel()
     trainer = Trainer(model=model,
-                      log_only_train_eval_metrics=True,
+                      console_log_only_train_eval_metrics=True,
                       console_stream=console_logger_test_stream,
                       eval_interval=f'{eval_interval}{eval_interval_unit}',
                       log_to_console=True,
@@ -158,7 +158,7 @@ def test_console_logger_with_a_callback(console_logger_test_stream, console_logg
 
     model = SimpleModel()
     trainer = Trainer(model=model,
-                      log_only_train_eval_metrics=False,
+                      console_log_only_train_eval_metrics=False,
                       console_stream=console_logger_test_stream,
                       console_log_interval=f'{log_interval}{log_interval_unit}',
                       log_to_console=True,

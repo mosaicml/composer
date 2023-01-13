@@ -584,9 +584,10 @@ class Trainer:
             :attr:`.TimeUnit.BATCH` or :attr:`.TimeUnit.EPOCH`.
 
             Set to ``0`` to disable metrics logging to console.
-        log_only_train_eval_metrics (bool): Whether to only log loss and model accuracy. If False, logs
-            everything thats logged through ``log_metrics``. If False, only logs loss and model 
-            train/eval performance metrics, like accuracy. (default: ``False``)
+        console_log_only_train_eval_metrics (bool): Whether to only log model performance metrics 
+            like loss and accuracy. If False, logs everything that is logged through 
+            the ``log_metrics`` method. If True, only logs model accuracy,loss, etc.
+            (default: ``False``)
         log_traces (bool): Whether to log traces or not. (default: ``False``)
         auto_log_hparams (bool): Whether to automatically extract hyperparameters. (default: ``False``)
         load_path (str, optional):  The path format string to an existing checkpoint file.
@@ -885,7 +886,7 @@ class Trainer:
         log_to_console: bool = False,
         console_stream: Union[str, TextIO] = 'stderr',
         console_log_interval: Union[int, str, Time] = '1ep',
-        log_only_train_eval_metrics: bool = False,
+        console_log_only_train_eval_metrics: bool = False,
         log_traces: bool = False,
         auto_log_hparams: bool = False,
 
@@ -1113,7 +1114,8 @@ class Trainer:
         else:
             if log_to_console:
                 loggers.append(
-                    ConsoleLogger(log_only_train_eval_metrics=log_only_train_eval_metrics, stream=console_stream, log_interval=console_log_interval, log_traces=log_traces))
+                    ConsoleLogger(log_only_train_eval_metrics=console_log_only_train_eval_metrics,
+                                  stream=console_stream, log_interval=console_log_interval, log_traces=log_traces))
 
         if save_folder is not None:
             remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
