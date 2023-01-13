@@ -9,9 +9,9 @@ import pytest
 from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
 
+from composer.callbacks import SpeedMonitor
 from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel
-from composer.callbacks import SpeedMonitor
 
 
 @pytest.fixture
@@ -147,10 +147,8 @@ def test_log_to_console_and_progress_bar_warning():
 @pytest.mark.parametrize('max_duration_unit', ['ba', 'ep'])
 @pytest.mark.parametrize('log_interval', [1])
 @pytest.mark.parametrize('max_duration', [8])
-def test_console_logger_with_a_callback(console_logger_test_stream, console_logger_test_file_path, log_interval, max_duration,
-                                        log_interval_unit, max_duration_unit):
-
-
+def test_console_logger_with_a_callback(console_logger_test_stream, console_logger_test_file_path, log_interval,
+                                        max_duration, log_interval_unit, max_duration_unit):
 
     batch_size = 4
     dataset_size = 17

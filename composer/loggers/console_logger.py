@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, Any, Dict, TextIO, Union, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional, TextIO, Union
 
 import yaml
 
@@ -28,8 +28,8 @@ class ConsoleLogger(LoggerDestination):
         and ``console_stream`` options. This logger does not need to be created manually.
 
     Args:
-        log_only_train_eval_metrics (bool): Whether to only log model performance metrics 
-            like loss and accuracy. If False, logs everything that is logged through 
+        log_only_train_eval_metrics (bool): Whether to only log model performance metrics
+            like loss and accuracy. If False, logs everything that is logged through
             the ``log_metrics`` method. If True, only logs model accuracy,loss, etc.
             (default: ``False``)
         log_interval (int | str | Time): How frequently to log to console. (default: ``'1ep'``)
@@ -66,7 +66,7 @@ class ConsoleLogger(LoggerDestination):
         self.stream = stream
         self.hparams: Dict[str, Any] = {}
         self.hparams_already_logged_to_console: bool = False
-        self.logged_metrics: Dict[str, str] = {}
+        self.logged_metrics: Dict[str, float] = {}
 
     def log_traces(self, traces: Dict[str, Any]):
         if self.should_log_traces:
@@ -99,7 +99,6 @@ class ConsoleLogger(LoggerDestination):
         else:
             log_dict = self.logged_metrics
         return log_dict
-            
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         cur_epoch = int(state.timestamp.epoch)  # epoch gets incremented right before EPOCH_END
