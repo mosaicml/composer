@@ -2138,6 +2138,7 @@ class Trainer:
                         for optimizer in self.state.optimizers:
                             log.info('Optimizer step')  # TODO: Remove
                             if use_grad_scaling:
+                                log.info('Closure scaling optimizer step')  # TODO: Remove
                                 self.state.scaler.step(optimizer)
                             else:
                                 if isinstance(self.state.device, DeviceTPU):
