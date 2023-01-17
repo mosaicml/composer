@@ -226,7 +226,7 @@ class SimpleDataset(Dataset):
 
 def dummy_transformer_classifier_batch(vocab_size=100, num_classes=2):
     sequence_length = 32
-    size = 100
+    size = 8
     batch_size = 8
     train_dataset = RandomTextClassificationDataset(size=size,
                                                     vocab_size=vocab_size,
@@ -239,7 +239,7 @@ def dummy_transformer_classifier_batch(vocab_size=100, num_classes=2):
 def dummy_tiny_bert_classification_batch(num_classes=2):
     vocab_size = 30522  # Match bert vocab size
     sequence_length = 4
-    size = 16
+    size = 8
     batch_size = 8
 
     train_dataset = RandomTextClassificationDataset(size=size,
@@ -256,7 +256,7 @@ def dummy_tiny_bert_classification_batch(num_classes=2):
 def dummy_tiny_bert_lm_batch():
     vocab_size = 30522  # Match bert vocab size
     sequence_length = 4
-    size = 16
+    size = 8
     batch_size = 8
 
     train_dataset = RandomTextLMDataset(size=size,

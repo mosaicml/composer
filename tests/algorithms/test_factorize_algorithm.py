@@ -51,6 +51,8 @@ def test_factorize_surgery(minimal_state: State, model_cls, model_params, empty_
 
     algo_instance.apply(event=Event.INIT, state=state, logger=empty_logger)
 
+    # Each Conv2d/Linear is either unmodified or replaced with a factorized version,
+    # which contains two Conv2d/Linears submodules.
     if algo_instance.factorize_convs:
         num_factorized_layers = module_surgery.count_module_instances(state.model, FactorizedConv2d)
         num_non_factorized_layers = module_surgery.count_module_instances(state.model,
