@@ -10,7 +10,7 @@ from mcli.sdk import RunConfig, RunStatus, create_run, follow_run_logs, wait_for
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--name', type=str, default='mcp_pytest', help='Name of run')
+    parser.add_argument('--name', type=str, default='mcp-pytest', help='Name of run')
     parser.add_argument('--cluster', type=str, default='r1z1', help='Cluster to use')
     parser.add_argument('--gpu_type', type=str, default='a100_80gb', help='Type of GPU to use')
     parser.add_argument('--gpu_num', type=int, default=8, help='Number of the GPU to use')

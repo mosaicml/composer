@@ -2025,6 +2025,7 @@ class Trainer:
                         )
 
                     if self._scheduler_step_frequency == TimeUnit.EPOCH:
+                        log.info('Hitting scheduler')  # TODO: Remove
                         for scheduler in self.state.schedulers:
                             scheduler.step()
 
@@ -2119,10 +2120,12 @@ class Trainer:
                 if self._use_closures():
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
+                            log.info('Closure scalar optimzer step')  # TODO: Remove
                             self.state.scaler.step(optimizer,
                                                    closure=lambda loss_dict=total_loss_dict, **kwargs: self.
                                                    _train_microbatches(microbatches, loss_dict, **kwargs))
                         else:
+                            log.info('Closure optimizer step')  # TODO: Remove
                             optimizer.step(closure=lambda **kwargs: self._train_microbatches(
                                 microbatches, total_loss_dict, **kwargs).item())
                 else:
@@ -2135,6 +2138,7 @@ class Trainer:
                                 if isinstance(self.state.device, DeviceTPU):
                                     xm.optimizer_step(optimizer, barrier=True)
                                 else:
+                                    log.info('No closure optimzer step')  # TODO: Remove
                                     optimizer.step()
             except RuntimeError as e:
                 if self.state.auto_microbatching and _is_cuda_oom(e):
