@@ -49,6 +49,75 @@ class SimpleModel(ComposerClassifier):
         self.fc2 = fc2
 
 
+class SimpleMLP(torch.nn.Module):
+
+    def __init__(self, num_features: int, device: str):
+        super().__init__()
+        self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+
+        self.net = torch.nn.Sequential(self.fc1, torch.nn.ReLU(), self.fc2)
+
+    def forward(self, x):
+        return self.net(x)
+
+
+class SimpleWeightTiedModel(ComposerClassifier):
+    """Small classification model with tied weights.
+    Typically this model will be used to test weight tying w/ FSDP
+
+    Args:
+        num_features (int): number of input features (default: 1)
+        tie_weights (bool): whether or not to tie weights (default: True)
+        device (str): the device to initialize the model (default: 'cpu')
+    """
+
+    def __init__(self, num_features: int = 1, device: str = 'cpu') -> None:
+        self.num_features = num_features
+
+        mlp = SimpleMLP(num_features, device)
+
+        net = torch.nn.Sequential(
+            mlp,
+            torch.nn.Softmax(dim=-1),
+        )
+
+        super().__init__(module=net)
+
+        self.mlp = mlp
+        self.net = net
+
+        self.mlp.fc1.weight = self.mlp.fc2.weight
+
+
+class EmbeddedWeightTiedModel(ComposerClassifier):
+    """A small classification model that consists of two simple MLPs,
+    and we tie weights across the simple MLPs.
+    Typically this model will be used to test weight tying w/ FSDP.
+
+    Args:
+        num_features (int): number of input features (default: 1)
+        device (str): the device to initialize the model (default: 'cpu')
+    """
+
+    def __init__(self, num_features: int = 1, device: str = 'cpu') -> None:
+        net1 = SimpleMLP(num_features, device)
+        net2 = SimpleMLP(num_features, device)
+
+        net = torch.nn.Sequential(
+            net1,
+            net2,
+            torch.nn.Softmax(dim=-1),
+        )
+
+        super().__init__(module=net)
+
+        self.net1 = net1
+        self.net2 = net2
+
+        self.net1.fc1.weight = self.net2.fc1.weight
+
+
 class SimpleConvModel(ComposerClassifier):
     """Small convolutional classifier.
 

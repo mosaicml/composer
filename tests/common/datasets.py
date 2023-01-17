@@ -15,7 +15,7 @@ class RandomClassificationDataset(Dataset):
     """Classification dataset drawn from a normal distribution.
 
     Args:
-        shape (Sequence[int]): shape of features (default: (5, 1, 1))
+        shape (Sequence[int]): shape of features (default: (1, 1, 1))
         size (int): number of samples (default: 100)
         num_classes (int): number of classes (default: 2)
     """
