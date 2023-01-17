@@ -75,5 +75,3 @@ if __name__ == '__main__':
     # Fail if command exited with non-zero exit code
     run = wait_for_run_status(run, 'completed')
     assert run.status == RunStatus.COMPLETED
-
-    # delete_runs([run])
