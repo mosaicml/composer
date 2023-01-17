@@ -195,7 +195,7 @@ def get_alg_dataloader(alg_cls: Type[Algorithm]) -> DataLoader:
 
     dataloader = cls(**kwargs)
     if isinstance(dataloader, Dataset):
-        dataloader = DataLoader(dataset=dataloader, batch_size=2)
+        dataloader = DataLoader(dataset=dataloader, batch_size=4)
     return dataloader
 
 
