@@ -2025,7 +2025,6 @@ class Trainer:
                         )
 
                     if self._scheduler_step_frequency == TimeUnit.EPOCH:
-                        log.info('Hitting scheduler')  # TODO: Remove
                         for scheduler in self.state.schedulers:
                             scheduler.step()
 
