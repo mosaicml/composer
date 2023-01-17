@@ -18,7 +18,7 @@ from tests.common import deep_compare
 @pytest.mark.gpu
 @pytest.mark.parametrize('alg_cls', get_algs_with_marks())
 @pytest.mark.filterwarnings('ignore:Detected call of `lr_scheduler.step()'
-                           )  # Scalar skips optimizer.step() with bad update
+                           )  # optimizer.step() sometimes skipped when NaN/inf on low batch size
 def test_algorithm_resumption(
     tmp_path: pathlib.Path,
     alg_cls: Type[Algorithm],
