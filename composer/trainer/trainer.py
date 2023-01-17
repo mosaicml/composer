@@ -2118,7 +2118,9 @@ class Trainer:
                     microbatches = self._train_data_spec._num_microbatches_split_batch(
                         device_batch, self.state.grad_accum)
                 if self._use_closures():
+                    log.info('Using closures...')  # TODO: Remove
                     for optimizer in self.state.optimizers:
+                        log.info('Looping over optimizers...')  # TODO: Remove
                         if use_grad_scaling:
                             log.info('Closure scalar optimzer step')  # TODO: Remove
                             self.state.scaler.step(optimizer,
@@ -2129,13 +2131,17 @@ class Trainer:
                             optimizer.step(closure=lambda **kwargs: self._train_microbatches(
                                 microbatches, total_loss_dict, **kwargs).item())
                 else:
+                    log.info('Not using closures...')  # TODO: Remove
                     self._train_microbatches(microbatches, total_loss_dict)
                     if not self.deepspeed_enabled:
+                        log.info('Looping over optimizers...')  # TODO: Remove
                         for optimizer in self.state.optimizers:
+                            log.info('Optimizer step')  # TODO: Remove
                             if use_grad_scaling:
                                 self.state.scaler.step(optimizer)
                             else:
                                 if isinstance(self.state.device, DeviceTPU):
+                                    log.info('xm optimizer step')  # TODO: Remove
                                     xm.optimizer_step(optimizer, barrier=True)
                                 else:
                                     log.info('No closure optimzer step')  # TODO: Remove
