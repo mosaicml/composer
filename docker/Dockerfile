@@ -144,6 +144,7 @@ RUN apt-get update && \
         libevent-pthreads-2.1-7 \
         libhwloc15 \
         initramfs-tools \
+        autoreconf \
         # Development tools
         vim \
         tmux \
@@ -275,7 +276,6 @@ RUN cd /tmp \
     && tar -xf /tmp/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz \
     && cd aws-efa-installer \
     && ./efa_installer.sh -y -g -d --skip-kmod --skip-limit-conf --no-verify \
-    # && ./efa_installer.sh -y \
     && rm -rf /tmp/aws-efa-installer*
 
 RUN git clone https://github.com/aws/aws-ofi-nccl.git /opt/aws-ofi-nccl \
