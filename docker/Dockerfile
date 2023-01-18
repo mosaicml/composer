@@ -139,6 +139,8 @@ RUN apt-get update && \
         linux-image-generic \
         dkms \
         rdma-core \
+        cmake \
+        openmpi40-aws \
         # Development tools
         vim \
         tmux \
