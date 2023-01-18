@@ -107,6 +107,20 @@ def _get_composer_tags(composer_version: str, use_cuda: bool):
     return tags
 
 
+def _get_image_name(pytorch_version: str, cuda_version: str, stage: str):
+    pytorch_version = pytorch_version.replace('.', '-')
+    cuda_version = _get_cuda_version_tag(cuda_version)
+
+    if stage == 'pytorch_stage':
+        stage = ''
+    elif stage == 'vision_stage':
+        stage = '-vision'
+    else:
+        raise ValueError(f'Invalid stage: {stage}')
+
+    return f"torch{stage}-{pytorch_version}-{cuda_version}"
+
+
 def _write_table(table_tag: str, table_contents: str):
     with open(os.path.join(os.path.dirname(__name__), 'README.md'), 'r') as f:
         contents = f.read()
@@ -137,7 +151,7 @@ def _main():
 
         entry = {
             'IMAGE_NAME':
-                f"torch{pytorch_version.replace('.', '-')}-{_get_cuda_version_tag(cuda_version)}",
+                _get_image_name(pytorch_version, cuda_version, stage),
             'BASE_IMAGE':
                 _get_base_image(cuda_version),
             'CUDA_VERSION':
@@ -184,9 +198,10 @@ def _main():
 
         pytorch_version = _get_pytorch_version(python_version)
         cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
+        cpu = "-cpu" if not use_cuda else ""
 
         entry = {
-            'IMAGE_NAME': f"composer-{composer_version.replace('.', '-')}",
+            'IMAGE_NAME': f"composer-{composer_version.replace('.', '-')}{cpu}",
             'BASE_IMAGE': _get_base_image(cuda_version),
             'CUDA_VERSION': cuda_version,
             'PYTHON_VERSION': python_version,
