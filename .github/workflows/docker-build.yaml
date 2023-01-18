@@ -52,7 +52,7 @@ jobs:
           ###################
           # Image config
           ###################
-          echo "NAME: ${{ matrix.NAME }}"
+          echo "NAME: ${{ matrix.IMAGE_NAME }}"
           echo "BASE_IMAGE: ${{ matrix.BASE_IMAGE }}"
           echo "TARGET: ${{ matrix.TARGET }}"
           echo "PYTHON_VERSION: ${{ matrix.PYTHON_VERSION }}"
@@ -69,7 +69,7 @@ jobs:
           if [[ ${{ inputs.staging }} ]]; then
             DOCKERHUB_REPO=${{ inputs.staging-repo }}
             IMAGE_TAG=${DOCKERHUB_REPO}:${{ matrix.UUID }}
-            IMAGE_CACHE="${{ matrix.name }}-buildcache"
+            IMAGE_CACHE="${{ matrix.IMAGE_NAME }}-buildcache"
           else
             IMAGE_TAG=${{ matrix.TAGS }}
             IMAGE_CACHE="${IMAGE_TAG}-buildcache"
@@ -87,8 +87,8 @@ jobs:
           tags: ${{ env.IMAGE_TAG }}
           target: ${{ matrix.TARGET }}
           push: ${{ inputs.push }}
-          cache-from: type=registry,ref=${{ env.IMAGE_TAG }}-buildcache
-          cache-to: type=registry,ref=${{ env.IMAGE_TAG }}-buildcache,mode=max
+          cache-from: type=registry,ref=${{ env.IMAGE_CACHE }}
+          cache-to: type=registry,ref=${{ env.IMAGE_CACHE }}-buildcache,mode=max
           build-args: |
             BASE_IMAGE=${{ matrix.BASE_IMAGE }}
             CUDA_VERSION=${{ matrix.CUDA_VERSION }}
