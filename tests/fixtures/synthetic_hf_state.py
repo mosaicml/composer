@@ -4,12 +4,17 @@
 from typing import Any, Dict, Tuple
 
 import pytest
+from torch.utils.data import DataLoader
 
 from composer.core import State
 from composer.datasets.lm_dataset import build_synthetic_lm_dataloader
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.models import create_bert_mlm, create_gpt2
+from composer.trainer import Trainer
+from composer.utils import dist
+from tests.common.datasets import RandomTextClassificationDataset
+from tests.common.models import SimpleTransformerClassifier
 from tests.datasets import test_synthetic_lm_data
 
 
@@ -192,3 +197,40 @@ def synthetic_hf_state_maker(config, session) -> Tuple:
 def synthetic_hf_state(request):
     pytest.importorskip('transformers')
     return synthetic_hf_state_maker(request.param, request.session)
+
+
+def synthetic_simple_transformer_state_maker(session):
+    device = None
+    for item in session.items:
+        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
+        break
+
+    vocab_size = 100
+    sequence_length = 32
+    num_classes = 2
+    size = 100
+    batch_size = 8
+
+    train_dataset = RandomTextClassificationDataset(size=size,
+                                                    vocab_size=vocab_size,
+                                                    sequence_length=sequence_length,
+                                                    num_classes=num_classes)
+    eval_dataset = RandomTextClassificationDataset(size=size,
+                                                   vocab_size=vocab_size,
+                                                   sequence_length=sequence_length,
+                                                   num_classes=num_classes)
+
+    model = SimpleTransformerClassifier(vocab_size=vocab_size, num_classes=num_classes)
+
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=dist.get_sampler(train_dataset))
+    eval_dataloader = DataLoader(eval_dataset, batch_size=batch_size, sampler=dist.get_sampler(eval_dataset))
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration='2ep',
+        eval_dataloader=eval_dataloader,
+        device=device,
+    )
+
+    return trainer.state, model, train_dataloader
