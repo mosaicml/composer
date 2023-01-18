@@ -136,7 +136,8 @@ def _main():
         cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
 
         entry = {
-            'IMAGE_NAME': f"torch{pytorch_version.replace('.', '-')}-{_get_cuda_version_tag(cuda_version)}",
+            'IMAGE_NAME':
+                f"torch{pytorch_version.replace('.', '-')}-{_get_cuda_version_tag(cuda_version)}",
             'BASE_IMAGE':
                 _get_base_image(cuda_version),
             'CUDA_VERSION':
