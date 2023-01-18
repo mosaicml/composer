@@ -2,14 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Contains commonly used models that are shared across the test suite."""
+import copy
 from typing import Any, Dict, Tuple, Union
 
+import pytest
 import torch
 from torchmetrics import Metric, MetricCollection
 
 from composer.metrics import CrossEntropy, MIoU
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
-from composer.models import ComposerClassifier
+from composer.models import ComposerClassifier, HuggingFaceModel
 
 
 class SimpleModel(ComposerClassifier):
@@ -45,6 +47,75 @@ class SimpleModel(ComposerClassifier):
         # as self.net[1]
         self.fc1 = fc1
         self.fc2 = fc2
+
+
+class SimpleMLP(torch.nn.Module):
+
+    def __init__(self, num_features: int, device: str):
+        super().__init__()
+        self.fc1 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+        self.fc2 = torch.nn.Linear(num_features, num_features, device=device, bias=False)
+
+        self.net = torch.nn.Sequential(self.fc1, torch.nn.ReLU(), self.fc2)
+
+    def forward(self, x):
+        return self.net(x)
+
+
+class SimpleWeightTiedModel(ComposerClassifier):
+    """Small classification model with tied weights.
+    Typically this model will be used to test weight tying w/ FSDP
+
+    Args:
+        num_features (int): number of input features (default: 1)
+        tie_weights (bool): whether or not to tie weights (default: True)
+        device (str): the device to initialize the model (default: 'cpu')
+    """
+
+    def __init__(self, num_features: int = 1, device: str = 'cpu') -> None:
+        self.num_features = num_features
+
+        mlp = SimpleMLP(num_features, device)
+
+        net = torch.nn.Sequential(
+            mlp,
+            torch.nn.Softmax(dim=-1),
+        )
+
+        super().__init__(module=net)
+
+        self.mlp = mlp
+        self.net = net
+
+        self.mlp.fc1.weight = self.mlp.fc2.weight
+
+
+class EmbeddedWeightTiedModel(ComposerClassifier):
+    """A small classification model that consists of two simple MLPs,
+    and we tie weights across the simple MLPs.
+    Typically this model will be used to test weight tying w/ FSDP.
+
+    Args:
+        num_features (int): number of input features (default: 1)
+        device (str): the device to initialize the model (default: 'cpu')
+    """
+
+    def __init__(self, num_features: int = 1, device: str = 'cpu') -> None:
+        net1 = SimpleMLP(num_features, device)
+        net2 = SimpleMLP(num_features, device)
+
+        net = torch.nn.Sequential(
+            net1,
+            net2,
+            torch.nn.Softmax(dim=-1),
+        )
+
+        super().__init__(module=net)
+
+        self.net1 = net1
+        self.net2 = net2
+
+        self.net1.fc1.weight = self.net2.fc1.weight
 
 
 class SimpleConvModel(ComposerClassifier):
@@ -241,3 +312,57 @@ class ConvModel(ComposerClassifier):
         self.flatten = flatten
         self.linear1 = linear1
         self.linear2 = linear2
+
+
+class SimpleModelWithDropout(ComposerClassifier):
+
+    def __init__(self, num_features: int = 64, num_classes: int = 10) -> None:
+        fc1 = torch.nn.Linear(num_features, 512)
+        fc2 = torch.nn.Linear(512, num_classes)
+        dropout = torch.nn.Dropout(0.5)
+
+        net = torch.nn.Sequential(
+            torch.nn.Flatten(),
+            fc1,
+            torch.nn.ReLU(),
+            dropout,
+            fc2,
+            torch.nn.Softmax(dim=-1),
+        )
+
+        super().__init__(module=net)
+
+        self.fc1 = fc1
+        self.fc2 = fc2
+        self.dropout = dropout
+
+    def loss(self, outputs: torch.Tensor, batch: Tuple[Any, torch.Tensor], *args, **kwargs) -> torch.Tensor:
+        _, targets = batch
+        targets = targets.squeeze(dim=0)
+        return self._loss_fn(outputs, targets, *args, **kwargs)
+
+    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
+        _, targets = batch
+        metric.update(outputs.squeeze(dim=0), targets.squeeze(dim=0))
+
+    def forward(self, batch: Tuple[torch.Tensor, Any]) -> torch.Tensor:
+        inputs, _ = batch
+        inputs = inputs.squeeze(dim=0)
+        outputs = self.module(inputs)
+        return outputs
+
+
+def configure_tiny_bert_model():
+    return copy.deepcopy(pytest.tiny_bert_model)
+
+
+def configure_tiny_bert_tokenizer():
+    return copy.deepcopy(pytest.tiny_bert_tokenizer)
+
+
+def configure_tiny_bert_config():
+    return copy.deepcopy(pytest.tiny_bert_config)
+
+
+def configure_tiny_bert_hf_model(use_logits=True):
+    return HuggingFaceModel(configure_tiny_bert_model(), configure_tiny_bert_tokenizer(), use_logits)

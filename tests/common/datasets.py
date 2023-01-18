@@ -4,17 +4,18 @@
 from typing import Sequence
 
 import torch
-import torch.utils.data
 from PIL import Image
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
 from torchvision.datasets import VisionDataset
+
+from composer.utils import dist
 
 
 class RandomClassificationDataset(Dataset):
     """Classification dataset drawn from a normal distribution.
 
     Args:
-        shape (Sequence[int]): shape of features (default: (5, 1, 1))
+        shape (Sequence[int]): shape of features (default: (1, 1, 1))
         size (int): number of samples (default: 100)
         num_classes (int): number of classes (default: 2)
     """
@@ -122,7 +123,7 @@ class RandomSegmentationDataset(VisionDataset):
             return x, y
 
 
-class RandomTextClassificationDataset(torch.utils.data.Dataset):
+class RandomTextClassificationDataset(Dataset):
     """ Text classification dataset with values (just input token ids) drawn uniformly
     Args:
         vocab_size (int): vocab size to use (default: 10)
@@ -170,7 +171,7 @@ class RandomTextClassificationDataset(torch.utils.data.Dataset):
             return x, y
 
 
-class RandomTextLMDataset(torch.utils.data.Dataset):
+class RandomTextLMDataset(Dataset):
     """ Text LM dataset with values (just input token ids) drawn uniformly
     Args:
         vocab_size (int): vocab size to use (default: 10)
@@ -205,3 +206,64 @@ class RandomTextLMDataset(torch.utils.data.Dataset):
             return {'input_ids': x}
         else:
             return x
+
+
+class SimpleDataset(Dataset):
+
+    def __init__(self, size: int = 256, batch_size: int = 256, feature_size: int = 1, num_classes: int = 2):
+        self.size = size
+        self.batch_size = batch_size
+        self.x = torch.randn(size * batch_size, feature_size)
+        self.y = torch.randint(0, num_classes, size=(size * batch_size,), dtype=torch.long)
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index: int):
+        return self.x[index * self.batch_size:(index + 1) *
+                      self.batch_size], self.y[index * self.batch_size:(index + 1) * self.batch_size]
+
+
+def dummy_transformer_classifier_batch(vocab_size=100, num_classes=2):
+    sequence_length = 32
+    size = 8
+    batch_size = 8
+    train_dataset = RandomTextClassificationDataset(size=size,
+                                                    vocab_size=vocab_size,
+                                                    sequence_length=sequence_length,
+                                                    num_classes=num_classes)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=dist.get_sampler(train_dataset))
+    return next(iter(train_dataloader))
+
+
+def dummy_tiny_bert_classification_batch(num_classes=2):
+    vocab_size = 30522  # Match bert vocab size
+    sequence_length = 4
+    size = 8
+    batch_size = 8
+
+    train_dataset = RandomTextClassificationDataset(size=size,
+                                                    vocab_size=vocab_size,
+                                                    sequence_length=sequence_length,
+                                                    num_classes=num_classes,
+                                                    use_keys=True)
+
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=dist.get_sampler(train_dataset))
+    batch = next(iter(train_dataloader))
+    return batch
+
+
+def dummy_tiny_bert_lm_batch():
+    vocab_size = 30522  # Match bert vocab size
+    sequence_length = 4
+    size = 8
+    batch_size = 8
+
+    train_dataset = RandomTextLMDataset(size=size,
+                                        vocab_size=vocab_size,
+                                        sequence_length=sequence_length,
+                                        use_keys=True)
+
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=dist.get_sampler(train_dataset))
+    batch = next(iter(train_dataloader))
+    return batch

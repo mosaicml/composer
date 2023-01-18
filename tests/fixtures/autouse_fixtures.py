@@ -14,6 +14,18 @@ from composer.utils import dist, reproducibility
 
 
 @pytest.fixture(autouse=True)
+def disable_tokenizer_parallelism():
+    """This fixture prevents the below warning from appearing in tests:
+
+        huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+        To disable this warning, you can either:
+                - Avoid using `tokenizers` before the fork if possible
+                - Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+    """
+    os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+
+
+@pytest.fixture(autouse=True)
 def disable_wandb(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest):
     monkeypatch.setenv('WANDB_START_METHOD', 'thread')
     if request.node.get_closest_marker('remote') is None:

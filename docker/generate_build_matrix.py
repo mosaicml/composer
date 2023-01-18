@@ -159,9 +159,9 @@ def _main():
         }
 
         if stage == 'vision_stage':
-            if python_version != '3.9':
+            if python_version != '3.10':
                 continue
-            # only build the vision image on python 3.9
+            # only build the vision image on python 3.10
 
         if not cuda_version:
             # Skip the mellanox/hpcx drivers if not in the cuda images
