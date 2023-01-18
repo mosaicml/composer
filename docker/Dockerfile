@@ -281,6 +281,8 @@ RUN cd /tmp \
     && ./efa_installer.sh -y -g -d --skip-kmod --skip-limit-conf --no-verify \
     && rm -rf /tmp/aws-efa-installer*
 
+RUN ls /usr/local/cuda
+
 RUN git clone https://github.com/aws/aws-ofi-nccl.git /opt/aws-ofi-nccl \
     && cd /opt/aws-ofi-nccl \
     && git checkout ${AWS_OFI_NCCL_VERSION} \
