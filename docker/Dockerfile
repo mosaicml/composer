@@ -121,6 +121,7 @@ RUN apt-get update && \
         apt-utils \
         gpg-agent \
         openssh-client \
+        linux-headers-$(uname -r) \
         # For PILLOW:
         zlib1g-dev \
         libtiff-dev \
