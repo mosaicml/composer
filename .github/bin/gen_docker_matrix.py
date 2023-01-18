@@ -40,7 +40,6 @@ def main(args: Namespace):
             for build_arg in args.build_args:
                 arg, val = build_arg.split('=')
                 if arg in image_config.keys():
-                    print(f"{arg}: {val}")
                     image_config[arg] = val
 
 
