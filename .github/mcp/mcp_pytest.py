@@ -54,7 +54,7 @@ if __name__ == '__main__':
         image=args.image,
         integrations=[{
             'integration_type': 'git_repo',
-            'git_repo': 'mvpatel2000/composer',  # TODO: Swap to mosaicml and set workflow to only run on mosaicml repo
+            'git_repo': 'mosaicml/composer',
             'git_branch': args.git_branch,
             'ssh_clone': 'False',
             'pip_install': '--user -e .[all]',
