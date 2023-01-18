@@ -145,6 +145,8 @@ RUN apt-get update && \
         libhwloc15 \
         initramfs-tools \
         autoconf \
+        autotools-dev \
+        automake \
         # Development tools
         vim \
         tmux \
@@ -277,8 +279,6 @@ RUN cd /tmp \
     && cd aws-efa-installer \
     && ./efa_installer.sh -y -g -d --skip-kmod --skip-limit-conf --no-verify \
     && rm -rf /tmp/aws-efa-installer*
-
-RUN which autoreconf
 
 RUN git clone https://github.com/aws/aws-ofi-nccl.git /opt/aws-ofi-nccl \
     && cd /opt/aws-ofi-nccl \
