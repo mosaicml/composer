@@ -1140,7 +1140,7 @@ class Trainer:
 
         # Put loggers after callbacks to ensure anything a callback logs actually gets logged.
         # Callbacks
-        self.state.callbacks[:] = self.state.callbacks + list(cast(List[Callback], loggers))
+        self.state.callbacks[:] = list(cast(List[Callback], loggers)) + self.state.callbacks
 
         # Checkpoint Saving
         self._checkpoint_saver = None
