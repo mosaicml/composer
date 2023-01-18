@@ -129,6 +129,13 @@ RUN apt-get update && \
         tcl \
         libjpeg8-dev \
         less \
+        # For AWS EFA:
+        pciutils \
+        environment-modules \
+        libnl-3-200 \
+        libnl-3-dev \
+        libnl-route-3-200 \
+        libnl-route-3-dev \
         # Development tools
         vim \
         tmux \
