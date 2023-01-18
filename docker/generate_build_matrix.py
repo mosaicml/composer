@@ -136,7 +136,7 @@ def _main():
         cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
 
         entry = {
-            'IMAGE_NAME': f"torch{pytorch_version}+{_get_cuda_version_tag(cuda_version)}",
+            'IMAGE_NAME': f"torch{pytorch_version.replace('.', '-')}-{_get_cuda_version_tag(cuda_version)}",
             'BASE_IMAGE':
                 _get_base_image(cuda_version),
             'CUDA_VERSION':
@@ -185,7 +185,7 @@ def _main():
         cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
 
         entry = {
-            'IMAGE_NAME': f"composer{composer_version.lstrip('=')}",
+            'IMAGE_NAME': f"composer-{composer_version.replace('.', '-')}",
             'BASE_IMAGE': _get_base_image(cuda_version),
             'CUDA_VERSION': cuda_version,
             'PYTHON_VERSION': python_version,
