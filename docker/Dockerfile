@@ -128,7 +128,12 @@ RUN apt-get update && \
         liblcms2-dev \
         tcl \
         libjpeg8-dev \
-        less && \
+        less \
+        # Development tools
+        vim \
+        tmux \
+        htop \
+        nvtop && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -249,24 +254,6 @@ ARG AWS_OFI_NCCL_VERSION=aws
 
 ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/nccl/build/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
 ENV PATH=/opt/amazon/openmpi/bin/:/opt/amazon/efa/bin:$PATH
-
-RUN apt-get install -y --allow-unauthenticated \
-    git \
-    gcc \
-    yum-utils \
-    vim \
-    kmod \
-    openssh-client \
-    openssh-server \
-    build-essential \
-    curl \
-    autoconf \
-    libtool \
-    gdb \
-    automake \
-    python3-distutils \
-    cmake \
-    && rm -rf /var/lib/apt/lists/*
 
 RUN cd /tmp \
     && curl -O https://efa-installer.amazonaws.com/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz \
