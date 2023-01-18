@@ -140,7 +140,9 @@ RUN apt-get update && \
         dkms \
         rdma-core \
         cmake \
-        openmpi40-aws \
+        libevent-core-2.1-7 \
+        libevent-pthreads-2.1-7 \
+        libhwloc15 \
         # Development tools
         vim \
         tmux \
