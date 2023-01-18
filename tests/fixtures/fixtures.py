@@ -119,16 +119,20 @@ def s3_bucket(request: pytest.FixtureRequest):
 # below should be used instead. This is because the session scoped fixtures return the same object to every
 # test that requests it, so tests would have side effects on each other. Instead, the non session
 # scoped fixtures below perform a deepcopy before returning the fixture.
-@pytest.fixture(scope='session')
-def _session_tiny_bert_model(_session_tiny_bert_config):  # type: ignore
+def tiny_bert_model_helper(config):
     transformers = pytest.importorskip('transformers')
 
-    hf_model = transformers.AutoModelForMaskedLM.from_config(_session_tiny_bert_config)  # type: ignore (thirdparty)
+    hf_model = transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
     return hf_model
 
 
 @pytest.fixture(scope='session')
-def _session_tiny_bert_tokenizer():  # type: ignore
+def _session_tiny_bert_model(_session_tiny_bert_config):  # type: ignore
+    hf_model = tiny_bert_model_helper(_session_tiny_bert_config)
+    return hf_model
+
+
+def tiny_bert_tokenizer_helper():
     transformers = pytest.importorskip('transformers')
 
     hf_tokenizer = transformers.AutoTokenizer.from_pretrained('bert-base-uncased')
@@ -136,7 +140,12 @@ def _session_tiny_bert_tokenizer():  # type: ignore
 
 
 @pytest.fixture(scope='session')
-def _session_tiny_bert_config():  # type: ignore
+def _session_tiny_bert_tokenizer():  # type: ignore
+    hf_tokenizer = tiny_bert_tokenizer_helper()
+    return hf_tokenizer
+
+
+def tiny_bert_config_helper():
     transformers = pytest.importorskip('transformers')
 
     tiny_overrides = {
@@ -146,6 +155,12 @@ def _session_tiny_bert_config():  # type: ignore
         'intermediate_size': 512,
     }
     hf_config = transformers.AutoConfig.from_pretrained('bert-base-uncased', **tiny_overrides)
+    return hf_config
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_bert_config():  # type: ignore
+    hf_config = tiny_bert_config_helper()
     return hf_config
 
 

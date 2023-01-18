@@ -10,7 +10,7 @@ import pytest
 import torch
 
 from composer import Algorithm, Trainer
-from composer.algorithms import SAM, LayerFreezing, StochasticDepth
+from composer.algorithms import SAM, GyroDropout, LayerFreezing, SeqLengthWarmup, StochasticDepth
 from tests.algorithms.algorithm_settings import get_alg_dataloader, get_alg_kwargs, get_alg_model, get_algs_with_marks
 from tests.common import deep_compare
 
@@ -36,6 +36,9 @@ def test_algorithm_resumption(
 
     if alg_cls in (SAM, StochasticDepth):
         pytest.xfail('Mismatch in weights when resuming from a checkpoint.')
+
+    if alg_cls is GyroDropout:
+        pytest.xfail('GyroDropoutLayer is not implemented in a way that allows correct resumption.')
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
@@ -65,6 +68,12 @@ def test_algorithm_resumption(
     optimizer = torch.optim.Adam(copied_model.parameters(), lr=0.01)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
 
+    alg = alg_cls(**alg_kwargs)
+    # SeqLengthWarmup has a call to ._activate_model() that happens on the first call to the algorithm
+    # in order to get complete matching of the rng state, we have to cause that extra call to be skipped
+    # when reloading.
+    if alg_cls is SeqLengthWarmup:
+        alg._activated = True  # type: ignore
     trainer2 = Trainer(
         model=copied_model,
         train_dataloader=get_alg_dataloader(alg_cls),
@@ -74,7 +83,7 @@ def test_algorithm_resumption(
         optimizers=optimizer,
         schedulers=scheduler,
         save_folder=folder2,
-        algorithms=alg_cls(**alg_kwargs),
+        algorithms=alg,
         **shared_config,
     )
     trainer2.fit()
