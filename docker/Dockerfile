@@ -143,6 +143,7 @@ RUN apt-get update && \
         libevent-core-2.1-7 \
         libevent-pthreads-2.1-7 \
         libhwloc15 \
+        initramfs-tools \
         # Development tools
         vim \
         tmux \
