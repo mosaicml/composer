@@ -136,6 +136,7 @@ RUN apt-get update && \
         libnl-3-dev \
         libnl-route-3-200 \
         libnl-route-3-dev \
+        linux-image-generic \
         # Development tools
         vim \
         tmux \
