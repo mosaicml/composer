@@ -144,7 +144,7 @@ RUN apt-get update && \
         libevent-pthreads-2.1-7 \
         libhwloc15 \
         initramfs-tools \
-        autoreconf \
+        autoconf \
         # Development tools
         vim \
         tmux \
