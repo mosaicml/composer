@@ -138,6 +138,7 @@ RUN apt-get update && \
         libnl-route-3-dev \
         linux-image-generic \
         dkms \
+        rdma-core \
         # Development tools
         vim \
         tmux \
