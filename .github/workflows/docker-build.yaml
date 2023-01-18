@@ -9,6 +9,10 @@ on:
         required: true
         type: string
       push:
+        required: false
+        type: boolean
+        default: true
+      fail-fast:
         required: true
         type: boolean
       staging:
@@ -26,7 +30,7 @@ jobs:
   build-images:
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: true
+      fail-fast: ${{ inputs.build-matrix }}
       matrix: ${{ fromJSON(inputs.build-matrix) }}
     name: "${{ matrix.IMAGE_NAME }}"
     steps:

@@ -42,6 +42,7 @@ jobs:
       build-matrix: ${{ needs.build-image-matrix.outputs.matrix }}
       context: ./docker
       push: false
+      fail-fast: true
       staging: true
       staging-repo: mosaicml/jenkins-staging
     secrets:
