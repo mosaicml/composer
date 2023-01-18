@@ -9,10 +9,9 @@ on:
         required: true
         type: string
       push:
-        required: false
+        required: true
         type: boolean
-        default: true
-      fail-fast:
+      staging:
         required: true
         type: boolean
       staging-repo:
@@ -27,7 +26,7 @@ jobs:
   build-images:
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: true 
+      fail-fast: true
       matrix: ${{ fromJSON(inputs.build-matrix) }}
     name: "${{ matrix.IMAGE_NAME }}"
     steps:
