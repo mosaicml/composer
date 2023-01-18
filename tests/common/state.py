@@ -1,11 +1,13 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
 from composer.core import State
+from composer.devices import DeviceCPU, DeviceGPU
 from composer.utils import is_model_deepspeed
 from tests.common.compare import deep_compare
+from tests.common.models import configure_tiny_bert_model, configure_tiny_gpt_model
 
 
 def _del_wct_timestamp_fields(timestamp_state_dict: Dict[str, Any]):
@@ -45,3 +47,22 @@ def assert_state_equivalent(state1: State, state2: State):
 
     # Compare the state dicts
     deep_compare(state_dict_1, state_dict_2, atol=atol, rtol=rtol)
+
+
+def synthetic_hf_lm_state_maker_with_device(model_class, device) -> Tuple:
+    if model_class == 'bert':
+        model = configure_tiny_bert_model()
+    elif model_class == 'gpt':
+        model = configure_tiny_gpt_model()
+
+    state = State(
+        model=model,
+        rank_zero_seed=0,
+        run_name='run_name',
+        device=device,
+        dataloader=dataloader,
+        dataloader_label='train',
+        max_duration='1ep',
+    )
+
+    return state, model, dataloader
