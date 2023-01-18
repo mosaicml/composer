@@ -18,6 +18,7 @@ def _parse_args() -> Namespace:
     """
     args = ArgumentParser(description='Process a Docker matrix YAML file.')
     args.add_argument('yaml_file', type=FileType('r'), help='The YAML file to be processed.')
+    args.add_argument('-b', '--build_args', action='append', required=False, help='List of build args to override globally')
 
     return args.parse_args()
 
@@ -33,6 +34,14 @@ def main(args: Namespace):
 
         # Generate a random UUID for staging
         image_config['UUID'] = str(uuid4())
+
+        # Apply build args override
+        if args.build_args is not None:
+            for build_arg in args.build_args:
+                arg, val = build_arg.split('=')
+                print(f"{arg}: {val}")
+                image_config[arg] = val
+
 
     json_string = json.dumps(image_configs)
     print(f"""matrix={{"include": {json_string}}}""")

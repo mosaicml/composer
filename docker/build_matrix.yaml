@@ -56,6 +56,7 @@
   TORCHVISION_VERSION: 0.14.1
 - BASE_IMAGE: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 11.7.1
+  IMAGE_NAME: torch1.13.1+cu117
   PYTHON_VERSION: '3.10'
   PYTORCH_VERSION: 1.13.1
   TAGS:
@@ -80,6 +81,7 @@
 - BASE_IMAGE: ubuntu:20.04
   CUDA_VERSION: ''
   HPCX_VERSION: ''
+  IMAGE_NAME: torch1.13.1+cpu
   MOFED_VERSION: ''
   PYTHON_VERSION: '3.10'
   PYTORCH_VERSION: 1.13.1
@@ -90,28 +92,6 @@
   TORCHTEXT_VERSION: 0.14.1
   TORCHVISION_VERSION: 0.14.1
 - BASE_IMAGE: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
-  COMPOSER_INSTALL_COMMAND: mosaicml[all]
-  CUDA_VERSION: 11.7.1
-  IMAGE_NAME: composer
-  PYTHON_VERSION: '3.10'
-  PYTORCH_VERSION: 1.13.1
-  TAGS:
-  - mosaicml/composer:latest
-  TARGET: composer_stage
-  TORCHTEXT_VERSION: 0.14.1
-  TORCHVISION_VERSION: 0.14.1
-- BASE_IMAGE: ubuntu:20.04
-  COMPOSER_INSTALL_COMMAND: mosaicml[all]
-  CUDA_VERSION: ''
-  IMAGE_NAME: composer
-  PYTHON_VERSION: '3.10'
-  PYTORCH_VERSION: 1.13.1
-  TAGS:
-  - mosaicml/composer:latest_cpu
-  TARGET: composer_stage
-  TORCHTEXT_VERSION: 0.14.1
-  TORCHVISION_VERSION: 0.14.1
-- BASE_IMAGE: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
   COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.12.0
   CUDA_VERSION: 11.7.1
   IMAGE_NAME: composer0.12.0
@@ -119,6 +99,7 @@
   PYTORCH_VERSION: 1.13.1
   TAGS:
   - mosaicml/composer:0.12.0
+  - mosaicml/composer:latest
   TARGET: composer_stage
   TORCHTEXT_VERSION: 0.14.1
   TORCHVISION_VERSION: 0.14.1
@@ -130,26 +111,7 @@
   PYTORCH_VERSION: 1.13.1
   TAGS:
   - mosaicml/composer:0.12.0_cpu
-  TARGET: composer_stage
-  TORCHTEXT_VERSION: 0.14.1
-  TORCHVISION_VERSION: 0.14.1
-- BASE_IMAGE: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
-  COMPOSER_INSTALL_COMMAND: mosaicml[all]GIT_COMMIT
-  CUDA_VERSION: 11.7.1
-  IMAGE_NAME: composerGIT_COMMIT
-  PYTHON_VERSION: '3.10'
-  PYTORCH_VERSION: 1.13.1
-  TAGS: []
-  TARGET: composer_stage
-  TORCHTEXT_VERSION: 0.14.1
-  TORCHVISION_VERSION: 0.14.1
-- BASE_IMAGE: ubuntu:20.04
-  COMPOSER_INSTALL_COMMAND: mosaicml[all]GIT_COMMIT
-  CUDA_VERSION: ''
-  IMAGE_NAME: composerGIT_COMMIT
-  PYTHON_VERSION: '3.10'
-  PYTORCH_VERSION: 1.13.1
-  TAGS: []
+  - mosaicml/composer:latest_cpu
   TARGET: composer_stage
   TORCHTEXT_VERSION: 0.14.1
   TORCHVISION_VERSION: 0.14.1

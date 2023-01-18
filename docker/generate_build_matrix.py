@@ -94,16 +94,17 @@ def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: s
 
 
 def _get_composer_tags(composer_version: str, use_cuda: bool):
-    if not composer_version:
-        composer_version = 'latest'
-    composer_version = composer_version.lstrip('=')
-    if composer_version == 'GIT_COMMIT':
-        # Jenkins will set the tag
-        return []
-    tag = f'mosaicml/composer:{composer_version}'
+    base_image_name = 'mosaicml/composer'
+
+    tags = []
     if not use_cuda:
-        tag += '_cpu'
-    return [tag]
+        tags.append(f'{base_image_name}:{composer_version}_cpu')
+        tags.append(f'{base_image_name}:latest_cpu')
+    else:
+        tags.append(f'{base_image_name}:{composer_version}')
+        tags.append(f'{base_image_name}:latest')
+
+    return tags
 
 
 def _write_table(table_tag: str, table_contents: str):
@@ -174,7 +175,7 @@ def _main():
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
-    composer_versions = ['', '==0.12.0', 'GIT_COMMIT']  # Only build images for the latest composer version
+    composer_versions = ['0.12.0']  # Only build images for the latest composer version
     composer_python_versions = ['3.10']  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):
@@ -192,7 +193,7 @@ def _main():
             'TARGET': 'composer_stage',
             'TORCHVISION_VERSION': _get_torchvision_version(pytorch_version),
             'TORCHTEXT_VERSION': _get_torchtext_version(pytorch_version),
-            'COMPOSER_INSTALL_COMMAND': f'mosaicml[all]{composer_version}',
+            'COMPOSER_INSTALL_COMMAND': f'mosaicml[all]=={composer_version}',
             'TAGS': _get_composer_tags(
                 composer_version=composer_version,
                 use_cuda=use_cuda,

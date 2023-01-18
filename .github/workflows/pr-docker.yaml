@@ -26,9 +26,14 @@ jobs:
       - uses: actions/checkout@v3
       - id: set-matrix
         run: |
-          pip freeze
+          # Install yaml dependency
           pip install pyyaml
-          BUILD_MATRIX=$(python .github/bin/gen_docker_matrix.py docker/build_matrix_new.yaml)
+
+          # Override package install command for Composer image
+          COMPOSER_INSTALL_COMMAND="mosaicml[all] @ git+https://github.com/mosaicml/composer.git@${{ github.sha }}"
+
+          # Generate build matrix
+          BUILD_MATRIX=$(python .github/bin/gen_docker_matrix.py docker/build_matrix.yaml -b COMPOSER_INSTALL_COMMAND=$COMPOSER_INSTALL_COMMAND)
           echo $BUILD_MATRIX >> $GITHUB_OUTPUT
   docker-build:
     needs: build-image-matrix
