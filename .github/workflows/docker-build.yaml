@@ -1,41 +1,33 @@
-name: Build Production Docker Images
+name: Docker Build 
 on:
-  push:
-    branches:
-      - dev
-      - main
-      - release/**
-  pull_request:
-    branches:
-      - dev
-      - main
-      - release/**
   workflow_call:
-  workflow_dispatch: {}
-defaults:
-  run:
-    working-directory: .
+    inputs:
+      build-matrix:
+        required: true
+        type: string
+      context:
+        required: true
+        type: string
+      push:
+        required: true
+        type: boolean
+      staging:
+        required: true
+        type: boolean
+      staging-repo:
+        required: false
+        type: string
+    secrets:
+      username:
+        required: true
+      password:
+        required: true
 jobs:
-  build-image-matrix:
-    runs-on: ubuntu-20.04
-    timeout-minutes: 2
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    steps:
-      - uses: actions/setup-python@v4
-        with:
-          python_version: 3.9
-      - uses: actions/checkout@v3
-      - id: set-matrix
-        run: |
-          BUILD_MATRIX=$(python .github/bin/gen_docker_matrix.py docker/build_matrix_new.yaml)
-          echo $BUILD_MATRIX >> $GITHUB_OUTPUT
   build-images:
-    needs: build-image-matrix
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: true
-      matrix: ${{ fromJSON(needs.build-image-matrix.outputs.matrix) }}
+      matrix: ${{ fromJSON(inputs.build-matrix) }}
     name: "${{ matrix.NAME }}"
     steps:
       - name: Checkout
@@ -50,8 +42,8 @@ jobs:
       - name: Login to DockerHub
         uses: docker/login-action@v2
         with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+          username: ${{ secrets.username }}
+          password: ${{ secrets.password }}
 
       - name: Calculate Docker Image Variables
         run: |
@@ -74,8 +66,8 @@ jobs:
           ###################
           # Calculate the tag
           ###################
-          if [[ ${GITHUB_REF} != "refs'heads'dev" ]]; then
-            DOCKERHUB_REPO="mosaicml/jenkins-staging"
+          if [[ ${{ inputs.staging }} ]]; then
+            DOCKERHUB_REPO=${{ inputs.staging-repo }}
             IMAGE_TAG=${DOCKERHUB_REPO}:${{ matrix.UUID }}
           else
             IMAGE_TAG=${{ matrix.TAGS }}
@@ -87,12 +79,12 @@ jobs:
       - name: Build and Push the Docker Image
         uses: docker/build-push-action@v3
         with:
-          context: ./docker
+          context: ${{ inputs.context }}
           tags: ${{ env.IMAGE_TAG }}
           target: ${{ matrix.TARGET }}
-          push: false
-          #cache-from: type=registry,ref=mosaicml/examples:${{ matrix.example }}-buildcache
-          #cache-to: type=registry,ref=mosaicml/examples:${{ matrix.example }}-buildcache,mode=max
+          push: ${{ inputs.push }}
+          cache-from: type=registry,ref=${{ env.IMAGE_TAG }}-buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE_TAG }}-buildcache,mode=max
           build-args: |
             BASE_IMAGE=${{ matrix.BASE_IMAGE }}
             CUDA_VERSION=${{ matrix.CUDA_VERSION }}

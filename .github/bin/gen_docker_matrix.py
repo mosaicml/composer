@@ -1,9 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-# Copyright 2023 MosaicML Streaming authors
-# SPDX-License-Identifier: Apache-2.0
-
 """Reads in the Docker build matrix and generates a GHA job matrix."""
 
 import json
