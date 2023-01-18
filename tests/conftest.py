@@ -96,6 +96,20 @@ def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item
         items[:] = remaining
 
 
+# Note: These methods are an alternative to the tiny_bert fixtures in fixtures.py.
+# Fixtures cannot be used natively as parametrized inputs, which we require when
+# we wish to run a test across multiple models, one of which is a HuggingFace BERT Tiny.
+# As a workaround, we inject objects into the PyTest namespace. Tests should not directly
+# use pytest.{var}, but instead should import and use the helper copy methods configure_{var}
+# (in tests.common.models) so the objects in the PyTest namespace do not change.
+def pytest_configure():
+    pytest.importorskip('transformers')
+    from tests.fixtures.fixtures import tiny_bert_config_helper, tiny_bert_model_helper, tiny_bert_tokenizer_helper
+    pytest.tiny_bert_config = tiny_bert_config_helper()  # type: ignore
+    pytest.tiny_bert_model = tiny_bert_model_helper(pytest.tiny_bert_config)  # type: ignore
+    pytest.tiny_bert_tokenizer = tiny_bert_tokenizer_helper()  # type: ignore
+
+
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
     if exitstatus == 5:
         session.exitstatus = 0  # Ignore no-test-ran errors
