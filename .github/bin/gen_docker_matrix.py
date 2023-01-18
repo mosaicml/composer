@@ -39,8 +39,9 @@ def main(args: Namespace):
         if args.build_args is not None:
             for build_arg in args.build_args:
                 arg, val = build_arg.split('=')
-                print(f"{arg}: {val}")
-                image_config[arg] = val
+                if arg in image_config.keys():
+                    print(f"{arg}: {val}")
+                    image_config[arg] = val
 
 
     json_string = json.dumps(image_configs)
