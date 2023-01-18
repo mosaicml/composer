@@ -8,10 +8,13 @@ import pytest
 from composer.algorithms.seq_length_warmup import SeqLengthWarmup, set_batch_sequence_length
 from composer.core.event import Event
 from composer.loggers import Logger
-from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker
+from tests.fixtures.synthetic_hf_state import (make_dataset_configs, synthetic_hf_state_maker,
+                                               synthetic_simple_transformer_state_maker)
 
 
 def make_synthetic_state(family, session):
+    if family == 'simple_transformer':
+        return synthetic_simple_transformer_state_maker(session)
     synthetic_config = make_dataset_configs(model_family=[family])[0]
     return synthetic_hf_state_maker(synthetic_config, session)
 
@@ -77,7 +80,12 @@ def check_forward_backward(model, batch):
     output['loss'].backward()
 
 
-@pytest.mark.parametrize('synthetic_state_family', ['bert', 'gpt2'])
+@pytest.mark.parametrize('synthetic_state_family', [
+    'bert', 'gpt2',
+    pytest.param(
+        'simple_transformer',
+        marks=pytest.mark.xfail(reason='Sequence Length Warmup does not currently support non-HuggingFace models'))
+])
 @pytest.mark.parametrize('truncate,preserve_end_of_sequence', [(True, True), (True, False), (False, False)])
 class TestSeqLengthWarmup:
 
