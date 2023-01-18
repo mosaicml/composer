@@ -283,6 +283,10 @@ RUN cd /tmp \
 
 RUN ls /usr/local
 
+RUN echo 'gap'
+
+RUN ls /opt
+
 RUN git clone https://github.com/aws/aws-ofi-nccl.git /opt/aws-ofi-nccl \
     && cd /opt/aws-ofi-nccl \
     && git checkout ${AWS_OFI_NCCL_VERSION} \
