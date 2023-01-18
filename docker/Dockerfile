@@ -259,7 +259,8 @@ RUN cd /tmp \
     && curl -O https://efa-installer.amazonaws.com/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz \
     && tar -xf /tmp/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz \
     && cd aws-efa-installer \
-    && ./efa_installer.sh -y -g -d --skip-kmod --skip-limit-conf --no-verify
+    && ./efa_installer.sh -y -g -d --skip-kmod --skip-limit-conf --no-verify \
+    && rm -rf /tmp/aws-efa-installer*
 
 RUN git clone https://github.com/aws/aws-ofi-nccl.git /opt/aws-ofi-nccl \
     && cd /opt/aws-ofi-nccl \
@@ -270,7 +271,8 @@ RUN git clone https://github.com/aws/aws-ofi-nccl.git /opt/aws-ofi-nccl \
        --with-cuda=/usr/local/cuda \
        --with-nccl=/opt/nccl/build \
        --with-mpi=/opt/amazon/openmpi/ \
-    && make && make install
+    && make && make install \
+    && rm -rf /opt/aws-ofi-nccl
 
 #####################
 # Install NVIDIA Apex
