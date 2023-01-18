@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix: ${{ fromJSON(inputs.build-matrix) }}
-    name: "${{ matrix.NAME }}"
+    name: "${{ matrix.IMAGE_NAME }}"
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -69,12 +69,16 @@ jobs:
           if [[ ${{ inputs.staging }} ]]; then
             DOCKERHUB_REPO=${{ inputs.staging-repo }}
             IMAGE_TAG=${DOCKERHUB_REPO}:${{ matrix.UUID }}
+            IMAGE_CACHE="${{ matrix.name }}-buildcache"
           else
             IMAGE_TAG=${{ matrix.TAGS }}
+            IMAGE_CACHE="${IMAGE_TAG}-buildcache"
           fi
 
           echo "IMAGE_TAG: ${IMAGE_TAG}"
+          echo "IMAGE_CACHE: ${IMAGE_CACHE}"
           echo "IMAGE_TAG=${IMAGE_TAG}" >> ${GITHUB_ENV}
+          echo "IMAGE_CACHE=${IMAGE_CACHE}" >> ${GITHUB_ENV}
 
       - name: Build and Push the Docker Image
         uses: docker/build-push-action@v3
