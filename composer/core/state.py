@@ -948,8 +948,13 @@ class State(Serializable):
                 state_field_value = getattr(self, attribute_name)
                 # Update the metrics with the serialized values
                 for metric_name, metric in serialized_value.items():
-                    state_field_value[metric_name] = metric
-                    metric._device = self.device._device
+                    if attribute_name == 'train_metrics':
+                        state_field_value[metric_name] = metric
+                        metric._device = self.device._device
+                    else:
+                        for eval_key, eval_metric in metric.items():
+                            state_field_value[metric_name][eval_key] = eval_metric
+                            eval_metric._device = self.device._device
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 state_field_value = getattr(self, attribute_name)
                 for target in ensure_tuple(state_field_value):
