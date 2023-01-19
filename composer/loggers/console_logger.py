@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, Any, Dict, TextIO, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, TextIO, Union
 
 import yaml
 
@@ -56,11 +56,11 @@ class ConsoleLogger(LoggerDestination):
                 stream = sys.stderr
             else:
                 raise ValueError(f'stream must be one of ("stdout", "stderr", TextIO-like), got {stream}')
-
         self.should_log_traces = log_traces
         self.stream = stream
         self.hparams: Dict[str, Any] = {}
         self.hparams_already_logged_to_console: bool = False
+        self.logged_metrics: Dict[str, float] = {}
 
     def log_traces(self, traces: Dict[str, Any]):
         if self.should_log_traces:
@@ -71,6 +71,12 @@ class ConsoleLogger(LoggerDestination):
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         # Lazy logging of hyperparameters.
         self.hparams.update(hyperparameters)
+
+    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+        del step
+        # Lazy logging of metrics.
+        # Stores all metrics logged until they are cleared with a log_to_console call
+        self.logged_metrics.update(metrics)
 
     def _log_hparams_to_console(self):
         if dist.get_local_rank() == 0:
@@ -84,21 +90,20 @@ class ConsoleLogger(LoggerDestination):
         unit = self.log_interval.unit
 
         if unit == TimeUnit.EPOCH and (cur_epoch % int(self.log_interval) == 0 or cur_epoch == 1):
-            log_dict = {**state.train_metric_values}
-            if state.total_loss_dict:
-                log_dict.update(state.total_loss_dict)
-            self.log_to_console(log_dict, prefix='Train ', state=state)
+            self.log_to_console(self.logged_metrics, prefix='Train ', state=state)
+            # Clear logged metrics.
+            self.logged_metrics = {}
 
     def batch_end(self, state: State, logger: Logger) -> None:
         cur_batch = int(state.timestamp.batch)
         unit = self.log_interval.unit
         if unit == TimeUnit.BATCH and (cur_batch % int(self.log_interval) == 0 or cur_batch == 1):
-            log_dict = {**state.train_metric_values}
-            if state.total_loss_dict:
-                log_dict.update(state.total_loss_dict)
-            self.log_to_console(log_dict, prefix='Train ', state=state)
+            self.log_to_console(self.logged_metrics, prefix='Train ', state=state)
+            # Clear logged metrics.
+            self.logged_metrics = {}
 
     def eval_end(self, state: State, logger: Logger) -> None:
+        # Log to the console at the end of eval no matter what log interval is selected.
         self.log_to_console(state.eval_metric_values, prefix='Eval ', state=state)
 
     def fit_start(self, state: State, logger: Logger) -> None:
