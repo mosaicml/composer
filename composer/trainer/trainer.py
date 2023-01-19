@@ -1130,7 +1130,7 @@ class Trainer:
                     'Specifying a `file_path_format_string` to a `RemoteUploaderDownloader` is not currently supported while using `save_latest_filename`. '
                     'Please specify the path formatting via `save_folder`, `save_filename`, and `save_latest_filename`')
 
-        # Callbacks.
+        # Callbacks
         self.state.callbacks[:] = list(cast(List[Callback], loggers)) + self.state.callbacks
 
         # Checkpoint Saving
