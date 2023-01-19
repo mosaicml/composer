@@ -160,13 +160,13 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
             autotools-dev \
             automake \
             libtool \
-            gettext \
-            libibnetdisc5 \
-            libibnetdisc-dev \
-            librdmacm1 \
-            libibumad3 \
-            libibmad5 \
-            libibnetdisc-dev && \
+            gettext && \
+            # libibnetdisc5 \
+            # libibnetdisc-dev \
+            # librdmacm1 \
+            # libibumad3 \
+            # libibmad5 \
+            # libibnetdisc-dev && \
         apt-get autoclean && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* ; \
