@@ -148,6 +148,7 @@ RUN apt-get update && \
         autotools-dev \
         automake \
         libtool \
+        gettext \
         # Development tools
         vim \
         tmux \
