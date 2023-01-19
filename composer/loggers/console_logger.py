@@ -28,10 +28,6 @@ class ConsoleLogger(LoggerDestination):
         and ``console_stream`` options. This logger does not need to be created manually.
 
     Args:
-        log_only_train_eval_metrics (bool): Whether to only log model performance metrics
-            like loss and accuracy. If False, logs everything that is logged through
-            the ``log_metrics`` method. If True, only logs model accuracy,loss, etc.
-            (default: ``False``)
         log_interval (int | str | Time): How frequently to log to console. (default: ``'1ep'``)
         stream (str | TextIO, optional): The console stream to use. If a string, it can either be ``'stdout'`` or
             ``'stderr'``. (default: :attr:`sys.stderr`)
@@ -39,7 +35,6 @@ class ConsoleLogger(LoggerDestination):
     """
 
     def __init__(self,
-                 log_only_train_eval_metrics: bool = False,
                  log_interval: Union[int, str, Time] = '1ep',
                  stream: Union[str, TextIO] = sys.stderr,
                  log_traces: bool = False) -> None:
@@ -61,7 +56,6 @@ class ConsoleLogger(LoggerDestination):
                 stream = sys.stderr
             else:
                 raise ValueError(f'stream must be one of ("stdout", "stderr", TextIO-like), got {stream}')
-        self.log_only_train_eval_metrics = log_only_train_eval_metrics
         self.should_log_traces = log_traces
         self.stream = stream
         self.hparams: Dict[str, Any] = {}
@@ -91,22 +85,12 @@ class ConsoleLogger(LoggerDestination):
             self._log_to_console(yaml.dump(self.hparams))
             self._log_to_console('*' * 30)
 
-    def _get_metrics_to_log(self, state: State):
-        if self.log_only_train_eval_metrics:
-            log_dict = {**state.train_metric_values}
-            if state.total_loss_dict:
-                log_dict.update(state.total_loss_dict)
-        else:
-            log_dict = self.logged_metrics
-        return log_dict
-
     def epoch_end(self, state: State, logger: Logger) -> None:
         cur_epoch = int(state.timestamp.epoch)  # epoch gets incremented right before EPOCH_END
         unit = self.log_interval.unit
 
         if unit == TimeUnit.EPOCH and (cur_epoch % int(self.log_interval) == 0 or cur_epoch == 1):
-            log_dict = self._get_metrics_to_log(state)
-            self.log_to_console(log_dict, prefix='Train ', state=state)
+            self.log_to_console(self.logged_metrics, prefix='Train ', state=state)
             # Clear logged metrics.
             self.logged_metrics = {}
 
@@ -114,8 +98,7 @@ class ConsoleLogger(LoggerDestination):
         cur_batch = int(state.timestamp.batch)
         unit = self.log_interval.unit
         if unit == TimeUnit.BATCH and (cur_batch % int(self.log_interval) == 0 or cur_batch == 1):
-            log_dict = self._get_metrics_to_log(state)
-            self.log_to_console(log_dict, prefix='Train ', state=state)
+            self.log_to_console(self.logged_metrics, prefix='Train ', state=state)
             # Clear logged metrics.
             self.logged_metrics = {}
 

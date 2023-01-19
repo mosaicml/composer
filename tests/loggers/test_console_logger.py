@@ -37,7 +37,6 @@ def test_console_logger_interval(console_logger_test_stream, console_logger_test
 
     model = SimpleModel()
     trainer = Trainer(model=model,
-                      console_log_only_train_eval_metrics=True,
                       console_stream=console_logger_test_stream,
                       console_log_interval=f'{log_interval}{log_interval_unit}',
                       log_to_console=True,
@@ -55,7 +54,8 @@ def test_console_logger_interval(console_logger_test_stream, console_logger_test
     # Make a regular expression for matches for any line that contains "Train" followed by
     # a colon.
     reg_exp = re.compile('Train *:*')
-    actual_num_log_lines = sum([1 if bool(reg_exp.search(line)) else 0 for line in lines])
+    actual_num_log_lines = sum(
+        [1 if bool(reg_exp.search(line)) and ('trainer/' not in line and 'epoch' not in line) else 0 for line in lines])
 
     assert model.train_metrics is not None
     num_metrics = len(list(model.train_metrics.keys())) if isinstance(model.train_metrics, MetricCollection) else 1
@@ -90,7 +90,6 @@ def test_console_logger_interval_with_eval(console_logger_test_stream, console_l
 
     model = SimpleModel()
     trainer = Trainer(model=model,
-                      console_log_only_train_eval_metrics=True,
                       console_stream=console_logger_test_stream,
                       eval_interval=f'{eval_interval}{eval_interval_unit}',
                       log_to_console=True,
@@ -156,7 +155,6 @@ def test_console_logger_with_a_callback(console_logger_test_stream, console_logg
 
     model = SimpleModel()
     trainer = Trainer(model=model,
-                      console_log_only_train_eval_metrics=False,
                       console_stream=console_logger_test_stream,
                       console_log_interval=f'{log_interval}{log_interval_unit}',
                       log_to_console=True,
