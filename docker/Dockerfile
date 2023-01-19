@@ -200,6 +200,8 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
 
 RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - && \
     pip${PYTHON_VERSION} install --no-cache-dir --upgrade pip && \
+    # Pin setuptools before 66.0.0, which enforces PEP 440 and prevents imgcat install from FFCV.
+    # This will be removed once imgcat fixes its version tag or FFCV removes the unused dependency.
     pip${PYTHON_VERSION} install --no-cache-dir setuptools==65.7.0
 
 #####################
