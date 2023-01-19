@@ -149,6 +149,11 @@ RUN apt-get update && \
         automake \
         libtool \
         gettext \
+        libibmad5-dbg \
+        libibnetdisc-dev \
+        libibnetdisc5-dbg \
+        libibumad3-dbg \
+        librdmacm1-dbg \
         # Development tools
         vim \
         tmux \
