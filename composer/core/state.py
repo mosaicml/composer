@@ -45,14 +45,22 @@ log = logging.getLogger(__name__)
 
 
 @contextmanager
-def get_fsdp_rank0_cpu_save_context(obj: torch.nn.Module):
+def get_fsdp_rank0_cpu_save_context(obj: torch.nn.Module, state_dict_type: str = 'full'):
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-    from torch.distributed.fsdp import FullStateDictConfig
+    from torch.distributed.fsdp import FullStateDictConfig, LocalStateDictConfig, ShardedStateDictConfig
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
     from torch.distributed.fsdp import StateDictType
-    full_state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
-    with FSDP.state_dict_type(obj, StateDictType.FULL_STATE_DICT, full_state_dict_config):
+    if state_dict_type == 'full':
+        state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+        fsdp_state_dict_type = StateDictType.FULL_STATE_DICT
+    elif state_dict_type == 'sharded':
+        state_dict_config = ShardedStateDictConfig()
+        fsdp_state_dict_type = StateDictType.SHARDED_STATE_DICT
+    elif state_dict_type == 'local':
+        state_dict_config = LocalStateDictConfig()
+        fsdp_state_dict_type = StateDictType.LOCAL_STATE_DICT
+    with FSDP.state_dict_type(obj, state_dict_type=fsdp_state_dict_type, state_dict_config=state_dict_config):
         yield
 
 
@@ -672,7 +680,8 @@ class State(Serializable):
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                 # If it is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
                 with get_fsdp_rank0_cpu_save_context(
-                        attribute_value) if self.fsdp_enabled else contextlib.nullcontext():
+                        attribute_value,
+                        state_dict_type=self.fsdp_config['state_dict_type']) if self.fsdp_enabled else contextlib.nullcontext():
                     model_state = attribute_value.state_dict()
 
                 if self.is_model_ddp:
@@ -840,7 +849,7 @@ class State(Serializable):
             # with the `module.` prefix
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
 
-        with get_fsdp_rank0_cpu_save_context(self.model) if self.fsdp_enabled else contextlib.nullcontext():
+        with get_fsdp_rank0_cpu_save_context(self.model, state_dict_type=self.fsdp_config['state_dict_type']) if self.fsdp_enabled else contextlib.nullcontext():
             missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
         if len(missing_keys) > 0:
             log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
