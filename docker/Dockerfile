@@ -164,13 +164,9 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
             libibnetdisc5 \
             libibnetdisc-dev \
             librdmacm1 \
-            librdmacm1-dbg \
             libibumad3 \
-            libibumad3-dbg \
             libibmad5 \
-            libibmad5-dbg \
-            libibnetdisc-dev \
-            libibnetdisc5-dbg && \
+            libibnetdisc-dev && \
         apt-get autoclean && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* ; \
