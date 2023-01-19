@@ -130,25 +130,25 @@ RUN apt-get update && \
         libjpeg8-dev \
         less \
         # For AWS EFA:
-        pciutils \
-        environment-modules \
-        libnl-3-200 \
-        libnl-3-dev \
-        libnl-route-3-200 \
-        libnl-route-3-dev \
-        linux-image-generic \
-        dkms \
-        rdma-core \
-        cmake \
-        libevent-core-2.1-7 \
-        libevent-pthreads-2.1-7 \
-        libhwloc15 \
-        initramfs-tools \
-        autoconf \
-        autotools-dev \
-        automake \
-        libtool \
-        gettext \
+        # pciutils \
+        # environment-modules \
+        # libnl-3-200 \
+        # libnl-3-dev \
+        # libnl-route-3-200 \
+        # libnl-route-3-dev \
+        # linux-image-generic \
+        # dkms \
+        # rdma-core \
+        # cmake \
+        # libevent-core-2.1-7 \
+        # libevent-pthreads-2.1-7 \
+        # libhwloc15 \
+        # initramfs-tools \
+        # autoconf \
+        # autotools-dev \
+        # automake \
+        # libtool \
+        # gettext \
         # Development tools
         vim \
         tmux \
@@ -269,34 +269,34 @@ RUN if [ -n "$HPCX_VERSION" ] ; then \
 # Install EFA and AWS-OFI-NCCL plugin
 #####################################
 
-ARG EFA_INSTALLER_VERSION=latest
-ARG AWS_OFI_NCCL_VERSION=aws
+# ARG EFA_INSTALLER_VERSION=latest
+# ARG AWS_OFI_NCCL_VERSION=aws
 
-ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/nccl/build/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
-ENV PATH=/opt/amazon/openmpi/bin/:/opt/amazon/efa/bin:$PATH
+# ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/nccl/build/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
+# ENV PATH=/opt/amazon/openmpi/bin/:/opt/amazon/efa/bin:$PATH
 
-RUN if [ -n "$CUDA_VERSION" ] ; then \
-        cd /tmp && \
-        curl -O https://efa-installer.amazonaws.com/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz && \
-        tar -xf /tmp/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz && \
-        cd aws-efa-installer && \
-        ./efa_installer.sh -y -g -d --skip-kmod --skip-limit-conf --no-verify && \
-        rm -rf /tmp/aws-efa-installer* ; \
-    fi
+# RUN if [ -n "$CUDA_VERSION" ] ; then \
+#         cd /tmp && \
+#         curl -O https://efa-installer.amazonaws.com/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz && \
+#         tar -xf /tmp/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz && \
+#         cd aws-efa-installer && \
+#         ./efa_installer.sh -y -g -d --skip-kmod --skip-limit-conf --no-verify && \
+#         rm -rf /tmp/aws-efa-installer* ; \
+#     fi
 
-RUN if [ -n "$CUDA_VERSION" ] ; then \
-        git clone https://github.com/aws/aws-ofi-nccl.git /opt/aws-ofi-nccl && \
-        cd /opt/aws-ofi-nccl && \
-        git checkout ${AWS_OFI_NCCL_VERSION} && \
-        ./autogen.sh && \
-        ./configure --prefix=/opt/aws-ofi-nccl/install \
-            --with-libfabric=/opt/amazon/efa/ \
-            --with-cuda=/usr/local/cuda \
-            --with-nccl=/opt/nccl/build \
-            --with-mpi=/opt/amazon/openmpi/ && \
-        make && make install && \
-        rm -rf /opt/aws-ofi-nccl ; \
-    fi
+# RUN if [ -n "$CUDA_VERSION" ] ; then \
+#         git clone https://github.com/aws/aws-ofi-nccl.git /opt/aws-ofi-nccl && \
+#         cd /opt/aws-ofi-nccl && \
+#         git checkout ${AWS_OFI_NCCL_VERSION} && \
+#         ./autogen.sh && \
+#         ./configure --prefix=/opt/aws-ofi-nccl/install \
+#             --with-libfabric=/opt/amazon/efa/ \
+#             --with-cuda=/usr/local/cuda \
+#             --with-nccl=/opt/nccl/build \
+#             --with-mpi=/opt/amazon/openmpi/ && \
+#         make && make install && \
+#         rm -rf /opt/aws-ofi-nccl ; \
+#     fi
 
 #####################
 # Install NVIDIA Apex
