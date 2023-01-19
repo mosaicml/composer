@@ -118,7 +118,7 @@ def _get_image_name(pytorch_version: str, cuda_version: str, stage: str):
     else:
         raise ValueError(f'Invalid stage: {stage}')
 
-    return f"torch{stage}-{pytorch_version}-{cuda_version}"
+    return f'torch{stage}-{pytorch_version}-{cuda_version}'
 
 
 def _write_table(table_tag: str, table_contents: str):
@@ -198,7 +198,7 @@ def _main():
 
         pytorch_version = _get_pytorch_version(python_version)
         cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
-        cpu = "-cpu" if not use_cuda else ""
+        cpu = '-cpu' if not use_cuda else ''
 
         entry = {
             'IMAGE_NAME': f"composer-{composer_version.replace('.', '-')}{cpu}",
