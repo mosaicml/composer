@@ -950,7 +950,6 @@ class State(Serializable):
                 for metric_name, metric in serialized_value.items():
                     state_field_value[metric_name] = metric
                     metric._device = self.device._device
-                continue
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 state_field_value = getattr(self, attribute_name)
                 for target in ensure_tuple(state_field_value):
