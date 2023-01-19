@@ -129,31 +129,6 @@ RUN apt-get update && \
         tcl \
         libjpeg8-dev \
         less \
-        # For AWS EFA:
-        pciutils \
-        environment-modules \
-        libnl-3-200 \
-        libnl-3-dev \
-        libnl-route-3-200 \
-        libnl-route-3-dev \
-        linux-image-generic \
-        dkms \
-        rdma-core \
-        cmake \
-        libevent-core-2.1-7 \
-        libevent-pthreads-2.1-7 \
-        libhwloc15 \
-        initramfs-tools \
-        autoconf \
-        autotools-dev \
-        automake \
-        libtool \
-        gettext \
-        libibnetdisc5 \
-        libibnetdisc-dev \
-        librdmacm1 \
-        libibumad3 \
-        libibmad5 \
         # Development tools
         vim \
         tmux \
@@ -162,6 +137,44 @@ RUN apt-get update && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+RUN if [ -n "$CUDA_VERSION" ] ; then \
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            # For AWS EFA:
+            pciutils \
+            environment-modules \
+            libnl-3-200 \
+            libnl-3-dev \
+            libnl-route-3-200 \
+            libnl-route-3-dev \
+            linux-image-generic \
+            dkms \
+            rdma-core \
+            cmake \
+            libevent-core-2.1-7 \
+            libevent-pthreads-2.1-7 \
+            libhwloc15 \
+            initramfs-tools \
+            autoconf \
+            autotools-dev \
+            automake \
+            libtool \
+            gettext \
+            libibnetdisc5 \
+            libibnetdisc-dev \
+            librdmacm1 \
+            librdmacm1-dbg \
+            libibumad3 \
+            libibumad3-dbg \
+            libibmad5 \
+            libibmad5-dbg \
+            libibnetdisc-dev \
+            libibnetdisc5-dbg && \
+        apt-get autoclean && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
 
 ###############################
 # Install latest version of git
