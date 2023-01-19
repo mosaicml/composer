@@ -944,17 +944,17 @@ class State(Serializable):
                 self._load_dataset_state(serialized_value)
             elif attribute_name == 'optimizers':
                 self.load_optim_state(state)
-            elif attribute_name in ['train_metrics', 'eval_metrics']:
+            elif attribute_name == 'train_metrics':
                 state_field_value = getattr(self, attribute_name)
-                # Update the metrics with the serialized values
                 for metric_name, metric in serialized_value.items():
-                    if attribute_name == 'train_metrics':
-                        state_field_value[metric_name] = metric
+                    state_field_value[metric_name] = metric
+                    metric._device = self.device._device
+            elif attribute_name == 'eval_metrics':
+                state_field_value = getattr(self, attribute_name)
+                for eval_key, eval_metrics in serialized_value.items():
+                    for metric_name, metric in eval_metrics.items():
+                        state_field_value[eval_key][metric_name] = metric
                         metric._device = self.device._device
-                    else:
-                        for eval_key, eval_metric in metric.items():
-                            state_field_value[metric_name][eval_key] = eval_metric
-                            eval_metric._device = self.device._device
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 state_field_value = getattr(self, attribute_name)
                 for target in ensure_tuple(state_field_value):
