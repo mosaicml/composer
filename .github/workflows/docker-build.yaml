@@ -60,6 +60,7 @@ jobs:
           echo "TORCHTEXT_VERSION: ${{ matrix.TORCHTEXT_VERSION }}"
           echo "TORCHVISION_VERSION: ${{ matrix.TORCHVISION_VERSION }}"
           echo "CUDA_VERSION: ${{ matrix.CUDA_VERSION }}"
+          echo "COMPOSER_INSTALL_COMMAND: ${{ matrix.COMPOSER_INSTALL_COMMAND }}"
           echo "TAGS: ${{ matrix.TAGS }}"
           echo "UUID: ${{ matrix.UUID }}"
 
@@ -75,8 +76,6 @@ jobs:
             IMAGE_CACHE="${IMAGE_TAG}-buildcache"
           fi
 
-          echo "IMAGE_TAG: ${IMAGE_TAG}"
-          echo "IMAGE_CACHE: ${IMAGE_CACHE}"
           echo "IMAGE_TAG=${IMAGE_TAG}" >> ${GITHUB_ENV}
           echo "IMAGE_CACHE=${IMAGE_CACHE}" >> ${GITHUB_ENV}
 
@@ -96,3 +95,4 @@ jobs:
             PYTORCH_VERSION=${{ matrix.PYTORCH_VERSION }}
             TORCHTEXT_VERSION=${{ matrix.TORCHTEXT_VERSION }}
             TORCHVISION_VERSION=${{ matrix.TORCHVISION_VERSION }}
+            COMPOSER_INSTALL_COMMAND=${{ matrix.COMPOSER_INSTALL_COMMAND }}
