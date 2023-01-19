@@ -173,7 +173,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
             libibnetdisc5-dbg && \
         apt-get autoclean && \
         apt-get clean && \
-        rm -rf /var/lib/apt/lists/*
+        rm -rf /var/lib/apt/lists/* ; \
     fi
 
 ###############################
