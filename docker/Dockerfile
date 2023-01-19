@@ -286,11 +286,12 @@ RUN git clone https://github.com/aws/aws-ofi-nccl.git /opt/aws-ofi-nccl \
     && cd /opt/aws-ofi-nccl \
     && git checkout ${AWS_OFI_NCCL_VERSION} \
     && ./autogen.sh \
-    && ./configure --prefix=/opt/aws-ofi-nccl/install \
-       --with-libfabric=/opt/amazon/efa/ \
-       --with-cuda=/usr/local/cuda \
-       --with-nccl=/opt/nccl/build \
-       --with-mpi=/opt/amazon/openmpi/ \
+    # && ./configure --prefix=/opt/aws-ofi-nccl/install \
+    #    --with-libfabric=/opt/amazon/efa/ \
+    #    --with-cuda=/usr/local/cuda \
+    #    --with-nccl=/opt/nccl/build \
+    #    --with-mpi=/opt/amazon/openmpi/ \
+    && ./configure \
     && make && make install \
     && rm -rf /opt/aws-ofi-nccl
 
