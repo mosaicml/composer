@@ -48,14 +48,14 @@ log = logging.getLogger(__name__)
 def get_fsdp_rank0_cpu_save_context(obj: torch.nn.Module, state_dict_type: str = 'full'):
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-    from torch.distributed.fsdp import FullStateDictConfig, LocalStateDictConfig, ShardedStateDictConfig
+    from torch.distributed.fsdp import FullStateDictConfig, LocalStateDictConfig
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
     from torch.distributed.fsdp import StateDictType
     if state_dict_type == 'full':
         state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
         fsdp_state_dict_type = StateDictType.FULL_STATE_DICT
     elif state_dict_type == 'sharded':
-        state_dict_config = ShardedStateDictConfig()
+        state_dict_config = None
         fsdp_state_dict_type = StateDictType.SHARDED_STATE_DICT
     elif state_dict_type == 'local':
         state_dict_config = LocalStateDictConfig()
