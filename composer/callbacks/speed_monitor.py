@@ -127,8 +127,9 @@ class SpeedMonitor(Callback):
                 for dataloader_label, eval_wcts in self.eval_wct_per_label.items():
                     eval_wct_avg = sum(eval_wcts) / len(eval_wcts)
                     eval_rate = self.eval_rate_per_label[dataloader_label]
-                    remaining_calls = 1 / eval_rate - len(eval_wcts)
-                    remaining_time += eval_wct_avg * remaining_calls
+                    if eval_rate > 0:
+                        remaining_calls = 1 / eval_rate - len(eval_wcts)
+                        remaining_time += eval_wct_avg * remaining_calls
                 logger.log_metrics({'wall_clock/remaining_estimate': remaining_time})
 
         # Log the time
