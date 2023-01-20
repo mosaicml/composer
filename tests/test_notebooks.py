@@ -71,7 +71,7 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
     if notebook_name == 'custom_speedup_methods':
         cell_source = cell_source.replace('resnet_56', 'resnet_9')
         cell_source = cell_source.replace('batch_size=1024', 'batch_size=64')
-    if notebook_name == 'huggingface_models':
+    if notebook_name == 'finetune_huggingface':
         cell_source = cell_source.replace(
             'sst2_dataset = datasets.load_dataset("glue", "sst2")',
             'sst2_dataset = datasets.load_dataset("glue", "sst2", download_mode="force_redownload")')
