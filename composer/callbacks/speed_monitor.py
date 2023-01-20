@@ -4,6 +4,7 @@
 """Monitor throughput during training."""
 from __future__ import annotations
 
+import warnings
 from collections import deque
 from typing import Any, Deque, Dict, List
 
@@ -118,12 +119,17 @@ class SpeedMonitor(Callback):
             # Estimate remaining time
             batch_wct_avg = sum(self.batch_wct_buffer) / len(self.batch_wct_buffer)
             elapsed_duration = float(state.get_elapsed_duration())
-            remaining_time = batch_wct_avg * (1 - elapsed_duration)
-            for dataloader_label, eval_wcts in self.eval_wct_per_label.items():
-                eval_wct_avg = sum(eval_wcts) / len(eval_wcts)
-                eval_rate = self.eval_rate_per_label[dataloader_label]
-
-            logger.log_metrics({'wall_clock/remaining_estimate': remaining_time})
+            if elapsed_duration is None:
+                warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
+            else:
+                remaining_time = batch_wct_avg * (1 - elapsed_duration)
+                # Add remaining time from each evaluator
+                for dataloader_label, eval_wcts in self.eval_wct_per_label.items():
+                    eval_wct_avg = sum(eval_wcts) / len(eval_wcts)
+                    eval_rate = self.eval_rate_per_label[dataloader_label]
+                    remaining_calls = 1 / eval_rate - len(eval_wcts)
+                    remaining_time += eval_wct_avg * remaining_calls
+                logger.log_metrics({'wall_clock/remaining_estimate': remaining_time})
 
         # Log the time
         # `state.timestamp` excludes any time spent in evaluation
@@ -136,7 +142,15 @@ class SpeedMonitor(Callback):
     def eval_end(self, state: State, logger: Logger):
         del logger  # unused
         self.total_eval_wct += state.eval_timestamp.total_wct.total_seconds()
+        assert state.dataloader_label is not None, 'evaluator label must not be None'
         if state.dataloader_label not in self.eval_wct_per_label:
             self.eval_wct_per_label[state.dataloader_label] = []
         self.eval_wct_per_label[state.dataloader_label].append(state.eval_timestamp.total_wct.total_seconds())
-        self.eval_rate_per_label[state.dataloader_label] = float(state.get_elapsed_duration()) / len(self.eval_wct_per_label[state.dataloader_label])
+        max_dur = float(state.get_elapsed_duration())
+        if max_dur is None:
+            warnings.warn(
+                'Attempting to estimate remaining time but `max_duration` is not set. Skipping adjustment for evaluation time.'
+            )
+        else:
+            self.eval_rate_per_label[state.dataloader_label] = max_dur / len(
+                self.eval_wct_per_label[state.dataloader_label])
