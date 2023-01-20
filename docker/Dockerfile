@@ -248,39 +248,39 @@ RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_
         torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} \
         torchtext==${TORCHTEXT_VERSION}
 
-# ###################################
-# # Mellanox OFED driver installation
-# ###################################
+###################################
+# Mellanox OFED driver installation
+###################################
 
-# ARG MOFED_VERSION
+ARG MOFED_VERSION
 
-# RUN if [ -n "$MOFED_VERSION" ] ; then \
-#         mkdir -p /tmp/mofed && \
-#         wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz && \
-#         tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
-#         /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
-#         rm -rf /tmp/mofed ; \
-#     fi
+RUN if [ -n "$MOFED_VERSION" ] ; then \
+        mkdir -p /tmp/mofed && \
+        wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz && \
+        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
+        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
+        rm -rf /tmp/mofed ; \
+    fi
 
-# ###########################
-# # HPC-X driver installation
-# ###########################
+###########################
+# HPC-X driver installation
+###########################
 
-# ARG HPCX_VERSION
+ARG HPCX_VERSION
 
-# ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib:
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib:
 
-# RUN if [ -n "$HPCX_VERSION" ] ; then \
-#         mkdir -p /tmp/hpcx && \
-#         wget -nv -P /tmp/hpcx https://content.mellanox.com/hpc/hpc-x/v${HPCX_VERSION}/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz && \
-#         tar -xvf /tmp/hpcx/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz -C /tmp/hpcx && \
-#         mv /tmp/hpcx/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64 /opt/hpcx && \
-#         rm -rf /tmp/hpcx && \
-#         # Set appropriate env vars to use SHARP
-#         echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/profile && \
-#         echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/bash.bashrc && \
-#         echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/zshenv ; \
-#     fi
+RUN if [ -n "$HPCX_VERSION" ] ; then \
+        mkdir -p /tmp/hpcx && \
+        wget -nv -P /tmp/hpcx https://content.mellanox.com/hpc/hpc-x/v${HPCX_VERSION}/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz && \
+        tar -xvf /tmp/hpcx/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz -C /tmp/hpcx && \
+        mv /tmp/hpcx/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64 /opt/hpcx && \
+        rm -rf /tmp/hpcx && \
+        # Set appropriate env vars to use SHARP
+        echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/profile && \
+        echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/bash.bashrc && \
+        echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/zshenv ; \
+    fi
 
 #####################################
 # Install EFA and AWS-OFI-NCCL plugin
