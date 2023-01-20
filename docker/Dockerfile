@@ -54,7 +54,8 @@ ARG VISION_BASE=pytorch_stage
 
 # Pip version strings of dependencies to install
 ARG MMCV_VERSION='==1.4.8'
-ARG FFCV_VERSION=' @ git+https://github.com/libffcv/ffcv@ee8497c1a59abd715b6c8f027d6e5f552b1cce7e'
+pip install git+https://github.com/libffcv/ffcv@ee8497c1a59abd715b6c8f027d6e5f552b1cce7e
+
 ARG OPENCV_VERSION='>=4.5.5.64,<4.6'
 ARG NUMBA_VERSION='>=0.55.0,<0.56'
 ARG MMSEGMENTATION_VERSION='>=0.22.0,<0.23'
@@ -333,7 +334,6 @@ RUN sudo apt-get update && \
     sudo rm -rf /var/lib/apt/lists/*
 
 ARG MMCV_VERSION
-ARG FFCV_VERSION
 ARG OPENCV_VERSION
 ARG NUMBA_VERSION
 ARG MMSEGMENTATION_VERSION
@@ -347,7 +347,7 @@ ENV SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=True
 RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
     MMCV_TORCH_VERSION=$(python -c "print('torch' + ''.join('${PYTORCH_VERSION}'.split('.')[:2]) + '.0')") && \
     sudo pip${PYTHON_VERSION} install --no-cache-dir \
-        "ffcv${FFCV_VERSION}" \
+        "git+https://github.com/libffcv/ffcv@ee8497c1a59abd715b6c8f027d6e5f552b1cce7e" \
         "opencv-python${OPENCV_VERSION}" \
         "numba${NUMBA_VERSION}" \
         "mmsegmentation${MMSEGMENTATION_VERSION}" && \
