@@ -54,6 +54,8 @@ class SpeedMonitor(Callback):
     +----------------------------------+-------------------------------------------------------------+
     | ``wall_clock/total``             | Total elapsed time (wall_clock/train + wall_clock/val)      |
     +----------------------------------+-------------------------------------------------------------+
+    | ``wall_clock/remaining``         | Estimated time to completion                                |
+    +----------------------------------+-------------------------------------------------------------+
 
     Args:
         window_size (int, optional): Number of batches to use for a rolling average of throughput.
@@ -77,8 +79,6 @@ class SpeedMonitor(Callback):
             'batch_start_wct': self.batch_start_wct,
             'batch_wct_buffer': self.batch_wct_buffer,
             'batch_num_samples_buffer': self.batch_num_samples_buffer,
-            # "window_wct": self.window_wct,
-            # "window_num_samples": self.window_num_samples,
             'total_eval_wct': self.total_eval_wct,
         }
 
@@ -108,10 +108,15 @@ class SpeedMonitor(Callback):
         self.batch_wct_buffer.append(batch_wct)
         self.batch_num_samples_buffer.append(batch_num_samples)
 
-        # Log the throughput
         if len(self.batch_num_samples_buffer) == self.window_size:
+            # Log the throughput
             throughput = sum(self.batch_num_samples_buffer) / sum(self.batch_wct_buffer)
             logger.log_metrics({'throughput/samples_per_sec': throughput})
+
+            # Estimate remaining time
+            batch_wct_avg = sum(self.batch_wct_buffer) / len(self.batch_wct_buffer)
+            elapsed_duration = float(state.get_elapsed_duration())
+            logger.log_metrics({'wall_clock/remaining': batch_wct_avg * (1-elapsed_duration)})
 
         # Log the time
         # `state.timestamp` excludes any time spent in evaluation
