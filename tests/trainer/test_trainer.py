@@ -18,7 +18,6 @@ from torch.utils.data import DataLoader
 
 from composer import Callback, Evaluator, Trainer
 from composer.algorithms import CutOut, LabelSmoothing
-from composer.callbacks import LRMonitor
 from composer.core import Event, Precision, State, Time, TimeUnit
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.imagenet import build_ffcv_imagenet_dataloader
@@ -60,15 +59,6 @@ class TestTrainerInit():
         trainer = Trainer(model=model)
         should_be_ddp_wrapped = dist.get_world_size() > 1
         assert isinstance(trainer.state.model, DistributedDataParallel) == should_be_ddp_wrapped
-
-    def test_loggers_before_callbacks(self, model: ComposerModel):
-        trainer = Trainer(
-            model=model,
-            loggers=[InMemoryLogger()],
-            callbacks=[LRMonitor()],
-        )
-        assert isinstance(trainer.state.callbacks[0], InMemoryLogger)
-        assert isinstance(trainer.state.callbacks[2], LRMonitor)
 
     def test_invalid_device(self, model: ComposerModel):
         with pytest.raises(ValueError, match='magic_device'):

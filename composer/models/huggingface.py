@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import tempfile
@@ -16,9 +17,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 import torch
 from torchmetrics import Metric
 
+from composer.metrics import METRIC_DEFAULT_CTORS, InContextLearningLMAccuracy
 from composer.models.base import ComposerModel
-from composer.utils import get_file
-from composer.utils.import_helpers import MissingConditionalImportError, import_object
+from composer.utils import MissingConditionalImportError, get_file, import_object
 
 if TYPE_CHECKING:
     import transformers
@@ -65,7 +66,7 @@ class HuggingFaceModel(ComposerModel):
             import transformers
             del transformers  # unused
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='transformers',
+            raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='transformers',
                                                 conda_channel='conda-forge') from e
 
@@ -86,14 +87,14 @@ class HuggingFaceModel(ComposerModel):
 
         self.use_logits = use_logits
 
-        self.train_metrics = None
-        self.val_metrics = None
+        self.train_metrics: Optional[Dict] = None
+        self.val_metrics: Optional[Dict] = None
 
         if metrics:
             self.train_metrics = {metric.__class__.__name__: metric for metric in metrics}
             self.val_metrics = {metric.__class__.__name__: metric for metric in metrics}
 
-        self.labels = None  # set in eval_forward() if exists
+        self.labels: Optional[torch.Tensor] = None  # set in eval_forward() if exists
 
     @staticmethod
     def hf_from_composer_checkpoint(
@@ -164,7 +165,7 @@ class HuggingFaceModel(ComposerModel):
         try:
             import transformers
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='transformers',
+            raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='transformers',
                                                 conda_channel='conda-forge') from e
 
@@ -257,6 +258,7 @@ class HuggingFaceModel(ComposerModel):
     def forward(self, batch):
         if isinstance(batch, dict) or isinstance(batch, UserDict):
             # Further input validation is left to the huggingface forward call
+            batch = {k: v for k, v in batch.items() if k in inspect.getfullargspec(self.model.forward).args}
             output = self.model(**batch)  # type: ignore (thirdparty)
         else:
             raise ValueError(
@@ -273,7 +275,7 @@ class HuggingFaceModel(ComposerModel):
 
     def eval_forward(self, batch, outputs: Optional[Any] = None):
         output = outputs if outputs else self.forward(batch)
-        if self.use_logits:
+        if self.use_logits or batch.get('mode', None) == 'lm_task':
             self.labels = batch.pop('labels')
             if self.config.use_return_dict:
                 output = output['logits']
@@ -296,7 +298,11 @@ class HuggingFaceModel(ComposerModel):
         return metrics if metrics else {}
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
-        metric.update(outputs, self.labels)
+        if isinstance(metric, InContextLearningLMAccuracy):
+            assert self.labels is not None
+            metric.update(batch, outputs, self.labels)
+        else:
+            metric.update(outputs, self.labels)
 
     def get_metadata(self):
         model_output = {}
@@ -335,3 +341,10 @@ class HuggingFaceModel(ComposerModel):
                         'content': tokenizer_file_content
                     }
         return {'model': model_output, 'tokenizer': tokenizer_output}
+
+    def add_eval_metrics(self, evaluator):
+        evaluator_metrics = {m: METRIC_DEFAULT_CTORS[m]() for m in evaluator.metric_names}
+        if self.val_metrics is not None:
+            self.val_metrics.update(evaluator_metrics)
+        else:
+            self.val_metrics = evaluator_metrics
