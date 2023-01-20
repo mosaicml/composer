@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from collections import deque
-from typing import Any, Deque, Dict
+from typing import Any, Deque, Dict, List
 
 from composer.core import Callback, State
 from composer.loggers import Logger
@@ -41,21 +41,21 @@ class SpeedMonitor(Callback):
     The training throughput is logged by the :class:`.Logger` to the following keys as
     described below.
 
-    +----------------------------------+-------------------------------------------------------------+
-    | Key                              | Logged data                                                 |
-    +==================================+=============================================================+
-    |                                  | Rolling average (over ``window_size`` most recent           |
-    | ``throughput/samples_per_sec``   | batches) of the number of samples processed per second      |
-    |                                  |                                                             |
-    +----------------------------------+-------------------------------------------------------------+
-    | ``wall_clock/train``             | Total elapsed training time                                 |
-    +----------------------------------+-------------------------------------------------------------+
-    | ``wall_clock/val``               | Total elapsed validation time                               |
-    +----------------------------------+-------------------------------------------------------------+
-    | ``wall_clock/total``             | Total elapsed time (wall_clock/train + wall_clock/val)      |
-    +----------------------------------+-------------------------------------------------------------+
-    | ``wall_clock/remaining``         | Estimated time to completion                                |
-    +----------------------------------+-------------------------------------------------------------+
+    +-----------------------------------+---------------------------------------------------------+
+    | Key                               | Logged data                                             |
+    +===================================+=========================================================+
+    |                                   | Rolling average (over ``window_size`` most recent       |
+    | ``throughput/samples_per_sec``    | batches) of the number of samples processed per second  |
+    |                                   |                                                         |
+    +-----------------------------------+---------------------------------------------------------+
+    | ``wall_clock/train``              | Total elapsed training time                             |
+    +-----------------------------------+---------------------------------------------------------+
+    | ``wall_clock/val``                | Total elapsed validation time                           |
+    +-----------------------------------+---------------------------------------------------------+
+    | ``wall_clock/total``              | Total elapsed time (wall_clock/train + wall_clock/val)  |
+    +-----------------------------------+---------------------------------------------------------+
+    | ``wall_clock/remaining_estimate`` | Estimated time to completion                            |
+    +-----------------------------------+---------------------------------------------------------+
 
     Args:
         window_size (int, optional): Number of batches to use for a rolling average of throughput.
@@ -72,6 +72,8 @@ class SpeedMonitor(Callback):
 
         # Keep track of time spent evaluating
         self.total_eval_wct = 0.0
+        self.eval_wct_per_label: Dict[str, List[float]] = {}
+        self.eval_rate_per_label: Dict[str, float] = {}
 
     def state_dict(self) -> Dict[str, Any]:
         return {
@@ -116,7 +118,12 @@ class SpeedMonitor(Callback):
             # Estimate remaining time
             batch_wct_avg = sum(self.batch_wct_buffer) / len(self.batch_wct_buffer)
             elapsed_duration = float(state.get_elapsed_duration())
-            logger.log_metrics({'wall_clock/remaining': batch_wct_avg * (1-elapsed_duration)})
+            remaining_time = batch_wct_avg * (1 - elapsed_duration)
+            for dataloader_label, eval_wcts in self.eval_wct_per_label.items():
+                eval_wct_avg = sum(eval_wcts) / len(eval_wcts)
+                eval_rate = self.eval_rate_per_label[dataloader_label]
+
+            logger.log_metrics({'wall_clock/remaining_estimate': remaining_time})
 
         # Log the time
         # `state.timestamp` excludes any time spent in evaluation
@@ -129,3 +136,7 @@ class SpeedMonitor(Callback):
     def eval_end(self, state: State, logger: Logger):
         del logger  # unused
         self.total_eval_wct += state.eval_timestamp.total_wct.total_seconds()
+        if state.dataloader_label not in self.eval_wct_per_label:
+            self.eval_wct_per_label[state.dataloader_label] = []
+        self.eval_wct_per_label[state.dataloader_label].append(state.eval_timestamp.total_wct.total_seconds())
+        self.eval_rate_per_label[state.dataloader_label] = float(state.get_elapsed_duration()) / len(self.eval_wct_per_label[state.dataloader_label])
