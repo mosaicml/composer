@@ -54,8 +54,6 @@ ARG VISION_BASE=pytorch_stage
 
 # Pip version strings of dependencies to install
 ARG MMCV_VERSION='==1.4.8'
-pip install git+https://github.com/libffcv/ffcv@ee8497c1a59abd715b6c8f027d6e5f552b1cce7e
-
 ARG OPENCV_VERSION='>=4.5.5.64,<4.6'
 ARG NUMBA_VERSION='>=0.55.0,<0.56'
 ARG MMSEGMENTATION_VERSION='>=0.22.0,<0.23'
