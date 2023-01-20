@@ -61,7 +61,7 @@ def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_
     streaming_dataset = name_to_cls[dataset](local=local_path,
                                              split='val',
                                              predownload=None,
-                                             batch_size=8,
+                                             batch_size=4,
                                              **dataset_args)
 
     pretraining_metrics = [
@@ -71,7 +71,7 @@ def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_
     model = HuggingFaceModel(model=tiny_bert_model, use_logits=True, metrics=pretraining_metrics)
     collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer,
                                                             mlm_probability=0.15) if dataset != 'enwiki' else None
-    dataloader = DataLoader(streaming_dataset, batch_size=8, num_workers=num_workers, collate_fn=collator)
+    dataloader = DataLoader(streaming_dataset, batch_size=4, num_workers=num_workers, collate_fn=collator)
 
     trainer = Trainer(model=model, train_dataloader=dataloader, max_duration='2ba', device=device)
 
